@@ -68,3 +68,30 @@ model Olt {
 }
 
 
+model Otb {
+  id         String   @id @default(cuid())
+  name       String
+  location   String?
+  coreCount  Int
+  notes      String?
+  latitude   Float?
+  longitude  Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  cores      OtbCore[]
+}
+
+model OtbCore {
+  id         String  @id @default(cuid())
+  otbId      String
+  otb        Otb     @relation(fields: [otbId], references: [id], onDelete: Cascade)
+  idx        Int
+  slotName   String
+  tubeColor  String
+  coreColor  String
+
+  @@unique([otbId, idx])
+}
+
+

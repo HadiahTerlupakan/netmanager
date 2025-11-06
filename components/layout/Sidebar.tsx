@@ -25,6 +25,18 @@ export default function Sidebar() {
         { href: '/admin/network/olt', label: 'OLT', icon: '📡' },
       ],
     },
+    {
+      href: '/admin/ftth',
+      label: 'FTTH',
+      icon: '🧵',
+      children: [
+        { href: '/admin/ftth/otb', label: 'OTB', icon: '📦' },
+        { href: '/admin/ftth/odc', label: 'ODC', icon: '📦' },
+        { href: '/admin/ftth/odp', label: 'ODP', icon: '📦' },
+        { href: '/admin/ftth/closure', label: 'Join BOX/Closure', icon: '🔗' },
+        { href: '/admin/ftth/pole', label: 'Pole/Tiang', icon: '🗼' },
+      ],
+    },
   ], [])
 
   // Auto-expand menu jika pathname aktif
@@ -104,7 +116,6 @@ export default function Sidebar() {
                               : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                           }`}
                         >
-                          <span className="text-lg">{child.icon}</span>
                           <span>{child.label}</span>
                         </Link>
                       )
