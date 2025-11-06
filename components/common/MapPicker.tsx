@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from 'react'
+import 'ol/ol.css'
 
 // Komponen peta berbasis OpenLayers. Pastikan memasang dependency: npm i ol
 // Minimal init: tile OSM, click untuk set koordinat, serta marker sederhana.
@@ -33,6 +34,7 @@ export default function MapPicker({ lat, lon, height = 360, onChange }: MapPicke
       const { default: Point } = await import('ol/geom/Point')
       const { Style, Fill, Stroke } = await import('ol/style')
       const { default: CircleStyle } = await import('ol/style/Circle')
+      const { defaults: defaultControls, Zoom, Attribution } = await import('ol/control')
 
       const centerLonLat: [number, number] = [
         typeof lon === 'number' ? lon : 106.816666,
@@ -49,6 +51,10 @@ export default function MapPicker({ lat, lon, height = 360, onChange }: MapPicke
         target: mapEl.current as HTMLDivElement,
         layers: [tile, marker],
         view: new View({ center: center3857, zoom: 14 }),
+        controls: defaultControls({ zoom: false, rotate: false, attribution: false }).extend([
+          new Zoom(),
+          new Attribution({ collapsible: true, collapsed: true }),
+        ]),
       })
       mapRef.current = map
 
