@@ -39,4 +39,32 @@ model VerificationToken {
   @@id([identifier, token])
 }
 
+model Olt {
+  id                String   @id @default(cuid())
+  name              String
+  ipAddress         String
+  type              String   // e.g., ZTE-C300
+  version           String?  // e.g., C300 Version V2.1.0 Software
+  temperature       Int?     // in Celsius
+  connectedDevices  Int      @default(0)
+  model             String?  // device model
+  uptime            String?  // e.g., "17 days 14 hours 26 minutes"
+  syncStatus        String   @default("0") // percentage
+  syncDate          DateTime?
+  telnetConnected   Boolean  @default(false)
+  snmpConnected     Boolean  @default(false)
+  // SNMP Configuration
+  snmpCommunityWrite String  @default("public")
+  snmpVersion       String   @default("2")
+  snmpPort          Int      @default(161)
+  // Telnet Configuration
+  telnetUsername    String   @default("zte")
+  telnetPassword    String
+  telnetPort        Int      @default(23)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([ipAddress])
+}
+
 
