@@ -59,13 +59,13 @@ export default async function ODPPage() {
               </tr>
             ) : (
               odps.map((o) => (
-                <tr key={o.id}>
-                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{o.name}</td>
-                  <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{o.location || '-'}</td>
-                  <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{o.latitude != null && o.longitude != null ? (<span>{o.latitude.toFixed(6)}, {o.longitude.toFixed(6)}</span>) : ('-')}</td>
-                  <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{o.notes || '-'}</td>
-                  <td className="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{new Date(o.createdAt).toLocaleString()}</td>
-                  <td className="px-4 py-2"><OdpActions id={o.id} /></td>
+                <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{o.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{o.location || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{o.latitude != null && o.longitude != null ? (<span className="font-mono text-xs">{o.latitude.toFixed(6)}, {o.longitude.toFixed(6)}</span>) : ('-')}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={o.notes || undefined}>{o.notes || '-'}</td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">{new Date(o.createdAt).toLocaleString('id-ID')}</td>
+                  <td className="px-4 py-3 text-right"><OdpActions id={o.id} /></td>
                 </tr>
               ))
             )}
