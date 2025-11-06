@@ -206,3 +206,16 @@ model JoinboxOutput {
   @@unique([joinboxId, idx])
 }
 
+
+model Pole {
+  id         String   @id @default(cuid())
+  name       String
+  location   String?
+  notes      String?
+  latitude   Float?
+  longitude  Float?
+  cableSlack Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+

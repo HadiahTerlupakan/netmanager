@@ -10,6 +10,8 @@ import { OdpRepository } from './OdpRepository'
 import { IOdpRepository } from './IOdpRepository'
 import { JoinboxRepository } from './JoinboxRepository'
 import { IJoinboxRepository } from './IJoinboxRepository'
+import { PoleRepository } from './PoleRepository'
+import { IPoleRepository } from './IPoleRepository'
 
 let userRepositoryInstance: IUserRepository | null = null
 let oltRepositoryInstance: IOLTRepository | null = null
@@ -17,6 +19,7 @@ let otbRepositoryInstance: IOtbRepository | null = null
 let odcRepositoryInstance: IOdcRepository | null = null
 let odpRepositoryInstance: IOdpRepository | null = null
 let joinboxRepositoryInstance: IJoinboxRepository | null = null
+let poleRepositoryInstance: IPoleRepository | null = null
 
 export function getUserRepository(): IUserRepository {
   if (!userRepositoryInstance) {
@@ -60,6 +63,13 @@ export function getJoinboxRepository(): IJoinboxRepository {
   return joinboxRepositoryInstance
 }
 
+export function getPoleRepository(): IPoleRepository {
+  if (!poleRepositoryInstance) {
+    poleRepositoryInstance = new PoleRepository()
+  }
+  return poleRepositoryInstance
+}
+
 export { UserRepository } from './UserRepository'
 export type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
 export { OLTRepository } from './OLTRepository'
@@ -72,4 +82,6 @@ export { OdpRepository } from './OdpRepository'
 export type { IOdpRepository, OdpCreateData, OdpUpdateData, OdpPublic } from './IOdpRepository'
 export { JoinboxRepository } from './JoinboxRepository'
 export type { IJoinboxRepository, JoinboxCreateData, JoinboxUpdateData, JoinboxPublic } from './IJoinboxRepository'
+export { PoleRepository } from './PoleRepository'
+export type { IPoleRepository, PoleCreateData, PoleUpdateData, PolePublic } from './IPoleRepository'
 
