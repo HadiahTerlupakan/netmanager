@@ -85,13 +85,124 @@ model Otb {
 model OtbCore {
   id         String  @id @default(cuid())
   otbId      String
-  otb        Otb     @relation(fields: [otbId], references: [id], onDelete: Cascade)
+  otb        Otb     @relation(fields: [otbId], references: [id], onDelete: Restrict)
   idx        Int
   slotName   String
   tubeColor  String
   coreColor  String
 
   @@unique([otbId, idx])
+
+  // Back relation: satu slot OTB dapat memiliki satu ODC terhubung
+  odc        Odc?
 }
 
+
+model Odc {
+  id         String   @id @default(cuid())
+  name       String
+  location   String?
+  notes      String?
+  latitude   Float?
+  longitude  Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relasi ke slot OTB (OtbCore). Satu ODC menempati satu slot OTB sebagai INPUT.
+  otbCoreId  String   @unique
+  otbCore    OtbCore  @relation(fields: [otbCoreId], references: [id], onDelete: Restrict)
+
+  // OUTPUT: Banyak output cores dari ODC ini
+  outputs    OdcOutput[]
+
+}
+
+model OdcOutput {
+  id         String   @id @default(cuid())
+  odcId      String
+  odc        Odc      @relation(fields: [odcId], references: [id], onDelete: Restrict)
+  idx        Int      // Urutan output core (0-based)
+  slotName   String   // Nama slot output
+  redaman    Float?   // Redaman dalam dB (opsional)
+  tubeColor  String   // Warna tube
+  coreColor  String   // Warna core
+
+  @@unique([odcId, idx])
+
+  // Back relation: satu output core bisa dipakai 0..1 ODP
+  odp        Odp?
+}
+
+
+model Odp {
+  id            String      @id @default(cuid())
+  name          String
+  location      String?
+  notes         String?
+  latitude      Float?
+  longitude     Float?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relasi INPUT: ODP mengambil input dari salah satu output core ODC
+  odcOutputId   String      @unique
+  odcOutput     OdcOutput   @relation(fields: [odcOutputId], references: [id], onDelete: Restrict)
+
+  // OUTPUT: Banyak output cores dari ODP ini
+  outputs       OdpOutput[]
+}
+
+model OdpOutput {
+  id         String   @id @default(cuid())
+  odpId      String
+  odp        Odp      @relation(fields: [odpId], references: [id], onDelete: Restrict)
+  idx        Int
+  slotName   String
+  redaman    Float?
+  tubeColor  String
+  coreColor  String
+
+  @@unique([odpId, idx])
+}
+
+// JOINbox (Bridge/Closure) models
+model Joinbox {
+  id         String   @id @default(cuid())
+  name       String
+  location   String?
+  notes      String?
+  latitude   Float?
+  longitude  Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  inputs     JoinboxInput[]
+  outputs    JoinboxOutput[]
+}
+
+model JoinboxInput {
+  id         String   @id @default(cuid())
+  joinboxId  String
+  joinbox    Joinbox  @relation(fields: [joinboxId], references: [id], onDelete: Restrict)
+  idx        Int
+  inputUnit  String
+  portUnit   String
+  tubeColor  String
+  coreColor  String
+
+  @@unique([joinboxId, idx])
+}
+
+model JoinboxOutput {
+  id         String   @id @default(cuid())
+  joinboxId  String
+  joinbox    Joinbox  @relation(fields: [joinboxId], references: [id], onDelete: Restrict)
+  idx        Int
+  inputUnit  String
+  portUnit   String
+  tubeColor  String
+  coreColor  String
+
+  @@unique([joinboxId, idx])
+}
 

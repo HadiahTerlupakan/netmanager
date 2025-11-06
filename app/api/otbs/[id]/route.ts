@@ -43,8 +43,40 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const repo = getOtbRepository()
   const { id } = await params
-  await repo.delete(id)
-  return NextResponse.json({ ok: true })
+  
+  // Cek apakah ada ODC yang masih menggunakan slot dari OTB ini
+  const otb = await prisma.otb.findUnique({
+    where: { id },
+    include: { cores: true },
+  })
+  
+  if (!otb) {
+    return NextResponse.json({ error: 'OTB tidak ditemukan' }, { status: 404 })
+  }
+  
+  // Cek setiap core apakah ada ODC yang menggunakan
+  const coreIds = otb.cores.map((c: any) => c.id)
+  const odcsUsingSlots = await (prisma as any).odc.findMany({
+    where: { otbCoreId: { in: coreIds } },
+    select: { name: true },
+  })
+  
+  if (odcsUsingSlots.length > 0) {
+    const odcList = odcsUsingSlots.map((o: { name: string }) => o.name).join(', ')
+    return NextResponse.json({ 
+      error: `Tidak bisa menghapus OTB "${otb.name}" karena masih digunakan oleh ODC: ${odcList}. Hapus ODC tersebut terlebih dahulu.` 
+    }, { status: 409 })
+  }
+  
+  try {
+    await repo.delete(id)
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    if (e?.code === 'P2003') {
+      return NextResponse.json({ error: 'Tidak bisa menghapus OTB selama masih ada slot/relasi yang terhubung.' }, { status: 409 })
+    }
+    throw e
+  }
 }
 
 

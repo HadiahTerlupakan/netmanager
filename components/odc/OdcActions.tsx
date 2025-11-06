@@ -6,32 +6,35 @@ import { useState } from 'react'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { useToast } from '@/components/common/ToastProvider'
 
-export function OtbActions({ id }: { id: string }) {
+export function OdcActions({ id }: { id: string }) {
   const router = useRouter()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const { show } = useToast()
 
   async function handleDelete() {
-    const res = await fetch(`/api/otbs/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/odcs/${id}`, { method: 'DELETE' })
     if (res.ok) {
-      show({ type: 'success', title: 'Berhasil', message: 'OTB berhasil dihapus.' })
+      show({ type: 'success', title: 'Berhasil', message: 'ODC berhasil dihapus.' })
       router.refresh()
     } else {
-      let msg = 'Gagal menghapus OTB.'
-      try { const j = await res.json(); if (j?.error) msg = String(j.error) } catch {}
+      let msg = 'Gagal menghapus ODC.'
+      try {
+        const j = await res.json()
+        if (j?.error) msg = String(j.error)
+      } catch {}
       show({ type: 'error', title: 'Tidak bisa dihapus', message: msg })
     }
   }
 
   return (
     <div className="flex items-center justify-end gap-2">
-      <Link href={`/admin/ftth/otb/${id}`} aria-label="Lihat" title="Lihat" className="inline-flex items-center justify-center h-8 w-8 rounded border border-gray-300 dark:border-gray-700">
+      <Link href={`/admin/ftth/odc/${id}`} aria-label="Lihat" title="Lihat" className="inline-flex items-center justify-center h-8 w-8 rounded border border-gray-300 dark:border-gray-700">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
           <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z"/>
           <circle cx="12" cy="12" r="3"/>
         </svg>
       </Link>
-      <Link href={`/admin/ftth/otb/${id}/edit`} aria-label="Edit" title="Edit" className="inline-flex items-center justify-center h-8 w-8 rounded border border-gray-300 dark:border-gray-700">
+      <Link href={`/admin/ftth/odc/${id}/edit`} aria-label="Edit" title="Edit" className="inline-flex items-center justify-center h-8 w-8 rounded border border-gray-300 dark:border-gray-700">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
           <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Z"/>
           <path d="M14.06 6.19l3.75 3.75L21 6.75l-3.75-3.75-3.19 3.19Z"/>
@@ -48,7 +51,7 @@ export function OtbActions({ id }: { id: string }) {
 
       <ConfirmDialog
         open={confirmOpen}
-        title="Hapus OTB"
+        title="Hapus ODC"
         description="Tindakan ini tidak bisa dibatalkan. Yakin ingin menghapus?"
         confirmText="Hapus"
         cancelText="Batal"
