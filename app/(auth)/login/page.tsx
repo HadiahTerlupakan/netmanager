@@ -1,0 +1,30 @@
+import LoginForm from '@/components/auth/LoginForm'
+import { Suspense } from 'react'
+
+export const metadata = {
+  title: 'Masuk | NetManager',
+}
+
+export default function LoginPage() {
+  return (
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">NetManager</h1>
+          <p className="text-gray-600 dark:text-gray-400">Masuk ke dashboard admin</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Selamat Datang Kembali</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Masukkan kredensial Anda untuk melanjutkan</p>
+          </div>
+          <Suspense fallback={<div className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">Memuat formulir...</div>}>
+            <LoginForm />
+          </Suspense>
+        </div>
+      </div>
+    </main>
+  )
+}
+
+
