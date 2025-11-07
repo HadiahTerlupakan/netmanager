@@ -12,6 +12,7 @@ export interface JoinboxCreateData {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   inputs?: JoinboxIORowData[]
   outputs?: JoinboxIORowData[]
 }
@@ -22,6 +23,7 @@ export interface JoinboxUpdateData {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   inputs?: JoinboxIORowData[]
   outputs?: JoinboxIORowData[]
 }
@@ -33,6 +35,7 @@ export interface JoinboxPublic {
   notes: string | null
   latitude: number | null
   longitude: number | null
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: Date
   updatedAt: Date
 }

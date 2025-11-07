@@ -10,6 +10,7 @@ export function KmzForm() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [lineColor, setLineColor] = useState('#3388ff')
+  const [status, setStatus] = useState<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'>('AKTIF')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
@@ -33,6 +34,7 @@ export function KmzForm() {
       formData.append('file', file)
       formData.append('name', name.trim())
       formData.append('lineColor', lineColor)
+      formData.append('status', status)
       if (description.trim()) {
         formData.append('description', description.trim())
       }
@@ -129,6 +131,22 @@ export function KmzForm() {
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
           Pilih warna untuk garis/polygon KMZ (default: #3388ff)
         </p>
+      </div>
+
+      <div>
+        <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Status
+        </label>
+        <select
+          id="status"
+          value={status}
+          onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')}
+          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+        >
+          <option value="AKTIF">Aktif</option>
+          <option value="NONAKTIF">Nonaktif</option>
+          <option value="MAINTENANCE">Maintenance</option>
+        </select>
       </div>
 
       <div>

@@ -16,6 +16,7 @@ export const poleCreateSchema = z.object({
     .lte(180, 'Longitude maksimal 180')
     .optional()
     .nullable(),
+  status: z.enum(['AKTIF', 'NONAKTIF', 'MAINTENANCE']).optional().default('AKTIF'),
   cableSlack: z.boolean().optional(),
 })
 

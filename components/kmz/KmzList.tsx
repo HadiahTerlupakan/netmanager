@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { KmzActions } from './KmzActions'
+import { StatusBadge } from '@/components/common/StatusBadge'
 
 type KmzFile = {
   id: string
@@ -10,6 +11,7 @@ type KmzFile = {
   description: string | null
   lineColor: string
   isActive: boolean
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   fileSize: number
   createdAt: string
   updatedAt: string
@@ -25,7 +27,10 @@ export function KmzList() {
         const res = await fetch('/api/kmz', { cache: 'no-store' })
         if (res.ok) {
           const json = await res.json()
-          setKmzFiles(json.kmzFiles || [])
+          setKmzFiles((json.kmzFiles || []).map((f: any) => ({
+            ...f,
+            status: f.status || 'AKTIF',
+          })))
         }
       } catch (error) {
         console.error('Error fetching KMZ files:', error)
@@ -81,6 +86,7 @@ export function KmzList() {
               <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">File</th>
               <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Ukuran</th>
               <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Status</th>
+              <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Aktif</th>
               <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Tanggal Upload</th>
               <th className="px-4 py-2 text-right text-gray-700 dark:text-gray-300">Aksi</th>
             </tr>
@@ -105,6 +111,9 @@ export function KmzList() {
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{kmzFile.filename}</td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{formatFileSize(kmzFile.fileSize)}</td>
                 <td className="px-4 py-3">
+                  <StatusBadge status={kmzFile.status} size="sm" />
+                </td>
+                <td className="px-4 py-3">
                   <span
                     className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                       kmzFile.isActive
@@ -112,7 +121,7 @@ export function KmzList() {
                         : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
                     }`}
                   >
-                    {kmzFile.isActive ? 'Aktif' : 'Nonaktif'}
+                    {kmzFile.isActive ? 'Ya' : 'Tidak'}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{formatDate(kmzFile.createdAt)}</td>

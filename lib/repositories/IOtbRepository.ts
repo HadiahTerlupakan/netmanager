@@ -5,6 +5,7 @@ export interface OtbCreateData {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   cores?: Array<{
     idx: number
     slotName: string
@@ -20,6 +21,7 @@ export interface OtbUpdateData {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   cores?: Array<{
     idx: number
     slotName: string
@@ -36,6 +38,7 @@ export interface OtbPublic {
   notes: string | null
   latitude: number | null
   longitude: number | null
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: Date
   updatedAt: Date
 }

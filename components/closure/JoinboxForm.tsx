@@ -19,6 +19,7 @@ export type JoinboxFormInitial = {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   inputs?: IORow[]
   outputs?: IORow[]
 }
@@ -31,6 +32,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [latitude, setLatitude] = useState<string>(initial?.latitude != null ? String(initial.latitude) : '')
   const [longitude, setLongitude] = useState<string>(initial?.longitude != null ? String(initial.longitude) : '')
+  const [status, setStatus] = useState<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'>(initial?.status ?? 'AKTIF')
   const [inputs, setInputs] = useState<IORow[]>(initial?.inputs ?? [])
   const [outputs, setOutputs] = useState<IORow[]>(initial?.outputs ?? [])
   const [saving, setSaving] = useState(false)
@@ -267,6 +269,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
       notes: notes || null,
       latitude: latitude === '' ? null : Number(latitude),
       longitude: longitude === '' ? null : Number(longitude),
+      status,
       inputs: validInputs.map((r, i) => ({ ...r, idx: i, inputUnit: valueToLabel(r.inputUnit) })),
       outputs: validOutputs.map((r, i) => ({ ...r, idx: i, inputUnit: valueToLabel(r.inputUnit) })),
     }
@@ -420,6 +423,14 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Catatan (opsional)</label>
             <textarea value={notes ?? ''} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Keterangan tambahan" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+              <option value="AKTIF">Aktif</option>
+              <option value="NONAKTIF">Nonaktif</option>
+              <option value="MAINTENANCE">Maintenance</option>
+            </select>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">

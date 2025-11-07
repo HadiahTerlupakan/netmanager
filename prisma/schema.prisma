@@ -12,6 +12,12 @@ enum Role {
   ADMIN
 }
 
+enum Status {
+  AKTIF
+  NONAKTIF
+  MAINTENANCE
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String?
@@ -76,6 +82,7 @@ model Otb {
   notes      String?
   latitude   Float?
   longitude  Float?
+  status     Status   @default(AKTIF)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -105,6 +112,7 @@ model Odc {
   notes      String?
   latitude   Float?
   longitude  Float?
+  status     Status   @default(AKTIF)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -141,6 +149,7 @@ model Odp {
   notes         String?
   latitude      Float?
   longitude     Float?
+  status        Status      @default(AKTIF)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -173,6 +182,7 @@ model Joinbox {
   notes      String?
   latitude   Float?
   longitude  Float?
+  status     Status   @default(AKTIF)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -215,6 +225,7 @@ model Pole {
   latitude   Float?
   longitude  Float?
   cableSlack Boolean  @default(false)
+  status     Status   @default(AKTIF)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
@@ -229,6 +240,7 @@ model KmzFile {
   description String?
   lineColor   String   @default("#3388ff") // Warna garis KMZ (hex color)
   isActive    Boolean  @default(true)
+  status      Status   @default(AKTIF)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

@@ -24,6 +24,7 @@ export class OdpRepository implements IOdpRepository {
           notes: data.notes ?? null,
           latitude: data.latitude ?? null,
           longitude: data.longitude ?? null,
+          status: data.status ?? 'AKTIF',
           odcOutputId: data.odcOutputId,
         },
         select: { id: true },
@@ -57,6 +58,7 @@ export class OdpRepository implements IOdpRepository {
           ...(data.notes !== undefined && { notes: data.notes }),
           ...(data.latitude !== undefined && { latitude: data.latitude }),
           ...(data.longitude !== undefined && { longitude: data.longitude }),
+          ...(data.status !== undefined && { status: data.status }),
           ...(data.odcOutputId !== undefined && { odcOutputId: data.odcOutputId }),
         },
       })

@@ -27,6 +27,7 @@ export const odcCreateSchema = z.object({
     .lte(180, 'Longitude maksimal 180')
     .optional()
     .nullable(),
+  status: z.enum(['AKTIF', 'NONAKTIF', 'MAINTENANCE']).optional().default('AKTIF'),
   otbCoreId: z.string().min(1, 'Slot OTB wajib dipilih'),
   outputs: z.array(odcOutputSchema).optional(),
 })

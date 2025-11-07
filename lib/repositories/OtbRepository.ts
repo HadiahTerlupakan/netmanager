@@ -25,6 +25,7 @@ export class OtbRepository implements IOtbRepository {
           notes: data.notes ?? null,
           latitude: data.latitude ?? null,
           longitude: data.longitude ?? null,
+          status: data.status ?? 'AKTIF',
         },
         select: { id: true },
       })
@@ -55,6 +56,7 @@ export class OtbRepository implements IOtbRepository {
           ...(data.notes !== undefined && { notes: data.notes }),
           ...(data.latitude !== undefined && { latitude: data.latitude }),
           ...(data.longitude !== undefined && { longitude: data.longitude }),
+          ...(data.status !== undefined && { status: data.status }),
         },
       })
 

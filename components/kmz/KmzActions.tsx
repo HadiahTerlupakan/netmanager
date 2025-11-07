@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { useToast } from '@/components/common/ToastProvider'
 import Modal from '@/components/common/Modal'
+import { StatusChangeButton } from '@/components/common/StatusChangeButton'
 
 type KmzFile = {
   id: string
@@ -13,6 +14,7 @@ type KmzFile = {
   description: string | null
   lineColor: string
   isActive: boolean
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   fileSize: number
   createdAt: Date
 }
@@ -25,6 +27,7 @@ export function KmzActions({ kmzFile }: { kmzFile: KmzFile }) {
   const [name, setName] = useState(kmzFile.name)
   const [description, setDescription] = useState(kmzFile.description || '')
   const [lineColor, setLineColor] = useState(kmzFile.lineColor || '#3388ff')
+  const [status, setStatus] = useState<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'>((kmzFile as any).status || 'AKTIF')
   const [isActive, setIsActive] = useState(kmzFile.isActive)
   const [saving, setSaving] = useState(false)
 
@@ -49,7 +52,7 @@ export function KmzActions({ kmzFile }: { kmzFile: KmzFile }) {
       const res = await fetch(`/api/kmz/${kmzFile.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description: description || null, lineColor, isActive }),
+        body: JSON.stringify({ name, description: description || null, lineColor, isActive, status }),
       })
 
       if (res.ok) {
@@ -105,9 +108,19 @@ export function KmzActions({ kmzFile }: { kmzFile: KmzFile }) {
     }
   }
 
+  const currentStatus = (kmzFile.status || status) as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+
   return (
     <>
       <div className="flex items-center justify-end gap-2">
+        {currentStatus && (
+          <StatusChangeButton
+            id={kmzFile.id}
+            currentStatus={currentStatus}
+            apiEndpoint={`/api/kmz/${kmzFile.id}`}
+            entityName="KMZ"
+          />
+        )}
         <button
           onClick={handleToggleActive}
           aria-label={isActive ? 'Nonaktifkan' : 'Aktifkan'}
@@ -231,6 +244,22 @@ export function KmzActions({ kmzFile }: { kmzFile: KmzFile }) {
                 maxLength={7}
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="edit-status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Status
+            </label>
+            <select
+              id="edit-status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            >
+              <option value="AKTIF">Aktif</option>
+              <option value="NONAKTIF">Nonaktif</option>
+              <option value="MAINTENANCE">Maintenance</option>
+            </select>
           </div>
 
           <div>

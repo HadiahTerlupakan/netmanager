@@ -29,6 +29,7 @@ export default async function EditPolePage(ctx: { params: Promise<{ id: string }
           notes: o.notes,
           latitude: o.latitude,
           longitude: o.longitude,
+          status: o.status as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | undefined,
           cableSlack: (o as any).cableSlack ?? false,
         }}
       />

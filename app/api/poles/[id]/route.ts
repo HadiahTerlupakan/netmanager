@@ -22,6 +22,28 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   return NextResponse.json({ pole: item })
 }
 
+export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const session = await requireAdmin()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const json = await req.json()
+  const parsed = poleUpdateSchema.safeParse(json)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+  }
+  const { id } = await ctx.params
+  const repo = getPoleRepository()
+  try {
+    await repo.update(id, parsed.data)
+    return NextResponse.json({ ok: true })
+  } catch (err: any) {
+    const code = err?.code || err?.name
+    if (code === 'P2025') {
+      return NextResponse.json({ error: 'Pole tidak ditemukan' }, { status: 404 })
+    }
+    return NextResponse.json({ error: err?.message || 'Gagal memperbarui' }, { status: 500 })
+  }
+}
+
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

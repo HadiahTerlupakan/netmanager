@@ -43,6 +43,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     ...(parsed.data.notes !== undefined && { notes: parsed.data.notes }),
     ...(parsed.data.latitude !== undefined && { latitude: parsed.data.latitude }),
     ...(parsed.data.longitude !== undefined && { longitude: parsed.data.longitude }),
+    ...(parsed.data.status !== undefined && { status: parsed.data.status }),
     ...(parsed.data.otbCoreId !== undefined && { otbCoreId: parsed.data.otbCoreId }),
     ...(parsed.data.outputs !== undefined && {
       outputs: parsed.data.outputs.map((o, idx) => ({

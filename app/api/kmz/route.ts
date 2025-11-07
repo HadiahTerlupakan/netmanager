@@ -38,10 +38,12 @@ export async function POST(req: Request) {
     const nameRaw = formData.get('name')
     const descriptionRaw = formData.get('description')
     const lineColorRaw = formData.get('lineColor')
+    const statusRaw = formData.get('status')
     
     const name = nameRaw ? String(nameRaw).trim() : null
     const description = descriptionRaw ? String(descriptionRaw).trim() : null
     const lineColor = lineColorRaw ? String(lineColorRaw).trim() : '#3388ff'
+    const status = statusRaw ? String(statusRaw).trim() as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' : 'AKTIF'
 
     if (!file) {
       return NextResponse.json({ error: 'File tidak ditemukan' }, { status: 400 })
@@ -68,11 +70,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'File terlalu besar. Maksimal 50MB' }, { status: 400 })
     }
 
-    // Validate name, description, and lineColor
+    // Validate name, description, lineColor, and status
     const parsed = kmzCreateSchema.safeParse({ 
       name, 
       description: description && description.length > 0 ? description : undefined,
-      lineColor: lineColor || '#3388ff'
+      lineColor: lineColor || '#3388ff',
+      status
     })
     if (!parsed.success) {
       const errors = parsed.error.flatten()
@@ -101,6 +104,7 @@ export async function POST(req: Request) {
       fileSize,
       description: parsed.data.description ?? null,
       lineColor: parsed.data.lineColor || '#3388ff',
+      status: parsed.data.status || 'AKTIF',
     })
 
     return NextResponse.json({ id: created.id })

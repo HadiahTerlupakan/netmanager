@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/common/ToastProvider'
 import { useState } from 'react'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { StatusChangeButton } from '@/components/common/StatusChangeButton'
 
-export function PoleActions({ id }: { id: string }) {
+export function PoleActions({ id, status }: { id: string; status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }) {
   const router = useRouter()
   const { show } = useToast()
   const [openConfirm, setOpenConfirm] = useState(false)
@@ -26,6 +27,14 @@ export function PoleActions({ id }: { id: string }) {
 
   return (
     <div className="flex items-center justify-end gap-2">
+      {status && (
+        <StatusChangeButton
+          id={id}
+          currentStatus={status}
+          apiEndpoint={`/api/poles/${id}`}
+          entityName="Pole"
+        />
+      )}
       <Link href={`/admin/ftth/pole/${id}`} aria-label="Lihat" title="Lihat" className="inline-flex items-center justify-center h-8 w-8 rounded border border-gray-300 dark:border-gray-700">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
           <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z"/>

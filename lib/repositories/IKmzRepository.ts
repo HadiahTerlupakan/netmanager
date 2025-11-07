@@ -6,6 +6,7 @@ export interface KmzFileCreateData {
   fileSize: number
   description?: string | null
   lineColor?: string
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
 }
 
 export interface KmzFileUpdateData {
@@ -13,6 +14,7 @@ export interface KmzFileUpdateData {
   description?: string | null
   lineColor?: string
   isActive?: boolean
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
 }
 
 export interface KmzFilePublic {
@@ -25,6 +27,7 @@ export interface KmzFilePublic {
   description: string | null
   lineColor: string
   isActive: boolean
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: Date
   updatedAt: Date
 }

@@ -4,6 +4,7 @@ export interface OdpCreateData {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   odcOutputId: string
   outputs?: OdpOutputData[]
 }
@@ -14,6 +15,7 @@ export interface OdpUpdateData {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   odcOutputId?: string
   outputs?: OdpOutputData[]
 }
@@ -25,6 +27,7 @@ export interface OdpPublic {
   notes: string | null
   latitude: number | null
   longitude: number | null
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: Date
   updatedAt: Date
   odcOutputId: string

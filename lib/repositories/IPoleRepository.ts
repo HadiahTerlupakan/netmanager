@@ -4,6 +4,7 @@ export interface PoleCreateData {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   cableSlack?: boolean
 }
 
@@ -13,6 +14,7 @@ export interface PoleUpdateData {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   cableSlack?: boolean
 }
 
@@ -23,6 +25,7 @@ export interface PolePublic {
   notes: string | null
   latitude: number | null
   longitude: number | null
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   cableSlack: boolean
   createdAt: Date
   updatedAt: Date

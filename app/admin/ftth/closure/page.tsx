@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getJoinboxRepository } from '@/lib/repositories'
 import { JoinboxActions } from '@/components/closure/JoinboxActions'
+import { StatusBadge } from '@/components/common/StatusBadge'
 
 type Joinbox = {
   id: string
@@ -9,6 +10,7 @@ type Joinbox = {
   notes: string | null
   latitude: number | null
   longitude: number | null
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: string
 }
 
@@ -22,6 +24,7 @@ export default async function ClosurePage() {
     notes: o.notes,
     latitude: o.latitude ?? null,
     longitude: o.longitude ?? null,
+    status: o.status || 'AKTIF',
     createdAt: (o.createdAt instanceof Date ? o.createdAt : new Date(o.createdAt)).toISOString(),
   }))
 
@@ -45,6 +48,7 @@ export default async function ClosurePage() {
           <thead className="bg-gray-50 dark:bg-gray-900">
             <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nama</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Lokasi</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Koordinat</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Catatan</th>
@@ -55,17 +59,20 @@ export default async function ClosurePage() {
           <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-950">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">Belum ada data JOINbox.</td>
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">Belum ada data JOINbox.</td>
               </tr>
             ) : (
               items.map((o) => (
                 <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
                   <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{o.name}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={o.status} size="sm" />
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{o.location || '-'}</td>
                   <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{o.latitude != null && o.longitude != null ? (<span className="font-mono text-xs">{o.latitude.toFixed(6)}, {o.longitude.toFixed(6)}</span>) : ('-')}</td>
                   <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={o.notes || undefined}>{o.notes || '-'}</td>
                   <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">{new Date(o.createdAt).toLocaleString('id-ID')}</td>
-                  <td className="px-4 py-3 text-right"><JoinboxActions id={o.id} /></td>
+                  <td className="px-4 py-3 text-right"><JoinboxActions id={o.id} status={o.status} /></td>
                 </tr>
               ))
             )}

@@ -12,6 +12,7 @@ export interface OdcCreateData {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   otbCoreId: string
   outputs?: OdcOutputData[]
 }
@@ -22,6 +23,7 @@ export interface OdcUpdateData {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   otbCoreId?: string
   outputs?: OdcOutputData[]
 }
@@ -33,6 +35,7 @@ export interface OdcPublic {
   notes: string | null
   latitude: number | null
   longitude: number | null
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: Date
   updatedAt: Date
   otbCoreId: string

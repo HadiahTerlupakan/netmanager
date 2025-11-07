@@ -26,6 +26,7 @@ export default async function EditJoinboxPage({ params }: { params: Promise<{ id
         notes: detail?.notes,
         latitude: detail?.latitude ?? null,
         longitude: detail?.longitude ?? null,
+        status: detail?.status as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | undefined,
         inputs: (detail?.inputs || []).map((x: any, i: number) => ({ idx: i, inputUnit: x.inputUnit, portUnit: x.portUnit, tubeColor: x.tubeColor, coreColor: x.coreColor })),
         outputs: (detail?.outputs || []).map((x: any, i: number) => ({ idx: i, inputUnit: x.inputUnit, portUnit: x.portUnit, tubeColor: x.tubeColor, coreColor: x.coreColor })),
       }} />

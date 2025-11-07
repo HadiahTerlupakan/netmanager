@@ -16,6 +16,7 @@ export type PoleFormInitial = {
   notes?: string | null
   latitude?: number | null
   longitude?: number | null
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   cableSlack?: boolean | null
 }
 
@@ -27,6 +28,7 @@ export function PoleForm({ initial, mode }: { initial?: PoleFormInitial; mode: '
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [latitude, setLatitude] = useState<string>(initial?.latitude != null ? String(initial.latitude) : '')
   const [longitude, setLongitude] = useState<string>(initial?.longitude != null ? String(initial.longitude) : '')
+  const [status, setStatus] = useState<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'>(initial?.status ?? 'AKTIF')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [locLoading, setLocLoading] = useState(false)
@@ -84,6 +86,7 @@ export function PoleForm({ initial, mode }: { initial?: PoleFormInitial; mode: '
       notes: notes || null,
       latitude: latitude === '' ? null : Number(latitude),
       longitude: longitude === '' ? null : Number(longitude),
+      status,
       cableSlack,
     }
     const parsed = poleCreateSchema.safeParse(payload)
@@ -125,6 +128,14 @@ export function PoleForm({ initial, mode }: { initial?: PoleFormInitial; mode: '
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Catatan (opsional)</label>
           <textarea value={notes ?? ''} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Keterangan tambahan" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+            <option value="AKTIF">Aktif</option>
+            <option value="NONAKTIF">Nonaktif</option>
+            <option value="MAINTENANCE">Maintenance</option>
+          </select>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1">

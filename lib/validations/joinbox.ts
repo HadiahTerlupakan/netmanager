@@ -24,6 +24,7 @@ export const joinboxCreateSchema = z.object({
     .lte(180, 'Longitude maksimal 180')
     .optional()
     .nullable(),
+  status: z.enum(['AKTIF', 'NONAKTIF', 'MAINTENANCE']).optional().default('AKTIF'),
   inputs: z.array(ioRowSchema).default([]),
   outputs: z.array(ioRowSchema).default([]),
 })

@@ -16,6 +16,7 @@ export default function OtbNewPage() {
   const [notes, setNotes] = useState('')
   const [latitude, setLatitude] = useState<string>('')
   const [longitude, setLongitude] = useState<string>('')
+  const [status, setStatus] = useState<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'>('AKTIF')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [locLoading, setLocLoading] = useState(false)
@@ -98,6 +99,7 @@ export default function OtbNewPage() {
           notes: notes || null,
           latitude: latitude ? Number(latitude) : null,
           longitude: longitude ? Number(longitude) : null,
+          status,
           cores: cores.map((c, i) => ({
             idx: i,
             slotName: c.slotName || `SLOT-${i + 1}`,
@@ -160,6 +162,14 @@ export default function OtbNewPage() {
             className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
             placeholder="Keterangan tambahan"
           />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+            <option value="AKTIF">Aktif</option>
+            <option value="NONAKTIF">Nonaktif</option>
+            <option value="MAINTENANCE">Maintenance</option>
+          </select>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

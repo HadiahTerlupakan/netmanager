@@ -17,12 +17,19 @@ export default function MapPicker({ lat, lon, height = 360, onChange }: MapPicke
   const mapEl = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const markerLayerRef = useRef<any>(null)
+  const onChangeRef = useRef(onChange)
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [results, setResults] = useState<Array<{ displayName: string; lat: number; lon: number }>>([])
 
+  // Keep onChange ref updated
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
+
   useEffect(() => {
     let cleanup = () => {}
+    let isMounted = true
     ;(async () => {
       const { Map, View } = await import('ol')
       const { default: OSM } = await import('ol/source/OSM')
@@ -35,6 +42,8 @@ export default function MapPicker({ lat, lon, height = 360, onChange }: MapPicke
       const { Style, Fill, Stroke } = await import('ol/style')
       const { default: CircleStyle } = await import('ol/style/Circle')
       const { defaults: defaultControls, Zoom, Attribution } = await import('ol/control')
+
+      if (!isMounted || !mapEl.current) return
 
       const centerLonLat: [number, number] = [
         typeof lon === 'number' ? lon : 106.816666,
@@ -65,17 +74,19 @@ export default function MapPicker({ lat, lon, height = 360, onChange }: MapPicke
       }
 
       const clickHandler = (evt: any) => {
+        if (!isMounted) return
         const coord3857 = evt.coordinate
         const [lonC, latC] = toLonLat(coord3857)
         const f = new Feature({ geometry: new Point(coord3857) })
         f.setStyle(new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({ color: '#2563eb' }), stroke: new Stroke({ color: '#ffffff', width: 2 }) }) }))
         markerSource.clear(); markerSource.addFeature(f)
         try { const view = map.getView(); view.animate({ center: coord3857, zoom: Math.max(17, view.getZoom() || 0), duration: 400 }) } catch {}
-        onChange(Number(latC.toFixed(6)), Number(lonC.toFixed(6)))
+        onChangeRef.current(Number(latC.toFixed(6)), Number(lonC.toFixed(6)))
       }
 
       map.on('click', clickHandler)
       const externalSetHandler = (e: any) => {
+        if (!isMounted) return
         try {
           const { lat: la, lon: lo } = (e?.detail || {}) as { lat?: number; lon?: number }
           if (typeof la === 'number' && typeof lo === 'number') {
@@ -89,12 +100,27 @@ export default function MapPicker({ lat, lon, height = 360, onChange }: MapPicke
         } catch {}
       }
       window.addEventListener('mappicker-set', externalSetHandler as any)
-      cleanup = () => { try { map.un('click', clickHandler); map.setTarget(undefined) } catch {} }
-      const prevCleanup = cleanup
-      cleanup = () => { try { window.removeEventListener('mappicker-set', externalSetHandler as any); prevCleanup() } catch {} }
+      
+      cleanup = () => {
+        isMounted = false
+        try {
+          window.removeEventListener('mappicker-set', externalSetHandler as any)
+          if (mapRef.current) {
+            mapRef.current.un('click', clickHandler)
+            mapRef.current.setTarget(undefined)
+            mapRef.current.dispose()
+            mapRef.current = null
+          }
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
     })()
 
-    return () => cleanup()
+    return () => {
+      isMounted = false
+      cleanup()
+    }
   }, [])
 
   // Update marker jika lat/lon berubah dari luar (misal hasil geolocate)

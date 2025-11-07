@@ -40,6 +40,7 @@ export default function OdcEditPage() {
   const [notes, setNotes] = useState('')
   const [latitude, setLatitude] = useState<string>('')
   const [longitude, setLongitude] = useState<string>('')
+  const [status, setStatus] = useState<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'>('AKTIF')
   const [locLoading, setLocLoading] = useState(false)
 
   // INPUT Section
@@ -115,6 +116,7 @@ export default function OdcEditPage() {
         setNotes(d.notes || '')
         setLatitude(d.latitude != null ? String(d.latitude) : '')
         setLongitude(d.longitude != null ? String(d.longitude) : '')
+        setStatus(d.status || 'AKTIF')
         // Muat detail relasi slot dan OTB
         if (d.otbCoreId && d.otbCore?.otb?.id) {
           setSelectedOtbId(d.otbCore.otb.id)
@@ -195,6 +197,7 @@ export default function OdcEditPage() {
         notes: notes || null,
         latitude: latitude ? Number(latitude) : null,
         longitude: longitude ? Number(longitude) : null,
+        status,
         otbCoreId: selectedSlotId,
         outputs: outputCores.map((o, idx) => ({
           idx,
@@ -241,6 +244,14 @@ export default function OdcEditPage() {
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Catatan (opsional)</label>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>
+              <select value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+                <option value="AKTIF">Aktif</option>
+                <option value="NONAKTIF">Nonaktif</option>
+                <option value="MAINTENANCE">Maintenance</option>
+              </select>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

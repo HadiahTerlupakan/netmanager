@@ -23,6 +23,7 @@ export class PoleRepository implements IPoleRepository {
         notes: data.notes ?? null,
         latitude: data.latitude ?? null,
         longitude: data.longitude ?? null,
+        status: data.status ?? 'AKTIF',
         cableSlack: data.cableSlack ?? false,
       },
       select: { id: true },
@@ -39,6 +40,7 @@ export class PoleRepository implements IPoleRepository {
         ...(data.notes !== undefined && { notes: data.notes }),
         ...(data.latitude !== undefined && { latitude: data.latitude }),
         ...(data.longitude !== undefined && { longitude: data.longitude }),
+        ...(data.status !== undefined && { status: data.status }),
         ...(data.cableSlack !== undefined && { cableSlack: data.cableSlack }),
       },
     })

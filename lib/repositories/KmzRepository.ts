@@ -35,6 +35,7 @@ export class KmzRepository implements IKmzRepository {
         fileSize: data.fileSize,
         description: data.description ?? null,
         lineColor: data.lineColor ?? '#3388ff',
+        status: data.status ?? 'AKTIF',
       },
       select: { id: true },
     })
@@ -49,6 +50,7 @@ export class KmzRepository implements IKmzRepository {
         ...(data.description !== undefined && { description: data.description }),
         ...(data.lineColor !== undefined && { lineColor: data.lineColor }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.status !== undefined && { status: data.status }),
       },
     })
   }
