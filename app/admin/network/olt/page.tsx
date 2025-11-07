@@ -16,10 +16,17 @@ export default function OLTPage() {
   const loadOlts = async () => {
     try {
       const res = await fetch('/api/olts')
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Gagal memuat data OLT' }))
+        console.error('Error loading OLTs:', errorData.error)
+        setOlts([])
+        return
+      }
       const data = await res.json()
       setOlts(data.olts || [])
     } catch (error) {
       console.error('Error loading OLTs:', error)
+      setOlts([])
     } finally {
       setLoading(false)
     }

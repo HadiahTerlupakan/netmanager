@@ -62,17 +62,54 @@ export class OdcRepository implements IOdcRepository {
       })
 
       if (data.outputs !== undefined) {
-        await tx.odcOutput.deleteMany({ where: { odcId: id } })
-        if (data.outputs.length > 0) {
-          await tx.odcOutput.createMany({
-            data: data.outputs.map((o) => ({
-              odcId: id,
-              idx: o.idx,
-              slotName: o.slotName,
-              redaman: o.redaman ?? null,
-              tubeColor: o.tubeColor,
-              coreColor: o.coreColor,
-            })),
+        // Get existing outputs with ODP relation check
+        const existingOutputs = await tx.odcOutput.findMany({
+          where: { odcId: id },
+          include: { odp: true },
+        })
+
+        // Create a map of idx to existing output
+        const existingByIdx = new Map(existingOutputs.map((o) => [o.idx, o]))
+        const newIndices = new Set(data.outputs.map((o) => o.idx))
+
+        // Process each output in the new data
+        for (const output of data.outputs) {
+          const existing = existingByIdx.get(output.idx)
+          if (existing) {
+            // Update existing output (can update even if used by ODP, just not delete)
+            await tx.odcOutput.update({
+              where: { id: existing.id },
+              data: {
+                slotName: output.slotName,
+                redaman: output.redaman ?? null,
+                tubeColor: output.tubeColor,
+                coreColor: output.coreColor,
+              },
+            })
+          } else {
+            // Create new output
+            await tx.odcOutput.create({
+              data: {
+                odcId: id,
+                idx: output.idx,
+                slotName: output.slotName,
+                redaman: output.redaman ?? null,
+                tubeColor: output.tubeColor,
+                coreColor: output.coreColor,
+              },
+            })
+          }
+        }
+
+        // Delete outputs that are no longer in the new list (only if not used by ODP)
+        const toDelete = existingOutputs.filter(
+          (o) => !newIndices.has(o.idx) && o.odp === null
+        )
+        if (toDelete.length > 0) {
+          await tx.odcOutput.deleteMany({
+            where: {
+              id: { in: toDelete.map((o) => o.id) },
+            },
           })
         }
       }

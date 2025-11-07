@@ -30,12 +30,53 @@ export default function OdpNewPage() {
   const [selectedOutputId, setSelectedOutputId] = useState<string>('')
 
   const [mapOpen, setMapOpen] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
 
   // OUTPUT section (mirip sketsa)
   const standard12Colors = ['Biru', 'Oranye', 'Hijau', 'Coklat', 'Slate', 'Putih', 'Merah', 'Hitam', 'Kuning', 'Ungu', 'Rose', 'Aqua']
   const tubeColorOptions = ['Non-tube', ...standard12Colors]
   const [jumlahCore, setJumlahCore] = useState<number>(0)
   const [outputCores, setOutputCores] = useState<OutputCore[]>([])
+
+  // Reverse geocoding otomatis ketika koordinat diisi
+  useEffect(() => {
+    // Skip pada initial load
+    if (isInitialLoad) {
+      setIsInitialLoad(false)
+      return
+    }
+
+    // Skip jika salah satu koordinat kosong
+    if (!latitude || !longitude) return
+
+    const latNum = parseFloat(latitude)
+    const lonNum = parseFloat(longitude)
+
+    // Validasi koordinat
+    if (isNaN(latNum) || isNaN(lonNum)) return
+    if (latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) return
+
+    // Hanya update location jika masih kosong
+    if (location.trim()) return
+
+    // Debounce untuk menghindari terlalu banyak request
+    const timeoutId = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/geocode/reverse?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`)
+        if (res.ok) {
+          const j = await res.json()
+          if (j?.displayName) {
+            setLocation(j.displayName)
+          }
+        }
+      } catch (e) {
+        // Abaikan error, user bisa isi manual
+      }
+    }, 1000) // Debounce 1 detik
+
+    return () => clearTimeout(timeoutId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latitude, longitude])
 
   useEffect(() => {
     ;(async () => {
@@ -191,7 +232,22 @@ export default function OdpNewPage() {
               <MapPickerWithSearch
                 lat={latitude ? Number(latitude) : null}
                 lon={longitude ? Number(longitude) : null}
-                onChange={(la, lo) => { setLatitude(String(la)); setLongitude(String(lo)) }}
+                onChange={async (la, lo) => {
+                  setLatitude(String(la))
+                  setLongitude(String(lo))
+                  // Reverse geocoding ketika pilih di peta
+                  try {
+                    const res = await fetch(`/api/geocode/reverse?lat=${encodeURIComponent(String(la))}&lon=${encodeURIComponent(String(lo))}`)
+                    if (res.ok) {
+                      const j = await res.json()
+                      if (j?.displayName && !location.trim()) {
+                        setLocation(j.displayName)
+                      }
+                    }
+                  } catch (e) {
+                    // Abaikan error
+                  }
+                }}
               />
             </Modal>
           </div>

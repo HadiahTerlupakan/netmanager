@@ -35,6 +35,8 @@ export default function Sidebar() {
         { href: '/admin/ftth/odp', label: 'ODP', icon: '📦' },
         { href: '/admin/ftth/closure', label: 'Join BOX/Closure', icon: '🔗' },
         { href: '/admin/ftth/pole', label: 'Pole/Tiang', icon: '🗼' },
+        { href: '/admin/ftth/kmz', label: 'KMZ', icon: '📎' },
+        { href: '/admin/ftth/map', label: 'Topology Map', icon: '🗺️' },
       ],
     },
   ], [])

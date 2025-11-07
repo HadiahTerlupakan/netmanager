@@ -219,3 +219,17 @@ model Pole {
   updatedAt  DateTime @updatedAt
 }
 
+model KmzFile {
+  id          String   @id @default(cuid())
+  name        String
+  filename    String
+  filePath    String
+  kmlPath     String   // Path ke file KML hasil ekstrak
+  fileSize    Int      // Size dalam bytes
+  description String?
+  lineColor   String   @default("#3388ff") // Warna garis KMZ (hex color)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

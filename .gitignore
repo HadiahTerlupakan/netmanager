@@ -48,3 +48,7 @@ next-env.d.ts
 
 # Prisma
 prisma/migrations/**/migration.sql
+
+# Uploads
+public/uploads/kmz/*
+!public/uploads/kmz/.gitkeep

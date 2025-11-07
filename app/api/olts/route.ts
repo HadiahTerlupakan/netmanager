@@ -13,11 +13,19 @@ async function requireAdmin() {
 }
 
 export async function GET() {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const oltRepository = getOLTRepository()
-  const olts = await oltRepository.findAll()
-  return NextResponse.json({ olts })
+  try {
+    const session = await requireAdmin()
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const oltRepository = getOLTRepository()
+    const olts = await oltRepository.findAll()
+    return NextResponse.json({ olts })
+  } catch (error: any) {
+    console.error('Error fetching OLTs:', error)
+    return NextResponse.json(
+      { error: error.message || 'Gagal memuat data OLT', olts: [] },
+      { status: 500 }
+    )
+  }
 }
 
 export async function POST(req: Request) {

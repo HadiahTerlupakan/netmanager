@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Modal from '@/components/common/Modal'
@@ -32,6 +32,47 @@ export function PoleForm({ initial, mode }: { initial?: PoleFormInitial; mode: '
   const [locLoading, setLocLoading] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
   const [cableSlack, setCableSlack] = useState<boolean>(Boolean(initial?.cableSlack))
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+
+  // Reverse geocoding otomatis ketika koordinat diisi
+  useEffect(() => {
+    // Skip pada initial load
+    if (isInitialLoad) {
+      setIsInitialLoad(false)
+      return
+    }
+
+    // Skip jika salah satu koordinat kosong
+    if (!latitude || !longitude) return
+
+    const latNum = parseFloat(latitude)
+    const lonNum = parseFloat(longitude)
+
+    // Validasi koordinat
+    if (isNaN(latNum) || isNaN(lonNum)) return
+    if (latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) return
+
+    // Hanya update location jika masih kosong
+    if (location.trim()) return
+
+    // Debounce untuk menghindari terlalu banyak request
+    const timeoutId = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/geocode/reverse?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`)
+        if (res.ok) {
+          const j = await res.json()
+          if (j?.displayName) {
+            setLocation(j.displayName)
+          }
+        }
+      } catch (e) {
+        // Abaikan error, user bisa isi manual
+      }
+    }, 1000) // Debounce 1 detik
+
+    return () => clearTimeout(timeoutId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latitude, longitude])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
