@@ -5,6 +5,7 @@ import { getOLTRepository } from '@/lib/repositories'
 import snmp from 'net-snmp'
 import { Telnet } from 'telnet-client'
 import { createSocket } from 'dgram'
+import '@/lib/utils/event-emitter-config'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -18,24 +19,34 @@ async function requireAdmin() {
 async function testUDPPort(ipAddress: string, port: number, timeout: number = 3000): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = createSocket('udp4')
+    // Set max listeners untuk menghindari warning
+    socket.setMaxListeners(20)
     let resolved = false
 
-    const timer = setTimeout(() => {
+    const cleanup = () => {
       if (!resolved) {
         resolved = true
+        socket.removeAllListeners()
         socket.close()
-        resolve(false)
       }
+    }
+
+    const timer = setTimeout(() => {
+      cleanup()
+      resolve(false)
     }, timeout)
 
-    socket.on('error', () => {
+    const errorHandler = () => {
       if (!resolved) {
         resolved = true
         clearTimeout(timer)
+        socket.removeAllListeners()
         socket.close()
         resolve(false)
       }
-    })
+    }
+
+    socket.on('error', errorHandler)
 
     // Send a dummy packet to test if port is reachable
     socket.bind(() => {
@@ -43,6 +54,7 @@ async function testUDPPort(ipAddress: string, port: number, timeout: number = 30
         if (!resolved) {
           resolved = true
           clearTimeout(timer)
+          socket.removeAllListeners()
           socket.close()
           resolve(!err) // If no error, port might be accessible
         }
@@ -106,6 +118,11 @@ async function testSNMP(
         transport: 'udp4',
         idBitsSize: 32,
       })
+      
+      // Set max listeners untuk menghindari warning
+      if (session && session.setMaxListeners) {
+        session.setMaxListeners(20)
+      }
 
       // Test dengan beberapa OID yang umum digunakan
       // OID sysDescr (1.3.6.1.2.1.1.1.0) - standard OID yang hampir semua device support
@@ -183,8 +200,14 @@ async function testTelnet(
   timeout: number = 5000
 ): Promise<{ success: boolean; message: string }> {
   return new Promise(async (resolve) => {
+    let connection: any = null
     try {
-      const connection = new Telnet()
+      connection = new Telnet()
+      
+      // Set max listeners untuk menghindari warning
+      if (connection.setMaxListeners) {
+        connection.setMaxListeners(20)
+      }
 
       const params = {
         host: ipAddress,
@@ -204,6 +227,15 @@ async function testTelnet(
 
       resolve({ success: true, message: 'Telnet connection successful' })
     } catch (error: any) {
+      // Pastikan cleanup connection
+      if (connection) {
+        try {
+          await connection.end()
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
+      
       // Jika login gagal tapi koneksi berhasil, masih anggap berhasil
       if (error.message && (error.message.includes('timeout') || error.message.includes('ECONNREFUSED'))) {
         resolve({ success: false, message: `Telnet error: ${error.message}` })
