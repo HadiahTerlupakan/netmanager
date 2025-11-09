@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getOLTRepository } from '@/lib/repositories'
 import snmp from 'net-snmp'
+import '@/lib/utils/event-emitter-config'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -63,6 +64,11 @@ async function getSNMPValue(
         retries: 2,
         timeout: 5000,
       })
+      
+      // Set max listeners untuk menghindari warning
+      if (session && session.setMaxListeners) {
+        session.setMaxListeners(20)
+      }
 
       session.get([oid], (error: any, varbinds: any[]) => {
         if (resolved) return
