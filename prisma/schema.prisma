@@ -67,8 +67,13 @@ model Olt {
   telnetUsername    String   @default("zte")
   telnetPassword    String
   telnetPort        Int      @default(23)
+  // ONU Sync Configuration
+  onuLastSync       DateTime? // Waktu terakhir sync ONU data dari SNMP
+  onuSyncEnabled    Boolean  @default(true) // Enable/disable auto sync ONU
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  onus              Onu[]    // Relasi ke ONU
 
   @@unique([ipAddress])
 }
@@ -234,8 +239,7 @@ model KmzFile {
   id          String   @id @default(cuid())
   name        String
   filename    String
-  filePath    String
-  kmlPath     String   // Path ke file KML hasil ekstrak
+  filePath    String   // Path ke file KML hasil ekstrak
   fileSize    Int      // Size dalam bytes
   description String?
   lineColor   String   @default("#3388ff") // Warna garis KMZ (hex color)
@@ -243,5 +247,29 @@ model KmzFile {
   status      Status   @default(AKTIF)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ONU (Optical Network Unit) - Data dari SNMP OLT
+model Onu {
+  id            String   @id @default(cuid())
+  oltId         String
+  olt           Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  name          String   // ONU name/identifier
+  description   String?  // ONU description
+  pppoe         String?  // PPPoE username (jika ada)
+  gponOnu       String   // Format: "slot/port:onuId" atau "1/3/1:3"
+  status        String   // Online, LOS, DyingGasp, OffLine, Unknown
+  rxOlt         String?  // RX power dari OLT (dBm)
+  rxOnu         String?  // RX power dari ONU (dBm)
+  serialNumber  String?  // Serial number ONU
+  actualType    String?  // ONU type/model
+  lastUpdate    DateTime @default(now()) // Waktu terakhir data di-update dari SNMP
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([oltId, gponOnu]) // Satu ONU unik per OLT berdasarkan gponOnu
+  @@index([oltId])
+  @@index([status])
+  @@index([lastUpdate])
 }
 

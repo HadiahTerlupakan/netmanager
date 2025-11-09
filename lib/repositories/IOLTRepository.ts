@@ -38,6 +38,8 @@ export interface OLTUpdateData {
   telnetUsername?: string
   telnetPassword?: string
   telnetPort?: number
+  onuLastSync?: Date | null
+  onuSyncEnabled?: boolean
 }
 
 export interface OLTPublic {
@@ -60,6 +62,8 @@ export interface OLTPublic {
   telnetUsername: string
   telnetPassword: string
   telnetPort: number
+  onuLastSync: Date | null
+  onuSyncEnabled: boolean
   createdAt: Date
   updatedAt: Date
 }

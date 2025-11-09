@@ -1,24 +1,18 @@
-import { NextResponse, type NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+/**
+ * Direct sync function untuk OLT data (tanpa melalui API)
+ * Digunakan oleh scheduler untuk menghindari auth issues
+ */
+
 import { getOLTRepository } from '@/lib/repositories'
 import snmp from 'net-snmp'
-
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || session?.user?.role !== 'ADMIN') {
-    return null
-  }
-  return session
-}
 
 // SNMP OIDs untuk ZTE-C300 dan umum
 const SNMP_OIDS = {
   sysDescr: '1.3.6.1.2.1.1.1.0', // System description (version info)
   sysUpTime: '1.3.6.1.2.1.1.3.0', // System uptime
   sysName: '1.3.6.1.2.1.1.5.0', // System name
-  temperature: '1.3.6.1.4.1.3902.1015.2.1.3.2.0', // ZTE C300-B temperature (dari Zabbix template)
-  connectedDevices: '1.3.6.1.2.1.2.1.0', // Number of interfaces (proxy untuk connected devices)
+  temperature: '1.3.6.1.4.1.3902.1015.2.1.3.2.0', // ZTE C300-B temperature
+  connectedDevices: '1.3.6.1.2.1.2.1.0', // Number of interfaces
 }
 
 async function getSNMPValue(
@@ -41,7 +35,7 @@ async function getSNMPValue(
         try {
           session.close()
         } catch (e) {
-          // Ignore close errors (session might already be closed)
+          // Ignore close errors
         }
       }
       resolve(value)
@@ -52,7 +46,6 @@ async function getSNMPValue(
       if (version === '1') {
         snmpVersion = 0 // Version1
       } else if (version === '3') {
-        // SNMP v3 tidak didukung oleh net-snmp library yang digunakan
         console.warn(`[SNMP] SNMP v3 is not supported, using v2c instead`)
         snmpVersion = 1 // Fallback to Version2c
       }
@@ -108,20 +101,20 @@ function formatUptime(centiseconds: number | null): string | null {
   }
 }
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { id } = await params
-  const oltRepository = getOLTRepository()
-  const olt = await oltRepository.findById(id)
+/**
+ * Sync OLT data langsung dari SNMP (tanpa melalui API)
+ */
+export async function syncOltDataDirect(oltId: string): Promise<boolean> {
+  const oltRepo = getOLTRepository()
+  const olt = await oltRepo.findById(oltId)
 
   if (!olt) {
-    return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
+    throw new Error('OLT tidak ditemukan')
   }
 
   if (!olt.snmpConnected) {
-    return NextResponse.json({ error: 'SNMP tidak connected. Silakan test connection terlebih dahulu.' }, { status: 400 })
+    console.log(`[OLT-Sync-Direct] SNMP not connected for OLT ${olt.name}`)
+    return false
   }
 
   try {
@@ -153,21 +146,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     }
     if (model) updateData.model = model
 
-    await oltRepository.update(id, updateData)
+    await oltRepo.update(oltId, updateData)
 
-    return NextResponse.json({
-      success: true,
-      message: 'Data berhasil di-sync dari device',
-      data: {
-        version: updateData.version || olt.version,
-        temperature: updateData.temperature !== undefined ? updateData.temperature : olt.temperature,
-        connectedDevices: updateData.connectedDevices !== undefined ? updateData.connectedDevices : olt.connectedDevices,
-        uptime: updateData.uptime || olt.uptime,
-        model: updateData.model || olt.model,
-      },
-    })
+    console.log(`[OLT-Sync-Direct] Successfully synced OLT ${olt.name}`)
+    return true
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Gagal sync data dari device' }, { status: 500 })
+    console.error(`[OLT-Sync-Direct] Error syncing OLT ${olt.name}:`, error?.message || error)
+    return false
   }
 }
+
 
