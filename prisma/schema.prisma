@@ -74,6 +74,7 @@ model Olt {
   updatedAt         DateTime @updatedAt
 
   onus              Onu[]    // Relasi ke ONU
+  onuTypes          OnuType[] // Relasi ke OnuType
 
   @@unique([ipAddress])
 }
@@ -271,5 +272,21 @@ model Onu {
   @@index([oltId])
   @@index([status])
   @@index([lastUpdate])
+}
+
+// ONU Type - Tipe ONU yang didukung per OLT
+model OnuType {
+  id            String   @id @default(cuid())
+  oltId         String
+  olt           Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  name          String   // Nama tipe ONU (e.g., "ZTE", "H640GW", "HG8245H")
+  ethernetPorts Int      @default(0) // Jumlah port Ethernet
+  wifi          Int      @default(0) // Jumlah WiFi
+  voipPorts     Int      @default(0) // Jumlah port VoIP
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([oltId, name]) // Satu tipe ONU unik per OLT berdasarkan name
+  @@index([oltId])
 }
 

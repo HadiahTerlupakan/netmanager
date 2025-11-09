@@ -16,6 +16,8 @@ import { KmzRepository } from './KmzRepository'
 import { IKmzRepository } from './IKmzRepository'
 import { OnuRepository } from './OnuRepository'
 import { IOnuRepository } from './IOnuRepository'
+import { OnuTypeRepository } from './OnuTypeRepository'
+import { IOnuTypeRepository } from './IOnuTypeRepository'
 
 let userRepositoryInstance: IUserRepository | null = null
 let oltRepositoryInstance: IOLTRepository | null = null
@@ -26,6 +28,7 @@ let joinboxRepositoryInstance: IJoinboxRepository | null = null
 let poleRepositoryInstance: IPoleRepository | null = null
 let kmzRepositoryInstance: IKmzRepository | null = null
 let onuRepositoryInstance: IOnuRepository | null = null
+let onuTypeRepositoryInstance: IOnuTypeRepository | null = null
 
 export function getUserRepository(): IUserRepository {
   if (!userRepositoryInstance) {
@@ -90,6 +93,13 @@ export function getOnuRepository(): IOnuRepository {
   return onuRepositoryInstance
 }
 
+export function getOnuTypeRepository(): IOnuTypeRepository {
+  if (!onuTypeRepositoryInstance) {
+    onuTypeRepositoryInstance = new OnuTypeRepository()
+  }
+  return onuTypeRepositoryInstance
+}
+
 export { UserRepository } from './UserRepository'
 export type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
 export { OLTRepository } from './OLTRepository'
@@ -108,4 +118,6 @@ export { KmzRepository } from './KmzRepository'
 export type { IKmzRepository, KmzFileCreateData, KmzFileUpdateData, KmzFilePublic } from './IKmzRepository'
 export { OnuRepository } from './OnuRepository'
 export type { IOnuRepository, OnuCreateData, OnuUpdateData, OnuPublic } from './IOnuRepository'
+export { OnuTypeRepository } from './OnuTypeRepository'
+export type { IOnuTypeRepository, OnuTypeCreateData, OnuTypeUpdateData, OnuTypePublic } from './IOnuTypeRepository'
 

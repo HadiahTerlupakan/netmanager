@@ -25,6 +25,7 @@ export default function Sidebar() {
         { href: '/admin/network/olt', label: 'OLT', icon: '📡' },
         { href: '/admin/network/onu', label: 'All ONU', icon: '📱' },
         { href: '/admin/network/onu/new', label: 'Add ONU', icon: '➕' },
+        { href: '/admin/network/onutype', label: 'Onu Type', icon: '📋' },
         { href: '/admin/network/vlan', label: 'VLAN', icon: '🔗' },
       ],
     },
