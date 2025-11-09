@@ -18,6 +18,8 @@ import { OnuRepository } from './OnuRepository'
 import { IOnuRepository } from './IOnuRepository'
 import { OnuTypeRepository } from './OnuTypeRepository'
 import { IOnuTypeRepository } from './IOnuTypeRepository'
+import { SpeedProfileRepository } from './SpeedProfileRepository'
+import { ISpeedProfileRepository } from './ISpeedProfileRepository'
 
 let userRepositoryInstance: IUserRepository | null = null
 let oltRepositoryInstance: IOLTRepository | null = null
@@ -29,6 +31,7 @@ let poleRepositoryInstance: IPoleRepository | null = null
 let kmzRepositoryInstance: IKmzRepository | null = null
 let onuRepositoryInstance: IOnuRepository | null = null
 let onuTypeRepositoryInstance: IOnuTypeRepository | null = null
+let speedProfileRepositoryInstance: ISpeedProfileRepository | null = null
 
 export function getUserRepository(): IUserRepository {
   if (!userRepositoryInstance) {
@@ -100,6 +103,13 @@ export function getOnuTypeRepository(): IOnuTypeRepository {
   return onuTypeRepositoryInstance
 }
 
+export function getSpeedProfileRepository(): ISpeedProfileRepository {
+  if (!speedProfileRepositoryInstance) {
+    speedProfileRepositoryInstance = new SpeedProfileRepository()
+  }
+  return speedProfileRepositoryInstance
+}
+
 export { UserRepository } from './UserRepository'
 export type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
 export { OLTRepository } from './OLTRepository'
@@ -120,4 +130,6 @@ export { OnuRepository } from './OnuRepository'
 export type { IOnuRepository, OnuCreateData, OnuUpdateData, OnuPublic } from './IOnuRepository'
 export { OnuTypeRepository } from './OnuTypeRepository'
 export type { IOnuTypeRepository, OnuTypeCreateData, OnuTypeUpdateData, OnuTypePublic } from './IOnuTypeRepository'
+export { SpeedProfileRepository } from './SpeedProfileRepository'
+export type { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from './ISpeedProfileRepository'
 

@@ -16,7 +16,6 @@ export default function Sidebar() {
 
   const navItems: NavItem[] = useMemo(() => [
     { href: '/admin', label: 'Dashboard', icon: '📊' },
-    { href: '/admin/users', label: 'Users', icon: '👥' },
     {
       href: '/admin/network',
       label: 'Network',
@@ -26,6 +25,7 @@ export default function Sidebar() {
         { href: '/admin/network/onu', label: 'All ONU', icon: '📱' },
         { href: '/admin/network/onu/new', label: 'Add ONU', icon: '➕' },
         { href: '/admin/network/onutype', label: 'Onu Type', icon: '📋' },
+        { href: '/admin/network/speedprofiles', label: 'Speed Profiles', icon: '⚡' },
         { href: '/admin/network/vlan', label: 'VLAN', icon: '🔗' },
       ],
     },
@@ -43,6 +43,7 @@ export default function Sidebar() {
         { href: '/admin/ftth/map', label: 'Topology Map', icon: '🗺️' },
       ],
     },
+    { href: '/admin/users', label: 'Users', icon: '👥' },
   ], [])
 
   // Auto-expand menu jika pathname aktif

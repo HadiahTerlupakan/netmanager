@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from 'react'
+import { useEffect, useState, use } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,8 +9,9 @@ import Link from 'next/link'
 
 type FormValues = z.infer<typeof userUpdateSchema>
 
-export default function UserEditPage({ params }: { params: { id: string } }) {
+export default function UserEditPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
+  const { id } = use(params)
   const [user, setUser] = useState<any>(null)
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<FormValues>({ resolver: zodResolver(userUpdateSchema) })
 
@@ -18,23 +19,23 @@ export default function UserEditPage({ params }: { params: { id: string } }) {
     ;(async () => {
       const res = await fetch('/api/users')
       const data = await res.json()
-      const usr = data.users.find((u: any) => u.id === params.id)
+      const usr = data.users.find((u: any) => u.id === id)
       if (usr) {
         setUser(usr)
         setValue('name', usr.name ?? '')
         setValue('role', usr.role)
       }
     })()
-  }, [params.id, setValue])
+  }, [id, setValue])
 
   const onSubmit = async (values: FormValues) => {
-    const res = await fetch(`/api/users/${params.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) })
+    const res = await fetch(`/api/users/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) })
     if (res.ok) router.push('/admin/users')
   }
 
   const onDelete = async () => {
     if (!confirm('Hapus user ini? Tindakan ini tidak dapat dibatalkan.')) return
-    const res = await fetch(`/api/users/${params.id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/users/${id}`, { method: 'DELETE' })
     if (res.ok) router.push('/admin/users')
   }
 

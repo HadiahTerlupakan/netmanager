@@ -75,6 +75,7 @@ model Olt {
 
   onus              Onu[]    // Relasi ke ONU
   onuTypes          OnuType[] // Relasi ke OnuType
+  speedProfiles     SpeedProfile[] // Relasi ke SpeedProfile
 
   @@unique([ipAddress])
 }
@@ -288,5 +289,26 @@ model OnuType {
 
   @@unique([oltId, name]) // Satu tipe ONU unik per OLT berdasarkan name
   @@index([oltId])
+}
+
+// Speed Profile - Profil kecepatan untuk OLT
+model SpeedProfile {
+  id            String   @id @default(cuid())
+  oltId         String
+  olt           Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  profileType   String   @default("Download") // "Download" atau "Upload"
+  name          String   // Nama profil (e.g., "1G", "10Mbps", "20Mbps")
+  type          Int      // Tipe bandwidth: 1-5 (Fixed, Assured, dll)
+  bandwidthSir  Int      // Bandwidth SIR dalam kbps
+  burstPir      Int      // Burst PIR dalam kbps
+  fixed         Int?     // Fixed bandwidth dalam kbps (jika type = 1)
+  assured       Int?     // Assured bandwidth dalam kbps (jika type = 2 atau 3)
+  maximum       Int?     // Maximum bandwidth dalam kbps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([oltId, profileType, name]) // Satu profil unik per OLT berdasarkan profileType dan name
+  @@index([oltId])
+  @@index([profileType])
 }
 
