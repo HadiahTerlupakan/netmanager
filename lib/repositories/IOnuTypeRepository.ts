@@ -4,6 +4,26 @@ export interface OnuTypeCreateData {
   ethernetPorts: number
   wifi: number
   voipPorts: number
+  // Detail dari show onu-type (optional)
+  ponType?: string
+  description?: string
+  maxTcont?: number
+  maxGemPort?: number
+  maxSwitchPerSlot?: number
+  maxFlowPerSwitch?: number
+  maxIpHost?: number
+  maxIpv6Host?: number
+  serviceAbilityN1?: string
+  serviceAbility1M?: string
+  serviceAbility1P?: string
+  wifiMgmtViaNonOmci?: string
+  omciSendMode?: string
+  defaultMulticastRange?: string
+  vrg?: string
+  mgcConfigureMode?: string
+  maxVeip?: number
+  extendedOmci?: string
+  location?: string
 }
 
 export interface OnuTypeUpdateData {
@@ -11,6 +31,26 @@ export interface OnuTypeUpdateData {
   ethernetPorts?: number
   wifi?: number
   voipPorts?: number
+  // Detail dari show onu-type (optional)
+  ponType?: string
+  description?: string
+  maxTcont?: number
+  maxGemPort?: number
+  maxSwitchPerSlot?: number
+  maxFlowPerSwitch?: number
+  maxIpHost?: number
+  maxIpv6Host?: number
+  serviceAbilityN1?: string
+  serviceAbility1M?: string
+  serviceAbility1P?: string
+  wifiMgmtViaNonOmci?: string
+  omciSendMode?: string
+  defaultMulticastRange?: string
+  vrg?: string
+  mgcConfigureMode?: string
+  maxVeip?: number
+  extendedOmci?: string
+  location?: string
 }
 
 export interface OnuTypePublic {
@@ -20,6 +60,26 @@ export interface OnuTypePublic {
   ethernetPorts: number
   wifi: number
   voipPorts: number
+  // Detail dari show onu-type (optional)
+  ponType?: string | null
+  description?: string | null
+  maxTcont?: number | null
+  maxGemPort?: number | null
+  maxSwitchPerSlot?: number | null
+  maxFlowPerSwitch?: number | null
+  maxIpHost?: number | null
+  maxIpv6Host?: number | null
+  serviceAbilityN1?: string | null
+  serviceAbility1M?: string | null
+  serviceAbility1P?: string | null
+  wifiMgmtViaNonOmci?: string | null
+  omciSendMode?: string | null
+  defaultMulticastRange?: string | null
+  vrg?: string | null
+  mgcConfigureMode?: string | null
+  maxVeip?: number | null
+  extendedOmci?: string | null
+  location?: string | null
   createdAt: Date
   updatedAt: Date
 }

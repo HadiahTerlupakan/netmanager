@@ -284,6 +284,26 @@ model OnuType {
   ethernetPorts Int      @default(0) // Jumlah port Ethernet
   wifi          Int      @default(0) // Jumlah WiFi
   voipPorts     Int      @default(0) // Jumlah port VoIP
+  // Detail dari show onu-type
+  ponType       String?  // PON type (e.g., "gpon")
+  description   String?  // Description
+  maxTcont      Int?     // Max T-CONT
+  maxGemPort    Int?     // Max GEM port
+  maxSwitchPerSlot Int?  // Max switch per slot
+  maxFlowPerSwitch Int?  // Max flow per switch
+  maxIpHost     Int?     // Max IP host
+  maxIpv6Host   Int?     // Max IPv6 host
+  serviceAbilityN1 String? // Service ability N:1 (e.g., "support")
+  serviceAbility1M String? // Service ability 1:M (e.g., "support")
+  serviceAbility1P String? // Service ability 1:P (e.g., "support")
+  wifiMgmtViaNonOmci String? // WIFI mgmt via non OMCI (e.g., "disable")
+  omciSendMode  String?  // OMCI send mode (e.g., "async")
+  defaultMulticastRange String? // Default multicast range (e.g., "none")
+  vrg           String?  // VRG (e.g., "disable")
+  mgcConfigureMode String? // MGC configure mode (e.g., "zte")
+  maxVeip       Int?     // Max VEIP
+  extendedOmci   String? // Extended OMCI (e.g., "disable")
+  location      String?  // Location (e.g., "disable")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

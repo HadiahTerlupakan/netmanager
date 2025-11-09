@@ -10,6 +10,25 @@ type OnuType = {
   ethernetPorts: number
   wifi: number
   voipPorts: number
+  ponType?: string | null
+  description?: string | null
+  maxTcont?: number | null
+  maxGemPort?: number | null
+  maxSwitchPerSlot?: number | null
+  maxFlowPerSwitch?: number | null
+  maxIpHost?: number | null
+  maxIpv6Host?: number | null
+  serviceAbilityN1?: string | null
+  serviceAbility1M?: string | null
+  serviceAbility1P?: string | null
+  wifiMgmtViaNonOmci?: string | null
+  omciSendMode?: string | null
+  defaultMulticastRange?: string | null
+  vrg?: string | null
+  mgcConfigureMode?: string | null
+  maxVeip?: number | null
+  extendedOmci?: string | null
+  location?: string | null
 }
 
 type Olt = {
@@ -31,6 +50,9 @@ export default function OnuTypePage() {
   const [expandedOlts, setExpandedOlts] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [selectedOnuType, setSelectedOnuType] = useState<OnuTypeWithOlt | null>(null)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -150,6 +172,43 @@ export default function OnuTypePage() {
     })
   }
 
+  const handleSyncFromSNMP = async () => {
+    if (!selectedOltId) {
+      alert('Silakan pilih OLT terlebih dahulu')
+      return
+    }
+
+    if (!confirm('Apakah Anda yakin ingin sync ONU Type dari Telnet? Ini akan mengambil semua ONU type yang terdeteksi dari OLT menggunakan perintah "show onu-type".')) {
+      return
+    }
+
+    try {
+      setSyncing(true)
+      setError(null)
+
+      const res = await fetch(`/api/olts/${selectedOltId}/onutypes/sync`, {
+        method: 'POST',
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Gagal sync ONU Type dari Telnet')
+      }
+
+      const result = await res.json()
+      alert(`Berhasil sync ${result.data.syncedTypes} ONU types dari Telnet!\n\nTotal Types: ${result.data.totalTypes}\nSynced: ${result.data.syncedTypes}`)
+      
+      // Reload data setelah sync
+      await loadData()
+    } catch (error: any) {
+      console.error('Error syncing ONU types:', error)
+      setError(error.message || 'Gagal sync ONU Type dari Telnet')
+      alert(error.message || 'Terjadi kesalahan saat sync ONU Type')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   // Filter onuTypes berdasarkan selectedOltId jika ada
   const filteredOnuTypes = selectedOltId
     ? onuTypes.filter((ot) => ot.oltId === selectedOltId)
@@ -226,13 +285,39 @@ export default function OnuTypePage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">List Type</h2>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-          >
-            <span>+</span>
-            Create
-          </button>
+          <div className="flex items-center gap-2">
+            {selectedOltId && (
+              <button
+                onClick={handleSyncFromSNMP}
+                disabled={syncing}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {syncing ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Sync from SNMP
+                  </>
+                )}
+              </button>
+            )}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+            >
+              <span>+</span>
+              Create
+            </button>
+          </div>
         </div>
 
         {/* Collapsible OLT Sections */}
@@ -312,20 +397,45 @@ export default function OnuTypePage() {
                               {onuType.voipPorts}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
-                              <button
-                                onClick={() => handleDelete(onuType.id)}
-                                className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                title="Delete"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                  />
-                                </svg>
-                              </button>
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedOnuType(onuType)
+                                    setIsDetailModalOpen(true)
+                                  }}
+                                  className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                                  title="View Details"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                    />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                    />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(onuType.id)}
+                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                  title="Delete"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -362,6 +472,166 @@ export default function OnuTypePage() {
           }
         }}
       />
+
+      {/* Modal Detail OnuType */}
+      {selectedOnuType && (
+        <div
+          className={`fixed inset-0 z-50 flex items-center justify-center ${isDetailModalOpen ? '' : 'hidden'}`}
+          onClick={() => setIsDetailModalOpen(false)}
+        >
+          <div className="fixed inset-0 bg-black/50" />
+          <div
+            className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                Detail ONU Type: {selectedOnuType.name}
+              </h2>
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Basic Info */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                    Informasi Dasar
+                  </h3>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">ONU Type Name:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.name}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">PON Type:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.ponType || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Description:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.description || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Ethernet Ports:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.ethernetPorts}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">WiFi:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.wifi}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">VoIP Ports:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.voipPorts}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Limits */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                    Batas Maksimum
+                  </h3>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Max T-CONT:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.maxTcont ?? '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Max GEM Port:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.maxGemPort ?? '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Max Switch per Slot:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.maxSwitchPerSlot ?? '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Max Flow per Switch:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.maxFlowPerSwitch ?? '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Max IP Host:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.maxIpHost ?? '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Max IPv6 Host:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.maxIpv6Host ?? '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Max VEIP:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.maxVeip ?? '-'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Service Abilities */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                    Service Abilities
+                  </h3>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Service Ability N:1:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.serviceAbilityN1 || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Service Ability 1:M:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.serviceAbility1M || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Service Ability 1:P:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.serviceAbility1P || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Configuration */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                    Konfigurasi
+                  </h3>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">WIFI mgmt via non OMCI:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.wifiMgmtViaNonOmci || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">OMCI send mode:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.omciSendMode || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Default multicast range:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.defaultMulticastRange || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">VRG:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.vrg || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">MGC configure mode:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.mgcConfigureMode || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Extended OMCI:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.extendedOmci || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Location:</span>
+                      <p className="text-sm text-gray-900 dark:text-white">{selectedOnuType.location || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

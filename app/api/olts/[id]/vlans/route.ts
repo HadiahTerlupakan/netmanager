@@ -278,14 +278,11 @@ function parseVlanFromSnmp(
   // Untuk ZTE, BRIDGE-MIB port number mungkin tidak sama dengan IF-MIB interface index
   // Tapi kita bisa coba build mapping berdasarkan urutan interface index
   if (bridgePortToIfIndexMap.size === 0) {
-    console.log(`[VLAN-SNMP] dot1dBasePortIfIndex tidak tersedia, akan menggunakan fallback mapping`)
-    
     // Strategi: Build mapping berdasarkan urutan interface index yang ada
     // Asumsi: BRIDGE-MIB port number mengikuti urutan interface index yang ada
     // Kita akan sort interface index dan mapping port number berdasarkan urutan
     
     const sortedIfIndexes = Array.from(ifDescrMap.keys()).sort((a, b) => a - b)
-    console.log(`[VLAN-SNMP] Found ${sortedIfIndexes.length} interface indexes, will try sequential mapping`)
     
     // Dari log, kita tahu bahwa:
     // - Port number 648 di BRIDGE-MIB seharusnya di-mapping ke interface index 285280769 (xgei_1/10/1)
@@ -298,7 +295,6 @@ function parseVlanFromSnmp(
     // Untuk sekarang, kita akan handle di parsePortBitmap dengan mencari interface index yang cocok
   }
   
-  console.log(`[VLAN-SNMP] Built BRIDGE-MIB port to IF-MIB interface index map with ${bridgePortToIfIndexMap.size} entries`)
   const vlans: Map<number, { vlanId: number; name: string; description: string; ports: string[] }> = new Map()
 
   // Parse VLAN Names sebagai primary source (karena lebih lengkap dan sudah include VLAN ID di OID)
@@ -354,9 +350,7 @@ function parseVlanFromSnmp(
       // Port bitmap - perlu di-parse dan map ke interface description
       const portBitmap = result.value
       if (Buffer.isBuffer(portBitmap)) {
-        console.log(`[VLAN-SNMP] Parsing port bitmap for VLAN ${vlanId}, bitmap length: ${portBitmap.length}, first 20 bytes: ${Array.from(portBitmap.slice(0, 20)).map(b => b.toString(16).padStart(2, '0')).join(' ')}`)
         const ports = parsePortBitmap(portBitmap, ifDescrMap, bridgePortToIfIndexMap)
-        console.log(`[VLAN-SNMP] VLAN ${vlanId} mapped to ports: ${ports.join(', ')}`)
         vlans.get(vlanId)!.ports = ports
       } else if (typeof portBitmap === 'string') {
         // Jika berupa string, coba parse sebagai port list
@@ -457,9 +451,6 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
         // byteIndex 5, bitIndex 7 = port number 48
         const bridgePortNumber = byteIndex * 8 + bitIndex + 1
         
-        // Debug logging untuk troubleshooting - log semua port number untuk debugging
-        console.log(`[VLAN-SNMP] Found BRIDGE-MIB port number ${bridgePortNumber} in bitmap (byteIndex=${byteIndex}, bitIndex=${bitIndex}, byte=${byte.toString(16)})`)
-        
         // Map BRIDGE-MIB port number ke IF-MIB interface index
         let interfaceIndex = bridgePortToIfIndexMap.get(bridgePortNumber)
         if (!interfaceIndex) {
@@ -469,7 +460,6 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
           // Port number 1 -> interface index pertama, port number 2 -> interface index kedua, dst
           if (bridgePortNumber <= sortedIfIndexes.length && bridgePortNumber > 0) {
             interfaceIndex = sortedIfIndexes[bridgePortNumber - 1]
-            console.log(`[VLAN-SNMP] Fallback: Mapped BRIDGE-MIB port ${bridgePortNumber} -> IF-MIB interface index ${interfaceIndex} (sequential)`)
           } else {
             // Strategi 2: Untuk port number besar (644+), coba mapping berdasarkan pola
             // Dari log, kita tahu bahwa port number 648 seharusnya di-mapping ke interface index 285280769
@@ -520,7 +510,6 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
                   // Port 644 -> xgei_1/10/1, port 645 -> xgei_1/10/2, dst
                   if (portNum === portOffset + 1) {
                     interfaceIndex = idx
-                    console.log(`[VLAN-SNMP] Special mapping: BRIDGE-MIB port ${bridgePortNumber} -> IF-MIB interface index ${interfaceIndex} (${descr})`)
                     foundMapping = true
                     break
                   }
@@ -537,7 +526,6 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
                   const portNum = parseInt(xgeiMatch[1])
                   if (portNum === portOffset + 1) {
                     interfaceIndex = idx
-                    console.log(`[VLAN-SNMP] Special mapping: BRIDGE-MIB port ${bridgePortNumber} -> IF-MIB interface index ${interfaceIndex} (${descr})`)
                     foundMapping = true
                     break
                   }
@@ -553,7 +541,6 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
                   // Jika port number cocok dengan pola tertentu, gunakan interface ini
                   // Untuk sekarang, kita akan coba semua gei_1/10/5 dan gei_1/11/5
                   interfaceIndex = idx
-                  console.log(`[VLAN-SNMP] Special mapping: BRIDGE-MIB port ${bridgePortNumber} -> IF-MIB interface index ${interfaceIndex} (${descr})`)
                   foundMapping = true
                   break
                 }
@@ -563,11 +550,6 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
             // Jika masih tidak ditemukan, gunakan port number langsung
             // dan biarkan konversi PON index handle-nya
           }
-        }
-        
-        // Debug logging - hanya log untuk port number yang relevan
-        if (bridgePortNumber >= 644 && bridgePortNumber <= 712 || interfaceIndex === 285280769 || (interfaceIndex >= 285278977 && interfaceIndex <= 285281029)) {
-          console.log(`[VLAN-SNMP] Mapped BRIDGE-MIB port ${bridgePortNumber} -> IF-MIB interface index ${interfaceIndex}`)
         }
         
         // Coba cari interface description/name terlebih dahulu
