@@ -1,5 +1,6 @@
 import { getUserRepository } from '@/lib/repositories'
 import Link from 'next/link'
+import { HiOutlinePlus } from 'react-icons/hi2'
 
 export const metadata = { title: 'Users | NetManager' }
 
@@ -17,7 +18,7 @@ export default async function UsersPage() {
           href="/admin/users/new"
           className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
         >
-          <span>➕</span>
+          <HiOutlinePlus className="w-4 h-4" />
           Tambah User
         </Link>
       </div>

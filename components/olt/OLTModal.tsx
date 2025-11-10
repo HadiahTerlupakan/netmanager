@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { oltCreateSchema, oltUpdateSchema } from '@/lib/validations/olt'
+import { HiEye, HiEyeSlash, HiCheck, HiXMark, HiOutlineSignal, HiArrowPath, HiXMark as HiClose } from 'react-icons/hi2'
 
 type OLTFormData = z.infer<typeof oltCreateSchema>
 
@@ -288,7 +289,7 @@ export default function OLTModal({ isOpen, onClose, onSubmit, olt, mode, onTestS
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 >
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                  {showPassword ? <HiEye className="w-4 h-4" /> : <HiEyeSlash className="w-4 h-4" />}
                 </button>
               </div>
               {errors.telnetPassword && (
@@ -350,7 +351,7 @@ export default function OLTModal({ isOpen, onClose, onSubmit, olt, mode, onTestS
                         ? 'text-green-700 dark:text-green-400'
                         : 'text-red-700 dark:text-red-400'
                     }`}>
-                      {testResults.snmp.success ? '✓' : '✗'} SNMP
+                      {testResults.snmp.success ? <HiCheck className="w-4 h-4 inline" /> : <HiXMark className="w-4 h-4 inline" />} SNMP
                     </span>
                   </div>
                   <p className={`text-xs mt-1 ${
@@ -388,7 +389,7 @@ export default function OLTModal({ isOpen, onClose, onSubmit, olt, mode, onTestS
                         ? 'text-green-700 dark:text-green-400'
                         : 'text-red-700 dark:text-red-400'
                     }`}>
-                      {testResults.telnet.success ? '✓' : '✗'} Telnet
+                      {testResults.telnet.success ? <HiCheck className="w-4 h-4 inline" /> : <HiXMark className="w-4 h-4 inline" />} Telnet
                     </span>
                   </div>
                   <p className={`text-xs mt-1 ${
@@ -411,7 +412,7 @@ export default function OLTModal({ isOpen, onClose, onSubmit, olt, mode, onTestS
               className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               <span className="flex items-center gap-2">
-                <span>×</span> Close
+                <HiClose className="w-4 h-4" /> Close
               </span>
             </button>
             <button
@@ -423,11 +424,11 @@ export default function OLTModal({ isOpen, onClose, onSubmit, olt, mode, onTestS
               <span className="flex items-center gap-2">
                 {isTesting ? (
                   <>
-                    <span className="animate-spin">⏳</span> Testing...
+                    <HiArrowPath className="w-4 h-4 animate-spin" /> Testing...
                   </>
                 ) : (
                   <>
-                    <span>📶</span> Test Connection
+                    <HiOutlineSignal className="w-4 h-4" /> Test Connection
                   </>
                 )}
               </span>

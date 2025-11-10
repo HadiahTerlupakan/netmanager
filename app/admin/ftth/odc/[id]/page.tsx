@@ -5,6 +5,14 @@ import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
 import { ColorBadge } from '@/components/common/ColorBadge'
 import { StatusBadge } from '@/components/common/StatusBadge'
+import { 
+  HiOutlineCube, 
+  HiCheck, 
+  HiOutlineClock, 
+  HiOutlineUser, 
+  HiOutlineMapPin, 
+  HiOutlineDocumentText 
+} from 'react-icons/hi2'
 
 export default async function OdcDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -58,33 +66,19 @@ export default async function OdcDetailPage({ params }: { params: Promise<{ id: 
           label="Total Output"
           value={odc.outputs.length}
           color="green"
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-              <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          }
+          icon={<HiOutlineCube className="w-5 h-5" />}
         />
         <StatCard
           label="Output Terhubung"
           value={mappedOutputs}
           color="blue"
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path d="M20 6L9 17l-5-5"/>
-            </svg>
-          }
+          icon={<HiCheck className="w-5 h-5" />}
         />
         <StatCard
           label="Output Tersedia"
           value={odc.outputs.length - mappedOutputs}
           color="gray"
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 6v6l4 2"/>
-            </svg>
-          }
+          icon={<HiOutlineClock className="w-5 h-5" />}
         />
       </div>
 
@@ -95,54 +89,29 @@ export default async function OdcDetailPage({ params }: { params: Promise<{ id: 
           {/* Basic Information */}
           <InfoCard
             title="Informasi Dasar"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-            }
+            icon={<HiOutlineUser className="w-4 h-4" />}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem
                 label="Nama ODC"
                 value={odc.name}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                    <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-                  </svg>
-                }
+                icon={<HiOutlineCube className="w-3 h-3" />}
               />
               <InfoItem
                 label="Lokasi"
                 value={odc.location}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                }
+                icon={<HiOutlineMapPin className="w-3 h-3" />}
               />
               <InfoItem
                 label="Koordinat"
                 value={odc.latitude != null && odc.longitude != null ? `${odc.latitude.toFixed(6)}, ${odc.longitude.toFixed(6)}` : null}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                }
+                icon={<HiOutlineMapPin className="w-3 h-3" />}
               />
               {odc.notes && (
                 <InfoItem
                   label="Catatan"
                   value={odc.notes}
-                  icon={
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
-                    </svg>
-                  }
+                  icon={<HiOutlineDocumentText className="w-3 h-3" />}
                 />
               )}
             </div>
@@ -151,12 +120,7 @@ export default async function OdcDetailPage({ params }: { params: Promise<{ id: 
           {/* INPUT - OTB Connection */}
           <InfoCard
             title="INPUT - Relasi Slot OTB"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-              </svg>
-            }
+            icon={<HiOutlineCube className="w-4 h-4" />}
           >
             {slot && otb ? (
               <div className="space-y-3">
@@ -209,12 +173,7 @@ export default async function OdcDetailPage({ params }: { params: Promise<{ id: 
           {odc.outputs.length > 0 && (
             <InfoCard
               title="OUTPUT - Output Cores"
-              icon={
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
-              }
+              icon={<HiOutlineCube className="w-4 h-4" />}
             >
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
@@ -255,9 +214,7 @@ export default async function OdcDetailPage({ params }: { params: Promise<{ id: 
                           <td className="px-4 py-3 text-sm">
                             {isMapped ? (
                               <Link href={`/admin/ftth/odp/${o.odp!.id}`} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 text-xs font-medium hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                                  <path d="M20 6L9 17l-5-5"/>
-                                </svg>
+                                <HiCheck className="w-3 h-3" />
                                 Terhubung ke {o.odp!.name}
                               </Link>
                             ) : (
@@ -281,12 +238,7 @@ export default async function OdcDetailPage({ params }: { params: Promise<{ id: 
           {/* Location Map */}
           <InfoCard
             title="Lokasi"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                <circle cx="12" cy="10" r="3"/>
-              </svg>
-            }
+            icon={<HiOutlineMapPin className="w-4 h-4" />}
           >
             <MapPreview lat={odc.latitude} lon={odc.longitude} height={240} />
           </InfoCard>
@@ -294,12 +246,7 @@ export default async function OdcDetailPage({ params }: { params: Promise<{ id: 
           {/* Metadata */}
           <InfoCard
             title="Metadata"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v6l4 2"/>
-              </svg>
-            }
+            icon={<HiOutlineClock className="w-4 h-4" />}
           >
             <div className="space-y-3">
               <InfoItem

@@ -1,5 +1,6 @@
 import { getUserRepository } from '@/lib/repositories'
 import { Role } from '@prisma/client'
+import { HiOutlineUsers } from 'react-icons/hi2'
 
 export default async function AdminHome() {
   const userRepository = getUserRepository()
@@ -23,7 +24,7 @@ export default async function AdminHome() {
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Semua pengguna</p>
             </div>
             <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <span className="text-2xl">👥</span>
+              <HiOutlineUsers className="text-2xl" />
             </div>
           </div>
         </div>

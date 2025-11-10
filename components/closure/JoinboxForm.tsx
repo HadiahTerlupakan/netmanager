@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import Modal from '@/components/common/Modal'
 import { useToast } from '@/components/common/ToastProvider'
 import { joinboxCreateSchema } from '@/lib/validations/joinbox'
+import { HiTrash } from 'react-icons/hi2'
 
 const MapPicker = dynamic(() => import('@/components/common/MapPicker').then(m => m.default), { ssr: false })
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
@@ -391,12 +392,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
                     </select>
                   </div>
                   <div className="col-span-1 flex justify-end"><button type="button" onClick={() => removeRow(which, i)} className="inline-flex items-center justify-center h-8 w-8 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20" aria-label="Hapus">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-                      <path d="M3 6h18"/>
-                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                      <path d="M10 11v6M14 11v6"/>
-                    </svg>
+                    <HiTrash className="h-4 w-4" />
                   </button></div>
                 </div>
               ))}

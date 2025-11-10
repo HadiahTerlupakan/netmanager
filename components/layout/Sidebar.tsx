@@ -1,12 +1,29 @@
 "use client"
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, ReactNode } from 'react'
+import { 
+  HiOutlineChartBar, 
+  HiOutlineGlobeAlt, 
+  HiOutlineServer, 
+  HiOutlineSignal,
+  HiOutlineDevicePhoneMobile,
+  HiOutlinePlus,
+  HiOutlineClipboardDocumentList,
+  HiOutlineBolt,
+  HiOutlineLink,
+  HiOutlineCube,
+  HiOutlineBuildingOffice,
+  HiOutlinePaperClip,
+  HiOutlineMap,
+  HiOutlineUsers,
+  HiChevronRight
+} from 'react-icons/hi2'
 
 type NavItem = {
   href: string
   label: string
-  icon: string
+  icon: ReactNode
   children?: NavItem[]
 }
 
@@ -15,35 +32,36 @@ export default function Sidebar() {
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set())
 
   const navItems: NavItem[] = useMemo(() => [
-    { href: '/admin', label: 'Dashboard', icon: '📊' },
+    { href: '/admin', label: 'Dashboard', icon: <HiOutlineChartBar className="w-5 h-5" /> },
     {
       href: '/admin/network',
       label: 'Network',
-      icon: '🌐',
+      icon: <HiOutlineGlobeAlt className="w-5 h-5" />,
       children: [
-        { href: '/admin/network/olt', label: 'OLT', icon: '📡' },
-        { href: '/admin/network/onu', label: 'All ONU', icon: '📱' },
-        { href: '/admin/network/onu/new', label: 'Add ONU', icon: '➕' },
-        { href: '/admin/network/onutype', label: 'Onu Type', icon: '📋' },
-        { href: '/admin/network/speedprofiles', label: 'Speed Profiles', icon: '⚡' },
-        { href: '/admin/network/vlan', label: 'VLAN', icon: '🔗' },
+        { href: '/admin/network/mikrotik', label: 'MikroTik', icon: <HiOutlineServer className="w-4 h-4" /> },
+        { href: '/admin/network/olt', label: 'OLT', icon: <HiOutlineSignal className="w-4 h-4" /> },
+        { href: '/admin/network/onu', label: 'All ONU', icon: <HiOutlineDevicePhoneMobile className="w-4 h-4" /> },
+        { href: '/admin/network/onu/new', label: 'Add ONU', icon: <HiOutlinePlus className="w-4 h-4" /> },
+        { href: '/admin/network/onutype', label: 'Onu Type', icon: <HiOutlineClipboardDocumentList className="w-4 h-4" /> },
+        { href: '/admin/network/speedprofiles', label: 'Speed Profiles', icon: <HiOutlineBolt className="w-4 h-4" /> },
+        { href: '/admin/network/vlan', label: 'VLAN', icon: <HiOutlineLink className="w-4 h-4" /> },
       ],
     },
     {
       href: '/admin/ftth',
       label: 'FTTH',
-      icon: '🧵',
+      icon: <HiOutlineCube className="w-5 h-5" />,
       children: [
-        { href: '/admin/ftth/otb', label: 'OTB', icon: '📦' },
-        { href: '/admin/ftth/odc', label: 'ODC', icon: '📦' },
-        { href: '/admin/ftth/odp', label: 'ODP', icon: '📦' },
-        { href: '/admin/ftth/closure', label: 'Join BOX/Closure', icon: '🔗' },
-        { href: '/admin/ftth/pole', label: 'Pole/Tiang', icon: '🗼' },
-        { href: '/admin/ftth/kmz', label: 'KMZ', icon: '📎' },
-        { href: '/admin/ftth/map', label: 'Topology Map', icon: '🗺️' },
+        { href: '/admin/ftth/otb', label: 'OTB', icon: <HiOutlineCube className="w-4 h-4" /> },
+        { href: '/admin/ftth/odc', label: 'ODC', icon: <HiOutlineCube className="w-4 h-4" /> },
+        { href: '/admin/ftth/odp', label: 'ODP', icon: <HiOutlineCube className="w-4 h-4" /> },
+        { href: '/admin/ftth/closure', label: 'Join BOX/Closure', icon: <HiOutlineLink className="w-4 h-4" /> },
+        { href: '/admin/ftth/pole', label: 'Pole/Tiang', icon: <HiOutlineBuildingOffice className="w-4 h-4" /> },
+        { href: '/admin/ftth/kmz', label: 'KMZ', icon: <HiOutlinePaperClip className="w-4 h-4" /> },
+        { href: '/admin/ftth/map', label: 'Topology Map', icon: <HiOutlineMap className="w-4 h-4" /> },
       ],
     },
-    { href: '/admin/users', label: 'Users', icon: '👥' },
+    { href: '/admin/users', label: 'Users', icon: <HiOutlineUsers className="w-5 h-5" /> },
   ], [])
 
   // Auto-expand menu jika pathname aktif
@@ -101,12 +119,10 @@ export default function Sidebar() {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-lg">{item.icon}</span>
+                    {item.icon}
                     <span>{item.label}</span>
                   </div>
-                  <span className={`text-xs transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`}>
-                    ▶
-                  </span>
+                  <HiChevronRight className={`w-4 h-4 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
                 </button>
                 {isExpanded && (
                   <div className="ml-4 mt-1 space-y-1">
@@ -123,6 +139,7 @@ export default function Sidebar() {
                               : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                           }`}
                         >
+                          {child.icon}
                           <span>{child.label}</span>
                         </Link>
                       )
@@ -143,7 +160,7 @@ export default function Sidebar() {
                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
               }`}
             >
-              <span className="text-lg">{item.icon}</span>
+              {item.icon}
               <span>{item.label}</span>
             </Link>
           )

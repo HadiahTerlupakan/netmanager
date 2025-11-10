@@ -20,6 +20,8 @@ import { OnuTypeRepository } from './OnuTypeRepository'
 import { IOnuTypeRepository } from './IOnuTypeRepository'
 import { SpeedProfileRepository } from './SpeedProfileRepository'
 import { ISpeedProfileRepository } from './ISpeedProfileRepository'
+import { MikroTikRouterRepository } from './MikroTikRouterRepository'
+import { IMikroTikRouterRepository } from './IMikroTikRouterRepository'
 
 let userRepositoryInstance: IUserRepository | null = null
 let oltRepositoryInstance: IOLTRepository | null = null
@@ -32,6 +34,7 @@ let kmzRepositoryInstance: IKmzRepository | null = null
 let onuRepositoryInstance: IOnuRepository | null = null
 let onuTypeRepositoryInstance: IOnuTypeRepository | null = null
 let speedProfileRepositoryInstance: ISpeedProfileRepository | null = null
+let mikroTikRouterRepositoryInstance: IMikroTikRouterRepository | null = null
 
 export function getUserRepository(): IUserRepository {
   if (!userRepositoryInstance) {
@@ -110,6 +113,13 @@ export function getSpeedProfileRepository(): ISpeedProfileRepository {
   return speedProfileRepositoryInstance
 }
 
+export function getMikroTikRouterRepository(): IMikroTikRouterRepository {
+  if (!mikroTikRouterRepositoryInstance) {
+    mikroTikRouterRepositoryInstance = new MikroTikRouterRepository()
+  }
+  return mikroTikRouterRepositoryInstance
+}
+
 export { UserRepository } from './UserRepository'
 export type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
 export { OLTRepository } from './OLTRepository'
@@ -132,4 +142,6 @@ export { OnuTypeRepository } from './OnuTypeRepository'
 export type { IOnuTypeRepository, OnuTypeCreateData, OnuTypeUpdateData, OnuTypePublic } from './IOnuTypeRepository'
 export { SpeedProfileRepository } from './SpeedProfileRepository'
 export type { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from './ISpeedProfileRepository'
+export { MikroTikRouterRepository } from './MikroTikRouterRepository'
+export type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic } from './IMikroTikRouterRepository'
 

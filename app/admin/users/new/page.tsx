@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { userCreateSchema } from '@/lib/validations/user'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { HiArrowPath, HiArrowDownTray } from 'react-icons/hi2'
 
 type FormValues = z.infer<typeof userCreateSchema>
 
@@ -93,12 +94,12 @@ export default function UserNewPage() {
                 >
                   {isSubmitting ? (
                     <>
-                      <span className="animate-spin">⏳</span>
+                      <HiArrowPath className="w-4 h-4 animate-spin" />
                       Menyimpan...
                     </>
                   ) : (
                     <>
-                      <span>💾</span>
+                      <HiArrowDownTray className="w-4 h-4" />
                       Simpan
                     </>
                   )}

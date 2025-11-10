@@ -4,6 +4,16 @@ import { StatCard } from '@/components/common/StatCard'
 import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
 import { StatusBadge } from '@/components/common/StatusBadge'
+import { 
+  HiOutlineCube, 
+  HiOutlineMapPin, 
+  HiOutlineUser, 
+  HiOutlineDocumentText,
+  HiOutlineClock,
+  HiOutlineBuildingOffice,
+  HiCheck,
+  HiXCircle
+} from 'react-icons/hi2'
 
 export default async function PoleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -50,26 +60,13 @@ export default async function PoleDetailPage({ params }: { params: Promise<{ id:
           label="Status Cable Slack"
           value={pole.cableSlack ? 'Ya' : 'Tidak'}
           color={pole.cableSlack ? 'orange' : 'gray'}
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              {pole.cableSlack ? (
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-              ) : (
-                <path d="M12 2L2 7l10 5 10-5-10-5z" strokeDasharray="2 2"/>
-              )}
-            </svg>
-          }
+          icon={<HiOutlineCube className="w-5 h-5" />}
         />
         <StatCard
           label="Koordinat"
           value={pole.latitude != null && pole.longitude != null ? 'Tersedia' : 'Tidak Tersedia'}
           color={pole.latitude != null && pole.longitude != null ? 'green' : 'gray'}
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-              <circle cx="12" cy="10" r="3"/>
-            </svg>
-          }
+          icon={<HiOutlineMapPin className="w-5 h-5" />}
         />
       </div>
 
@@ -80,42 +77,23 @@ export default async function PoleDetailPage({ params }: { params: Promise<{ id:
           {/* Basic Information */}
           <InfoCard
             title="Informasi Dasar"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-            }
+            icon={<HiOutlineUser className="w-4 h-4" />}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem
                 label="Nama Pole"
                 value={pole.name}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M12 2v20M2 12h20"/>
-                  </svg>
-                }
+                icon={<HiOutlineBuildingOffice className="w-3 h-3" />}
               />
               <InfoItem
                 label="Lokasi"
                 value={pole.location}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                }
+                icon={<HiOutlineMapPin className="w-3 h-3" />}
               />
               <InfoItem
                 label="Koordinat"
                 value={pole.latitude != null && pole.longitude != null ? `${pole.latitude.toFixed(6)}, ${pole.longitude.toFixed(6)}` : null}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                }
+                icon={<HiOutlineMapPin className="w-3 h-3" />}
               />
               <InfoItem
                 label="Cable Slack"
@@ -127,37 +105,24 @@ export default async function PoleDetailPage({ params }: { params: Promise<{ id:
                   }`}>
                     {pole.cableSlack ? (
                       <>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                          <path d="M20 6L9 17l-5-5"/>
-                        </svg>
+                        <HiCheck className="w-3 h-3" />
                         Ya
                       </>
                     ) : (
                       <>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                          <circle cx="12" cy="12" r="10"/>
-                        </svg>
+                        <HiXCircle className="w-3 h-3" />
                         Tidak
                       </>
                     )}
                   </span>
                 }
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  </svg>
-                }
+                icon={<HiOutlineCube className="w-3 h-3" />}
               />
               {pole.notes && (
                 <InfoItem
                   label="Catatan"
                   value={pole.notes}
-                  icon={
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
-                    </svg>
-                  }
+                  icon={<HiOutlineDocumentText className="w-3 h-3" />}
                 />
               )}
             </div>
@@ -169,12 +134,7 @@ export default async function PoleDetailPage({ params }: { params: Promise<{ id:
           {/* Location Map */}
           <InfoCard
             title="Lokasi"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                <circle cx="12" cy="10" r="3"/>
-              </svg>
-            }
+            icon={<HiOutlineMapPin className="w-4 h-4" />}
           >
             <MapPreview lat={pole.latitude} lon={pole.longitude} height={240} />
           </InfoCard>
@@ -182,12 +142,7 @@ export default async function PoleDetailPage({ params }: { params: Promise<{ id:
           {/* Metadata */}
           <InfoCard
             title="Metadata"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v6l4 2"/>
-              </svg>
-            }
+            icon={<HiOutlineClock className="w-4 h-4" />}
           >
             <div className="space-y-3">
               <InfoItem

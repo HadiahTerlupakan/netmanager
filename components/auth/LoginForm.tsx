@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { HiArrowPath, HiLockClosed } from 'react-icons/hi2'
 
 const schema = z.object({
   email: z.string().min(1, 'Email wajib diisi').email('Email tidak valid'),
@@ -78,12 +79,12 @@ export default function LoginForm() {
       >
         {isSubmitting ? (
           <>
-            <span className="animate-spin">⏳</span>
+            <HiArrowPath className="w-4 h-4 animate-spin" />
             Memproses...
           </>
         ) : (
           <>
-            <span>🔐</span>
+            <HiLockClosed className="w-4 h-4" />
             Masuk
           </>
         )}

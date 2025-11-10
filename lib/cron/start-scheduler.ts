@@ -4,11 +4,16 @@
  */
 
 import { startOltSyncScheduler } from './olt-sync-scheduler'
+import { startMikroTikPingScheduler } from './mikrotik-ping-scheduler'
 // import { startOnuSyncScheduler } from './onu-sync-scheduler'
 
 // Start OLT sync scheduler (setiap 5 menit)
 // Bisa diubah melalui environment variable
 const OLT_SYNC_CRON = process.env.OLT_SYNC_CRON || '*/5 * * * *'
+
+// Start MikroTik ping check scheduler (setiap 5 menit)
+// Bisa diubah melalui environment variable
+const MIKROTIK_PING_CRON = process.env.MIKROTIK_PING_CRON || '*/5 * * * *'
 
 // Start ONU sync scheduler (setiap 5 menit) - DISABLED
 // Bisa diubah melalui environment variable
@@ -19,6 +24,9 @@ export function startAllSchedulers() {
   
   // Start OLT sync scheduler
   startOltSyncScheduler(OLT_SYNC_CRON)
+  
+  // Start MikroTik ping check scheduler
+  startMikroTikPingScheduler(MIKROTIK_PING_CRON)
   
   // Start ONU sync scheduler - DISABLED
   // startOnuSyncScheduler(ONU_SYNC_CRON)

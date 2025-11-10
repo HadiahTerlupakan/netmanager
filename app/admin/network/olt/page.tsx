@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState } from 'react'
 import OLTModal from '@/components/olt/OLTModal'
+import { HiOutlinePlus, HiOutlineSignal, HiArrowPath, HiPencil, HiOutlineCpuChip, HiOutlineFire, HiOutlineSignal as HiSignal, HiOutlineComputerDesktop, HiOutlineClock, HiCheck, HiOutlineCalendar } from 'react-icons/hi2'
 
 export default function OLTPage() {
   const [olts, setOlts] = useState<any[]>([])
@@ -142,9 +143,7 @@ export default function OLTPage() {
           onClick={loadOlts}
           className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
+          <HiArrowPath className="w-4 h-4" />
           Refresh Now
         </button>
       </div>
@@ -158,7 +157,7 @@ export default function OLTPage() {
           onClick={handleAdd}
           className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
         >
-          <span>➕</span>
+          <HiOutlinePlus className="w-4 h-4" />
           Tambah OLT
         </button>
       </div>
@@ -208,7 +207,7 @@ export default function OLTPage() {
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
-                          <span className="text-2xl">📡</span>
+                          <HiOutlineSignal className="text-2xl" />
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900 dark:text-white">{olt.name}</div>
@@ -222,19 +221,19 @@ export default function OLTPage() {
                     <td className="px-4 py-4">
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                          <span>🌡️</span>
+                          <HiOutlineFire className="w-4 h-4" />
                           <span>{olt.temperature ? `${olt.temperature}°C` : 'N/A'}</span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                          <span>📶</span>
+                          <HiSignal className="w-4 h-4" />
                           <span>{olt.connectedDevices || 0} connected devices</span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                          <span>💻</span>
+                          <HiOutlineComputerDesktop className="w-4 h-4" />
                           <span>{olt.model || olt.type || 'N/A'}</span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                          <span>⏰</span>
+                          <HiOutlineClock className="w-4 h-4" />
                           <span>{formatUptime(olt.uptime)}</span>
                         </div>
                       </div>
@@ -242,42 +241,17 @@ export default function OLTPage() {
                     <td className="px-4 py-4">
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <div className="w-16 h-16 relative">
-                            <svg className="w-16 h-16 transform -rotate-90">
-                              <circle
-                                cx="32"
-                                cy="32"
-                                r="28"
-                                stroke="currentColor"
-                                strokeWidth="6"
-                                fill="none"
-                                className="text-gray-200 dark:text-gray-700"
-                              />
-                              <circle
-                                cx="32"
-                                cy="32"
-                                r="28"
-                                stroke="currentColor"
-                                strokeWidth="6"
-                                fill="none"
-                                strokeDasharray={`${(parseInt(olt.syncStatus) || 0) * 2 * Math.PI * 28} ${2 * Math.PI * 28}`}
-                                className={getSyncStatusColor(olt.syncStatus)}
-                              />
-                            </svg>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className={`text-xs font-semibold ${getSyncStatusColor(olt.syncStatus)}`}>
-                                {olt.syncStatus || '0'}%
-                              </span>
-                            </div>
+                          <div className={`px-3 py-2 rounded-lg font-semibold text-sm ${getSyncStatusColor(olt.syncStatus)} bg-opacity-10`}>
+                            {olt.syncStatus || '0'}%
                           </div>
                           <div>
                             <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-xs">
-                              <span>✓</span>
+                              <HiCheck className="w-3 h-3" />
                               <span>Completed</span>
                             </div>
                             {olt.syncDate && (
                               <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-xs mt-1">
-                                <span>📅</span>
+                                <HiOutlineCalendar className="w-3 h-3" />
                                 <span>{new Date(olt.syncDate).toLocaleDateString('id-ID')}</span>
                               </div>
                             )}
@@ -316,41 +290,20 @@ export default function OLTPage() {
                           className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Sync Data"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                            />
-                          </svg>
+                          <HiArrowPath className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => handleEdit(olt)}
                           className="p-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors"
                           title="Edit"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            />
-                          </svg>
+                          <HiPencil className="w-5 h-5" />
                         </button>
                         <button
                           className="p-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
                           title="Chip"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-                            />
-                          </svg>
+                          <HiOutlineCpuChip className="w-5 h-5" />
                         </button>
                       </div>
                     </td>

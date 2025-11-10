@@ -5,6 +5,13 @@ import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
 import { ColorBadge } from '@/components/common/ColorBadge'
 import { StatusBadge } from '@/components/common/StatusBadge'
+import { 
+  HiOutlineCube, 
+  HiOutlineUser, 
+  HiOutlineMapPin, 
+  HiOutlineDocumentText,
+  HiOutlineClock
+} from 'react-icons/hi2'
 
 export default async function JoinboxDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -52,23 +59,13 @@ export default async function JoinboxDetailPage({ params }: { params: Promise<{ 
           label="Total Input"
           value={detail.inputs.length}
           color="purple"
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-              <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          }
+          icon={<HiOutlineCube className="w-5 h-5" />}
         />
         <StatCard
           label="Total Output"
           value={detail.outputs.length}
           color="purple"
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-              <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          }
+          icon={<HiOutlineCube className="w-5 h-5" />}
         />
       </div>
 
@@ -79,54 +76,29 @@ export default async function JoinboxDetailPage({ params }: { params: Promise<{ 
           {/* Basic Information */}
           <InfoCard
             title="Informasi Dasar"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-            }
+            icon={<HiOutlineUser className="w-4 h-4" />}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem
                 label="Nama JOINbox"
                 value={detail.name}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                    <path d="M9 9h6v6H9z"/>
-                  </svg>
-                }
+                icon={<HiOutlineCube className="w-3 h-3" />}
               />
               <InfoItem
                 label="Lokasi"
                 value={detail.location}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                }
+                icon={<HiOutlineMapPin className="w-3 h-3" />}
               />
               <InfoItem
                 label="Koordinat"
                 value={detail.latitude != null && detail.longitude != null ? `${detail.latitude.toFixed(6)}, ${detail.longitude.toFixed(6)}` : null}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                }
+                icon={<HiOutlineMapPin className="w-3 h-3" />}
               />
               {detail.notes && (
                 <InfoItem
                   label="Catatan"
                   value={detail.notes}
-                  icon={
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
-                    </svg>
-                  }
+                  icon={<HiOutlineDocumentText className="w-3 h-3" />}
                 />
               )}
             </div>
@@ -135,12 +107,7 @@ export default async function JoinboxDetailPage({ params }: { params: Promise<{ 
           {/* INPUT */}
           <InfoCard
             title="INPUT"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-              </svg>
-            }
+            icon={<HiOutlineCube className="w-4 h-4" />}
           >
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
@@ -189,12 +156,7 @@ export default async function JoinboxDetailPage({ params }: { params: Promise<{ 
           {/* OUTPUT */}
           <InfoCard
             title="OUTPUT"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-              </svg>
-            }
+            icon={<HiOutlineCube className="w-4 h-4" />}
           >
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
@@ -246,12 +208,7 @@ export default async function JoinboxDetailPage({ params }: { params: Promise<{ 
           {/* Location Map */}
           <InfoCard
             title="Lokasi"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                <circle cx="12" cy="10" r="3"/>
-              </svg>
-            }
+            icon={<HiOutlineMapPin className="w-4 h-4" />}
           >
             <MapPreview lat={detail.latitude} lon={detail.longitude} height={240} />
           </InfoCard>
@@ -259,12 +216,7 @@ export default async function JoinboxDetailPage({ params }: { params: Promise<{ 
           {/* Metadata */}
           <InfoCard
             title="Metadata"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v6l4 2"/>
-              </svg>
-            }
+            icon={<HiOutlineClock className="w-4 h-4" />}
           >
             <div className="space-y-3">
               <InfoItem

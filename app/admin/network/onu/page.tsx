@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from 'react'
+import { HiCheck, HiArrowTopRightOnSquare, HiXMark, HiQuestionMarkCircle, HiOutlineChartBar, HiOutlineFunnel, HiArrowPath, HiOutlineCpuChip, HiChevronDown, HiOutlineGlobeAlt, HiOutlineWifi, HiOutlineViewColumns, HiDocumentArrowDown, HiArrowPath as HiRefresh, HiXMark as HiClose, HiExclamationTriangle, HiCheckCircle, HiArrowPath as HiArrowPathIcon, HiXCircle, HiExclamationCircle, HiCog6Tooth, HiChevronUpDown, HiCircleStack, HiSignal, HiSignalSlash } from 'react-icons/hi2'
 
 type Onu = {
   id: string
@@ -270,9 +271,7 @@ export default function AllOnuPage() {
       return (
         <span className="inline-flex items-center gap-1.5">
           <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
+            <HiCheck className="w-2.5 h-2.5 text-white" />
           </div>
           <span className="text-sm text-gray-900 dark:text-white">Online</span>
         </span>
@@ -281,10 +280,7 @@ export default function AllOnuPage() {
       return (
         <span className="inline-flex items-center gap-1.5">
           <div className="w-4 h-4 rounded-full bg-yellow-500 flex items-center justify-center">
-            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-              <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-            </svg>
+            <HiArrowTopRightOnSquare className="w-2.5 h-2.5 text-white" />
           </div>
           <span className="text-sm text-gray-900 dark:text-white">DyingGasp</span>
         </span>
@@ -293,9 +289,7 @@ export default function AllOnuPage() {
       return (
         <span className="inline-flex items-center gap-1.5">
           <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
+            <HiXMark className="w-2.5 h-2.5 text-white" />
           </div>
           <span className="text-sm text-gray-900 dark:text-white">LOS</span>
         </span>
@@ -304,9 +298,7 @@ export default function AllOnuPage() {
     return (
       <span className="inline-flex items-center gap-1.5">
         <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-          <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 100 2 1 1 0 000-2zm0 4a1 1 0 100 2h.01a1 1 0 100-2H10zm-1 4a1 1 0 102 0 1 1 0 00-2 0z" clipRule="evenodd" />
-          </svg>
+          <HiQuestionMarkCircle className="w-2.5 h-2.5 text-white" />
         </div>
         <span className="text-sm text-gray-900 dark:text-white">{status}</span>
       </span>
@@ -317,42 +309,27 @@ export default function AllOnuPage() {
     if (!rx) {
       return (
         <div className="flex items-center gap-2">
-          <div className="flex items-end gap-0.5">
-            <div className="w-1 h-2 border border-dashed border-gray-400 dark:border-gray-500 rounded-t"></div>
-            <div className="w-1 h-2 border border-dashed border-gray-400 dark:border-gray-500 rounded-t"></div>
-            <div className="w-1 h-2 border border-dashed border-gray-400 dark:border-gray-500 rounded-t"></div>
-          </div>
+          <HiSignalSlash className="w-4 h-4 text-gray-400 dark:text-gray-500" />
           <span className="text-xs text-gray-500 dark:text-gray-400">N/A</span>
         </div>
       )
     }
 
     const value = parseFloat(rx.replace(/[^\d.-]/g, ''))
-    let barColor = 'bg-red-600 dark:bg-red-400'
+    let iconColor = 'text-red-600 dark:text-red-400'
     let textColor = 'text-red-600 dark:text-red-400'
-    let bars = [1, 0, 0] // 1 bar untuk critical
     
     if (value >= -26.0) {
-      barColor = 'bg-green-600 dark:bg-green-400'
+      iconColor = 'text-green-600 dark:text-green-400'
       textColor = 'text-green-600 dark:text-green-400'
-      bars = [1, 1, 1] // 3 bars untuk good
     } else if (value >= -28.0) {
-      barColor = 'bg-orange-600 dark:bg-orange-400'
+      iconColor = 'text-orange-600 dark:text-orange-400'
       textColor = 'text-orange-600 dark:text-orange-400'
-      bars = [1, 1, 0] // 2 bars untuk warning
     }
 
     return (
       <div className="flex items-center gap-2">
-        <div className="flex items-end gap-0.5">
-          {bars.map((show, idx) => (
-            <div
-              key={idx}
-              className={`w-1 ${show ? `${barColor} rounded-t` : 'bg-gray-300 dark:bg-gray-600 rounded-t'}`}
-              style={{ height: `${3 + idx}px` }}
-            ></div>
-          ))}
-        </div>
+        <HiSignal className={`w-4 h-4 ${iconColor}`} />
         <span className={`text-xs ${textColor}`}>
           {rx}
         </span>
@@ -364,7 +341,7 @@ export default function AllOnuPage() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <div className="mb-4 text-4xl">⏳</div>
+          <HiArrowPath className="mb-4 w-12 h-12 animate-spin text-gray-400" />
           <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data...</p>
         </div>
       </div>
@@ -386,48 +363,9 @@ export default function AllOnuPage() {
         <div className="flex items-center gap-2">
           {/* Filter Icon */}
           <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
+            <HiOutlineFunnel className="w-5 h-5" />
           </button>
           {/* Sync button disabled - fitur sync sementara dinonaktifkan */}
-          {/* <button
-            onClick={async () => {
-              setSyncing(true)
-              try {
-                const res = await fetch('/api/olts/onus/sync', { method: 'POST' })
-                if (!res.ok) {
-                  const errorData = await res.json().catch(() => ({ error: 'Gagal sync data' }))
-                  throw new Error(errorData.error || 'Gagal sync data')
-                }
-                const data = await res.json()
-                alert(`Sync berhasil! ${data.message || `Berhasil sync ${data.count || 0} ONU`}`)
-                // Reload data setelah sync
-                await loadOnus()
-              } catch (e: any) {
-                alert(`Error: ${e.message}`)
-              } finally {
-                setSyncing(false)
-              }
-            }}
-            disabled={syncing}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-60"
-          >
-            <svg
-              className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            {syncing ? 'Syncing...' : 'Sync Data'}
-          </button> */}
           <button
             onClick={async () => {
               // Force refresh dari SNMP
@@ -454,19 +392,7 @@ export default function AllOnuPage() {
             disabled={refreshing}
             className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-60"
           >
-            <svg
-              className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
+            <HiArrowPath className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
@@ -488,7 +414,7 @@ export default function AllOnuPage() {
                 <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Good</div>
                 <div className="text-xs text-green-600 dark:text-green-400 font-medium">≥ -26.00 dBm</div>
               </div>
-              <div className="text-2xl">📊</div>
+              <HiOutlineChartBar className="text-2xl" />
             </div>
             <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               {summary.good.percentage.toFixed(1)}%
@@ -522,7 +448,7 @@ export default function AllOnuPage() {
                 <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Warning</div>
                 <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">-26.00 ~ -28.00 dBm</div>
               </div>
-              <div className="text-2xl">⚠️</div>
+              <HiExclamationTriangle className="w-8 h-8 text-yellow-500" />
             </div>
             <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               {summary.warning.percentage.toFixed(1)}%
@@ -558,7 +484,7 @@ export default function AllOnuPage() {
                 <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Critical</div>
                 <div className="text-xs text-red-600 dark:text-red-400 font-medium">&lt;-28.00 dBm</div>
               </div>
-              <div className="text-2xl">🔴</div>
+              <HiXCircle className="w-8 h-8 text-red-500" />
             </div>
             <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               {summary.critical.percentage.toFixed(1)}%
@@ -593,7 +519,7 @@ export default function AllOnuPage() {
               <div>
                 <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Other</div>
               </div>
-              <div className="text-2xl">❌</div>
+              <HiXMark className="w-8 h-8 text-gray-500" />
             </div>
             <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               {summary.other.percentage.toFixed(1)}%
@@ -635,14 +561,10 @@ export default function AllOnuPage() {
                 ))}
               </select>
               <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                </svg>
+                <HiOutlineViewColumns className="w-4 h-4 text-white" />
               </div>
               <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <HiChevronDown className="w-4 h-4 text-white" />
               </div>
             </div>
 
@@ -664,14 +586,10 @@ export default function AllOnuPage() {
                 ))}
               </select>
               <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                </svg>
+                <HiOutlineCpuChip className="w-4 h-4 text-white" />
               </div>
               <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <HiChevronDown className="w-4 h-4 text-white" />
               </div>
             </div>
 
@@ -693,14 +611,10 @@ export default function AllOnuPage() {
                 ))}
               </select>
               <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <HiOutlineGlobeAlt className="w-4 h-4 text-white" />
               </div>
               <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <HiChevronDown className="w-4 h-4 text-white" />
               </div>
             </div>
 
@@ -722,14 +636,10 @@ export default function AllOnuPage() {
                 ))}
               </select>
               <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                </svg>
+                <HiOutlineWifi className="w-4 h-4 text-gray-600 dark:text-gray-400" />
               </div>
               <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <HiChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
               </div>
             </div>
 
@@ -748,9 +658,7 @@ export default function AllOnuPage() {
                 }`}
                 title="Online"
               >
-                <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
+                <HiCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
               </button>
               <button
                 onClick={() => {
@@ -764,10 +672,7 @@ export default function AllOnuPage() {
                 }`}
                 title="Dying Gasp"
               >
-                <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                  <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-                </svg>
+                <HiArrowTopRightOnSquare className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
               </button>
               <button
                 onClick={() => {
@@ -781,9 +686,7 @@ export default function AllOnuPage() {
                 }`}
                 title="LOS"
               >
-                <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
-                </svg>
+                <HiXCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
               </button>
               <button
                 onClick={() => {
@@ -797,9 +700,7 @@ export default function AllOnuPage() {
                 }`}
                 title="Auth Failed"
               >
-                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
+                <HiExclamationCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </button>
               <button
                 onClick={() => {
@@ -813,9 +714,7 @@ export default function AllOnuPage() {
                 }`}
                 title="Unknown"
               >
-                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 100 2 1 1 0 000-2zm0 4a1 1 0 100 2h.01a1 1 0 100-2H10zm-1 4a1 1 0 102 0 1 1 0 00-2 0z" clipRule="evenodd" />
-                </svg>
+                <HiQuestionMarkCircle className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
             </div>
 
@@ -834,11 +733,7 @@ export default function AllOnuPage() {
                 }`}
                 title="Good Signal (≥ -26 dBm)"
               >
-                <div className="flex items-end gap-0.5">
-                  <div className="w-1 h-3 bg-green-600 dark:bg-green-400 rounded-t"></div>
-                  <div className="w-1 h-4 bg-green-600 dark:bg-green-400 rounded-t"></div>
-                  <div className="w-1 h-5 bg-green-600 dark:bg-green-400 rounded-t"></div>
-                </div>
+                <HiSignal className="w-5 h-5 text-green-600 dark:text-green-400" />
               </button>
               <button
                 onClick={() => {
@@ -852,11 +747,7 @@ export default function AllOnuPage() {
                 }`}
                 title="Warning Signal (-26 to -28 dBm)"
               >
-                <div className="flex items-end gap-0.5">
-                  <div className="w-1 h-3 bg-orange-600 dark:bg-orange-400 rounded-t"></div>
-                  <div className="w-1 h-4 bg-orange-600 dark:bg-orange-400 rounded-t"></div>
-                  <div className="w-1 h-2 bg-gray-300 dark:bg-gray-600 rounded-t"></div>
-                </div>
+                <HiSignal className="w-5 h-5 text-orange-600 dark:text-orange-400" />
               </button>
               <button
                 onClick={() => {
@@ -870,11 +761,7 @@ export default function AllOnuPage() {
                 }`}
                 title="Critical Signal (< -28 dBm)"
               >
-                <div className="flex items-end gap-0.5">
-                  <div className="w-1 h-3 bg-red-600 dark:bg-red-400 rounded-t"></div>
-                  <div className="w-1 h-2 bg-gray-300 dark:bg-gray-600 rounded-t"></div>
-                  <div className="w-1 h-2 bg-gray-300 dark:bg-gray-600 rounded-t"></div>
-                </div>
+                <HiSignal className="w-5 h-5 text-red-600 dark:text-red-400" />
               </button>
               <button
                 onClick={() => {
@@ -888,19 +775,13 @@ export default function AllOnuPage() {
                 }`}
                 title="No Signal / N/A"
               >
-                <div className="flex items-end gap-0.5">
-                  <div className="w-1 h-2 border border-dashed border-gray-400 dark:border-gray-500 rounded-t"></div>
-                  <div className="w-1 h-2 border border-dashed border-gray-400 dark:border-gray-500 rounded-t"></div>
-                  <div className="w-1 h-2 border border-dashed border-gray-400 dark:border-gray-500 rounded-t"></div>
-                </div>
+                <HiSignalSlash className="w-5 h-5 text-gray-400 dark:text-gray-500" />
               </button>
             </div>
 
             {/* Export Button */}
             <button className="ml-auto px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <HiDocumentArrowDown className="w-4 h-4" />
               Export
             </button>
 
@@ -918,9 +799,7 @@ export default function AllOnuPage() {
               }}
               className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
+              <HiRefresh className="w-4 h-4" />
               Reset Filter
             </button>
           </div>
@@ -948,9 +827,7 @@ export default function AllOnuPage() {
                     }}
                     className="ml-1 hover:text-indigo-900 dark:hover:text-indigo-300"
                   >
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
+                    <HiXMark className="w-3 h-3" />
                   </button>
                 </span>
               ))}
@@ -1010,14 +887,7 @@ export default function AllOnuPage() {
                   <div className="flex items-center gap-1">
                     OLT
                     {sortColumn === 'oltName' && (
-                      <svg
-                        className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
+                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
                     )}
                   </div>
                 </th>
@@ -1028,9 +898,7 @@ export default function AllOnuPage() {
                   <div className="flex items-center gap-1">
                     Name
                     {sortColumn === 'name' && (
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5 12a1 1 0 102 0V6.414l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L5 6.414V12zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" />
-                      </svg>
+                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
                     )}
                   </div>
                 </th>
@@ -1041,9 +909,7 @@ export default function AllOnuPage() {
                   <div className="flex items-center gap-1">
                     Description
                     {sortColumn === 'description' && (
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5 12a1 1 0 102 0V6.414l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L5 6.414V12zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" />
-                      </svg>
+                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
                     )}
                   </div>
                 </th>
@@ -1054,9 +920,7 @@ export default function AllOnuPage() {
                   <div className="flex items-center gap-1">
                     PPPoE
                     {sortColumn === 'pppoe' && (
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5 12a1 1 0 102 0V6.414l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L5 6.414V12zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" />
-                      </svg>
+                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
                     )}
                   </div>
                 </th>
@@ -1067,9 +931,7 @@ export default function AllOnuPage() {
                   <div className="flex items-center gap-1">
                     Gpon Onu
                     {sortColumn === 'gponOnu' && (
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5 12a1 1 0 102 0V6.414l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L5 6.414V12zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" />
-                      </svg>
+                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
                     )}
                   </div>
                 </th>
@@ -1080,9 +942,7 @@ export default function AllOnuPage() {
                   <div className="flex items-center gap-1">
                     Status
                     {sortColumn === 'status' && (
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5 12a1 1 0 102 0V6.414l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L5 6.414V12zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" />
-                      </svg>
+                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
                     )}
                   </div>
                 </th>
@@ -1093,9 +953,7 @@ export default function AllOnuPage() {
                   <div className="flex items-center gap-1">
                     RX OLT
                     {sortColumn === 'rxOlt' && (
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5 12a1 1 0 102 0V6.414l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L5 6.414V12zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" />
-                      </svg>
+                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
                     )}
                   </div>
                 </th>
@@ -1106,9 +964,7 @@ export default function AllOnuPage() {
                   <div className="flex items-center gap-1">
                     RX ONU
                     {sortColumn === 'rxOnu' && (
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5 12a1 1 0 102 0V6.414l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L5 6.414V12zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" />
-                      </svg>
+                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
                     )}
                   </div>
                 </th>
@@ -1119,9 +975,7 @@ export default function AllOnuPage() {
                   <div className="flex items-center gap-1">
                     Serial Number
                     {sortColumn === 'serialNumber' && (
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5 12a1 1 0 102 0V6.414l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L5 6.414V12zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" />
-                      </svg>
+                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
                     )}
                   </div>
                 </th>
@@ -1132,9 +986,7 @@ export default function AllOnuPage() {
                   <div className="flex items-center gap-1">
                     Actual Type
                     {sortColumn === 'actualType' && (
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5 12a1 1 0 102 0V6.414l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L5 6.414V12zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" />
-                      </svg>
+                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
                     )}
                   </div>
                 </th>
@@ -1166,10 +1018,7 @@ export default function AllOnuPage() {
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.actualType}</td>
                     <td className="px-4 py-3">
                       <button className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
+                        <HiCog6Tooth className="w-3 h-3" />
                         Setting
                       </button>
                     </td>

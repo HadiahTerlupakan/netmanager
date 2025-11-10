@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
+import { HiXMark, HiCheck } from 'react-icons/hi2'
 
 type Olt = {
   id: string
@@ -199,7 +200,7 @@ export default function SpeedProfileModal({ isOpen, onClose, onSubmit }: SpeedPr
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
-            <span className="text-2xl">×</span>
+            <HiXMark className="text-2xl" />
           </button>
         </div>
 
@@ -378,7 +379,7 @@ export default function SpeedProfileModal({ isOpen, onClose, onSubmit }: SpeedPr
               onClick={onClose}
               className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
-              <span>×</span>
+              <HiXMark className="w-4 h-4" />
               Cancel
             </button>
             <button
@@ -386,9 +387,7 @@ export default function SpeedProfileModal({ isOpen, onClose, onSubmit }: SpeedPr
               disabled={loading}
               className="inline-flex items-center gap-2 rounded-md bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <HiCheck className="w-4 h-4" />
               Save
             </button>
           </div>

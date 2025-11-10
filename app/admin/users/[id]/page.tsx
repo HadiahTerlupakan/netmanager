@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { userUpdateSchema } from '@/lib/validations/user'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { HiArrowPath } from 'react-icons/hi2'
 
 type FormValues = z.infer<typeof userUpdateSchema>
 
@@ -43,7 +44,7 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <div className="mb-4 text-4xl">⏳</div>
+          <HiArrowPath className="mb-4 w-12 h-12 animate-spin text-gray-400" />
           <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data user...</p>
         </div>
       </div>

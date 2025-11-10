@@ -5,6 +5,14 @@ import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
 import { ColorBadge } from '@/components/common/ColorBadge'
 import { StatusBadge } from '@/components/common/StatusBadge'
+import { 
+  HiOutlineCube, 
+  HiCheck, 
+  HiOutlineClock, 
+  HiOutlineUser, 
+  HiOutlineMapPin, 
+  HiOutlineDocumentText 
+} from 'react-icons/hi2'
 
 export default async function OtbDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -54,33 +62,19 @@ export default async function OtbDetailPage({ params }: { params: Promise<{ id: 
           label="Total Core"
           value={otb.coreCount}
           color="blue"
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-              <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          }
+          icon={<HiOutlineCube className="w-5 h-5" />}
         />
         <StatCard
           label="Core Terpetakan"
           value={mappedCores}
           color="green"
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path d="M20 6L9 17l-5-5"/>
-            </svg>
-          }
+          icon={<HiCheck className="w-5 h-5" />}
         />
         <StatCard
           label="Core Tersedia"
           value={otb.coreCount - mappedCores}
           color="gray"
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 6v6l4 2"/>
-            </svg>
-          }
+          icon={<HiOutlineClock className="w-5 h-5" />}
         />
       </div>
 
@@ -91,64 +85,34 @@ export default async function OtbDetailPage({ params }: { params: Promise<{ id: 
           {/* Basic Information */}
           <InfoCard
             title="Informasi Dasar"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-            }
+            icon={<HiOutlineUser className="w-4 h-4" />}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem
                 label="Nama OTB"
                 value={otb.name}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                    <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-                  </svg>
-                }
+                icon={<HiOutlineCube className="w-3 h-3" />}
               />
               <InfoItem
                 label="Lokasi"
                 value={otb.location}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                }
+                icon={<HiOutlineMapPin className="w-3 h-3" />}
               />
               <InfoItem
                 label="Koordinat"
                 value={otb.latitude != null && otb.longitude != null ? `${otb.latitude.toFixed(6)}, ${otb.longitude.toFixed(6)}` : null}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                }
+                icon={<HiOutlineMapPin className="w-3 h-3" />}
               />
               <InfoItem
                 label="Jumlah Core"
                 value={otb.coreCount}
-                icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                    <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-                  </svg>
-                }
+                icon={<HiOutlineCube className="w-3 h-3" />}
               />
               {otb.notes && (
                 <InfoItem
                   label="Catatan"
                   value={otb.notes}
-                  icon={
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
-                    </svg>
-                  }
+                  icon={<HiOutlineDocumentText className="w-3 h-3" />}
                 />
               )}
             </div>
@@ -157,12 +121,7 @@ export default async function OtbDetailPage({ params }: { params: Promise<{ id: 
           {/* Core Mapping Table */}
           <InfoCard
             title="Mapping Core"
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
-              </svg>
-            }
+            icon={<HiOutlineCube className="w-4 h-4" />}
           >
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
@@ -204,9 +163,7 @@ export default async function OtbDetailPage({ params }: { params: Promise<{ id: 
                           <td className="px-4 py-3 text-sm">
                             {isMapped ? (
                               <Link href={`/admin/ftth/odc/${c.odc!.id}`} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-medium hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
-                                  <path d="M20 6L9 17l-5-5"/>
-                                </svg>
+                                <HiCheck className="w-3 h-3" />
                                 Terhubung ke {c.odc!.name}
                               </Link>
                             ) : (
@@ -231,10 +188,7 @@ export default async function OtbDetailPage({ params }: { params: Promise<{ id: 
           <InfoCard
             title="Lokasi"
             icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                <circle cx="12" cy="10" r="3"/>
-              </svg>
+              <HiOutlineMapPin className="w-4 h-4" />
             }
           >
             <MapPreview lat={otb.latitude} lon={otb.longitude} height={240} />
@@ -244,10 +198,7 @@ export default async function OtbDetailPage({ params }: { params: Promise<{ id: 
           <InfoCard
             title="Metadata"
             icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v6l4 2"/>
-              </svg>
+              <HiOutlineClock className="w-4 h-4" />
             }
           >
             <div className="space-y-3">

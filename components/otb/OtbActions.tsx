@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { useToast } from '@/components/common/ToastProvider'
 import { StatusChangeButton } from '@/components/common/StatusChangeButton'
+import { HiEye, HiPencil, HiTrash } from 'react-icons/hi2'
 
 export function OtbActions({ id, status }: { id: string; status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }) {
   const router = useRouter()
@@ -35,24 +36,13 @@ export function OtbActions({ id, status }: { id: string; status?: 'AKTIF' | 'NON
         />
       )}
       <Link href={`/admin/ftth/otb/${id}`} aria-label="Lihat" title="Lihat" className="inline-flex items-center justify-center h-8 w-8 rounded border border-gray-300 dark:border-gray-700">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
+        <HiEye className="h-4 w-4" />
       </Link>
       <Link href={`/admin/ftth/otb/${id}/edit`} aria-label="Edit" title="Edit" className="inline-flex items-center justify-center h-8 w-8 rounded border border-gray-300 dark:border-gray-700">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Z"/>
-          <path d="M14.06 6.19l3.75 3.75L21 6.75l-3.75-3.75-3.19 3.19Z"/>
-        </svg>
+        <HiPencil className="h-4 w-4" />
       </Link>
       <button onClick={() => setConfirmOpen(true)} aria-label="Hapus" title="Hapus" className="inline-flex items-center justify-center h-8 w-8 rounded border border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
-          <path d="M3 6h18"/>
-          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-          <path d="M10 11v6M14 11v6"/>
-        </svg>
+        <HiTrash className="h-4 w-4" />
       </button>
 
       <ConfirmDialog

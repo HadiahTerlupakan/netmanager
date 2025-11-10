@@ -332,3 +332,27 @@ model SpeedProfile {
   @@index([profileType])
 }
 
+// MikroTik Router [NAS]
+model MikroTikRouter {
+  id                String   @id @default(cuid())
+  name              String   // Nama Router
+  ipAddress         String   // IP Router atau domain
+  timezone          String   @default("+07:00 Asia/Jakarta") // Zona Waktu
+  apiPort           Int      @default(8728) // Port API
+  apiUsername       String   // Username API
+  apiPassword       String   // Password API
+  authPort          Int      @default(7265) // Authentication Port
+  accountingPort    Int      @default(7266) // Accounting Port
+  secretRadius      String   // Secret Radius
+  isolirUrl         String?  // URL Info Isolir (optional)
+  description       String?  // Deskripsi
+  pingStatus        String   @default("offline") // Status ping: "online" atau "offline"
+  userOnline        Int      @default(0) // Jumlah user online
+  lastStatusCheck   DateTime? // Waktu terakhir cek status
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([ipAddress])
+  @@index([pingStatus])
+}
+
