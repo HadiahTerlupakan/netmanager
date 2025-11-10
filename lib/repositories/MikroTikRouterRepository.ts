@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic } from './IMikroTikRouterRepository'
+import { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from './IMikroTikRouterRepository'
 import { prisma } from '@/lib/prisma'
 
 export class MikroTikRouterRepository implements IMikroTikRouterRepository {
@@ -80,6 +80,28 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
 
   async count(): Promise<number> {
     return await this.client.mikroTikRouter.count()
+  }
+
+  async getStatistics(): Promise<MikroTikRouterStatistics> {
+    const total = await this.client.mikroTikRouter.count()
+    const online = await this.client.mikroTikRouter.count({
+      where: { pingStatus: 'online' }
+    })
+    const offline = await this.client.mikroTikRouter.count({
+      where: { pingStatus: 'offline' }
+    })
+    
+    const routers = await this.client.mikroTikRouter.findMany({
+      select: { userOnline: true }
+    })
+    const totalUserOnline = routers.reduce((sum, router) => sum + router.userOnline, 0)
+
+    return {
+      total,
+      online,
+      offline,
+      totalUserOnline
+    }
   }
 }
 

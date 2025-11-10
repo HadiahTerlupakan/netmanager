@@ -49,6 +49,13 @@ export interface MikroTikRouterPublic {
   updatedAt: Date
 }
 
+export interface MikroTikRouterStatistics {
+  total: number
+  online: number
+  offline: number
+  totalUserOnline: number
+}
+
 export interface IMikroTikRouterRepository {
   findAll(): Promise<MikroTikRouterPublic[]>
   findById(id: string): Promise<MikroTikRouterPublic | null>
@@ -56,5 +63,6 @@ export interface IMikroTikRouterRepository {
   update(id: string, data: MikroTikRouterUpdateData): Promise<void>
   delete(id: string): Promise<void>
   count(): Promise<number>
+  getStatistics(): Promise<MikroTikRouterStatistics>
 }
 

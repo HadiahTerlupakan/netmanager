@@ -143,5 +143,5 @@ export type { IOnuTypeRepository, OnuTypeCreateData, OnuTypeUpdateData, OnuTypeP
 export { SpeedProfileRepository } from './SpeedProfileRepository'
 export type { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from './ISpeedProfileRepository'
 export { MikroTikRouterRepository } from './MikroTikRouterRepository'
-export type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic } from './IMikroTikRouterRepository'
+export type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from './IMikroTikRouterRepository'
 

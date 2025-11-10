@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import TestConnectionModal from '@/components/mikrotik/TestConnectionModal'
@@ -28,11 +28,7 @@ export default function EditMikroTikRouterPage() {
     description: '',
   })
 
-  useEffect(() => {
-    loadRouter()
-  }, [routerId])
-
-  const loadRouter = async () => {
+  const loadRouter = useCallback(async () => {
     try {
       const res = await fetch(`/api/mikrotik-routers/${routerId}`)
       if (!res.ok) {
@@ -41,19 +37,19 @@ export default function EditMikroTikRouterPage() {
         return
       }
       const data = await res.json()
-      const router = data.router
+      const routerData = data.router
       setFormData({
-        name: router.name,
-        ipAddress: router.ipAddress,
-        timezone: router.timezone,
-        apiPort: router.apiPort,
-        apiUsername: router.apiUsername,
-        apiPassword: router.apiPassword,
-        authPort: router.authPort,
-        accountingPort: router.accountingPort,
-        secretRadius: router.secretRadius,
-        isolirUrl: router.isolirUrl || '',
-        description: router.description || '',
+        name: routerData.name,
+        ipAddress: routerData.ipAddress,
+        timezone: routerData.timezone,
+        apiPort: routerData.apiPort,
+        apiUsername: routerData.apiUsername,
+        apiPassword: routerData.apiPassword,
+        authPort: routerData.authPort,
+        accountingPort: routerData.accountingPort,
+        secretRadius: routerData.secretRadius,
+        isolirUrl: routerData.isolirUrl || '',
+        description: routerData.description || '',
       })
     } catch (error: any) {
       console.error('Error loading router:', error)
@@ -62,7 +58,11 @@ export default function EditMikroTikRouterPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [routerId, router])
+
+  useEffect(() => {
+    loadRouter()
+  }, [loadRouter])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

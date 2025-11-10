@@ -17,7 +17,12 @@ import {
   HiOutlinePaperClip,
   HiOutlineMap,
   HiOutlineUsers,
-  HiChevronRight
+  HiChevronRight,
+  HiOutlineWifi,
+  HiOutlineArchiveBox,
+  HiOutlineSquares2X2,
+  HiOutlineRectangleStack,
+  HiOutlineDocument
 } from 'react-icons/hi2'
 
 type NavItem = {
@@ -50,14 +55,14 @@ export default function Sidebar() {
     {
       href: '/admin/ftth',
       label: 'FTTH',
-      icon: <HiOutlineCube className="w-5 h-5" />,
+      icon: <HiOutlineWifi className="w-5 h-5" />,
       children: [
-        { href: '/admin/ftth/otb', label: 'OTB', icon: <HiOutlineCube className="w-4 h-4" /> },
-        { href: '/admin/ftth/odc', label: 'ODC', icon: <HiOutlineCube className="w-4 h-4" /> },
-        { href: '/admin/ftth/odp', label: 'ODP', icon: <HiOutlineCube className="w-4 h-4" /> },
-        { href: '/admin/ftth/closure', label: 'Join BOX/Closure', icon: <HiOutlineLink className="w-4 h-4" /> },
-        { href: '/admin/ftth/pole', label: 'Pole/Tiang', icon: <HiOutlineBuildingOffice className="w-4 h-4" /> },
-        { href: '/admin/ftth/kmz', label: 'KMZ', icon: <HiOutlinePaperClip className="w-4 h-4" /> },
+        { href: '/admin/ftth/otb', label: 'OTB', icon: <HiOutlineServer className="w-4 h-4" /> },
+        { href: '/admin/ftth/odc', label: 'ODC', icon: <HiOutlineArchiveBox className="w-4 h-4" /> },
+        { href: '/admin/ftth/odp', label: 'ODP', icon: <HiOutlineSquares2X2 className="w-4 h-4" /> },
+        { href: '/admin/ftth/closure', label: 'Join BOX/Closure', icon: <HiOutlineRectangleStack className="w-4 h-4" /> },
+        { href: '/admin/ftth/pole', label: 'Pole/Tiang', icon: <HiOutlineBolt className="w-4 h-4" /> },
+        { href: '/admin/ftth/kmz', label: 'KMZ', icon: <HiOutlineDocument className="w-4 h-4" /> },
         { href: '/admin/ftth/map', label: 'Topology Map', icon: <HiOutlineMap className="w-4 h-4" /> },
       ],
     },
