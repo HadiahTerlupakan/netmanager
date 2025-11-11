@@ -12,6 +12,38 @@ async function requireAdmin() {
   return session
 }
 
+/**
+ * @swagger
+ * /api/olts/{id}:
+ *   get:
+ *     summary: Get OLT by ID
+ *     description: Mengambil detail OLT berdasarkan ID. Hanya bisa diakses oleh ADMIN.
+ *     tags: [OLTs]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: OLT ID
+ *     responses:
+ *       200:
+ *         description: Detail OLT berhasil diambil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 olt:
+ *                   $ref: '#/components/schemas/OLT'
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: OLT tidak ditemukan
+ */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

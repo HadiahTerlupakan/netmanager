@@ -87,11 +87,20 @@ npm run prisma:generate
 npm run prisma:migrate
 ```
 
-#### d. (Opsional) Seed Database
+#### d. Seed Database (Recommended)
 
 ```bash
 npm run prisma:seed
 ```
+
+Ini akan membuat user admin default:
+- **Email:** `admin@example.com` (atau dari `SEED_ADMIN_EMAIL` di `.env`)
+- **Password:** `admin123` (atau dari `SEED_ADMIN_PASSWORD` di `.env`)
+- **Role:** `ADMIN`
+
+**Catatan:** Seed script adalah idempotent - bisa dijalankan berkali-kali tanpa error. Jika user sudah ada, akan di-update.
+
+Lihat dokumentasi lengkap di [`docs/SEED_DATABASE.md`](docs/SEED_DATABASE.md)
 
 ### 5. Verifikasi Services
 
@@ -142,6 +151,11 @@ npm start
 | `npm run prisma:generate` | Generate Prisma Client |
 | `npm run prisma:migrate` | Menjalankan database migrations |
 | `npm run prisma:seed` | Menjalankan database seeding |
+| `npm test` | Menjalankan tests (watch mode) |
+| `npm run test:run` | Menjalankan tests sekali |
+| `npm run test:ui` | Menjalankan tests dengan UI |
+| `npm run test:coverage` | Menjalankan tests dengan coverage report |
+| `./scripts/setup-test-db.sh` | Setup test database terpisah (PENTING!) |
 
 ## 🗄️ Database & Services
 
@@ -159,6 +173,75 @@ Konfigurasi dapat diubah melalui environment variables di `docker-compose.yml` a
 - **Port:** `6380`
 - **URL:** `redis://localhost:6380`
 
+## 🧪 Testing
+
+Aplikasi menggunakan Vitest untuk unit tests dan integration tests.
+
+### ⚠️ PENTING: Setup Test Database Terpisah
+
+**Sebelum menjalankan tests, setup test database terpisah untuk menghindari kehilangan data development:**
+
+```bash
+# Setup test database (hanya sekali)
+./scripts/setup-test-db.sh
+```
+
+Script ini akan:
+- Membuat database `netmanager_test` terpisah
+- Menambahkan `TEST_DATABASE_URL` ke `.env`
+- Menjalankan migrations di test database
+
+**Mengapa penting?**
+- Tests akan menghapus semua data setelah selesai (cleanup)
+- Tanpa test database terpisah, data development Anda akan terhapus!
+
+Lihat dokumentasi lengkap di [`docs/DATABASE_DATA_LOSS_FIX.md`](docs/DATABASE_DATA_LOSS_FIX.md)
+
+### Menjalankan Tests
+
+```bash
+# Watch mode (development)
+npm test
+
+# Run sekali
+npm run test:run
+
+# Dengan UI
+npm run test:ui
+
+# Dengan coverage report
+npm run test:coverage
+```
+
+### Test Coverage
+
+- Unit tests untuk utilities dan middleware
+- Integration tests untuk API endpoints
+- Test database otomatis di-setup untuk CI/CD
+
+Lihat dokumentasi lengkap di [`docs/INTEGRATION_TESTS.md`](docs/INTEGRATION_TESTS.md)
+
+## 🔄 CI/CD Pipeline
+
+Aplikasi menggunakan GitHub Actions untuk Continuous Integration dan Continuous Deployment.
+
+### Automated Checks
+
+Setiap push dan pull request akan otomatis menjalankan:
+- ✅ Linting (ESLint)
+- ✅ Type checking (TypeScript)
+- ✅ Unit & Integration tests
+- ✅ Build verification
+- ✅ Security audit
+
+### Workflows
+
+- **CI Pipeline** - Automated checks pada setiap push/PR
+- **Release Pipeline** - Automated release saat tag dibuat
+- **Deploy Pipeline** - Deployment ke staging/production
+
+Lihat dokumentasi lengkap di [`docs/CI_CD_PIPELINE.md`](docs/CI_CD_PIPELINE.md)
+
 ## 🛠️ Teknologi yang Digunakan
 
 - **Framework:** Next.js 16
@@ -169,6 +252,8 @@ Konfigurasi dapat diubah melalui environment variables di `docker-compose.yml` a
 - **Styling:** Tailwind CSS
 - **Form Handling:** React Hook Form + Zod
 - **Maps:** OpenLayers (ol)
+- **Testing:** Vitest, React Testing Library
+- **CI/CD:** GitHub Actions
 
 ## 📁 Struktur Proyek
 
@@ -233,6 +318,15 @@ Jika port `3000`, `5433`, atau `6380` sudah digunakan:
 - Database migrations harus dijalankan setelah clone repository
 - Untuk production, pastikan semua environment variables sudah dikonfigurasi dengan benar
 
+## 📚 Dokumentasi
+
+- [`docs/API_DOCUMENTATION.md`](docs/API_DOCUMENTATION.md) - API Documentation (Swagger/OpenAPI)
+- [`docs/CI_CD_PIPELINE.md`](docs/CI_CD_PIPELINE.md) - CI/CD Pipeline Documentation
+- [`docs/INTEGRATION_TESTS.md`](docs/INTEGRATION_TESTS.md) - Integration Tests Documentation
+- [`docs/BACKUP_STRATEGY.md`](docs/BACKUP_STRATEGY.md) - Database Backup Strategy
+- [`IMPLEMENTATION_GUIDE.md`](IMPLEMENTATION_GUIDE.md) - Implementation Guide
+- [`STATUS_IMPLEMENTASI.md`](STATUS_IMPLEMENTASI.md) - Implementation Status
+
 ## 🤝 Kontribusi
 
 1. Fork repository
@@ -240,6 +334,8 @@ Jika port `3000`, `5433`, atau `6380` sudah digunakan:
 3. Commit perubahan (`git commit -m 'Add some AmazingFeature'`)
 4. Push ke branch (`git push origin feature/AmazingFeature`)
 5. Buat Pull Request
+
+**Catatan:** Semua PR akan otomatis di-check oleh CI/CD pipeline. Pastikan semua tests pass sebelum merge.
 
 ## 📄 Lisensi
 

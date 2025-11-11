@@ -13,7 +13,13 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Auto-start scheduler saat aplikasi start (hanya di server-side)
-if (typeof window === 'undefined' && !(globalThis as any).__schedulerStarted) {
+// Skip scheduler untuk test environment
+if (
+  typeof window === 'undefined' && 
+  !(globalThis as any).__schedulerStarted &&
+  process.env.NODE_ENV !== 'test' &&
+  !process.env.VITEST
+) {
   // Import dan start scheduler
   import('@/lib/cron/start-scheduler').then(({ startAllSchedulers }) => {
     startAllSchedulers()
