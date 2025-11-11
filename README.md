@@ -87,11 +87,20 @@ npm run prisma:generate
 npm run prisma:migrate
 ```
 
-#### d. (Opsional) Seed Database
+#### d. Seed Database (Recommended)
 
 ```bash
 npm run prisma:seed
 ```
+
+Ini akan membuat user admin default:
+- **Email:** `admin@example.com` (atau dari `SEED_ADMIN_EMAIL` di `.env`)
+- **Password:** `admin123` (atau dari `SEED_ADMIN_PASSWORD` di `.env`)
+- **Role:** `ADMIN`
+
+**Catatan:** Seed script adalah idempotent - bisa dijalankan berkali-kali tanpa error. Jika user sudah ada, akan di-update.
+
+Lihat dokumentasi lengkap di [`docs/SEED_DATABASE.md`](docs/SEED_DATABASE.md)
 
 ### 5. Verifikasi Services
 
@@ -146,6 +155,7 @@ npm start
 | `npm run test:run` | Menjalankan tests sekali |
 | `npm run test:ui` | Menjalankan tests dengan UI |
 | `npm run test:coverage` | Menjalankan tests dengan coverage report |
+| `./scripts/setup-test-db.sh` | Setup test database terpisah (PENTING!) |
 
 ## 🗄️ Database & Services
 
@@ -166,6 +176,26 @@ Konfigurasi dapat diubah melalui environment variables di `docker-compose.yml` a
 ## 🧪 Testing
 
 Aplikasi menggunakan Vitest untuk unit tests dan integration tests.
+
+### ⚠️ PENTING: Setup Test Database Terpisah
+
+**Sebelum menjalankan tests, setup test database terpisah untuk menghindari kehilangan data development:**
+
+```bash
+# Setup test database (hanya sekali)
+./scripts/setup-test-db.sh
+```
+
+Script ini akan:
+- Membuat database `netmanager_test` terpisah
+- Menambahkan `TEST_DATABASE_URL` ke `.env`
+- Menjalankan migrations di test database
+
+**Mengapa penting?**
+- Tests akan menghapus semua data setelah selesai (cleanup)
+- Tanpa test database terpisah, data development Anda akan terhapus!
+
+Lihat dokumentasi lengkap di [`docs/DATABASE_DATA_LOSS_FIX.md`](docs/DATABASE_DATA_LOSS_FIX.md)
 
 ### Menjalankan Tests
 

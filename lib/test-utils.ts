@@ -9,7 +9,10 @@ import { hash } from 'bcryptjs'
 
 /**
  * Test database client
- * Menggunakan DATABASE_URL dari environment atau test database
+ * Menggunakan TEST_DATABASE_URL jika tersedia, fallback ke DATABASE_URL
+ * 
+ * ⚠️ WARNING: Jika TEST_DATABASE_URL tidak di-set, akan menggunakan DATABASE_URL (development database)
+ * Setup TEST_DATABASE_URL untuk menghindari kehilangan data development!
  */
 export const testPrisma = new PrismaClient({
   datasources: {
@@ -22,8 +25,42 @@ export const testPrisma = new PrismaClient({
 
 /**
  * Cleanup test database
+ * 
+ * ⚠️ WARNING: Function ini akan menghapus SEMUA data di database!
+ * Pastikan menggunakan TEST_DATABASE_URL untuk menghindari kehilangan data development.
  */
 export async function cleanupTestDatabase() {
+  const dbUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL
+  
+  // Safety check: Jangan hapus data development database tanpa konfirmasi
+  if (!process.env.TEST_DATABASE_URL) {
+    const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+    const isCI = process.env.CI === 'true'
+    
+    if (!isTestEnv && !isCI) {
+      console.error('')
+      console.error('⚠️  ⚠️  ⚠️  WARNING: TEST_DATABASE_URL tidak di-set! ⚠️  ⚠️  ⚠️')
+      console.error('')
+      console.error('Tests akan menggunakan DATABASE_URL (development database)')
+      console.error('Cleanup akan menghapus SEMUA data di development database!')
+      console.error('')
+      console.error('Untuk menghindari kehilangan data:')
+      console.error('1. Tambahkan TEST_DATABASE_URL di .env')
+      console.error('2. Buat test database terpisah')
+      console.error('3. Run migrations di test database')
+      console.error('')
+      throw new Error(
+        'TEST_DATABASE_URL tidak di-set! ' +
+        'Setup test database terpisah untuk menghindari kehilangan data development. ' +
+        'Lihat docs/DATABASE_DATA_LOSS_FIX.md untuk instruksi lengkap.'
+      )
+    }
+    
+    // Di test environment atau CI, tetap warn tapi lanjutkan
+    console.warn('⚠️  WARNING: TEST_DATABASE_URL tidak di-set, menggunakan DATABASE_URL')
+    console.warn('⚠️  Cleanup akan menghapus data di development database!')
+  }
+  
   // Delete dalam urutan yang benar (menghindari foreign key constraint)
   await testPrisma.onu.deleteMany()
   await testPrisma.onuType.deleteMany()
