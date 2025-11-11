@@ -539,7 +539,7 @@ export default function AllOnuPage() {
       )}
 
       {/* ONUs Table Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-indigo-500">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         {/* Filter Bar - Sesuai dengan gambar */}
         <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
           <div className="flex flex-wrap items-center gap-3">
