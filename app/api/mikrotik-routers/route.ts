@@ -12,6 +12,33 @@ async function requireAdmin() {
   return session
 }
 
+/**
+ * @swagger
+ * /api/mikrotik-routers:
+ *   get:
+ *     summary: Get all MikroTik routers
+ *     description: Mengambil daftar semua MikroTik router. Hanya bisa diakses oleh ADMIN.
+ *     tags: [MikroTik]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Daftar router berhasil diambil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 routers:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/MikroTikRouter'
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
 export async function GET() {
   try {
     const session = await requireAdmin()
