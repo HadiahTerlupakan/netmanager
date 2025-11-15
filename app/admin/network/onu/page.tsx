@@ -25,6 +25,23 @@ type Summary = {
   other: { count: number; percentage: number; los: number; na: number }
 }
 
+type OLT = {
+  id: string
+  name: string
+  ipAddress: string
+}
+
+type Card = {
+  frame: number
+  card: number
+  slots: Array<{
+    slot: number
+    ports: number[]
+  }>
+  totalSlots: number
+  totalPorts: number
+}
+
 export default function AllOnuPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -33,6 +50,9 @@ export default function AllOnuPage() {
   const [summary, setSummary] = useState<Summary | null>(null)
   const [total, setTotal] = useState(0)
   const [dataSource, setDataSource] = useState<'database' | 'snmp' | null>(null)
+  const [allOlts, setAllOlts] = useState<OLT[]>([])
+  const [allCards, setAllCards] = useState<Card[]>([])
+  const [loadingCards, setLoadingCards] = useState(false)
   // const [syncing, setSyncing] = useState(false) // Sync feature disabled
 
   // Filters
@@ -54,7 +74,84 @@ export default function AllOnuPage() {
 
   useEffect(() => {
     loadOnus()
+    loadAllOlts()
   }, [])
+
+  // Load cards saat OLT dipilih atau saat semua OLT dimuat
+  useEffect(() => {
+    if (allOlts.length > 0) {
+      loadAllCards()
+    }
+  }, [allOlts, selectedOlt])
+
+  const loadAllOlts = async () => {
+    try {
+      const res = await fetch('/api/olts')
+      if (!res.ok) {
+        console.error('Gagal memuat data OLT')
+        return
+      }
+      const data = await res.json()
+      setAllOlts(data.olts || [])
+    } catch (e: any) {
+      console.error('Error loading OLTs:', e)
+    }
+  }
+
+  const loadAllCards = async () => {
+    setLoadingCards(true)
+    try {
+      const cards: Card[] = []
+      
+      // Jika OLT tertentu dipilih, load cards dari OLT tersebut saja
+      if (selectedOlt !== 'all') {
+        const olt = allOlts.find((o) => o.name === selectedOlt)
+        if (olt) {
+          try {
+            const res = await fetch(`/api/olts/${olt.id}/cards`)
+            if (res.ok) {
+              const data = await res.json()
+              if (data.success && data.cards) {
+                cards.push(...data.cards)
+              }
+            }
+          } catch (e) {
+            console.error(`Error loading cards for OLT ${olt.name}:`, e)
+          }
+        }
+      } else {
+        // Load cards dari semua OLT yang terhubung SNMP
+        for (const olt of allOlts) {
+          try {
+            const res = await fetch(`/api/olts/${olt.id}/cards`)
+            if (res.ok) {
+              const data = await res.json()
+              if (data.success && data.cards) {
+                cards.push(...data.cards)
+              }
+            }
+          } catch (e) {
+            // Skip OLT yang tidak bisa diakses atau tidak terhubung SNMP
+            console.error(`Error loading cards for OLT ${olt.name}:`, e)
+          }
+        }
+      }
+      
+      // Remove duplicate cards (same frame number)
+      const uniqueCardsMap = new Map<number, Card>()
+      for (const card of cards) {
+        if (!uniqueCardsMap.has(card.frame)) {
+          uniqueCardsMap.set(card.frame, card)
+        }
+      }
+      
+      setAllCards(Array.from(uniqueCardsMap.values()).sort((a, b) => a.frame - b.frame))
+    } catch (e: any) {
+      console.error('Error loading cards:', e)
+    } finally {
+      setLoadingCards(false)
+    }
+  }
 
   const loadOnus = async () => {
     setRefreshing(true)
@@ -81,12 +178,19 @@ export default function AllOnuPage() {
   }
 
   // Get unique values for filters
+  // Menggunakan semua OLT dari database, bukan hanya dari ONU yang ada
   const uniqueOlts = useMemo(() => {
-    const olts = new Set(onus.map((onu) => onu.oltName))
-    return Array.from(olts).sort()
-  }, [onus])
+    return allOlts.map((olt) => olt.name).sort()
+  }, [allOlts])
 
+  // Get cards dari SNMP atau fallback ke ONU data
   const uniqueCards = useMemo(() => {
+    // Prioritaskan cards dari SNMP
+    if (allCards.length > 0) {
+      return allCards.map((card) => card.frame.toString()).sort((a, b) => parseInt(a) - parseInt(b))
+    }
+    
+    // Fallback: ambil dari ONU data jika ada
     const cards = new Set(
       onus
         .map((onu) => {
@@ -96,19 +200,44 @@ export default function AllOnuPage() {
         .filter((c) => c !== null)
     )
     return Array.from(cards).sort((a, b) => parseInt(a) - parseInt(b))
-  }, [onus])
+  }, [allCards, onus])
 
+  // Get PON ports dari SNMP (cards) atau fallback ke ONU data
+  // Format: Card/Slot/PON, jadi PON adalah bagian ketiga
   const uniquePorts = useMemo(() => {
-    const ports = new Set(
+    // Prioritaskan PON ports dari SNMP cards
+    if (allCards.length > 0) {
+      const ponPorts = new Set<number>()
+      
+      // Ambil semua PON ports dari semua slots di semua cards
+      // slot.ports adalah PON ports
+      for (const card of allCards) {
+        for (const slot of card.slots) {
+          for (const ponPort of slot.ports) {
+            ponPorts.add(ponPort)
+          }
+        }
+      }
+      
+      return Array.from(ponPorts)
+        .sort((a, b) => a - b)
+        .map((p) => p.toString())
+    }
+    
+    // Fallback: ambil PON port dari ONU data jika ada
+    // Format gponOnu: Frame/Slot/PON:ONU_ID
+    // Jadi PON adalah bagian ketiga sebelum :
+    const ponPorts = new Set(
       onus
         .map((onu) => {
-          const match = onu.gponOnu.match(/^\d+\/(\d+)\/\d+:\d+$/)
+          // Format: 1/9/1:1 -> ambil bagian ketiga (PON)
+          const match = onu.gponOnu.match(/^\d+\/\d+\/(\d+):\d+$/)
           return match ? match[1] : null
         })
         .filter((p) => p !== null)
     )
-    return Array.from(ports).sort((a, b) => parseInt(a) - parseInt(b))
-  }, [onus])
+    return Array.from(ponPorts).sort((a, b) => parseInt(a) - parseInt(b))
+  }, [allCards, onus])
 
   const uniqueTypes = useMemo(() => {
     const types = new Set(onus.map((onu) => onu.actualType).filter((t) => t))
@@ -126,8 +255,28 @@ export default function AllOnuPage() {
 
   const getPortCount = (port: string) => {
     if (port === 'all') return onus.length
+    
+    const ponPortNum = parseInt(port)
+    if (isNaN(ponPortNum)) return 0
+    
+    // Jika ada data cards dari SNMP, hitung berapa banyak slot yang memiliki PON port ini
+    if (allCards.length > 0) {
+      let slotCount = 0
+      for (const card of allCards) {
+        for (const slot of card.slots) {
+          // slot.ports adalah PON ports
+          if (slot.ports.includes(ponPortNum)) {
+            slotCount++
+          }
+        }
+      }
+      return slotCount
+    }
+    
+    // Fallback: hitung dari ONU data (berapa banyak ONU yang menggunakan PON port ini)
+    // Format: Frame/Slot/PON:ONU_ID, jadi PON adalah bagian ketiga
     return onus.filter((onu) => {
-      const match = onu.gponOnu.match(/^\d+\/(\d+)\/\d+:\d+$/)
+      const match = onu.gponOnu.match(/^\d+\/\d+\/(\d+):\d+$/)
       return match && match[1] === port
     }).length
   }
@@ -147,7 +296,7 @@ export default function AllOnuPage() {
       filters.push({ key: 'card', label: `Card ${selectedCard}`, value: selectedCard })
     }
     if (selectedPort !== 'all') {
-      filters.push({ key: 'port', label: `Port ${selectedPort}`, value: selectedPort })
+      filters.push({ key: 'port', label: `PON ${selectedPort}`, value: selectedPort })
     }
     if (selectedType !== 'all') {
       filters.push({ key: 'type', label: selectedType, value: selectedType })
@@ -178,10 +327,12 @@ export default function AllOnuPage() {
       })
     }
 
-    // Filter by Port
+    // Filter by PON Port
+    // Format: Frame/Slot/PON:ONU_ID, jadi PON adalah bagian ketiga
     if (selectedPort !== 'all') {
       filtered = filtered.filter((onu) => {
-        const match = onu.gponOnu.match(/^\d+\/(\d+)\/\d+:\d+$/)
+        // Format: 1/9/1:1 -> ambil bagian ketiga (PON)
+        const match = onu.gponOnu.match(/^\d+\/\d+\/(\d+):\d+$/)
         return match && match[1] === selectedPort
       })
     }
@@ -576,24 +727,35 @@ export default function AllOnuPage() {
                   setSelectedCard(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="appearance-none pl-10 pr-8 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                disabled={loadingCards}
+                className="appearance-none pl-10 pr-8 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="all">All Cards</option>
-                {uniqueCards.map((card) => (
-                  <option key={card} value={card} className="bg-white text-gray-900">
-                    Card {card} - GTGH ({getCardCount(card)})
-                  </option>
-                ))}
+                <option value="all">
+                  {loadingCards ? 'Loading Cards...' : uniqueCards.length === 0 ? 'No Cards Available' : 'All Cards'}
+                </option>
+                {uniqueCards.map((card) => {
+                  const cardData = allCards.find((c) => c.frame.toString() === card)
+                  const portCount = cardData ? cardData.totalPorts : getCardCount(card)
+                  return (
+                    <option key={card} value={card} className="bg-white text-gray-900">
+                      Card {card} - GTGH ({portCount} ports)
+                    </option>
+                  )
+                })}
               </select>
               <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 <HiOutlineCpuChip className="w-4 h-4 text-white" />
               </div>
               <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                <HiChevronDown className="w-4 h-4 text-white" />
+                {loadingCards ? (
+                  <HiArrowPath className="w-4 h-4 text-white animate-spin" />
+                ) : (
+                  <HiChevronDown className="w-4 h-4 text-white" />
+                )}
               </div>
             </div>
 
-            {/* Port Filter */}
+            {/* PON Port Filter */}
             <div className="relative">
               <select
                 value={selectedPort}
@@ -601,20 +763,30 @@ export default function AllOnuPage() {
                   setSelectedPort(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="appearance-none pl-10 pr-8 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                disabled={loadingCards}
+                className="appearance-none pl-10 pr-8 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="all">All Ports</option>
-                {uniquePorts.map((port) => (
-                  <option key={port} value={port} className="bg-white text-gray-900">
-                    Port {port} ({getPortCount(port)})
-                  </option>
-                ))}
+                <option value="all">
+                  {loadingCards ? 'Loading PON Ports...' : uniquePorts.length === 0 ? 'No PON Ports Available' : 'All PON Ports'}
+                </option>
+                {uniquePorts.map((ponPort) => {
+                  const slotCount = getPortCount(ponPort)
+                  return (
+                    <option key={ponPort} value={ponPort} className="bg-white text-gray-900">
+                      PON {ponPort} ({slotCount} {slotCount === 1 ? 'slot' : 'slots'})
+                    </option>
+                  )
+                })}
               </select>
               <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 <HiOutlineGlobeAlt className="w-4 h-4 text-white" />
               </div>
               <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                <HiChevronDown className="w-4 h-4 text-white" />
+                {loadingCards ? (
+                  <HiArrowPath className="w-4 h-4 text-white animate-spin" />
+                ) : (
+                  <HiChevronDown className="w-4 h-4 text-white" />
+                )}
               </div>
             </div>
 

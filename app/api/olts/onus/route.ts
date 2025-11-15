@@ -1621,6 +1621,243 @@ async function getAllActivePonIds(
   }
 }
 
+/**
+ * Dapatkan semua Card (Frame) dari OLT via SNMP
+ * Card = Frame dalam format Frame/Slot/Port
+ * @param ipAddress - IP address OLT
+ * @param port - SNMP port
+ * @param community - SNMP community
+ * @param version - SNMP version
+ * @returns Array of cards dengan informasi slot dan port yang tersedia
+ */
+export async function getAllCardsViaSNMP(
+  ipAddress: string,
+  port: number,
+  community: string,
+  version: string
+): Promise<Array<{
+  frame: number
+  card: number
+  slots: Array<{
+    slot: number
+    ports: number[]
+  }>
+  totalSlots: number
+  totalPorts: number
+}>> {
+  try {
+    console.log(`[Card-SNMP] Getting all cards from OLT ${ipAddress} via SNMP...`)
+    
+    // Dapatkan semua PON ID aktif
+    const activePonIds = await getAllActivePonIds(ipAddress, port, community, version)
+    
+    if (activePonIds.length === 0) {
+      console.log(`[Card-SNMP] No active PON IDs found`)
+      return []
+    }
+    
+    // Map untuk menyimpan card -> slot -> ports
+    const cardMap = new Map<number, Map<number, Set<number>>>()
+    
+    // Konversi setiap PON ID ke Frame/Slot/Port
+    // Coba semua metode dan pilih yang paling masuk akal
+    for (const ponId of activePonIds) {
+      let portInfo: { frame: number; slot: number; port: number } | null = null
+      const results: Array<{ method: string; result: { frame: number; slot: number; port: number } }> = []
+      
+      // Metode 1: Formula PONID = (Frame * 16777216) + (Slot * 65536) + (Port * 256)
+      const formulaResult = ponIdToFrameSlotPort(ponId)
+      if (formulaResult) {
+        results.push({ method: 'formula', result: formulaResult })
+        console.log(`[Card-SNMP] PON ID ${ponId} -> ${formulaResult.frame}/${formulaResult.slot}/${formulaResult.port} (via formula)`)
+      }
+      
+      // Metode 2: Binary parsing [4 bit type][4 bit shelf][8 bit frame][8 bit slot][8 bit port]
+      const portStr = ponIndexToPort(ponId)
+      let binaryFrame: number | null = null
+      let binarySlot: number | null = null
+      
+      if (portStr && !portStr.includes('INVALID')) {
+        const parts = portStr.split('/')
+        if (parts.length === 3) {
+          const frame = parseInt(parts[0])
+          const slot = parseInt(parts[1])
+          const portNum = parseInt(parts[2])
+          
+          // Simpan frame dan slot dari binary parsing (biasanya lebih akurat untuk card)
+          if (!isNaN(frame) && !isNaN(slot) && frame > 0 && slot > 0) {
+            binaryFrame = frame
+            binarySlot = slot
+          }
+          
+          // Jika port valid (> 0), gunakan binary parsing lengkap
+          if (!isNaN(frame) && !isNaN(slot) && !isNaN(portNum) && frame > 0 && slot > 0 && portNum > 0) {
+            results.push({ method: 'binary', result: { frame, slot, port: portNum } })
+            console.log(`[Card-SNMP] PON ID ${ponId} -> ${frame}/${slot}/${portNum} (via binary parsing)`)
+          } else if (binaryFrame && binarySlot) {
+            // Jika port 0 tapi frame dan slot valid, gunakan frame/slot dari binary, port dari formula
+            console.log(`[Card-SNMP] PON ID ${ponId}: Binary parsing got frame=${frame}, slot=${slot}, but port=${portNum} (invalid)`)
+          }
+        }
+      }
+      
+      // Metode 3: Bit shifting (frame << 24) + (slot << 16) + (port << 8) + ONU_ID
+      const bitShiftResult = ponIndexToFrameSlotPortOnu(ponId)
+      if (bitShiftResult && bitShiftResult.slot > 0 && bitShiftResult.port > 0) {
+        results.push({ 
+          method: 'bit-shift', 
+          result: {
+            frame: bitShiftResult.frame,
+            slot: bitShiftResult.slot,
+            port: bitShiftResult.port
+          }
+        })
+        console.log(`[Card-SNMP] PON ID ${ponId} -> ${bitShiftResult.frame}/${bitShiftResult.slot}/${bitShiftResult.port} (via bit shifting)`)
+      }
+      
+      // Pilih hasil yang paling masuk akal
+      // Prioritas: binary parsing > bit shifting > formula
+      // Tapi jika semua hasil sama, gunakan yang pertama
+      if (results.length > 0) {
+        // Cek apakah semua hasil sama
+        const allSame = results.every(r => 
+          r.result.frame === results[0].result.frame &&
+          r.result.slot === results[0].result.slot &&
+          r.result.port === results[0].result.port
+        )
+        
+        if (allSame) {
+          portInfo = results[0].result
+        } else {
+          // Jika berbeda, coba gabungkan: card dari binary (jika ada), slot dan port dari formula/bit-shift
+          if (binaryFrame && binarySlot) {
+            // Ambil slot dan port dari formula atau bit-shift
+            const formulaResult = results.find(r => r.method === 'formula')
+            const bitShiftResult = results.find(r => r.method === 'bit-shift')
+            
+            const slotPortSource = bitShiftResult || formulaResult
+            if (slotPortSource && slotPortSource.result.port > 0 && slotPortSource.result.slot > 0) {
+              // Gunakan card dari binary, slot dari formula/bit-shift, port dari formula/bit-shift
+              // Ini karena binary parsing kadang memberikan slot yang salah
+              portInfo = {
+                frame: binaryFrame,  // Card dari binary (biasanya lebih akurat)
+                slot: slotPortSource.result.slot,  // Slot dari formula/bit-shift (biasanya lebih akurat)
+                port: slotPortSource.result.port   // Port dari formula/bit-shift
+              }
+              console.log(`[Card-SNMP] PON ID ${ponId}: Hybrid result - Card from binary (${binaryFrame}), Slot/Port from ${slotPortSource.method} (${slotPortSource.result.slot}/${slotPortSource.result.port})`)
+              console.log(`[Card-SNMP] Binary parsing gave slot=${binarySlot}, but using slot=${slotPortSource.result.slot} from ${slotPortSource.method}`)
+              console.log(`[Card-SNMP] All results:`, results.map(r => `${r.method}: ${r.result.frame}/${r.result.slot}/${r.result.port}`).join(', '))
+            } else {
+              // Jika tidak ada port valid, gunakan binary lengkap atau fallback
+              const binaryResult = results.find(r => r.method === 'binary')
+              if (binaryResult && binaryResult.result.port > 0) {
+                portInfo = binaryResult.result
+                console.log(`[Card-SNMP] PON ID ${ponId}: Using binary parsing result: ${portInfo.frame}/${portInfo.slot}/${portInfo.port}`)
+              } else {
+                // Fallback ke formula atau bit-shift
+                const bitShiftResult = results.find(r => r.method === 'bit-shift')
+                if (bitShiftResult) {
+                  portInfo = bitShiftResult.result
+                  console.log(`[Card-SNMP] PON ID ${ponId}: Using bit-shift result: ${portInfo.frame}/${portInfo.slot}/${portInfo.port}`)
+                } else {
+                  portInfo = results[0].result
+                  console.log(`[Card-SNMP] PON ID ${ponId}: Using formula result: ${portInfo.frame}/${portInfo.slot}/${portInfo.port}`)
+                }
+                console.log(`[Card-SNMP] All results:`, results.map(r => `${r.method}: ${r.result.frame}/${r.result.slot}/${r.result.port}`).join(', '))
+              }
+            }
+          } else {
+            // Jika tidak ada binary frame/slot, prioritaskan binary parsing lengkap
+            const binaryResult = results.find(r => r.method === 'binary')
+            if (binaryResult && binaryResult.result.port > 0) {
+              portInfo = binaryResult.result
+              console.log(`[Card-SNMP] PON ID ${ponId}: Using binary parsing result: ${portInfo.frame}/${portInfo.slot}/${portInfo.port}`)
+            } else {
+              // Jika tidak ada binary, gunakan bit shifting
+              const bitShiftResult = results.find(r => r.method === 'bit-shift')
+              if (bitShiftResult) {
+                portInfo = bitShiftResult.result
+                console.log(`[Card-SNMP] PON ID ${ponId}: Using bit-shift result: ${portInfo.frame}/${portInfo.slot}/${portInfo.port}`)
+              } else {
+                // Fallback ke formula
+                portInfo = results[0].result
+                console.log(`[Card-SNMP] PON ID ${ponId}: Using formula result: ${portInfo.frame}/${portInfo.slot}/${portInfo.port}`)
+              }
+            }
+            console.log(`[Card-SNMP] All results:`, results.map(r => `${r.method}: ${r.result.frame}/${r.result.slot}/${r.result.port}`).join(', '))
+          }
+        }
+      }
+      
+      if (portInfo) {
+        const { frame, slot, port: portNum } = portInfo
+        const card = frame // Frame = Card
+        
+        // Log detail untuk debugging
+        console.log(`[Card-SNMP] PON ID ${ponId} -> Card:${card}, Slot:${slot}, PON:${portNum}`)
+        if (results.length > 1) {
+          console.log(`[Card-SNMP] All conversion results for PON ID ${ponId}:`, results.map(r => `${r.method}: ${r.result.frame}/${r.result.slot}/${r.result.port}`).join(', '))
+        }
+        
+        // Inisialisasi card jika belum ada
+        if (!cardMap.has(card)) {
+          cardMap.set(card, new Map())
+        }
+        
+        const slotMap = cardMap.get(card)!
+        
+        // Inisialisasi slot jika belum ada
+        if (!slotMap.has(slot)) {
+          slotMap.set(slot, new Set())
+        }
+        
+        // Tambahkan port ke slot
+        slotMap.get(slot)!.add(portNum)
+      } else {
+        console.warn(`[Card-SNMP] Failed to convert PON ID ${ponId} to Frame/Slot/Port. Tried methods: ${results.map(r => r.method).join(', ') || 'none'}`)
+      }
+    }
+    
+    // Convert map ke array format
+    const cards: Array<{
+      frame: number
+      card: number
+      slots: Array<{
+        slot: number
+        ports: number[]
+      }>
+      totalSlots: number
+      totalPorts: number
+    }> = []
+    
+    for (const [card, slotMap] of Array.from(cardMap.entries()).sort((a, b) => a[0] - b[0])) {
+      const slots: Array<{ slot: number; ports: number[] }> = []
+      let totalPorts = 0
+      
+      for (const [slot, portSet] of Array.from(slotMap.entries()).sort((a, b) => a[0] - b[0])) {
+        const ports = Array.from(portSet).sort((a, b) => a - b)
+        slots.push({ slot, ports })
+        totalPorts += ports.length
+      }
+      
+      cards.push({
+        frame: card,
+        card,
+        slots,
+        totalSlots: slots.length,
+        totalPorts,
+      })
+    }
+    
+    console.log(`[Card-SNMP] Found ${cards.length} cards with ${cards.reduce((sum, c) => sum + c.totalPorts, 0)} total ports`)
+    
+    return cards
+  } catch (error: any) {
+    console.error(`[Card-SNMP] Error getting cards via SNMP:`, error)
+    throw error
+  }
+}
+
 // Get ONU data menggunakan SNMP
 export async function getOnuDataViaSNMP(
   ipAddress: string,
