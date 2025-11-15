@@ -43,15 +43,7 @@ export async function syncOnuDataFromOlt(oltId: string): Promise<number> {
 
     // Import fungsi SNMP secara dinamis untuk menghindari circular dependency
     // Kita akan memanggil API endpoint internal atau menggunakan fungsi langsung
-    const { getC3xxOnuDataViaSNMP, getOnuDataViaSNMP, isZteC3xx } = await import('@/app/api/olts/onus/route')
-
-    // Deteksi apakah ini ZTE C3XX
-    const isC3xx = await isZteC3xx(
-      olt.ipAddress,
-      olt.snmpPort,
-      olt.snmpCommunityWrite,
-      olt.snmpVersion
-    )
+    const { getC300GponOnuDataViaSNMP, getC3xxOnuDataViaSNMP, getOnuDataViaSNMP } = await import('@/app/api/olts/onus/route')
 
     // Fetch ONU data dari SNMP
     let onuData: Array<{
@@ -65,12 +57,34 @@ export async function syncOnuDataFromOlt(oltId: string): Promise<number> {
       status: string
       rxOlt: string | null
       rxOnu: string | null
+      txOlt: string | null
+      txOnu: string | null
       serialNumber: string
       actualType: string
+      registerTime: string | null
+      distance: number | null
+      lastSeen: string | null
+      registrationMode: string | null
+      softwareVersion: string | null
+      hardwareVersion: string | null
+      temperature: number | null
+      laserBiasCurrent: number | null
     }> = []
 
-    if (isC3xx) {
-      console.log(`[ONU-Sync] Detected ZTE C3XX OLT, using C3XX parser...`)
+    // Try C300 GPON parser first (standard ZTE GPON MIB)
+    console.log(`[ONU-Sync] Trying C300 GPON parser (standard GPON MIB .1012)...`)
+    onuData = await getC300GponOnuDataViaSNMP(
+      olt.ipAddress,
+      olt.snmpPort,
+      olt.snmpCommunityWrite,
+      olt.snmpVersion,
+      olt.name,
+      olt.id
+    )
+    
+    // Jika C300 GPON parser tidak return data, coba C3XX parser
+    if (onuData.length === 0) {
+      console.log(`[ONU-Sync] C300 GPON parser returned no data, trying C3XX parser...`)
       onuData = await getC3xxOnuDataViaSNMP(
         olt.ipAddress,
         olt.snmpPort,
@@ -79,8 +93,11 @@ export async function syncOnuDataFromOlt(oltId: string): Promise<number> {
         olt.name,
         olt.id
       )
-    } else {
-      console.log(`[ONU-Sync] Using standard ZTE OLT parser...`)
+    }
+    
+    // Jika masih tidak ada data, coba parser standar (legacy)
+    if (onuData.length === 0) {
+      console.log(`[ONU-Sync] C3XX parser returned no data, trying standard parser...`)
       onuData = await getOnuDataViaSNMP(
         olt.ipAddress,
         olt.snmpPort,
@@ -106,8 +123,18 @@ export async function syncOnuDataFromOlt(oltId: string): Promise<number> {
           status: onu.status,
           rxOlt: onu.rxOlt,
           rxOnu: onu.rxOnu,
+          txOlt: onu.txOlt || null,
+          txOnu: onu.txOnu || null,
           serialNumber: onu.serialNumber || null,
           actualType: onu.actualType || null,
+          registerTime: onu.registerTime ? new Date(onu.registerTime) : null,
+          distance: onu.distance || null,
+          lastSeen: onu.lastSeen ? new Date(onu.lastSeen) : null,
+          registrationMode: onu.registrationMode || null,
+          softwareVersion: onu.softwareVersion || null,
+          hardwareVersion: onu.hardwareVersion || null,
+          temperature: onu.temperature || null,
+          laserBiasCurrent: onu.laserBiasCurrent || null,
         })
         syncedCount++
       } catch (error: any) {

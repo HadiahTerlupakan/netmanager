@@ -173,13 +173,13 @@ export default function OnuTypePage() {
     })
   }
 
-  const handleSyncFromSNMP = async () => {
+  const handleSyncFromTelnet = async () => {
     if (!selectedOltId) {
       alert('Silakan pilih OLT terlebih dahulu')
       return
     }
 
-    if (!confirm('Apakah Anda yakin ingin sync ONU Type dari Telnet? Ini akan mengambil semua ONU type yang terdeteksi dari OLT menggunakan perintah "show onu-type".')) {
+    if (!confirm('Apakah Anda yakin ingin sync ONU Type dari OLT menggunakan Telnet?\n\nIni akan mengambil semua ONU type yang dikonfigurasi di OLT menggunakan perintah Telnet "show onu-type".\n\nData yang di-sync:\n- ONU Type Name\n- PON Type\n- Description\n- Max T-CONT, GEM Port, dll\n- Service Abilities\n- Configuration Settings')) {
       return
     }
 
@@ -187,7 +187,7 @@ export default function OnuTypePage() {
       setSyncing(true)
       setError(null)
 
-      const res = await fetch(`/api/olts/${selectedOltId}/onutypes/sync`, {
+      const res = await fetch(`/api/olts/${selectedOltId}/onutypes/sync?method=telnet`, {
         method: 'POST',
       })
 
@@ -204,6 +204,43 @@ export default function OnuTypePage() {
     } catch (error: any) {
       console.error('Error syncing ONU types:', error)
       setError(error.message || 'Gagal sync ONU Type dari Telnet')
+      alert(error.message || 'Terjadi kesalahan saat sync ONU Type')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const handleSyncFromSNMP = async () => {
+    if (!selectedOltId) {
+      alert('Silakan pilih OLT terlebih dahulu')
+      return
+    }
+
+    if (!confirm('Apakah Anda yakin ingin sync ONU Type dari OLT menggunakan SNMP?\n\nIni akan mengambil semua ONU type dari ONU yang terdaftar di OLT menggunakan SNMP OID.\n\nData yang di-sync:\n- ONU Type Name (dari ONU yang terdaftar)\n- Basic info (Ethernet Ports, WiFi, VoIP)\n\nCatatan: Sync dari SNMP hanya mendapatkan ONU type yang digunakan oleh ONU yang sudah terdaftar.')) {
+      return
+    }
+
+    try {
+      setSyncing(true)
+      setError(null)
+
+      const res = await fetch(`/api/olts/${selectedOltId}/onutypes/sync?method=snmp`, {
+        method: 'POST',
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Gagal sync ONU Type dari SNMP')
+      }
+
+      const result = await res.json()
+      alert(`Berhasil sync ${result.data.syncedTypes} ONU types dari SNMP!\n\nTotal Types: ${result.data.totalTypes}\nSynced: ${result.data.syncedTypes}`)
+      
+      // Reload data setelah sync
+      await loadData()
+    } catch (error: any) {
+      console.error('Error syncing ONU types:', error)
+      setError(error.message || 'Gagal sync ONU Type dari SNMP')
       alert(error.message || 'Terjadi kesalahan saat sync ONU Type')
     } finally {
       setSyncing(false)
@@ -286,23 +323,44 @@ export default function OnuTypePage() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">List Type</h2>
           <div className="flex items-center gap-2">
             {selectedOltId && (
-              <button
-                onClick={handleSyncFromSNMP}
-                disabled={syncing}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {syncing ? (
-                  <>
-                    <HiArrowPath className="animate-spin h-4 w-4" />
-                    Syncing...
-                  </>
-                ) : (
-                  <>
-                    <HiArrowPath className="w-4 h-4" />
-                    Sync from SNMP
-                  </>
-                )}
-              </button>
+              <>
+                <button
+                  onClick={handleSyncFromTelnet}
+                  disabled={syncing}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Sync ONU Type dari OLT menggunakan Telnet command 'show onu-type' (Detail lengkap)"
+                >
+                  {syncing ? (
+                    <>
+                      <HiArrowPath className="animate-spin h-4 w-4" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <HiArrowPath className="w-4 h-4" />
+                      Sync from Telnet
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleSyncFromSNMP}
+                  disabled={syncing}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Sync ONU Type dari OLT menggunakan SNMP OID (Berdasarkan ONU terdaftar)"
+                >
+                  {syncing ? (
+                    <>
+                      <HiArrowPath className="animate-spin h-4 w-4" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <HiArrowPath className="w-4 h-4" />
+                      Sync from SNMP
+                    </>
+                  )}
+                </button>
+              </>
             )}
             <button
               onClick={() => setIsModalOpen(true)}

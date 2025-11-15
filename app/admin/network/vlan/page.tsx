@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { HiArrowPath } from 'react-icons/hi2'
+import { HiArrowPath, HiPencil, HiTrash } from 'react-icons/hi2'
 
 type Olt = { id: string; name: string; ipAddress: string }
 type Vlan = {
@@ -22,6 +22,10 @@ export default function VlanPage() {
   const [selectedOlt, setSelectedOlt] = useState<Olt | null>(null)
   const [vlans, setVlans] = useState<Vlan[]>([])
   const [warning, setWarning] = useState<string | null>(null)
+  const [editingVlan, setEditingVlan] = useState<Vlan | null>(null)
+  const [deleteVlanId, setDeleteVlanId] = useState<number | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
   // Load OLTs
   useEffect(() => {
@@ -79,6 +83,74 @@ export default function VlanPage() {
   const handleRefresh = () => {
     if (selectedOlt) {
       loadVlans(selectedOlt.id)
+    }
+  }
+
+  const handleEdit = (vlan: Vlan) => {
+    setEditingVlan(vlan)
+  }
+
+  const handleDelete = async (vlanId: number) => {
+    if (!selectedOlt) return
+
+    if (!confirm(`Apakah Anda yakin ingin menghapus VLAN ${vlanId}?`)) {
+      return
+    }
+
+    setIsDeleting(true)
+    setError(null)
+
+    try {
+      const res = await fetch(`/api/olts/${selectedOlt.id}/vlans?vlanId=${vlanId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Gagal menghapus VLAN' }))
+        throw new Error(errorData.error || 'Gagal menghapus VLAN')
+      }
+
+      // Reload VLAN list
+      await loadVlans(selectedOlt.id)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setIsDeleting(false)
+      setDeleteVlanId(null)
+    }
+  }
+
+  const handleSaveEdit = async () => {
+    if (!selectedOlt || !editingVlan) return
+
+    setIsEditing(true)
+    setError(null)
+
+    try {
+      const res = await fetch(`/api/olts/${selectedOlt.id}/vlans`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          vlanId: editingVlan.vlanId,
+          name: editingVlan.name,
+          description: editingVlan.description,
+        }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Gagal mengedit VLAN' }))
+        throw new Error(errorData.error || 'Gagal mengedit VLAN')
+      }
+
+      // Reload VLAN list
+      await loadVlans(selectedOlt.id)
+      setEditingVlan(null)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setIsEditing(false)
     }
   }
 
@@ -185,7 +257,7 @@ export default function VlanPage() {
                         Description
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                        Ports
+                        Action
                       </th>
                     </tr>
                   </thead>
@@ -203,20 +275,23 @@ export default function VlanPage() {
                             {vlan.description || '-'}
                           </div>
                         </td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-1">
-                            {vlan.ports.length > 0 ? (
-                              vlan.ports.map((port, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                                >
-                                  {port}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
-                            )}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleEdit(vlan)}
+                              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors"
+                              title="Edit VLAN"
+                            >
+                              <HiPencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(vlan.vlanId)}
+                              disabled={isDeleting}
+                              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors disabled:opacity-50"
+                              title="Delete VLAN"
+                            >
+                              <HiTrash className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -232,6 +307,59 @@ export default function VlanPage() {
       {!selectedOlt && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">Pilih OLT terlebih dahulu untuk melihat data VLAN</p>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingVlan && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Edit VLAN {editingVlan.vlanId}</h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editingVlan.name}
+                    onChange={(e) => setEditingVlan({ ...editingVlan, name: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={editingVlan.description || ''}
+                    onChange={(e) => setEditingVlan({ ...editingVlan, description: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setEditingVlan(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={isEditing}
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                >
+                  {isEditing ? 'Menyimpan...' : 'Simpan'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

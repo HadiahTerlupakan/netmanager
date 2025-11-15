@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState } from 'react'
 import OLTModal from '@/components/olt/OLTModal'
-import { HiOutlinePlus, HiOutlineSignal, HiArrowPath, HiPencil, HiOutlineCpuChip, HiOutlineFire, HiOutlineSignal as HiSignal, HiOutlineComputerDesktop, HiOutlineClock, HiCheck, HiOutlineCalendar } from 'react-icons/hi2'
+import { HiOutlinePlus, HiOutlineSignal, HiArrowPath, HiPencil, HiOutlineCpuChip, HiOutlineFire, HiOutlineSignal as HiSignal, HiOutlineComputerDesktop, HiOutlineClock, HiCheck, HiOutlineCalendar, HiTrash } from 'react-icons/hi2'
 
 export default function OLTPage() {
   const [olts, setOlts] = useState<any[]>([])
@@ -77,6 +77,31 @@ export default function OLTPage() {
     } catch (error: any) {
       console.error('Error syncing OLT:', error)
       alert('Terjadi kesalahan saat sync: ' + (error.message || 'Unknown error'))
+    }
+  }
+
+  const handleDelete = async (olt: any) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus OLT "${olt.name}"?\n\nTindakan ini tidak dapat dibatalkan dan akan menghapus semua data terkait OLT ini.`)) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/olts/${olt.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        alert(error.error || 'Gagal menghapus OLT')
+        return
+      }
+
+      // Refresh list setelah hapus berhasil
+      await loadOlts()
+      alert('OLT berhasil dihapus')
+    } catch (error: any) {
+      console.error('Error deleting OLT:', error)
+      alert('Terjadi kesalahan saat menghapus OLT: ' + (error.message || 'Unknown error'))
     }
   }
 
@@ -307,10 +332,11 @@ export default function OLTPage() {
                           <HiPencil className="w-5 h-5" />
                         </button>
                         <button
-                          className="p-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
-                          title="Chip"
+                          onClick={() => handleDelete(olt)}
+                          className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          title="Hapus OLT"
                         >
-                          <HiOutlineCpuChip className="w-5 h-5" />
+                          <HiTrash className="w-5 h-5" />
                         </button>
                       </div>
                     </td>

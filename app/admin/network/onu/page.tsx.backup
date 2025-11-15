@@ -23,39 +23,6 @@ type Onu = {
   registerTime: string | null
   distance: number | null
   lastSeen: string | null
-  registrationMode: string | null
-  softwareVersion: string | null
-  hardwareVersion: string | null
-  temperature: number | null
-  laserBiasCurrent: number | null
-  // New fields from ZTE-AN-PON-MIB
-  vendorId?: string | null
-  equipmentId?: string | null
-  firmwareVersion?: string | null
-  macAddress?: string | null
-  batteryStatus?: string | null
-  opticalTransceiverType?: string | null
-  lastDeregTime?: string | null
-  authMode?: string | null
-  loid?: string | null
-  password?: string | null
-  configState?: string | null
-  powerLevel?: string | null
-  dyingGaspTime?: string | null
-  rxPowerStatus?: string | null
-  txPowerStatus?: string | null
-  rxBytes?: string | null
-  txBytes?: string | null
-  rxPackets?: string | null
-  txPackets?: string | null
-  rxErrors?: string | null
-  txErrors?: string | null
-  rxDrops?: string | null
-  txDrops?: string | null
-  wifiEnable?: boolean | null
-  wifiSsid?: string | null
-  wifiSecurityMode?: string | null
-  wifiChannel?: number | null
 }
 
 type Summary = {
@@ -87,18 +54,12 @@ export default function AllOnuPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [onus, setOnus] = useState<Onu[]>([])
+  const [summary, setSummary] = useState<Summary | null>(null)
   const [total, setTotal] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
   const [dataSource, setDataSource] = useState<'database' | 'snmp' | null>(null)
   const [allOlts, setAllOlts] = useState<OLT[]>([])
   const [allCards, setAllCards] = useState<Card[]>([])
   const [loadingCards, setLoadingCards] = useState(false)
-  const [summary, setSummary] = useState<Summary>({
-    good: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-    warning: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-    critical: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-    other: { count: 0, percentage: 0, los: 0, na: 0 },
-  })
   // const [syncing, setSyncing] = useState(false) // Sync feature disabled
 
   // Filters
@@ -109,36 +70,19 @@ export default function AllOnuPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [selectedSignal, setSelectedSignal] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
 
-  // Sorting - Not used in server-side pagination yet
+  // Sorting
   const [sortColumn, setSortColumn] = useState<string>('')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
   useEffect(() => {
-    loadOnus() // Load data dari database dengan pagination
+    loadOnus()
     loadAllOlts()
   }, [])
-
-  // Debounce search query (500ms)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery)
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [searchQuery])
-
-  // Reload ONUs when filters, pagination, or debounced search changes
-  useEffect(() => {
-    if (!loading) {
-      loadOnus()
-    }
-  }, [currentPage, pageSize, selectedOlt, selectedCard, selectedPort, selectedType, selectedStatus, selectedSignal, debouncedSearch])
 
   // Load cards saat OLT dipilih atau saat semua OLT dimuat
   useEffect(() => {
@@ -216,45 +160,24 @@ export default function AllOnuPage() {
     }
   }
 
-  const loadOnus = async (forceRefresh = false) => {
+  const loadOnus = async () => {
     setRefreshing(true)
     setError(null)
     try {
-      // Build query parameters
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: pageSize.toString(),
-        ...(forceRefresh && { refresh: 'true' }),
-        ...(selectedOlt !== 'all' && { oltName: selectedOlt }),
-        ...(selectedCard !== 'all' && { card: selectedCard }),
-        ...(selectedPort !== 'all' && { port: selectedPort }),
-        ...(selectedType !== 'all' && { type: selectedType }),
-        ...(selectedStatus !== 'all' && { status: selectedStatus }),
-        ...(selectedSignal !== 'all' && { signal: selectedSignal }),
-        ...(debouncedSearch && { search: debouncedSearch }),
-      })
-
-      const res = await fetch(`/api/olts/onus?${params.toString()}`)
+      const res = await fetch('/api/olts/onus')
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Gagal memuat data ONU' }))
         throw new Error(errorData.error || 'Gagal memuat data ONU')
       }
       const data = await res.json()
       setOnus(data.onus || [])
+      setSummary(data.summary || null)
       setTotal(data.total || 0)
-      setTotalPages(data.totalPages || 0)
       setDataSource(data.source || null)
-      setSummary(data.summary || {
-        good: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-        warning: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-        critical: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-        other: { count: 0, percentage: 0, los: 0, na: 0 },
-      })
     } catch (e: any) {
       setError(e.message)
       setOnus([])
-      setTotal(0)
-      setTotalPages(0)
+      setSummary(null)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -380,8 +303,220 @@ export default function AllOnuPage() {
     return filters
   }, [selectedOlt, selectedCard, selectedPort, selectedType, selectedStatus, selectedSignal])
 
-  // Filtering, pagination, and summary are now done server-side
-  // Data comes directly from API response (onus, total, totalPages, summary)
+  // Filter and search
+  const filteredOnus = useMemo(() => {
+    let filtered = [...onus]
+
+    // Filter by OLT
+    if (selectedOlt !== 'all') {
+      filtered = filtered.filter((onu) => onu.oltName === selectedOlt)
+    }
+
+    // Filter by Card
+    if (selectedCard !== 'all') {
+      filtered = filtered.filter((onu) => {
+        const match = onu.gponOnu.match(/^(\d+)\/\d+\/\d+:\d+$/)
+        return match && match[1] === selectedCard
+      })
+    }
+
+    // Filter by PON Port
+    // Format: Frame/Slot/PON:ONU_ID, jadi PON adalah bagian ketiga
+    if (selectedPort !== 'all') {
+      const selectedPortNum = parseInt(selectedPort, 10)
+      if (isNaN(selectedPortNum)) {
+        console.warn(`[All-ONU] Invalid selectedPort: ${selectedPort}`)
+      } else {
+        const beforeFilter = filtered.length
+        filtered = filtered.filter((onu) => {
+          // Format: 1/9/1:1 -> ambil bagian ketiga (PON)
+          // Juga support format tanpa : (jika ada)
+          const match = onu.gponOnu.match(/^\d+\/\d+\/(\d+)(?::\d+)?$/)
+          if (!match) {
+            console.warn(`[All-ONU] Invalid gponOnu format: ${onu.gponOnu}`)
+            return false
+          }
+          const ponPort = parseInt(match[1], 10)
+          return ponPort === selectedPortNum
+        })
+        console.log(`[All-ONU] Filtered by PON port ${selectedPortNum}: ${beforeFilter} -> ${filtered.length} ONUs`)
+      }
+    }
+
+    // Filter by Type
+    if (selectedType !== 'all') {
+      filtered = filtered.filter((onu) => onu.actualType === selectedType)
+    }
+
+    // Filter by Status
+    if (selectedStatus !== 'all') {
+      if (selectedStatus === 'online') {
+        filtered = filtered.filter((onu) => onu.status === 'Online')
+      } else if (selectedStatus === 'dyinggasp') {
+        filtered = filtered.filter((onu) => onu.status === 'DyingGasp')
+      } else if (selectedStatus === 'los') {
+        filtered = filtered.filter((onu) => onu.status === 'LOS')
+      }
+    }
+
+    // Filter by Signal
+    if (selectedSignal !== 'all') {
+      filtered = filtered.filter((onu) => {
+        const rxOlt = onu.rxOlt ? parseFloat(onu.rxOlt.replace(/[^\d.-]/g, '')) : null
+        if (selectedSignal === 'good' && rxOlt !== null && rxOlt >= -26.0) return true
+        if (selectedSignal === 'warning' && rxOlt !== null && rxOlt >= -28.0 && rxOlt < -26.0) return true
+        if (selectedSignal === 'critical' && rxOlt !== null && rxOlt < -28.0) return true
+        if (selectedSignal === 'other' && (rxOlt === null || onu.status === 'LOS' || onu.status === 'DyingGasp'))
+          return true
+        return false
+      })
+    }
+
+    // Search
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (onu) =>
+          onu.name.toLowerCase().includes(query) ||
+          onu.description.toLowerCase().includes(query) ||
+          onu.pppoe.toLowerCase().includes(query) ||
+          onu.gponOnu.toLowerCase().includes(query) ||
+          onu.serialNumber.toLowerCase().includes(query) ||
+          onu.oltName.toLowerCase().includes(query)
+      )
+    }
+
+    // Sort
+    if (sortColumn) {
+      filtered.sort((a, b) => {
+        let aVal: any = a[sortColumn as keyof Onu]
+        let bVal: any = b[sortColumn as keyof Onu]
+
+        // Handle numeric fields that need special parsing
+        if (sortColumn === 'rxOlt' || sortColumn === 'rxOnu' || sortColumn === 'txOlt' || sortColumn === 'txOnu') {
+          aVal = aVal ? parseFloat(aVal.replace(/[^\d.-]/g, '')) : -999
+          bVal = bVal ? parseFloat(bVal.replace(/[^\d.-]/g, '')) : -999
+        }
+
+        // Handle distance field (already numeric)
+        if (sortColumn === 'distance') {
+          aVal = aVal !== null ? aVal : -999
+          bVal = bVal !== null ? bVal : -999
+        }
+
+        // Handle date fields
+        if (sortColumn === 'registerTime' || sortColumn === 'lastSeen') {
+          aVal = aVal ? new Date(aVal).getTime() : 0
+          bVal = bVal ? new Date(bVal).getTime() : 0
+        }
+
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
+        return 0
+      })
+    }
+
+    return filtered
+  }, [onus, selectedOlt, selectedCard, selectedPort, selectedType, selectedStatus, selectedSignal, searchQuery, sortColumn, sortDirection])
+
+  // Pagination
+  const totalPages = Math.ceil(filteredOnus.length / pageSize)
+  const paginatedOnus = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredOnus.slice(start, start + pageSize)
+  }, [filteredOnus, currentPage, pageSize])
+
+  // Calculate summary
+            warning.count++
+            warning.rxPower++
+          } else {
+            critical.count++
+            critical.rxPower++
+          }
+        }
+      } else if (!onu.rxPower || onu.rxPower === 'N/A' || onu.rxPower === 'Unknown') {
+        other.count++
+      }
+      
+      // Parse TX Power
+      if (onu.txPower && onu.txPower !== 'N/A' && onu.txPower !== 'Unknown') {
+        const txPowerValue = parseFloat(onu.txPower.replace(/[^\d.-]/g, ''))
+        if (!isNaN(txPowerValue)) {
+          if (txPowerValue >= 2 && txPowerValue <= 8) {
+            good.count++
+            good.txPower++
+          } else if (txPowerValue <= 1 || txPowerValue > 10) {
+            critical.count++
+            critical.txPower++
+          } else {
+            warning.count++
+            warning.txPower++
+          }
+        }
+      } else if (!onu.txPower || onu.txPower === 'N/A' || onu.txPower === 'Unknown') {
+        other.count++
+      }
+      
+      // Parse RX OLT (legacy)
+      if (onu.rxOlt && onu.rxOlt !== 'N/A' && onu.rxOlt !== 'Unknown') {
+        const rxOltValue = parseFloat(onu.rxOlt.replace(/[^\d.-]/g, ''))
+        if (!isNaN(rxOltValue)) {
+          if (rxOltValue >= -8) {
+            good.count++
+            good.rxOlt++
+          } else if (rxOltValue >= -15) {
+            warning.count++
+            warning.rxOlt++
+          } else {
+            critical.count++
+            critical.rxOlt++
+          }
+        }
+      } else if (!onu.rxOlt || onu.rxOlt === 'N/A' || onu.rxOlt === 'Unknown') {
+        other.count++
+      }
+      
+      // Parse RX ONU (legacy)
+      if (onu.rxOnu && onu.rxOnu !== 'N/A' && onu.rxOnu !== 'Unknown') {
+        const rxOnuValue = parseFloat(onu.rxOnu.replace(/[^\d.-]/g, ''))
+        if (!isNaN(rxOnuValue)) {
+          if (rxOnuValue >= -5) {
+            good.count++
+            good.rxOnu++
+          } else if (rxOnuValue >= -10) {
+            warning.count++
+            warning.rxOnu++
+          } else {
+            critical.count++
+            critical.rxOnu++
+          }
+        }
+      } else if (!onu.rxOnu || onu.rxOnu === 'N/A' || onu.rxOnu === 'Unknown') {
+        other.count++
+      }
+      
+      // Parse status
+      if (onu.status === 'online' || onu.status === '1') {
+        good.count++
+      } else if (onu.status === 'offline' || onu.status === '6') {
+        critical.count++
+      } else if (onu.status === 'los' || onu.status === '1') {
+        other.los++
+        other.count++
+      } else if (onu.status === 'unknown' || onu.status === '0') {
+        other.na++
+        other.count++
+      }
+    })
+    
+    const total = filteredOnus.length
+    good.percentage = total > 0 ? Math.round((good.count / total) * 100) : 0
+    warning.percentage = total > 0 ? Math.round((warning.count / total) * 100) : 0
+    critical.percentage = total > 0 ? Math.round((critical.count / total) * 100) : 0
+    other.percentage = total > 0 ? Math.round((other.count / total) * 100) : 0
+    
+    return { good, warning, critical, other }
+  }, [filteredOnus])
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -531,8 +666,8 @@ export default function AllOnuPage() {
     )
   }
 
-  const getDistanceDisplay = (distance: number | null | undefined) => {
-    if (distance === null || distance === undefined || isNaN(distance)) {
+  const getDistanceDisplay = (distance: number | null) => {
+    if (distance === null) {
       return (
         <div className="flex items-center gap-2">
           <HiQuestionMarkCircle className="w-4 h-4 text-gray-400 dark:text-gray-500" />
@@ -544,12 +679,12 @@ export default function AllOnuPage() {
     let colorClass = 'text-green-600 dark:text-green-400'
     let icon = <HiCheckCircle className="w-4 h-4" />
 
-    if (distance > 30) {
-      colorClass = 'text-red-600 dark:text-red-400'
-      icon = <HiXCircle className="w-4 h-4" />
-    } else if (distance > 20) {
+    if (distance > 20) {
       colorClass = 'text-orange-600 dark:text-orange-400'
       icon = <HiExclamationTriangle className="w-4 h-4" />
+    } else if (distance > 30) {
+      colorClass = 'text-red-600 dark:text-red-400'
+      icon = <HiXCircle className="w-4 h-4" />
     }
 
     return (
@@ -653,22 +788,41 @@ export default function AllOnuPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">ONUs</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Data dimuat dari database dengan pagination (5 data per halaman)</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Filter Icon */}
           <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
             <HiOutlineFunnel className="w-5 h-5" />
           </button>
-          {/* Refresh from SNMP */}
+          {/* Sync button disabled - fitur sync sementara dinonaktifkan */}
           <button
-            onClick={() => loadOnus(true)}
+            onClick={async () => {
+              // Force refresh dari SNMP
+              setRefreshing(true)
+              try {
+                const res = await fetch('/api/olts/onus?refresh=true')
+                if (!res.ok) {
+                  const errorData = await res.json().catch(() => ({ error: 'Gagal memuat data ONU' }))
+                  throw new Error(errorData.error || 'Gagal memuat data ONU')
+                }
+                const data = await res.json()
+                setOnus(data.onus || [])
+                setSummary(data.summary || null)
+                setTotal(data.total || 0)
+                setDataSource(data.source || null)
+              } catch (e: any) {
+                setError(e.message)
+                setOnus([])
+                setSummary(null)
+              } finally {
+                setRefreshing(false)
+              }
+            }}
             disabled={refreshing}
             className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-60"
-            title="Perbarui data dari SNMP OLT"
           >
             <HiArrowPath className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Sync dari SNMP
+            Refresh
           </button>
         </div>
       </div>
@@ -680,7 +834,8 @@ export default function AllOnuPage() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {summary && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="p-3 bg-green-100 dark:bg-green-900 rounded-full">
@@ -759,6 +914,7 @@ export default function AllOnuPage() {
             </div>
           </div>
         </div>
+      )}
 
       {/* ONUs Table Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
@@ -1094,16 +1250,7 @@ export default function AllOnuPage() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto relative">
-          {/* Loading overlay */}
-          {refreshing && onus.length > 0 && (
-            <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm z-10 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2">
-                <HiArrowPath className="w-6 h-6 animate-spin text-indigo-600 dark:text-indigo-400" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">Memuat data...</p>
-              </div>
-            </div>
-          )}
+        <div className="overflow-x-auto">
           {/* Pagination Control - di atas table */}
           <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1114,8 +1261,7 @@ export default function AllOnuPage() {
                   setPageSize(Number(e.target.value))
                   setCurrentPage(1)
                 }}
-                disabled={refreshing}
-                className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
               >
                 <option value={5}>5</option>
                 <option value={10}>10</option>
@@ -1320,82 +1466,18 @@ export default function AllOnuPage() {
                     )}
                   </div>
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('registrationMode')}
-                >
-                  <div className="flex items-center gap-1">
-                    Reg Mode
-                    {sortColumn === 'registrationMode' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('softwareVersion')}
-                >
-                  <div className="flex items-center gap-1">
-                    SW Version
-                    {sortColumn === 'softwareVersion' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('hardwareVersion')}
-                >
-                  <div className="flex items-center gap-1">
-                    HW Version
-                    {sortColumn === 'hardwareVersion' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('temperature')}
-                >
-                  <div className="flex items-center gap-1">
-                    Temp (°C)
-                    {sortColumn === 'temperature' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('laserBiasCurrent')}
-                >
-                  <div className="flex items-center gap-1">
-                    Bias (mA)
-                    {sortColumn === 'laserBiasCurrent' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-              {refreshing && onus.length === 0 ? (
+              {paginatedOnus.length === 0 ? (
                 <tr>
-                  <td colSpan={24} className="px-4 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <HiArrowPath className="w-8 h-8 animate-spin text-indigo-600 dark:text-indigo-400" />
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data ONU...</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : onus.length === 0 ? (
-                <tr>
-                  <td colSpan={24} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <td colSpan={17} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                     Tidak ada data ONU ditemukan
                   </td>
                 </tr>
               ) : (
-                onus.map((onu) => (
+                paginatedOnus.map((onu) => (
                   <tr key={onu.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
                     <td className="px-4 py-3">
                       <input type="checkbox" className="rounded border-gray-300" />
@@ -1417,21 +1499,6 @@ export default function AllOnuPage() {
                     <td className="px-4 py-3">{getDistanceDisplay(onu.distance)}</td>
                     <td className="px-4 py-3">{getFormattedDateTime(onu.registerTime)}</td>
                     <td className="px-4 py-3">{getRelativeTime(onu.lastSeen)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {onu.registrationMode || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {onu.softwareVersion || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {onu.hardwareVersion || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {onu.temperature !== null && onu.temperature !== undefined ? `${onu.temperature.toFixed(1)}°C` : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {onu.laserBiasCurrent !== null && onu.laserBiasCurrent !== undefined ? `${onu.laserBiasCurrent.toFixed(2)} mA` : '-'}
-                    </td>
                     <td className="px-4 py-3">
                       <button className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors">
                         <HiCog6Tooth className="w-3 h-3" />
@@ -1448,13 +1515,13 @@ export default function AllOnuPage() {
         {/* Pagination */}
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            Showing {total === 0 ? 0 : (currentPage - 1) * pageSize + 1} to{' '}
-            {Math.min(currentPage * pageSize, total)} of {total} entries
+            Showing {filteredOnus.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} to{' '}
+            {Math.min(currentPage * pageSize, filteredOnus.length)} of {filteredOnus.length} entries
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1 || refreshing}
+              disabled={currentPage === 1}
               className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               ← Sebelumnya
@@ -1474,8 +1541,7 @@ export default function AllOnuPage() {
                 <button
                   key={pageNum}
                   onClick={() => setCurrentPage(pageNum)}
-                  disabled={refreshing}
-                  className={`px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`px-3 py-1 text-sm border rounded ${
                     currentPage === pageNum
                       ? 'bg-indigo-600 text-white border-indigo-600'
                       : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -1490,8 +1556,7 @@ export default function AllOnuPage() {
                 <span className="text-gray-500">...</span>
                 <button
                   onClick={() => setCurrentPage(totalPages)}
-                  disabled={refreshing}
-                  className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   {totalPages}
                 </button>
@@ -1499,7 +1564,7 @@ export default function AllOnuPage() {
             )}
             <button
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages || refreshing}
+              disabled={currentPage === totalPages}
               className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Selanjutnya →

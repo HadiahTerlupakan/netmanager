@@ -263,8 +263,58 @@ model Onu {
   status        String   // Online, LOS, DyingGasp, OffLine, Unknown
   rxOlt         String?  // RX power dari OLT (dBm)
   rxOnu         String?  // RX power dari ONU (dBm)
+  txOlt         String?  // TX power ke OLT (dBm)
+  txOnu         String?  // TX power dari ONU (dBm)
   serialNumber  String?  // Serial number ONU
   actualType    String?  // ONU type/model
+  registerTime  DateTime? // Waktu registrasi ONU
+  distance      Float?   // Jarak fiber dalam km (dihitung dari signal)
+  lastSeen      DateTime? // Waktu terakhir komunikasi
+  
+  // Basic Info Fields (OID: 1.3.6.1.4.1.3902.1012.3.28.1.1.12, etc)
+  registrationMode  String?   // Registration mode (SN, Password, LOID, dll)
+  softwareVersion   String?   // Software version ONU
+  hardwareVersion   String?   // Hardware version ONU
+  temperature       Float?    // Temperature in Celsius
+  laserBiasCurrent  Float?    // Laser bias current in mA
+  
+  // New fields from ZTE-AN-PON-MIB (OID: 1.3.6.1.4.1.3902.1082.50.10.2.2)
+  vendorId              String?   // ONU vendor ID (zxAnOnuVendorId)
+  equipmentId           String?   // ONU equipment ID (zxAnOnuEquipmentId)
+  firmwareVersion       String?   // Firmware version (zxAnOnuFirmwareVersion)
+  macAddress            String?   // ONU MAC address (zxAnOnuMacAddress)
+  batteryStatus         String?   // Battery status (zxAnOnuBatteryStatus)
+  opticalTransceiverType String?  // Optical transceiver type (zxAnOnuOpticalTransceiverType)
+  lastDeregTime         DateTime? // Last deregistration time (zxAnOnuLastDeregTime)
+  authMode              String?   // Authentication mode (zxAnOnuAuthMode)
+  loid                  String?   // Logical ONU ID (zxAnOnuLoid)
+  password              String?   // ONU password (zxAnOnuPassword)
+  
+  // ONU Status fields (OID: 1.3.6.1.4.1.3902.1082.50.10.2.3)
+  configState           String?   // Configuration state (zxAnOnuConfigState)
+  powerLevel            String?   // Power level (zxAnOnuPowerLevel)
+  dyingGaspTime         DateTime? // Dying gasp time (zxAnOnuDyingGaspTime)
+  
+  // Additional optical power status (OID: 1.3.6.1.4.1.3902.1082.50.10.2.28)
+  rxPowerStatus         String?   // RX power status (zxAnOnuRxPowerStatus)
+  txPowerStatus         String?   // TX power status (zxAnOnuTxPowerStatus)
+  
+  // Performance Statistics (OID: 1.3.6.1.4.1.3902.1082.50.10.2.31)
+  rxBytes               BigInt?   // Total bytes received (zxAnGponOnuPonRxBytes)
+  txBytes               BigInt?   // Total bytes transmitted (zxAnGponOnuPonTxBytes)
+  rxPackets             BigInt?   // Total packets received (zxAnGponOnuPonRxPackets)
+  txPackets             BigInt?   // Total packets transmitted (zxAnGponOnuPonTxPackets)
+  rxErrors              BigInt?   // Total RX errors (zxAnGponOnuPonRxErrors)
+  txErrors              BigInt?   // Total TX errors (zxAnGponOnuPonTxErrors)
+  rxDrops               BigInt?   // Total RX drops (zxAnGponOnuPonRxDrops)
+  txDrops               BigInt?   // Total TX drops (zxAnGponOnuPonTxDrops)
+  
+  // WiFi Configuration (OID: 1.3.6.1.4.1.3902.1082.50.10.2.20)
+  wifiEnable            Boolean?  // WiFi enable status (zxAnOnuWifiEnable)
+  wifiSsid              String?   // WiFi SSID (zxAnOnuWifiSsid)
+  wifiSecurityMode      String?   // WiFi security mode (zxAnOnuWifiSecurityMode)
+  wifiChannel           Int?      // WiFi channel (zxAnOnuWifiChannel)
+  
   lastUpdate    DateTime @default(now()) // Waktu terakhir data di-update dari SNMP
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -273,6 +323,10 @@ model Onu {
   @@index([oltId])
   @@index([status])
   @@index([lastUpdate])
+  @@index([registerTime])
+  @@index([lastSeen])
+  @@index([serialNumber])
+  @@index([macAddress])
 }
 
 // ONU Type - Tipe ONU yang didukung per OLT

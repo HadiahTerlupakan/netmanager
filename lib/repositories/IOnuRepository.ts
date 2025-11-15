@@ -8,8 +8,48 @@ export interface OnuPublic {
   status: string
   rxOlt: string | null
   rxOnu: string | null
+  txOlt: string | null
+  txOnu: string | null
   serialNumber: string | null
   actualType: string | null
+  registerTime: Date | null
+  distance: number | null
+  lastSeen: Date | null
+  registrationMode: string | null
+  softwareVersion: string | null
+  hardwareVersion: string | null
+  temperature: number | null
+  laserBiasCurrent: number | null
+  // New fields from ZTE-AN-PON-MIB
+  vendorId: string | null
+  equipmentId: string | null
+  firmwareVersion: string | null
+  macAddress: string | null
+  batteryStatus: string | null
+  opticalTransceiverType: string | null
+  lastDeregTime: Date | null
+  authMode: string | null
+  loid: string | null
+  password: string | null
+  configState: string | null
+  powerLevel: string | null
+  dyingGaspTime: Date | null
+  rxPowerStatus: string | null
+  txPowerStatus: string | null
+  // Performance Statistics
+  rxBytes: bigint | null
+  txBytes: bigint | null
+  rxPackets: bigint | null
+  txPackets: bigint | null
+  rxErrors: bigint | null
+  txErrors: bigint | null
+  rxDrops: bigint | null
+  txDrops: bigint | null
+  // WiFi Configuration
+  wifiEnable: boolean | null
+  wifiSsid: string | null
+  wifiSecurityMode: string | null
+  wifiChannel: number | null
   lastUpdate: Date
   createdAt: Date
   updatedAt: Date
@@ -24,8 +64,48 @@ export interface OnuCreateData {
   status: string
   rxOlt?: string | null
   rxOnu?: string | null
+  txOlt?: string | null
+  txOnu?: string | null
   serialNumber?: string | null
   actualType?: string | null
+  registerTime?: Date | null
+  distance?: number | null
+  lastSeen?: Date | null
+  registrationMode?: string | null
+  softwareVersion?: string | null
+  hardwareVersion?: string | null
+  temperature?: number | null
+  laserBiasCurrent?: number | null
+  // New fields from ZTE-AN-PON-MIB
+  vendorId?: string | null
+  equipmentId?: string | null
+  firmwareVersion?: string | null
+  macAddress?: string | null
+  batteryStatus?: string | null
+  opticalTransceiverType?: string | null
+  lastDeregTime?: Date | null
+  authMode?: string | null
+  loid?: string | null
+  password?: string | null
+  configState?: string | null
+  powerLevel?: string | null
+  dyingGaspTime?: Date | null
+  rxPowerStatus?: string | null
+  txPowerStatus?: string | null
+  // Performance Statistics
+  rxBytes?: bigint | null
+  txBytes?: bigint | null
+  rxPackets?: bigint | null
+  txPackets?: bigint | null
+  rxErrors?: bigint | null
+  txErrors?: bigint | null
+  rxDrops?: bigint | null
+  txDrops?: bigint | null
+  // WiFi Configuration
+  wifiEnable?: boolean | null
+  wifiSsid?: string | null
+  wifiSecurityMode?: string | null
+  wifiChannel?: number | null
 }
 
 export interface OnuUpdateData {
@@ -35,15 +115,79 @@ export interface OnuUpdateData {
   status?: string
   rxOlt?: string | null
   rxOnu?: string | null
+  txOlt?: string | null
+  txOnu?: string | null
   serialNumber?: string | null
   actualType?: string | null
+  registerTime?: Date | null
+  distance?: number | null
+  lastSeen?: Date | null
+  registrationMode?: string | null
+  softwareVersion?: string | null
+  hardwareVersion?: string | null
+  temperature?: number | null
+  laserBiasCurrent?: number | null
+  // New fields from ZTE-AN-PON-MIB
+  vendorId?: string | null
+  equipmentId?: string | null
+  firmwareVersion?: string | null
+  macAddress?: string | null
+  batteryStatus?: string | null
+  opticalTransceiverType?: string | null
+  lastDeregTime?: Date | null
+  authMode?: string | null
+  loid?: string | null
+  password?: string | null
+  configState?: string | null
+  powerLevel?: string | null
+  dyingGaspTime?: Date | null
+  rxPowerStatus?: string | null
+  txPowerStatus?: string | null
+  // Performance Statistics
+  rxBytes?: bigint | null
+  txBytes?: bigint | null
+  rxPackets?: bigint | null
+  txPackets?: bigint | null
+  rxErrors?: bigint | null
+  txErrors?: bigint | null
+  rxDrops?: bigint | null
+  txDrops?: bigint | null
+  // WiFi Configuration
+  wifiEnable?: boolean | null
+  wifiSsid?: string | null
+  wifiSecurityMode?: string | null
+  wifiChannel?: number | null
   lastUpdate?: Date
+}
+
+export interface OnuFilters {
+  oltName?: string
+  card?: string
+  port?: string
+  type?: string
+  status?: string
+  signal?: string
+  search?: string
+}
+
+export interface PaginationOptions {
+  page: number
+  limit: number
+}
+
+export interface PaginatedOnuResult {
+  onus: OnuPublic[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
 }
 
 export interface IOnuRepository {
   findAll(): Promise<OnuPublic[]>
   findByOltId(oltId: string): Promise<OnuPublic[]>
   findByGponOnu(oltId: string, gponOnu: string): Promise<OnuPublic | null>
+  findWithFilters(filters: OnuFilters, pagination: PaginationOptions): Promise<PaginatedOnuResult>
   create(data: OnuCreateData): Promise<{ id: string }>
   upsert(oltId: string, gponOnu: string, data: OnuCreateData): Promise<{ id: string }>
   update(id: string, data: OnuUpdateData): Promise<void>

@@ -90,8 +90,28 @@ async function requireAdmin() {
   return session
 }
 
+// SNMP OIDs untuk ZTE OLT - Card Information (berdasarkan dokumentasi PDF)
+// Index: zxAnRackNo (Rack No.), zxAnShelfNo (Shelf No.), zxAnSlotNo (Slot No.)
+// Rack No. dan Shelf No. dimulai dari 0, Slot No. dimulai dari 1
+const SNMP_CARD_OIDS = {
+  // Base OID untuk Card Information: 1.3.6.1.4.1.3902.1015.2.1.1.3
+  // Configured card type: .1.3.6.1.4.1.3902.1015.2.1.1.3.1.2.{Rack}.{Shelf}.{Slot}
+  cardCfgMainType: '1.3.6.1.4.1.3902.1015.2.1.1.3.1.2',
+  // Actual card type: .1.3.6.1.4.1.3902.1015.2.1.1.3.1.3.{Rack}.{Shelf}.{Slot}
+  cardActMainType: '1.3.6.1.4.1.3902.1015.2.1.1.3.1.3',
+  // Card name: .1.3.6.1.4.1.3902.1015.2.1.1.3.1.4.{Rack}.{Shelf}.{Slot}
+  cardActType: '1.3.6.1.4.1.3902.1015.2.1.1.3.1.4',
+  // Card status: .1.3.6.1.4.1.3902.1015.2.1.1.3.1.5.{Rack}.{Shelf}.{Slot} (1=UP/Service, 4=OFFLINE)
+  cardOperStatus: '1.3.6.1.4.1.3902.1015.2.1.1.3.1.5',
+  // CPU load: .1.3.6.1.4.1.3902.1015.2.1.1.3.1.9.{Rack}.{Shelf}.{Slot}
+  cardCpuLoad: '1.3.6.1.4.1.3902.1015.2.1.1.3.1.9',
+  // Memory usage: .1.3.6.1.4.1.3902.1015.2.1.1.3.1.11.{Rack}.{Shelf}.{Slot}
+  cardMemUsage: '1.3.6.1.4.1.3902.1015.2.1.1.3.1.11',
+}
+
 // SNMP OIDs untuk ZTE OLT - ONU Management
 // Berdasarkan script bash: 1.3.6.1.4.1.3902.1012.3.28.2.1.4."$PON"
+// Dan dokumentasi PDF: zxGponOntDevMgmtTable untuk GPON ONU Management
 const SNMP_ONU_OIDS = {
   // Status ONU per PON: 1.3.6.1.4.1.3902.1012.3.28.2.1.4.{PON}
   // Status values: 1=LOS, 3=Online, 4=DyingGasp, 6=OffLine
@@ -112,6 +132,75 @@ const SNMP_ONU_OIDS = {
   ponPortList: '1.3.6.1.4.1.3902.1012.3.28.1.1.1',
   // PON Port Info: 1.3.6.1.4.1.3902.1012.3.28.1.1.2 (mungkin berisi slot/card/port info)
   ponPortInfo: '1.3.6.1.4.1.3902.1012.3.28.1.1.2',
+  // zxGponOntDevMgmtTable - ONU Device Management Table (dari dokumentasi PDF)
+  // Base OID: 1.3.6.1.4.1.3902.1012.3.28.1 (zxGponOntDevMgmtTable)
+  // Index: {zxGponOltIndex, zxGponONTIndex} - zxGponOltIndex adalah Type 1 PON composite index
+  onuDevMgmtTable: '1.3.6.1.4.1.3902.1012.3.28.1',
+  // zxGponOntRegId - PW, LOID authentication information (dari dokumentasi PDF)
+  // Dapat dimodifikasi via setting MIB object ini
+  onuRegId: '1.3.6.1.4.1.3902.1012.3.28.1.1.1', // Perlu disesuaikan dengan MIB file yang sebenarnya
+}
+
+// Enhanced SNMP OIDs for additional ONU parameters
+// Based on ZTE MIB documentation and PHP script reference
+const SNMP_ONU_ENHANCED_OIDS = {
+  // RX Power (Upstream): 1.3.6.1.4.1.3902.1012.3.11.3.1.2.{composite_index}
+  rxPower: '1.3.6.1.4.1.3902.1012.3.11.3.1.2',
+  // TX Power (Downstream): 1.3.6.1.4.1.3902.1012.3.11.3.1.3.{composite_index}
+  txPower: '1.3.6.1.4.1.3902.1012.3.11.3.1.3',
+  // Serial Number: 1.3.6.1.4.1.3902.1015.1010.1.7.4.1.10.{composite_index}
+  serialNumber: '1.3.6.1.4.1.3902.1015.1010.1.7.4.1.10',
+  // ONU Name: 1.3.6.1.4.1.3902.1015.1010.1.7.4.1.1.{composite_index}
+  onuName: '1.3.6.1.4.1.3902.1015.1010.1.7.4.1.1',
+  // ONU Description: 1.3.6.1.4.1.3902.1015.1010.1.7.4.1.4.{composite_index}
+  onuDescription: '1.3.6.1.4.1.3902.1015.1010.1.7.4.1.4',
+  // ONU Status: 1.3.6.1.4.1.3902.1012.3.11.3.1.1.{composite_index}
+  onuStatus: '1.3.6.1.4.1.3902.1012.3.11.3.1.1',
+  // Register Time: 1.3.6.1.4.1.3902.1015.1010.1.7.4.1.12.{composite_index}
+  registerTime: '1.3.6.1.4.1.3902.1015.1010.1.7.4.1.12',
+  // ONU Distance/Range: 1.3.6.1.4.1.3902.1012.3.11.3.1.8.{composite_index} (dalam km)
+  distance: '1.3.6.1.4.1.3902.1012.3.11.3.1.8',
+  // ONU Temperature: 1.3.6.1.4.1.3902.1012.3.11.3.1.5.{composite_index} (dalam Celsius)
+  temperature: '1.3.6.1.4.1.3902.1012.3.11.3.1.5',
+  // ONU Voltage: 1.3.6.1.4.1.3902.1012.3.11.3.1.6.{composite_index} (dalam Volt)
+  voltage: '1.3.6.1.4.1.3902.1012.3.11.3.1.6',
+  // ONU Last Seen/Online Time: 1.3.6.1.4.1.3902.1012.3.11.3.1.9.{composite_index}
+  lastSeen: '1.3.6.1.4.1.3902.1012.3.11.3.1.9',
+}
+
+// Enhanced SNMP OIDs for Register Time (using different index structure)
+// Based on zxGponOnuCfgTable from ZTE documentation
+const SNMP_ONU_REGISTER_TIME_OIDS = {
+  // ONU Register Time: 1.3.6.1.4.1.3902.1015.1010.1.7.4.1.12.{composite_index}
+  // Format: YYYY-MM-DD HH:MM:SS
+  registerTime: '1.3.6.1.4.1.3902.1015.1010.1.7.4.1.12',
+}
+
+// SNMP OIDs untuk ONU Version and Model (berdasarkan dokumentasi PDF section 7.8)
+// Index: Type 3's PON composite index
+const SNMP_ONU_VERSION_OIDS = {
+  // ONU Model: .1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.3.{composite_index}
+  onuModel: '1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.3',
+  // Software Version: .1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.6.{composite_index}
+  onuSoftwareVersion: '1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.6',
+  // Hardware Version: .1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.5.{composite_index}
+  onuHardwareVersion: '1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.5',
+}
+
+// SNMP OIDs untuk ONU Basic Info (berdasarkan dokumentasi MIB lengkap)
+const SNMP_ONU_BASIC_INFO_OIDS = {
+  // Registration Mode: .1.3.6.1.4.1.3902.1012.3.28.1.1.12.{PON_ID}.{ONU_ID}
+  // Values: 1=SN, 2=Password, 3=SN+Password, 4=RegisterId, 5=RegisterId+8021x, 
+  //         6=RegisterId+Mutual, 7=TefPw, 8=SN+TefPw, 9=LOID, 10=LOID+Password
+  registrationMode: '1.3.6.1.4.1.3902.1012.3.28.1.1.12',
+  // Software Version: .1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.6.{composite_index}
+  softwareVersion: '1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.6',
+  // Hardware Version: .1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.5.{composite_index}
+  hardwareVersion: '1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.5',
+  // Temperature: .1.3.6.1.4.1.3902.1012.3.50.12.1.1.19.{PON_ID}.{ONU_ID}
+  temperature: '1.3.6.1.4.1.3902.1012.3.50.12.1.1.19',
+  // Laser Bias Current: .1.3.6.1.4.1.3902.1012.3.50.12.1.1.18.{PON_ID}.{ONU_ID}
+  laserBiasCurrent: '1.3.6.1.4.1.3902.1012.3.50.12.1.1.18',
 }
 
 // SNMP OIDs untuk ZTE C3XX OLT - ONU Management
@@ -148,6 +237,123 @@ const SNMP_C3XX_ONU_OIDS = {
   // OID alternatif untuk PON port list (mungkin lebih lengkap)
   // Coba gunakan OID dari base 1082 untuk mendapatkan daftar port
   ponPortListAlt: '1.3.6.1.4.1.3902.1082.500.10.2.3.3.1.2', // Sama dengan onuName, tapi bisa digunakan untuk scan port
+}
+
+// SNMP OIDs untuk ZTE-AN-PON-MIB (Public PON Management)
+// Base: .1.3.6.1.4.1.3902.1082.50.10 (berdasarkan dokumentasi GPON MIB Specifications)
+const SNMP_ZTE_AN_PON_OIDS = {
+  // Base OID untuk Public PON Management
+  baseOid: '1.3.6.1.4.1.3902.1082.50.10',
+  
+  // PON Port Management (Base: .1.3.6.1.4.1.3902.1082.50.10.2.1)
+  ponPort: {
+    adminStatus: '1.3.6.1.4.1.3902.1082.50.10.2.1.1.1',
+    operStatus: '1.3.6.1.4.1.3902.1082.50.10.2.1.1.2',
+    type: '1.3.6.1.4.1.3902.1082.50.10.2.1.1.3',
+    opticalModuleStatus: '1.3.6.1.4.1.3902.1082.50.10.2.1.1.4',
+    laserState: '1.3.6.1.4.1.3902.1082.50.10.2.1.1.5',
+    serialNumber: '1.3.6.1.4.1.3902.1082.50.10.2.1.1.6',
+    vendorId: '1.3.6.1.4.1.3902.1082.50.10.2.1.1.7',
+    ponId: '1.3.6.1.4.1.3902.1082.50.10.2.1.1.8',
+    fecMode: '1.3.6.1.4.1.3902.1082.50.10.2.1.1.9',
+  },
+  
+  // ONU Information (Base: .1.3.6.1.4.1.3902.1082.50.10.2.2)
+  // Index: {zxAnPonIfIndex, zxAnOnuId}
+  onuInfo: {
+    adminStatus: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.1',
+    operStatus: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.2',
+    lastRegTime: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.3',
+    lastDeregTime: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.4',
+    macAddress: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.5',
+    logicalDistance: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.6',
+    serialNumber: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.7',
+    vendorId: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.8',
+    equipmentId: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.9',
+    mainSoftwareVersion: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.10',
+    softwareVersion: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.11',
+    hardwareVersion: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.12',
+    firmwareVersion: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.13',
+    batteryStatus: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.14',
+    opticalTransceiverType: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.15',
+    password: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.16',
+    loid: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.17',
+    discoverMode: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.18',
+    autofindEnable: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.19',
+    authMode: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.20',
+    bindType: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.21',
+    bindValue: '1.3.6.1.4.1.3902.1082.50.10.2.2.1.22',
+  },
+  
+  // ONU Status (Base: .1.3.6.1.4.1.3902.1082.50.10.2.3)
+  onuStatus: {
+    state: '1.3.6.1.4.1.3902.1082.50.10.2.3.1.1',
+    configState: '1.3.6.1.4.1.3902.1082.50.10.2.3.1.2',
+    powerLevel: '1.3.6.1.4.1.3902.1082.50.10.2.3.1.3',
+    dyingGaspTime: '1.3.6.1.4.1.3902.1082.50.10.2.3.1.4',
+    signalDegrade: '1.3.6.1.4.1.3902.1082.50.10.2.3.1.5',
+    signalFail: '1.3.6.1.4.1.3902.1082.50.10.2.3.1.6',
+    losStatus: '1.3.6.1.4.1.3902.1082.50.10.2.3.1.7',
+  },
+  
+  // Unconfigured ONU (Base: .1.3.6.1.4.1.3902.1082.50.10.2.10)
+  unconfOnu: {
+    ifIndex: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.1',
+    onuId: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.2',
+    serialNumber: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.3',
+    password: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.4',
+    loid: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.5',
+    vendorId: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.6',
+    equipmentId: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.7',
+    firmwareVersion: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.8',
+    softwareVersion: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.9',
+    hardwareVersion: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.10',
+    logicalDistance: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.11',
+    opticalTransceiverType: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.12',
+    macAddress: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.13',
+    regTime: '1.3.6.1.4.1.3902.1082.50.10.2.10.1.14',
+  },
+  
+  // Optical Power on GPON ONU Side (Base: .1.3.6.1.4.1.3902.1082.50.10.2.28)
+  onuOpticalPower: {
+    rxPower: '1.3.6.1.4.1.3902.1082.50.10.2.28.1.1',
+    rxPowerStatus: '1.3.6.1.4.1.3902.1082.50.10.2.28.1.2',
+    txPower: '1.3.6.1.4.1.3902.1082.50.10.2.28.1.3',
+    txPowerStatus: '1.3.6.1.4.1.3902.1082.50.10.2.28.1.4',
+  },
+  
+  // OLT RX Power (Base: .1.3.6.1.4.1.3902.1082.50.10.2.27)
+  oltRxPower: {
+    rxPower: '1.3.6.1.4.1.3902.1082.50.10.2.27.1.1',
+    rxPowerStatus: '1.3.6.1.4.1.3902.1082.50.10.2.27.1.2',
+  },
+  
+  // Optical Module Information (Base: .1.3.6.1.4.1.3902.1082.50.10.2.22)
+  opticalModule: {
+    type: '1.3.6.1.4.1.3902.1082.50.10.2.22.1.1',
+    vendor: '1.3.6.1.4.1.3902.1082.50.10.2.22.1.2',
+    serialNumber: '1.3.6.1.4.1.3902.1082.50.10.2.22.1.3',
+    manufactureDate: '1.3.6.1.4.1.3902.1082.50.10.2.22.1.4',
+    firmwareVersion: '1.3.6.1.4.1.3902.1082.50.10.2.22.1.5',
+    temperature: '1.3.6.1.4.1.3902.1082.50.10.2.22.1.6',
+    voltage: '1.3.6.1.4.1.3902.1082.50.10.2.22.1.7',
+    txPower: '1.3.6.1.4.1.3902.1082.50.10.2.22.1.8',
+    rxPower: '1.3.6.1.4.1.3902.1082.50.10.2.22.1.9',
+    biasCurrent: '1.3.6.1.4.1.3902.1082.50.10.2.22.1.10',
+  },
+  
+  // Performance Statistics (Base: .1.3.6.1.4.1.3902.1082.50.10.2.31)
+  onuPerfStats: {
+    ifIndex: '1.3.6.1.4.1.3902.1082.50.10.2.31.1.1',
+    rxBytes: '1.3.6.1.4.1.3902.1082.50.10.2.31.1.2',
+    txBytes: '1.3.6.1.4.1.3902.1082.50.10.2.31.1.3',
+    rxPackets: '1.3.6.1.4.1.3902.1082.50.10.2.31.1.4',
+    txPackets: '1.3.6.1.4.1.3902.1082.50.10.2.31.1.5',
+    rxErrors: '1.3.6.1.4.1.3902.1082.50.10.2.31.1.6',
+    txErrors: '1.3.6.1.4.1.3902.1082.50.10.2.31.1.7',
+    rxDrops: '1.3.6.1.4.1.3902.1082.50.10.2.31.1.8',
+    txDrops: '1.3.6.1.4.1.3902.1082.50.10.2.31.1.9',
+  },
 }
 
 // Status mapping untuk ZTE C3XX (berdasarkan kode Python)
@@ -889,6 +1095,373 @@ function ponIndexToFrameSlotPortOnu(ponIndex: number): { frame: number; slot: nu
   }
 }
 
+// Helper function untuk SNMP walk dengan delay (digunakan oleh semua parser)
+async function snmpWalkWithDelay(
+  ipAddress: string,
+  port: number,
+  community: string,
+  version: string,
+  oid: string,
+  delay: number = 0
+): Promise<any[]> {
+  if (delay > 0) {
+    await new Promise(resolve => setTimeout(resolve, delay))
+  }
+  try {
+    // Timeout 120 detik untuk data yang banyak
+    const result = await snmpWalk(ipAddress, port, community, version, oid, 120000)
+    return result
+  } catch (error: any) {
+    console.error(`[SNMP-Walk] Error walking OID ${oid}:`, error?.message || error)
+    return []
+  }
+}
+
+// Get ONU data untuk ZTE C300 GPON menggunakan SNMP (OID Standard GPON)
+// Menggunakan OID .1.3.6.1.4.1.3902.1012.3.28.2.1.* (bukan 1082!)
+// Berdasarkan dokumentasi ZTE_OLT_MIB_IMPLEMENTATION.md
+export async function getC300GponOnuDataViaSNMP(
+  ipAddress: string,
+  port: number,
+  community: string,
+  version: string,
+  oltName: string,
+  oltId: string
+): Promise<Array<{
+  id: string
+  oltId: string
+  oltName: string
+  name: string
+  description: string
+  pppoe: string
+  gponOnu: string
+  status: string
+  rxOlt: string | null
+  rxOnu: string | null
+  txOlt: string | null
+  txOnu: string | null
+  serialNumber: string
+  actualType: string
+  registerTime: string | null
+  distance: number | null
+  lastSeen: string | null
+  registrationMode: string | null
+  softwareVersion: string | null
+  hardwareVersion: string | null
+  temperature: number | null
+  laserBiasCurrent: number | null
+}>> {
+  console.log(`[C300-GPON-SNMP] Fetching ONU data from ${oltName} (${ipAddress}) via SNMP...`)
+  console.log(`[C300-GPON-SNMP] Using Standard GPON OIDs (.1.3.6.1.4.1.3902.1012.3.28.2.1.*)`)
+
+  const onus: Array<{
+    id: string
+    oltId: string
+    oltName: string
+    name: string
+    description: string
+    pppoe: string
+    gponOnu: string
+    status: string
+    rxOlt: string | null
+    rxOnu: string | null
+    txOlt: string | null
+    txOnu: string | null
+    serialNumber: string
+    actualType: string
+    registerTime: string | null
+    distance: number | null
+    lastSeen: string | null
+    registrationMode: string | null
+    softwareVersion: string | null
+    hardwareVersion: string | null
+    temperature: number | null
+    laserBiasCurrent: number | null
+  }> = []
+
+  try {
+    // Definisikan OID untuk C300 GPON (standard ZTE GPON MIB)
+    const C300_GPON_OIDS = {
+      status: '1.3.6.1.4.1.3902.1012.3.28.2.1.4',        // zxGponOntStatus
+      serial: '1.3.6.1.4.1.3902.1012.3.28.2.1.5',        // zxGponOntSerial
+      rxOlt: '1.3.6.1.4.1.3902.1012.3.28.2.1.6',         // zxGponOntRxOlt (0.01 dBm)
+      rxOnu: '1.3.6.1.4.1.3902.1012.3.28.2.1.7',         // zxGponOntRxOnu (0.01 dBm)
+      type: '1.3.6.1.4.1.3902.1012.3.28.2.1.8',          // zxGponOntType
+      name: '1.3.6.1.4.1.3902.1012.3.28.2.1.9',          // zxGponOntName
+      description: '1.3.6.1.4.1.3902.1012.3.28.2.1.10',  // zxGponOntDescription
+    }
+
+    // Step 1: Walk Status OID untuk get semua PON_ID dan ONU_ID
+    console.log(`[C300-GPON-SNMP] Step 1: Walking Status OID to get all PON_ID and ONU_ID...`)
+    const statusResults = await snmpWalkWithDelay(ipAddress, port, community, version, C300_GPON_OIDS.status, 0)
+    console.log(`[C300-GPON-SNMP] Found ${statusResults.length} ONU status entries`)
+
+    if (statusResults.length === 0) {
+      console.warn(`[C300-GPON-SNMP] No ONUs found for ${oltName}`)
+      return []
+    }
+
+    // Step 2: Parse Status Results untuk extract PON_ID dan ONU_ID
+    // Format OID: .1.3.6.1.4.1.3902.1012.3.28.2.1.4.{PON_ID}.{ONU_ID}
+    console.log(`[C300-GPON-SNMP] Step 2: Parsing Status OIDs...`)
+    const onuMap = new Map<string, {
+      ponId: number
+      onuId: number
+      frame: number
+      slot: number
+      port: number
+      status: number
+      gponOnu: string
+    }>()
+
+    const baseOid = C300_GPON_OIDS.status
+    const baseParts = baseOid.split('.')
+
+    for (const result of statusResults) {
+      const oidParts = result.oid.split('.')
+      
+      if (oidParts.length < baseParts.length + 2) {
+        continue // OID tidak lengkap
+      }
+
+      // Extract PON_ID dan ONU_ID dari OID
+      const ponId = parseInt(oidParts[baseParts.length])
+      const onuId = parseInt(oidParts[baseParts.length + 1])
+
+      if (isNaN(ponId) || isNaN(onuId)) {
+        continue
+      }
+
+      // Parse PON_ID menggunakan Type 1 Composite Index
+      // Format: Type (4 bit) | Shelf (4 bit) | Slot (8 bit) | Port (8 bit) | Reserved (8 bit)
+      const type = (ponId >> 28) & 0xF
+      const shelf = (ponId >> 24) & 0xF
+      const slot = (ponId >> 16) & 0xFF
+      const port = (ponId >> 8) & 0xFF
+      const reserved = ponId & 0xFF
+
+      // Frame biasanya 1 untuk single frame system, atau dari shelf
+      const frame = shelf === 0 ? 1 : shelf
+
+      // Parse status value
+      let statusValue = result.value
+      if (Buffer.isBuffer(statusValue)) {
+        statusValue = parseInt(statusValue.toString('hex'), 16)
+      }
+      if (typeof statusValue === 'string') {
+        statusValue = parseInt(statusValue)
+      }
+      const status = saveint(statusValue)
+
+      // Create gponOnu ID (format: frame/slot/port:onuId)
+      const gponOnu = `${frame}/${slot}/${port}:${onuId}`
+
+      // Create unique key
+      const key = `${ponId}:${onuId}`
+
+      onuMap.set(key, {
+        ponId,
+        onuId,
+        frame,
+        slot,
+        port,
+        status,
+        gponOnu,
+      })
+    }
+
+    console.log(`[C300-GPON-SNMP] Parsed ${onuMap.size} ONUs from status results`)
+
+    if (onuMap.size === 0) {
+      console.warn(`[C300-GPON-SNMP] No valid ONUs found after parsing`)
+      return []
+    }
+
+    // Step 3: Walk other OIDs untuk get detail data
+    console.log(`[C300-GPON-SNMP] Step 3: Walking other OIDs for complete data...`)
+    const [nameResults, serialResults, rxOltResults, rxOnuResults, typeResults, descResults] = await Promise.all([
+      snmpWalkWithDelay(ipAddress, port, community, version, C300_GPON_OIDS.name, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, C300_GPON_OIDS.serial, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, C300_GPON_OIDS.rxOlt, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, C300_GPON_OIDS.rxOnu, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, C300_GPON_OIDS.type, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, C300_GPON_OIDS.description, 0),
+    ])
+
+    console.log(`[C300-GPON-SNMP] Fetched: Names=${nameResults.length}, Serial=${serialResults.length}, RxOlt=${rxOltResults.length}, RxOnu=${rxOnuResults.length}, Type=${typeResults.length}, Desc=${descResults.length}`)
+
+    // Step 4: Parse dan combine data
+    console.log(`[C300-GPON-SNMP] Step 4: Parsing and combining data...`)
+
+    // Parse Names
+    for (const result of nameResults) {
+      const { ponId, onuId } = extractPonIdOnuIdFromOid(result.oid, baseParts.length)
+      if (ponId === null || onuId === null) continue
+
+      const key = `${ponId}:${onuId}`
+      const onu = onuMap.get(key)
+      if (onu) {
+        onuMap.set(key, { ...onu, name: result.value?.toString() || `ONU-${onuId}` })
+      }
+    }
+
+    // Parse Serial Numbers
+    for (const result of serialResults) {
+      const { ponId, onuId } = extractPonIdOnuIdFromOid(result.oid, baseParts.length)
+      if (ponId === null || onuId === null) continue
+
+      const key = `${ponId}:${onuId}`
+      const onu = onuMap.get(key)
+      if (onu) {
+        let serial = ''
+        if (Buffer.isBuffer(result.value)) {
+          serial = result.value.toString('hex').toUpperCase()
+        } else if (typeof result.value === 'string') {
+          serial = result.value
+        }
+        onuMap.set(key, { ...onu, serialNumber: serial })
+      }
+    }
+
+    // Parse RX OLT (dalam 0.01 dBm)
+    for (const result of rxOltResults) {
+      const { ponId, onuId } = extractPonIdOnuIdFromOid(result.oid, baseParts.length)
+      if (ponId === null || onuId === null) continue
+
+      const key = `${ponId}:${onuId}`
+      const onu = onuMap.get(key)
+      if (onu) {
+        let value = result.value
+        if (Buffer.isBuffer(value)) {
+          value = parseInt(value.toString('hex'), 16)
+        }
+        if (typeof value === 'string') {
+          value = parseInt(value)
+        }
+        const rxValue = saveint(value)
+        // Convert dari 0.01 dBm ke dBm
+        const rxDbm = (rxValue / 100.0).toFixed(2)
+        onuMap.set(key, { ...onu, rxOlt: rxDbm })
+      }
+    }
+
+    // Parse RX ONU (dalam 0.01 dBm)
+    for (const result of rxOnuResults) {
+      const { ponId, onuId } = extractPonIdOnuIdFromOid(result.oid, baseParts.length)
+      if (ponId === null || onuId === null) continue
+
+      const key = `${ponId}:${onuId}`
+      const onu = onuMap.get(key)
+      if (onu) {
+        let value = result.value
+        if (Buffer.isBuffer(value)) {
+          value = parseInt(value.toString('hex'), 16)
+        }
+        if (typeof value === 'string') {
+          value = parseInt(value)
+        }
+        const rxValue = saveint(value)
+        // Convert dari 0.01 dBm ke dBm
+        const rxDbm = (rxValue / 100.0).toFixed(2)
+        onuMap.set(key, { ...onu, rxOnu: rxDbm })
+      }
+    }
+
+    // Parse Type
+    for (const result of typeResults) {
+      const { ponId, onuId } = extractPonIdOnuIdFromOid(result.oid, baseParts.length)
+      if (ponId === null || onuId === null) continue
+
+      const key = `${ponId}:${onuId}`
+      const onu = onuMap.get(key)
+      if (onu) {
+        onuMap.set(key, { ...onu, actualType: result.value?.toString() || '' })
+      }
+    }
+
+    // Parse Description
+    for (const result of descResults) {
+      const { ponId, onuId } = extractPonIdOnuIdFromOid(result.oid, baseParts.length)
+      if (ponId === null || onuId === null) continue
+
+      const key = `${ponId}:${onuId}`
+      const onu = onuMap.get(key)
+      if (onu) {
+        onuMap.set(key, { ...onu, description: result.value?.toString() || '' })
+      }
+    }
+
+    // Step 5: Build final ONU array
+    console.log(`[C300-GPON-SNMP] Step 5: Building final ONU array...`)
+    let countWithRxOlt = 0
+    let countWithRxOnu = 0
+    let countWithSerial = 0
+
+    for (const [key, onu] of onuMap.entries()) {
+      const statusStr = getZteOnuStatusString(onu.status)
+      
+      // Count stats
+      if (onu.rxOlt) countWithRxOlt++
+      if (onu.rxOnu) countWithRxOnu++
+      if (onu.serialNumber) countWithSerial++
+
+      onus.push({
+        id: `${oltId}-${onu.gponOnu}`,
+        oltId,
+        oltName,
+        name: (onu as any).name || `ONU-${onu.onuId}`,
+        description: (onu as any).description || '',
+        pppoe: '',
+        gponOnu: onu.gponOnu,
+        status: statusStr,
+        rxOlt: onu.rxOlt ? `${onu.rxOlt} dBm` : null,
+        rxOnu: onu.rxOnu ? `${onu.rxOnu} dBm` : null,
+        txOlt: null, // C300 GPON standard MIB tidak punya TX power
+        txOnu: null, // C300 GPON standard MIB tidak punya TX power
+        serialNumber: (onu as any).serialNumber || '',
+        actualType: (onu as any).actualType || detectModelFromSerial((onu as any).serialNumber || ''),
+        registerTime: null,
+        distance: null,
+        lastSeen: null,
+        registrationMode: null,
+        softwareVersion: null,
+        hardwareVersion: null,
+        temperature: null,
+        laserBiasCurrent: null,
+      })
+    }
+
+    console.log(`[C300-GPON-SNMP] Summary: ${onus.length} total ONUs`)
+    console.log(`[C300-GPON-SNMP]   - With RX OLT: ${countWithRxOlt}`)
+    console.log(`[C300-GPON-SNMP]   - With RX ONU: ${countWithRxOnu}`)
+    console.log(`[C300-GPON-SNMP]   - With Serial: ${countWithSerial}`)
+    console.log(`[C300-GPON-SNMP] Parsed ${onus.length} ONUs from ${oltName} via SNMP`)
+
+    return onus
+  } catch (error: any) {
+    console.error(`[C300-GPON-SNMP] Error fetching ONU data from ${oltName}:`, error?.message || error)
+    return []
+  }
+}
+
+// Helper function untuk extract PON_ID dan ONU_ID dari OID
+function extractPonIdOnuIdFromOid(oid: string, baseLength: number): { ponId: number | null, onuId: number | null } {
+  const oidParts = oid.split('.')
+  
+  if (oidParts.length < baseLength + 2) {
+    return { ponId: null, onuId: null }
+  }
+
+  const ponId = parseInt(oidParts[baseLength])
+  const onuId = parseInt(oidParts[baseLength + 1])
+
+  if (isNaN(ponId) || isNaN(onuId)) {
+    return { ponId: null, onuId: null }
+  }
+
+  return { ponId, onuId }
+}
+
 // Get ONU data untuk ZTE C3XX menggunakan SNMP
 // Menggunakan pendekatan sederhana: langsung walk semua OID tanpa discovery port
 // Berdasarkan rumus: PON_Index = (frame << 24) + (slot << 16) + (port << 8) + ONU_ID
@@ -910,8 +1483,18 @@ export async function getC3xxOnuDataViaSNMP(
   status: string
   rxOlt: string | null
   rxOnu: string | null
+  txOlt: string | null
+  txOnu: string | null
   serialNumber: string
   actualType: string
+  registerTime: string | null
+  distance: number | null
+  lastSeen: string | null
+  registrationMode: string | null
+  softwareVersion: string | null
+  hardwareVersion: string | null
+  temperature: number | null
+  laserBiasCurrent: number | null
 }>> {
   const onus: Array<{
     id: string
@@ -924,8 +1507,18 @@ export async function getC3xxOnuDataViaSNMP(
     status: string
     rxOlt: string | null
     rxOnu: string | null
+    txOlt: string | null
+    txOnu: string | null
     serialNumber: string
     actualType: string
+    registerTime: string | null
+    distance: number | null
+    lastSeen: string | null
+    registrationMode: string | null
+    softwareVersion: string | null
+    hardwareVersion: string | null
+    temperature: number | null
+    laserBiasCurrent: number | null
   }> = []
 
   try {
@@ -1023,13 +1616,39 @@ export async function getC3xxOnuDataViaSNMP(
     // Step 2: Walk OID lainnya untuk mendapatkan data lengkap
     console.log(`[C3XX-ONU-SNMP] Step 2: Walking other OIDs for complete data...`)
     const [onuStatusResults, onuSerialResults, onuRxResults, onuTxResults] = await Promise.all([
-      walkWithDelay('1.3.6.1.4.1.3902.1082.500.10.2.3.3.1.3', 0), // Status
+      walkWithDelay('1.3.6.1.4.1.3902.1082.500.10.2.3.3.1.3', 0), // Description (bukan status)
       walkWithDelay('1.3.6.1.4.1.3902.1082.500.10.2.3.3.1.4', 0), // Serial Number
-      walkWithDelay('1.3.6.1.4.1.3902.1082.30.40.2.4.1.3', 0),    // RX Power (OLT receive)
-      walkWithDelay('1.3.6.1.4.1.3902.1082.30.40.2.4.1.4', 0),    // TX Power (ONU transmit)
+      walkWithDelay('1.3.6.1.4.1.3902.1082.30.40.2.4.1.3', 0),    // RX Power (OLT receive) - format: baseOid.{PON_INDEX}
+      walkWithDelay('1.3.6.1.4.1.3902.1082.30.40.2.4.1.4', 0),    // TX Power (ONU transmit) - format: baseOid.{PON_INDEX}
     ])
     
     console.log(`[C3XX-ONU-SNMP] Status: ${onuStatusResults.length}, Serial: ${onuSerialResults.length}, RX: ${onuRxResults.length}, TX: ${onuTxResults.length}`)
+    
+    // Log sample OIDs untuk debugging
+    if (onuSerialResults.length > 0) {
+      console.log(`[C3XX-ONU-SNMP] Sample Serial OIDs (first 3):`)
+      onuSerialResults.slice(0, 3).forEach((r, i) => {
+        console.log(`[C3XX-ONU-SNMP]   ${i + 1}. ${r.oid} = ${r.value}`)
+      })
+    }
+    if (onuRxResults.length > 0) {
+      console.log(`[C3XX-ONU-SNMP] Sample RX OIDs (first 3):`)
+      onuRxResults.slice(0, 3).forEach((r, i) => {
+        console.log(`[C3XX-ONU-SNMP]   ${i + 1}. ${r.oid} = ${r.value}`)
+      })
+    }
+    if (onuTxResults.length > 0) {
+      console.log(`[C3XX-ONU-SNMP] Sample TX OIDs (first 3):`)
+      onuTxResults.slice(0, 3).forEach((r, i) => {
+        console.log(`[C3XX-ONU-SNMP]   ${i + 1}. ${r.oid} = ${r.value}`)
+      })
+    }
+    
+    // Coba juga fetch status dari OID yang benar (jika berbeda)
+    // Berdasarkan dokumentasi, status mungkin di OID yang berbeda
+    console.log(`[C3XX-ONU-SNMP] Trying alternative status OID: 1.3.6.1.4.1.3902.1082.500.10.2.3.8.1.4`)
+    const onuStatusResultsAlt = await walkWithDelay('1.3.6.1.4.1.3902.1082.500.10.2.3.8.1.4', 0)
+    console.log(`[C3XX-ONU-SNMP] Alternative Status OID results: ${onuStatusResultsAlt.length}`)
     
     // Step 3: Parse semua data dan gabungkan
     console.log(`[C3XX-ONU-SNMP] Step 3: Parsing and combining data...`)
@@ -1057,23 +1676,64 @@ export async function getC3xxOnuDataViaSNMP(
       }
       
       // Convert PON Index ke Frame/Slot/Port
-      // PON Index encode: (frame << 24) + (slot << 16) + (port << 8) + (onuId_from_pon_index)
-      const frame = (ponIndex >> 24) & 0xFF
+      // Berdasarkan dokumentasi Type 1 Composite Index:
+      // bit31-bit28: Type = 1
+      // bit27-bit24: Shelf No. = 0
+      // bit23-bit16: Slot No. (8 bit)
+      // bit15-bit8: Port No. atau OLT No. (8 bit)
+      // bit7-bit0: Reserved = 0
+      const type = (ponIndex >> 28) & 0xF
+      const shelf = (ponIndex >> 24) & 0xF
       const slot = (ponIndex >> 16) & 0xFF
       const port = (ponIndex >> 8) & 0xFF
-      const onuIdFromPonIndex = ponIndex & 0xFF
+      const reserved = ponIndex & 0xFF
       
-      // Validasi frame/slot/port
+      // Validasi: Type harus 1 untuk Type 1 composite index
+      if (type !== 1) {
+        // Bukan Type 1, mungkin Type 3 atau 9 (ONU composite index)
+        // Untuk C3XX, mungkin menggunakan format yang berbeda
+        // Coba decode sebagai Type 3/9 atau format alternatif
+        console.warn(`[C3XX-ONU-SNMP] PON Index ${ponIndex} has type ${type}, not Type 1. Trying alternative decode...`)
+        
+        // Untuk C3XX, mungkin format berbeda - coba decode sebagai:
+        // Format alternatif: mungkin frame/slot/port di posisi berbeda
+        // Atau mungkin ini adalah ONU composite index (Type 3/9)
+        const altFrame = (ponIndex >> 24) & 0xFF
+        const altSlot = (ponIndex >> 16) & 0xFF
+        const altPort = (ponIndex >> 8) & 0xFF
+        const altOnuId = ponIndex & 0xFF
+        
+        if (altSlot === 0 || altPort === 0) {
+          return null
+        }
+        
+        // Gunakan format alternatif
+        const frame = altFrame === 0 ? 1 : altFrame
+        return {
+          frame,
+          slot: altSlot,
+          port: altPort,
+          onuId: altOnuId,
+          ponIndex,
+        }
+      }
+      
+      // Validasi frame/slot/port untuk Type 1
       if (slot === 0 || port === 0) {
         return null
       }
       
+      // Frame biasanya 1 untuk single frame system
+      // Shelf biasanya 0 untuk Type 1, tapi jika tidak 0, bisa digunakan sebagai frame
+      const frame = shelf === 0 ? 1 : shelf
+      
       // ONU ID bisa dari 2 sumber:
       // 1. Dari bagian terakhir OID (jika ada): baseOid.{PON_INDEX}.{ONU_ID}
-      // 2. Dari PON Index (jika tidak ada bagian terakhir): baseOid.{PON_INDEX}
-      let onuId = onuIdFromPonIndex
+      // 2. Dari PON Index reserved field (jika tidak ada bagian terakhir): baseOid.{PON_INDEX}
+      // Tapi untuk C3XX, ONU ID biasanya dari bagian terakhir OID
+      let onuId = reserved // Reserved biasanya 0, tapi bisa berisi ONU ID untuk beberapa kasus
       
-      // Jika ada bagian setelah PON Index, gunakan sebagai ONU ID
+      // Jika ada bagian setelah PON Index, gunakan sebagai ONU ID (ini yang benar untuk C3XX)
       if (oidParts.length > baseParts.length + 1) {
         const onuIdStr = oidParts[oidParts.length - 1] // Ambil bagian terakhir
         const onuIdFromOid = parseInt(onuIdStr)
@@ -1086,6 +1746,8 @@ export async function getC3xxOnuDataViaSNMP(
       if (onuId === 0) {
         return null
       }
+      
+      // Log untuk debugging (hanya beberapa pertama) - akan dipanggil dari parsing loop
       
       return {
         frame: frame === 0 ? 1 : frame, // Default frame ke 1 jika 0
@@ -1100,6 +1762,7 @@ export async function getC3xxOnuDataViaSNMP(
     let parsedCount = 0
     let skippedCount = 0
     let skippedReasons: { [key: string]: number } = {}
+    let debugCount = 0 // Counter untuk logging debug
     
     for (const result of onuNameResults) {
       // Extract frame/slot/port/onuId dari OID
@@ -1115,8 +1778,20 @@ export async function getC3xxOnuDataViaSNMP(
       }
       
       const { frame, slot, port: portNum, onuId, ponIndex } = onuInfo
+      
+      // Log decode info untuk beberapa pertama
+      if (debugCount < 5) {
+        const type = (ponIndex >> 28) & 0xF
+        const shelf = (ponIndex >> 24) & 0xF
+        const reserved = ponIndex & 0xFF
+        console.log(`[C3XX-ONU-SNMP] Decoded PON Index ${ponIndex}: type=${type}, shelf=${shelf}, slot=${slot}, port=${portNum}, reserved=${reserved}, frame=${frame}, onuId=${onuId}`)
+        debugCount++
+      }
+      
       const gponOnu = `${frame}/${slot}/${portNum}:${onuId}`
-      const key = gponOnu
+      // Gunakan PON Index + ONU ID sebagai key untuk menghindari duplikasi
+      // karena beberapa PON Index yang berbeda mungkin dikonversi ke frame/slot/port yang sama
+      const key = `${ponIndex}:${onuId}`
       
       // Get ONU name value
       let value = result.value
@@ -1148,10 +1823,20 @@ export async function getC3xxOnuDataViaSNMP(
         })
         parsedCount++
         if (parsedCount <= 10) {
-          console.log(`[C3XX-ONU-SNMP] Parsed ONU: ${gponOnu} (${onuName}) from OID: ${result.oid}, PON Index: ${ponIndex}`)
+          console.log(`[C3XX-ONU-SNMP] Parsed ONU: ${gponOnu} (${onuName}) from OID: ${result.oid}, PON Index: ${ponIndex}, Key: ${key}`)
         }
       } else {
-        onuMap.get(key)!.name = onuName
+        // Update name jika sudah ada
+        const existing = onuMap.get(key)!
+        existing.name = onuName
+        // Update gponOnu jika berbeda (mungkin konversi frame/slot/port lebih akurat sekarang)
+        if (existing.gponOnu !== gponOnu) {
+          console.log(`[C3XX-ONU-SNMP] Updating gponOnu for key ${key}: ${existing.gponOnu} -> ${gponOnu}`)
+          existing.gponOnu = gponOnu
+          existing.frame = frame
+          existing.slot = slot
+          existing.port = portNum
+        }
       }
     }
     
@@ -1180,13 +1865,40 @@ export async function getC3xxOnuDataViaSNMP(
       console.log(`[C3XX-ONU-SNMP] Existing ONU keys (first 20):`, existingKeys.slice(0, 20))
     }
     
-    // Parse ONU Status
-    for (const result of onuStatusResults) {
-      const onuInfo = extractOnuInfoFromOid(result.oid, '1.3.6.1.4.1.3902.1082.500.10.2.3.3.1.3')
-      if (!onuInfo) continue
+    // Parse ONU Status - coba dari OID alternatif dulu (yang lebih spesifik untuk status)
+    // Format OID status mungkin sama dengan name: baseOid.{PON_INDEX}.{ONU_ID}
+    let statusMatchedCount = 0
+    let statusNotFoundCount = 0
+    let statusKeyNotFoundCount = 0
+    
+    // Log sample status OIDs untuk debugging
+    if (onuStatusResultsAlt.length > 0 && onuStatusResultsAlt.length <= 5) {
+      console.log(`[C3XX-ONU-SNMP] Sample status OIDs:`)
+      onuStatusResultsAlt.slice(0, 5).forEach((r, i) => {
+        console.log(`[C3XX-ONU-SNMP]   ${i + 1}. ${r.oid}`)
+      })
+    }
+    
+    for (const result of onuStatusResultsAlt) {
+      // Coba parse dengan format yang sama seperti name OID
+      const onuInfo = extractOnuInfoFromOid(result.oid, '1.3.6.1.4.1.3902.1082.500.10.2.3.8.1.4')
+      if (!onuInfo) {
+        if (statusNotFoundCount < 5) {
+          console.warn(`[C3XX-ONU-SNMP] Failed to parse status OID: ${result.oid}`)
+        }
+        statusNotFoundCount++
+        continue
+      }
       
-      const key = `${onuInfo.frame}/${onuInfo.slot}/${onuInfo.port}:${onuInfo.onuId}`
-      if (!onuMap.has(key)) continue
+      // Gunakan PON Index + ONU ID sebagai key (sama seperti di parsing name)
+      const key = `${onuInfo.ponIndex}:${onuInfo.onuId}`
+      if (!onuMap.has(key)) {
+        if (statusKeyNotFoundCount < 5) {
+          console.warn(`[C3XX-ONU-SNMP] Status OID found but key not in map: ${key} (OID: ${result.oid}, PON Index: ${onuInfo.ponIndex}, ONU ID: ${onuInfo.onuId})`)
+        }
+        statusKeyNotFoundCount++
+        continue
+      }
       
       let value = result.value
       if (Buffer.isBuffer(value)) {
@@ -1202,16 +1914,67 @@ export async function getC3xxOnuDataViaSNMP(
         else if (status === 'authFailed') onuMap.get(key)!.status = 'AuthFailed'
         else if (status === 'offline') onuMap.get(key)!.status = 'OffLine'
         else onuMap.get(key)!.status = status.charAt(0).toUpperCase() + status.slice(1)
+        statusMatchedCount++
+      }
+    }
+    console.log(`[C3XX-ONU-SNMP] Status parsing: ${statusMatchedCount} matched, ${statusNotFoundCount} failed to parse, ${statusKeyNotFoundCount} key not found`)
+    
+    // Fallback: Parse status dari OID description (jika alternative tidak ada)
+    if (statusMatchedCount === 0) {
+      console.log(`[C3XX-ONU-SNMP] No status from alternative OID, trying description OID...`)
+      for (const result of onuStatusResults) {
+        const onuInfo = extractOnuInfoFromOid(result.oid, '1.3.6.1.4.1.3902.1082.500.10.2.3.3.1.3')
+        if (!onuInfo) continue
+        
+        // Gunakan PON Index + ONU ID sebagai key (sama seperti di parsing name)
+        const key = `${onuInfo.ponIndex}:${onuInfo.onuId}`
+        if (!onuMap.has(key)) continue
+        
+        // OID ini mungkin description, bukan status, jadi kita skip untuk status
+        // Tapi kita bisa gunakan untuk description jika belum ada
+        if (!onuMap.get(key)!.description) {
+          let value = result.value
+          if (Buffer.isBuffer(value)) {
+            try {
+              value = value.toString('utf8')
+            } catch (e) {
+              value = value.toString()
+            }
+          }
+          const descValue = String(value || '').trim()
+          if (descValue) {
+            onuMap.get(key)!.description = descValue
+          }
+        }
       }
     }
     
     // Parse Serial Number
+    // Format OID: baseOid.{PON_INDEX}.{ONU_ID} (sama seperti name)
+    let serialMatchedCount = 0
+    let serialNotFoundCount = 0
+    let serialKeyNotFoundCount = 0
+    
     for (const result of onuSerialResults) {
       const onuInfo = extractOnuInfoFromOid(result.oid, '1.3.6.1.4.1.3902.1082.500.10.2.3.3.1.4')
-      if (!onuInfo) continue
+      if (!onuInfo) {
+        if (serialNotFoundCount < 5) {
+          console.warn(`[C3XX-ONU-SNMP] Failed to parse serial OID: ${result.oid}`)
+        }
+        serialNotFoundCount++
+        continue
+      }
       
-      const key = `${onuInfo.frame}/${onuInfo.slot}/${onuInfo.port}:${onuInfo.onuId}`
-      if (!onuMap.has(key)) continue
+      // Gunakan PON Index + ONU ID sebagai key (sama seperti di parsing name)
+      const key = `${onuInfo.ponIndex}:${onuInfo.onuId}`
+      if (!onuMap.has(key)) {
+        // Log jika key tidak ditemukan (mungkin ONU belum ter-create dari name results)
+        if (serialKeyNotFoundCount < 5) {
+          console.warn(`[C3XX-ONU-SNMP] Serial OID found but key not in map: ${key} (OID: ${result.oid}, PON Index: ${onuInfo.ponIndex}, ONU ID: ${onuInfo.onuId})`)
+        }
+        serialKeyNotFoundCount++
+        continue
+      }
       
       let value = result.value
       if (Buffer.isBuffer(value)) {
@@ -1222,60 +1985,169 @@ export async function getC3xxOnuDataViaSNMP(
         }
       }
       
-      onuMap.get(key)!.serialNumber = String(value || '').trim()
+      const serialValue = String(value || '').trim()
+      if (serialValue && serialValue !== '0' && serialValue !== '') {
+        onuMap.get(key)!.serialNumber = serialValue
+        serialMatchedCount++
+      } else {
+        // Jika serial number kosong, coba extract dari name (format: SERIAL-NAME)
+        const onu = onuMap.get(key)!
+        if (onu.name) {
+          // Format name biasanya: SERIAL-NAME atau SERIAL NAME
+          const nameParts = onu.name.split(/[- ]/)
+          if (nameParts.length > 0 && nameParts[0] && nameParts[0].length >= 10) {
+            // Jika bagian pertama panjang (kemungkinan serial number)
+            const possibleSerial = nameParts[0].trim()
+            // Validasi: serial number biasanya angka atau alphanumeric panjang
+            if (/^[0-9A-Za-z]{10,}$/.test(possibleSerial)) {
+              onu.serialNumber = possibleSerial
+              serialMatchedCount++
+            }
+          }
+        }
+      }
     }
+    console.log(`[C3XX-ONU-SNMP] Serial parsing: ${serialMatchedCount} matched, ${serialNotFoundCount} failed to parse, ${serialKeyNotFoundCount} key not found`)
     
     // Parse RX Power (OLT receive from ONU)
-    // Format OID: 1.3.6.1.4.1.3902.1082.30.40.2.4.1.3.{PON_INDEX} (tanpa ONU_ID di akhir)
-    // PON_INDEX = (frame << 24) + (slot << 16) + (port << 8) + (onuId_from_pon_index)
-    // Tapi ONU_ID dari PON_INDEX mungkin tidak akurat, jadi kita match berdasarkan frame/slot/port saja
-    // dan assign ke semua ONU di port tersebut (atau ONU pertama jika hanya 1)
+    // Format OID mungkin: baseOid.{PON_INDEX} atau baseOid.{PON_INDEX}.{ONU_ID}
+    // Coba kedua format
+    let rxMatchedCount = 0
+    let rxNotFoundCount = 0
+    let rxKeyNotFoundCount = 0
+    
     for (const result of onuRxResults) {
       const oidParts = result.oid.split('.')
       const baseOid = '1.3.6.1.4.1.3902.1082.30.40.2.4.1.3'
       const baseParts = baseOid.split('.')
       
-      // Format: baseOid.{PON_INDEX} (tanpa ONU_ID)
-      if (oidParts.length <= baseParts.length) continue
+      if (oidParts.length <= baseParts.length) {
+        rxNotFoundCount++
+        continue
+      }
       
       const ponIndexStr = oidParts[baseParts.length]
       const ponIndex = parseInt(ponIndexStr)
-      if (isNaN(ponIndex)) continue
+      if (isNaN(ponIndex)) {
+        rxNotFoundCount++
+        continue
+      }
       
-      // Extract frame/slot/port dari PON_INDEX
-      const frame = (ponIndex >> 24) & 0xFF
-      const slot = (ponIndex >> 16) & 0xFF
-      const port = (ponIndex >> 8) & 0xFF
-      const onuIdFromPonIndex = ponIndex & 0xFF
-      
-      if (slot === 0 || port === 0) continue
-      
-      const frameNum = frame === 0 ? 1 : frame
-      
-      // Match dengan ONU berdasarkan frame/slot/port
-      // Jika ada ONU_ID dari PON_INDEX dan valid, coba match dengan ONU_ID tersebut
-      // Jika tidak, assign ke ONU pertama di port tersebut
-      let matchedKey: string | null = null
-      
-      if (onuIdFromPonIndex > 0 && onuIdFromPonIndex <= 128) {
-        // Coba match dengan ONU_ID dari PON_INDEX
-        const tryKey = `${frameNum}/${slot}/${port}:${onuIdFromPonIndex}`
-        if (onuMap.has(tryKey)) {
-          matchedKey = tryKey
+      // Cek apakah ada ONU_ID di akhir OID
+      let onuId: number | null = null
+      if (oidParts.length > baseParts.length + 1) {
+        // Format: baseOid.{PON_INDEX}.{ONU_ID}
+        const onuIdStr = oidParts[oidParts.length - 1]
+        const onuIdFromOid = parseInt(onuIdStr)
+        if (!isNaN(onuIdFromOid) && onuIdFromOid > 0) {
+          onuId = onuIdFromOid
         }
       }
       
-      // Jika tidak match, cari ONU pertama di port tersebut
-      if (!matchedKey) {
+      // Extract frame/slot/port dari PON_INDEX menggunakan format Type 1 yang benar
+      // Berdasarkan dokumentasi Type 1 Composite Index:
+      // bit31-bit28: Type = 1
+      // bit27-bit24: Shelf No. = 0
+      // bit23-bit16: Slot No. (8 bit)
+      // bit15-bit8: Port No. atau OLT No. (8 bit)
+      // bit7-bit0: Reserved = 0
+      const type = (ponIndex >> 28) & 0xF
+      const shelf = (ponIndex >> 24) & 0xF
+      const slot = (ponIndex >> 16) & 0xFF
+      const port = (ponIndex >> 8) & 0xFF
+      const reserved = ponIndex & 0xFF
+      const onuIdFromPonIndex = reserved // Reserved biasanya 0, tapi bisa berisi ONU ID
+      
+      if (slot === 0 || port === 0) {
+        rxNotFoundCount++
+        continue
+      }
+      
+      // Frame biasanya 1 untuk single frame system
+      // Shelf biasanya 0 untuk Type 1, tapi jika tidak 0, bisa digunakan sebagai frame
+      const frameNum = shelf === 0 ? 1 : shelf
+      
+      // Cari semua ONU yang match dengan frame/slot/port ini
+      // RX/TX OID biasanya per-PON (tidak punya ONU ID di akhir), jadi assign ke semua ONU di port yang sama
+      const matchingOnus: string[] = []
+      
+      // Jika ada ONU_ID dari OID, coba match dengan ONU spesifik dulu
+      if (onuId !== null && onuId > 0) {
         for (const [key, onu] of onuMap.entries()) {
-          if (onu.frame === frameNum && onu.slot === slot && onu.port === port) {
-            matchedKey = key
-            break // Ambil ONU pertama di port tersebut
+          if (onu.frame === frameNum && onu.slot === slot && onu.port === port && onu.onuId === onuId) {
+            matchingOnus.push(key)
+            break // Hanya ambil yang pertama yang match
           }
         }
       }
       
-      if (!matchedKey) continue
+      // Prioritas 1: Jika ada ONU_ID dari OID, match dengan ONU spesifik
+      // (sudah di-handle di atas)
+      
+      // Prioritas 2: Coba match dengan reserved field sebagai ONU ID
+      // Reserved field di PON Index untuk RX/TX OID kemungkinan berisi ONU ID
+      // Contoh: PON Index 285278977 -> reserved=1, berarti ONU ID = 1
+      if (matchingOnus.length === 0 && reserved > 0 && reserved <= 128) {
+        for (const [key, onu] of onuMap.entries()) {
+          if (onu.frame === frameNum && onu.slot === slot && onu.port === port && onu.onuId === reserved) {
+            matchingOnus.push(key)
+            break // Hanya ambil yang pertama yang match
+          }
+        }
+      }
+      
+      // Prioritas 3: Jika masih tidak match, coba match dengan "reserved" field sebagai sequential index
+      // Urutkan ONUs di port yang sama berdasarkan ONU ID, lalu assign berdasarkan urutan
+      if (matchingOnus.length === 0 && reserved > 0 && reserved <= 128) {
+        // Dapatkan semua ONU di port yang sama, sorted by ONU ID
+        const onusOnPort: Array<{key: string, onuId: number}> = []
+        for (const [key, onu] of onuMap.entries()) {
+          if (onu.frame === frameNum && onu.slot === slot && onu.port === port) {
+            onusOnPort.push({key, onuId: onu.onuId})
+          }
+        }
+        onusOnPort.sort((a, b) => a.onuId - b.onuId)
+        
+        // Match berdasarkan posisi sequential (reserved sebagai index mulai dari 1)
+        if (reserved <= onusOnPort.length) {
+          const targetOnu = onusOnPort[reserved - 1] // reserved=1 -> index 0
+          matchingOnus.push(targetOnu.key)
+        }
+      }
+      
+      // Prioritas 4: Jika masih tidak match, cari SEMUA ONU dengan frame/slot/port yang sama (last resort)
+      if (matchingOnus.length === 0) {
+        for (const [key, onu] of onuMap.entries()) {
+          if (onu.frame === frameNum && onu.slot === slot && onu.port === port) {
+            matchingOnus.push(key)
+          }
+        }
+      }
+      
+      // Log untuk debugging: jika menemukan banyak ONU di port yang sama
+      if (matchingOnus.length > 1 && rxMatchedCount < 10) {
+        console.log(`[C3XX-ONU-SNMP] RX OID ${ponIndex} (frame: ${frameNum}, slot: ${slot}, port: ${port}) matched dengan ${matchingOnus.length} ONU(s) di port yang sama`)
+      }
+      
+      if (matchingOnus.length === 0) {
+        if (rxKeyNotFoundCount < 10) {
+          console.warn(`[C3XX-ONU-SNMP] RX OID not matched: PON=${ponIndex} (type:${type}, shelf:${shelf}, frame:${frameNum}, slot:${slot}, port:${port}, onuId:${onuId}, reserved:${reserved})`)
+          
+          // Debug: tampilkan sample ONUs untuk comparison (hanya sekali)
+          if (rxKeyNotFoundCount === 0) {
+            console.log(`[C3XX-ONU-SNMP] Sample ONUs for comparison:`)
+            let debugCount = 0
+            for (const [key, onu] of onuMap.entries()) {
+              if (debugCount < 5) {
+                console.log(`  - ${key}: frame=${onu.frame}, slot=${onu.slot}, port=${onu.port}, onuId=${onu.onuId}`)
+                debugCount++
+              }
+            }
+          }
+        }
+        rxKeyNotFoundCount++
+        continue
+      }
       
       let value = result.value
       if (Buffer.isBuffer(value)) {
@@ -1284,55 +2156,168 @@ export async function getC3xxOnuDataViaSNMP(
       
       const rxValue = saveint(value)
       const rxDbm = convertC3xxRxValue(rxValue)
-      onuMap.get(matchedKey)!.rxOlt = rxDbm === -40.0 ? null : `${rxDbm} dBm`
+      if (rxDbm !== -40.0 && !isNaN(rxDbm)) {
+        // Assign ke SEMUA ONU di port yang sama (karena RX OID biasanya per-PON)
+        // Jika hanya match 1 ONU, tetap assign (mungkin per-ONU)
+        // Jika match banyak ONU, assign ke semua (per-PON)
+        for (const key of matchingOnus) {
+          onuMap.get(key)!.rxOlt = `${rxDbm} dBm`
+          rxMatchedCount++
+        }
+        // Log untuk debugging
+        if (rxMatchedCount <= 10 || matchingOnus.length > 1) {
+          console.log(`[C3XX-ONU-SNMP] RX matched: PON Index ${ponIndex} (frame: ${frameNum}, slot: ${slot}, port: ${port}) -> ${matchingOnus.length} ONU(s), RX: ${rxDbm} dBm`)
+        }
+      }
     }
+    console.log(`[C3XX-ONU-SNMP] RX parsing: ${rxMatchedCount} matched, ${rxNotFoundCount} failed to parse, ${rxKeyNotFoundCount} key not found`)
     
     // Parse TX Power (ONU transmit)
-    // Format OID: 1.3.6.1.4.1.3902.1082.30.40.2.4.1.4.{PON_INDEX} (tanpa ONU_ID di akhir)
+    // Format OID mungkin: baseOid.{PON_INDEX} atau baseOid.{PON_INDEX}.{ONU_ID}
+    // Coba kedua format
+    let txMatchedCount = 0
+    let txNotFoundCount = 0
+    let txKeyNotFoundCount = 0
+    
     for (const result of onuTxResults) {
       const oidParts = result.oid.split('.')
       const baseOid = '1.3.6.1.4.1.3902.1082.30.40.2.4.1.4'
       const baseParts = baseOid.split('.')
       
-      // Format: baseOid.{PON_INDEX} (tanpa ONU_ID)
-      if (oidParts.length <= baseParts.length) continue
+      if (oidParts.length <= baseParts.length) {
+        txNotFoundCount++
+        continue
+      }
       
       const ponIndexStr = oidParts[baseParts.length]
       const ponIndex = parseInt(ponIndexStr)
-      if (isNaN(ponIndex)) continue
+      if (isNaN(ponIndex)) {
+        txNotFoundCount++
+        continue
+      }
       
-      // Extract frame/slot/port dari PON_INDEX
-      const frame = (ponIndex >> 24) & 0xFF
-      const slot = (ponIndex >> 16) & 0xFF
-      const port = (ponIndex >> 8) & 0xFF
-      const onuIdFromPonIndex = ponIndex & 0xFF
-      
-      if (slot === 0 || port === 0) continue
-      
-      const frameNum = frame === 0 ? 1 : frame
-      
-      // Match dengan ONU berdasarkan frame/slot/port
-      let matchedKey: string | null = null
-      
-      if (onuIdFromPonIndex > 0 && onuIdFromPonIndex <= 128) {
-        // Coba match dengan ONU_ID dari PON_INDEX
-        const tryKey = `${frameNum}/${slot}/${port}:${onuIdFromPonIndex}`
-        if (onuMap.has(tryKey)) {
-          matchedKey = tryKey
+      // Cek apakah ada ONU_ID di akhir OID
+      let onuId: number | null = null
+      if (oidParts.length > baseParts.length + 1) {
+        // Format: baseOid.{PON_INDEX}.{ONU_ID}
+        const onuIdStr = oidParts[oidParts.length - 1]
+        const onuIdFromOid = parseInt(onuIdStr)
+        if (!isNaN(onuIdFromOid) && onuIdFromOid > 0) {
+          onuId = onuIdFromOid
         }
       }
       
-      // Jika tidak match, cari ONU pertama di port tersebut
-      if (!matchedKey) {
+      // Extract frame/slot/port dari PON_INDEX menggunakan format Type 1 yang benar
+      // Berdasarkan dokumentasi Type 1 Composite Index:
+      // bit31-bit28: Type = 1
+      // bit27-bit24: Shelf No. = 0
+      // bit23-bit16: Slot No. (8 bit)
+      // bit15-bit8: Port No. atau OLT No. (8 bit)
+      // bit7-bit0: Reserved = 0
+      const type = (ponIndex >> 28) & 0xF
+      const shelf = (ponIndex >> 24) & 0xF
+      const slot = (ponIndex >> 16) & 0xFF
+      const port = (ponIndex >> 8) & 0xFF
+      const reserved = ponIndex & 0xFF
+      const onuIdFromPonIndex = reserved // Reserved biasanya 0, tapi bisa berisi ONU ID
+      
+      if (slot === 0 || port === 0) {
+        txNotFoundCount++
+        continue
+      }
+      
+      // Frame biasanya 1 untuk single frame system
+      // Shelf biasanya 0 untuk Type 1, tapi jika tidak 0, bisa digunakan sebagai frame
+      const frameNum = shelf === 0 ? 1 : shelf
+      
+      // Cari semua ONU yang match dengan frame/slot/port ini
+      // TX OID biasanya per-PON (tidak punya ONU ID di akhir), jadi assign ke semua ONU di port yang sama
+      const matchingOnus: string[] = []
+      
+      // Jika ada ONU_ID dari OID, coba match dengan ONU spesifik dulu
+      if (onuId !== null && onuId > 0) {
         for (const [key, onu] of onuMap.entries()) {
-          if (onu.frame === frameNum && onu.slot === slot && onu.port === port) {
-            matchedKey = key
-            break // Ambil ONU pertama di port tersebut
+          if (onu.frame === frameNum && onu.slot === slot && onu.port === port && onu.onuId === onuId) {
+            matchingOnus.push(key)
+            break // Hanya ambil yang pertama yang match
           }
         }
       }
       
-      if (!matchedKey) continue
+      // Jika tidak ada match dengan ONU ID spesifik, coba dengan reserved field sebagai ONU ID
+      // Reserved field di PON Index untuk TX OID kemungkinan berisi ONU ID
+      // Contoh: PON Index 285278977 -> reserved=1, berarti ONU ID = 1
+      if (matchingOnus.length === 0 && reserved > 0 && reserved <= 128) {
+        for (const [key, onu] of onuMap.entries()) {
+          if (onu.frame === frameNum && onu.slot === slot && onu.port === port && onu.onuId === reserved) {
+            matchingOnus.push(key)
+            break // Hanya ambil yang pertama yang match
+          }
+        }
+      }
+      
+      // Jika masih tidak match, coba dengan onuIdFromPonIndex (sama dengan reserved, tapi untuk konsistensi)
+      if (matchingOnus.length === 0 && onuIdFromPonIndex > 0 && onuIdFromPonIndex <= 128 && onuIdFromPonIndex !== reserved) {
+        for (const [key, onu] of onuMap.entries()) {
+          if (onu.frame === frameNum && onu.slot === slot && onu.port === port && onu.onuId === onuIdFromPonIndex) {
+            matchingOnus.push(key)
+            break // Hanya ambil yang pertama yang match
+          }
+        }
+      }
+      
+      // Prioritas 3: Jika masih tidak match, coba match dengan "reserved" field sebagai sequential index
+      // Urutkan ONUs di port yang sama berdasarkan ONU ID, lalu assign berdasarkan urutan
+      if (matchingOnus.length === 0 && reserved > 0 && reserved <= 128) {
+        // Dapatkan semua ONU di port yang sama, sorted by ONU ID
+        const onusOnPort: Array<{key: string, onuId: number}> = []
+        for (const [key, onu] of onuMap.entries()) {
+          if (onu.frame === frameNum && onu.slot === slot && onu.port === port) {
+            onusOnPort.push({key, onuId: onu.onuId})
+          }
+        }
+        onusOnPort.sort((a, b) => a.onuId - b.onuId)
+        
+        // Match berdasarkan posisi sequential (reserved sebagai index mulai dari 1)
+        if (reserved <= onusOnPort.length) {
+          const targetOnu = onusOnPort[reserved - 1] // reserved=1 -> index 0
+          matchingOnus.push(targetOnu.key)
+        }
+      }
+      
+      // Prioritas 4: Jika masih tidak match, cari SEMUA ONU dengan frame/slot/port yang sama (last resort)
+      if (matchingOnus.length === 0) {
+        for (const [key, onu] of onuMap.entries()) {
+          if (onu.frame === frameNum && onu.slot === slot && onu.port === port) {
+            matchingOnus.push(key)
+          }
+        }
+      }
+      
+      // Log untuk debugging: jika menemukan banyak ONU di port yang sama
+      if (matchingOnus.length > 1 && txMatchedCount < 10) {
+        console.log(`[C3XX-ONU-SNMP] TX OID ${ponIndex} (frame: ${frameNum}, slot: ${slot}, port: ${port}) matched dengan ${matchingOnus.length} ONU(s) di port yang sama`)
+      }
+      
+      if (matchingOnus.length === 0) {
+        if (txKeyNotFoundCount < 10) {
+          console.warn(`[C3XX-ONU-SNMP] TX OID not matched: PON=${ponIndex} (type:${type}, shelf:${shelf}, frame:${frameNum}, slot:${slot}, port:${port}, onuId:${onuId}, reserved:${reserved})`)
+          
+          // Debug: tampilkan 3 ONU pertama untuk comparison
+          if (txKeyNotFoundCount === 0) {
+            console.log(`[C3XX-ONU-SNMP] Sample ONUs for comparison:`)
+            let debugCount = 0
+            for (const [key, onu] of onuMap.entries()) {
+              if (debugCount < 5) {
+                console.log(`  - ${key}: frame=${onu.frame}, slot=${onu.slot}, port=${onu.port}, onuId=${onu.onuId}`)
+                debugCount++
+              }
+            }
+          }
+        }
+        txKeyNotFoundCount++
+        continue
+      }
       
       let value = result.value
       if (Buffer.isBuffer(value)) {
@@ -1341,8 +2326,38 @@ export async function getC3xxOnuDataViaSNMP(
       
       const txValue = saveint(value)
       const txDbm = convertC3xxTxValue(txValue)
-      onuMap.get(matchedKey)!.rxOnu = txDbm === -40.0 ? null : `${txDbm} dBm`
+      if (txDbm !== -40.0 && !isNaN(txDbm)) {
+        // Assign ke SEMUA ONU di port yang sama (karena TX OID biasanya per-PON)
+        // Jika hanya match 1 ONU, tetap assign (mungkin per-ONU)
+        // Jika match banyak ONU, assign ke semua (per-PON)
+        for (const key of matchingOnus) {
+          onuMap.get(key)!.rxOnu = `${txDbm} dBm`
+          txMatchedCount++
+        }
+        // Log untuk debugging
+        if (txMatchedCount <= 10 || matchingOnus.length > 1) {
+          console.log(`[C3XX-ONU-SNMP] TX matched: PON Index ${ponIndex} (frame: ${frameNum}, slot: ${slot}, port: ${port}) -> ${matchingOnus.length} ONU(s), TX: ${txDbm} dBm`)
+        }
+      }
     }
+    console.log(`[C3XX-ONU-SNMP] TX parsing: ${txMatchedCount} matched, ${txNotFoundCount} failed to parse, ${txKeyNotFoundCount} key not found`)
+    
+    // Log summary untuk debugging
+    let onuWithStatus = 0
+    let onuWithSerial = 0
+    let onuWithRx = 0
+    let onuWithTx = 0
+    for (const [key, onu] of onuMap.entries()) {
+      if (onu.status && onu.status !== 'Unknown') onuWithStatus++
+      if (onu.serialNumber && onu.serialNumber.trim()) onuWithSerial++
+      if (onu.rxOlt) onuWithRx++
+      if (onu.rxOnu) onuWithTx++
+    }
+    console.log(`[C3XX-ONU-SNMP] Summary: ${onuMap.size} total ONUs`)
+    console.log(`[C3XX-ONU-SNMP]   - With status: ${onuWithStatus}`)
+    console.log(`[C3XX-ONU-SNMP]   - With serial: ${onuWithSerial}`)
+    console.log(`[C3XX-ONU-SNMP]   - With RX OLT: ${onuWithRx}`)
+    console.log(`[C3XX-ONU-SNMP]   - With RX ONU: ${onuWithTx}`)
     
     // Convert map to array
     let onuIndex = 1
@@ -1358,8 +2373,18 @@ export async function getC3xxOnuDataViaSNMP(
         status: onu.status || 'Unknown',
         rxOlt: onu.rxOlt || null,
         rxOnu: onu.rxOnu || null,
+        txOlt: null, // C3XX belum support
+        txOnu: null, // C3XX belum support
         serialNumber: onu.serialNumber || '',
         actualType: onu.actualType || detectModelFromSerial(onu.serialNumber || ''),
+        registerTime: null, // C3XX belum support
+        distance: null, // C3XX belum support
+        lastSeen: null, // C3XX belum support
+        registrationMode: null, // C3XX belum support
+        softwareVersion: null, // C3XX belum support
+        hardwareVersion: null, // C3XX belum support
+        temperature: null, // C3XX belum support
+        laserBiasCurrent: null, // C3XX belum support
       })
     }
     
@@ -1469,8 +2494,18 @@ export async function getC3xxOnuDataViaSNMP(
               status: onu.status || 'Unknown',
               rxOlt: onu.rxOlt || null,
               rxOnu: onu.rxOnu || null,
+              txOlt: null,
+              txOnu: null,
               serialNumber: onu.serialNumber || '',
               actualType: onu.actualType || detectModelFromSerial(onu.serialNumber || ''),
+              registerTime: null,
+              distance: null,
+              lastSeen: null,
+              registrationMode: null,
+              softwareVersion: null,
+              hardwareVersion: null,
+              temperature: null,
+              laserBiasCurrent: null,
             })
           }
           
@@ -1617,6 +2652,665 @@ async function getAllActivePonIds(
     return sortedPonIds
   } catch (error) {
     console.error(`[All-ONU-SNMP] Error getting active PON IDs:`, error)
+    return []
+  }
+}
+
+/**
+ * Get ONU data menggunakan ZTE-AN-PON-MIB (Public PON Management)
+ * Base OID: .1.3.6.1.4.1.3902.1082.50.10
+ * Index: {zxAnPonIfIndex, zxAnOnuId}
+ * Supports: Performance statistics, WiFi config, authentication, and more
+ */
+export async function getZteAnPonOnuDataViaSNMP(
+  ipAddress: string,
+  port: number,
+  community: string,
+  version: string,
+  oltName: string,
+  oltId: string
+): Promise<Array<{
+  id: string
+  oltId: string
+  oltName: string
+  name: string
+  description: string
+  pppoe: string
+  gponOnu: string
+  status: string
+  rxOlt: string | null
+  rxOnu: string | null
+  txOlt: string | null
+  txOnu: string | null
+  serialNumber: string
+  actualType: string
+  registerTime: string | null
+  distance: number | null
+  lastSeen: string | null
+  registrationMode: string | null
+  softwareVersion: string | null
+  hardwareVersion: string | null
+  temperature: number | null
+  laserBiasCurrent: number | null
+  // New fields from ZTE-AN-PON-MIB
+  vendorId: string | null
+  equipmentId: string | null
+  firmwareVersion: string | null
+  macAddress: string | null
+  batteryStatus: string | null
+  opticalTransceiverType: string | null
+  lastDeregTime: Date | null
+  authMode: string | null
+  loid: string | null
+  password: string | null
+  configState: string | null
+  powerLevel: string | null
+  dyingGaspTime: Date | null
+  rxPowerStatus: string | null
+  txPowerStatus: string | null
+  rxBytes: bigint | null
+  txBytes: bigint | null
+  rxPackets: bigint | null
+  txPackets: bigint | null
+  rxErrors: bigint | null
+  txErrors: bigint | null
+  rxDrops: bigint | null
+  txDrops: bigint | null
+  wifiEnable: boolean | null
+  wifiSsid: string | null
+  wifiSecurityMode: string | null
+  wifiChannel: number | null
+}>> {
+  console.log(`[ZTE-AN-PON-SNMP] Fetching ONU data from ${oltName} (${ipAddress}) via SNMP...`)
+  console.log(`[ZTE-AN-PON-SNMP] Using ZTE-AN-PON-MIB (.1.3.6.1.4.1.3902.1082.50.10.*)`)
+
+  const onus: Array<any> = []
+
+  try {
+    // Step 1: Walk ONU Status untuk get semua ifIndex dan onuId
+    console.log(`[ZTE-AN-PON-SNMP] Step 1: Walking ONU Status (operStatus)...`)
+    const statusResults = await snmpWalkWithDelay(
+      ipAddress, port, community, version, 
+      SNMP_ZTE_AN_PON_OIDS.onuInfo.operStatus, 
+      0
+    )
+    console.log(`[ZTE-AN-PON-SNMP] Found ${statusResults.length} ONU entries`)
+
+    if (statusResults.length === 0) {
+      console.warn(`[ZTE-AN-PON-SNMP] No ONUs found for ${oltName}`)
+      return []
+    }
+
+    // Step 2: Parse results untuk extract ifIndex dan onuId
+    console.log(`[ZTE-AN-PON-SNMP] Step 2: Parsing ONU indices...`)
+    const onuMap = new Map<string, {
+      ifIndex: number
+      onuId: number
+      frame: number
+      slot: number
+      port: number
+      gponOnu: string
+      operStatus: number
+    }>()
+
+    const baseOid = SNMP_ZTE_AN_PON_OIDS.onuInfo.operStatus
+    const baseParts = baseOid.split('.')
+
+    for (const result of statusResults) {
+      const oidParts = result.oid.split('.')
+      
+      if (oidParts.length < baseParts.length + 2) {
+        continue // OID tidak lengkap
+      }
+
+      // Extract ifIndex dan onuId dari OID suffix
+      // Format: .{baseOid}.{ifIndex}.{onuId}
+      const ifIndex = parseInt(oidParts[baseParts.length])
+      const onuId = parseInt(oidParts[baseParts.length + 1])
+
+      if (isNaN(ifIndex) || isNaN(onuId)) {
+        continue
+      }
+
+      // Parse ifIndex menggunakan Type 1 Composite Index untuk GPON
+      // Format: Type (4 bit) | Rack (4 bit) | Shelf (8 bit) | Slot (8 bit) | Port (8 bit)
+      const type = (ifIndex >> 28) & 0xF
+      const rack = (ifIndex >> 24) & 0xF
+      const shelf = (ifIndex >> 16) & 0xFF
+      const slot = (ifIndex >> 8) & 0xFF
+      const portNum = ifIndex & 0xFF
+
+      // Frame biasanya adalah shelf, atau 1 jika shelf = 0
+      const frame = shelf === 0 ? 1 : shelf
+
+      // Parse status value
+      let statusValue = result.value
+      if (Buffer.isBuffer(statusValue)) {
+        statusValue = parseInt(statusValue.toString('hex'), 16)
+      }
+      if (typeof statusValue === 'string') {
+        statusValue = parseInt(statusValue)
+      }
+      const operStatus = parseInt(String(statusValue)) || 0
+
+      // Create gponOnu ID (format: frame/slot/port:onuId)
+      const gponOnu = `${frame}/${slot}/${portNum}:${onuId}`
+
+      // Create unique key
+      const key = `${ifIndex}-${onuId}`
+
+      onuMap.set(key, {
+        ifIndex,
+        onuId,
+        frame,
+        slot,
+        port: portNum,
+        gponOnu,
+        operStatus,
+      })
+    }
+
+    console.log(`[ZTE-AN-PON-SNMP] Parsed ${onuMap.size} ONUs from status results`)
+
+    if (onuMap.size === 0) {
+      console.warn(`[ZTE-AN-PON-SNMP] No valid ONUs found after parsing`)
+      return []
+    }
+
+    // Step 3: Walk all OIDs untuk get complete data
+    console.log(`[ZTE-AN-PON-SNMP] Step 3: Walking all ONU information OIDs...`)
+    const [
+      serialResults,
+      macResults,
+      vendorResults,
+      equipmentResults,
+      swVersionResults,
+      hwVersionResults,
+      fwVersionResults,
+      distanceResults,
+      regTimeResults,
+      deregTimeResults,
+      batteryResults,
+      transTypeResults,
+      authModeResults,
+      loidResults,
+      configStateResults,
+      powerLevelResults,
+      dyingGaspResults,
+    ] = await Promise.all([
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.serialNumber, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.macAddress, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.vendorId, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.equipmentId, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.softwareVersion, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.hardwareVersion, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.firmwareVersion, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.logicalDistance, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.lastRegTime, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.lastDeregTime, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.batteryStatus, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.opticalTransceiverType, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.authMode, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuInfo.loid, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuStatus.configState, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuStatus.powerLevel, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuStatus.dyingGaspTime, 0),
+    ])
+
+    console.log(`[ZTE-AN-PON-SNMP] Fetched: Serial=${serialResults.length}, MAC=${macResults.length}, Vendor=${vendorResults.length}, Equipment=${equipmentResults.length}`)
+
+    // Step 4: Walk optical power OIDs
+    console.log(`[ZTE-AN-PON-SNMP] Step 4: Walking optical power OIDs...`)
+    const [
+      rxPowerResults,
+      txPowerResults,
+      rxPowerStatusResults,
+      txPowerStatusResults,
+      oltRxPowerResults,
+    ] = await Promise.all([
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuOpticalPower.rxPower, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuOpticalPower.txPower, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuOpticalPower.rxPowerStatus, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuOpticalPower.txPowerStatus, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.oltRxPower.rxPower, 0),
+    ])
+
+    console.log(`[ZTE-AN-PON-SNMP] Fetched: RxPower=${rxPowerResults.length}, TxPower=${txPowerResults.length}, OLT RxPower=${oltRxPowerResults.length}`)
+
+    // Step 5: Walk performance statistics OIDs
+    console.log(`[ZTE-AN-PON-SNMP] Step 5: Walking performance statistics OIDs...`)
+    const [
+      rxBytesResults,
+      txBytesResults,
+      rxPacketsResults,
+      txPacketsResults,
+      rxErrorsResults,
+      txErrorsResults,
+      rxDropsResults,
+      txDropsResults,
+    ] = await Promise.all([
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.rxBytes, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.txBytes, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.rxPackets, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.txPackets, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.rxErrors, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.txErrors, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.rxDrops, 0),
+      snmpWalkWithDelay(ipAddress, port, community, version, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.txDrops, 0),
+    ])
+
+    console.log(`[ZTE-AN-PON-SNMP] Fetched: RxBytes=${rxBytesResults.length}, TxBytes=${txBytesResults.length}, RxPackets=${rxPacketsResults.length}, TxPackets=${txPacketsResults.length}`)
+
+    // Helper function to extract ifIndex and onuId from OID
+    const extractIndices = (oid: string, baseOidLength: number): { ifIndex: number; onuId: number } | null => {
+      const oidParts = oid.split('.')
+      if (oidParts.length < baseOidLength + 2) return null
+      
+      const ifIndex = parseInt(oidParts[baseOidLength])
+      const onuId = parseInt(oidParts[baseOidLength + 1])
+      
+      if (isNaN(ifIndex) || isNaN(onuId)) return null
+      return { ifIndex, onuId }
+    }
+
+    // Step 6: Combine all data
+    console.log(`[ZTE-AN-PON-SNMP] Step 6: Combining all data...`)
+    for (const [key, onuInfo] of onuMap) {
+      const onu: any = {
+        id: `${oltId}-${onuInfo.gponOnu}`,
+        oltId,
+        oltName,
+        name: '',
+        description: '',
+        pppoe: '',
+        gponOnu: onuInfo.gponOnu,
+        status: 'Unknown',
+        rxOlt: null,
+        rxOnu: null,
+        txOlt: null,
+        txOnu: null,
+        serialNumber: '',
+        actualType: '',
+        registerTime: null,
+        distance: null,
+        lastSeen: null,
+        registrationMode: null,
+        softwareVersion: null,
+        hardwareVersion: null,
+        temperature: null,
+        laserBiasCurrent: null,
+        // New fields
+        vendorId: null,
+        equipmentId: null,
+        firmwareVersion: null,
+        macAddress: null,
+        batteryStatus: null,
+        opticalTransceiverType: null,
+        lastDeregTime: null,
+        authMode: null,
+        loid: null,
+        password: null,
+        configState: null,
+        powerLevel: null,
+        dyingGaspTime: null,
+        rxPowerStatus: null,
+        txPowerStatus: null,
+        rxBytes: null,
+        txBytes: null,
+        rxPackets: null,
+        txPackets: null,
+        rxErrors: null,
+        txErrors: null,
+        rxDrops: null,
+        txDrops: null,
+        wifiEnable: null,
+        wifiSsid: null,
+        wifiSecurityMode: null,
+        wifiChannel: null,
+      }
+
+      // Map operStatus to friendly status
+      const statusMap: Record<number, string> = {
+        1: 'online',      // inService
+        2: 'offline',     // notInService
+        3: 'online',      // hwOnline
+        4: 'offline',     // hwOffline
+        5: 'configuring', // configuring
+        6: 'offline',     // configFailed
+        7: 'offline',     // mibValueMismatch
+        8: 'offline',     // deactivated
+        9: 'offline',     // faulty
+        10: 'offline',    // invalid
+        11: 'LOS',        // noPower
+      }
+      onu.status = statusMap[onuInfo.operStatus] || 'Unknown'
+
+      // Parse Serial Number
+      for (const result of serialResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.serialNumber.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.serialNumber = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      // Parse MAC Address
+      for (const result of macResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.macAddress.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.macAddress = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      // Parse Vendor ID
+      for (const result of vendorResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.vendorId.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.vendorId = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      // Parse Equipment ID
+      for (const result of equipmentResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.equipmentId.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.equipmentId = parseSnmpValue(result.value, 'string')
+          onu.actualType = onu.equipmentId || '' // Use equipmentId as actualType
+          break
+        }
+      }
+
+      // Parse Versions
+      for (const result of swVersionResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.softwareVersion.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.softwareVersion = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      for (const result of hwVersionResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.hardwareVersion.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.hardwareVersion = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      for (const result of fwVersionResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.firmwareVersion.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.firmwareVersion = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      // Parse Distance
+      for (const result of distanceResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.logicalDistance.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const distanceValue = parseSnmpValue(result.value, 'number')
+          onu.distance = distanceValue ? distanceValue / 1000 : null // Convert to km
+          break
+        }
+      }
+
+      // Parse Register Time
+      for (const result of regTimeResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.lastRegTime.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.registerTime = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      // Parse Last Dereg Time
+      for (const result of deregTimeResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.lastDeregTime.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const deregTime = parseSnmpValue(result.value, 'string')
+          onu.lastDeregTime = deregTime ? new Date(deregTime) : null
+          break
+        }
+      }
+
+      // Parse Battery Status
+      for (const result of batteryResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.batteryStatus.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.batteryStatus = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      // Parse Optical Transceiver Type
+      for (const result of transTypeResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.opticalTransceiverType.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.opticalTransceiverType = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      // Parse Auth Mode
+      for (const result of authModeResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.authMode.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const authModeValue = parseSnmpValue(result.value, 'number')
+          const authModes = ['', 'SN', 'Password', 'SN+Password', 'RegisterId', 'RegisterId+8021x', 
+                            'RegisterId+Mutual', 'TefPw', 'SN+TefPw', 'LOID', 'LOID+Password']
+          onu.authMode = authModeValue && authModeValue < authModes.length ? authModes[authModeValue] : null
+          onu.registrationMode = onu.authMode // Map to registrationMode for compatibility
+          break
+        }
+      }
+
+      // Parse LOID
+      for (const result of loidResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuInfo.loid.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.loid = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      // Parse Config State
+      for (const result of configStateResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuStatus.configState.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.configState = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      // Parse Power Level
+      for (const result of powerLevelResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuStatus.powerLevel.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          onu.powerLevel = parseSnmpValue(result.value, 'string')
+          break
+        }
+      }
+
+      // Parse Dying Gasp Time
+      for (const result of dyingGaspResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuStatus.dyingGaspTime.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const dyingGaspTime = parseSnmpValue(result.value, 'string')
+          onu.dyingGaspTime = dyingGaspTime ? new Date(dyingGaspTime) : null
+          break
+        }
+      }
+
+      // Parse Optical Power - RX Power ONU
+      for (const result of rxPowerResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuOpticalPower.rxPower.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const rxPowerValue = parseSnmpValue(result.value, 'number')
+          onu.rxOnu = rxPowerValue ? (rxPowerValue / 100).toFixed(2) : null // Convert from 0.01 dBm
+          break
+        }
+      }
+
+      // Parse Optical Power - TX Power ONU
+      for (const result of txPowerResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuOpticalPower.txPower.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const txPowerValue = parseSnmpValue(result.value, 'number')
+          onu.txOnu = txPowerValue ? (txPowerValue / 100).toFixed(2) : null // Convert from 0.01 dBm
+          break
+        }
+      }
+
+      // Parse RX Power Status
+      for (const result of rxPowerStatusResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuOpticalPower.rxPowerStatus.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const statusValue = parseSnmpValue(result.value, 'number')
+          const statusMap = ['', 'Normal', 'Low', 'High', 'Unknown']
+          onu.rxPowerStatus = statusValue && statusValue < statusMap.length ? statusMap[statusValue] : null
+          break
+        }
+      }
+
+      // Parse TX Power Status
+      for (const result of txPowerStatusResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuOpticalPower.txPowerStatus.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const statusValue = parseSnmpValue(result.value, 'number')
+          const statusMap = ['', 'Normal', 'Low', 'High', 'Unknown']
+          onu.txPowerStatus = statusValue && statusValue < statusMap.length ? statusMap[statusValue] : null
+          break
+        }
+      }
+
+      // Parse OLT RX Power
+      for (const result of oltRxPowerResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.oltRxPower.rxPower.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const rxPowerValue = parseSnmpValue(result.value, 'number')
+          onu.rxOlt = rxPowerValue ? (rxPowerValue / 100).toFixed(2) : null // Convert from 0.01 dBm
+          break
+        }
+      }
+
+      // Parse Performance Statistics
+      for (const result of rxBytesResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.rxBytes.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const value = parseSnmpValue(result.value, 'number')
+          onu.rxBytes = value ? BigInt(value) : null
+          break
+        }
+      }
+
+      for (const result of txBytesResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.txBytes.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const value = parseSnmpValue(result.value, 'number')
+          onu.txBytes = value ? BigInt(value) : null
+          break
+        }
+      }
+
+      for (const result of rxPacketsResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.rxPackets.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const value = parseSnmpValue(result.value, 'number')
+          onu.rxPackets = value ? BigInt(value) : null
+          break
+        }
+      }
+
+      for (const result of txPacketsResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.txPackets.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const value = parseSnmpValue(result.value, 'number')
+          onu.txPackets = value ? BigInt(value) : null
+          break
+        }
+      }
+
+      for (const result of rxErrorsResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.rxErrors.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const value = parseSnmpValue(result.value, 'number')
+          onu.rxErrors = value ? BigInt(value) : null
+          break
+        }
+      }
+
+      for (const result of txErrorsResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.txErrors.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const value = parseSnmpValue(result.value, 'number')
+          onu.txErrors = value ? BigInt(value) : null
+          break
+        }
+      }
+
+      for (const result of rxDropsResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.rxDrops.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const value = parseSnmpValue(result.value, 'number')
+          onu.rxDrops = value ? BigInt(value) : null
+          break
+        }
+      }
+
+      for (const result of txDropsResults) {
+        const indices = extractIndices(result.oid, SNMP_ZTE_AN_PON_OIDS.onuPerfStats.txDrops.split('.').length)
+        if (!indices) continue
+        if (indices.ifIndex === onuInfo.ifIndex && indices.onuId === onuInfo.onuId) {
+          const value = parseSnmpValue(result.value, 'number')
+          onu.txDrops = value ? BigInt(value) : null
+          break
+        }
+      }
+
+      // Set name from serial number if empty
+      if (!onu.name) {
+        onu.name = onu.serialNumber || onuInfo.gponOnu
+      }
+
+      onus.push(onu)
+    }
+
+    console.log(`[ZTE-AN-PON-SNMP] Successfully parsed ${onus.length} ONUs with complete data`)
+    return onus
+  } catch (error: any) {
+    console.error(`[ZTE-AN-PON-SNMP] Error fetching ONU data:`, error?.message || error)
     return []
   }
 }
@@ -1877,8 +3571,18 @@ export async function getOnuDataViaSNMP(
   status: string
   rxOlt: string | null
   rxOnu: string | null
+  txOlt: string | null
+  txOnu: string | null
   serialNumber: string
   actualType: string
+  registerTime: string | null
+  distance: number | null
+  lastSeen: string | null
+  registrationMode: string | null
+  softwareVersion: string | null
+  hardwareVersion: string | null
+  temperature: number | null
+  laserBiasCurrent: number | null
 }>> {
   const onus: Array<{
     id: string
@@ -1891,8 +3595,18 @@ export async function getOnuDataViaSNMP(
     status: string
     rxOlt: string | null
     rxOnu: string | null
+    txOlt: string | null
+    txOnu: string | null
     serialNumber: string
     actualType: string
+    registerTime: string | null
+    distance: number | null
+    lastSeen: string | null
+    registrationMode: string | null
+    softwareVersion: string | null
+    hardwareVersion: string | null
+    temperature: number | null
+    laserBiasCurrent: number | null
   }> = []
 
   try {
@@ -1928,6 +3642,10 @@ export async function getOnuDataViaSNMP(
     // Rumus: snmpwalk -v2c -c [COMMUNITY] [IP]:[PORT] 1.3.6.1.4.1.3902.1012.3.28.2.1.4.[PONID]
     const statusResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_OIDS.onuStatus, 60000)
     console.log(`[All-ONU-SNMP] Found ${statusResults.length} status entries`)
+    
+    if (statusResults.length === 0) {
+      console.warn(`[All-ONU-SNMP] WARNING: No status entries found! This might indicate a problem with SNMP walk.`)
+    }
 
     // Group by PON and ONU ID
     const onuMap = new Map<string, any>()
@@ -1938,12 +3656,18 @@ export async function getOnuDataViaSNMP(
     //         baseOID = 1.3.6.1.4.1.3902.1012.3.28.2.1.4
     //         PON = 268632320
     //         ONU_ID = 3
+    let parsedStatusCount = 0
+    let failedParseCount = 0
     for (const result of statusResults) {
       const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_OIDS.onuStatus)
       if (!ponOnu) {
-        console.warn(`[All-ONU-SNMP] Failed to parse OID: ${result.oid}`)
+        failedParseCount++
+        if (failedParseCount <= 5) {
+          console.warn(`[All-ONU-SNMP] Failed to parse OID: ${result.oid}`)
+        }
         continue
       }
+      parsedStatusCount++
 
       // Gunakan mapping jika ada, jika tidak gunakan fungsi konversi
       let ponPort: string
@@ -1971,14 +3695,85 @@ export async function getOnuDataViaSNMP(
       else if (statusValue === 6) onuMap.get(key)!.status = 'OffLine'
       else onuMap.get(key)!.status = 'Unknown'
     }
+    
+    console.log(`[All-ONU-SNMP] Parsed ${parsedStatusCount} status entries, ${failedParseCount} failed to parse`)
+    console.log(`[All-ONU-SNMP] Created ${onuMap.size} ONU entries from status results`)
 
     // Step 2: Get serial numbers, RX values, types, names, descriptions
+    console.log(`[All-ONU-SNMP] Fetching additional ONU data (serial, RX, type, name, description)...`)
     const serialResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_OIDS.onuSerial, 30000)
+    console.log(`[All-ONU-SNMP] Found ${serialResults.length} serial number entries`)
     const rxOltResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_OIDS.onuRxOlt, 30000)
+    console.log(`[All-ONU-SNMP] Found ${rxOltResults.length} RX OLT entries`)
     const rxOnuResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_OIDS.onuRxOnu, 30000)
+    console.log(`[All-ONU-SNMP] Found ${rxOnuResults.length} RX ONU entries`)
     const typeResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_OIDS.onuType, 30000)
+    console.log(`[All-ONU-SNMP] Found ${typeResults.length} type entries`)
     const nameResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_OIDS.onuName, 30000)
+    console.log(`[All-ONU-SNMP] Found ${nameResults.length} name entries`)
     const descResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_OIDS.onuDescription, 30000)
+    console.log(`[All-ONU-SNMP] Found ${descResults.length} description entries`)
+
+    // Step 2.5: Get enhanced ONU parameters (TX power, distance, temperature, voltage, etc.)
+    console.log(`[All-ONU-SNMP] Fetching enhanced ONU parameters (TX power, distance, temperature, voltage, etc.)...`)
+
+    // Get TX power data using enhanced OIDs
+    let txOltResults: any[] = []
+    let txOnuResults: any[] = []
+    let distanceResults: any[] = []
+    let temperatureResults: any[] = []
+    let voltageResults: any[] = []
+    let lastSeenResults: any[] = []
+    let registerTimeResults: any[] = []
+
+    try {
+      txOltResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_ENHANCED_OIDS.txOlt, 30000)
+      console.log(`[All-ONU-SNMP] Found ${txOltResults.length} TX OLT entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch TX OLT data: ${error}`)
+    }
+
+    try {
+      txOnuResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_ENHANCED_OIDS.txOnu, 30000)
+      console.log(`[All-ONU-SNMP] Found ${txOnuResults.length} TX ONU entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch TX ONU data: ${error}`)
+    }
+
+    try {
+      distanceResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_ENHANCED_OIDS.distance, 30000)
+      console.log(`[All-ONU-SNMP] Found ${distanceResults.length} distance entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch distance data: ${error}`)
+    }
+
+    try {
+      temperatureResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_ENHANCED_OIDS.temperature, 30000)
+      console.log(`[All-ONU-SNMP] Found ${temperatureResults.length} temperature entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch temperature data: ${error}`)
+    }
+
+    try {
+      voltageResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_ENHANCED_OIDS.voltage, 30000)
+      console.log(`[All-ONU-SNMP] Found ${voltageResults.length} voltage entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch voltage data: ${error}`)
+    }
+
+    try {
+      lastSeenResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_ENHANCED_OIDS.lastSeen, 30000)
+      console.log(`[All-ONU-SNMP] Found ${lastSeenResults.length} last seen entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch last seen data: ${error}`)
+    }
+
+    try {
+      registerTimeResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_REGISTER_TIME_OIDS.registerTime, 30000)
+      console.log(`[All-ONU-SNMP] Found ${registerTimeResults.length} register time entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch register time data: ${error}`)
+    }
 
     // Helper function untuk mendapatkan key dengan port mapping
     const getKeyWithPort = (ponOnu: { ponIndex: number; onuId: number }): string => {
@@ -2180,7 +3975,225 @@ export async function getOnuDataViaSNMP(
       }
     }
 
+    // Step 3: Parse enhanced ONU parameters (TX power, distance, temperature, voltage, etc.)
+    console.log(`[All-ONU-SNMP] Parsing enhanced ONU parameters...`)
+
+    // Parse TX OLT results
+    for (const result of txOltResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_ENHANCED_OIDS.txOlt)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        const txValue = parseFloat(result.value?.toString() || '0')
+        onuMap.get(key)!.txOlt = `${(txValue / 100).toFixed(2)} dBm`
+      }
+    }
+
+    // Parse TX ONU results
+    for (const result of txOnuResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_ENHANCED_OIDS.txOnu)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        const txValue = parseFloat(result.value?.toString() || '0')
+        onuMap.get(key)!.txOnu = `${(txValue / 100).toFixed(2)} dBm`
+      }
+    }
+
+    // Parse distance results
+    for (const result of distanceResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_ENHANCED_OIDS.distance)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        const distanceValue = parseFloat(result.value?.toString() || '0')
+        onuMap.get(key)!.distance = distanceValue / 1000 // Convert to km if needed
+      }
+    }
+
+    // Parse temperature results
+    for (const result of temperatureResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_ENHANCED_OIDS.temperature)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        const tempValue = parseFloat(result.value?.toString() || '0')
+        onuMap.get(key)!.temperature = tempValue // Keep in Celsius
+      }
+    }
+
+    // Parse voltage results
+    for (const result of voltageResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_ENHANCED_OIDS.voltage)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        const voltageValue = parseFloat(result.value?.toString() || '0')
+        onuMap.get(key)!.voltage = voltageValue / 1000 // Convert to volts
+      }
+    }
+
+    // Parse last seen results
+    for (const result of lastSeenResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_ENHANCED_OIDS.lastSeen)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        const lastSeenValue = result.value?.toString() || ''
+        onuMap.get(key)!.lastSeen = lastSeenValue
+      }
+    }
+
+    // Parse register time results
+    for (const result of registerTimeResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_REGISTER_TIME_OIDS.registerTime)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        const registerTimeValue = result.value?.toString() || ''
+        onuMap.get(key)!.registerTime = registerTimeValue
+      }
+    }
+
+    // Step 4: Fetch Basic Info fields (Registration Mode, Software Version, Hardware Version, Temperature, Laser Bias Current)
+    console.log(`[All-ONU-SNMP] Fetching Basic Info fields...`)
+    let registrationModeResults: any[] = []
+    let softwareVersionResults: any[] = []
+    let hardwareVersionResults: any[] = []
+    let basicInfoTempResults: any[] = []
+    let laserBiasResults: any[] = []
+
+    try {
+      registrationModeResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_BASIC_INFO_OIDS.registrationMode, 30000)
+      console.log(`[All-ONU-SNMP] Found ${registrationModeResults.length} registration mode entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch registration mode data: ${error}`)
+    }
+
+    try {
+      softwareVersionResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_BASIC_INFO_OIDS.softwareVersion, 30000)
+      console.log(`[All-ONU-SNMP] Found ${softwareVersionResults.length} software version entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch software version data: ${error}`)
+    }
+
+    try {
+      hardwareVersionResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_BASIC_INFO_OIDS.hardwareVersion, 30000)
+      console.log(`[All-ONU-SNMP] Found ${hardwareVersionResults.length} hardware version entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch hardware version data: ${error}`)
+    }
+
+    try {
+      basicInfoTempResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_BASIC_INFO_OIDS.temperature, 30000)
+      console.log(`[All-ONU-SNMP] Found ${basicInfoTempResults.length} basic info temperature entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch basic info temperature data: ${error}`)
+    }
+
+    try {
+      laserBiasResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_BASIC_INFO_OIDS.laserBiasCurrent, 30000)
+      console.log(`[All-ONU-SNMP] Found ${laserBiasResults.length} laser bias current entries`)
+    } catch (error) {
+      console.warn(`[All-ONU-SNMP] Failed to fetch laser bias current data: ${error}`)
+    }
+
+    // Parse Basic Info fields
+    console.log(`[All-ONU-SNMP] Parsing Basic Info fields...`)
+
+    // Helper to convert registration mode value to string
+    const getRegistrationModeString = (value: number): string => {
+      const modes: { [key: number]: string } = {
+        1: 'SN',
+        2: 'Password',
+        3: 'SN+Password',
+        4: 'RegisterId',
+        5: 'RegisterId+8021x',
+        6: 'RegisterId+Mutual',
+        7: 'TefPw',
+        8: 'SN+TefPw',
+        9: 'LOID',
+        10: 'LOID+Password',
+      }
+      return modes[value] || `Unknown (${value})`
+    }
+
+    // Parse registration mode results
+    for (const result of registrationModeResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_BASIC_INFO_OIDS.registrationMode)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        const modeValue = parseInt(result.value?.toString() || '0')
+        onuMap.get(key)!.registrationMode = getRegistrationModeString(modeValue)
+      }
+    }
+
+    // Parse software version results
+    for (const result of softwareVersionResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_BASIC_INFO_OIDS.softwareVersion)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        onuMap.get(key)!.softwareVersion = result.value?.toString() || ''
+      }
+    }
+
+    // Parse hardware version results
+    for (const result of hardwareVersionResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_BASIC_INFO_OIDS.hardwareVersion)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        onuMap.get(key)!.hardwareVersion = result.value?.toString() || ''
+      }
+    }
+
+    // Parse basic info temperature results (may differ from enhanced temperature)
+    for (const result of basicInfoTempResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_BASIC_INFO_OIDS.temperature)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        const tempValue = parseFloat(result.value?.toString() || '0')
+        // Only update if not already set from enhanced OIDs
+        if (!onuMap.get(key)!.temperature) {
+          onuMap.get(key)!.temperature = tempValue
+        }
+      }
+    }
+
+    // Parse laser bias current results
+    for (const result of laserBiasResults) {
+      const ponOnu = parseOnuIdFromOid(result.oid, SNMP_ONU_BASIC_INFO_OIDS.laserBiasCurrent)
+      if (!ponOnu) continue
+      const key = getKeyWithPort(ponOnu)
+      if (onuMap.has(key)) {
+        const biasValue = parseFloat(result.value?.toString() || '0')
+        // Laser bias current is typically in mA (milliamps)
+        onuMap.get(key)!.laserBiasCurrent = biasValue / 100 // Assuming returned in 0.01 mA units
+      }
+    }
+
+    // Calculate distance from RX/TX values if not available directly
+    for (const [key, onu] of onuMap.entries()) {
+      if (!onu.distance && onu.rxOlt && onu.txOlt) {
+        // Simple distance calculation based on signal loss
+        // This is a simplified calculation - real fiber distance measurement is more complex
+        const rxValue = parseFloat(onu.rxOlt.replace(/[^\d.-]/g, ''))
+        const txValue = parseFloat(onu.txOlt.replace(/[^\d.-]/g, ''))
+
+        if (!isNaN(rxValue) && !isNaN(txValue)) {
+          // Approximate calculation: (Tx - Rx) / typical fiber loss (0.35 dB/km at 1310nm, 0.25 dB/km at 1550nm)
+          const typicalLoss = 0.3 // Average loss in dB/km
+          const calculatedDistance = Math.abs(txValue - rxValue) / typicalLoss
+          onu.distance = Math.round(calculatedDistance * 100) / 100 // Round to 2 decimal places
+        }
+      }
+    }
+
     // Convert map to array
+    console.log(`[All-ONU-SNMP] Converting ${onuMap.size} ONU entries to array format...`)
     let onuIndex = 1
     for (const [key, onu] of onuMap.entries()) {
       onus.push({
@@ -2194,12 +4207,25 @@ export async function getOnuDataViaSNMP(
         status: onu.status || 'Unknown',
         rxOlt: onu.rxOlt || null,
         rxOnu: onu.rxOnu || null,
+        txOlt: onu.txOlt || null,
+        txOnu: onu.txOnu || null,
         serialNumber: onu.serialNumber || '',
         actualType: onu.actualType || detectModelFromSerial(onu.serialNumber || ''),
+        registerTime: onu.registerTime || null,
+        distance: onu.distance || null,
+        lastSeen: onu.lastSeen || null,
+        registrationMode: onu.registrationMode || null,
+        softwareVersion: onu.softwareVersion || null,
+        hardwareVersion: onu.hardwareVersion || null,
+        temperature: onu.temperature || null,
+        laserBiasCurrent: onu.laserBiasCurrent || null,
       })
     }
 
     console.log(`[All-ONU-SNMP] Parsed ${onus.length} ONUs from ${oltName} via SNMP`)
+    if (onus.length !== onuMap.size) {
+      console.warn(`[All-ONU-SNMP] WARNING: Expected ${onuMap.size} ONUs but got ${onus.length} in array!`)
+    }
   } catch (error: any) {
     console.error(`[All-ONU-SNMP] Error fetching ONU data via SNMP:`, error)
     // Jika error adalah array (hasil dari snmpWalk), itu sebenarnya bukan error
@@ -2249,8 +4275,18 @@ export async function getOnuDataViaSNMP(
           status: onu.status || 'Unknown',
           rxOlt: null,
           rxOnu: null,
+          txOlt: null,
+          txOnu: null,
           serialNumber: '',
           actualType: '',
+          registerTime: null,
+          distance: null,
+          lastSeen: null,
+          registrationMode: null,
+          softwareVersion: null,
+          hardwareVersion: null,
+          temperature: null,
+          laserBiasCurrent: null,
         })
       }
 
@@ -2454,8 +4490,18 @@ function parseOnuData(output: string, oltName: string, oltId: string): Array<{
   status: string
   rxOlt: string | null
   rxOnu: string | null
+  txOlt: string | null
+  txOnu: string | null
   serialNumber: string
   actualType: string
+  registerTime: string | null
+  distance: number | null
+  lastSeen: string | null
+  registrationMode: string | null
+  softwareVersion: string | null
+  hardwareVersion: string | null
+  temperature: number | null
+  laserBiasCurrent: number | null
 }> {
   const onus: Array<{
     id: string
@@ -2468,8 +4514,18 @@ function parseOnuData(output: string, oltName: string, oltId: string): Array<{
     status: string
     rxOlt: string | null
     rxOnu: string | null
+    txOlt: string | null
+    txOnu: string | null
     serialNumber: string
     actualType: string
+    registerTime: string | null
+    distance: number | null
+    lastSeen: string | null
+    registrationMode: string | null
+    softwareVersion: string | null
+    hardwareVersion: string | null
+    temperature: number | null
+    laserBiasCurrent: number | null
   }> = []
 
   const lines = output.split('\n').map((line) => line.trim()).filter((line) => line.length > 0)
@@ -2513,8 +4569,18 @@ function parseOnuData(output: string, oltName: string, oltId: string): Array<{
           status: currentOnu.status || 'Unknown',
           rxOlt: currentOnu.rxOlt || null,
           rxOnu: currentOnu.rxOnu || null,
+          txOlt: null,
+          txOnu: null,
           serialNumber: currentOnu.serialNumber || '',
           actualType: currentOnu.actualType || detectModelFromSerial(currentOnu.serialNumber || ''),
+          registerTime: null,
+          distance: null,
+          lastSeen: null,
+          registrationMode: null,
+          softwareVersion: null,
+          hardwareVersion: null,
+          temperature: null,
+          laserBiasCurrent: null,
         })
       }
 
@@ -2623,8 +4689,18 @@ function parseOnuData(output: string, oltName: string, oltId: string): Array<{
       status: currentOnu.status || 'Unknown',
       rxOlt: currentOnu.rxOlt || null,
       rxOnu: currentOnu.rxOnu || null,
+      txOlt: null, // Telnet belum support
+      txOnu: null, // Telnet belum support
       serialNumber: currentOnu.serialNumber || '',
       actualType: currentOnu.actualType || detectModelFromSerial(currentOnu.serialNumber || ''),
+      registerTime: null, // Telnet belum support
+      distance: null, // Telnet belum support
+      lastSeen: null, // Telnet belum support
+      registrationMode: null, // Telnet belum support
+      softwareVersion: null, // Telnet belum support
+      hardwareVersion: null, // Telnet belum support
+      temperature: null, // Telnet belum support
+      laserBiasCurrent: null, // Telnet belum support
     })
   }
 
@@ -2751,33 +4827,63 @@ export async function GET(req: NextRequest) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Logika untuk "all onu" dinonaktifkan - return empty array
-  console.log('[All-ONU] Feature disabled - returning empty data')
-  
-  return NextResponse.json({
-    onus: [],
-    summary: {
-      good: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0 },
-      warning: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0 },
-      critical: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0 },
-      other: { count: 0, percentage: 0, los: 0, na: 0 },
-    },
-    total: 0,
-    source: null,
-  })
-}
-
-// Kode di bawah ini dinonaktifkan - logika untuk fetch ONU dari SNMP/Telnet
-/*
   try {
-    // Jika tidak force refresh, coba ambil dari database terlebih dahulu
+    const { searchParams } = new URL(req.url)
+    const forceRefresh = searchParams.get('refresh') === 'true'
+
+    // Parse pagination and filter parameters
+    const page = parseInt(searchParams.get('page') || '1', 10)
+    const limit = parseInt(searchParams.get('limit') || '10', 10)
+    const oltName = searchParams.get('oltName') || undefined
+    const card = searchParams.get('card') || undefined
+    const port = searchParams.get('port') || undefined
+    const type = searchParams.get('type') || undefined
+    const status = searchParams.get('status') || undefined
+    const signal = searchParams.get('signal') || undefined
+    const search = searchParams.get('search') || undefined
+
+    // Import repositories
+    const { getOnuRepository, getOLTRepository } = await import('@/lib/repositories')
+    const onuRepository = getOnuRepository()
+    const oltRepository = getOLTRepository()
+
+    // Get all OLTs for mapping
+    const allOlts = await oltRepository.findAll()
+    const connectedOlts = allOlts.filter(
+      (olt) => (olt.snmpConnected && olt.snmpCommunityWrite) || (olt.telnetConnected && olt.telnetUsername && olt.telnetPassword)
+    )
+
+    if (connectedOlts.length === 0) {
+      console.log('[All-ONU] No connected OLTs found')
+      return NextResponse.json({
+        onus: [],
+        summary: {
+          good: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0 },
+          warning: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0 },
+          critical: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0 },
+          other: { count: 0, percentage: 0, los: 0, na: 0 },
+        },
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        source: null,
+      })
+    }
+
+    // Jika tidak force refresh, coba ambil dari database dengan pagination
     if (!forceRefresh) {
-      console.log('[All-ONU] Loading ONU data from database...')
-      const dbOnus = await onuRepository.findAll()
+      console.log('[All-ONU] Loading ONU data from database with pagination...')
       
-      if (dbOnus.length > 0) {
+      // Use findWithFilters for paginated query
+      const paginatedResult = await onuRepository.findWithFilters(
+        { oltName, card, port, type, status, signal, search },
+        { page, limit }
+      )
+      
+      if (paginatedResult.total > 0) {
         // Convert database format ke format API
-        const allOnus = dbOnus.map((onu) => ({
+        const paginatedOnus = paginatedResult.onus.map((onu) => ({
           id: onu.id,
           oltId: onu.oltId,
           oltName: allOlts.find((olt) => olt.id === onu.oltId)?.name || 'Unknown',
@@ -2788,18 +4894,47 @@ export async function GET(req: NextRequest) {
           status: onu.status,
           rxOlt: onu.rxOlt,
           rxOnu: onu.rxOnu,
+          txOlt: onu.txOlt,
+          txOnu: onu.txOnu,
           serialNumber: onu.serialNumber || '',
           actualType: onu.actualType || '',
+          registerTime: onu.registerTime ? onu.registerTime.toISOString() : null,
+          distance: onu.distance,
+          lastSeen: onu.lastSeen ? onu.lastSeen.toISOString() : null,
+          // Basic Info fields
+          registrationMode: onu.registrationMode || null,
+          softwareVersion: onu.softwareVersion || null,
+          hardwareVersion: onu.hardwareVersion || null,
+          temperature: onu.temperature || null,
+          laserBiasCurrent: onu.laserBiasCurrent || null,
+          // Legacy fields for compatibility
+          rxPower: onu.rxOlt,
+          txPower: onu.txOlt,
         }))
 
-        // Hitung summary
-        const summary = calculateSummary(allOnus)
+        // Get ALL matching ONUs for summary calculation (without pagination)
+        const allMatchingOnus = await onuRepository.findWithFilters(
+          { oltName, card, port, type, status, signal, search },
+          { page: 1, limit: 999999 } // Get all for summary
+        )
         
-        console.log(`[All-ONU] Loaded ${allOnus.length} ONUs from database`)
+        const allOnusForSummary = allMatchingOnus.onus.map((onu) => ({
+          status: onu.status,
+          rxOlt: onu.rxOlt,
+          rxOnu: onu.rxOnu,
+        }))
+        
+        // Hitung summary dari semua data (tidak ter-paginate)
+        const summary = calculateSummary(allOnusForSummary)
+        
+        console.log(`[All-ONU] Loaded ${paginatedOnus.length} ONUs (page ${page}/${paginatedResult.totalPages}) from database`)
         return NextResponse.json({
-          onus: allOnus,
+          onus: paginatedOnus,
           summary,
-          total: allOnus.length,
+          total: paginatedResult.total,
+          page: paginatedResult.page,
+          limit: paginatedResult.limit,
+          totalPages: paginatedResult.totalPages,
           source: 'database',
         })
       } else {
@@ -2821,8 +4956,18 @@ export async function GET(req: NextRequest) {
       status: string
       rxOlt: string | null
       rxOnu: string | null
+      txOlt: string | null
+      txOnu: string | null
       serialNumber: string
       actualType: string
+      registerTime: string | null
+      distance: number | null
+      lastSeen: string | null
+      registrationMode: string | null
+      softwareVersion: string | null
+      hardwareVersion: string | null
+      temperature: number | null
+      laserBiasCurrent: number | null
     }> = []
 
     // Untuk setiap OLT, ambil data ONU
@@ -2832,17 +4977,21 @@ export async function GET(req: NextRequest) {
         if (olt.snmpConnected && olt.snmpCommunityWrite) {
           console.log(`[All-ONU] Using SNMP for OLT ${olt.name} (${olt.ipAddress})...`)
           
-          // Deteksi apakah ini ZTE C3XX
-          const isC3xx = await isZteC3xx(
+          // Try C300 GPON parser first (standard ZTE GPON MIB)
+          console.log(`[All-ONU] Trying C300 GPON parser (standard GPON MIB .1012)...`)
+          let onus = await getC300GponOnuDataViaSNMP(
             olt.ipAddress,
             olt.snmpPort,
             olt.snmpCommunityWrite,
-            olt.snmpVersion
+            olt.snmpVersion,
+            olt.name,
+            olt.id
           )
           
-          if (isC3xx) {
-            console.log(`[All-ONU] Detected ZTE C3XX OLT, using C3XX parser...`)
-            const onus = await getC3xxOnuDataViaSNMP(
+          // Jika C300 GPON parser tidak return data, coba C3XX parser
+          if (onus.length === 0) {
+            console.log(`[All-ONU] C300 GPON parser returned no data, trying C3XX parser...`)
+            onus = await getC3xxOnuDataViaSNMP(
               olt.ipAddress,
               olt.snmpPort,
               olt.snmpCommunityWrite,
@@ -2850,19 +4999,22 @@ export async function GET(req: NextRequest) {
               olt.name,
               olt.id
             )
-            allOnus.push(...onus)
-          } else {
-            // Gunakan parser standar untuk ZTE OLT lainnya
-            const onus = await getOnuDataViaSNMP(
-              olt.ipAddress,
-              olt.snmpPort,
-              olt.snmpCommunityWrite,
-              olt.snmpVersion,
-              olt.name,
-              olt.id
-            )
-            allOnus.push(...onus)
           }
+          
+          // Jika masih tidak ada data, coba parser standar (legacy)
+          if (onus.length === 0) {
+            console.log(`[All-ONU] C3XX parser returned no data, trying standard parser...`)
+            onus = await getOnuDataViaSNMP(
+              olt.ipAddress,
+              olt.snmpPort,
+              olt.snmpCommunityWrite,
+              olt.snmpVersion,
+              olt.name,
+              olt.id
+            )
+          }
+          
+          allOnus.push(...onus)
         } else if (olt.telnetConnected && olt.telnetUsername && olt.telnetPassword) {
           // Fallback ke Telnet jika SNMP tidak tersedia
           console.log(`[All-ONU] Using Telnet for OLT ${olt.name} (${olt.ipAddress})...`)
@@ -2888,6 +5040,7 @@ export async function GET(req: NextRequest) {
     if (allOnus.length > 0) {
       console.log(`[All-ONU] Saving ${allOnus.length} ONUs to database...`)
       let savedCount = 0
+      let errorCount = 0
       for (const onu of allOnus) {
         try {
           await onuRepository.upsert(onu.oltId, onu.gponOnu, {
@@ -2899,15 +5052,31 @@ export async function GET(req: NextRequest) {
             status: onu.status,
             rxOlt: onu.rxOlt,
             rxOnu: onu.rxOnu,
+            txOlt: onu.txOlt,
+            txOnu: onu.txOnu,
             serialNumber: onu.serialNumber || null,
             actualType: onu.actualType || null,
+            registerTime: onu.registerTime ? new Date(onu.registerTime) : null,
+            distance: onu.distance,
+            lastSeen: onu.lastSeen ? new Date(onu.lastSeen) : null,
+            registrationMode: onu.registrationMode || null,
+            softwareVersion: onu.softwareVersion || null,
+            hardwareVersion: onu.hardwareVersion || null,
+            temperature: onu.temperature || null,
+            laserBiasCurrent: onu.laserBiasCurrent || null,
           })
           savedCount++
         } catch (error: any) {
-          console.error(`[All-ONU] Error saving ONU ${onu.gponOnu} to database:`, error?.message || error)
+          errorCount++
+          if (errorCount <= 5) {
+            console.error(`[All-ONU] Error saving ONU ${onu.gponOnu} to database:`, error?.message || error)
+          }
         }
       }
       console.log(`[All-ONU] Successfully saved ${savedCount}/${allOnus.length} ONUs to database`)
+      if (errorCount > 0) {
+        console.warn(`[All-ONU] WARNING: ${errorCount} ONUs failed to save to database`)
+      }
       
       // Update last sync time untuk setiap OLT yang berhasil di-fetch
       const oltIds = [...new Set(allOnus.map(onu => onu.oltId))]
@@ -2922,56 +5091,24 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Hitung summary
-    let goodCount = 0
-    let warningCount = 0
-    let criticalCount = 0
-    let otherCount = 0
-    let goodRxOlt = 0
-    let goodRxOnu = 0
-    let warningRxOlt = 0
-    let warningRxOnu = 0
-    let criticalRxOlt = 0
-    let criticalRxOnu = 0
-    let losCount = 0
-    let naCount = 0
-
-    for (const onu of allOnus) {
-      const rxOlt = onu.rxOlt ? parseFloat(onu.rxOlt.replace(/[^\d.-]/g, '')) : null
-      const rxOnu = onu.rxOnu ? parseFloat(onu.rxOnu.replace(/[^\d.-]/g, '')) : null
-
-      if (onu.status === 'LOS' || onu.status === 'DyingGasp') {
-        otherCount++
-        if (onu.status === 'LOS') losCount++
-        else naCount++
-      } else if (rxOlt !== null) {
-        if (rxOlt >= -26.0) {
-          goodCount++
-          goodRxOlt++
-          if (rxOnu !== null) goodRxOnu++
-        } else if (rxOlt >= -28.0) {
-          warningCount++
-          warningRxOlt++
-          if (rxOnu !== null) warningRxOnu++
-        } else {
-          criticalCount++
-          criticalRxOlt++
-          if (rxOnu !== null) criticalRxOnu++
-        }
-      } else {
-        otherCount++
-        naCount++
-      }
-    }
-
+    // Hitung summary dari semua data SNMP
     const total = allOnus.length
     const summary = calculateSummary(allOnus)
 
+    // Apply pagination to SNMP data
+    const skip = (page - 1) * limit
+    const paginatedOnus = allOnus.slice(skip, skip + limit)
+    const totalPages = Math.ceil(total / limit)
+
+    console.log(`[All-ONU] Returning ${paginatedOnus.length} ONUs (page ${page}/${totalPages}) from SNMP`)
     return NextResponse.json({
-      onus: allOnus,
+      onus: paginatedOnus,
       summary,
       total,
-      source: 'snmp',
+      page,
+      limit,
+      totalPages,
+      source: allOnus.length > 0 ? 'snmp' : null,
     })
   } catch (error: any) {
     console.error('[All-ONU] Error:', error)
@@ -2984,6 +5121,7 @@ export async function GET(req: NextRequest) {
     )
   }
 }
-*/
+
+
 
 

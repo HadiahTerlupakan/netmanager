@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getOLTRepository } from '@/lib/repositories'
 import snmp from 'net-snmp'
+import { Telnet } from 'telnet-client'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -12,17 +13,11 @@ async function requireAdmin() {
   return session
 }
 
-// SNMP OIDs untuk VLAN (Standard BRIDGE-MIB)
-// Berdasarkan snmpwalk output:
-// - 1.3.6.1.2.1.17.7.1.4.2.1.3.0.VLAN_ID mengembalikan VLAN ID sebagai value (untuk mendapatkan list VLAN IDs)
-// - 1.3.6.1.2.1.17.7.1.4.3.1.1.VLAN_ID mengembalikan VLAN name (STRING: "VLAN0001", "VLAN0098", dll)
-// - 1.3.6.1.2.1.17.7.1.4.3.1.2.VLAN_ID mengembalikan egress ports (Hex-STRING: port bitmap)
-// - 1.3.6.1.2.1.17.7.1.4.3.1.4.VLAN_ID mengembalikan untagged ports (Hex-STRING: port bitmap)
-// Interface MIB untuk mapping interface index ke port fisik:
-// - 1.3.6.1.2.1.2.2.1.2 (ifDescr) - Interface description
-// - 1.3.6.1.2.1.2.2.1.1 (ifIndex) - Interface index
-// - 1.3.6.1.2.1.31.1.1.1.1 (ifName) - Interface name (ZTE specific, mungkin lebih akurat)
+// SNMP OIDs untuk VLAN
+// 1. Standard BRIDGE-MIB (untuk kompatibilitas dengan berbagai vendor)
+// 2. ZTE-specific OIDs (dari dokumentasi ZTE-AN-VLAN-MIB.mib)
 const SNMP_VLAN_OIDS = {
+  // Standard BRIDGE-MIB OIDs
   vlanId: '1.3.6.1.2.1.17.7.1.4.2.1.3', // dot1qVlanCurrentEgressPorts - untuk mendapatkan list VLAN IDs
   vlanName: '1.3.6.1.2.1.17.7.1.4.3.1.1', // dot1qVlanStaticName - mengembalikan nama VLAN
   vlanEgressPorts: '1.3.6.1.2.1.17.7.1.4.3.1.2', // dot1qVlanStaticEgressPorts (tagged ports)
@@ -31,6 +26,31 @@ const SNMP_VLAN_OIDS = {
   ifName: '1.3.6.1.2.1.31.1.1.1.1', // Interface name (IF-MIB, mungkin lebih akurat untuk ZTE)
   ifIndex: '1.3.6.1.2.1.2.2.1.1', // Interface index (untuk mapping BRIDGE-MIB port number)
   dot1dBasePortIfIndex: '1.3.6.1.2.1.17.1.4.1.2', // BRIDGE-MIB port number -> IF-MIB interface index mapping
+  
+  // ZTE-specific OIDs (dari dokumentasi ZTE-AN-VLAN-MIB.mib)
+  // VLAN Interface (L3 Interface) - untuk mendapatkan VLAN interface dengan IP address
+  zteL3IfTable: '1.3.6.1.4.1.3902.1015.4.1.1', // zxAnL3IfTable - Base OID untuk L3 Interface Table
+  zteL3IfIndex: '1.3.6.1.4.1.3902.1015.4.1.1.1.1', // zxAnL3IfIndex - Interface index
+  zteL3IfName: '1.3.6.1.4.1.3902.1015.4.1.1.1.2', // zxAnL3IfName - VLAN Interface Name (e.g., "VLAN100")
+  zteL3IfReferIndex: '1.3.6.1.4.1.3902.1015.4.1.1.1.3', // zxAnIfReferIndex - Referenced interface index
+  zteL3IfArpProxyEnable: '1.3.6.1.4.1.3902.1015.4.1.1.1.4', // zxAnL3IfArpProxyEnable - ARP proxy enable
+  zteL3IfRowStatus: '1.3.6.1.4.1.3902.1015.4.1.1.1.5', // zxAnL3IfRowStatus - Row status
+  
+  // VLAN Interface IP Address
+  zteL3IfIpTable: '1.3.6.1.4.1.3902.1015.4.1.3', // zxAnL3IfIpAddressTable - Base OID untuk IP Address Table
+  zteL3IfIp: '1.3.6.1.4.1.3902.1015.4.1.3.1.1', // zxAnL3IfIp - IP Address of VLAN Interface
+  zteL3IfMask: '1.3.6.1.4.1.3902.1015.4.1.3.1.2', // zxAnL3IfMask - Subnet Mask
+  zteL3IfIpCategory: '1.3.6.1.4.1.3902.1015.4.1.3.1.3', // zxAnL3IfIpCatagory - IP Category
+  zteL3IfIpRowStatus: '1.3.6.1.4.1.3902.1015.4.1.3.1.4', // zxAnL3IfIpRowStatus - Row status
+  
+  // VLAN Port Configuration
+  zteVlanPortConfTable: '1.3.6.1.4.1.3902.1015.20.4', // zxAnVlanPortConfVlanCmdTable - Base OID untuk VLAN Port Config
+  zteVlanPortConfCmd: '1.3.6.1.4.1.3902.1015.20.4.1.1', // zxAnVlanPortConfVlanCmd - VLAN command
+  zteVlanPortConfVlanId: '1.3.6.1.4.1.3902.1015.20.4.1.2', // zxAnVlanPortConfVlanId - VLAN ID
+  
+  // Service Port VLAN Configuration
+  zteUserTlsVlan: '1.3.6.1.4.1.3902.1015.8.1.1.1.10', // zxAnUserTlsVlan - User TLS VLAN
+  zteVlanTransMode: '1.3.6.1.4.1.3902.1015.8.1.1.1.13', // zxAnVlanTransMode - VLAN Translation Mode
 }
 
 // Helper function untuk SNMP walk
@@ -384,15 +404,29 @@ function parseVlanFromSnmp(
 
 // Konversi PONID ke Frame/Slot/Port (sama seperti di ONU)
 // Rumus: PONID = (Frame * 16777216) + (Slot * 65536) + (Port * 256)
+// CATATAN: Rumus ini hanya valid untuk PON ID yang menggunakan format ini
+// Jangan gunakan untuk interface index biasa yang bukan PON ID
 function ponIdToFrameSlotPort(ponId: number): { frame: number; slot: number; port: number } | null {
+  // Validasi: PON ID harus cukup besar untuk menggunakan rumus ini
+  // Jika terlalu kecil, kemungkinan bukan PON ID
+  if (ponId < 16777216) {
+    return null
+  }
+  
   const frame = Math.floor(ponId / 16777216)
   const remainder1 = ponId % 16777216
   const slot = Math.floor(remainder1 / 65536)
   const remainder2 = remainder1 % 65536
   const port = Math.floor(remainder2 / 256)
   
-  // Validasi
-  if (frame < 1 || slot < 1 || port < 1) {
+  // Validasi hasil
+  if (frame < 1 || frame > 255 || slot < 1 || slot > 255 || port < 1 || port > 255) {
+    return null
+  }
+  
+  // Validasi tambahan: jika hasilnya terlalu kecil (misalnya frame=0, slot=0, port=1),
+  // kemungkinan bukan PON ID yang valid
+  if (frame === 0 && slot === 0) {
     return null
   }
   
@@ -432,6 +466,7 @@ function ponIndexToPort(ponIndex: number): string | null {
 // Kita perlu mapping dari BRIDGE-MIB port number ke IF-MIB interface index
 function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridgePortToIfIndexMap: Map<number, number>): string[] {
   const ports: string[] = []
+  const portMappingLog: Array<{ bridgePort: number; ifIndex: number | null; ifDescr: string | null; result: string }> = []
   
   // Build sorted list of interface indexes untuk fallback mapping
   const sortedIfIndexes = Array.from(ifDescrMap.keys()).sort((a, b) => a - b)
@@ -453,16 +488,44 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
         
         // Map BRIDGE-MIB port number ke IF-MIB interface index
         let interfaceIndex = bridgePortToIfIndexMap.get(bridgePortNumber)
+        
         if (!interfaceIndex) {
           // Fallback: jika mapping tidak tersedia, coba strategi fallback
           
-          // Strategi 1: Untuk port number kecil, coba sequential mapping
-          // Port number 1 -> interface index pertama, port number 2 -> interface index kedua, dst
-          if (bridgePortNumber <= sortedIfIndexes.length && bridgePortNumber > 0) {
-            interfaceIndex = sortedIfIndexes[bridgePortNumber - 1]
-          } else {
-            // Strategi 2: Coba cari interface berdasarkan pola atau urutan
-            // Kumpulkan semua interface yang relevan (gpon, xgei, gei)
+          // Strategi 1: Mapping khusus untuk port number yang diketahui (prioritas tinggi)
+          // Untuk port number 644-648, coba cari interface xgei_1/10/*
+          if (bridgePortNumber >= 644 && bridgePortNumber <= 648) {
+            const portOffset = bridgePortNumber - 644 // 0-4
+            for (const [idx, descr] of ifDescrMap.entries()) {
+              const xgeiMatch = descr.match(/xgei_1\/10\/(\d+)/i)
+              if (xgeiMatch) {
+                const portNum = parseInt(xgeiMatch[1])
+                if (portNum === portOffset + 1) {
+                  interfaceIndex = idx
+                  break
+                }
+              }
+            }
+          }
+          
+          // Untuk port number 708-712, coba cari interface xgei_1/11/*
+          if (!interfaceIndex && bridgePortNumber >= 708 && bridgePortNumber <= 712) {
+            const portOffset = bridgePortNumber - 708 // 0-4
+            for (const [idx, descr] of ifDescrMap.entries()) {
+              const xgeiMatch = descr.match(/xgei_1\/11\/(\d+)/i)
+              if (xgeiMatch) {
+                const portNum = parseInt(xgeiMatch[1])
+                if (portNum === portOffset + 1) {
+                  interfaceIndex = idx
+                  break
+                }
+              }
+            }
+          }
+          
+          // Strategi 2: Coba cari interface berdasarkan pola atau urutan
+          // Kumpulkan semua interface yang relevan (gpon, xgei, gei)
+          if (!interfaceIndex) {
             const relevantInterfaces: Array<{ idx: number; descr: string; portMatch: RegExpMatchArray | null }> = []
             for (const [idx, descr] of ifDescrMap.entries()) {
               if (descr && descr.trim() !== '') {
@@ -489,47 +552,37 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
             if (bridgePortNumber <= relevantInterfaces.length && relevantInterfaces.length > 0) {
               interfaceIndex = relevantInterfaces[bridgePortNumber - 1].idx
             } else if (relevantInterfaces.length > 0) {
-              // Strategi 2b: Untuk port number besar, coba mapping berdasarkan offset
-              // Coba cari interface yang index-nya mendekati bridgePortNumber
-              // atau gunakan modulo untuk mapping ke interface yang ada
-              const mappedIndex = ((bridgePortNumber - 1) % relevantInterfaces.length)
-              interfaceIndex = relevantInterfaces[mappedIndex].idx
-            } else {
-              // Fallback: gunakan port number langsung
-              interfaceIndex = bridgePortNumber
-            }
-            
-            // Strategi 3: Mapping khusus untuk port number yang diketahui (untuk OLT 1)
-            // Untuk port number 644-648, coba cari interface xgei_1/10/*
-            if (bridgePortNumber >= 644 && bridgePortNumber <= 648) {
-              const portOffset = bridgePortNumber - 644 // 0-4
-              for (const [idx, descr] of ifDescrMap.entries()) {
-                const xgeiMatch = descr.match(/xgei_1\/10\/(\d+)/i)
-                if (xgeiMatch) {
-                  const portNum = parseInt(xgeiMatch[1])
-                  if (portNum === portOffset + 1) {
-                    interfaceIndex = idx
-                    break
-                  }
+              // Strategi 2b: Untuk port number besar, coba cari interface yang index-nya mendekati
+              // Cari interface yang index-nya paling dekat dengan bridgePortNumber
+              let closestInterface: { idx: number; descr: string } | null = null
+              let minDiff = Infinity
+              
+              for (const { idx, descr } of relevantInterfaces) {
+                const diff = Math.abs(idx - bridgePortNumber)
+                if (diff < minDiff) {
+                  minDiff = diff
+                  closestInterface = { idx, descr }
                 }
               }
-            }
-            
-            // Untuk port number 708-712, coba cari interface xgei_1/11/*
-            if (bridgePortNumber >= 708 && bridgePortNumber <= 712) {
-              const portOffset = bridgePortNumber - 708 // 0-4
-              for (const [idx, descr] of ifDescrMap.entries()) {
-                const xgeiMatch = descr.match(/xgei_1\/11\/(\d+)/i)
-                if (xgeiMatch) {
-                  const portNum = parseInt(xgeiMatch[1])
-                  if (portNum === portOffset + 1) {
-                    interfaceIndex = idx
-                    break
-                  }
-                }
+              
+              // Hanya gunakan jika perbedaannya tidak terlalu besar (threshold: 100000)
+              if (closestInterface && minDiff < 100000) {
+                interfaceIndex = closestInterface.idx
               }
             }
           }
+          
+          // Strategi 3: Untuk port number kecil, coba sequential mapping sebagai last resort
+          // Port number 1 -> interface index pertama, port number 2 -> interface index kedua, dst
+          if (!interfaceIndex && bridgePortNumber <= sortedIfIndexes.length && bridgePortNumber > 0 && bridgePortNumber < 100) {
+            interfaceIndex = sortedIfIndexes[bridgePortNumber - 1]
+          }
+        }
+        
+        // Jika interfaceIndex tidak ditemukan sama sekali, coba gunakan bridgePortNumber sebagai fallback
+        // Tapi hanya jika bridgePortNumber masuk akal (tidak terlalu besar)
+        if (!interfaceIndex && bridgePortNumber < 10000) {
+          interfaceIndex = bridgePortNumber
         }
         
         // Coba cari interface description/name terlebih dahulu
@@ -680,8 +733,8 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
           }
         }
         
+        // Jika masih tidak ada description, coba konversi interface index sebagai PON ID
         // Coba metode 1: Rumus PONID = (Frame * 16777216) + (Slot * 65536) + (Port * 256)
-        // Untuk interface index kecil (< 10000), mungkin bukan PON ID langsung
         let convertedPort: string | null = null
         if (interfaceIndex >= 10000) {
           const portInfo1 = ponIdToFrameSlotPort(interfaceIndex)
@@ -695,6 +748,14 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
           const portStr = ponIndexToPort(interfaceIndex)
           if (portStr && !portStr.startsWith('INVALID')) {
             convertedPort = portStr
+          }
+        }
+        
+        // Coba metode 3: Jika interfaceIndex adalah bridgePortNumber (fallback), coba konversi sebagai PON ID
+        if (!convertedPort && interfaceIndex === bridgePortNumber && interfaceIndex >= 10000) {
+          const portInfo2 = ponIdToFrameSlotPort(interfaceIndex)
+          if (portInfo2) {
+            convertedPort = `${portInfo2.frame}/${portInfo2.slot}/${portInfo2.port}`
           }
         }
         
@@ -796,17 +857,63 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
           }
         }
         
-        // Strategi 3: Jika interface index tidak ada di ifDescrMap dan tidak bisa dikonversi,
-        // skip port ini karena tidak bisa di-mapping dengan benar
-        if (!ifDescrMap.has(interfaceIndex)) {
-          // Skip port ini jika tidak bisa di-mapping
-          // (jangan tambahkan ke ports array)
-          continue
+        // Jika semua metode gagal, coba konversi interfaceIndex sebagai PON ID sekali lagi
+        // TAPI: Hanya jika interfaceIndex cukup besar dan masuk akal sebagai PON ID
+        // Jangan konversi interface index kecil karena bisa menghasilkan hasil yang salah
+        if (!convertedPort && interfaceIndex >= 16777216) {
+          // Coba konversi dengan rumus PONID (hanya untuk nilai yang cukup besar)
+          const portInfo3 = ponIdToFrameSlotPort(interfaceIndex)
+          if (portInfo3) {
+            convertedPort = `${portInfo3.frame}/${portInfo3.slot}/${portInfo3.port}`
+            ports.push(convertedPort)
+            continue
+          }
+          
+          // Coba binary parsing (untuk PON index yang di-encode sebagai binary)
+          const portStr2 = ponIndexToPort(interfaceIndex)
+          if (portStr2 && !portStr2.startsWith('INVALID')) {
+            ports.push(portStr2)
+            continue
+          }
         }
         
-        // Jika semua metode gagal, tampilkan sebagai interface index
-        ports.push(`Interface-${interfaceIndex}`)
+        // JANGAN gunakan bridgePortNumber sebagai PON ID karena bridge port number
+        // biasanya kecil dan tidak menggunakan format PON ID
+        // bridgePortNumber adalah BRIDGE-MIB port number, bukan PON ID
+        
+        // Jika masih tidak bisa, log warning tapi tetap tambahkan port number untuk debugging
+        console.warn(`[VLAN-SNMP] Could not map bridge port ${bridgePortNumber} (interfaceIndex: ${interfaceIndex}) to any interface`)
+        // Tampilkan sebagai bridge port number untuk debugging
+        const finalPort = `Port-${bridgePortNumber}`
+        ports.push(finalPort)
+        portMappingLog.push({
+          bridgePort: bridgePortNumber,
+          ifIndex: interfaceIndex,
+          ifDescr: null,
+          result: finalPort
+        })
+        continue
       }
+    }
+  }
+  
+  // Log port mapping untuk debugging (hanya jika ada banyak port yang sama)
+  const portCounts = new Map<string, number>()
+  for (const port of ports) {
+    portCounts.set(port, (portCounts.get(port) || 0) + 1)
+  }
+  
+  // Jika ada port yang muncul lebih dari 3 kali, log warning
+  for (const [port, count] of portCounts.entries()) {
+    if (count > 3) {
+      console.warn(`[VLAN-SNMP] Port ${port} appears ${count} times in bitmap - possible mapping issue`)
+      // Log beberapa contoh mapping untuk port ini
+      const examples = portMappingLog.filter(log => log.result === port).slice(0, 5)
+      console.warn(`[VLAN-SNMP] Examples:`, examples.map(e => ({
+        bridgePort: e.bridgePort,
+        ifIndex: e.ifIndex,
+        ifDescr: e.ifDescr
+      })))
     }
   }
   
@@ -912,9 +1019,26 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     console.log(`[VLAN-SNMP] Fetching VLAN data from OLT ${olt.name} (${olt.ipAddress}) via SNMP...`)
 
     // Walk semua OID VLAN secara paralel
-    // Gunakan vlanName sebagai primary source karena lebih lengkap (sudah include VLAN ID di OID)
-    // Juga ambil interface descriptions, names, dan mapping BRIDGE-MIB port number ke IF-MIB interface index
-    const [vlanIdResults, vlanNameResults, vlanEgressResults, vlanUntaggedResults, ifDescrResults, ifNameResults, ifIndexResults, dot1dBasePortIfIndexResults] = await Promise.all([
+    // 1. Standard BRIDGE-MIB OIDs (untuk kompatibilitas)
+    // 2. ZTE-specific OIDs (dari dokumentasi ZTE-AN-VLAN-MIB.mib)
+    const [
+      // Standard BRIDGE-MIB
+      vlanIdResults, 
+      vlanNameResults, 
+      vlanEgressResults, 
+      vlanUntaggedResults, 
+      ifDescrResults, 
+      ifNameResults, 
+      ifIndexResults, 
+      dot1dBasePortIfIndexResults,
+      // ZTE-specific OIDs
+      zteL3IfNameResults,
+      zteL3IfIndexResults,
+      zteL3IfIpResults,
+      zteL3IfMaskResults,
+      zteVlanPortConfVlanIdResults,
+    ] = await Promise.all([
+      // Standard BRIDGE-MIB
       snmpWalk(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_VLAN_OIDS.vlanId, 30000).catch(() => []),
       snmpWalk(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_VLAN_OIDS.vlanName, 30000).catch(() => []),
       snmpWalk(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_VLAN_OIDS.vlanEgressPorts, 30000).catch(() => []),
@@ -923,16 +1047,30 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       snmpWalk(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_VLAN_OIDS.ifName, 30000).catch(() => []),
       snmpWalk(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_VLAN_OIDS.ifIndex, 30000).catch(() => []),
       snmpWalk(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_VLAN_OIDS.dot1dBasePortIfIndex, 30000).catch(() => []),
+      // ZTE-specific OIDs
+      snmpWalk(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_VLAN_OIDS.zteL3IfName, 30000).catch(() => []),
+      snmpWalk(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_VLAN_OIDS.zteL3IfIndex, 30000).catch(() => []),
+      snmpWalk(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_VLAN_OIDS.zteL3IfIp, 30000).catch(() => []),
+      snmpWalk(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_VLAN_OIDS.zteL3IfMask, 30000).catch(() => []),
+      snmpWalk(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_VLAN_OIDS.zteVlanPortConfVlanId, 30000).catch(() => []),
     ])
 
-    console.log(`[VLAN-SNMP] Found ${vlanIdResults.length} VLAN IDs`)
-    console.log(`[VLAN-SNMP] Found ${vlanNameResults.length} VLAN Names`)
-    console.log(`[VLAN-SNMP] Found ${vlanEgressResults.length} Egress Port entries`)
-    console.log(`[VLAN-SNMP] Found ${vlanUntaggedResults.length} Untagged Port entries`)
-    console.log(`[VLAN-SNMP] Found ${ifDescrResults.length} Interface Descriptions`)
-    console.log(`[VLAN-SNMP] Found ${ifNameResults.length} Interface Names`)
-    console.log(`[VLAN-SNMP] Found ${ifIndexResults.length} Interface Indexes`)
-    console.log(`[VLAN-SNMP] Found ${dot1dBasePortIfIndexResults.length} BRIDGE-MIB port to IF-MIB interface index mappings`)
+    console.log(`[VLAN-SNMP] Standard BRIDGE-MIB Results:`)
+    console.log(`  - Found ${vlanIdResults.length} VLAN IDs`)
+    console.log(`  - Found ${vlanNameResults.length} VLAN Names`)
+    console.log(`  - Found ${vlanEgressResults.length} Egress Port entries`)
+    console.log(`  - Found ${vlanUntaggedResults.length} Untagged Port entries`)
+    console.log(`  - Found ${ifDescrResults.length} Interface Descriptions`)
+    console.log(`  - Found ${ifNameResults.length} Interface Names`)
+    console.log(`  - Found ${ifIndexResults.length} Interface Indexes`)
+    console.log(`  - Found ${dot1dBasePortIfIndexResults.length} BRIDGE-MIB port to IF-MIB interface index mappings`)
+    
+    console.log(`[VLAN-SNMP] ZTE-specific OIDs Results:`)
+    console.log(`  - Found ${zteL3IfNameResults.length} ZTE L3 Interface Names (VLAN Interface Names)`)
+    console.log(`  - Found ${zteL3IfIndexResults.length} ZTE L3 Interface Indexes`)
+    console.log(`  - Found ${zteL3IfIpResults.length} ZTE L3 Interface IP Addresses`)
+    console.log(`  - Found ${zteL3IfMaskResults.length} ZTE L3 Interface Subnet Masks`)
+    console.log(`  - Found ${zteVlanPortConfVlanIdResults.length} ZTE VLAN Port Config VLAN IDs`)
 
     // Build interface description map untuk logging
     const ifDescrMap = buildIfDescrMap(ifDescrResults, ifNameResults)
@@ -969,10 +1107,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       })))
     }
 
-    // Parse VLAN data
+    // Parse VLAN data dengan logging lebih detail
     const vlanDetails = parseVlanFromSnmp(vlanIdResults, vlanNameResults, vlanEgressResults, vlanUntaggedResults, ifDescrResults, ifNameResults, ifIndexResults, dot1dBasePortIfIndexResults)
 
     console.log(`[VLAN-SNMP] Parsed ${vlanDetails.length} VLANs`)
+    
+    // Log detail mapping untuk debugging
+    console.log(`[VLAN-SNMP] Bridge Port to IF-MIB Interface Index Mapping:`)
+    const sampleMappings = Array.from(bridgePortToIfIndexMap.entries()).slice(0, 20)
+    for (const [bridgePort, ifIndex] of sampleMappings) {
+      const ifDescr = ifDescrMap.get(ifIndex) || 'N/A'
+      console.log(`  Bridge Port ${bridgePort} -> IF-MIB Index ${ifIndex} (${ifDescr})`)
+    }
     
     // Log detail untuk debugging port parsing
     if (vlanDetails.length > 0) {
@@ -1021,6 +1167,342 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json(
       {
         error: error.message || 'Gagal memuat data VLAN dari SNMP',
+        details: error.toString(),
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// Helper function untuk execute telnet command
+async function executeTelnetCommand(
+  ipAddress: string,
+  port: number,
+  username: string,
+  password: string,
+  command: string,
+  timeout: number = 30000
+): Promise<string> {
+  let connection: any = null
+
+  try {
+    console.log(`[VLAN-Telnet] Connecting to ${ipAddress}:${port}...`)
+
+    connection = new Telnet()
+
+    const params = {
+      host: ipAddress,
+      port: port,
+      negotiationMandatory: false,
+      timeout: 20000,
+      shellPrompt: /[#>]\s*$/,
+      username: username,
+      password: password,
+      loginPrompt: /[Uu]sername[: ]*$/i,
+      passwordPrompt: /[Pp]assword[: ]*$/i,
+      irs: '\r\n',
+      ors: '\r\n',
+      echoLines: 0,
+    }
+
+    await connection.connect(params)
+    console.log('[VLAN-Telnet] Connected, waiting for login...')
+
+    await new Promise((r) => setTimeout(r, 1000))
+
+    console.log('[VLAN-Telnet] Login completed, executing command...')
+
+    let outputBuffer = ''
+    connection.on('data', (data: Buffer) => {
+      const text = data.toString()
+      outputBuffer += text
+    })
+
+    console.log(`[VLAN-Telnet] Sending command: ${command}`)
+    await connection.send(command + '\r\n')
+
+    const startTime = Date.now()
+    let pageCount = 0
+    let lastOutputLength = 0
+    let stableCount = 0
+
+    while (true) {
+      await new Promise((r) => setTimeout(r, 500))
+
+      if (outputBuffer.length > lastOutputLength) {
+        lastOutputLength = outputBuffer.length
+        stableCount = 0
+      } else {
+        stableCount++
+        if (stableCount >= 3) {
+          break
+        }
+      }
+
+      if (Date.now() - startTime > timeout) {
+        break
+      }
+
+      if (outputBuffer.includes('More') || outputBuffer.includes('--More--')) {
+        await connection.send(' ')
+        pageCount++
+        if (pageCount > 100) break
+      }
+    }
+
+    await connection.end()
+    console.log(`[VLAN-Telnet] Command executed, output length: ${outputBuffer.length}`)
+
+    return outputBuffer
+  } catch (error: any) {
+    console.error('[VLAN-Telnet] Error:', error)
+    if (connection) {
+      try {
+        await connection.end()
+      } catch (e) {
+        // Ignore
+      }
+    }
+    throw error
+  }
+}
+
+// DELETE endpoint untuk menghapus VLAN
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await requireAdmin()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await params
+  const { searchParams } = new URL(req.url)
+  const vlanId = searchParams.get('vlanId')
+
+  if (!vlanId) {
+    return NextResponse.json({ error: 'VLAN ID diperlukan' }, { status: 400 })
+  }
+
+  const oltRepository = getOLTRepository()
+  const olt = await oltRepository.findById(id)
+
+  if (!olt) {
+    return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
+  }
+
+  if (!olt.telnetUsername || !olt.telnetPassword) {
+    return NextResponse.json(
+      { error: 'Telnet username dan password diperlukan untuk menghapus VLAN' },
+      { status: 400 }
+    )
+  }
+
+  try {
+    console.log(`[VLAN-Delete] Deleting VLAN ${vlanId} from OLT ${olt.name} (${olt.ipAddress})...`)
+
+    let connection: any = null
+
+    try {
+      connection = new Telnet()
+
+      const params = {
+        host: olt.ipAddress,
+        port: olt.telnetPort,
+        negotiationMandatory: false,
+        timeout: 20000,
+        shellPrompt: /[#>]\s*$/,
+        username: olt.telnetUsername,
+        password: olt.telnetPassword,
+        loginPrompt: /[Uu]sername[: ]*$/i,
+        passwordPrompt: /[Pp]assword[: ]*$/i,
+        irs: '\r\n',
+        ors: '\r\n',
+        echoLines: 0,
+      }
+
+      await connection.connect(params)
+      console.log('[VLAN-Delete] Connected, waiting for login...')
+
+      await new Promise((r) => setTimeout(r, 1000))
+
+      console.log('[VLAN-Delete] Login completed, executing command...')
+
+      let outputBuffer = ''
+      connection.on('data', (data: Buffer) => {
+        const text = data.toString()
+        outputBuffer += text
+      })
+
+      // Command untuk menghapus VLAN di ZTE OLT
+      console.log(`[VLAN-Delete] Sending: no vlan ${vlanId}`)
+      await connection.send(`no vlan ${vlanId}\r\n`)
+      
+      // Tunggu output
+      await new Promise((r) => setTimeout(r, 2000))
+
+      await connection.end()
+
+      // Cek apakah command berhasil (tidak ada error message)
+      if (outputBuffer.includes('Error') || outputBuffer.includes('Invalid') || outputBuffer.includes('Failed')) {
+        return NextResponse.json(
+          { error: `Gagal menghapus VLAN: ${outputBuffer}` },
+          { status: 500 }
+        )
+      }
+
+      console.log(`[VLAN-Delete] VLAN ${vlanId} berhasil dihapus`)
+
+      return NextResponse.json({
+        success: true,
+        message: `VLAN ${vlanId} berhasil dihapus`,
+      })
+    } catch (error: any) {
+      if (connection) {
+        try {
+          await connection.end()
+        } catch (e) {
+          // Ignore
+        }
+      }
+      throw error
+    }
+  } catch (error: any) {
+    console.error('[VLAN-Delete] Error:', error)
+    return NextResponse.json(
+      {
+        error: error.message || 'Gagal menghapus VLAN',
+        details: error.toString(),
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH endpoint untuk mengedit VLAN
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await requireAdmin()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await params
+  const body = await req.json()
+  const { vlanId, name, description } = body
+
+  if (!vlanId) {
+    return NextResponse.json({ error: 'VLAN ID diperlukan' }, { status: 400 })
+  }
+
+  if (!name && !description) {
+    return NextResponse.json({ error: 'Name atau description diperlukan' }, { status: 400 })
+  }
+
+  const oltRepository = getOLTRepository()
+  const olt = await oltRepository.findById(id)
+
+  if (!olt) {
+    return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
+  }
+
+  if (!olt.telnetUsername || !olt.telnetPassword) {
+    return NextResponse.json(
+      { error: 'Telnet username dan password diperlukan untuk mengedit VLAN' },
+      { status: 400 }
+    )
+  }
+
+  try {
+    console.log(`[VLAN-Edit] Editing VLAN ${vlanId} on OLT ${olt.name} (${olt.ipAddress})...`)
+
+    let connection: any = null
+
+    try {
+      connection = new Telnet()
+
+      const params = {
+        host: olt.ipAddress,
+        port: olt.telnetPort,
+        negotiationMandatory: false,
+        timeout: 20000,
+        shellPrompt: /[#>]\s*$/,
+        username: olt.telnetUsername,
+        password: olt.telnetPassword,
+        loginPrompt: /[Uu]sername[: ]*$/i,
+        passwordPrompt: /[Pp]assword[: ]*$/i,
+        irs: '\r\n',
+        ors: '\r\n',
+        echoLines: 0,
+      }
+
+      await connection.connect(params)
+      console.log('[VLAN-Edit] Connected, waiting for login...')
+
+      await new Promise((r) => setTimeout(r, 1000))
+
+      console.log('[VLAN-Edit] Login completed, executing commands...')
+
+      let outputBuffer = ''
+      connection.on('data', (data: Buffer) => {
+        const text = data.toString()
+        outputBuffer += text
+      })
+
+      // Masuk ke konfigurasi VLAN
+      console.log(`[VLAN-Edit] Sending: vlan ${vlanId}`)
+      await connection.send(`vlan ${vlanId}\r\n`)
+      await new Promise((r) => setTimeout(r, 1000))
+
+      // Update name jika diberikan
+      if (name) {
+        console.log(`[VLAN-Edit] Sending: name ${name}`)
+        await connection.send(`name ${name}\r\n`)
+        await new Promise((r) => setTimeout(r, 1000))
+      }
+
+      // Update description jika diberikan
+      if (description) {
+        console.log(`[VLAN-Edit] Sending: description ${description}`)
+        await connection.send(`description ${description}\r\n`)
+        await new Promise((r) => setTimeout(r, 1000))
+      }
+
+      // Keluar dari konfigurasi VLAN
+      console.log('[VLAN-Edit] Sending: exit')
+      await connection.send('exit\r\n')
+      await new Promise((r) => setTimeout(r, 1000))
+
+      await connection.end()
+
+      // Cek apakah command berhasil
+      if (outputBuffer.includes('Error') || outputBuffer.includes('Invalid') || outputBuffer.includes('Failed')) {
+        return NextResponse.json(
+          { error: `Gagal mengedit VLAN: ${outputBuffer}` },
+          { status: 500 }
+        )
+      }
+
+      console.log(`[VLAN-Edit] VLAN ${vlanId} berhasil diupdate`)
+
+      return NextResponse.json({
+        success: true,
+        message: `VLAN ${vlanId} berhasil diupdate`,
+      })
+    } catch (error: any) {
+      if (connection) {
+        try {
+          await connection.end()
+        } catch (e) {
+          // Ignore
+        }
+      }
+      throw error
+    }
+  } catch (error: any) {
+    console.error('[VLAN-Edit] Error:', error)
+    return NextResponse.json(
+      {
+        error: error.message || 'Gagal mengedit VLAN',
         details: error.toString(),
       },
       { status: 500 }
