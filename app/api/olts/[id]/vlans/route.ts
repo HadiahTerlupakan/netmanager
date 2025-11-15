@@ -461,56 +461,54 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
           if (bridgePortNumber <= sortedIfIndexes.length && bridgePortNumber > 0) {
             interfaceIndex = sortedIfIndexes[bridgePortNumber - 1]
           } else {
-            // Strategi 2: Untuk port number besar (644+), coba mapping berdasarkan pola
-            // Dari log, kita tahu bahwa port number 648 seharusnya di-mapping ke interface index 285280769
-            // Coba cari pola: port number 648 -> interface index 285280769
-            // Port number 644-647, 708-712 mungkin mengikuti pola yang sama
+            // Strategi 2: Coba cari interface berdasarkan pola atau urutan
+            // Kumpulkan semua interface yang relevan (gpon, xgei, gei)
+            const relevantInterfaces: Array<{ idx: number; descr: string; portMatch: RegExpMatchArray | null }> = []
+            for (const [idx, descr] of ifDescrMap.entries()) {
+              if (descr && descr.trim() !== '') {
+                const gponMatch = descr.match(/gpon-olt_(\d+\/\d+\/\d+)/i) || 
+                                 descr.match(/gpon_(\d+\/\d+\/\d+)/i)
+                const xgeiMatch = descr.match(/xgei_(\d+\/\d+\/\d+)/i)
+                const geiMatch = descr.match(/gei_(\d+\/\d+\/\d+)/i)
+                
+                if (gponMatch || xgeiMatch || geiMatch) {
+                  relevantInterfaces.push({ 
+                    idx, 
+                    descr, 
+                    portMatch: gponMatch || xgeiMatch || geiMatch 
+                  })
+                }
+              }
+            }
             
-            // Mapping manual berdasarkan observasi:
-            // Port 648 -> interface 285280769 (xgei_1/10/1)
-            // Port 644-647 -> interface 285278977-285278980 (gpon_1/3/1-4) atau pola lain
-            // Port 708-712 -> interface 285279233-285279237 (gpon_1/4/1-5) atau pola lain
+            // Sort berdasarkan interface index untuk konsistensi
+            relevantInterfaces.sort((a, b) => a.idx - b.idx)
             
-            // Coba mapping berdasarkan offset atau pola tertentu
-            // Dari observasi: port 648 -> interface 285280769
-            // Offset = 285280769 - 648 = 285280121
-            // Tapi ini tidak konsisten dengan port lain
+            // Strategi 2a: Coba mapping berdasarkan urutan (port number -> urutan interface)
+            // Jika bridgePortNumber dalam range jumlah interface yang relevan
+            if (bridgePortNumber <= relevantInterfaces.length && relevantInterfaces.length > 0) {
+              interfaceIndex = relevantInterfaces[bridgePortNumber - 1].idx
+            } else if (relevantInterfaces.length > 0) {
+              // Strategi 2b: Untuk port number besar, coba mapping berdasarkan offset
+              // Coba cari interface yang index-nya mendekati bridgePortNumber
+              // atau gunakan modulo untuk mapping ke interface yang ada
+              const mappedIndex = ((bridgePortNumber - 1) % relevantInterfaces.length)
+              interfaceIndex = relevantInterfaces[mappedIndex].idx
+            } else {
+              // Fallback: gunakan port number langsung
+              interfaceIndex = bridgePortNumber
+            }
             
-            // Alternatif: coba cari interface index yang memiliki pola tertentu
-            // atau gunakan port number langsung dan biarkan konversi PON index handle-nya
-            interfaceIndex = bridgePortNumber
-            
-            // Coba mapping khusus untuk port number yang diketahui
-            // Berdasarkan observasi dari log dan output SNMP:
-            // Port 644-648 (byteIndex 80) mungkin di-mapping ke interface index tertentu
-            // Port 708-712 (byteIndex 88) mungkin di-mapping ke interface index tertentu
-            
-            // Dari output SNMP sebelumnya:
-            // - Port 648 -> interface 285280769 (xgei_1/10/1) - sudah benar
-            // - Port 644-647 mungkin di-mapping ke interface index lain
-            // - Port 708-712 mungkin di-mapping ke interface index lain
-            
-            // Strategi: cari interface index yang memiliki pola port yang cocok
-            // atau gunakan mapping berdasarkan offset/pola tertentu
-            
-            // Mapping khusus untuk port yang diketahui
-            // Coba cari semua interface xgei, gei, dan gpon yang cocok
-            // Berdasarkan pola: port number besar mungkin di-mapping ke interface index besar
-            let foundMapping = false
-            
-            // Coba cari interface yang cocok berdasarkan pola port number
+            // Strategi 3: Mapping khusus untuk port number yang diketahui (untuk OLT 1)
             // Untuk port number 644-648, coba cari interface xgei_1/10/*
             if (bridgePortNumber >= 644 && bridgePortNumber <= 648) {
               const portOffset = bridgePortNumber - 644 // 0-4
               for (const [idx, descr] of ifDescrMap.entries()) {
-                // Coba match xgei_1/10/1-5
                 const xgeiMatch = descr.match(/xgei_1\/10\/(\d+)/i)
                 if (xgeiMatch) {
                   const portNum = parseInt(xgeiMatch[1])
-                  // Port 644 -> xgei_1/10/1, port 645 -> xgei_1/10/2, dst
                   if (portNum === portOffset + 1) {
                     interfaceIndex = idx
-                    foundMapping = true
                     break
                   }
                 }
@@ -518,7 +516,7 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
             }
             
             // Untuk port number 708-712, coba cari interface xgei_1/11/*
-            if (!foundMapping && bridgePortNumber >= 708 && bridgePortNumber <= 712) {
+            if (bridgePortNumber >= 708 && bridgePortNumber <= 712) {
               const portOffset = bridgePortNumber - 708 // 0-4
               for (const [idx, descr] of ifDescrMap.entries()) {
                 const xgeiMatch = descr.match(/xgei_1\/11\/(\d+)/i)
@@ -526,34 +524,78 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
                   const portNum = parseInt(xgeiMatch[1])
                   if (portNum === portOffset + 1) {
                     interfaceIndex = idx
-                    foundMapping = true
                     break
                   }
                 }
               }
             }
-            
-            // Untuk port lain yang mungkin gei_1/10/5 atau gei_1/11/5
-            if (!foundMapping) {
-              // Coba cari semua interface gei
-              for (const [idx, descr] of ifDescrMap.entries()) {
-                if (descr.match(/gei_1\/(10|11)\/5/i)) {
-                  // Jika port number cocok dengan pola tertentu, gunakan interface ini
-                  // Untuk sekarang, kita akan coba semua gei_1/10/5 dan gei_1/11/5
-                  interfaceIndex = idx
-                  foundMapping = true
-                  break
-                }
-              }
-            }
-            
-            // Jika masih tidak ditemukan, gunakan port number langsung
-            // dan biarkan konversi PON index handle-nya
           }
         }
         
         // Coba cari interface description/name terlebih dahulu
-        const ifDescr = ifDescrMap.get(interfaceIndex)
+        let ifDescr = ifDescrMap.get(interfaceIndex)
+        
+        // Jika tidak ditemukan dengan interfaceIndex langsung, coba cari dengan strategi lain
+        if (!ifDescr || ifDescr.trim() === '') {
+          // Strategi 1: Coba cari interface yang memiliki port number yang cocok
+          // Berdasarkan bridgePortNumber, coba cari interface yang mungkin cocok
+          // Ini berguna untuk OLT yang mapping BRIDGE-MIB port number tidak langsung
+          
+          // Coba cari interface berdasarkan pola port number
+          // Untuk port number besar, mungkin interface index juga besar
+          // Coba cari interface yang memiliki index mendekati bridgePortNumber atau interfaceIndex
+          for (const [idx, descr] of ifDescrMap.entries()) {
+            // Jika interface index mendekati bridgePortNumber atau interfaceIndex yang dihitung
+            // dan description mengandung pola port (gpon, xgei, gei), gunakan itu
+            const diff = Math.abs(idx - interfaceIndex)
+            if (diff < 1000 && descr && descr.trim() !== '') {
+              // Cek apakah description mengandung pola port
+              if (descr.match(/gpon|gei|xgei|pon/i)) {
+                ifDescr = descr
+                interfaceIndex = idx // Update interfaceIndex untuk konsistensi
+                break
+              }
+            }
+          }
+          
+          // Strategi 2: Jika masih tidak ditemukan, coba cari semua interface GPON
+          // dan coba match berdasarkan pola port number atau urutan
+          if (!ifDescr || ifDescr.trim() === '') {
+            // Kumpulkan semua interface GPON dan sort berdasarkan index
+            const gponInterfaces: Array<{ idx: number; descr: string; portMatch: RegExpMatchArray | null }> = []
+            for (const [idx, descr] of ifDescrMap.entries()) {
+              if (descr && descr.trim() !== '') {
+                const gponMatch = descr.match(/gpon-olt_(\d+\/\d+\/\d+)/i) || 
+                                 descr.match(/gpon_(\d+\/\d+\/\d+)/i)
+                if (gponMatch) {
+                  gponInterfaces.push({ idx, descr, portMatch: gponMatch })
+                }
+              }
+            }
+            
+            // Sort berdasarkan interface index
+            gponInterfaces.sort((a, b) => a.idx - b.idx)
+            
+            // Jika ada interface GPON, coba mapping berdasarkan urutan
+            // bridgePortNumber -> urutan interface GPON
+            if (gponInterfaces.length > 0) {
+              // Coba mapping berdasarkan urutan: port number -> urutan interface GPON
+              // Jika bridgePortNumber dalam range, gunakan mapping langsung
+              if (bridgePortNumber <= gponInterfaces.length) {
+                const selected = gponInterfaces[bridgePortNumber - 1]
+                ifDescr = selected.descr
+                interfaceIndex = selected.idx
+              } else {
+                // Untuk port number besar, coba modulo mapping
+                const mappedIndex = ((bridgePortNumber - 1) % gponInterfaces.length)
+                const selected = gponInterfaces[mappedIndex]
+                ifDescr = selected.descr
+                interfaceIndex = selected.idx
+              }
+            }
+          }
+        }
+        
         if (ifDescr && ifDescr.trim() !== '') {
           // Extract port dari description/name
           // Format bisa: "gpon-olt_1/3/4", "gpon_1/3/4", "xgei_1/10/1", "gei_1/10/5", "1/3/4", dll
@@ -561,12 +603,14 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
           // ifDescr mungkin menggunakan dash: gpon-olt_
           
           // Untuk xgei dan gei, tampilkan format lengkap (xgei_1/10/1)
-          if (ifDescr.match(/xgei_(\d+\/\d+\/\d+)/i)) {
-            ports.push(ifDescr.match(/xgei_(\d+\/\d+\/\d+)/i)[0])
+          const xgeiMatch = ifDescr.match(/xgei_(\d+\/\d+\/\d+)/i)
+          if (xgeiMatch) {
+            ports.push(xgeiMatch[0])
             continue
           }
-          if (ifDescr.match(/gei_(\d+\/\d+\/\d+)/i)) {
-            ports.push(ifDescr.match(/gei_(\d+\/\d+\/\d+)/i)[0])
+          const geiMatch = ifDescr.match(/gei_(\d+\/\d+\/\d+)/i)
+          if (geiMatch) {
+            ports.push(geiMatch[0])
             continue
           }
           
@@ -587,21 +631,169 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
         // Jika tidak ada description, coba konversi interface index sebagai PON ID
         // Interface index di VLAN bitmap bisa berupa PON index yang perlu dikonversi
         
+        // SEBELUM konversi PON index, coba sekali lagi cari interface description
+        // dengan menggunakan semua interface yang tersedia
+        if (!ifDescr || ifDescr.trim() === '') {
+          // Coba cari interface berdasarkan bridgePortNumber dengan berbagai strategi
+          // Strategi: Cari interface yang index-nya paling dekat dengan bridgePortNumber atau interfaceIndex
+          let closestInterface: { idx: number; descr: string } | null = null
+          let minDiff = Infinity
+          
+          for (const [idx, descr] of ifDescrMap.entries()) {
+            if (descr && descr.trim() !== '') {
+              // Hitung perbedaan antara interface index dengan bridgePortNumber atau interfaceIndex
+              const diff1 = Math.abs(idx - bridgePortNumber)
+              const diff2 = Math.abs(idx - interfaceIndex)
+              const diff = Math.min(diff1, diff2)
+              
+              // Jika interface ini lebih dekat dan memiliki pola port yang valid
+              if (diff < minDiff && (descr.match(/gpon|gei|xgei|pon/i))) {
+                minDiff = diff
+                closestInterface = { idx, descr }
+              }
+            }
+          }
+          
+          // Jika ditemukan interface yang dekat, gunakan itu
+          if (closestInterface && minDiff < 1000000) { // Threshold untuk memastikan tidak terlalu jauh
+            ifDescr = closestInterface.descr
+            interfaceIndex = closestInterface.idx
+            
+            // Extract port dari description yang ditemukan
+            const xgeiMatch = ifDescr.match(/xgei_(\d+\/\d+\/\d+)/i)
+            if (xgeiMatch) {
+              ports.push(xgeiMatch[0])
+              continue
+            }
+            const geiMatch = ifDescr.match(/gei_(\d+\/\d+\/\d+)/i)
+            if (geiMatch) {
+              ports.push(geiMatch[0])
+              continue
+            }
+            const gponMatch = ifDescr.match(/gpon-olt_(\d+\/\d+\/\d+)/i) || 
+                             ifDescr.match(/gpon_(\d+\/\d+\/\d+)/i) ||
+                             ifDescr.match(/(\d+\/\d+\/\d+)/)
+            if (gponMatch) {
+              ports.push(gponMatch[1])
+              continue
+            }
+          }
+        }
+        
         // Coba metode 1: Rumus PONID = (Frame * 16777216) + (Slot * 65536) + (Port * 256)
         // Untuk interface index kecil (< 10000), mungkin bukan PON ID langsung
+        let convertedPort: string | null = null
         if (interfaceIndex >= 10000) {
           const portInfo1 = ponIdToFrameSlotPort(interfaceIndex)
           if (portInfo1) {
-            ports.push(`${portInfo1.frame}/${portInfo1.slot}/${portInfo1.port}`)
-            continue
+            convertedPort = `${portInfo1.frame}/${portInfo1.slot}/${portInfo1.port}`
           }
         }
         
         // Coba metode 2: Binary parsing (untuk PON index yang di-encode sebagai binary)
-        const portStr = ponIndexToPort(interfaceIndex)
-        if (portStr && !portStr.startsWith('INVALID')) {
-          ports.push(portStr)
+        if (!convertedPort) {
+          const portStr = ponIndexToPort(interfaceIndex)
+          if (portStr && !portStr.startsWith('INVALID')) {
+            convertedPort = portStr
+          }
+        }
+        
+        // Jika berhasil konversi PON index, coba cari interface description yang cocok
+        if (convertedPort) {
+          // Coba cari interface description yang cocok dengan format port yang dikonversi
+          // Format: gpon_1/9/13 atau gpon-olt_1/9/13
+          const portPattern = convertedPort.replace(/\//g, '\\/') // Escape slash untuk regex
+          const matchingInterfaces: Array<{ idx: number; descr: string }> = []
+          
+          for (const [idx, descr] of ifDescrMap.entries()) {
+            if (descr && descr.trim() !== '') {
+              // Cek apakah description mengandung port yang dikonversi
+              // Format bisa: gpon_1/9/13, gpon-olt_1/9/13, atau hanya 1/9/13
+              if (descr.includes(convertedPort)) {
+                matchingInterfaces.push({ idx, descr })
+              }
+            }
+          }
+          
+          // Jika ditemukan interface yang cocok, gunakan format interface description
+          if (matchingInterfaces.length > 0) {
+            // Pilih interface pertama yang cocok
+            const selected = matchingInterfaces[0]
+            const xgeiMatch = selected.descr.match(/xgei_(\d+\/\d+\/\d+)/i)
+            if (xgeiMatch) {
+              ports.push(xgeiMatch[0])
+              continue
+            }
+            const geiMatch = selected.descr.match(/gei_(\d+\/\d+\/\d+)/i)
+            if (geiMatch) {
+              ports.push(geiMatch[0])
+              continue
+            }
+            const gponMatch = selected.descr.match(/gpon-olt_(\d+\/\d+\/\d+)/i) || 
+                             selected.descr.match(/gpon_(\d+\/\d+\/\d+)/i)
+            if (gponMatch) {
+              // Untuk GPON, ekstrak hanya bagian port (1/9/13)
+              ports.push(gponMatch[1])
+              continue
+            }
+          }
+          
+          // Jika tidak ditemukan interface yang cocok dengan exact match,
+          // coba cari interface GPON yang memiliki slot/frame yang sama
+          // Misalnya: jika convertedPort = 1/9/13, cari gpon_1/9/* atau gpon_1/*/13
+          if (matchingInterfaces.length === 0) {
+            const portParts = convertedPort.split('/')
+            if (portParts.length === 3) {
+              const [frame, slot, port] = portParts.map(p => parseInt(p))
+              
+              // Cari interface yang memiliki frame dan slot yang sama
+              for (const [idx, descr] of ifDescrMap.entries()) {
+                if (descr && descr.trim() !== '') {
+                  const gponMatch = descr.match(/gpon_(\d+)\/(\d+)\/(\d+)/i) || 
+                                   descr.match(/gpon-olt_(\d+)\/(\d+)\/(\d+)/i)
+                  if (gponMatch) {
+                    const descrFrame = parseInt(gponMatch[1])
+                    const descrSlot = parseInt(gponMatch[2])
+                    const descrPort = parseInt(gponMatch[3])
+                    
+                    // Jika frame dan slot sama, gunakan interface ini
+                    if (descrFrame === frame && descrSlot === slot) {
+                      // Gunakan port dari convertedPort, bukan dari description
+                      ports.push(convertedPort)
+                      continue
+                    }
+                  }
+                }
+              }
+            }
+          }
+          
+          // Jika tidak ditemukan interface yang cocok, gunakan format GPON yang sudah dikonversi
+          ports.push(convertedPort)
           continue
+        }
+        
+        // Coba metode 3: Jika bridgePortNumber bisa digunakan langsung sebagai interface index
+        // Beberapa OLT menggunakan BRIDGE-MIB port number yang sama dengan IF-MIB interface index
+        const directIfDescr = ifDescrMap.get(bridgePortNumber)
+        if (directIfDescr && directIfDescr.trim() !== '') {
+          const xgeiMatch = directIfDescr.match(/xgei_(\d+\/\d+\/\d+)/i)
+          if (xgeiMatch) {
+            ports.push(xgeiMatch[0])
+            continue
+          }
+          const geiMatch = directIfDescr.match(/gei_(\d+\/\d+\/\d+)/i)
+          if (geiMatch) {
+            ports.push(geiMatch[0])
+            continue
+          }
+          const gponMatch = directIfDescr.match(/gpon-olt_(\d+\/\d+\/\d+)/i) || 
+                           directIfDescr.match(/gpon_(\d+\/\d+\/\d+)/i) ||
+                           directIfDescr.match(/(\d+\/\d+\/\d+)/)
+          if (gponMatch) {
+            ports.push(gponMatch[1])
+            continue
+          }
         }
         
         // Strategi 3: Jika interface index tidak ada di ifDescrMap dan tidak bisa dikonversi,
@@ -701,16 +893,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
   }
 
+  // Cek SNMP connection status, tapi tetap coba ambil data jika kredensial tersedia
   if (!olt.snmpConnected) {
-    return NextResponse.json(
-      { error: 'SNMP tidak connected. Silakan test connection terlebih dahulu.' },
-      { status: 400 }
-    )
+    console.log(`[VLAN-SNMP] Warning: SNMP status menunjukkan tidak connected untuk OLT ${olt.name}, tapi akan tetap mencoba mengambil data VLAN`)
   }
 
   if (!olt.snmpCommunityWrite) {
     return NextResponse.json(
-      { error: 'SNMP community tidak ditemukan di data OLT.' },
+      { 
+        error: 'SNMP community tidak ditemukan di data OLT. Silakan edit OLT dan pastikan SNMP community sudah diisi dengan benar.',
+        hint: 'Pastikan OLT sudah di-test connection terlebih dahulu untuk mengaktifkan SNMP connection.'
+      },
       { status: 400 }
     )
   }
@@ -741,10 +934,77 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     console.log(`[VLAN-SNMP] Found ${ifIndexResults.length} Interface Indexes`)
     console.log(`[VLAN-SNMP] Found ${dot1dBasePortIfIndexResults.length} BRIDGE-MIB port to IF-MIB interface index mappings`)
 
+    // Build interface description map untuk logging
+    const ifDescrMap = buildIfDescrMap(ifDescrResults, ifNameResults)
+    console.log(`[VLAN-SNMP] Interface descriptions found: ${ifDescrMap.size}`)
+    
+    // Log beberapa contoh interface untuk debugging
+    if (ifDescrMap.size > 0) {
+      const sampleInterfaces = Array.from(ifDescrMap.entries()).slice(0, 10)
+      console.log(`[VLAN-SNMP] Sample interfaces:`, sampleInterfaces.map(([idx, descr]) => ({
+        index: idx,
+        description: descr
+      })))
+    }
+    
+    // Build bridge port to interface index mapping untuk logging
+    const bridgePortToIfIndexMap = new Map<number, number>()
+    for (const result of dot1dBasePortIfIndexResults) {
+      const oidParts = result.oid.split('.')
+      if (oidParts.length > 0) {
+        const bridgePortNumber = parseInt(oidParts[oidParts.length - 1])
+        const ifIndex = parseInt(result.value.toString())
+        if (!isNaN(bridgePortNumber) && !isNaN(ifIndex) && bridgePortNumber > 0 && ifIndex > 0) {
+          bridgePortToIfIndexMap.set(bridgePortNumber, ifIndex)
+        }
+      }
+    }
+    console.log(`[VLAN-SNMP] BRIDGE-MIB to IF-MIB mappings: ${bridgePortToIfIndexMap.size}`)
+    if (bridgePortToIfIndexMap.size > 0) {
+      const sampleMappings = Array.from(bridgePortToIfIndexMap.entries()).slice(0, 10)
+      console.log(`[VLAN-SNMP] Sample mappings:`, sampleMappings.map(([bridgePort, ifIndex]) => ({
+        bridgePort,
+        ifIndex,
+        ifDescr: ifDescrMap.get(ifIndex) || 'N/A'
+      })))
+    }
+
     // Parse VLAN data
     const vlanDetails = parseVlanFromSnmp(vlanIdResults, vlanNameResults, vlanEgressResults, vlanUntaggedResults, ifDescrResults, ifNameResults, ifIndexResults, dot1dBasePortIfIndexResults)
 
     console.log(`[VLAN-SNMP] Parsed ${vlanDetails.length} VLANs`)
+    
+    // Log detail untuk debugging port parsing
+    if (vlanDetails.length > 0) {
+      const vlanWithPorts = vlanDetails.filter(v => v.ports.length > 0)
+      const vlanWithoutPorts = vlanDetails.filter(v => v.ports.length === 0)
+      console.log(`[VLAN-SNMP] VLAN dengan ports: ${vlanWithPorts.length}, VLAN tanpa ports: ${vlanWithoutPorts.length}`)
+      
+      // Analisis format ports
+      const portsWithInterfaceName = vlanWithPorts.filter(v => 
+        v.ports.some(p => p.includes('xgei_') || p.includes('gei_') || p.includes('gpon_'))
+      )
+      const portsWithGponFormat = vlanWithPorts.filter(v => 
+        v.ports.some(p => /^\d+\/\d+\/\d+$/.test(p) && !p.includes('xgei_') && !p.includes('gei_') && !p.includes('gpon_'))
+      )
+      
+      console.log(`[VLAN-SNMP] VLAN dengan interface name (xgei/gei/gpon): ${portsWithInterfaceName.length}`)
+      console.log(`[VLAN-SNMP] VLAN dengan format GPON (1/4/197): ${portsWithGponFormat.length}`)
+      
+      // Log beberapa contoh VLAN untuk debugging
+      if (vlanWithPorts.length > 0) {
+        console.log(`[VLAN-SNMP] Contoh VLAN dengan ports:`, vlanWithPorts.slice(0, 3).map(v => ({
+          vlanId: v.vlanId,
+          name: v.name,
+          portCount: v.ports.length,
+          samplePorts: v.ports.slice(0, 5),
+          portFormats: {
+            withInterfaceName: v.ports.filter(p => p.includes('xgei_') || p.includes('gei_') || p.includes('gpon_')).length,
+            withGponFormat: v.ports.filter(p => /^\d+\/\d+\/\d+$/.test(p) && !p.includes('xgei_') && !p.includes('gei_') && !p.includes('gpon_')).length
+          }
+        })))
+      }
+    }
 
     return NextResponse.json({
       olt: {
@@ -754,6 +1014,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       },
       vlans: vlanDetails,
       total: vlanDetails.length,
+      warning: !olt.snmpConnected ? 'SNMP status menunjukkan tidak connected, tapi data berhasil diambil. Silakan test connection untuk memperbarui status.' : undefined,
     })
   } catch (error: any) {
     console.error('[VLAN-SNMP] Error:', error)

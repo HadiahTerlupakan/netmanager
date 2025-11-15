@@ -15,7 +15,13 @@ export default function OLTPage() {
 
   const loadOlts = async () => {
     try {
-      const res = await fetch('/api/olts')
+      // Tambahkan cache busting untuk memastikan data selalu terbaru
+      const res = await fetch('/api/olts', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Gagal memuat data OLT' }))
         console.error('Error loading OLTs:', errorData.error)
@@ -99,6 +105,7 @@ export default function OLTPage() {
           throw new Error('Failed to update OLT')
         }
       }
+      // Refresh data setelah submit berhasil
       await loadOlts()
     } catch (error) {
       console.error('Error submitting OLT:', error)

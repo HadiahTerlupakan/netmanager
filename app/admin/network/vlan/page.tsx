@@ -21,6 +21,7 @@ export default function VlanPage() {
   const [selectedOltId, setSelectedOltId] = useState<string>('')
   const [selectedOlt, setSelectedOlt] = useState<Olt | null>(null)
   const [vlans, setVlans] = useState<Vlan[]>([])
+  const [warning, setWarning] = useState<string | null>(null)
 
   // Load OLTs
   useEffect(() => {
@@ -42,6 +43,7 @@ export default function VlanPage() {
   const loadVlans = async (oltIdToLoad: string) => {
     setRefreshing(true)
     setError(null)
+    setWarning(null)
     try {
       const res = await fetch(`/api/olts/${oltIdToLoad}/vlans`)
       if (!res.ok) {
@@ -50,9 +52,13 @@ export default function VlanPage() {
       }
       const data = await res.json()
       setVlans(data.vlans || [])
+      if (data.warning) {
+        setWarning(data.warning)
+      }
     } catch (e: any) {
       setError(e.message)
       setVlans([])
+      setWarning(null)
     } finally {
       setRefreshing(false)
     }
@@ -131,7 +137,24 @@ export default function VlanPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           {error && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 font-medium mb-2">{error}</p>
+              {error.includes('SNMP tidak connected') && (
+                <div className="mt-2 text-xs text-red-500 dark:text-red-400">
+                  <p>Solusi:</p>
+                  <ol className="list-decimal list-inside space-y-1 mt-1">
+                    <li>Kembali ke halaman OLT Management</li>
+                    <li>Klik tombol Edit pada OLT yang baru ditambahkan</li>
+                    <li>Klik tombol "Test Connection" untuk menguji koneksi SNMP</li>
+                    <li>Setelah test berhasil, kembali ke halaman ini dan refresh</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+          )}
+
+          {warning && !error && (
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800">
+              <p className="text-sm text-yellow-700 dark:text-yellow-400">{warning}</p>
             </div>
           )}
 

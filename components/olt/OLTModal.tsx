@@ -76,10 +76,12 @@ export default function OLTModal({ isOpen, onClose, onSubmit, olt, mode, onTestS
     setIsSubmitting(true)
     try {
       await onSubmit(data)
+      // Tutup modal setelah submit berhasil
       onClose()
       reset()
     } catch (error) {
       console.error('Error submitting form:', error)
+      // Jangan tutup modal jika ada error
     } finally {
       setIsSubmitting(false)
     }
