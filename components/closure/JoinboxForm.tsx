@@ -283,7 +283,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
       if (errors.inputs) errorMessages.push(`Input: ${errors.inputs[0]}`)
       if (errors.outputs) errorMessages.push(`Output: ${errors.outputs[0]}`)
       // Check nested errors
-      const allErrors = parsed.error.errors
+      const allErrors = parsed.error.issues
       allErrors.forEach((err) => {
         if (err.path.includes('inputUnit')) errorMessages.push('Input Unit wajib diisi')
         if (err.path.includes('portUnit')) errorMessages.push('Port Unit wajib diisi')

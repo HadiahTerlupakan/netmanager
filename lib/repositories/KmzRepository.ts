@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { IKmzRepository, KmzFileCreateData, KmzFileUpdateData, KmzFilePublic } from './IKmzRepository'
+import type { IKmzRepository, KmzFileCreateData, KmzFileUpdateData, KmzFilePublic } from './IKmzRepository'
 
 export class KmzRepository implements IKmzRepository {
   constructor(private client: PrismaClient = prisma) {}
@@ -31,7 +31,6 @@ export class KmzRepository implements IKmzRepository {
         name: data.name,
         filename: data.filename,
         filePath: data.filePath,
-        kmlPath: data.kmlPath,
         fileSize: data.fileSize,
         description: data.description ?? null,
         lineColor: data.lineColor ?? '#3388ff',

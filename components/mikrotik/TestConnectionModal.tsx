@@ -13,6 +13,7 @@ type RouterInfo = {
   version?: string
   boardName?: string
   uptime?: string
+  userOnline?: number
 }
 
 type TestConnectionResult = {

@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from './IMikroTikRouterRepository'
+import type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from './IMikroTikRouterRepository'
 import { prisma } from '@/lib/prisma'
 
 export class MikroTikRouterRepository implements IMikroTikRouterRepository {

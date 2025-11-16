@@ -29,14 +29,12 @@ export async function applyApiRateLimit(
         const forwardedFor = request.headers.get('x-forwarded-for')
         const realIp = request.headers.get('x-real-ip')
         
-        let ip = request.ip || 'unknown'
-        if (!ip || ip === 'unknown') {
-          if (forwardedFor) {
-            const ips = String(forwardedFor).split(',')
-            ip = ips[0]?.trim() || 'unknown'
-          } else if (realIp) {
-            ip = String(realIp).trim() || 'unknown'
-          }
+        let ip = 'unknown'
+        if (forwardedFor) {
+          const ips = String(forwardedFor).split(',')
+          ip = ips[0]?.trim() || 'unknown'
+        } else if (realIp) {
+          ip = String(realIp).trim() || 'unknown'
         }
         
         return `ratelimit:api:${reqPathname}:${ip}`

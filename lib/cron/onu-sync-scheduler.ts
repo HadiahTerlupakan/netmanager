@@ -6,7 +6,7 @@
 import cron from 'node-cron'
 import { syncAllOnuData } from '@/lib/services/onu-sync'
 
-let syncJob: cron.ScheduledTask | null = null
+let syncJob: ReturnType<typeof cron.schedule> | null = null
 
 /**
  * Start scheduler untuk auto-sync ONU data
@@ -35,7 +35,7 @@ export function startOnuSyncScheduler(cronExpression: string = '*/5 * * * *'): v
     {
       scheduled: true,
       timezone: 'Asia/Jakarta', // Sesuaikan dengan timezone yang digunakan
-    }
+    } as any
   )
 
   console.log('[ONU-Sync-Scheduler] ONU sync scheduler started successfully')

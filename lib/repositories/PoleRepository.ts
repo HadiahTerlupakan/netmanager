@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { IPoleRepository, PoleCreateData, PoleUpdateData, PolePublic } from './IPoleRepository'
+import type { IPoleRepository, PoleCreateData, PoleUpdateData, PolePublic } from './IPoleRepository'
 
 export class PoleRepository implements IPoleRepository {
   constructor(private client: PrismaClient = prisma) {}

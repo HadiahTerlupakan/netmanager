@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { oltCreateSchema, oltUpdateSchema } from '@/lib/validations/olt'
 import { HiEye, HiEyeSlash, HiCheck, HiXMark, HiOutlineSignal, HiArrowPath, HiXMark as HiClose } from 'react-icons/hi2'
 
-type OLTFormData = z.infer<typeof oltCreateSchema>
+type OLTFormData = z.infer<typeof oltCreateSchema> | z.infer<typeof oltUpdateSchema>
 
 interface OLTModalProps {
   isOpen: boolean

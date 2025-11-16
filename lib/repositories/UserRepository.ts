@@ -1,5 +1,5 @@
 import { PrismaClient, Role } from '@prisma/client'
-import { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
+import type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
 import { prisma } from '@/lib/prisma'
 
 export class UserRepository implements IUserRepository {

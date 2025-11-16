@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from './ISpeedProfileRepository'
+import type { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from './ISpeedProfileRepository'
 import { prisma } from '@/lib/prisma'
 
 export class SpeedProfileRepository implements ISpeedProfileRepository {

@@ -6,7 +6,7 @@
 import cron from 'node-cron'
 import { syncAllOltData } from '@/lib/services/olt-sync'
 
-let syncJob: cron.ScheduledTask | null = null
+let syncJob: ReturnType<typeof cron.schedule> | null = null
 
 /**
  * Start scheduler untuk auto-sync OLT data
@@ -35,7 +35,7 @@ export function startOltSyncScheduler(cronExpression: string = '*/5 * * * *'): v
     {
       scheduled: true,
       timezone: 'Asia/Jakarta',
-    }
+    } as any
   )
 
   console.log('[OLT-Sync-Scheduler] OLT sync scheduler started successfully')

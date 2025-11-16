@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import {
+import type {
   IJoinboxRepository,
   JoinboxCreateData,
   JoinboxUpdateData,

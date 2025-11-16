@@ -1,7 +1,8 @@
 "use client"
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect, useMemo, ReactNode } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import type { ReactNode } from 'react'
 import { 
   HiOutlineChartBar, 
   HiOutlineGlobeAlt, 

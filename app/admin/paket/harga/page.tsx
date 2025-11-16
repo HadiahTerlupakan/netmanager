@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/common/StatusBadge'
 type ProfilePPP = {
   id: string
   name: string
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
 }
 
 type HargaPaket = {

@@ -113,7 +113,7 @@ export function sanitizeObject<T extends Record<string, any>>(
         sanitized[key] = sanitizeObject(value, deep) as any
       } else if (deep && Array.isArray(value)) {
         // Sanitize array items
-        sanitized[key] = value.map((item) => {
+        sanitized[key] = value.map((item: any) => {
           if (typeof item === 'string') {
             return sanitizeText(item)
           } else if (typeof item === 'object' && item !== null) {

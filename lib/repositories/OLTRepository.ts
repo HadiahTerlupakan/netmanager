@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { IOLTRepository, OLTCreateData, OLTUpdateData, OLTPublic } from './IOLTRepository'
+import type { IOLTRepository, OLTCreateData, OLTUpdateData, OLTPublic } from './IOLTRepository'
 import { prisma } from '@/lib/prisma'
 
 export class OLTRepository implements IOLTRepository {

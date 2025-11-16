@@ -25,15 +25,13 @@ export default async function middleware(request: NextRequest) {
           const forwardedFor = req.headers.get('x-forwarded-for')
           const realIp = req.headers.get('x-real-ip')
           
-          let ip = req.ip || 'unknown'
-          if (!ip || ip === 'unknown') {
-            if (forwardedFor) {
-              const ips = String(forwardedFor).split(',')
-              ip = ips[0]?.trim() || 'unknown'
-            } else if (realIp) {
-              ip = String(realIp).trim() || 'unknown'
-            }
-          }
+        let ip = 'unknown'
+        if (forwardedFor) {
+          const ips = String(forwardedFor).split(',')
+          ip = ips[0]?.trim() || 'unknown'
+        } else if (realIp) {
+          ip = String(realIp).trim() || 'unknown'
+        }
           
           return `ratelimit:api:${reqPathname}:${ip}`
         },
@@ -46,14 +44,14 @@ export default async function middleware(request: NextRequest) {
 
     // Auth middleware untuk admin routes
     if (pathname.startsWith('/admin')) {
-      return authMiddleware(request)
+      return authMiddleware(request as any, {} as any)
     }
 
-    return NextResponse.next()
+    return NextResponse.next({ request })
   } catch (error: any) {
     // Fallback jika ada error di middleware
     console.error('Middleware error:', error)
-    return NextResponse.next()
+    return NextResponse.next({ request })
   }
 }
 

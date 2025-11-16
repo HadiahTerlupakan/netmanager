@@ -11,7 +11,7 @@ async function requireAdmin() {
   return session
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ oltId: string }> }>) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ oltId: string }> }) {
   try {
     const session = await requireAdmin()
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

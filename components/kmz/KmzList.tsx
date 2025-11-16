@@ -11,10 +11,10 @@ type KmzFile = {
   description: string | null
   lineColor: string
   isActive: boolean
-  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   fileSize: number
-  createdAt: string
-  updatedAt: string
+  createdAt: string | Date
+  updatedAt: string | Date
 }
 
 export function KmzList() {
@@ -111,7 +111,7 @@ export function KmzList() {
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{kmzFile.filename}</td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{formatFileSize(kmzFile.fileSize)}</td>
                 <td className="px-4 py-3">
-                  <StatusBadge status={kmzFile.status} size="sm" />
+                  <StatusBadge status={kmzFile.status || 'AKTIF'} size="sm" />
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -124,9 +124,9 @@ export function KmzList() {
                     {kmzFile.isActive ? 'Ya' : 'Tidak'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{formatDate(kmzFile.createdAt)}</td>
+                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{formatDate(kmzFile.createdAt instanceof Date ? kmzFile.createdAt.toISOString() : kmzFile.createdAt)}</td>
                 <td className="px-4 py-3">
-                  <KmzActions kmzFile={kmzFile} />
+                  <KmzActions kmzFile={{...kmzFile, createdAt: kmzFile.createdAt instanceof Date ? kmzFile.createdAt : new Date(kmzFile.createdAt)}} />
                 </td>
               </tr>
             ))}

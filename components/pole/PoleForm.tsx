@@ -91,7 +91,7 @@ export function PoleForm({ initial, mode }: { initial?: PoleFormInitial; mode: '
     }
     const parsed = poleCreateSchema.safeParse(payload)
     if (!parsed.success) {
-      const first = parsed.error.errors?.[0]?.message || 'Validasi gagal. Periksa kembali data yang diisi.'
+      const first = parsed.error.issues?.[0]?.message || 'Validasi gagal. Periksa kembali data yang diisi.'
       setError(first)
       return
     }

@@ -148,6 +148,18 @@ const SNMP_ONU_ENHANCED_OIDS = {
   rxPower: '1.3.6.1.4.1.3902.1012.3.11.3.1.2',
   // TX Power (Downstream): 1.3.6.1.4.1.3902.1012.3.11.3.1.3.{composite_index}
   txPower: '1.3.6.1.4.1.3902.1012.3.11.3.1.3',
+  // TX OLT (Transmit power from OLT)
+  txOlt: '1.3.6.1.4.1.3902.1012.3.11.3.1.3',
+  // TX ONU (Transmit power from ONU)
+  txOnu: '1.3.6.1.4.1.3902.1012.3.11.3.1.2',
+  // Distance
+  distance: '1.3.6.1.4.1.3902.1012.3.28.1.1.15',
+  // Temperature
+  temperature: '1.3.6.1.4.1.3902.1012.3.28.1.1.16',
+  // Voltage
+  voltage: '1.3.6.1.4.1.3902.1012.3.28.1.1.17',
+  // Last Seen
+  lastSeen: '1.3.6.1.4.1.3902.1012.3.28.1.1.18',
   // Serial Number: 1.3.6.1.4.1.3902.1015.1010.1.7.4.1.10.{composite_index}
   serialNumber: '1.3.6.1.4.1.3902.1015.1010.1.7.4.1.10',
   // ONU Name: 1.3.6.1.4.1.3902.1015.1010.1.7.4.1.1.{composite_index}
@@ -158,14 +170,6 @@ const SNMP_ONU_ENHANCED_OIDS = {
   onuStatus: '1.3.6.1.4.1.3902.1012.3.11.3.1.1',
   // Register Time: 1.3.6.1.4.1.3902.1015.1010.1.7.4.1.12.{composite_index}
   registerTime: '1.3.6.1.4.1.3902.1015.1010.1.7.4.1.12',
-  // ONU Distance/Range: 1.3.6.1.4.1.3902.1012.3.11.3.1.8.{composite_index} (dalam km)
-  distance: '1.3.6.1.4.1.3902.1012.3.11.3.1.8',
-  // ONU Temperature: 1.3.6.1.4.1.3902.1012.3.11.3.1.5.{composite_index} (dalam Celsius)
-  temperature: '1.3.6.1.4.1.3902.1012.3.11.3.1.5',
-  // ONU Voltage: 1.3.6.1.4.1.3902.1012.3.11.3.1.6.{composite_index} (dalam Volt)
-  voltage: '1.3.6.1.4.1.3902.1012.3.11.3.1.6',
-  // ONU Last Seen/Online Time: 1.3.6.1.4.1.3902.1012.3.11.3.1.9.{composite_index}
-  lastSeen: '1.3.6.1.4.1.3902.1012.3.11.3.1.9',
 }
 
 // Enhanced SNMP OIDs for Register Time (using different index structure)
@@ -973,6 +977,42 @@ function saveint(value: any): number {
   return isNaN(parsed) ? 0 : parsed
 }
 
+// Helper function untuk convert status number ke string
+function getZteOnuStatusString(status: number): string {
+  if (status === 1) return 'LOS'
+  if (status === 3) return 'Online'
+  if (status === 4) return 'DyingGasp'
+  if (status === 6) return 'OffLine'
+  return 'Unknown'
+}
+
+// Helper function untuk parse SNMP value ke string atau number
+function parseSnmpValue(value: any, type: 'string'): string | null
+function parseSnmpValue(value: any, type: 'number'): number | null
+function parseSnmpValue(value: any, type: 'string' | 'number'): string | number | null {
+  if (value === null || value === undefined) return null
+  
+  if (Buffer.isBuffer(value)) {
+    try {
+      if (type === 'string') {
+        return value.toString('utf8').trim() || null
+      } else {
+        const hex = value.toString('hex')
+        return parseInt(hex, 16) || null
+      }
+    } catch (e) {
+      return null
+    }
+  }
+  
+  if (type === 'string') {
+    return String(value).trim() || null
+  } else {
+    const parsed = typeof value === 'number' ? value : parseFloat(String(value))
+    return isNaN(parsed) ? null : parsed
+  }
+}
+
 // Helper function untuk convert value ke float (mirip savefloat di Python)
 function savefloat(value: any): number {
   if (value === null || value === undefined || value === '') return 0.0
@@ -1212,6 +1252,12 @@ export async function getC300GponOnuDataViaSNMP(
       port: number
       status: number
       gponOnu: string
+      name?: string
+      serialNumber?: string
+      rxOlt?: string
+      rxOnu?: string
+      actualType?: string
+      description?: string
     }>()
 
     const baseOid = C300_GPON_OIDS.status

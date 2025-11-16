@@ -52,7 +52,7 @@ export function startSnmpTrapReceiver(port: number = 162): void {
         port,
         disableAuthorization: false, // Set true jika tidak pakai auth
       },
-      (error, notification) => {
+      (error: any, notification: any) => {
         if (error) {
           logger.error('[SNMP-TRAP] Error receiving trap:', error)
           return

@@ -230,9 +230,9 @@ export default function TopologyMap() {
               const geometry = feature.getGeometry()
               const geometryType = geometry.getType()
               
-              // Sembunyikan point (marker)
+              // Sembunyikan point (marker) dengan style transparan
               if (geometryType === 'Point' || geometryType === 'MultiPoint') {
-                return null // Tidak tampilkan point
+                return new Style({}) // Return empty style instead of null
               }
               
               // Tampilkan garis dengan warna custom
@@ -716,8 +716,9 @@ export default function TopologyMap() {
                 const f = new Feature({
                   geometry: new Point(fromLonLat([otb.longitude, otb.latitude])),
                 })
-                const style = otbStyle.clone()
-                style.getText().setText(otb.name)
+                const style = otbStyle.clone()!
+                const text = style.getText()
+                if (text) text.setText(otb.name)
                 f.setStyle(style)
                 f.set('type', 'otb')
                 f.set('data', otb)
@@ -730,8 +731,9 @@ export default function TopologyMap() {
                 const f = new Feature({
                   geometry: new Point(fromLonLat([odc.longitude, odc.latitude])),
                 })
-                const style = odcStyle.clone()
-                style.getText().setText(odc.name)
+                const style = odcStyle.clone()!
+                const text = style.getText()
+                if (text) text.setText(odc.name)
                 f.setStyle(style)
                 f.set('type', 'odc')
                 f.set('data', odc)
@@ -761,8 +763,9 @@ export default function TopologyMap() {
                 const f = new Feature({
                   geometry: new Point(fromLonLat([odp.longitude, odp.latitude])),
                 })
-                const style = odpStyle.clone()
-                style.getText().setText(odp.name)
+                const style = odpStyle.clone()!
+                const text = style.getText()
+                if (text) text.setText(odp.name)
                 f.setStyle(style)
                 f.set('type', 'odp')
                 f.set('data', odp)
@@ -792,8 +795,9 @@ export default function TopologyMap() {
                 const f = new Feature({
                   geometry: new Point(fromLonLat([joinbox.longitude, joinbox.latitude])),
                 })
-                const style = joinboxStyle.clone()
-                style.getText().setText(joinbox.name)
+                const style = joinboxStyle.clone()!
+                const text = style.getText()
+                if (text) text.setText(joinbox.name)
                 f.setStyle(style)
                 f.set('type', 'joinbox')
                 f.set('data', joinbox)
@@ -806,8 +810,9 @@ export default function TopologyMap() {
                 const f = new Feature({
                   geometry: new Point(fromLonLat([pole.longitude, pole.latitude])),
                 })
-                const style = poleStyle.clone()
-                style.getText().setText(pole.name)
+                const style = poleStyle.clone()!
+                const text = style.getText()
+                if (text) text.setText(pole.name)
                 f.setStyle(style)
                 f.set('type', 'pole')
                 f.set('data', pole)
@@ -1057,8 +1062,9 @@ export default function TopologyMap() {
           const f = new Feature({
             geometry: new Point(fromLonLat([otb.longitude, otb.latitude])),
           })
-          const style = otbStyle.clone()
-          style.getText().setText(otb.name)
+          const style = otbStyle.clone()!
+          const text = style.getText()
+          if (text) text.setText(otb.name)
           f.setStyle(style)
           f.set('type', 'otb')
           f.set('data', otb)
@@ -1071,8 +1077,9 @@ export default function TopologyMap() {
           const f = new Feature({
             geometry: new Point(fromLonLat([odc.longitude, odc.latitude])),
           })
-          const style = odcStyle.clone()
-          style.getText().setText(odc.name)
+          const style = odcStyle.clone()!
+          const text = style.getText()
+          if (text) text.setText(odc.name)
           f.setStyle(style)
           f.set('type', 'odc')
           f.set('data', odc)
@@ -1102,8 +1109,9 @@ export default function TopologyMap() {
           const f = new Feature({
             geometry: new Point(fromLonLat([odp.longitude, odp.latitude])),
           })
-          const style = odpStyle.clone()
-          style.getText().setText(odp.name)
+          const style = odpStyle.clone()!
+          const text = style.getText()
+          if (text) text.setText(odp.name)
           f.setStyle(style)
           f.set('type', 'odp')
           f.set('data', odp)
@@ -1133,8 +1141,9 @@ export default function TopologyMap() {
           const f = new Feature({
             geometry: new Point(fromLonLat([joinbox.longitude, joinbox.latitude])),
           })
-          const style = joinboxStyle.clone()
-          style.getText().setText(joinbox.name)
+          const style = joinboxStyle.clone()!
+          const text = style.getText()
+          if (text) text.setText(joinbox.name)
           f.setStyle(style)
           f.set('type', 'joinbox')
           f.set('data', joinbox)
@@ -1147,8 +1156,9 @@ export default function TopologyMap() {
           const f = new Feature({
             geometry: new Point(fromLonLat([pole.longitude, pole.latitude])),
           })
-          const style = poleStyle.clone()
-          style.getText().setText(pole.name)
+          const style = poleStyle.clone()!
+          const text = style.getText()
+          if (text) text.setText(pole.name)
           f.setStyle(style)
           f.set('type', 'pole')
           f.set('data', pole)
@@ -1189,7 +1199,7 @@ export default function TopologyMap() {
       const allSources = [otbSource, odcSource, odpSource, joinboxSource, poleSource, topologySource]
       const allFeatures: any[] = []
       allSources.forEach((source) => {
-        source.getFeatures().forEach((f) => allFeatures.push(f))
+        source.getFeatures().forEach((f: any) => allFeatures.push(f))
       })
 
       if (allFeatures.length > 0) {

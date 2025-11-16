@@ -6,7 +6,7 @@
 import cron from 'node-cron'
 import { checkAllMikroTikRouterStatus } from '@/lib/services/mikrotik-ping-check'
 
-let statusCheckJob: cron.ScheduledTask | null = null
+let statusCheckJob: ReturnType<typeof cron.schedule> | null = null
 
 /**
  * Start scheduler untuk auto-check API connection status
@@ -35,7 +35,7 @@ export function startMikroTikPingScheduler(cronExpression: string = '*/5 * * * *
     {
       scheduled: true,
       timezone: 'Asia/Jakarta',
-    }
+    } as any
   )
 
   console.log('[MikroTik-Status-Scheduler] MikroTik API connection check scheduler started successfully')

@@ -21,7 +21,7 @@ export function createMockRequest(
 ): NextRequest {
   const url = `http://localhost:3000${path}`
   
-  const requestInit: RequestInit = {
+  const requestInit: any = {
     method,
     headers: {
       'Content-Type': 'application/json',

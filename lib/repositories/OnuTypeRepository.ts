@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { IOnuTypeRepository, OnuTypeCreateData, OnuTypeUpdateData, OnuTypePublic } from './IOnuTypeRepository'
+import type { IOnuTypeRepository, OnuTypeCreateData, OnuTypeUpdateData, OnuTypePublic } from './IOnuTypeRepository'
 import { prisma } from '@/lib/prisma'
 
 export class OnuTypeRepository implements IOnuTypeRepository {

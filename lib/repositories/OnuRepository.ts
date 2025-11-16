@@ -1,7 +1,7 @@
 import { PrismaClient, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { 
-  IOnuRepository, 
+import type {
+  IOnuRepository,
   OnuCreateData, 
   OnuUpdateData, 
   OnuPublic, 

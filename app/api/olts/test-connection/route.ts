@@ -101,13 +101,15 @@ async function testSNMP(
 
     try {
       // Map version string ke SNMP version constant
-      let snmpVersion = snmp.Version2c // default
+      let snmpVersion: 0 | 1 | undefined = 1 // Default: Version2c
       if (version === '1') {
-        snmpVersion = snmp.Version1
+        snmpVersion = 0 // Version1
       } else if (version === '3') {
-        snmpVersion = snmp.Version3
+        // SNMP v3 tidak didukung oleh net-snmp library yang digunakan
+        console.warn(`[SNMP] SNMP v3 is not supported, using v2c instead`)
+        snmpVersion = 1 // Fallback to Version2c
       } else {
-        snmpVersion = snmp.Version2c
+        snmpVersion = 1 // Version2c
       }
 
       session = snmp.createSession(ipAddress, community, {

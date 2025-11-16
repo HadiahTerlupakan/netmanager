@@ -119,7 +119,7 @@ async function snmpWalk(
 
         for (const varbind of varbinds) {
           if (snmp.isVarbindError(varbind)) {
-            if (varbind.value === snmp.EndOfMibView) {
+            if (varbind.type === snmp.ObjectType.EndOfMibView) {
               console.log(`[VLAN-SNMP] EndOfMibView reached, total results: ${results.length}`)
               finish()
               return
@@ -586,7 +586,7 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
         }
         
         // Coba cari interface description/name terlebih dahulu
-        let ifDescr = ifDescrMap.get(interfaceIndex)
+        let ifDescr = interfaceIndex !== undefined ? ifDescrMap.get(interfaceIndex) : undefined
         
         // Jika tidak ditemukan dengan interfaceIndex langsung, coba cari dengan strategi lain
         if (!ifDescr || ifDescr.trim() === '') {
@@ -600,7 +600,7 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
           for (const [idx, descr] of ifDescrMap.entries()) {
             // Jika interface index mendekati bridgePortNumber atau interfaceIndex yang dihitung
             // dan description mengandung pola port (gpon, xgei, gei), gunakan itu
-            const diff = Math.abs(idx - interfaceIndex)
+            const diff = interfaceIndex !== undefined ? Math.abs(idx - interfaceIndex) : Math.abs(idx - bridgePortNumber)
             if (diff < 1000 && descr && descr.trim() !== '') {
               // Cek apakah description mengandung pola port
               if (descr.match(/gpon|gei|xgei|pon/i)) {
@@ -696,7 +696,7 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
             if (descr && descr.trim() !== '') {
               // Hitung perbedaan antara interface index dengan bridgePortNumber atau interfaceIndex
               const diff1 = Math.abs(idx - bridgePortNumber)
-              const diff2 = Math.abs(idx - interfaceIndex)
+              const diff2 = interfaceIndex !== undefined ? Math.abs(idx - interfaceIndex) : Infinity
               const diff = Math.min(diff1, diff2)
               
               // Jika interface ini lebih dekat dan memiliki pola port yang valid
@@ -736,7 +736,7 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
         // Jika masih tidak ada description, coba konversi interface index sebagai PON ID
         // Coba metode 1: Rumus PONID = (Frame * 16777216) + (Slot * 65536) + (Port * 256)
         let convertedPort: string | null = null
-        if (interfaceIndex >= 10000) {
+        if (interfaceIndex !== undefined && interfaceIndex >= 10000) {
           const portInfo1 = ponIdToFrameSlotPort(interfaceIndex)
           if (portInfo1) {
             convertedPort = `${portInfo1.frame}/${portInfo1.slot}/${portInfo1.port}`
@@ -744,7 +744,7 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
         }
         
         // Coba metode 2: Binary parsing (untuk PON index yang di-encode sebagai binary)
-        if (!convertedPort) {
+        if (!convertedPort && interfaceIndex !== undefined) {
           const portStr = ponIndexToPort(interfaceIndex)
           if (portStr && !portStr.startsWith('INVALID')) {
             convertedPort = portStr
@@ -752,7 +752,7 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
         }
         
         // Coba metode 3: Jika interfaceIndex adalah bridgePortNumber (fallback), coba konversi sebagai PON ID
-        if (!convertedPort && interfaceIndex === bridgePortNumber && interfaceIndex >= 10000) {
+        if (!convertedPort && interfaceIndex !== undefined && interfaceIndex === bridgePortNumber && interfaceIndex >= 10000) {
           const portInfo2 = ponIdToFrameSlotPort(interfaceIndex)
           if (portInfo2) {
             convertedPort = `${portInfo2.frame}/${portInfo2.slot}/${portInfo2.port}`
@@ -860,7 +860,7 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
         // Jika semua metode gagal, coba konversi interfaceIndex sebagai PON ID sekali lagi
         // TAPI: Hanya jika interfaceIndex cukup besar dan masuk akal sebagai PON ID
         // Jangan konversi interface index kecil karena bisa menghasilkan hasil yang salah
-        if (!convertedPort && interfaceIndex >= 16777216) {
+        if (!convertedPort && interfaceIndex !== undefined && interfaceIndex >= 16777216) {
           // Coba konversi dengan rumus PONID (hanya untuk nilai yang cukup besar)
           const portInfo3 = ponIdToFrameSlotPort(interfaceIndex)
           if (portInfo3) {
@@ -888,7 +888,7 @@ function parsePortBitmap(bitmap: Buffer, ifDescrMap: Map<number, string>, bridge
         ports.push(finalPort)
         portMappingLog.push({
           bridgePort: bridgePortNumber,
-          ifIndex: interfaceIndex,
+          ifIndex: interfaceIndex ?? null,
           ifDescr: null,
           result: finalPort
         })
@@ -930,7 +930,7 @@ function buildIfDescrMap(ifDescrResults: Array<{ oid: string; value: any }>, ifN
     const oidParts = result.oid.split('.')
     if (oidParts.length > 0) {
       const interfaceIndex = parseInt(oidParts[oidParts.length - 1])
-      if (!isNaN(interfaceIndex) && interfaceIndex > 0) {
+      if (interfaceIndex !== undefined && !isNaN(interfaceIndex) && interfaceIndex > 0) {
         const description = result.value.toString().trim()
         if (description && description !== '') {
           map.set(interfaceIndex, description)
@@ -945,7 +945,7 @@ function buildIfDescrMap(ifDescrResults: Array<{ oid: string; value: any }>, ifN
     const oidParts = result.oid.split('.')
     if (oidParts.length > 0) {
       const interfaceIndex = parseInt(oidParts[oidParts.length - 1])
-      if (!isNaN(interfaceIndex) && interfaceIndex > 0) {
+      if (interfaceIndex !== undefined && !isNaN(interfaceIndex) && interfaceIndex > 0) {
         const name = result.value.toString().trim()
         if (name && name !== '') {
           // ifName lebih prioritas, jadi overwrite jika sudah ada

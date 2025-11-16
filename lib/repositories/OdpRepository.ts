@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { IOdpRepository, OdpCreateData, OdpUpdateData, OdpPublic } from './IOdpRepository'
+import type { IOdpRepository, OdpCreateData, OdpUpdateData, OdpPublic } from './IOdpRepository'
 
 export class OdpRepository implements IOdpRepository {
   constructor(private client: PrismaClient = prisma) {}

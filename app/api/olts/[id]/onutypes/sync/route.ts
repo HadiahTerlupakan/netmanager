@@ -596,7 +596,7 @@ async function snmpWalk(
         // Process varbinds
         for (const varbind of varbinds) {
           if (snmp.isVarbindError(varbind)) {
-            if (varbind.value === snmp.EndOfMibView) {
+            if (varbind.type === snmp.ObjectType.EndOfMibView) {
               console.log(`[ONU-Type-SNMP] EndOfMibView reached, total results: ${results.length}`)
               finish()
               return

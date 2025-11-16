@@ -27,14 +27,12 @@ export async function rateLimit(
         const forwardedFor = req.headers.get('x-forwarded-for')
         const realIp = req.headers.get('x-real-ip')
         
-        let ip = req.ip || 'unknown'
-        if (!ip || ip === 'unknown') {
-          if (forwardedFor) {
-            const ips = String(forwardedFor).split(',')
-            ip = ips[0]?.trim() || 'unknown'
-          } else if (realIp) {
-            ip = String(realIp).trim() || 'unknown'
-          }
+        let ip = 'unknown'
+        if (forwardedFor) {
+          const ips = String(forwardedFor).split(',')
+          ip = ips[0]?.trim() || 'unknown'
+        } else if (realIp) {
+          ip = String(realIp).trim() || 'unknown'
         }
         
         return `ratelimit:${ip}`

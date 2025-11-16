@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { IOtbRepository, OtbCreateData, OtbUpdateData, OtbPublic } from './IOtbRepository'
+import type { IOtbRepository, OtbCreateData, OtbUpdateData, OtbPublic } from './IOtbRepository'
 
 export class OtbRepository implements IOtbRepository {
   constructor(private client: PrismaClient = prisma) {}

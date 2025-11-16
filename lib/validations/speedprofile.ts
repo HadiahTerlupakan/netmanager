@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const speedProfileCreateSchema = z.object({
   oltId: z.string().min(1, 'OLT ID harus diisi'),
-  profileType: z.enum(['Download', 'Upload'], { required_error: 'Profile Type harus dipilih' }),
+  profileType: z.enum(['Download', 'Upload'], { message: 'Profile Type harus dipilih' }),
   name: z.string().min(1, 'Nama Speed Profile harus diisi'),
   type: z.number().int().min(1).max(5, 'Type harus antara 1-5'),
   bandwidthSir: z.number().int().min(0, 'Bandwidth SIR harus >= 0'),

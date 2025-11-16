@@ -41,8 +41,7 @@ function logRequestInternal(
 
   const method = req.method || 'UNKNOWN'
   const url = req.nextUrl?.href || 'unknown'
-  const ip = req.ip || 
-             req.headers.get('x-forwarded-for')?.split(',')[0] || 
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 
              req.headers.get('x-real-ip') || 
              'unknown'
 
