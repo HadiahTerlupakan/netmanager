@@ -22,7 +22,11 @@ import {
   HiOutlineArchiveBox,
   HiOutlineSquares2X2,
   HiOutlineRectangleStack,
-  HiOutlineDocument
+  HiOutlineDocument,
+  HiOutlineShoppingCart,
+  HiOutlineCircleStack,
+  HiOutlineUserCircle,
+  HiOutlineCurrencyDollar
 } from 'react-icons/hi2'
 
 type NavItem = {
@@ -64,6 +68,16 @@ export default function Sidebar() {
         { href: '/admin/ftth/pole', label: 'Pole/Tiang', icon: <HiOutlineBolt className="w-4 h-4" /> },
         { href: '/admin/ftth/kmz', label: 'KMZ', icon: <HiOutlineDocument className="w-4 h-4" /> },
         { href: '/admin/ftth/map', label: 'Topology Map', icon: <HiOutlineMap className="w-4 h-4" /> },
+      ],
+    },
+    {
+      href: '/admin/paket',
+      label: 'Paket',
+      icon: <HiOutlineShoppingCart className="w-5 h-5" />,
+      children: [
+        { href: '/admin/paket/bandwidth', label: 'Bandwidth', icon: <HiOutlineCircleStack className="w-4 h-4" /> },
+        { href: '/admin/paket/profileppp', label: 'Profile PPP', icon: <HiOutlineUserCircle className="w-4 h-4" /> },
+        { href: '/admin/paket/harga', label: 'Harga Paket', icon: <HiOutlineCurrencyDollar className="w-4 h-4" /> },
       ],
     },
     { href: '/admin/users', label: 'Users', icon: <HiOutlineUsers className="w-5 h-5" /> },

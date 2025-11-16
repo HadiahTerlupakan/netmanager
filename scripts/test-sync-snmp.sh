@@ -45,3 +45,4 @@ docker exec netmanager-postgres psql -U netmgr -d netmanager -c "SELECT name, \"
 echo ""
 echo "Done!"
 
+
