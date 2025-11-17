@@ -1,23 +1,15 @@
 import { redirect } from 'next/navigation'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import PWAScript from './pwa-script'
 
 export const metadata: Metadata = {
   title: 'Portal Pelanggan - NetManager',
   description: 'Portal pelanggan untuk melihat informasi paket internet, tagihan, dan status layanan',
   manifest: '/pelanggan-manifest.json',
-  themeColor: '#4f46e5',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'NetManager',
-  },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-    viewportFit: 'cover',
   },
   icons: {
     icon: [
@@ -34,6 +26,15 @@ export const metadata: Metadata = {
     'apple-mobile-web-app-title': 'NetManager',
     'mobile-web-app-capable': 'yes',
   },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#4f46e5',
 }
 
 export default function PelangganLayout({ children }: { children: React.ReactNode }) {
