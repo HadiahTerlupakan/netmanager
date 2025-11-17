@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash } from 'react-icons/hi2'
+import { MapPickerWithSearch } from '@/components/common/MapPicker'
 
 type HargaPaket = {
   id: string
@@ -40,6 +41,9 @@ export default function PelangganPPPNewPage() {
   const [showPasswordLogin, setShowPasswordLogin] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState<'paket' | 'info'>('paket')
+  const [fileKTP, setFileKTP] = useState<File | null>(null)
+  const [fileRumahSekitar, setFileRumahSekitar] = useState<File | null>(null)
+  const [fileBAST, setFileBAST] = useState<File | null>(null)
 
   const [formData, setFormData] = useState({
     idPelanggan: '',
@@ -55,6 +59,10 @@ export default function PelangganPPPNewPage() {
     alamat: '',
     noTelp: '',
     email: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
+    jenisDokumen: null as 'KTP' | 'SIM' | 'Paspor' | null,
+    noDokumen: '',
     catatan: '',
     usePPN: true, // Gunakan PPN atau tidak
     useDiscount: false, // Gunakan diskon atau tidak
@@ -203,10 +211,39 @@ export default function PelangganPPPNewPage() {
 
     try {
       setSubmitting(true)
+      
+      // Buat FormData untuk mengirim file
+      const formDataToSend = new FormData()
+      
+      // Tambahkan semua field formData
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          if (typeof value === 'number') {
+            formDataToSend.append(key, value.toString())
+          } else if (typeof value === 'boolean') {
+            formDataToSend.append(key, value ? 'true' : 'false')
+          } else if (typeof value === 'object' && !(value instanceof File)) {
+            formDataToSend.append(key, JSON.stringify(value))
+          } else {
+            formDataToSend.append(key, value as string | Blob)
+          }
+        }
+      })
+      
+      // Tambahkan file jika ada
+      if (fileKTP) {
+        formDataToSend.append('fileKTP', fileKTP)
+      }
+      if (fileRumahSekitar) {
+        formDataToSend.append('fileRumahSekitar', fileRumahSekitar)
+      }
+      if (fileBAST) {
+        formDataToSend.append('fileBAST', fileBAST)
+      }
+      
       const res = await fetch('/api/pelanggan-ppp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: formDataToSend,
       })
 
       if (!res.ok) {
@@ -1281,6 +1318,54 @@ export default function PelangganPPPNewPage() {
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Titik Koordinat (Tikor)
+              </label>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label htmlFor="latitude" className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Latitude
+                    </label>
+                    <input
+                      id="latitude"
+                      name="latitude"
+                      type="number"
+                      step="any"
+                      value={formData.latitude || ''}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, latitude: e.target.value ? parseFloat(e.target.value) : null }))}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                      placeholder="-6.200000"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="longitude" className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Longitude
+                    </label>
+                    <input
+                      id="longitude"
+                      name="longitude"
+                      type="number"
+                      step="any"
+                      value={formData.longitude || ''}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, longitude: e.target.value ? parseFloat(e.target.value) : null }))}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                      placeholder="106.816666"
+                    />
+                  </div>
+                </div>
+                <MapPickerWithSearch
+                  lat={formData.latitude}
+                  lon={formData.longitude}
+                  height={300}
+                  onChange={(lat, lon) => {
+                    setFormData((prev) => ({ ...prev, latitude: lat, longitude: lon }))
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Kredensial PPPoE */}
@@ -1435,9 +1520,75 @@ export default function PelangganPPPNewPage() {
         {mounted && (
         <div className="lg:col-span-1">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5 sticky top-5">
-            <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
-              Informasi Tagihan
-            </h3>
+            {activeTab === 'info' ? (
+              <>
+                <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
+                  Upload Dokumen
+                </h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="fileKTP-sidebar" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Upload KTP
+                    </label>
+                    <input
+                      id="fileKTP-sidebar"
+                      name="fileKTP"
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => setFileKTP(e.target.files?.[0] || null)}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/20 dark:file:text-indigo-400 dark:hover:file:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                    />
+                    {fileKTP && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {fileKTP.name} ({(fileKTP.size / 1024).toFixed(2)} KB)
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="fileRumahSekitar-sidebar" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Upload Rumah Sekitar
+                    </label>
+                    <input
+                      id="fileRumahSekitar-sidebar"
+                      name="fileRumahSekitar"
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => setFileRumahSekitar(e.target.files?.[0] || null)}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/20 dark:file:text-indigo-400 dark:hover:file:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                    />
+                    {fileRumahSekitar && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {fileRumahSekitar.name} ({(fileRumahSekitar.size / 1024).toFixed(2)} KB)
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="fileBAST-sidebar" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Upload BAST
+                    </label>
+                    <input
+                      id="fileBAST-sidebar"
+                      name="fileBAST"
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => setFileBAST(e.target.files?.[0] || null)}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/20 dark:file:text-indigo-400 dark:hover:file:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                    />
+                    {fileBAST && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {fileBAST.name} ({(fileBAST.size / 1024).toFixed(2)} KB)
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
+                  Informasi Tagihan
+                </h3>
 
             {!formData.hargaPaketId || hargaPakets.length === 0 ? (
               <div className="text-center py-8">
@@ -1676,6 +1827,8 @@ export default function PelangganPPPNewPage() {
                   Memuat informasi paket...
                 </p>
               </div>
+            )}
+              </>
             )}
           </div>
         </div>

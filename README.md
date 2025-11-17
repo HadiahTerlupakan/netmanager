@@ -80,6 +80,7 @@ docker-compose up -d
 ```bash
 npm run prisma:generate
 ```
+npx prisma db push
 
 #### c. Jalankan Database Migrations
 

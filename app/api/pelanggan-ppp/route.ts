@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { writeFile, mkdir } from 'fs/promises'
+import path from 'path'
 
 /**
  * GET /api/pelanggan-ppp
@@ -60,42 +62,109 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await req.json()
-    const {
-      idPelanggan,
-      nama,
-      username,
-      password,
-      passwordLogin,
-      hargaPaketId,
-      tipe,
-      tanggalAktif,
-      jatuhTempo,
-      status,
-      alamat,
-      noTelp,
-      email,
-      catatan,
-      usePPN,
-      useDiscount,
-      useProrate,
-      discountType,
-      discountValue,
-      discountDuration,
-      discountDurationUnit,
-      biayaInstalasi,
-      biayaInstalasiIsRecurring,
-      useDiskonBiayaInstalasi,
-      biayaInstalasiDiskon,
-      biayaSewaPerangkat,
-      biayaSewaPerangkatIsRecurring,
-      biayaSewaPerangkatDiskon,
-      biayaLainnya,
-      biayaLainnyaIsRecurring,
-      useDiskonBiayaLainnya,
-      biayaLainnyaDiskon,
-      keteranganBiayaLainnya,
-    } = body
+    const formData = await req.formData()
+    
+    // Extract form fields
+    const idPelanggan = formData.get('idPelanggan') as string
+    const nama = formData.get('nama') as string
+    const username = formData.get('username') as string
+    const password = formData.get('password') as string
+    const passwordLogin = formData.get('passwordLogin') as string
+    const hargaPaketId = formData.get('hargaPaketId') as string
+    const tipe = formData.get('tipe') as string
+    const tanggalAktif = formData.get('tanggalAktif') as string
+    const jatuhTempo = formData.get('jatuhTempo') as string
+    const status = formData.get('status') as string
+    const alamat = formData.get('alamat') as string | null
+    const noTelp = formData.get('noTelp') as string | null
+    const email = formData.get('email') as string | null
+    const latitudeRaw = formData.get('latitude') as string | null
+    const longitudeRaw = formData.get('longitude') as string | null
+    const latitude = latitudeRaw ? parseFloat(latitudeRaw) : null
+    const longitude = longitudeRaw ? parseFloat(longitudeRaw) : null
+    const jenisDokumen = formData.get('jenisDokumen') as string | null
+    const noDokumen = formData.get('noDokumen') as string | null
+    const catatan = formData.get('catatan') as string | null
+    const usePPNRaw = formData.get('usePPN')
+    const usePPN = usePPNRaw === 'true' || usePPNRaw === true || usePPNRaw === '1'
+    const useDiscountRaw = formData.get('useDiscount')
+    const useDiscount = useDiscountRaw === 'true' || useDiscountRaw === true || useDiscountRaw === '1'
+    const useProrateRaw = formData.get('useProrate')
+    const useProrate = useProrateRaw === 'true' || useProrateRaw === true || useProrateRaw === '1'
+    const discountType = formData.get('discountType') as string | null
+    const discountValueRaw = formData.get('discountValue') as string | null
+    const discountValue = discountValueRaw ? parseFloat(discountValueRaw) : null
+    const discountDurationRaw = formData.get('discountDuration') as string | null
+    const discountDuration = discountDurationRaw ? parseInt(discountDurationRaw) : null
+    const discountDurationUnit = formData.get('discountDurationUnit') as string | null
+    const biayaInstalasiRaw = formData.get('biayaInstalasi') as string | null
+    const biayaInstalasi = biayaInstalasiRaw ? parseInt(biayaInstalasiRaw) : null
+    const biayaInstalasiIsRecurringRaw = formData.get('biayaInstalasiIsRecurring')
+    const biayaInstalasiIsRecurring = biayaInstalasiIsRecurringRaw === 'true' || biayaInstalasiIsRecurringRaw === true || biayaInstalasiIsRecurringRaw === '1'
+    const useDiskonBiayaInstalasiRaw = formData.get('useDiskonBiayaInstalasi')
+    const useDiskonBiayaInstalasi = useDiskonBiayaInstalasiRaw === 'true' || useDiskonBiayaInstalasiRaw === true || useDiskonBiayaInstalasiRaw === '1'
+    const biayaInstalasiDiskonRaw = formData.get('biayaInstalasiDiskon') as string | null
+    const biayaInstalasiDiskon = biayaInstalasiDiskonRaw ? parseFloat(biayaInstalasiDiskonRaw) : null
+    const biayaSewaPerangkatRaw = formData.get('biayaSewaPerangkat') as string | null
+    const biayaSewaPerangkat = biayaSewaPerangkatRaw ? parseInt(biayaSewaPerangkatRaw) : null
+    const biayaSewaPerangkatIsRecurringRaw = formData.get('biayaSewaPerangkatIsRecurring')
+    const biayaSewaPerangkatIsRecurring = biayaSewaPerangkatIsRecurringRaw === 'true' || biayaSewaPerangkatIsRecurringRaw === true || biayaSewaPerangkatIsRecurringRaw === '1'
+    const biayaSewaPerangkatDiskonRaw = formData.get('biayaSewaPerangkatDiskon') as string | null
+    const biayaSewaPerangkatDiskon = biayaSewaPerangkatDiskonRaw ? parseFloat(biayaSewaPerangkatDiskonRaw) : null
+    const biayaLainnyaRaw = formData.get('biayaLainnya') as string | null
+    const biayaLainnya = biayaLainnyaRaw ? parseInt(biayaLainnyaRaw) : null
+    const biayaLainnyaIsRecurringRaw = formData.get('biayaLainnyaIsRecurring')
+    const biayaLainnyaIsRecurring = biayaLainnyaIsRecurringRaw === 'true' || biayaLainnyaIsRecurringRaw === true || biayaLainnyaIsRecurringRaw === '1'
+    const useDiskonBiayaLainnyaRaw = formData.get('useDiskonBiayaLainnya')
+    const useDiskonBiayaLainnya = useDiskonBiayaLainnyaRaw === 'true' || useDiskonBiayaLainnyaRaw === true || useDiskonBiayaLainnyaRaw === '1'
+    const biayaLainnyaDiskonRaw = formData.get('biayaLainnyaDiskon') as string | null
+    const biayaLainnyaDiskon = biayaLainnyaDiskonRaw ? parseFloat(biayaLainnyaDiskonRaw) : null
+    const keteranganBiayaLainnya = formData.get('keteranganBiayaLainnya') as string | null
+    
+    // Handle file uploads
+    const fileKTP = formData.get('fileKTP') as File | null
+    const fileRumahSekitar = formData.get('fileRumahSekitar') as File | null
+    const fileBAST = formData.get('fileBAST') as File | null
+    
+    // Save files if provided
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'pelanggan')
+    let fileKTPPath: string | null = null
+    let fileRumahSekitarPath: string | null = null
+    let fileBASTPath: string | null = null
+    
+    try {
+      await mkdir(uploadDir, { recursive: true })
+      
+      if (fileKTP && fileKTP.size > 0) {
+        const fileName = `${idPelanggan}_ktp_${Date.now()}${path.extname(fileKTP.name)}`
+        fileKTPPath = path.join(uploadDir, fileName)
+        const bytes = await fileKTP.arrayBuffer()
+        const buffer = Buffer.from(bytes)
+        await writeFile(fileKTPPath, buffer)
+        fileKTPPath = `/uploads/pelanggan/${fileName}`
+      }
+      
+      if (fileRumahSekitar && fileRumahSekitar.size > 0) {
+        const fileName = `${idPelanggan}_rumah_${Date.now()}${path.extname(fileRumahSekitar.name)}`
+        fileRumahSekitarPath = path.join(uploadDir, fileName)
+        const bytes = await fileRumahSekitar.arrayBuffer()
+        const buffer = Buffer.from(bytes)
+        await writeFile(fileRumahSekitarPath, buffer)
+        fileRumahSekitarPath = `/uploads/pelanggan/${fileName}`
+      }
+      
+      if (fileBAST && fileBAST.size > 0) {
+        const fileName = `${idPelanggan}_bast_${Date.now()}${path.extname(fileBAST.name)}`
+        fileBASTPath = path.join(uploadDir, fileName)
+        const bytes = await fileBAST.arrayBuffer()
+        const buffer = Buffer.from(bytes)
+        await writeFile(fileBASTPath, buffer)
+        fileBASTPath = `/uploads/pelanggan/${fileName}`
+      }
+    } catch (fileError: any) {
+      console.error('Error saving files:', fileError)
+      // Continue without files if there's an error
+    }
 
     // Validasi required fields
     if (!idPelanggan || !nama || !username || !password || !passwordLogin || !hargaPaketId || !tanggalAktif || !jatuhTempo) {
@@ -153,6 +222,13 @@ export async function POST(req: NextRequest) {
         alamat: alamat?.trim() || null,
         noTelp: noTelp?.trim() || null,
         email: email?.trim() || null,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        jenisDokumen: jenisDokumen || null,
+        noDokumen: noDokumen?.trim() || null,
+        fileKTP: fileKTPPath || null,
+        fileRumahSekitar: fileRumahSekitarPath || null,
+        fileBAST: fileBASTPath || null,
         catatan: catatan?.trim() || null,
         usePPN: usePPN ?? true,
         useDiscount: useDiscount ?? false,

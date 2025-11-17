@@ -527,6 +527,13 @@ model Pelanggan {
   alamat        String? // Alamat pelanggan
   noTelp        String? // Nomor telepon
   email         String? // Email pelanggan
+  latitude      Float? // Titik koordinat latitude
+  longitude     Float? // Titik koordinat longitude
+  jenisDokumen  String? // Jenis dokumen: KTP, SIM, atau Paspor
+  noDokumen     String? // Nomor dokumen (KTP/SIM/Paspor)
+  fileKTP       String? // Path file KTP
+  fileRumahSekitar String? // Path file Rumah Sekitar
+  fileBAST      String? // Path file BAST
   catatan       String? // Catatan tambahan
   usePPN        Boolean       @default(true) // Gunakan PPN atau tidak
   useDiscount   Boolean       @default(false) // Gunakan diskon atau tidak
