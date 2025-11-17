@@ -18,6 +18,18 @@ enum Status {
   MAINTENANCE
 }
 
+enum DurasiUnit {
+  JAM
+  HARI
+  BULAN
+  TAHUN
+}
+
+enum DiscountType {
+  FIXED
+  PERCENT
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String?
@@ -46,183 +58,178 @@ model VerificationToken {
 }
 
 model Olt {
-  id                String   @id @default(cuid())
-  name              String
-  ipAddress         String
-  type              String   // e.g., ZTE-C300
-  version           String?  // e.g., C300 Version V2.1.0 Software
-  temperature       Int?     // in Celsius
-  connectedDevices  Int      @default(0)
-  model             String?  // device model
-  uptime            String?  // e.g., "17 days 14 hours 26 minutes"
-  syncStatus        String   @default("0") // percentage
-  syncDate          DateTime?
-  telnetConnected   Boolean  @default(false)
-  snmpConnected     Boolean  @default(false)
+  id                 String    @id @default(cuid())
+  name               String
+  ipAddress          String
+  type               String // e.g., ZTE-C300
+  version            String? // e.g., C300 Version V2.1.0 Software
+  temperature        Int? // in Celsius
+  connectedDevices   Int       @default(0)
+  model              String? // device model
+  uptime             String? // e.g., "17 days 14 hours 26 minutes"
+  syncStatus         String    @default("0") // percentage
+  syncDate           DateTime?
+  telnetConnected    Boolean   @default(false)
+  snmpConnected      Boolean   @default(false)
   // SNMP Configuration
-  snmpCommunityWrite String  @default("public")
-  snmpVersion       String   @default("2")
-  snmpPort          Int      @default(161)
+  snmpCommunityWrite String    @default("public")
+  snmpVersion        String    @default("2")
+  snmpPort           Int       @default(161)
   // Telnet Configuration
-  telnetUsername    String   @default("zte")
-  telnetPassword    String
-  telnetPort        Int      @default(23)
+  telnetUsername     String    @default("zte")
+  telnetPassword     String
+  telnetPort         Int       @default(23)
   // ONU Sync Configuration
-  onuLastSync       DateTime? // Waktu terakhir sync ONU data dari SNMP
-  onuSyncEnabled    Boolean  @default(true) // Enable/disable auto sync ONU
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  onuLastSync        DateTime? // Waktu terakhir sync ONU data dari SNMP
+  onuSyncEnabled     Boolean   @default(true) // Enable/disable auto sync ONU
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  onus              Onu[]    // Relasi ke ONU
-  onuTypes          OnuType[] // Relasi ke OnuType
-  speedProfiles     SpeedProfile[] // Relasi ke SpeedProfile
+  onus          Onu[] // Relasi ke ONU
+  onuTypes      OnuType[] // Relasi ke OnuType
+  speedProfiles SpeedProfile[] // Relasi ke SpeedProfile
 
   @@unique([ipAddress])
 }
 
-
 model Otb {
-  id         String   @id @default(cuid())
-  name       String
-  location   String?
-  coreCount  Int
-  notes      String?
-  latitude   Float?
-  longitude  Float?
-  status     Status   @default(AKTIF)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  coreCount Int
+  notes     String?
+  latitude  Float?
+  longitude Float?
+  status    Status   @default(AKTIF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  cores      OtbCore[]
+  cores OtbCore[]
 }
 
 model OtbCore {
-  id         String  @id @default(cuid())
-  otbId      String
-  otb        Otb     @relation(fields: [otbId], references: [id], onDelete: Restrict)
-  idx        Int
-  slotName   String
-  tubeColor  String
-  coreColor  String
-
-  @@unique([otbId, idx])
+  id        String @id @default(cuid())
+  otbId     String
+  otb       Otb    @relation(fields: [otbId], references: [id], onDelete: Restrict)
+  idx       Int
+  slotName  String
+  tubeColor String
+  coreColor String
 
   // Back relation: satu slot OTB dapat memiliki satu ODC terhubung
-  odc        Odc?
+  odc Odc?
+
+  @@unique([otbId, idx])
 }
 
-
 model Odc {
-  id         String   @id @default(cuid())
-  name       String
-  location   String?
-  notes      String?
-  latitude   Float?
-  longitude  Float?
-  status     Status   @default(AKTIF)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  notes     String?
+  latitude  Float?
+  longitude Float?
+  status    Status   @default(AKTIF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relasi ke slot OTB (OtbCore). Satu ODC menempati satu slot OTB sebagai INPUT.
-  otbCoreId  String   @unique
-  otbCore    OtbCore  @relation(fields: [otbCoreId], references: [id], onDelete: Restrict)
+  otbCoreId String  @unique
+  otbCore   OtbCore @relation(fields: [otbCoreId], references: [id], onDelete: Restrict)
 
   // OUTPUT: Banyak output cores dari ODC ini
-  outputs    OdcOutput[]
-
+  outputs OdcOutput[]
 }
 
 model OdcOutput {
-  id         String   @id @default(cuid())
-  odcId      String
-  odc        Odc      @relation(fields: [odcId], references: [id], onDelete: Restrict)
-  idx        Int      // Urutan output core (0-based)
-  slotName   String   // Nama slot output
-  redaman    Float?   // Redaman dalam dB (opsional)
-  tubeColor  String   // Warna tube
-  coreColor  String   // Warna core
-
-  @@unique([odcId, idx])
+  id        String @id @default(cuid())
+  odcId     String
+  odc       Odc    @relation(fields: [odcId], references: [id], onDelete: Restrict)
+  idx       Int // Urutan output core (0-based)
+  slotName  String // Nama slot output
+  redaman   Float? // Redaman dalam dB (opsional)
+  tubeColor String // Warna tube
+  coreColor String // Warna core
 
   // Back relation: satu output core bisa dipakai 0..1 ODP
-  odp        Odp?
+  odp Odp?
+
+  @@unique([odcId, idx])
 }
 
-
 model Odp {
-  id            String      @id @default(cuid())
-  name          String
-  location      String?
-  notes         String?
-  latitude      Float?
-  longitude     Float?
-  status        Status      @default(AKTIF)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  notes     String?
+  latitude  Float?
+  longitude Float?
+  status    Status   @default(AKTIF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relasi INPUT: ODP mengambil input dari salah satu output core ODC
-  odcOutputId   String      @unique
-  odcOutput     OdcOutput   @relation(fields: [odcOutputId], references: [id], onDelete: Restrict)
+  odcOutputId String    @unique
+  odcOutput   OdcOutput @relation(fields: [odcOutputId], references: [id], onDelete: Restrict)
 
   // OUTPUT: Banyak output cores dari ODP ini
-  outputs       OdpOutput[]
+  outputs OdpOutput[]
 }
 
 model OdpOutput {
-  id         String   @id @default(cuid())
-  odpId      String
-  odp        Odp      @relation(fields: [odpId], references: [id], onDelete: Restrict)
-  idx        Int
-  slotName   String
-  redaman    Float?
-  tubeColor  String
-  coreColor  String
+  id        String @id @default(cuid())
+  odpId     String
+  odp       Odp    @relation(fields: [odpId], references: [id], onDelete: Restrict)
+  idx       Int
+  slotName  String
+  redaman   Float?
+  tubeColor String
+  coreColor String
 
   @@unique([odpId, idx])
 }
 
 // JOINbox (Bridge/Closure) models
 model Joinbox {
-  id         String   @id @default(cuid())
-  name       String
-  location   String?
-  notes      String?
-  latitude   Float?
-  longitude  Float?
-  status     Status   @default(AKTIF)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  notes     String?
+  latitude  Float?
+  longitude Float?
+  status    Status   @default(AKTIF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  inputs     JoinboxInput[]
-  outputs    JoinboxOutput[]
+  inputs  JoinboxInput[]
+  outputs JoinboxOutput[]
 }
 
 model JoinboxInput {
-  id         String   @id @default(cuid())
-  joinboxId  String
-  joinbox    Joinbox  @relation(fields: [joinboxId], references: [id], onDelete: Restrict)
-  idx        Int
-  inputUnit  String
-  portUnit   String
-  tubeColor  String
-  coreColor  String
+  id        String  @id @default(cuid())
+  joinboxId String
+  joinbox   Joinbox @relation(fields: [joinboxId], references: [id], onDelete: Restrict)
+  idx       Int
+  inputUnit String
+  portUnit  String
+  tubeColor String
+  coreColor String
 
   @@unique([joinboxId, idx])
 }
 
 model JoinboxOutput {
-  id         String   @id @default(cuid())
-  joinboxId  String
-  joinbox    Joinbox  @relation(fields: [joinboxId], references: [id], onDelete: Restrict)
-  idx        Int
-  inputUnit  String
-  portUnit   String
-  tubeColor  String
-  coreColor  String
+  id        String  @id @default(cuid())
+  joinboxId String
+  joinbox   Joinbox @relation(fields: [joinboxId], references: [id], onDelete: Restrict)
+  idx       Int
+  inputUnit String
+  portUnit  String
+  tubeColor String
+  coreColor String
 
   @@unique([joinboxId, idx])
 }
-
 
 model Pole {
   id         String   @id @default(cuid())
@@ -241,8 +248,8 @@ model KmzFile {
   id          String   @id @default(cuid())
   name        String
   filename    String
-  filePath    String   // Path ke file KML hasil ekstrak
-  fileSize    Int      // Size dalam bytes
+  filePath    String // Path ke file KML hasil ekstrak
+  fileSize    Int // Size dalam bytes
   description String?
   lineColor   String   @default("#3388ff") // Warna garis KMZ (hex color)
   isActive    Boolean  @default(true)
@@ -253,71 +260,71 @@ model KmzFile {
 
 // ONU (Optical Network Unit) - Data dari SNMP OLT
 model Onu {
-  id            String   @id @default(cuid())
-  oltId         String
-  olt           Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
-  name          String   // ONU name/identifier
-  description   String?  // ONU description
-  pppoe         String?  // PPPoE username (jika ada)
-  gponOnu       String   // Format: "slot/port:onuId" atau "1/3/1:3"
-  status        String   // Online, LOS, DyingGasp, OffLine, Unknown
-  rxOlt         String?  // RX power dari OLT (dBm)
-  rxOnu         String?  // RX power dari ONU (dBm)
-  txOlt         String?  // TX power ke OLT (dBm)
-  txOnu         String?  // TX power dari ONU (dBm)
-  serialNumber  String?  // Serial number ONU
-  actualType    String?  // ONU type/model
-  registerTime  DateTime? // Waktu registrasi ONU
-  distance      Float?   // Jarak fiber dalam km (dihitung dari signal)
-  lastSeen      DateTime? // Waktu terakhir komunikasi
-  
+  id           String    @id @default(cuid())
+  oltId        String
+  olt          Olt       @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  name         String // ONU name/identifier
+  description  String? // ONU description
+  pppoe        String? // PPPoE username (jika ada)
+  gponOnu      String // Format: "slot/port:onuId" atau "1/3/1:3"
+  status       String // Online, LOS, DyingGasp, OffLine, Unknown
+  rxOlt        String? // RX power dari OLT (dBm)
+  rxOnu        String? // RX power dari ONU (dBm)
+  txOlt        String? // TX power ke OLT (dBm)
+  txOnu        String? // TX power dari ONU (dBm)
+  serialNumber String? // Serial number ONU
+  actualType   String? // ONU type/model
+  registerTime DateTime? // Waktu registrasi ONU
+  distance     Float? // Jarak fiber dalam km (dihitung dari signal)
+  lastSeen     DateTime? // Waktu terakhir komunikasi
+
   // Basic Info Fields (OID: 1.3.6.1.4.1.3902.1012.3.28.1.1.12, etc)
-  registrationMode  String?   // Registration mode (SN, Password, LOID, dll)
-  softwareVersion   String?   // Software version ONU
-  hardwareVersion   String?   // Hardware version ONU
-  temperature       Float?    // Temperature in Celsius
-  laserBiasCurrent  Float?    // Laser bias current in mA
-  
+  registrationMode String? // Registration mode (SN, Password, LOID, dll)
+  softwareVersion  String? // Software version ONU
+  hardwareVersion  String? // Hardware version ONU
+  temperature      Float? // Temperature in Celsius
+  laserBiasCurrent Float? // Laser bias current in mA
+
   // New fields from ZTE-AN-PON-MIB (OID: 1.3.6.1.4.1.3902.1082.50.10.2.2)
-  vendorId              String?   // ONU vendor ID (zxAnOnuVendorId)
-  equipmentId           String?   // ONU equipment ID (zxAnOnuEquipmentId)
-  firmwareVersion       String?   // Firmware version (zxAnOnuFirmwareVersion)
-  macAddress            String?   // ONU MAC address (zxAnOnuMacAddress)
-  batteryStatus         String?   // Battery status (zxAnOnuBatteryStatus)
-  opticalTransceiverType String?  // Optical transceiver type (zxAnOnuOpticalTransceiverType)
-  lastDeregTime         DateTime? // Last deregistration time (zxAnOnuLastDeregTime)
-  authMode              String?   // Authentication mode (zxAnOnuAuthMode)
-  loid                  String?   // Logical ONU ID (zxAnOnuLoid)
-  password              String?   // ONU password (zxAnOnuPassword)
-  
+  vendorId               String? // ONU vendor ID (zxAnOnuVendorId)
+  equipmentId            String? // ONU equipment ID (zxAnOnuEquipmentId)
+  firmwareVersion        String? // Firmware version (zxAnOnuFirmwareVersion)
+  macAddress             String? // ONU MAC address (zxAnOnuMacAddress)
+  batteryStatus          String? // Battery status (zxAnOnuBatteryStatus)
+  opticalTransceiverType String? // Optical transceiver type (zxAnOnuOpticalTransceiverType)
+  lastDeregTime          DateTime? // Last deregistration time (zxAnOnuLastDeregTime)
+  authMode               String? // Authentication mode (zxAnOnuAuthMode)
+  loid                   String? // Logical ONU ID (zxAnOnuLoid)
+  password               String? // ONU password (zxAnOnuPassword)
+
   // ONU Status fields (OID: 1.3.6.1.4.1.3902.1082.50.10.2.3)
-  configState           String?   // Configuration state (zxAnOnuConfigState)
-  powerLevel            String?   // Power level (zxAnOnuPowerLevel)
-  dyingGaspTime         DateTime? // Dying gasp time (zxAnOnuDyingGaspTime)
-  
+  configState   String? // Configuration state (zxAnOnuConfigState)
+  powerLevel    String? // Power level (zxAnOnuPowerLevel)
+  dyingGaspTime DateTime? // Dying gasp time (zxAnOnuDyingGaspTime)
+
   // Additional optical power status (OID: 1.3.6.1.4.1.3902.1082.50.10.2.28)
-  rxPowerStatus         String?   // RX power status (zxAnOnuRxPowerStatus)
-  txPowerStatus         String?   // TX power status (zxAnOnuTxPowerStatus)
-  
+  rxPowerStatus String? // RX power status (zxAnOnuRxPowerStatus)
+  txPowerStatus String? // TX power status (zxAnOnuTxPowerStatus)
+
   // Performance Statistics (OID: 1.3.6.1.4.1.3902.1082.50.10.2.31)
-  rxBytes               BigInt?   // Total bytes received (zxAnGponOnuPonRxBytes)
-  txBytes               BigInt?   // Total bytes transmitted (zxAnGponOnuPonTxBytes)
-  rxPackets             BigInt?   // Total packets received (zxAnGponOnuPonRxPackets)
-  txPackets             BigInt?   // Total packets transmitted (zxAnGponOnuPonTxPackets)
-  rxErrors              BigInt?   // Total RX errors (zxAnGponOnuPonRxErrors)
-  txErrors              BigInt?   // Total TX errors (zxAnGponOnuPonTxErrors)
-  rxDrops               BigInt?   // Total RX drops (zxAnGponOnuPonRxDrops)
-  txDrops               BigInt?   // Total TX drops (zxAnGponOnuPonTxDrops)
-  
+  rxBytes   BigInt? // Total bytes received (zxAnGponOnuPonRxBytes)
+  txBytes   BigInt? // Total bytes transmitted (zxAnGponOnuPonTxBytes)
+  rxPackets BigInt? // Total packets received (zxAnGponOnuPonRxPackets)
+  txPackets BigInt? // Total packets transmitted (zxAnGponOnuPonTxPackets)
+  rxErrors  BigInt? // Total RX errors (zxAnGponOnuPonRxErrors)
+  txErrors  BigInt? // Total TX errors (zxAnGponOnuPonTxErrors)
+  rxDrops   BigInt? // Total RX drops (zxAnGponOnuPonRxDrops)
+  txDrops   BigInt? // Total TX drops (zxAnGponOnuPonTxDrops)
+
   // WiFi Configuration (OID: 1.3.6.1.4.1.3902.1082.50.10.2.20)
-  wifiEnable            Boolean?  // WiFi enable status (zxAnOnuWifiEnable)
-  wifiSsid              String?   // WiFi SSID (zxAnOnuWifiSsid)
-  wifiSecurityMode      String?   // WiFi security mode (zxAnOnuWifiSecurityMode)
-  wifiChannel           Int?      // WiFi channel (zxAnOnuWifiChannel)
-  
-  lastUpdate    DateTime @default(now()) // Waktu terakhir data di-update dari SNMP
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  wifiEnable       Boolean? // WiFi enable status (zxAnOnuWifiEnable)
+  wifiSsid         String? // WiFi SSID (zxAnOnuWifiSsid)
+  wifiSecurityMode String? // WiFi security mode (zxAnOnuWifiSecurityMode)
+  wifiChannel      Int? // WiFi channel (zxAnOnuWifiChannel)
+
+  lastUpdate DateTime @default(now()) // Waktu terakhir data di-update dari SNMP
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([oltId, gponOnu]) // Satu ONU unik per OLT berdasarkan gponOnu
   @@index([oltId])
@@ -331,35 +338,35 @@ model Onu {
 
 // ONU Type - Tipe ONU yang didukung per OLT
 model OnuType {
-  id            String   @id @default(cuid())
-  oltId         String
-  olt           Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
-  name          String   // Nama tipe ONU (e.g., "ZTE", "H640GW", "HG8245H")
-  ethernetPorts Int      @default(0) // Jumlah port Ethernet
-  wifi          Int      @default(0) // Jumlah WiFi
-  voipPorts     Int      @default(0) // Jumlah port VoIP
+  id                    String   @id @default(cuid())
+  oltId                 String
+  olt                   Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  name                  String // Nama tipe ONU (e.g., "ZTE", "H640GW", "HG8245H")
+  ethernetPorts         Int      @default(0) // Jumlah port Ethernet
+  wifi                  Int      @default(0) // Jumlah WiFi
+  voipPorts             Int      @default(0) // Jumlah port VoIP
   // Detail dari show onu-type
-  ponType       String?  // PON type (e.g., "gpon")
-  description   String?  // Description
-  maxTcont      Int?     // Max T-CONT
-  maxGemPort    Int?     // Max GEM port
-  maxSwitchPerSlot Int?  // Max switch per slot
-  maxFlowPerSwitch Int?  // Max flow per switch
-  maxIpHost     Int?     // Max IP host
-  maxIpv6Host   Int?     // Max IPv6 host
-  serviceAbilityN1 String? // Service ability N:1 (e.g., "support")
-  serviceAbility1M String? // Service ability 1:M (e.g., "support")
-  serviceAbility1P String? // Service ability 1:P (e.g., "support")
-  wifiMgmtViaNonOmci String? // WIFI mgmt via non OMCI (e.g., "disable")
-  omciSendMode  String?  // OMCI send mode (e.g., "async")
+  ponType               String? // PON type (e.g., "gpon")
+  description           String? // Description
+  maxTcont              Int? // Max T-CONT
+  maxGemPort            Int? // Max GEM port
+  maxSwitchPerSlot      Int? // Max switch per slot
+  maxFlowPerSwitch      Int? // Max flow per switch
+  maxIpHost             Int? // Max IP host
+  maxIpv6Host           Int? // Max IPv6 host
+  serviceAbilityN1      String? // Service ability N:1 (e.g., "support")
+  serviceAbility1M      String? // Service ability 1:M (e.g., "support")
+  serviceAbility1P      String? // Service ability 1:P (e.g., "support")
+  wifiMgmtViaNonOmci    String? // WIFI mgmt via non OMCI (e.g., "disable")
+  omciSendMode          String? // OMCI send mode (e.g., "async")
   defaultMulticastRange String? // Default multicast range (e.g., "none")
-  vrg           String?  // VRG (e.g., "disable")
-  mgcConfigureMode String? // MGC configure mode (e.g., "zte")
-  maxVeip       Int?     // Max VEIP
-  extendedOmci   String? // Extended OMCI (e.g., "disable")
-  location      String?  // Location (e.g., "disable")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  vrg                   String? // VRG (e.g., "disable")
+  mgcConfigureMode      String? // MGC configure mode (e.g., "zte")
+  maxVeip               Int? // Max VEIP
+  extendedOmci          String? // Extended OMCI (e.g., "disable")
+  location              String? // Location (e.g., "disable")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@unique([oltId, name]) // Satu tipe ONU unik per OLT berdasarkan name
   @@index([oltId])
@@ -367,19 +374,19 @@ model OnuType {
 
 // Speed Profile - Profil kecepatan untuk OLT
 model SpeedProfile {
-  id            String   @id @default(cuid())
-  oltId         String
-  olt           Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
-  profileType   String   @default("Download") // "Download" atau "Upload"
-  name          String   // Nama profil (e.g., "1G", "10Mbps", "20Mbps")
-  type          Int      // Tipe bandwidth: 1-5 (Fixed, Assured, dll)
-  bandwidthSir  Int      // Bandwidth SIR dalam kbps
-  burstPir      Int      // Burst PIR dalam kbps
-  fixed         Int?     // Fixed bandwidth dalam kbps (jika type = 1)
-  assured       Int?     // Assured bandwidth dalam kbps (jika type = 2 atau 3)
-  maximum       Int?     // Maximum bandwidth dalam kbps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  oltId        String
+  olt          Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  profileType  String   @default("Download") // "Download" atau "Upload"
+  name         String // Nama profil (e.g., "1G", "10Mbps", "20Mbps")
+  type         Int // Tipe bandwidth: 1-5 (Fixed, Assured, dll)
+  bandwidthSir Int // Bandwidth SIR dalam kbps
+  burstPir     Int // Burst PIR dalam kbps
+  fixed        Int? // Fixed bandwidth dalam kbps (jika type = 1)
+  assured      Int? // Assured bandwidth dalam kbps (jika type = 2 atau 3)
+  maximum      Int? // Maximum bandwidth dalam kbps
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([oltId, profileType, name]) // Satu profil unik per OLT berdasarkan profileType dan name
   @@index([oltId])
@@ -388,25 +395,25 @@ model SpeedProfile {
 
 // MikroTik Router [NAS]
 model MikroTikRouter {
-  id                String   @id @default(cuid())
-  name              String   // Nama Router
-  ipAddress         String   // IP Router atau domain
-  timezone          String   @default("+07:00 Asia/Jakarta") // Zona Waktu
-  apiPort           Int      @default(8728) // Port API
-  apiUsername       String   // Username API
-  apiPassword       String   // Password API
-  authPort          Int      @default(7265) // Authentication Port
-  accountingPort    Int      @default(7266) // Accounting Port
-  secretRadius      String   // Secret Radius
-  isolirUrl         String?  // URL Info Isolir (optional)
-  description       String?  // Deskripsi
-  pingStatus        String   @default("offline") // Status ping: "online" atau "offline"
-  userOnline        Int      @default(0) // Jumlah user online
-  lastStatusCheck   DateTime? // Waktu terakhir cek status
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String    @id @default(cuid())
+  name            String // Nama Router
+  ipAddress       String // IP Router atau domain
+  timezone        String    @default("+07:00 Asia/Jakarta") // Zona Waktu
+  apiPort         Int       @default(8728) // Port API
+  apiUsername     String // Username API
+  apiPassword     String // Password API
+  authPort        Int       @default(7265) // Authentication Port
+  accountingPort  Int       @default(7266) // Accounting Port
+  secretRadius    String // Secret Radius
+  isolirUrl       String? // URL Info Isolir (optional)
+  description     String? // Deskripsi
+  pingStatus      String    @default("offline") // Status ping: "online" atau "offline"
+  userOnline      Int       @default(0) // Jumlah user online
+  lastStatusCheck DateTime? // Waktu terakhir cek status
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  profilePPPs       ProfilePPP[] // Profile PPP yang menggunakan router ini sebagai target
+  profilePPPs ProfilePPP[] // Profile PPP yang menggunakan router ini sebagai target
 
   @@unique([ipAddress])
   @@index([pingStatus])
@@ -414,77 +421,84 @@ model MikroTikRouter {
 
 // Bandwidth - Profil bandwidth untuk paket internet (sesuai format Queue MikroTik)
 model Bandwidth {
-  id          String   @id @default(cuid())
-  name        String   @unique // Nama bandwidth (e.g., "10 Mbps", "20 Mbps", "100 Mbps")
+  id                     String   @id @default(cuid())
+  name                   String   @unique // Nama bandwidth (e.g., "10 Mbps", "20 Mbps", "100 Mbps")
   // Max Limit (wajib)
-  maxLimitDownload    String   // Max Limit Download (format: "10M" atau "10240k")
-  maxLimitUpload      String   // Max Limit Upload (format: "10M" atau "10240k")
+  maxLimitDownload       String // Max Limit Download (format: "10M" atau "10240k")
+  maxLimitUpload         String // Max Limit Upload (format: "10M" atau "10240k")
   // Burst Limit (opsional)
-  burstLimitDownload  String?  // Burst Limit Download (format: "15M" atau "15360k")
-  burstLimitUpload    String?  // Burst Limit Upload (format: "15M" atau "15360k")
+  burstLimitDownload     String? // Burst Limit Download (format: "15M" atau "15360k")
+  burstLimitUpload       String? // Burst Limit Upload (format: "15M" atau "15360k")
   // Min Limit (opsional)
-  minLimitDownload     String?  // Min Limit Download (format: "5M" atau "5120k")
-  minLimitUpload       String?  // Min Limit Upload (format: "5M" atau "5120k")
+  minLimitDownload       String? // Min Limit Download (format: "5M" atau "5120k")
+  minLimitUpload         String? // Min Limit Upload (format: "5M" atau "5120k")
   // Burst Threshold (opsional)
   burstThresholdDownload String? // Burst Threshold Download (format: "12M" atau "12288k")
   burstThresholdUpload   String? // Burst Threshold Upload (format: "12M" atau "12288k")
   // Burst Time (opsional, dalam detik)
-  burstTimeDownload   Int?     // Burst Time Download (dalam detik)
-  burstTimeUpload     Int?     // Burst Time Upload (dalam detik)
+  burstTimeDownload      Int? // Burst Time Download (dalam detik)
+  burstTimeUpload        Int? // Burst Time Upload (dalam detik)
   // Priority (opsional, 1-8)
-  priority            Int?     // Priority (1-8, default: 8)
+  priority               Int? // Priority (1-8, default: 8)
   // Legacy fields (untuk backward compatibility)
-  uploadSpeed Int?     // Kecepatan upload dalam kbps (deprecated, gunakan maxLimitUpload)
-  downloadSpeed Int?   // Kecepatan download dalam kbps (deprecated, gunakan maxLimitDownload)
-  description String?  // Deskripsi bandwidth
-  status      Status   @default(AKTIF)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  uploadSpeed            Int? // Kecepatan upload dalam kbps (deprecated, gunakan maxLimitUpload)
+  downloadSpeed          Int? // Kecepatan download dalam kbps (deprecated, gunakan maxLimitDownload)
+  description            String? // Deskripsi bandwidth
+  status                 Status   @default(AKTIF)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   hargaPakets HargaPaket[]
 }
 
 // ProfilePPP - Profil PPPoE untuk autentikasi
 model ProfilePPP {
-  id              String   @id @default(cuid())
-  name            String   @unique // Nama profile PPP (e.g., "Profile-10M", "Profile-20M")
-  localAddress    String   // Local IP address pool
-  remoteAddress   String   // Remote IP address pool
-  dnsServer       String?  // DNS Server (e.g., "8.8.8.8,8.8.4.4")
-  sessionTimeout  Int?     // Session timeout dalam detik
-  idleTimeout     Int?     // Idle timeout dalam detik
+  id               String          @id @default(cuid())
+  name             String          @unique // Nama profile PPP (e.g., "Profile-10M", "Profile-20M")
+  localAddress     String // Local IP address pool
+  remoteAddress    String // Remote IP address pool
+  dnsServer        String? // DNS Server (e.g., "8.8.8.8,8.8.4.4")
+  sessionTimeout   Int? // Session timeout dalam detik
+  idleTimeout      Int? // Idle timeout dalam detik
   // Rate limit diambil dari Bandwidth yang terkait melalui HargaPaket
   mikroTikRouterId String? // Target MikroTik Router (optional)
   mikroTikRouter   MikroTikRouter? @relation(fields: [mikroTikRouterId], references: [id], onDelete: SetNull)
-  description     String?  // Deskripsi profile
-  status          Status   @default(AKTIF)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  description      String? // Deskripsi profile
+  status           Status          @default(AKTIF)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  hargaPakets     HargaPaket[]
+  hargaPakets HargaPaket[]
 
   @@index([mikroTikRouterId])
 }
 
 // HargaPaket - Daftar paket internet dengan harga
 model HargaPaket {
-  id            String      @id @default(cuid())
-  name          String      @unique // Nama paket (e.g., "Paket 10 Mbps", "Paket Gaming")
-  bandwidthId   String?     // Bandwidth (opsional, rate limit diambil dari Profile PPP)
-  bandwidth     Bandwidth?   @relation(fields: [bandwidthId], references: [id], onDelete: SetNull)
-  profilePPPId  String
-  profilePPP    ProfilePPP  @relation(fields: [profilePPPId], references: [id], onDelete: Restrict)
-  harga         Int         // Harga dalam rupiah
-  durasi        Int         @default(30) // Durasi dalam hari (default 30 hari/1 bulan)
-  description   String?     // Deskripsi paket
-  featured      Boolean     @default(false) // Paket unggulan
-  status        Status      @default(AKTIF)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id           String     @id @default(cuid())
+  name         String     @unique // Nama paket (e.g., "Paket 10 Mbps", "Paket Gaming")
+  bandwidthId  String? // Bandwidth (opsional, rate limit diambil dari Profile PPP)
+  bandwidth    Bandwidth? @relation(fields: [bandwidthId], references: [id], onDelete: SetNull)
+  profilePPPId String
+  profilePPP   ProfilePPP @relation(fields: [profilePPPId], references: [id], onDelete: Restrict)
+  harga        Int // Harga dalam rupiah
+  durasi       Int        @default(30) // Durasi (nilai numerik)
+  durasiUnit   DurasiUnit @default(HARI) // Unit durasi: JAM, HARI, atau BULAN
+  usePPN       Boolean    @default(false) // Gunakan PPN atau tidak
+  ppnPercentage Float?    // Persentase PPN (jika usePPN = true)
+  useDiscount  Boolean    @default(false) // Gunakan diskon atau tidak
+  discountType DiscountType? // Jenis diskon: FIXED atau PERCENT
+  discountValue Float?    // Nilai diskon (nominal jika FIXED, persentase jika PERCENT)
+  discountDuration Int?   // Durasi diskon berlaku (nilai numerik)
+  discountDurationUnit DurasiUnit? // Unit durasi diskon: JAM, HARI, BULAN, atau TAHUN
+  description  String? // Deskripsi paket
+  featured     Boolean    @default(false) // Paket unggulan
+  status       Status     @default(AKTIF)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   @@index([bandwidthId])
   @@index([profilePPPId])
   @@index([status])
   @@index([featured])
 }
-

@@ -25,6 +25,14 @@ type HargaPaket = {
   profilePPP: ProfilePPP
   harga: number
   durasi: number
+  durasiUnit: 'JAM' | 'HARI' | 'BULAN' | 'TAHUN'
+  usePPN: boolean
+  ppnPercentage?: number | null
+  useDiscount: boolean
+  discountType?: 'FIXED' | 'PERCENT' | null
+  discountValue?: number | null
+  discountDuration?: number | null
+  discountDurationUnit?: 'JAM' | 'HARI' | 'BULAN' | 'TAHUN' | null
   description?: string | null
   featured: boolean
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
@@ -43,6 +51,14 @@ export default function HargaPaketPage() {
     profilePPPId: '',
     harga: 0,
     durasi: 30,
+    durasiUnit: 'HARI' as 'JAM' | 'HARI' | 'BULAN' | 'TAHUN',
+    usePPN: false,
+    ppnPercentage: null as number | null,
+    useDiscount: false,
+    discountType: 'FIXED' as 'FIXED' | 'PERCENT' | null,
+    discountValue: null as number | null,
+    discountDuration: null as number | null,
+    discountDurationUnit: null as 'JAM' | 'HARI' | 'BULAN' | 'TAHUN' | null,
     description: '',
     featured: false,
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
@@ -144,6 +160,14 @@ export default function HargaPaketPage() {
       profilePPPId: paket.profilePPPId,
       harga: paket.harga,
       durasi: paket.durasi,
+      durasiUnit: paket.durasiUnit || 'HARI',
+      usePPN: paket.usePPN || false,
+      ppnPercentage: paket.ppnPercentage || null,
+      useDiscount: paket.useDiscount || false,
+      discountType: paket.discountType || 'FIXED',
+      discountValue: paket.discountValue || null,
+      discountDuration: paket.discountDuration || null,
+      discountDurationUnit: paket.discountDurationUnit || null,
       description: paket.description || '',
       featured: paket.featured,
       status: paket.status,
@@ -159,6 +183,14 @@ export default function HargaPaketPage() {
       profilePPPId: '',
       harga: 0,
       durasi: 30,
+      durasiUnit: 'HARI',
+      usePPN: false,
+      ppnPercentage: null,
+      useDiscount: false,
+      discountType: 'FIXED',
+      discountValue: null,
+      discountDuration: null,
+      discountDurationUnit: null,
       description: '',
       featured: false,
       status: 'AKTIF',
@@ -288,10 +320,50 @@ export default function HargaPaketPage() {
                       {paket.profilePPP.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      {formatRupiah(paket.harga)}
+                      <div>
+                        <div>{formatRupiah(paket.harga)}</div>
+                        {paket.useDiscount && paket.discountType && paket.discountValue && (
+                          <>
+                            <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                              - Diskon: {
+                                paket.discountType === 'FIXED' 
+                                  ? formatRupiah(paket.discountValue)
+                                  : `${paket.discountValue}%`
+                              } = {
+                                formatRupiah(
+                                  paket.discountType === 'FIXED'
+                                    ? Math.max(0, paket.harga - paket.discountValue)
+                                    : Math.round(paket.harga * (1 - paket.discountValue / 100))
+                                )
+                              }
+                            </div>
+                            {paket.discountDuration && paket.discountDurationUnit && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Durasi: {paket.discountDuration} {paket.discountDurationUnit === 'JAM' ? 'jam' : paket.discountDurationUnit === 'HARI' ? 'hari' : paket.discountDurationUnit === 'BULAN' ? 'bulan' : 'tahun'}
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {paket.usePPN && paket.ppnPercentage && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            + PPN {paket.ppnPercentage}% = {
+                              formatRupiah(
+                                paket.useDiscount && paket.discountType && paket.discountValue
+                                  ? Math.round(
+                                      (paket.discountType === 'FIXED'
+                                        ? Math.max(0, paket.harga - paket.discountValue)
+                                        : Math.round(paket.harga * (1 - paket.discountValue / 100))
+                                      ) * (1 + paket.ppnPercentage / 100)
+                                    )
+                                  : Math.round(paket.harga * (1 + paket.ppnPercentage / 100))
+                              )
+                            }
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {paket.durasi} hari
+                      {paket.durasi} {paket.durasiUnit === 'JAM' ? 'jam' : paket.durasiUnit === 'HARI' ? 'hari' : paket.durasiUnit === 'BULAN' ? 'bulan' : 'tahun'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <StatusBadge status={paket.status} />
@@ -382,18 +454,210 @@ export default function HargaPaketPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Durasi (hari) <span className="text-red-500">*</span>
+                Durasi <span className="text-red-500">*</span>
               </label>
-              <input
-                type="number"
-                required
-                min="1"
-                value={formData.durasi}
-                onChange={(e) => setFormData({ ...formData, durasi: parseInt(e.target.value) })}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-                placeholder="30"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={formData.durasi}
+                  onChange={(e) => setFormData({ ...formData, durasi: parseInt(e.target.value) })}
+                  className="flex-1 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                  placeholder="30"
+                />
+                <select
+                  required
+                  value={formData.durasiUnit}
+                  onChange={(e) => setFormData({ ...formData, durasiUnit: e.target.value as 'JAM' | 'HARI' | 'BULAN' })}
+                  className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                >
+                  <option value="JAM">Jam</option>
+                  <option value="HARI">Hari</option>
+                  <option value="BULAN">Bulan</option>
+                </select>
+              </div>
             </div>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="checkbox"
+                id="usePPN"
+                checked={formData.usePPN}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  usePPN: e.target.checked,
+                  ppnPercentage: e.target.checked ? formData.ppnPercentage : null
+                })}
+                className="rounded border-gray-300 dark:border-gray-700"
+              />
+              <label htmlFor="usePPN" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Gunakan PPN
+              </label>
+            </div>
+            {formData.usePPN && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Persentase PPN (%) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  required={formData.usePPN}
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={formData.ppnPercentage || ''}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    ppnPercentage: e.target.value ? parseFloat(e.target.value) : null 
+                  })}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                  placeholder="11"
+                />
+                {formData.usePPN && formData.ppnPercentage && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    PPN: {formatRupiah(Math.round(formData.harga * (formData.ppnPercentage / 100)))}
+                    {' '}(Total: {formatRupiah(Math.round(formData.harga * (1 + formData.ppnPercentage / 100)))})
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="checkbox"
+                id="useDiscount"
+                checked={formData.useDiscount}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  useDiscount: e.target.checked,
+                  discountType: e.target.checked ? (formData.discountType || 'FIXED') : 'FIXED',
+                  discountValue: e.target.checked ? formData.discountValue : null
+                })}
+                className="rounded border-gray-300 dark:border-gray-700"
+              />
+              <label htmlFor="useDiscount" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Gunakan Diskon
+              </label>
+            </div>
+            {formData.useDiscount && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Jenis Diskon <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="discountType"
+                        value="FIXED"
+                        checked={formData.discountType === 'FIXED'}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          discountType: e.target.value as 'FIXED' | 'PERCENT',
+                          discountValue: null // Reset value saat ganti jenis
+                        })}
+                        className="border-gray-300 dark:border-gray-700"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Fixed (Nominal Tetap)</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="discountType"
+                        value="PERCENT"
+                        checked={formData.discountType === 'PERCENT'}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          discountType: e.target.value as 'FIXED' | 'PERCENT',
+                          discountValue: null // Reset value saat ganti jenis
+                        })}
+                        className="border-gray-300 dark:border-gray-700"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Persen (%)</span>
+                    </label>
+                  </div>
+                </div>
+                {formData.discountType && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Nilai Diskon {formData.discountType === 'FIXED' ? '(Rp)' : '(%)'} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required={formData.useDiscount}
+                      min="0"
+                      max={formData.discountType === 'PERCENT' ? 100 : undefined}
+                      step={formData.discountType === 'PERCENT' ? '0.01' : '1'}
+                      value={formData.discountValue || ''}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        discountValue: e.target.value ? parseFloat(e.target.value) : null 
+                      })}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                      placeholder={formData.discountType === 'FIXED' ? '50000' : '10'}
+                    />
+                    {formData.useDiscount && formData.discountType && formData.discountValue && (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Diskon: {
+                          formData.discountType === 'FIXED' 
+                            ? formatRupiah(formData.discountValue)
+                            : `${formData.discountValue}% (${formatRupiah(Math.round(formData.harga * (formData.discountValue / 100)))})`
+                        }
+                        {' '}(Harga Setelah Diskon: {
+                          formatRupiah(
+                            formData.discountType === 'FIXED'
+                              ? Math.max(0, formData.harga - formData.discountValue)
+                              : Math.round(formData.harga * (1 - formData.discountValue / 100))
+                          )
+                        })
+                      </p>
+                    )}
+                  </div>
+                )}
+                {formData.useDiscount && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Durasi Diskon <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        required={formData.useDiscount}
+                        min="1"
+                        value={formData.discountDuration || ''}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          discountDuration: e.target.value ? parseInt(e.target.value) : null 
+                        })}
+                        className="flex-1 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                        placeholder="30"
+                      />
+                      <select
+                        required={formData.useDiscount}
+                        value={formData.discountDurationUnit || ''}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          discountDurationUnit: e.target.value as 'JAM' | 'HARI' | 'BULAN' | 'TAHUN' | null 
+                        })}
+                        className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                      >
+                        <option value="">-- Pilih Unit --</option>
+                        <option value="JAM">Jam</option>
+                        <option value="HARI">Hari</option>
+                        <option value="BULAN">Bulan</option>
+                        <option value="TAHUN">Tahun</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
