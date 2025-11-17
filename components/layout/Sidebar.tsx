@@ -27,7 +27,8 @@ import {
   HiOutlineShoppingCart,
   HiOutlineCircleStack,
   HiOutlineUserCircle,
-  HiOutlineCurrencyDollar
+  HiOutlineCurrencyDollar,
+  HiOutlineUserGroup
 } from 'react-icons/hi2'
 
 type NavItem = {
@@ -79,6 +80,14 @@ export default function Sidebar() {
         { href: '/admin/paket/bandwidth', label: 'Bandwidth', icon: <HiOutlineCircleStack className="w-4 h-4" /> },
         { href: '/admin/paket/profileppp', label: 'Profile PPP', icon: <HiOutlineUserCircle className="w-4 h-4" /> },
         { href: '/admin/paket/harga', label: 'Harga Paket', icon: <HiOutlineCurrencyDollar className="w-4 h-4" /> },
+      ],
+    },
+    {
+      href: '/admin/pelanggan',
+      label: 'Pelanggan',
+      icon: <HiOutlineUserGroup className="w-5 h-5" />,
+      children: [
+        { href: '/admin/pelanggan/ppp', label: 'Pelanggan PPP', icon: <HiOutlineUserCircle className="w-4 h-4" /> },
       ],
     },
     { href: '/admin/users', label: 'Users', icon: <HiOutlineUsers className="w-5 h-5" /> },

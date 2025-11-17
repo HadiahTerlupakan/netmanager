@@ -30,6 +30,11 @@ enum DiscountType {
   PERCENT
 }
 
+enum TipePelanggan {
+  REGULER
+  NON_REGULER
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String?
@@ -497,8 +502,40 @@ model HargaPaket {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
+  pelanggans Pelanggan[] // Relasi ke Pelanggan
+
   @@index([bandwidthId])
   @@index([profilePPPId])
   @@index([status])
   @@index([featured])
+}
+
+// Pelanggan - Data pelanggan PPPoE
+model Pelanggan {
+  id            String        @id @default(cuid())
+  idPelanggan   String        @unique // ID Pelanggan 8 digit (unique)
+  nama          String // Nama lengkap pelanggan
+  username      String // Username PPPoE
+  password      String // Password PPPoE (untuk koneksi PPPoE)
+  passwordLogin String // Password Login Portal (untuk login di portal pelanggan)
+  hargaPaketId  String
+  hargaPaket    HargaPaket    @relation(fields: [hargaPaketId], references: [id], onDelete: Restrict)
+  tipe          TipePelanggan @default(REGULER) // Tipe pelanggan: REGULER atau NON_REGULER
+  tanggalAktif  DateTime // Tanggal aktif layanan
+  jatuhTempo    DateTime // Tanggal jatuh tempo pembayaran
+  status        Status        @default(AKTIF) // Status: AKTIF, NONAKTIF, MAINTENANCE
+  alamat        String? // Alamat pelanggan
+  noTelp        String? // Nomor telepon
+  email         String? // Email pelanggan
+  catatan       String? // Catatan tambahan
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([idPelanggan])
+  @@index([hargaPaketId])
+  @@index([status])
+  @@index([tipe])
+  @@index([tanggalAktif])
+  @@index([jatuhTempo])
+  @@index([email])
 }
