@@ -39,6 +39,7 @@ export default function PelangganPPPNewPage() {
   const [checkingId, setCheckingId] = useState(false)
   const [showPasswordLogin, setShowPasswordLogin] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [activeTab, setActiveTab] = useState<'paket' | 'info'>('paket')
 
   const [formData, setFormData] = useState({
     idPelanggan: '',
@@ -520,218 +521,123 @@ export default function PelangganPPPNewPage() {
         <div className="lg:col-span-2">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
             <form className="space-y-5" onSubmit={handleSubmit}>
-          {/* Tipe Pelanggan */}
-          <div className="space-y-4">
-            <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-              Tipe Pelanggan
-            </h3>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Tipe Pelanggan <span className="text-red-500">*</span>
-              </label>
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, tipe: 'REGULER' }))}
-                  className={`flex-1 px-4 py-3 rounded-lg border-2 transition-all ${
-                    formData.tipe === 'REGULER'
-                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400'
-                      : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-lg">📅</span>
-                    <span className="font-medium">Reguler</span>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, tipe: 'NON_REGULER' }))}
-                  className={`flex-1 px-4 py-3 rounded-lg border-2 transition-all ${
-                    formData.tipe === 'NON_REGULER'
-                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400'
-                      : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-lg">🔄</span>
-                    <span className="font-medium">Non Reguler</span>
-                  </div>
-                </button>
-              </div>
-              <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-1">
-                  {formData.tipe === 'REGULER' ? '📅 Reguler' : '🔄 Non Reguler'}
-                </p>
-                <p className="text-xs text-blue-800 dark:text-blue-400">
-                  {formData.tipe === 'REGULER' ? (
-                    <>
-                      Jika pelanggan sudah lewat jatuh tempo, masa aktif akan <strong>dikurangi</strong> sesuai dengan jatuh tempo saat daftar. 
-                      Tanggal aktif akan mundur untuk menyesuaikan dengan keterlambatan pembayaran.
-                    </>
-                  ) : (
-                    <>
-                      Jika jatuh tempo lewat, masa aktif akan <strong>tetap bertambah</strong> sesuai paket. 
-                      Tanggal jatuh tempo akan <strong>ikut berubah</strong> (diperpanjang) secara otomatis.
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
+          {/* Tab Navigation */}
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <nav className="flex space-x-8" aria-label="Tabs">
+              <button
+                type="button"
+                onClick={() => setActiveTab('paket')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'paket'
+                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+              >
+                Paket Langganan
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('info')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'info'
+                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+              >
+                Info Pelanggan
+              </button>
+            </nav>
           </div>
 
-          {/* Data Dasar */}
-          <div className="space-y-4">
-            <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-              Data Dasar
-            </h3>
+          {/* Tab Content */}
+          {activeTab === 'paket' && (
+            <div className="space-y-5">
+          {/* Status dan Tipe Pelanggan */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Status Registrasi */}
+            <div className="space-y-4">
+              <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                Status Registrasi
+              </h3>
 
-            <div className="space-y-2">
-              <label htmlFor="idPelanggan" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                ID Pelanggan <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="idPelanggan"
-                  name="idPelanggan"
-                  type="text"
-                  required
-                  value={formData.idPelanggan}
-                  onChange={handleChange}
-                  maxLength={8}
-                  pattern="[0-9]{8}"
-                  className={`w-full rounded-lg border ${
-                    idPelangganError
-                      ? 'border-red-300 dark:border-red-600'
-                      : 'border-gray-300 dark:border-gray-600'
-                  } bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 ${
-                    idPelangganError
-                      ? 'focus:ring-red-500'
-                      : 'focus:ring-indigo-500'
-                  } focus:border-transparent transition-colors`}
-                  placeholder="8 digit angka (otomatis atau manual)"
-                />
-                {checkingId && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <HiArrowPath className="w-4 h-4 animate-spin text-gray-400" />
-                  </div>
-                )}
-              </div>
-              {idPelangganError ? (
-                <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                  {idPelangganError}
-                </p>
-              ) : (
-                <p className="text-xs text-gray-500 dark:text-gray-500">
-                  ID pelanggan otomatis di-generate (8 digit), bisa diubah manual. Pastikan ID unik dan tidak duplikat.
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="nama" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Nama Pelanggan <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="nama"
-                name="nama"
-                type="text"
-                required
-                value={formData.nama}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                placeholder="Nama lengkap pelanggan"
-              />
-            </div>
-          </div>
-
-          {/* Kredensial PPPoE */}
-          <div className="space-y-4">
-            <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-              Kredensial PPPoE
-            </h3>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Username PPPoE <span className="text-red-500">*</span>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Status Registrasi <span className="text-red-500">*</span>
                 </label>
-                {formData.username !== formData.idPelanggan && (
-                  <button
-                    type="button"
-                    onClick={() => setFormData((prev) => ({ ...prev, username: prev.idPelanggan }))}
-                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
-                  >
-                    Gunakan ID Pelanggan
-                  </button>
-                )}
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="AKTIF"
+                      checked={formData.status === 'AKTIF'}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }))}
+                      className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Aktif sekarang
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="NONAKTIF"
+                      checked={formData.status === 'NONAKTIF'}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }))}
+                      className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Menunggu
+                    </span>
+                  </label>
+                </div>
               </div>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                required
-                value={formData.username}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                placeholder="username@domain atau sama dengan ID Pelanggan"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-500">
-                Default: sama dengan ID Pelanggan ({formData.idPelanggan}), bisa diubah manual jika diperlukan
-              </p>
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password PPPoE <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="text"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                placeholder="Password untuk koneksi PPPoE"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-500">
-                Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk koneksi PPPoE.
-              </p>
-            </div>
+            {/* Tipe Pelanggan */}
+            <div className="space-y-4">
+              <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                Tipe Pelanggan
+              </h3>
 
-            <div className="space-y-2">
-              <label htmlFor="passwordLogin" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password Login Portal <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="passwordLogin"
-                  name="passwordLogin"
-                  type={showPasswordLogin ? 'text' : 'password'}
-                  required
-                  value={formData.passwordLogin}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                  placeholder="Password untuk login portal pelanggan"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPasswordLogin(!showPasswordLogin)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  aria-label={showPasswordLogin ? 'Sembunyikan password' : 'Tampilkan password'}
-                >
-                  {showPasswordLogin ? (
-                    <HiEyeSlash className="w-5 h-5" />
-                  ) : (
-                    <HiEye className="w-5 h-5" />
-                  )}
-                </button>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Tipe Pelanggan <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="tipe"
+                      value="REGULER"
+                      checked={formData.tipe === 'REGULER'}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, tipe: e.target.value as 'REGULER' | 'NON_REGULER' }))}
+                      className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Reguler
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="tipe"
+                      value="NON_REGULER"
+                      checked={formData.tipe === 'NON_REGULER'}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, tipe: e.target.value as 'REGULER' | 'NON_REGULER' }))}
+                      className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Non Reguler
+                    </span>
+                  </label>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-500">
-                Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk login di portal pelanggan (/pelanggan/login).
-              </p>
             </div>
           </div>
 
@@ -815,24 +721,6 @@ export default function PelangganPPPNewPage() {
                   Jatuh tempo dihitung otomatis, namun bisa diubah manual jika diperlukan
                 </p>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Status <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="status"
-                name="status"
-                required
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-              >
-                <option value="AKTIF">Aktif</option>
-                <option value="NONAKTIF">Nonaktif</option>
-                <option value="MAINTENANCE">Maintenance</option>
-              </select>
             </div>
 
             {/* PPN & Diskon */}
@@ -1271,6 +1159,75 @@ export default function PelangganPPPNewPage() {
               </div>
             </div>
           </div>
+            </div>
+          )}
+
+          {activeTab === 'info' && (
+            <div className="space-y-5">
+          {/* Data Dasar */}
+          <div className="space-y-4">
+            <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+              Data Dasar
+            </h3>
+
+            <div className="space-y-2">
+              <label htmlFor="idPelanggan" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                ID Pelanggan <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  id="idPelanggan"
+                  name="idPelanggan"
+                  type="text"
+                  required
+                  value={formData.idPelanggan}
+                  onChange={handleChange}
+                  maxLength={8}
+                  pattern="[0-9]{8}"
+                  className={`w-full rounded-lg border ${
+                    idPelangganError
+                      ? 'border-red-300 dark:border-red-600'
+                      : 'border-gray-300 dark:border-gray-600'
+                  } bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 ${
+                    idPelangganError
+                      ? 'focus:ring-red-500'
+                      : 'focus:ring-indigo-500'
+                  } focus:border-transparent transition-colors`}
+                  placeholder="8 digit angka (otomatis atau manual)"
+                />
+                {checkingId && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <HiArrowPath className="w-4 h-4 animate-spin text-gray-400" />
+                  </div>
+                )}
+              </div>
+              {idPelangganError ? (
+                <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                  {idPelangganError}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-gray-500">
+                  ID pelanggan otomatis di-generate (8 digit), bisa diubah manual. Pastikan ID unik dan tidak duplikat.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="nama" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Nama Pelanggan <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="nama"
+                name="nama"
+                type="text"
+                required
+                value={formData.nama}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                placeholder="Nama lengkap pelanggan"
+              />
+            </div>
+          </div>
 
           {/* Informasi Kontak */}
           <div className="space-y-4">
@@ -1326,6 +1283,95 @@ export default function PelangganPPPNewPage() {
             </div>
           </div>
 
+          {/* Kredensial PPPoE */}
+          <div className="space-y-4">
+            <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+              Kredensial PPPoE
+            </h3>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Username PPPoE <span className="text-red-500">*</span>
+                </label>
+                {formData.username !== formData.idPelanggan && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, username: prev.idPelanggan }))}
+                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
+                  >
+                    Gunakan ID Pelanggan
+                  </button>
+                )}
+              </div>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                required
+                value={formData.username}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                placeholder="username@domain atau sama dengan ID Pelanggan"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-500">
+                Default: sama dengan ID Pelanggan ({formData.idPelanggan}), bisa diubah manual jika diperlukan
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Password PPPoE <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="text"
+                required
+                value={formData.password}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                placeholder="Password untuk koneksi PPPoE"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-500">
+                Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk koneksi PPPoE.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="passwordLogin" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Password Login Portal <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  id="passwordLogin"
+                  name="passwordLogin"
+                  type={showPasswordLogin ? 'text' : 'password'}
+                  required
+                  value={formData.passwordLogin}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  placeholder="Password untuk login portal pelanggan"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordLogin(!showPasswordLogin)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  aria-label={showPasswordLogin ? 'Sembunyikan password' : 'Tampilkan password'}
+                >
+                  {showPasswordLogin ? (
+                    <HiEyeSlash className="w-5 h-5" />
+                  ) : (
+                    <HiEye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-500">
+                Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk login di portal pelanggan (/pelanggan/login).
+              </p>
+            </div>
+          </div>
+
           {/* Catatan */}
           <div className="space-y-4">
             <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
@@ -1347,6 +1393,8 @@ export default function PelangganPPPNewPage() {
               />
             </div>
           </div>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
