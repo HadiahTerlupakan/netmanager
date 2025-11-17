@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import type { Metadata, Viewport } from 'next'
 import PWAScript from './pwa-script'
+import PelangganSidebar from '@/components/pelanggan/PelangganSidebar'
 
 export const metadata: Metadata = {
   title: 'Portal Pelanggan - NetManager',
@@ -31,10 +32,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
   viewportFit: 'cover',
-  themeColor: '#4f46e5',
+  themeColor: '#0ea5e9', // Sky blue theme color (fresh)
 }
 
 export default function PelangganLayout({ children }: { children: React.ReactNode }) {
@@ -49,8 +50,11 @@ export default function PelangganLayout({ children }: { children: React.ReactNod
   return (
     <>
       <PWAScript />
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-        {children}
+      <div className="min-h-screen bg-gray-50">
+        <PelangganSidebar />
+        <div className="md:ml-64">
+          {children}
+        </div>
       </div>
     </>
   )

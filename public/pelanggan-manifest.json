@@ -3,10 +3,11 @@
   "short_name": "NetManager",
   "description": "Portal pelanggan untuk melihat informasi paket internet, tagihan, dan status layanan",
   "start_url": "/pelanggan",
+  "scope": "/pelanggan",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "icons": [
     {
       "src": "/icon-192x192.png",
@@ -35,7 +36,20 @@
           "sizes": "192x192"
         }
       ]
+    },
+    {
+      "name": "Login",
+      "short_name": "Login",
+      "description": "Masuk ke portal pelanggan",
+      "url": "/pelanggan/login",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
-  ]
+  ],
+  "prefer_related_applications": false
 }
 

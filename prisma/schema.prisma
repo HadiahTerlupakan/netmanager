@@ -528,6 +528,25 @@ model Pelanggan {
   noTelp        String? // Nomor telepon
   email         String? // Email pelanggan
   catatan       String? // Catatan tambahan
+  usePPN        Boolean       @default(true) // Gunakan PPN atau tidak
+  useDiscount   Boolean       @default(false) // Gunakan diskon atau tidak
+  useProrate    Boolean       @default(false) // Gunakan perhitungan prorate atau tidak
+  // Custom diskon per pelanggan (jika diisi, akan override diskon dari paket)
+  discountType DiscountType? // Jenis diskon custom: FIXED atau PERCENT
+  discountValue Float? // Nilai diskon custom (nominal jika FIXED, persentase jika PERCENT)
+  discountDuration Int? // Durasi diskon custom berlaku (nilai numerik)
+  discountDurationUnit DurasiUnit? // Unit durasi diskon custom: JAM, HARI, BULAN, atau TAHUN
+  // Biaya lain-lain
+  biayaInstalasi Int? // Biaya instalasi (opsional)
+  biayaInstalasiIsRecurring Boolean @default(false) // Apakah biaya instalasi berulang atau 1x
+  biayaInstalasiDiskon Float? // Diskon persentase untuk biaya instalasi (opsional)
+  biayaSewaPerangkat Int? // Biaya sewa perangkat (opsional)
+  biayaSewaPerangkatIsRecurring Boolean @default(true) // Apakah biaya sewa perangkat berulang atau 1x (default: berulang)
+  biayaSewaPerangkatDiskon Float? // Diskon persentase untuk sewa perangkat (opsional)
+  biayaLainnya Int? // Biaya lain-lain (opsional)
+  biayaLainnyaIsRecurring Boolean @default(false) // Apakah biaya lain-lain berulang atau 1x
+  biayaLainnyaDiskon Float? // Diskon persentase untuk biaya lain-lain (opsional)
+  keteranganBiayaLainnya String? // Keterangan untuk biaya lain-lain
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
