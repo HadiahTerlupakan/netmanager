@@ -717,11 +717,101 @@ export async function updatePPPProfileInMikroTik(
 }
 
 /**
+ * Hapus IP Pool di MikroTik Router
+ * Hanya menghapus jika pool dibuat oleh netmanager (memiliki comment "add by netmanager")
+ * @param conn Koneksi MikroTik yang sudah terbuka
+ * @param poolName Nama IP Pool yang akan dihapus
+ */
+async function deleteIPPool(
+  conn: RouterOSAPI,
+  poolName: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Cari IP Pool berdasarkan name
+    console.log('[MikroTik IP Pool] Searching for pool to delete:', poolName)
+    const pools = await conn.write('/ip/pool/print', ['?name=' + poolName])
+    console.log('[MikroTik IP Pool] Found pools:', pools)
+    
+    if (!pools || pools.length === 0) {
+      // Pool tidak ada, anggap berhasil (idempotent)
+      console.log('[MikroTik IP Pool] Pool tidak ditemukan, anggap berhasil')
+      return { success: true }
+    }
+
+    const pool = pools[0]
+    const poolId = pool['.id']
+    const poolComment = pool['comment'] || ''
+
+    // Hanya hapus jika pool dibuat oleh netmanager
+    // Comment format: "add by netmanager - {poolName}"
+    const expectedComment = `add by netmanager - ${poolName}`
+    
+    if (poolComment !== expectedComment) {
+      console.log('[MikroTik IP Pool] Pool tidak dibuat oleh netmanager, skip hapus')
+      console.log('[MikroTik IP Pool] Expected comment:', expectedComment)
+      console.log('[MikroTik IP Pool] Actual comment:', poolComment)
+      // Pool tidak dibuat oleh netmanager, anggap berhasil (tidak error)
+      return { success: true }
+    }
+
+    console.log('[MikroTik IP Pool] Deleting pool:', poolName, 'ID:', poolId)
+
+    // Hapus IP Pool di MikroTik
+    // Untuk remove command, gunakan ID dengan format =.id=ID
+    // Format: conn.write(path, ['=.id=ID'])
+    const result = await conn.write('/ip/pool/remove', ['=.id=' + poolId])
+    console.log('[MikroTik IP Pool] Delete result:', result)
+
+    // Tunggu sebentar untuk memastikan pool sudah dihapus
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // Verifikasi pool sudah dihapus
+    const verifyPools = await conn.write('/ip/pool/print', ['?name=' + poolName])
+    
+    if (verifyPools && verifyPools.length > 0) {
+      console.warn('[MikroTik IP Pool] WARNING: Pool masih ada setelah dihapus!')
+      console.warn('[MikroTik IP Pool] Found pools:', verifyPools)
+      // Coba hapus lagi dengan ID yang baru
+      const retryPoolId = verifyPools[0]['.id']
+      const retryPoolComment = verifyPools[0]['comment'] || ''
+      // Pastikan masih pool yang dibuat oleh netmanager
+      const expectedComment = `add by netmanager - ${poolName}`
+      if (retryPoolComment === expectedComment) {
+        console.log('[MikroTik IP Pool] Retrying delete with ID:', retryPoolId)
+        await conn.write('/ip/pool/remove', ['=.id=' + retryPoolId])
+        // Tunggu lagi
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        // Verifikasi lagi
+        const verifyPools2 = await conn.write('/ip/pool/print', ['?name=' + poolName])
+        if (verifyPools2 && verifyPools2.length > 0) {
+          console.error('[MikroTik IP Pool] ERROR: Pool masih ada setelah retry delete!')
+          console.error('[MikroTik IP Pool] Pool mungkin sedang digunakan atau ada masalah dengan MikroTik')
+          return { success: false, error: 'IP Pool tidak dapat dihapus dari MikroTik. Pastikan pool tidak sedang digunakan.' }
+        } else {
+          console.log('[MikroTik IP Pool] Pool successfully deleted after retry')
+        }
+      } else {
+        console.log('[MikroTik IP Pool] Pool comment tidak sesuai, skip retry (bukan pool netmanager)')
+      }
+    } else {
+      console.log('[MikroTik IP Pool] Pool successfully deleted and verified')
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error('[MikroTik IP Pool] Error deleting pool:', error)
+    return { success: false, error: error.message || 'Gagal menghapus IP Pool di MikroTik' }
+  }
+}
+
+/**
  * Hapus profile PPP di MikroTik Router
+ * Juga menghapus IP Pool yang terkait jika dibuat oleh netmanager
  */
 export async function deletePPPProfileInMikroTik(
   routerId: string,
-  profileName: string
+  profileName: string,
+  remoteAddress?: string // Nama IP Pool yang terkait dengan profile
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Ambil data router dari database
@@ -746,19 +836,79 @@ export async function deletePPPProfileInMikroTik(
       const profiles = await conn.write('/ppp/profile/print', ['?name=' + profileName])
       console.log('[MikroTik PPP] Found profiles:', profiles)
       
+      let profileRemoteAddress = remoteAddress
+      
+      // Jika remoteAddress tidak disediakan, ambil dari profile yang ditemukan
+      if (!profileRemoteAddress && profiles && profiles.length > 0) {
+        profileRemoteAddress = profiles[0]['remote-address'] || profiles[0]['remoteAddress']
+        console.log('[MikroTik PPP] Got remoteAddress from profile:', profileRemoteAddress)
+      }
+      
       if (!profiles || profiles.length === 0) {
+        // Profile tidak ada, tapi tetap coba hapus IP Pool jika ada remoteAddress
+        if (profileRemoteAddress) {
+          console.log('[MikroTik PPP] Profile tidak ditemukan, tapi akan coba hapus IP Pool:', profileRemoteAddress)
+          const poolResult = await deleteIPPool(conn, profileRemoteAddress)
+          if (!poolResult.success) {
+            console.error('[MikroTik PPP] Failed to delete IP Pool:', poolResult.error)
+          }
+        }
         conn.close()
-        // Profile tidak ada, anggap berhasil (idempotent)
+        // Anggap berhasil (idempotent)
         return { success: true }
       }
 
       const profileId = profiles[0]['.id']
-      console.log('[MikroTik PPP] Deleting profile ID:', profileId)
+      console.log('[MikroTik PPP] Deleting profile:', profileName, 'ID:', profileId)
 
       // Hapus profile PPP di MikroTik
-      // Format: conn.write(path, [id])
-      const result = await conn.write('/ppp/profile/remove', [profileId])
+      // Untuk remove command, gunakan ID dengan format =.id=ID
+      // Format: conn.write(path, ['=.id=ID'])
+      const result = await conn.write('/ppp/profile/remove', ['=.id=' + profileId])
       console.log('[MikroTik PPP] Delete result:', result)
+
+      // Tunggu sebentar untuk memastikan profile sudah dihapus
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // Verifikasi profile sudah dihapus
+      const verifyProfiles = await conn.write('/ppp/profile/print', ['?name=' + profileName])
+      if (verifyProfiles && verifyProfiles.length > 0) {
+        console.warn('[MikroTik PPP] WARNING: Profile masih ada setelah dihapus!')
+        console.warn('[MikroTik PPP] Found profiles:', verifyProfiles)
+        // Coba hapus lagi dengan ID yang baru (retry)
+        const retryProfileId = verifyProfiles[0]['.id']
+        console.log('[MikroTik PPP] Retrying delete with ID:', retryProfileId)
+        await conn.write('/ppp/profile/remove', ['=.id=' + retryProfileId])
+        // Tunggu lagi
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        // Verifikasi lagi
+        const verifyProfiles2 = await conn.write('/ppp/profile/print', ['?name=' + profileName])
+        if (verifyProfiles2 && verifyProfiles2.length > 0) {
+          console.error('[MikroTik PPP] ERROR: Profile masih ada setelah retry delete!')
+          console.error('[MikroTik PPP] Profile mungkin sedang digunakan atau ada masalah dengan MikroTik')
+          conn.close()
+          return { success: false, error: 'Profile tidak dapat dihapus dari MikroTik. Pastikan profile tidak sedang digunakan oleh PPPoE client.' }
+        } else {
+          console.log('[MikroTik PPP] Profile successfully deleted after retry')
+        }
+      } else {
+        console.log('[MikroTik PPP] Profile successfully deleted and verified')
+      }
+
+      // Hapus IP Pool yang terkait jika ada remoteAddress
+      if (profileRemoteAddress) {
+        console.log('[MikroTik PPP] Deleting associated IP Pool:', profileRemoteAddress)
+        const poolResult = await deleteIPPool(conn, profileRemoteAddress)
+        if (!poolResult.success) {
+          console.error('[MikroTik PPP] Failed to delete IP Pool:', poolResult.error)
+          // Jangan gagalkan request, hanya log error
+          // Profile sudah dihapus, IP Pool bisa dihapus manual nanti jika diperlukan
+        } else {
+          console.log('[MikroTik PPP] IP Pool successfully deleted')
+        }
+      } else {
+        console.log('[MikroTik PPP] No remoteAddress provided, skipping IP Pool deletion')
+      }
 
       conn.close()
       return { success: true }

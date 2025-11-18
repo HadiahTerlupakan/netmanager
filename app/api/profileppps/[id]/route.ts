@@ -248,11 +248,13 @@ export async function DELETE(
     })
 
     // Hapus profile PPP di MikroTik jika ada router
+    // Juga hapus IP Pool yang terkait jika dibuat oleh netmanager
     if (profile?.mikroTikRouterId && profile.mikroTikRouter) {
       try {
         const mikrotikResult = await deletePPPProfileInMikroTik(
           profile.mikroTikRouterId,
-          profile.name
+          profile.name,
+          profile.remoteAddress // Kirim remoteAddress untuk menghapus IP Pool yang terkait
         )
 
         if (!mikrotikResult.success) {
