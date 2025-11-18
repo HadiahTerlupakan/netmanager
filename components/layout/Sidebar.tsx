@@ -28,7 +28,9 @@ import {
   HiOutlineCircleStack,
   HiOutlineUserCircle,
   HiOutlineCurrencyDollar,
-  HiOutlineUserGroup
+  HiOutlineUserGroup,
+  HiOutlineCog6Tooth,
+  HiOutlineKey
 } from 'react-icons/hi2'
 
 type NavItem = {
@@ -91,6 +93,14 @@ export default function Sidebar() {
       ],
     },
     { href: '/admin/users', label: 'Users', icon: <HiOutlineUsers className="w-5 h-5" /> },
+    {
+      href: '/admin/pengaturan',
+      label: 'Pengaturan',
+      icon: <HiOutlineCog6Tooth className="w-5 h-5" />,
+      children: [
+        { href: '/admin/pengaturan/api', label: 'API', icon: <HiOutlineKey className="w-4 h-4" /> },
+      ],
+    },
   ], [])
 
   // Auto-expand menu jika pathname aktif

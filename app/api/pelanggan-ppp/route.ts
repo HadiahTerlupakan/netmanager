@@ -76,6 +76,9 @@ export async function POST(req: NextRequest) {
     const jatuhTempo = formData.get('jatuhTempo') as string
     const status = formData.get('status') as string
     const alamat = formData.get('alamat') as string | null
+    const kabupatenKota = formData.get('kabupatenKota') as string | null
+    const kelurahanDesa = formData.get('kelurahanDesa') as string | null
+    const kecamatan = formData.get('kecamatan') as string | null
     const noTelp = formData.get('noTelp') as string | null
     const email = formData.get('email') as string | null
     const latitudeRaw = formData.get('latitude') as string | null
@@ -220,6 +223,9 @@ export async function POST(req: NextRequest) {
         jatuhTempo: new Date(jatuhTempo),
         status: status || 'AKTIF',
         alamat: alamat?.trim() || null,
+        kabupatenKota: kabupatenKota?.trim() || null,
+        kelurahanDesa: kelurahanDesa?.trim() || null,
+        kecamatan: kecamatan?.trim() || null,
         noTelp: noTelp?.trim() || null,
         email: email?.trim() || null,
         latitude: latitude || null,

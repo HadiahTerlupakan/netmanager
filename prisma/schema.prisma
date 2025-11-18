@@ -480,27 +480,27 @@ model ProfilePPP {
 
 // HargaPaket - Daftar paket internet dengan harga
 model HargaPaket {
-  id           String     @id @default(cuid())
-  name         String     @unique // Nama paket (e.g., "Paket 10 Mbps", "Paket Gaming")
-  bandwidthId  String? // Bandwidth (opsional, rate limit diambil dari Profile PPP)
-  bandwidth    Bandwidth? @relation(fields: [bandwidthId], references: [id], onDelete: SetNull)
-  profilePPPId String
-  profilePPP   ProfilePPP @relation(fields: [profilePPPId], references: [id], onDelete: Restrict)
-  harga        Int // Harga dalam rupiah
-  durasi       Int        @default(30) // Durasi (nilai numerik)
-  durasiUnit   DurasiUnit @default(HARI) // Unit durasi: JAM, HARI, atau BULAN
-  usePPN       Boolean    @default(false) // Gunakan PPN atau tidak
-  ppnPercentage Float?    // Persentase PPN (jika usePPN = true)
-  useDiscount  Boolean    @default(false) // Gunakan diskon atau tidak
-  discountType DiscountType? // Jenis diskon: FIXED atau PERCENT
-  discountValue Float?    // Nilai diskon (nominal jika FIXED, persentase jika PERCENT)
-  discountDuration Int?   // Durasi diskon berlaku (nilai numerik)
+  id                   String        @id @default(cuid())
+  name                 String        @unique // Nama paket (e.g., "Paket 10 Mbps", "Paket Gaming")
+  bandwidthId          String? // Bandwidth (opsional, rate limit diambil dari Profile PPP)
+  bandwidth            Bandwidth?    @relation(fields: [bandwidthId], references: [id], onDelete: SetNull)
+  profilePPPId         String
+  profilePPP           ProfilePPP    @relation(fields: [profilePPPId], references: [id], onDelete: Restrict)
+  harga                Int // Harga dalam rupiah
+  durasi               Int           @default(30) // Durasi (nilai numerik)
+  durasiUnit           DurasiUnit    @default(HARI) // Unit durasi: JAM, HARI, atau BULAN
+  usePPN               Boolean       @default(false) // Gunakan PPN atau tidak
+  ppnPercentage        Float? // Persentase PPN (jika usePPN = true)
+  useDiscount          Boolean       @default(false) // Gunakan diskon atau tidak
+  discountType         DiscountType? // Jenis diskon: FIXED atau PERCENT
+  discountValue        Float? // Nilai diskon (nominal jika FIXED, persentase jika PERCENT)
+  discountDuration     Int? // Durasi diskon berlaku (nilai numerik)
   discountDurationUnit DurasiUnit? // Unit durasi diskon: JAM, HARI, BULAN, atau TAHUN
-  description  String? // Deskripsi paket
-  featured     Boolean    @default(false) // Paket unggulan
-  status       Status     @default(AKTIF)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  description          String? // Deskripsi paket
+  featured             Boolean       @default(false) // Paket unggulan
+  status               Status        @default(AKTIF)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   pelanggans Pelanggan[] // Relasi ke Pelanggan
 
@@ -512,50 +512,53 @@ model HargaPaket {
 
 // Pelanggan - Data pelanggan PPPoE
 model Pelanggan {
-  id            String        @id @default(cuid())
-  idPelanggan   String        @unique // ID Pelanggan 8 digit (unique)
-  nama          String // Nama lengkap pelanggan
-  username      String // Username PPPoE
-  password      String // Password PPPoE (untuk koneksi PPPoE)
-  passwordLogin String // Password Login Portal (untuk login di portal pelanggan)
-  hargaPaketId  String
-  hargaPaket    HargaPaket    @relation(fields: [hargaPaketId], references: [id], onDelete: Restrict)
-  tipe          TipePelanggan @default(REGULER) // Tipe pelanggan: REGULER atau NON_REGULER
-  tanggalAktif  DateTime // Tanggal aktif layanan
-  jatuhTempo    DateTime // Tanggal jatuh tempo pembayaran
-  status        Status        @default(AKTIF) // Status: AKTIF, NONAKTIF, MAINTENANCE
-  alamat        String? // Alamat pelanggan
-  noTelp        String? // Nomor telepon
-  email         String? // Email pelanggan
-  latitude      Float? // Titik koordinat latitude
-  longitude     Float? // Titik koordinat longitude
-  jenisDokumen  String? // Jenis dokumen: KTP, SIM, atau Paspor
-  noDokumen     String? // Nomor dokumen (KTP/SIM/Paspor)
-  fileKTP       String? // Path file KTP
-  fileRumahSekitar String? // Path file Rumah Sekitar
-  fileBAST      String? // Path file BAST
-  catatan       String? // Catatan tambahan
-  usePPN        Boolean       @default(true) // Gunakan PPN atau tidak
-  useDiscount   Boolean       @default(false) // Gunakan diskon atau tidak
-  useProrate    Boolean       @default(false) // Gunakan perhitungan prorate atau tidak
+  id                            String        @id @default(cuid())
+  idPelanggan                   String        @unique // ID Pelanggan 8 digit (unique)
+  nama                          String // Nama lengkap pelanggan
+  username                      String // Username PPPoE
+  password                      String // Password PPPoE (untuk koneksi PPPoE)
+  passwordLogin                 String // Password Login Portal (untuk login di portal pelanggan)
+  hargaPaketId                  String
+  hargaPaket                    HargaPaket    @relation(fields: [hargaPaketId], references: [id], onDelete: Restrict)
+  tipe                          TipePelanggan @default(REGULER) // Tipe pelanggan: REGULER atau NON_REGULER
+  tanggalAktif                  DateTime // Tanggal aktif layanan
+  jatuhTempo                    DateTime // Tanggal jatuh tempo pembayaran
+  status                        Status        @default(AKTIF) // Status: AKTIF, NONAKTIF, MAINTENANCE
+  alamat                        String? // Alamat pelanggan
+  kabupatenKota                 String? // Kabupaten/Kota
+  kelurahanDesa                 String? // Kelurahan/Desa
+  kecamatan                     String? // Kecamatan
+  noTelp                        String? // Nomor telepon
+  email                         String? // Email pelanggan
+  latitude                      Float? // Titik koordinat latitude
+  longitude                     Float? // Titik koordinat longitude
+  jenisDokumen                  String? // Jenis dokumen: KTP, SIM, atau Paspor
+  noDokumen                     String? // Nomor dokumen (KTP/SIM/Paspor)
+  fileKTP                       String? // Path file KTP
+  fileRumahSekitar              String? // Path file Rumah Sekitar
+  fileBAST                      String? // Path file BAST
+  catatan                       String? // Catatan tambahan
+  usePPN                        Boolean       @default(true) // Gunakan PPN atau tidak
+  useDiscount                   Boolean       @default(false) // Gunakan diskon atau tidak
+  useProrate                    Boolean       @default(false) // Gunakan perhitungan prorate atau tidak
   // Custom diskon per pelanggan (jika diisi, akan override diskon dari paket)
-  discountType DiscountType? // Jenis diskon custom: FIXED atau PERCENT
-  discountValue Float? // Nilai diskon custom (nominal jika FIXED, persentase jika PERCENT)
-  discountDuration Int? // Durasi diskon custom berlaku (nilai numerik)
-  discountDurationUnit DurasiUnit? // Unit durasi diskon custom: JAM, HARI, BULAN, atau TAHUN
+  discountType                  DiscountType? // Jenis diskon custom: FIXED atau PERCENT
+  discountValue                 Float? // Nilai diskon custom (nominal jika FIXED, persentase jika PERCENT)
+  discountDuration              Int? // Durasi diskon custom berlaku (nilai numerik)
+  discountDurationUnit          DurasiUnit? // Unit durasi diskon custom: JAM, HARI, BULAN, atau TAHUN
   // Biaya lain-lain
-  biayaInstalasi Int? // Biaya instalasi (opsional)
-  biayaInstalasiIsRecurring Boolean @default(false) // Apakah biaya instalasi berulang atau 1x
-  biayaInstalasiDiskon Float? // Diskon persentase untuk biaya instalasi (opsional)
-  biayaSewaPerangkat Int? // Biaya sewa perangkat (opsional)
-  biayaSewaPerangkatIsRecurring Boolean @default(true) // Apakah biaya sewa perangkat berulang atau 1x (default: berulang)
-  biayaSewaPerangkatDiskon Float? // Diskon persentase untuk sewa perangkat (opsional)
-  biayaLainnya Int? // Biaya lain-lain (opsional)
-  biayaLainnyaIsRecurring Boolean @default(false) // Apakah biaya lain-lain berulang atau 1x
-  biayaLainnyaDiskon Float? // Diskon persentase untuk biaya lain-lain (opsional)
-  keteranganBiayaLainnya String? // Keterangan untuk biaya lain-lain
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  biayaInstalasi                Int? // Biaya instalasi (opsional)
+  biayaInstalasiIsRecurring     Boolean       @default(false) // Apakah biaya instalasi berulang atau 1x
+  biayaInstalasiDiskon          Float? // Diskon persentase untuk biaya instalasi (opsional)
+  biayaSewaPerangkat            Int? // Biaya sewa perangkat (opsional)
+  biayaSewaPerangkatIsRecurring Boolean       @default(true) // Apakah biaya sewa perangkat berulang atau 1x (default: berulang)
+  biayaSewaPerangkatDiskon      Float? // Diskon persentase untuk sewa perangkat (opsional)
+  biayaLainnya                  Int? // Biaya lain-lain (opsional)
+  biayaLainnyaIsRecurring       Boolean       @default(false) // Apakah biaya lain-lain berulang atau 1x
+  biayaLainnyaDiskon            Float? // Diskon persentase untuk biaya lain-lain (opsional)
+  keteranganBiayaLainnya        String? // Keterangan untuk biaya lain-lain
+  createdAt                     DateTime      @default(now())
+  updatedAt                     DateTime      @updatedAt
 
   @@index([idPelanggan])
   @@index([hargaPaketId])
@@ -564,4 +567,17 @@ model Pelanggan {
   @@index([tanggalAktif])
   @@index([jatuhTempo])
   @@index([email])
+}
+
+// Settings - Konfigurasi aplikasi
+model Settings {
+  id          String   @id @default(cuid())
+  key         String   @unique // Key pengaturan (e.g., "GOOGLE_GEMINI_API_KEY")
+  value       String? // Value pengaturan (bisa null untuk rahasia)
+  encrypted   Boolean  @default(false) // Apakah value di-encrypt
+  description String? // Deskripsi pengaturan
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
 }

@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash } from 'react-icons/hi2'
-import { MapPickerWithSearch } from '@/components/common/MapPicker'
+import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiDocumentText } from 'react-icons/hi2'
 
 type HargaPaket = {
   id: string
@@ -44,6 +43,9 @@ export default function PelangganPPPNewPage() {
   const [fileKTP, setFileKTP] = useState<File | null>(null)
   const [fileRumahSekitar, setFileRumahSekitar] = useState<File | null>(null)
   const [fileBAST, setFileBAST] = useState<File | null>(null)
+  const [scanningKTP, setScanningKTP] = useState(false)
+  const [ktpScanError, setKtpScanError] = useState<string | null>(null)
+  const [ktpScanSuccess, setKtpScanSuccess] = useState(false)
 
   const [formData, setFormData] = useState({
     idPelanggan: '',
@@ -57,6 +59,9 @@ export default function PelangganPPPNewPage() {
     jatuhTempo: '',
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
     alamat: '',
+    kabupatenKota: '',
+    kelurahanDesa: '',
+    kecamatan: '',
     noTelp: '',
     email: '',
     latitude: null as number | null,
@@ -542,6 +547,152 @@ export default function PelangganPPPNewPage() {
       currency: 'IDR',
       minimumFractionDigits: 0,
     }).format(amount)
+  }
+
+  // Fungsi untuk scan KTP dan auto-fill form
+  const handleScanKTP = async (file?: File) => {
+    const fileToScan = file || fileKTP
+    
+    if (!fileToScan) {
+      setKtpScanError('Silakan pilih file KTP terlebih dahulu')
+      return
+    }
+
+    // Validasi tipe file
+    if (!fileToScan.type.startsWith('image/')) {
+      setKtpScanError('File harus berupa gambar (PNG, JPG, JPEG)')
+      return
+    }
+
+    try {
+      setScanningKTP(true)
+      setKtpScanError(null)
+      console.log('Starting KTP scan for file:', fileToScan.name)
+
+      const formDataToSend = new FormData()
+      formDataToSend.append('file', fileToScan)
+
+      console.log('Sending request to /api/ktp-ocr')
+      const res = await fetch('/api/ktp-ocr', {
+        method: 'POST',
+        body: formDataToSend,
+      })
+
+      console.log('Response status:', res.status, res.statusText)
+
+      if (!res.ok) {
+        let errorData
+        try {
+          errorData = await res.json()
+        } catch {
+          errorData = { error: `HTTP ${res.status}: ${res.statusText}` }
+        }
+        console.error('API Error:', errorData)
+        const errorMessage = errorData.error || 'Gagal memproses KTP'
+        throw new Error(typeof errorMessage === 'string' ? errorMessage : errorMessage.message || 'Gagal memproses KTP')
+      }
+
+      const result = await res.json()
+      console.log('API Response:', result)
+      
+      const ktpData = result.data
+      console.log('KTP Data received:', ktpData)
+
+      if (!ktpData) {
+        throw new Error('Data KTP tidak ditemukan')
+      }
+
+      // Auto-fill form dengan data dari KTP
+      setFormData((prev) => {
+        const updated = { ...prev }
+
+        // Nama
+        if (ktpData.nama && ktpData.nama.trim()) {
+          updated.nama = ktpData.nama.trim()
+          console.log('Set nama:', updated.nama)
+        }
+
+        // NIK (noDokumen)
+        if (ktpData.nik && ktpData.nik.trim()) {
+          updated.noDokumen = ktpData.nik.trim()
+          console.log('Set NIK:', updated.noDokumen)
+        }
+
+        // Alamat - gabungkan semua bagian alamat
+        const alamatParts = []
+        if (ktpData.alamat_jalan && ktpData.alamat_jalan.trim()) {
+          alamatParts.push(ktpData.alamat_jalan.trim())
+        }
+        if (ktpData.rt_rw && ktpData.rt_rw.trim()) {
+          alamatParts.push(`RT/RW ${ktpData.rt_rw.trim()}`)
+        }
+        if (ktpData.kel_desa && ktpData.kel_desa.trim()) {
+          alamatParts.push(`Kel/Desa ${ktpData.kel_desa.trim()}`)
+        }
+        if (ktpData.kecamatan && ktpData.kecamatan.trim()) {
+          alamatParts.push(`Kec. ${ktpData.kecamatan.trim()}`)
+        }
+        
+        if (alamatParts.length > 0) {
+          updated.alamat = alamatParts.join(', ')
+          console.log('Set alamat:', updated.alamat)
+        }
+
+        // Kabupaten/Kota - dari tempat_dikeluarkan atau tempat_lahir
+        if (ktpData.tempat_dikeluarkan && ktpData.tempat_dikeluarkan.trim()) {
+          updated.kabupatenKota = ktpData.tempat_dikeluarkan.trim()
+          console.log('Set kabupaten/kota:', updated.kabupatenKota)
+        } else if (ktpData.tempat_lahir && ktpData.tempat_lahir.trim()) {
+          // Fallback ke tempat lahir jika tempat_dikeluarkan tidak ada
+          updated.kabupatenKota = ktpData.tempat_lahir.trim()
+          console.log('Set kabupaten/kota (dari tempat lahir):', updated.kabupatenKota)
+        }
+
+        // Kelurahan/Desa
+        if (ktpData.kel_desa && ktpData.kel_desa.trim()) {
+          updated.kelurahanDesa = ktpData.kel_desa.trim()
+          console.log('Set kelurahan/desa:', updated.kelurahanDesa)
+        }
+
+        // Kecamatan
+        if (ktpData.kecamatan && ktpData.kecamatan.trim()) {
+          updated.kecamatan = ktpData.kecamatan.trim()
+          console.log('Set kecamatan:', updated.kecamatan)
+        }
+
+        console.log('Updated form data:', {
+          nama: updated.nama,
+          noDokumen: updated.noDokumen,
+          alamat: updated.alamat,
+          kabupatenKota: updated.kabupatenKota,
+          kecamatan: updated.kecamatan,
+          kelurahanDesa: updated.kelurahanDesa,
+        })
+        return updated
+      })
+
+      // Force re-render dengan setTimeout untuk memastikan state ter-update
+      setTimeout(() => {
+        console.log('Form data after update:', formData)
+      }, 100)
+
+      // Tampilkan notifikasi sukses
+      setKtpScanError(null)
+      setKtpScanSuccess(true)
+      console.log('Scan KTP berhasil, form telah diisi')
+      
+      // Auto-hide success message setelah 3 detik
+      setTimeout(() => {
+        setKtpScanSuccess(false)
+      }, 3000)
+    } catch (err: any) {
+      console.error('Error scanning KTP:', err)
+      const errorMessage = err.message || 'Terjadi kesalahan saat memproses KTP'
+      setKtpScanError(errorMessage)
+      setKtpScanSuccess(false)
+    } finally {
+      setScanningKTP(false)
+    }
   }
 
   return (
@@ -1320,6 +1471,75 @@ export default function PelangganPPPNewPage() {
             </div>
 
             <div className="space-y-2">
+              <label htmlFor="noDokumen" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                No. Dokumen (NIK/Nomor SIM/Nomor Paspor)
+              </label>
+              <input
+                id="noDokumen"
+                name="noDokumen"
+                type="text"
+                value={formData.noDokumen}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                placeholder="Masukkan nomor dokumen"
+              />
+            </div>
+
+            {/* Informasi Wilayah */}
+            <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                Informasi Wilayah
+              </h4>
+              
+              <div className="space-y-2">
+                <label htmlFor="kabupatenKota" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Kabupaten/Kota
+                </label>
+                <input
+                  id="kabupatenKota"
+                  name="kabupatenKota"
+                  type="text"
+                  value={formData.kabupatenKota}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  placeholder="Masukkan kabupaten/kota"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="kecamatan" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Kecamatan
+                  </label>
+                  <input
+                    id="kecamatan"
+                    name="kecamatan"
+                    type="text"
+                    value={formData.kecamatan}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                    placeholder="Masukkan kecamatan"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="kelurahanDesa" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Kelurahan/Desa
+                  </label>
+                  <input
+                    id="kelurahanDesa"
+                    name="kelurahanDesa"
+                    type="text"
+                    value={formData.kelurahanDesa}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                    placeholder="Masukkan kelurahan/desa"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Titik Koordinat (Tikor)
               </label>
@@ -1356,14 +1576,6 @@ export default function PelangganPPPNewPage() {
                     />
                   </div>
                 </div>
-                <MapPickerWithSearch
-                  lat={formData.latitude}
-                  lon={formData.longitude}
-                  height={300}
-                  onChange={(lat, lon) => {
-                    setFormData((prev) => ({ ...prev, latitude: lat, longitude: lon }))
-                  }}
-                />
               </div>
             </div>
           </div>
@@ -1534,14 +1746,58 @@ export default function PelangganPPPNewPage() {
                       id="fileKTP-sidebar"
                       name="fileKTP"
                       type="file"
-                      accept="image/*,.pdf"
-                      onChange={(e) => setFileKTP(e.target.files?.[0] || null)}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/20 dark:file:text-indigo-400 dark:hover:file:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                      accept="image/png,image/jpeg,image/jpg"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0] || null
+                        setFileKTP(file)
+                        setKtpScanError(null) // Reset error saat file berubah
+                        setKtpScanSuccess(false) // Reset success saat file berubah
+                        
+                        // Auto-scan saat file di-upload
+                        if (file && file.type.startsWith('image/')) {
+                          // Switch ke tab info untuk melihat form yang terisi
+                          setActiveTab('info')
+                          // Delay sedikit untuk memastikan tab sudah switch
+                          setTimeout(async () => {
+                            try {
+                              await handleScanKTP(file)
+                            } catch (error) {
+                              console.error('Error in onChange handler:', error)
+                              setKtpScanError('Terjadi kesalahan saat memproses KTP')
+                              setScanningKTP(false)
+                            }
+                          }, 100)
+                        } else if (file) {
+                          setKtpScanError('File harus berupa gambar (PNG, JPG, JPEG)')
+                        }
+                      }}
+                      disabled={scanningKTP}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/20 dark:file:text-indigo-400 dark:hover:file:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     {fileKTP && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {fileKTP.name} ({(fileKTP.size / 1024).toFixed(2)} KB)
-                      </p>
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {fileKTP.name} ({(fileKTP.size / 1024).toFixed(2)} KB)
+                        </p>
+                        {scanningKTP && (
+                          <div className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400">
+                            <HiArrowPath className="w-4 h-4 animate-spin" />
+                            <span>Memproses KTP dan mengisi form otomatis...</span>
+                          </div>
+                        )}
+                        {ktpScanSuccess && (
+                          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-2">
+                            <p className="text-xs text-green-800 dark:text-green-400">
+                              ✓ Data KTP berhasil diekstrak dan form telah diisi otomatis
+                            </p>
+                          </div>
+                        )}
+                        {ktpScanError && (
+                          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2">
+                            <p className="text-xs text-red-800 dark:text-red-400">{ktpScanError}</p>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
