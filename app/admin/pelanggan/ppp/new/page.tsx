@@ -430,7 +430,8 @@ export default function PelangganPPPNewPage() {
       }
 
       if (durasiPaketHari > 0 && selisihHari > 0) {
-        const prorateRatio = Math.min(selisihHari / durasiPaketHari, 1) // Maksimal 100%
+        // Hitung prorate ratio (bisa lebih dari 1 jika periode melebihi durasi paket)
+        const prorateRatio = selisihHari / durasiPaketHari
         const hargaSebelumProrate = subtotal
         subtotal = Math.round(subtotal * prorateRatio)
         prorateInfo = {
@@ -1938,7 +1939,11 @@ export default function PelangganPPPNewPage() {
                         <div className="flex justify-between items-center text-blue-600 dark:text-blue-400">
                           <span>Prorate ({Math.round(totalInfo.prorateInfo.ratio * 100)}%)</span>
                           <span className="font-medium">
-                            - {formatRupiah(totalInfo.prorateInfo.hargaSebelumProrate - totalInfo.prorateInfo.hargaSetelahProrate)}
+                            {totalInfo.prorateInfo.ratio <= 1 ? (
+                              <>- {formatRupiah(totalInfo.prorateInfo.hargaSebelumProrate - totalInfo.prorateInfo.hargaSetelahProrate)}</>
+                            ) : (
+                              <>+ {formatRupiah(totalInfo.prorateInfo.hargaSetelahProrate - totalInfo.prorateInfo.hargaSebelumProrate)}</>
+                            )}
                           </span>
                         </div>
                         <div className="text-xs text-blue-600 dark:text-blue-400 ml-2">
