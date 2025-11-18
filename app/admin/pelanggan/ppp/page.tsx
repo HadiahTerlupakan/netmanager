@@ -53,18 +53,17 @@ export default function PelangganPPPPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus pelanggan ini?')) {
+    if (!confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Tindakan ini tidak dapat dibatalkan.')) {
       return
     }
 
     try {
-      // TODO: Implementasi API delete
-      // const res = await fetch(`/api/pelanggan-ppp/${id}`, { method: 'DELETE' })
-      // if (!res.ok) {
-      //   throw new Error('Gagal menghapus pelanggan')
-      // }
-      // await loadData()
-      alert('Fitur hapus akan segera tersedia setelah API endpoint dibuat')
+      const res = await fetch(`/api/pelanggan-ppp/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Gagal menghapus pelanggan')
+      }
+      await loadData()
     } catch (err: any) {
       alert(err.message || 'Terjadi kesalahan saat menghapus data')
     }
@@ -250,6 +249,12 @@ export default function PelangganPPPPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <div className="flex items-center justify-end gap-3">
+                        <Link
+                          href={`/admin/pelanggan/ppp/${pelanggan.id}`}
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium inline-flex items-center gap-1"
+                        >
+                          Lihat
+                        </Link>
                         <Link
                           href={`/admin/pelanggan/ppp/${pelanggan.id}/edit`}
                           className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center gap-1"
