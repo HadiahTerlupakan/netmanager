@@ -525,6 +525,7 @@ model Pelanggan {
   jatuhTempo                    DateTime // Tanggal jatuh tempo pembayaran
   status                        Status        @default(AKTIF) // Status: AKTIF, NONAKTIF, MAINTENANCE
   alamat                        String? // Alamat pelanggan
+  provinsi                      String? // Provinsi
   kabupatenKota                 String? // Kabupaten/Kota
   kelurahanDesa                 String? // Kelurahan/Desa
   kecamatan                     String? // Kecamatan

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { writeFile, mkdir } from 'fs/promises'
+import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import path from 'path'
 
 /**
@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
     const jatuhTempo = formData.get('jatuhTempo') as string
     const status = formData.get('status') as string
     const alamat = formData.get('alamat') as string | null
+    const provinsi = formData.get('provinsi') as string | null
     const kabupatenKota = formData.get('kabupatenKota') as string | null
     const kelurahanDesa = formData.get('kelurahanDesa') as string | null
     const kecamatan = formData.get('kecamatan') as string | null
@@ -124,45 +125,53 @@ export async function POST(req: NextRequest) {
     const biayaLainnyaDiskon = biayaLainnyaDiskonRaw ? parseFloat(biayaLainnyaDiskonRaw) : null
     const keteranganBiayaLainnya = formData.get('keteranganBiayaLainnya') as string | null
     
-    // Handle file uploads
+    // Handle file uploads dengan struktur folder yang rapi
+    // Struktur: public/uploads/pelanggan/ID_PELANGGAN/ktp.webp, rumah.webp, bast.webp
     const fileKTP = formData.get('fileKTP') as File | null
     const fileRumahSekitar = formData.get('fileRumahSekitar') as File | null
     const fileBAST = formData.get('fileBAST') as File | null
     
-    // Save files if provided
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'pelanggan')
+    // Direktori untuk pelanggan ini (berdasarkan ID)
+    const pelangganUploadDir = path.join(process.cwd(), 'public', 'uploads', 'pelanggan', idPelanggan.trim())
     let fileKTPPath: string | null = null
     let fileRumahSekitarPath: string | null = null
     let fileBASTPath: string | null = null
     
     try {
-      await mkdir(uploadDir, { recursive: true })
-      
+      // Simpan file KTP (selalu konversi ke WebP jika gambar)
       if (fileKTP && fileKTP.size > 0) {
-        const fileName = `${idPelanggan}_ktp_${Date.now()}${path.extname(fileKTP.name)}`
-        fileKTPPath = path.join(uploadDir, fileName)
-        const bytes = await fileKTP.arrayBuffer()
-        const buffer = Buffer.from(bytes)
-        await writeFile(fileKTPPath, buffer)
-        fileKTPPath = `/uploads/pelanggan/${fileName}`
+        if (isImageFile(fileKTP)) {
+          // Konversi gambar ke WebP
+          fileKTPPath = await convertAndSaveImage(fileKTP, pelangganUploadDir, 'ktp')
+        } else {
+          // Jika bukan gambar, simpan as-is (untuk PDF dll)
+          const ext = path.extname(fileKTP.name) || '.pdf'
+          fileKTPPath = await saveFile(fileKTP, pelangganUploadDir, `ktp${ext}`)
+        }
       }
       
+      // Simpan file Rumah Sekitar (selalu konversi ke WebP jika gambar)
       if (fileRumahSekitar && fileRumahSekitar.size > 0) {
-        const fileName = `${idPelanggan}_rumah_${Date.now()}${path.extname(fileRumahSekitar.name)}`
-        fileRumahSekitarPath = path.join(uploadDir, fileName)
-        const bytes = await fileRumahSekitar.arrayBuffer()
-        const buffer = Buffer.from(bytes)
-        await writeFile(fileRumahSekitarPath, buffer)
-        fileRumahSekitarPath = `/uploads/pelanggan/${fileName}`
+        if (isImageFile(fileRumahSekitar)) {
+          // Konversi gambar ke WebP
+          fileRumahSekitarPath = await convertAndSaveImage(fileRumahSekitar, pelangganUploadDir, 'rumah')
+        } else {
+          // Jika bukan gambar, simpan as-is
+          const ext = path.extname(fileRumahSekitar.name) || '.pdf'
+          fileRumahSekitarPath = await saveFile(fileRumahSekitar, pelangganUploadDir, `rumah${ext}`)
+        }
       }
       
+      // Simpan file BAST (selalu konversi ke WebP jika gambar)
       if (fileBAST && fileBAST.size > 0) {
-        const fileName = `${idPelanggan}_bast_${Date.now()}${path.extname(fileBAST.name)}`
-        fileBASTPath = path.join(uploadDir, fileName)
-        const bytes = await fileBAST.arrayBuffer()
-        const buffer = Buffer.from(bytes)
-        await writeFile(fileBASTPath, buffer)
-        fileBASTPath = `/uploads/pelanggan/${fileName}`
+        if (isImageFile(fileBAST)) {
+          // Konversi gambar ke WebP
+          fileBASTPath = await convertAndSaveImage(fileBAST, pelangganUploadDir, 'bast')
+        } else {
+          // Jika bukan gambar, simpan as-is
+          const ext = path.extname(fileBAST.name) || '.pdf'
+          fileBASTPath = await saveFile(fileBAST, pelangganUploadDir, `bast${ext}`)
+        }
       }
     } catch (fileError: any) {
       console.error('Error saving files:', fileError)
@@ -223,6 +232,7 @@ export async function POST(req: NextRequest) {
         jatuhTempo: new Date(jatuhTempo),
         status: status || 'AKTIF',
         alamat: alamat?.trim() || null,
+        provinsi: provinsi?.trim() || null,
         kabupatenKota: kabupatenKota?.trim() || null,
         kelurahanDesa: kelurahanDesa?.trim() || null,
         kecamatan: kecamatan?.trim() || null,

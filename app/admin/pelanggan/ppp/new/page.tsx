@@ -59,6 +59,7 @@ export default function PelangganPPPNewPage() {
     jatuhTempo: '',
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
     alamat: '',
+    provinsi: '',
     kabupatenKota: '',
     kelurahanDesa: '',
     kecamatan: '',
@@ -581,15 +582,31 @@ export default function PelangganPPPNewPage() {
       console.log('Response status:', res.status, res.statusText)
 
       if (!res.ok) {
-        let errorData
+        let errorData: any = {}
+        let errorMessage = `HTTP ${res.status}: ${res.statusText}`
+        
         try {
-          errorData = await res.json()
-        } catch {
-          errorData = { error: `HTTP ${res.status}: ${res.statusText}` }
+          const text = await res.text()
+          if (text) {
+            errorData = JSON.parse(text)
+            errorMessage = errorData.error || errorMessage
+          }
+        } catch (e) {
+          console.error('Failed to parse error response:', e)
+          errorData = { error: errorMessage }
         }
-        console.error('API Error:', errorData)
-        const errorMessage = errorData.error || 'Gagal memproses KTP'
-        throw new Error(typeof errorMessage === 'string' ? errorMessage : errorMessage.message || 'Gagal memproses KTP')
+        
+        console.error('API Error:', {
+          status: res.status,
+          statusText: res.statusText,
+          errorData,
+        })
+        
+        const finalErrorMessage = typeof errorMessage === 'string' 
+          ? errorMessage 
+          : errorMessage?.message || 'Gagal memproses KTP'
+        
+        throw new Error(finalErrorMessage)
       }
 
       const result = await res.json()
@@ -660,10 +677,17 @@ export default function PelangganPPPNewPage() {
           console.log('Set kecamatan:', updated.kecamatan)
         }
 
+        // Provinsi
+        if (ktpData.provinsi && ktpData.provinsi.trim()) {
+          updated.provinsi = ktpData.provinsi.trim()
+          console.log('Set provinsi:', updated.provinsi)
+        }
+
         console.log('Updated form data:', {
           nama: updated.nama,
           noDokumen: updated.noDokumen,
           alamat: updated.alamat,
+          provinsi: updated.provinsi,
           kabupatenKota: updated.kabupatenKota,
           kecamatan: updated.kecamatan,
           kelurahanDesa: updated.kelurahanDesa,
@@ -1491,19 +1515,36 @@ export default function PelangganPPPNewPage() {
                 Informasi Wilayah
               </h4>
               
-              <div className="space-y-2">
-                <label htmlFor="kabupatenKota" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Kabupaten/Kota
-                </label>
-                <input
-                  id="kabupatenKota"
-                  name="kabupatenKota"
-                  type="text"
-                  value={formData.kabupatenKota}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                  placeholder="Masukkan kabupaten/kota"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="provinsi" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Provinsi
+                  </label>
+                  <input
+                    id="provinsi"
+                    name="provinsi"
+                    type="text"
+                    value={formData.provinsi}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                    placeholder="Masukkan provinsi"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="kabupatenKota" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Kabupaten/Kota
+                  </label>
+                  <input
+                    id="kabupatenKota"
+                    name="kabupatenKota"
+                    type="text"
+                    value={formData.kabupatenKota}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                    placeholder="Masukkan kabupaten/kota"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
