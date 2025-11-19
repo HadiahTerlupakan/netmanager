@@ -124,6 +124,7 @@ export async function POST(req: NextRequest) {
     const biayaLainnyaDiskonRaw = formData.get('biayaLainnyaDiskon') as string | null
     const biayaLainnyaDiskon = biayaLainnyaDiskonRaw ? parseFloat(biayaLainnyaDiskonRaw) : null
     const keteranganBiayaLainnya = formData.get('keteranganBiayaLainnya') as string | null
+    const odpId = formData.get('odpId') as string | null
     
     // Handle file uploads dengan struktur folder yang rapi
     // Struktur: public/uploads/pelanggan/ID_PELANGGAN/ktp.webp, rumah.webp, bast.webp
@@ -263,6 +264,7 @@ export async function POST(req: NextRequest) {
         biayaLainnyaIsRecurring: biayaLainnyaIsRecurring ?? false,
         biayaLainnyaDiskon: useDiskonBiayaLainnya ? (biayaLainnyaDiskon || null) : null,
         keteranganBiayaLainnya: keteranganBiayaLainnya?.trim() || null,
+        odpId: odpId?.trim() || null,
       },
       include: {
         hargaPaket: {

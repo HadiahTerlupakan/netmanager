@@ -29,12 +29,20 @@ type HargaPaket = {
   } | null
 }
 
+type Odp = {
+  id: string
+  name: string
+  location: string | null
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+}
+
 export default function PelangganPPPNewPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([])
+  const [odps, setOdps] = useState<Odp[]>([])
   const [idPelangganError, setIdPelangganError] = useState<string | null>(null)
   const [checkingId, setCheckingId] = useState(false)
   const [showPasswordLogin, setShowPasswordLogin] = useState(false)
@@ -92,6 +100,7 @@ export default function PelangganPPPNewPage() {
     useDiskonBiayaLainnya: false, // Centang untuk menggunakan diskon biaya lainnya
     biayaLainnyaDiskon: null as number | null,
     keteranganBiayaLainnya: '',
+    odpId: '', // ODP yang digunakan pelanggan
   })
 
   // Generate ID pelanggan otomatis (angka unik 8 digit) - sync version (fallback)
@@ -160,6 +169,7 @@ export default function PelangganPPPNewPage() {
       }))
     })
     loadHargaPakets()
+    loadOdps()
   }, [])
 
   const loadHargaPakets = async () => {
@@ -174,6 +184,18 @@ export default function PelangganPPPNewPage() {
       console.error('Error loading harga pakets:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadOdps = async () => {
+    try {
+      const res = await fetch('/api/odps')
+      if (res.ok) {
+        const data = await res.json()
+        setOdps(data.odps || [])
+      }
+    } catch (err: any) {
+      console.error('Error loading ODPs:', err)
     }
   }
 
@@ -1578,6 +1600,35 @@ export default function PelangganPPPNewPage() {
                     placeholder="Masukkan kelurahan/desa"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* ODP Selection */}
+            <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                ODP (Optical Distribution Point)
+              </h4>
+              <div className="space-y-2">
+                <label htmlFor="odpId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Pilih ODP
+                </label>
+                <select
+                  id="odpId"
+                  name="odpId"
+                  value={formData.odpId}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                >
+                  <option value="">-- Pilih ODP --</option>
+                  {odps.map((odp) => (
+                    <option key={odp.id} value={odp.id}>
+                      {odp.name} {odp.location ? `- ${odp.location}` : ''} ({odp.status})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Pilih ODP yang digunakan oleh pelanggan (opsional)
+                </p>
               </div>
             </div>
 

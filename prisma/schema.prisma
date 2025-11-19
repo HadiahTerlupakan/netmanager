@@ -179,6 +179,9 @@ model Odp {
 
   // OUTPUT: Banyak output cores dari ODP ini
   outputs OdpOutput[]
+
+  // Relasi ke Pelanggan
+  pelanggans Pelanggan[]
 }
 
 model OdpOutput {
@@ -558,6 +561,8 @@ model Pelanggan {
   biayaLainnyaIsRecurring       Boolean       @default(false) // Apakah biaya lain-lain berulang atau 1x
   biayaLainnyaDiskon            Float? // Diskon persentase untuk biaya lain-lain (opsional)
   keteranganBiayaLainnya        String? // Keterangan untuk biaya lain-lain
+  odpId                         String? // ODP yang digunakan pelanggan (opsional)
+  odp                           Odp?          @relation(fields: [odpId], references: [id], onDelete: SetNull)
   createdAt                     DateTime      @default(now())
   updatedAt                     DateTime      @updatedAt
 

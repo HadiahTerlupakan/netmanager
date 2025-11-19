@@ -101,10 +101,6 @@ export const apiRateLimitConfig: Record<string, RateLimitOptions> = {
     maxRequests: 20,
     windowSeconds: 60, // 20 requests per minute
   },
-  '/api/olts/onus/sync': {
-    maxRequests: 5,
-    windowSeconds: 300, // 5 requests per 5 minutes
-  },
   '/api/kmz': {
     maxRequests: 10,
     windowSeconds: 60, // 10 uploads per minute

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getOLTRepository } from '@/lib/repositories'
-import { getAllCardsViaSNMP } from '@/app/api/olts/onus/route'
+import snmp from 'net-snmp'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -15,6 +15,91 @@ async function requireAdmin() {
     return null
   }
   return session
+}
+
+/**
+ * Get all cards (frames) from OLT via SNMP
+ * OID: 1.3.6.1.4.1.3902.1012.3.28.1.1.2 (zxGponOltGponPortFrame)
+ */
+async function getAllCardsViaSNMP(
+  ipAddress: string,
+  port: number,
+  community: string,
+  version: string
+): Promise<Array<{
+  frame: number
+  card: number
+  slots: Array<{ slot: number; ports: number[] }>
+  totalSlots: number
+  totalPorts: number
+}>> {
+  return new Promise((resolve, reject) => {
+    const session = snmp.createSession(ipAddress, community, {
+      port,
+      version: version === '2c' ? snmp.Version2c : snmp.Version1,
+      retries: 3,
+      timeout: 10000,
+    })
+
+    // OID untuk mendapatkan frame numbers
+    const frameOid = '1.3.6.1.4.1.3902.1012.3.28.1.1.2'
+    const cards: Map<number, { frame: number; card: number; slots: Map<number, Set<number>> }> = new Map()
+
+    session.subtree(frameOid, (error: any, varbinds: any[]) => {
+      session.close()
+
+      if (error) {
+        console.error('[Card-SNMP] Error walking frame OID:', error)
+        reject(error)
+        return
+      }
+
+      // Parse varbinds untuk mendapatkan frame/slot/port
+      for (const varbind of varbinds) {
+        if (snmp.isVarbindError(varbind)) continue
+
+        const oid = varbind.oid.split('.').map(Number)
+        // Format: ...frame.slot.port
+        if (oid.length >= 3) {
+          const frame = oid[oid.length - 3]
+          const slot = oid[oid.length - 2]
+          const portNum = oid[oid.length - 1]
+
+          if (!cards.has(frame)) {
+            cards.set(frame, {
+              frame,
+              card: frame, // Frame = Card
+              slots: new Map(),
+            })
+          }
+
+          const card = cards.get(frame)!
+          if (!card.slots.has(slot)) {
+            card.slots.set(slot, new Set())
+          }
+          card.slots.get(slot)!.add(portNum)
+        }
+      }
+
+      // Convert to array format
+      const result = Array.from(cards.values()).map((card) => {
+        const slots = Array.from(card.slots.entries()).map(([slot, ports]) => ({
+          slot,
+          ports: Array.from(ports).sort((a, b) => a - b),
+        }))
+
+        return {
+          frame: card.frame,
+          card: card.card,
+          slots,
+          totalSlots: slots.length,
+          totalPorts: slots.reduce((sum, s) => sum + s.ports.length, 0),
+        }
+      })
+
+      resolve(result.sort((a, b) => a.frame - b.frame))
+    })
+  })
 }
 
 /**

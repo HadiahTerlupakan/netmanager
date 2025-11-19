@@ -1,1397 +1,598 @@
 "use client"
 
-import { useEffect, useState, useMemo } from 'react'
-import { HiCheck, HiArrowTopRightOnSquare, HiXMark, HiQuestionMarkCircle, HiOutlineChartBar, HiOutlineFunnel, HiArrowPath, HiOutlineCpuChip, HiChevronDown, HiOutlineGlobeAlt, HiOutlineWifi, HiOutlineViewColumns, HiDocumentArrowDown, HiArrowPath as HiRefresh, HiXMark as HiClose, HiExclamationTriangle, HiCheckCircle, HiArrowPath as HiArrowPathIcon, HiXCircle, HiExclamationCircle, HiCog6Tooth, HiChevronUpDown, HiCircleStack, HiSignal, HiSignalSlash } from 'react-icons/hi2'
+import { useState, useEffect } from 'react'
+import { 
+  HiCheckCircle, 
+  HiExclamationTriangle, 
+  HiBolt,
+  HiInformationCircle,
+  HiQuestionMarkCircle,
+  HiOutlineTableCells,
+  HiChevronDown,
+  HiArrowDownTray,
+  HiCog6Tooth,
+  HiBars3,
+  HiOutlineCreditCard,
+  HiOutlineRectangleStack,
+  HiOutlineCog6Tooth,
+  HiArrowPath
+} from 'react-icons/hi2'
 
-type Onu = {
+type OnuData = {
   id: string
-  oltId: string
   oltName: string
   name: string
-  description: string
-  pppoe: string
+  description: string | null
+  pppoe: string | null
   gponOnu: string
   status: string
-  rxPower: string | null
-  txPower: string | null
   rxOlt: string | null
   rxOnu: string | null
-  txOlt: string | null
-  txOnu: string | null
-  serialNumber: string
-  actualType: string
-  registerTime: string | null
-  distance: number | null
-  lastSeen: string | null
-  registrationMode: string | null
-  softwareVersion: string | null
-  hardwareVersion: string | null
-  temperature: number | null
-  laserBiasCurrent: number | null
-  // New fields from ZTE-AN-PON-MIB
-  vendorId?: string | null
-  equipmentId?: string | null
-  firmwareVersion?: string | null
-  macAddress?: string | null
-  batteryStatus?: string | null
-  opticalTransceiverType?: string | null
-  lastDeregTime?: string | null
-  authMode?: string | null
-  loid?: string | null
-  password?: string | null
-  configState?: string | null
-  powerLevel?: string | null
-  dyingGaspTime?: string | null
-  rxPowerStatus?: string | null
-  txPowerStatus?: string | null
-  rxBytes?: string | null
-  txBytes?: string | null
-  rxPackets?: string | null
-  txPackets?: string | null
-  rxErrors?: string | null
-  txErrors?: string | null
-  rxDrops?: string | null
-  txDrops?: string | null
-  wifiEnable?: boolean | null
-  wifiSsid?: string | null
-  wifiSecurityMode?: string | null
-  wifiChannel?: number | null
+  serialNumber: string | null
+  actualType: string | null
 }
 
-type Summary = {
-  good: { count: number; percentage: number; rxOlt: number; rxOnu: number; rxPower: number; txPower: number }
-  warning: { count: number; percentage: number; rxOlt: number; rxOnu: number; rxPower: number; txPower: number }
-  critical: { count: number; percentage: number; rxOlt: number; rxOnu: number; rxPower: number; txPower: number }
-  other: { count: number; percentage: number; los: number; na: number }
-}
-
-type OLT = {
-  id: string
-  name: string
-  ipAddress: string
-}
-
-type Card = {
-  frame: number
-  card: number
-  slots: Array<{
-    slot: number
-    ports: number[]
-  }>
-  totalSlots: number
-  totalPorts: number
+type SummaryData = {
+  total: number
+  good: { count: number; percentage: string; rxOlt: number; rxOnu: number }
+  warning: { count: number; percentage: string; rxOlt: number; rxOnu: number }
+  critical: { count: number; percentage: string; rxOlt: number; rxOnu: number }
+  other: { count: number; percentage: string; los: number; na: number }
 }
 
 export default function AllOnuPage() {
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(5)
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [onus, setOnus] = useState<Onu[]>([])
-  const [total, setTotal] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
-  const [dataSource, setDataSource] = useState<'database' | 'snmp' | null>(null)
-  const [allOlts, setAllOlts] = useState<OLT[]>([])
-  const [allCards, setAllCards] = useState<Card[]>([])
-  const [loadingCards, setLoadingCards] = useState(false)
-  const [summary, setSummary] = useState<Summary>({
-    good: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-    warning: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-    critical: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-    other: { count: 0, percentage: 0, los: 0, na: 0 },
+  const [syncing, setSyncing] = useState(false)
+  const [onus, setOnus] = useState<OnuData[]>([])
+  const [summaryData, setSummaryData] = useState<SummaryData>({
+    total: 0,
+    good: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
+    warning: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
+    critical: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
+    other: { count: 0, percentage: '0', los: 0, na: 0 },
   })
-  // const [syncing, setSyncing] = useState(false) // Sync feature disabled
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 5,
+    total: 0,
+    totalPages: 0,
+  })
 
-  // Filters
-  const [selectedOlt, setSelectedOlt] = useState<string>('all')
-  const [selectedCard, setSelectedCard] = useState<string>('all')
-  const [selectedPort, setSelectedPort] = useState<string>('all')
-  const [selectedType, setSelectedType] = useState<string>('all')
-  const [selectedStatus, setSelectedStatus] = useState<string>('all')
-  const [selectedSignal, setSelectedSignal] = useState<string>('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  // Fetch data dari API
+  const fetchOnus = async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      })
+      if (search) params.append('search', search)
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(5)
+      const res = await fetch(`/api/onus?${params.toString()}`)
+      const data = await res.json()
+      
+      // Handle error dari response
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        // Tetap set data kosong agar UI bisa render
+        setOnus([])
+        setSummaryData(data.summary || summaryData)
+        setPagination(data.pagination || pagination)
+        // Tampilkan alert jika ada error
+        if (data.error && data.error !== 'Gagal mengambil data ONU') {
+          alert(`Error: ${data.error}`)
+        }
+      } else {
+        setOnus(data.onus || [])
+        setSummaryData(data.summary || summaryData)
+        setPagination(data.pagination || pagination)
+      }
+    } catch (error: any) {
+      console.error('Error fetching ONUs:', error)
+      setOnus([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  // Sorting - Not used in server-side pagination yet
-  const [sortColumn, setSortColumn] = useState<string>('')
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  // Refresh data langsung dari SNMP
+  const handleRefresh = async () => {
+    setSyncing(true)
+    try {
+      await fetchOnus()
+    } catch (error: any) {
+      console.error('Error refreshing ONUs:', error)
+      alert('Terjadi kesalahan saat refresh: ' + (error.message || 'Unknown error'))
+    } finally {
+      setSyncing(false)
+    }
+  }
 
+  // Fetch data saat page/limit/search berubah
   useEffect(() => {
-    loadOnus() // Load data dari database dengan pagination
-    loadAllOlts()
-  }, [])
+    fetchOnus()
+  }, [page, limit])
 
-  // Debounce search query (500ms)
+  // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery)
+      if (page === 1) {
+        fetchOnus()
+      } else {
+        setPage(1)
+      }
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [searchQuery])
+  }, [search])
 
-  // Reload ONUs when filters, pagination, or debounced search changes
-  useEffect(() => {
-    if (!loading) {
-      loadOnus()
-    }
-  }, [currentPage, pageSize, selectedOlt, selectedCard, selectedPort, selectedType, selectedStatus, selectedSignal, debouncedSearch])
-
-  // Load cards saat OLT dipilih atau saat semua OLT dimuat
-  useEffect(() => {
-    if (allOlts.length > 0) {
-      loadAllCards()
-    }
-  }, [allOlts, selectedOlt])
-
-  const loadAllOlts = async () => {
-    try {
-      const res = await fetch('/api/olts')
-      if (!res.ok) {
-        console.error('Gagal memuat data OLT')
-        return
-      }
-      const data = await res.json()
-      setAllOlts(data.olts || [])
-    } catch (e: any) {
-      console.error('Error loading OLTs:', e)
-    }
-  }
-
-  const loadAllCards = async () => {
-    setLoadingCards(true)
-    try {
-      const cards: Card[] = []
-      
-      // Jika OLT tertentu dipilih, load cards dari OLT tersebut saja
-      if (selectedOlt !== 'all') {
-        const olt = allOlts.find((o) => o.name === selectedOlt)
-        if (olt) {
-          try {
-            const res = await fetch(`/api/olts/${olt.id}/cards`)
-            if (res.ok) {
-              const data = await res.json()
-              if (data.success && data.cards) {
-                cards.push(...data.cards)
-              }
-            }
-          } catch (e) {
-            console.error(`Error loading cards for OLT ${olt.name}:`, e)
-          }
-        }
-      } else {
-        // Load cards dari semua OLT yang terhubung SNMP
-        for (const olt of allOlts) {
-          try {
-            const res = await fetch(`/api/olts/${olt.id}/cards`)
-            if (res.ok) {
-              const data = await res.json()
-              if (data.success && data.cards) {
-                cards.push(...data.cards)
-              }
-            }
-          } catch (e) {
-            // Skip OLT yang tidak bisa diakses atau tidak terhubung SNMP
-            console.error(`Error loading cards for OLT ${olt.name}:`, e)
-          }
-        }
-      }
-      
-      // Remove duplicate cards (same frame number)
-      const uniqueCardsMap = new Map<number, Card>()
-      for (const card of cards) {
-        if (!uniqueCardsMap.has(card.frame)) {
-          uniqueCardsMap.set(card.frame, card)
-        }
-      }
-      
-      setAllCards(Array.from(uniqueCardsMap.values()).sort((a, b) => a.frame - b.frame))
-    } catch (e: any) {
-      console.error('Error loading cards:', e)
-    } finally {
-      setLoadingCards(false)
-    }
-  }
-
-  const loadOnus = async (forceRefresh = false) => {
-    setRefreshing(true)
-    setError(null)
-    try {
-      // Build query parameters
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: pageSize.toString(),
-        ...(forceRefresh && { refresh: 'true' }),
-        ...(selectedOlt !== 'all' && { oltName: selectedOlt }),
-        ...(selectedCard !== 'all' && { card: selectedCard }),
-        ...(selectedPort !== 'all' && { port: selectedPort }),
-        ...(selectedType !== 'all' && { type: selectedType }),
-        ...(selectedStatus !== 'all' && { status: selectedStatus }),
-        ...(selectedSignal !== 'all' && { signal: selectedSignal }),
-        ...(debouncedSearch && { search: debouncedSearch }),
-      })
-
-      const res = await fetch(`/api/olts/onus?${params.toString()}`)
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Gagal memuat data ONU' }))
-        throw new Error(errorData.error || 'Gagal memuat data ONU')
-      }
-      const data = await res.json()
-      setOnus(data.onus || [])
-      setTotal(data.total || 0)
-      setTotalPages(data.totalPages || 0)
-      setDataSource(data.source || null)
-      setSummary(data.summary || {
-        good: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-        warning: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-        critical: { count: 0, percentage: 0, rxOlt: 0, rxOnu: 0, rxPower: 0, txPower: 0 },
-        other: { count: 0, percentage: 0, los: 0, na: 0 },
-      })
-    } catch (e: any) {
-      setError(e.message)
-      setOnus([])
-      setTotal(0)
-      setTotalPages(0)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }
-
-  // Get unique values for filters
-  // Menggunakan semua OLT dari database, bukan hanya dari ONU yang ada
-  const uniqueOlts = useMemo(() => {
-    return allOlts.map((olt) => olt.name).sort()
-  }, [allOlts])
-
-  // Get cards dari SNMP atau fallback ke ONU data
-  const uniqueCards = useMemo(() => {
-    // Prioritaskan cards dari SNMP
-    if (allCards.length > 0) {
-      return allCards.map((card) => card.frame.toString()).sort((a, b) => parseInt(a) - parseInt(b))
-    }
-    
-    // Fallback: ambil dari ONU data jika ada
-    const cards = new Set(
-      onus
-        .map((onu) => {
-          const match = onu.gponOnu.match(/^(\d+)\/\d+\/\d+:\d+$/)
-          return match ? match[1] : null
-        })
-        .filter((c) => c !== null)
-    )
-    return Array.from(cards).sort((a, b) => parseInt(a) - parseInt(b))
-  }, [allCards, onus])
-
-  // Get PON ports dari ONU data (selalu gunakan data ONU sebagai sumber utama)
-  // Format gponOnu: Frame/Slot/PON:ONU_ID
-  // Jadi PON adalah bagian ketiga sebelum :
-  const uniquePorts = useMemo(() => {
-    // Ambil PON port dari ONU data
-    const ponPorts = new Set<number>()
-    
-    for (const onu of onus) {
-      // Format: 1/9/1:1 -> ambil bagian ketiga (PON)
-      const match = onu.gponOnu.match(/^\d+\/\d+\/(\d+)(?::\d+)?$/)
-      if (match) {
-        const ponPort = parseInt(match[1], 10)
-        if (!isNaN(ponPort)) {
-          ponPorts.add(ponPort)
-        }
-      }
-    }
-    
-    return Array.from(ponPorts)
-      .sort((a, b) => a - b)
-      .map((p) => p.toString())
-  }, [onus])
-
-  const uniqueTypes = useMemo(() => {
-    const types = new Set(onus.map((onu) => onu.actualType).filter((t) => t))
-    return Array.from(types).sort()
-  }, [onus])
-
-  // Helper untuk menghitung count per filter
-  const getCardCount = (card: string) => {
-    if (card === 'all') return onus.length
-    return onus.filter((onu) => {
-      const match = onu.gponOnu.match(/^(\d+)\/\d+\/\d+:\d+$/)
-      return match && match[1] === card
-    }).length
-  }
-
-  const getPortCount = (port: string) => {
-    if (port === 'all') return onus.length
-    
-    const ponPortNum = parseInt(port)
-    if (isNaN(ponPortNum)) return 0
-    
-    // Jika ada data cards dari SNMP, hitung berapa banyak slot yang memiliki PON port ini
-    if (allCards.length > 0) {
-      let slotCount = 0
-      for (const card of allCards) {
-        for (const slot of card.slots) {
-          // slot.ports adalah PON ports
-          if (slot.ports.includes(ponPortNum)) {
-            slotCount++
-          }
-        }
-      }
-      return slotCount
-    }
-    
-    // Fallback: hitung dari ONU data (berapa banyak ONU yang menggunakan PON port ini)
-    // Format: Frame/Slot/PON:ONU_ID, jadi PON adalah bagian ketiga
-    return onus.filter((onu) => {
-      const match = onu.gponOnu.match(/^\d+\/\d+\/(\d+):\d+$/)
-      return match && match[1] === port
-    }).length
-  }
-
-  const getTypeCount = (type: string) => {
-    if (type === 'all') return onus.length
-    return onus.filter((onu) => onu.actualType === type).length
-  }
-
-  // Active filters untuk display
-  const activeFilters = useMemo(() => {
-    const filters: Array<{ key: string; label: string; value: string }> = []
-    if (selectedOlt !== 'all') {
-      filters.push({ key: 'olt', label: selectedOlt, value: selectedOlt })
-    }
-    if (selectedCard !== 'all') {
-      filters.push({ key: 'card', label: `Card ${selectedCard}`, value: selectedCard })
-    }
-    if (selectedPort !== 'all') {
-      filters.push({ key: 'port', label: `PON ${selectedPort}`, value: selectedPort })
-    }
-    if (selectedType !== 'all') {
-      filters.push({ key: 'type', label: selectedType, value: selectedType })
-    }
-    if (selectedStatus !== 'all') {
-      filters.push({ key: 'status', label: selectedStatus === 'online' ? 'Online' : selectedStatus === 'los' ? 'LOS' : 'DyingGasp', value: selectedStatus })
-    }
-    if (selectedSignal !== 'all') {
-      filters.push({ key: 'signal', label: selectedSignal === 'good' ? 'Good Signal' : selectedSignal === 'warning' ? 'Warning Signal' : selectedSignal === 'critical' ? 'Critical Signal' : 'No Signal', value: selectedSignal })
-    }
-    return filters
-  }, [selectedOlt, selectedCard, selectedPort, selectedType, selectedStatus, selectedSignal])
-
-  // Filtering, pagination, and summary are now done server-side
-  // Data comes directly from API response (onus, total, totalPages, summary)
-
-  const handleSort = (column: string) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortColumn(column)
-      setSortDirection('asc')
-    }
-    setCurrentPage(1)
+  const getSignalColor = (rxOlt: string | null) => {
+    if (!rxOlt || rxOlt === 'N/A') return 'text-gray-500'
+    const value = parseFloat(rxOlt.replace(/[^\d.-]/g, ''))
+    if (value >= -26.0) return 'text-green-600'
+    if (value >= -28.0) return 'text-orange-600'
+    return 'text-red-600'
   }
 
   const getStatusIcon = (status: string) => {
-    if (status === 'Online') {
-      return (
-        <span className="inline-flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-            <HiCheck className="w-2.5 h-2.5 text-white" />
-          </div>
-          <span className="text-sm text-gray-900 dark:text-white">Online</span>
-        </span>
-      )
-    } else if (status === 'DyingGasp') {
-      return (
-        <span className="inline-flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded-full bg-yellow-500 flex items-center justify-center">
-            <HiArrowTopRightOnSquare className="w-2.5 h-2.5 text-white" />
-          </div>
-          <span className="text-sm text-gray-900 dark:text-white">DyingGasp</span>
-        </span>
-      )
-    } else if (status === 'LOS') {
-      return (
-        <span className="inline-flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-            <HiXMark className="w-2.5 h-2.5 text-white" />
-          </div>
-          <span className="text-sm text-gray-900 dark:text-white">LOS</span>
-        </span>
-      )
+    switch (status?.toLowerCase()) {
+      case 'online':
+        return <HiCheckCircle className="w-5 h-5 text-green-600" />
+      case 'warning':
+        return <HiExclamationTriangle className="w-5 h-5 text-yellow-600" />
+      case 'los':
+      case 'critical':
+        return <HiBolt className="w-5 h-5 text-red-600" />
+      case 'info':
+        return <HiInformationCircle className="w-5 h-5 text-blue-600" />
+      default:
+        return <HiQuestionMarkCircle className="w-5 h-5 text-gray-600" />
     }
-    return (
-      <span className="inline-flex items-center gap-1.5">
-        <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
-          <HiQuestionMarkCircle className="w-2.5 h-2.5 text-white" />
-        </div>
-        <span className="text-sm text-gray-900 dark:text-white">{status}</span>
-      </span>
-    )
   }
 
-  // Fungsi untuk menampilkan signal bar
-  const getSignalBar = (value: string | null, type: 'olt' | 'onu') => {
-    if (!value || value === 'N/A' || value === 'Unknown') {
-      return <span className="text-gray-400">N/A</span>
+  const getSignalBars = (rxOlt: string | null) => {
+    if (!rxOlt || rxOlt === 'N/A') return [false, false, false, false]
+    const value = parseFloat(rxOlt.replace(/[^\d.-]/g, ''))
+    if (value >= -26.0) return [true, true, true, true]
+    if (value >= -27.0) return [true, true, true, false]
+    if (value >= -28.0) return [true, true, false, false]
+    return [true, false, false, false]
+  }
+
+  const SignalBars = ({ rxOlt, className = "" }: { rxOlt: string | null; className?: string }) => {
+    const bars = getSignalBars(rxOlt)
+    const getColor = () => {
+      if (!rxOlt || rxOlt === 'N/A') return 'bg-gray-400'
+      const value = parseFloat(rxOlt.replace(/[^\d.-]/g, ''))
+      if (value >= -26.0) return 'bg-green-600'
+      if (value >= -28.0) return 'bg-orange-600'
+      return 'bg-red-600'
     }
-    
-    const numValue = parseFloat(value.replace(/[^\d.-]/g, ''))
-    if (isNaN(numValue)) {
-      return <span className="text-gray-400">N/A</span>
-    }
-    
-    let color = 'bg-red-500'
-    let status = 'Critical'
-    
-    if (type === 'olt') {
-      // RX OLT (OLT receive from ONU)
-      if (numValue >= -8) {
-        color = 'bg-green-500'
-        status = 'Good'
-      } else if (numValue >= -15) {
-        color = 'bg-yellow-500'
-        status = 'Warning'
-      } else if (numValue >= -25) {
-        color = 'bg-orange-500'
-        status = 'Poor'
-      }
-    } else {
-      // RX/TX ONU
-      if (numValue >= -5) {
-        color = 'bg-green-500'
-        status = 'Good'
-      } else if (numValue >= -10) {
-        color = 'bg-yellow-500'
-        status = 'Warning'
-      } else if (numValue >= -15) {
-        color = 'bg-orange-500'
-        status = 'Poor'
-      }
-    }
-    
+    const color = getColor()
+
+    // Heights untuk setiap bar (dari terkecil ke terbesar)
+    const barHeights = ['25%', '50%', '75%', '100%']
+
     return (
-      <div className="flex items-center gap-2">
-        <div className={`w-20 bg-gray-200 rounded-full h-2 dark:bg-gray-700`}>
-          <div 
-            className={`h-2 rounded-full ${color}`}
-            style={{ width: `${Math.min(100, Math.max(5, Math.abs(numValue) * 2))}%` }}
+      <div className={`flex items-end gap-0.5 ${className}`} style={{ height: '20px', width: '20px' }}>
+        {bars.map((filled, index) => (
+          <div
+            key={index}
+            className={`${filled ? color : 'bg-gray-300 dark:bg-gray-600'} rounded-t-sm transition-all`}
+            style={{
+              width: '3.5px',
+              height: filled ? barHeights[index] : '15%',
+              minHeight: '3px',
+            }}
           />
-        </div>
-        <span className="text-xs text-gray-600 dark:text-gray-400">
-          {value} ({status})
-        </span>
-      </div>
-    )
-  }
-  
-  // Fungsi khusus untuk TX Power (ONU transmit)
-  const getTxSignalBar = (value: string | null, type: 'onu' | 'olt') => {
-    if (!value || value === 'N/A' || value === 'Unknown') {
-      return <span className="text-gray-400">N/A</span>
-    }
-    
-    const numValue = parseFloat(value.replace(/[^\d.-]/g, ''))
-    if (isNaN(numValue)) {
-      return <span className="text-gray-400">N/A</span>
-    }
-    
-    let color = 'bg-red-500'
-    let status = 'Critical'
-    
-    // TX Power biasanya positif (ONU transmit to OLT)
-    if (numValue <= 2) {
-      color = 'bg-red-500'
-      status = 'Low'
-    } else if (numValue <= 5) {
-      color = 'bg-orange-500'
-      status = 'Poor'
-    } else if (numValue <= 8) {
-      color = 'bg-yellow-500'
-      status = 'Warning'
-    } else {
-      color = 'bg-green-500'
-      status = 'Good'
-    }
-    
-    return (
-      <div className="flex items-center gap-2">
-        <div className={`w-20 bg-gray-200 rounded-full h-2 dark:bg-gray-700`}>
-          <div 
-            className={`h-2 rounded-full ${color}`}
-            style={{ width: `${Math.min(100, Math.max(5, numValue * 5))}%` }}
-          />
-        </div>
-        <span className="text-xs text-gray-600 dark:text-gray-400">
-          {value} ({status})
-        </span>
-      </div>
-    )
-  }
-
-  const getDistanceDisplay = (distance: number | null | undefined) => {
-    if (distance === null || distance === undefined || isNaN(distance)) {
-      return (
-        <div className="flex items-center gap-2">
-          <HiQuestionMarkCircle className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-          <span className="text-xs text-gray-500 dark:text-gray-400">N/A</span>
-        </div>
-      )
-    }
-
-    let colorClass = 'text-green-600 dark:text-green-400'
-    let icon = <HiCheckCircle className="w-4 h-4" />
-
-    if (distance > 30) {
-      colorClass = 'text-red-600 dark:text-red-400'
-      icon = <HiXCircle className="w-4 h-4" />
-    } else if (distance > 20) {
-      colorClass = 'text-orange-600 dark:text-orange-400'
-      icon = <HiExclamationTriangle className="w-4 h-4" />
-    }
-
-    return (
-      <div className="flex items-center gap-2">
-        <div className={colorClass}>{icon}</div>
-        <span className={`text-xs ${colorClass}`}>
-          {distance.toFixed(2)} km
-        </span>
-      </div>
-    )
-  }
-
-  const getRelativeTime = (dateString: string | null) => {
-    if (!dateString) {
-      return (
-        <div className="flex items-center gap-2">
-          <HiQuestionMarkCircle className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-          <span className="text-xs text-gray-500 dark:text-gray-400">Never</span>
-        </div>
-      )
-    }
-
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMinutes = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMinutes / 60)
-    const diffDays = Math.floor(diffHours / 24)
-
-    let timeAgo = ''
-    let colorClass = 'text-green-600 dark:text-green-400'
-
-    if (diffMinutes < 5) {
-      timeAgo = 'Just now'
-      colorClass = 'text-green-600 dark:text-green-400'
-    } else if (diffMinutes < 60) {
-      timeAgo = `${diffMinutes}m ago`
-      colorClass = 'text-green-600 dark:text-green-400'
-    } else if (diffHours < 24) {
-      timeAgo = `${diffHours}h ago`
-      colorClass = 'text-blue-600 dark:text-blue-400'
-    } else if (diffDays < 7) {
-      timeAgo = `${diffDays}d ago`
-      colorClass = 'text-orange-600 dark:text-orange-400'
-    } else {
-      timeAgo = date.toLocaleDateString()
-      colorClass = 'text-red-600 dark:text-red-400'
-    }
-
-    return (
-      <div className="flex items-center gap-2">
-        <span className={`text-xs ${colorClass} font-medium`}>
-          {timeAgo}
-        </span>
-      </div>
-    )
-  }
-
-  const getFormattedDateTime = (dateString: string | null) => {
-    if (!dateString) {
-      return <span className="text-xs text-gray-500 dark:text-gray-400">-</span>
-    }
-
-    try {
-      const date = new Date(dateString)
-      return (
-        <div className="text-xs text-gray-600 dark:text-gray-400">
-          {date.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </div>
-      )
-    } catch {
-      return <span className="text-xs text-gray-500 dark:text-gray-400">Invalid</span>
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <HiArrowPath className="mb-4 w-12 h-12 animate-spin text-gray-400" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data...</p>
-        </div>
+        ))}
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 p-6">
       {/* Breadcrumb */}
-      <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+      <div className="text-sm text-gray-500 dark:text-gray-400">
         <span>Home</span> <span className="mx-2">/</span> <span className="text-gray-900 dark:text-white">All-ONUs</span>
       </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">ONUs</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Data dimuat dari database dengan pagination (5 data per halaman)</p>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Good Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Good</h3>
+              <span className="text-xs text-green-600 dark:text-green-400 font-medium">≥ -26.00 dBm</span>
+            </div>
+            <div className="relative w-16 h-16">
+              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  className="text-gray-200 dark:text-gray-700"
+                />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  strokeDasharray={`${(parseFloat(summaryData.good.percentage) / 100) * 175.9} 175.9`}
+                  className="text-green-600 dark:text-green-400"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-sm font-bold text-green-600 dark:text-green-400">{summaryData.good.percentage}%</span>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-600 dark:text-gray-400">RX OLT</span>
+                <span className="font-medium text-gray-900 dark:text-white">{summaryData.good.rxOlt}</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-green-600 h-2 rounded-full transition-all" 
+                  style={{ width: summaryData.total > 0 ? `${(summaryData.good.rxOlt / summaryData.total) * 100}%` : '0%' }}
+                ></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-600 dark:text-gray-400">RX ONU</span>
+                <span className="font-medium text-gray-900 dark:text-white">{summaryData.good.rxOnu}</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-green-600 h-2 rounded-full transition-all" 
+                  style={{ width: summaryData.total > 0 ? `${(summaryData.good.rxOnu / summaryData.total) * 100}%` : '0%' }}
+                ></div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Filter Icon */}
-          <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
-            <HiOutlineFunnel className="w-5 h-5" />
-          </button>
-          {/* Refresh from SNMP */}
-          <button
-            onClick={() => loadOnus(true)}
-            disabled={refreshing}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-60"
-            title="Perbarui data dari SNMP OLT"
-          >
-            <HiArrowPath className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Sync dari SNMP
-          </button>
+
+        {/* Warning Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Warning</h3>
+              <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">-26.00 ~ -28.00 dBm</span>
+            </div>
+            <div className="relative w-16 h-16">
+              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  className="text-gray-200 dark:text-gray-700"
+                />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  strokeDasharray={`${(parseFloat(summaryData.warning.percentage) / 100) * 175.9} 175.9`}
+                  className="text-orange-600 dark:text-orange-400"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{summaryData.warning.percentage}%</span>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-600 dark:text-gray-400">RX OLT</span>
+                <span className="font-medium text-gray-900 dark:text-white">{summaryData.warning.rxOlt}</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-orange-600 h-2 rounded-full transition-all" 
+                  style={{ width: summaryData.total > 0 ? `${(summaryData.warning.rxOlt / summaryData.total) * 100}%` : '0%' }}
+                ></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-600 dark:text-gray-400">RX ONU</span>
+                <span className="font-medium text-gray-900 dark:text-white">{summaryData.warning.rxOnu}</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-orange-600 h-2 rounded-full transition-all" 
+                  style={{ width: summaryData.total > 0 ? `${(summaryData.warning.rxOnu / summaryData.total) * 100}%` : '0%' }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Critical Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Critical</h3>
+              <span className="text-xs text-red-600 dark:text-red-400 font-medium">&lt; -28.00 dBm</span>
+            </div>
+            <div className="relative w-16 h-16">
+              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  className="text-gray-200 dark:text-gray-700"
+                />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  strokeDasharray={`${(parseFloat(summaryData.critical.percentage) / 100) * 175.9} 175.9`}
+                  className="text-red-600 dark:text-red-400"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-sm font-bold text-red-600 dark:text-red-400">{summaryData.critical.percentage}%</span>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-600 dark:text-gray-400">RX OLT</span>
+                <span className="font-medium text-gray-900 dark:text-white">{summaryData.critical.rxOlt}</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-red-600 h-2 rounded-full transition-all" 
+                  style={{ width: summaryData.total > 0 ? `${(summaryData.critical.rxOlt / summaryData.total) * 100}%` : '0%' }}
+                ></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-600 dark:text-gray-400">RX ONU</span>
+                <span className="font-medium text-gray-900 dark:text-white">{summaryData.critical.rxOnu}</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-red-600 h-2 rounded-full transition-all" 
+                  style={{ width: summaryData.total > 0 ? `${(summaryData.critical.rxOnu / summaryData.total) * 100}%` : '0%' }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Other Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Other</h3>
+            </div>
+            <div className="relative w-16 h-16">
+              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  className="text-gray-200 dark:text-gray-700"
+                />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  strokeDasharray={`${(parseFloat(summaryData.other.percentage) / 100) * 175.9} 175.9`}
+                  className="text-red-600 dark:text-red-400"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <HiBolt className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-600 dark:text-gray-400">LOS</span>
+                <span className="font-medium text-gray-900 dark:text-white">{summaryData.other.los}</span>
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-600 dark:text-gray-400">N/A</span>
+                <span className="font-medium text-gray-900 dark:text-white">{summaryData.other.na}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-        </div>
-      )}
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 dark:bg-green-900 rounded-full">
-                <HiCheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Good</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {summary.good.count} ({summary.good.percentage}%)
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 text-xs text-gray-600 dark:text-gray-400">
-              <div>RX Power: {summary.good.rxPower}</div>
-              <div>TX Power: {summary.good.txPower}</div>
-              <div>RX OLT: {summary.good.rxOlt}</div>
-              <div>RX ONU: {summary.good.rxOnu}</div>
-            </div>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 dark:bg-yellow-900 rounded-full">
-                <HiExclamationTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Warning</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {summary.warning.count} ({summary.warning.percentage}%)
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 text-xs text-gray-600 dark:text-gray-400">
-              <div>RX Power: {summary.warning.rxPower}</div>
-              <div>TX Power: {summary.warning.txPower}</div>
-              <div>RX OLT: {summary.warning.rxOlt}</div>
-              <div>RX ONU: {summary.warning.rxOnu}</div>
-            </div>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-red-100 dark:bg-red-900 rounded-full">
-                <HiXCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Critical</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {summary.critical.count} ({summary.critical.percentage}%)
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 text-xs text-gray-600 dark:text-gray-400">
-              <div>RX Power: {summary.critical.rxPower}</div>
-              <div>TX Power: {summary.critical.txPower}</div>
-              <div>RX OLT: {summary.critical.rxOlt}</div>
-              <div>RX ONU: {summary.critical.rxOnu}</div>
-            </div>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-gray-100 dark:bg-gray-900 rounded-full">
-                <HiQuestionMarkCircle className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Other</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {summary.other.count} ({summary.other.percentage}%)
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 text-xs text-gray-600 dark:text-gray-400">
-              <div>LOS: {summary.other.los}</div>
-              <div>N/A: {summary.other.na}</div>
-            </div>
-          </div>
-        </div>
-
-      {/* ONUs Table Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        {/* Filter Bar - Sesuai dengan gambar */}
-        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* OLT Filter */}
-            <div className="relative">
-              <select
-                value={selectedOlt}
-                onChange={(e) => {
-                  setSelectedOlt(e.target.value)
-                  setCurrentPage(1)
-                }}
-                className="appearance-none pl-10 pr-8 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="all">All OLTs</option>
-                {uniqueOlts.map((olt) => (
-                  <option key={olt} value={olt} className="bg-white text-gray-900">
-                    {olt}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <HiOutlineViewColumns className="w-4 h-4 text-white" />
-              </div>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                <HiChevronDown className="w-4 h-4 text-white" />
-              </div>
-            </div>
-
-            {/* Card Filter */}
-            <div className="relative">
-              <select
-                value={selectedCard}
-                onChange={(e) => {
-                  setSelectedCard(e.target.value)
-                  setCurrentPage(1)
-                }}
-                disabled={loadingCards}
-                className="appearance-none pl-10 pr-8 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="all">
-                  {loadingCards ? 'Loading Cards...' : uniqueCards.length === 0 ? 'No Cards Available' : 'All Cards'}
-                </option>
-                {uniqueCards.map((card) => {
-                  const cardData = allCards.find((c) => c.frame.toString() === card)
-                  const portCount = cardData ? cardData.totalPorts : getCardCount(card)
-                  return (
-                    <option key={card} value={card} className="bg-white text-gray-900">
-                      Card {card} - GTGH ({portCount} ports)
-                    </option>
-                  )
-                })}
-              </select>
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <HiOutlineCpuChip className="w-4 h-4 text-white" />
-              </div>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                {loadingCards ? (
-                  <HiArrowPath className="w-4 h-4 text-white animate-spin" />
-                ) : (
-                  <HiChevronDown className="w-4 h-4 text-white" />
-                )}
-              </div>
-            </div>
-
-            {/* PON Port Filter */}
-            <div className="relative">
-              <select
-                value={selectedPort}
-                onChange={(e) => {
-                  setSelectedPort(e.target.value)
-                  setCurrentPage(1)
-                }}
-                disabled={loadingCards}
-                className="appearance-none pl-10 pr-8 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="all">
-                  {loadingCards ? 'Loading PON Ports...' : uniquePorts.length === 0 ? 'No PON Ports Available' : 'All PON Ports'}
-                </option>
-                {uniquePorts.map((ponPort) => {
-                  const slotCount = getPortCount(ponPort)
-                  return (
-                    <option key={ponPort} value={ponPort} className="bg-white text-gray-900">
-                      PON {ponPort} ({slotCount} {slotCount === 1 ? 'slot' : 'slots'})
-                    </option>
-                  )
-                })}
-              </select>
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <HiOutlineGlobeAlt className="w-4 h-4 text-white" />
-              </div>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                {loadingCards ? (
-                  <HiArrowPath className="w-4 h-4 text-white animate-spin" />
-                ) : (
-                  <HiChevronDown className="w-4 h-4 text-white" />
-                )}
-              </div>
-            </div>
-
-            {/* Type Filter */}
-            <div className="relative">
-              <select
-                value={selectedType}
-                onChange={(e) => {
-                  setSelectedType(e.target.value)
-                  setCurrentPage(1)
-                }}
-                className="appearance-none pl-10 pr-8 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="all">All Types</option>
-                {uniqueTypes.map((type) => (
-                  <option key={type} value={type} className="bg-white text-gray-900">
-                    {type} ({getTypeCount(type)})
-                  </option>
-                ))}
-              </select>
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <HiOutlineWifi className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-              </div>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                <HiChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-              </div>
-            </div>
-
-            {/* Status Label and Filters */}
-            <div className="flex items-center gap-2 ml-2">
-              <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Status:</span>
-              <button
-                onClick={() => {
-                  setSelectedStatus(selectedStatus === 'online' ? 'all' : 'online')
-                  setCurrentPage(1)
-                }}
-                className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${
-                  selectedStatus === 'online'
-                    ? 'bg-green-100 dark:bg-green-900/30 border-2 border-green-500'
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-                title="Online"
-              >
-                <HiCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedStatus(selectedStatus === 'dyinggasp' ? 'all' : 'dyinggasp')
-                  setCurrentPage(1)
-                }}
-                className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${
-                  selectedStatus === 'dyinggasp'
-                    ? 'bg-yellow-100 dark:bg-yellow-900/30 border-2 border-yellow-500'
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-                title="Dying Gasp"
-              >
-                <HiArrowTopRightOnSquare className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedStatus(selectedStatus === 'los' ? 'all' : 'los')
-                  setCurrentPage(1)
-                }}
-                className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${
-                  selectedStatus === 'los'
-                    ? 'bg-red-100 dark:bg-red-900/30 border-2 border-red-500'
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-                title="LOS"
-              >
-                <HiXCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedStatus(selectedStatus === 'authfailed' ? 'all' : 'authfailed')
-                  setCurrentPage(1)
-                }}
-                className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${
-                  selectedStatus === 'authfailed'
-                    ? 'bg-blue-100 dark:bg-blue-900/30 border-2 border-blue-500'
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-                title="Auth Failed"
-              >
-                <HiExclamationCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedStatus(selectedStatus === 'unknown' ? 'all' : 'unknown')
-                  setCurrentPage(1)
-                }}
-                className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${
-                  selectedStatus === 'unknown'
-                    ? 'bg-gray-100 dark:bg-gray-700 border-2 border-gray-500'
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-                title="Unknown"
-              >
-                <HiQuestionMarkCircle className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-            </div>
-
-            {/* Signal Label and Filters */}
-            <div className="flex items-center gap-2 ml-2">
-              <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Signal:</span>
-              <button
-                onClick={() => {
-                  setSelectedSignal(selectedSignal === 'good' ? 'all' : 'good')
-                  setCurrentPage(1)
-                }}
-                className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${
-                  selectedSignal === 'good'
-                    ? 'bg-green-100 dark:bg-green-900/30 border-2 border-green-500'
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-                title="Good Signal (≥ -26 dBm)"
-              >
-                <HiSignal className="w-5 h-5 text-green-600 dark:text-green-400" />
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedSignal(selectedSignal === 'warning' ? 'all' : 'warning')
-                  setCurrentPage(1)
-                }}
-                className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${
-                  selectedSignal === 'warning'
-                    ? 'bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-500'
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-                title="Warning Signal (-26 to -28 dBm)"
-              >
-                <HiSignal className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedSignal(selectedSignal === 'critical' ? 'all' : 'critical')
-                  setCurrentPage(1)
-                }}
-                className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${
-                  selectedSignal === 'critical'
-                    ? 'bg-red-100 dark:bg-red-900/30 border-2 border-red-500'
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-                title="Critical Signal (< -28 dBm)"
-              >
-                <HiSignal className="w-5 h-5 text-red-600 dark:text-red-400" />
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedSignal(selectedSignal === 'other' ? 'all' : 'other')
-                  setCurrentPage(1)
-                }}
-                className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${
-                  selectedSignal === 'other'
-                    ? 'bg-gray-100 dark:bg-gray-700 border-2 border-gray-500'
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-                title="No Signal / N/A"
-              >
-                <HiSignalSlash className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-              </button>
-            </div>
-
-            {/* Export Button */}
-            <button className="ml-auto px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
-              <HiDocumentArrowDown className="w-4 h-4" />
-              Export
-            </button>
-
-            {/* Reset Filter Button */}
+      {/* Filters and Controls */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">ONUS (Data Langsung dari SNMP)</h2>
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setSelectedOlt('all')
-                setSelectedCard('all')
-                setSelectedPort('all')
-                setSelectedType('all')
-                setSelectedStatus('all')
-                setSelectedSignal('all')
-                setSearchQuery('')
-                setCurrentPage(1)
-              }}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+              onClick={handleRefresh}
+              disabled={syncing || loading}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <HiRefresh className="w-4 h-4" />
-              Reset Filter
+              <HiArrowPath className={`w-4 h-4 ${syncing || loading ? 'animate-spin' : ''}`} />
+              {syncing || loading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-4 mb-4">
+          {/* Filter Buttons */}
+          <div className="flex flex-wrap gap-2">
+            <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              <HiBars3 className="w-4 h-4" />
+              All OLTs
+              <HiChevronDown className="w-4 h-4" />
+            </button>
+            <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              <HiOutlineCreditCard className="w-4 h-4" />
+              All Cards
+              <HiChevronDown className="w-4 h-4" />
+            </button>
+            <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              <HiOutlineRectangleStack className="w-4 h-4" />
+              All Ports
+              <HiChevronDown className="w-4 h-4" />
+            </button>
+            <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              <HiOutlineCog6Tooth className="w-4 h-4" />
+              All Types
+              <HiChevronDown className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Active Filters Display */}
-          {activeFilters.length > 0 && (
-            <div className="mt-3 flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Active Filter:</span>
-              {activeFilters.map((filter) => (
-                <span
-                  key={filter.key}
-                  className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-full text-sm font-medium"
-                >
-                  <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
-                  {filter.label}
-                  <button
-                    onClick={() => {
-                      if (filter.key === 'olt') setSelectedOlt('all')
-                      else if (filter.key === 'card') setSelectedCard('all')
-                      else if (filter.key === 'port') setSelectedPort('all')
-                      else if (filter.key === 'type') setSelectedType('all')
-                      else if (filter.key === 'status') setSelectedStatus('all')
-                      else if (filter.key === 'signal') setSelectedSignal('all')
-                      setCurrentPage(1)
-                    }}
-                    className="ml-1 hover:text-indigo-900 dark:hover:text-indigo-300"
-                  >
-                    <HiXMark className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
+          {/* Status Legend */}
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Status:</span>
+            <HiCheckCircle className="w-5 h-5 text-green-600" />
+            <HiExclamationTriangle className="w-5 h-5 text-yellow-600" />
+            <HiBolt className="w-5 h-5 text-red-600" />
+            <HiInformationCircle className="w-5 h-5 text-blue-600" />
+            <HiQuestionMarkCircle className="w-5 h-5 text-gray-600" />
+          </div>
 
-          {/* Search Bar */}
-          <div className="mt-3 flex items-center justify-end gap-2">
-            <label className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Search:</label>
+          {/* Signal Legend */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Signal:</span>
+            <SignalBars rxOlt="-25.0" />
+            <SignalBars rxOlt="-27.0" />
+            <SignalBars rxOlt="-28.5" />
+            <SignalBars rxOlt="-30.0" />
+          </div>
+
+          {/* Export Button */}
+          <button className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
+            <HiArrowDownTray className="w-4 h-4" />
+            Export
+          </button>
+        </div>
+
+        {/* Search and Entries */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
+            <select
+              value={limit}
+              onChange={(e) => setLimit(Number(e.target.value))}
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-gray-600 dark:text-gray-400">entries</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Search:</span>
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value)
-                setCurrentPage(1)
-              }}
-              placeholder="Search ONU..."
-              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Search..."
             />
           </div>
         </div>
+      </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto relative">
-          {/* Loading overlay */}
-          {refreshing && onus.length > 0 && (
-            <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm z-10 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2">
-                <HiArrowPath className="w-6 h-6 animate-spin text-indigo-600 dark:text-indigo-400" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">Memuat data...</p>
-              </div>
-            </div>
-          )}
-          {/* Pagination Control - di atas table */}
-          <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value))
-                  setCurrentPage(1)
-                }}
-                disabled={refreshing}
-                className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-              <span className="text-sm text-gray-600 dark:text-gray-400">entries</span>
-            </div>
-          </div>
-
+      {/* Data Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="px-4 py-3 text-left">
                   <input type="checkbox" className="rounded border-gray-300" />
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('oltName')}
-                >
-                  <div className="flex items-center gap-1">
-                    OLT
-                    {sortColumn === 'oltName' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
+                  OLT
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('name')}
-                >
-                  <div className="flex items-center gap-1">
-                    Name
-                    {sortColumn === 'name' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
+                  Name
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('description')}
-                >
-                  <div className="flex items-center gap-1">
-                    Description
-                    {sortColumn === 'description' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
+                  Description
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('pppoe')}
-                >
-                  <div className="flex items-center gap-1">
-                    PPPoE
-                    {sortColumn === 'pppoe' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
+                  PPPoE
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('gponOnu')}
-                >
-                  <div className="flex items-center gap-1">
-                    Gpon Onu
-                    {sortColumn === 'gponOnu' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
+                  Gpon Onu
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('status')}
-                >
-                  <div className="flex items-center gap-1">
-                    Status
-                    {sortColumn === 'status' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
+                  Status
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('rxPower')}
-                >
-                  <div className="flex items-center gap-1">
-                    RX Power
-                    {sortColumn === 'rxPower' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
+                  RX OLT
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('txPower')}
-                >
-                  <div className="flex items-center gap-1">
-                    TX Power
-                    {sortColumn === 'txPower' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
+                  RX ONU
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('rxOlt')}
-                >
-                  <div className="flex items-center gap-1">
-                    RX OLT
-                    {sortColumn === 'rxOlt' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
+                  Serial Number
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('rxOnu')}
-                >
-                  <div className="flex items-center gap-1">
-                    RX ONU
-                    {sortColumn === 'rxOnu' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
+                  Actual Type
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('serialNumber')}
-                >
-                  <div className="flex items-center gap-1">
-                    Serial Number
-                    {sortColumn === 'serialNumber' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                  Action
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('actualType')}
-                >
-                  <div className="flex items-center gap-1">
-                    Actual Type
-                    {sortColumn === 'actualType' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('txOlt')}
-                >
-                  <div className="flex items-center gap-1">
-                    TX OLT
-                    {sortColumn === 'txOlt' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('txOnu')}
-                >
-                  <div className="flex items-center gap-1">
-                    TX ONU
-                    {sortColumn === 'txOnu' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('distance')}
-                >
-                  <div className="flex items-center gap-1">
-                    Distance
-                    {sortColumn === 'distance' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('registerTime')}
-                >
-                  <div className="flex items-center gap-1">
-                    Register Time
-                    {sortColumn === 'registerTime' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('lastSeen')}
-                >
-                  <div className="flex items-center gap-1">
-                    Last Seen
-                    {sortColumn === 'lastSeen' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('registrationMode')}
-                >
-                  <div className="flex items-center gap-1">
-                    Reg Mode
-                    {sortColumn === 'registrationMode' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('softwareVersion')}
-                >
-                  <div className="flex items-center gap-1">
-                    SW Version
-                    {sortColumn === 'softwareVersion' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('hardwareVersion')}
-                >
-                  <div className="flex items-center gap-1">
-                    HW Version
-                    {sortColumn === 'hardwareVersion' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('temperature')}
-                >
-                  <div className="flex items-center gap-1">
-                    Temp (°C)
-                    {sortColumn === 'temperature' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleSort('laserBiasCurrent')}
-                >
-                  <div className="flex items-center gap-1">
-                    Bias (mA)
-                    {sortColumn === 'laserBiasCurrent' && (
-                      <HiChevronUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? '' : 'rotate-180'}`} />
-                    )}
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-              {refreshing && onus.length === 0 ? (
-                <tr>
-                  <td colSpan={24} className="px-4 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <HiArrowPath className="w-8 h-8 animate-spin text-indigo-600 dark:text-indigo-400" />
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data ONU...</p>
+              {loading ? (
+                <tr key="loading">
+                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center justify-center gap-2">
+                      <HiArrowPath className="w-5 h-5 animate-spin" />
+                      Memuat data ONU...
                     </div>
                   </td>
                 </tr>
               ) : onus.length === 0 ? (
-                <tr>
-                  <td colSpan={24} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Tidak ada data ONU ditemukan
+                <tr key="empty">
+                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                    Tidak ada data ONU. Klik "Sync dari SNMP" untuk mengambil data dari OLT C300.
                   </td>
                 </tr>
               ) : (
@@ -1402,39 +603,42 @@ export default function AllOnuPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{onu.oltName}</td>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{onu.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.description}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.description || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.pppoe || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 font-medium">{onu.gponOnu}</td>
-                    <td className="px-4 py-3 text-sm">{getStatusIcon(onu.status)}</td>
-                    <td className="px-4 py-3">{getSignalBar(onu.rxPower, 'olt')}</td>
-                    <td className="px-4 py-3">{getTxSignalBar(onu.txPower, 'onu')}</td>
-                    <td className="px-4 py-3">{getSignalBar(onu.rxOlt, 'olt')}</td>
-                    <td className="px-4 py-3">{getSignalBar(onu.rxOnu, 'onu')}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.serialNumber}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.actualType}</td>
-                    <td className="px-4 py-3">{getTxSignalBar(onu.txOlt, 'olt')}</td>
-                    <td className="px-4 py-3">{getTxSignalBar(onu.txOnu, 'onu')}</td>
-                    <td className="px-4 py-3">{getDistanceDisplay(onu.distance)}</td>
-                    <td className="px-4 py-3">{getFormattedDateTime(onu.registerTime)}</td>
-                    <td className="px-4 py-3">{getRelativeTime(onu.lastSeen)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {onu.registrationMode || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {onu.softwareVersion || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {onu.hardwareVersion || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {onu.temperature !== null && onu.temperature !== undefined ? `${onu.temperature.toFixed(1)}°C` : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {onu.laserBiasCurrent !== null && onu.laserBiasCurrent !== undefined ? `${onu.laserBiasCurrent.toFixed(2)} mA` : '-'}
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                        {onu.gponOnu}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
-                      <button className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors">
-                        <HiCog6Tooth className="w-3 h-3" />
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(onu.status)}
+                        <span className="text-sm text-gray-900 dark:text-white capitalize">{onu.status}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <SignalBars rxOlt={onu.rxOlt} />
+                        <span className={`text-sm font-medium ${getSignalColor(onu.rxOlt)}`}>
+                          {onu.rxOlt || 'N/A'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <SignalBars rxOlt={onu.rxOnu} />
+                        <span className={`text-sm font-medium ${getSignalColor(onu.rxOnu)}`}>
+                          {onu.rxOnu || 'N/A'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 font-mono">
+                      {onu.serialNumber || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.actualType || '-'}</td>
+                    <td className="px-4 py-3">
+                      <button className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors">
+                        <HiCog6Tooth className="w-4 h-4" />
                         Setting
                       </button>
                     </td>
@@ -1448,61 +652,51 @@ export default function AllOnuPage() {
         {/* Pagination */}
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            Showing {total === 0 ? 0 : (currentPage - 1) * pageSize + 1} to{' '}
-            {Math.min(currentPage * pageSize, total)} of {total} entries
+            Showing {onus.length > 0 ? (page - 1) * limit + 1 : 0} to {Math.min(page * limit, pagination.total)} of {pagination.total} entries
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1 || refreshing}
-              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1 || loading}
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              ← Sebelumnya
+              Previous
             </button>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum
-              if (totalPages <= 5) {
-                pageNum = i + 1
-              } else if (currentPage <= 3) {
-                pageNum = i + 1
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i
-              } else {
-                pageNum = currentPage - 2 + i
-              }
+            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+              const pageNum = i + 1
               return (
                 <button
                   key={pageNum}
-                  onClick={() => setCurrentPage(pageNum)}
-                  disabled={refreshing}
-                  className={`px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed ${
-                    currentPage === pageNum
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  onClick={() => setPage(pageNum)}
+                  disabled={loading}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    page === pageNum
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
                   {pageNum}
                 </button>
               )
             })}
-            {totalPages > 5 && currentPage < totalPages - 2 && (
+            {pagination.totalPages > 5 && (
               <>
-                <span className="text-gray-500">...</span>
+                <span className="px-2 text-sm text-gray-500">...</span>
                 <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={refreshing}
-                  className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setPage(pagination.totalPages)}
+                  disabled={loading}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {totalPages}
+                  {pagination.totalPages}
                 </button>
               </>
             )}
             <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages || refreshing}
-              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+              disabled={page >= pagination.totalPages || loading}
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Selanjutnya →
+              Next
             </button>
           </div>
         </div>
