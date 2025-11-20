@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getOLTRepository } from '@/lib/repositories'
+import { getC300GponOnuDataViaSNMP } from '@/app/api/onus/sync/route'
 import snmp from 'net-snmp'
 
 async function requireAdmin() {
@@ -18,14 +19,92 @@ async function requireAdmin() {
 }
 
 /**
+ * Helper function untuk SNMP walk
+ */
+function snmpWalkHelper(
+  session: any,
+  oid: string
+): Promise<any[]> {
+  return new Promise((resolve, reject) => {
+    const callback = (error: any, varbinds: any[]) => {
+      if (error) {
+        reject(error)
+      } else {
+        resolve(varbinds)
+      }
+    }
+    // @ts-ignore - net-snmp types mungkin tidak akurat
+    session.subtree(oid, callback)
+  })
+}
+
+/**
+ * Extract cards from ONU data
+ * Format gponOnu: "Frame/Slot/Port:ONU_ID" (contoh: "1/3/1:3")
+ */
+function extractCardsFromOnuData(onus: Array<{ gponOnu: string }>): Array<{
+  frame: number
+  card: number
+  slots: Array<{ slot: number; ports: number[] }>
+  totalSlots: number
+  totalPorts: number
+}> {
+  const cards: Map<number, { frame: number; card: number; slots: Map<number, Set<number>> }> = new Map()
+
+  for (const onu of onus) {
+    // Parse format: "Frame/Slot/Port:ONU_ID" atau "Frame/Slot/Port"
+    const match = onu.gponOnu.match(/^(\d+)\/(\d+)\/(\d+)(?::\d+)?$/)
+    if (match) {
+      const frame = parseInt(match[1], 10)
+      const slot = parseInt(match[2], 10)
+      const port = parseInt(match[3], 10)
+
+      if (!cards.has(frame)) {
+        cards.set(frame, {
+          frame,
+          card: frame,
+          slots: new Map(),
+        })
+      }
+
+      const card = cards.get(frame)!
+      if (!card.slots.has(slot)) {
+        card.slots.set(slot, new Set())
+      }
+      card.slots.get(slot)!.add(port)
+    }
+  }
+
+  // Convert to array format
+  const result = Array.from(cards.values()).map((card) => {
+    const slots = Array.from(card.slots.entries()).map(([slot, ports]) => ({
+      slot,
+      ports: Array.from(ports).sort((a, b) => a - b),
+    }))
+
+    return {
+      frame: card.frame,
+      card: card.card,
+      slots,
+      totalSlots: slots.length,
+      totalPorts: slots.reduce((sum, s) => sum + s.ports.length, 0),
+    }
+  })
+
+  return result.sort((a, b) => a.frame - b.frame)
+}
+
+/**
  * Get all cards (frames) from OLT via SNMP
- * OID: 1.3.6.1.4.1.3902.1012.3.28.1.1.2 (zxGponOltGponPortFrame)
+ * Menggunakan data ONU yang sudah di-fetch untuk extract cards
+ * Format gponOnu: "Frame/Slot/Port:ONU_ID" (contoh: "1/3/1:3")
  */
 async function getAllCardsViaSNMP(
   ipAddress: string,
   port: number,
   community: string,
-  version: string
+  version: string,
+  oltId: string
 ): Promise<Array<{
   frame: number
   card: number
@@ -33,73 +112,30 @@ async function getAllCardsViaSNMP(
   totalSlots: number
   totalPorts: number
 }>> {
-  return new Promise((resolve, reject) => {
-    const session = snmp.createSession(ipAddress, community, {
+  try {
+    console.log(`[Card-SNMP] Fetching ONU data to extract cards from OLT ${oltId}...`)
+    
+    // Fetch ONU data yang sudah memiliki format gponOnu
+    const onuData = await getC300GponOnuDataViaSNMP(
+      ipAddress,
       port,
-      version: version === '2c' ? snmp.Version2c : snmp.Version1,
-      retries: 3,
-      timeout: 10000,
-    })
+      community,
+      version,
+      oltId
+    )
 
-    // OID untuk mendapatkan frame numbers
-    const frameOid = '1.3.6.1.4.1.3902.1012.3.28.1.1.2'
-    const cards: Map<number, { frame: number; card: number; slots: Map<number, Set<number>> }> = new Map()
+    console.log(`[Card-SNMP] Found ${onuData.length} ONUs, extracting cards...`)
 
-    session.subtree(frameOid, (error: any, varbinds: any[]) => {
-      session.close()
+    // Extract cards from ONU data
+    const cards = extractCardsFromOnuData(onuData)
 
-      if (error) {
-        console.error('[Card-SNMP] Error walking frame OID:', error)
-        reject(error)
-        return
-      }
+    console.log(`[Card-SNMP] Extracted ${cards.length} frames with slots and ports from ONU data`)
 
-      // Parse varbinds untuk mendapatkan frame/slot/port
-      for (const varbind of varbinds) {
-        if (snmp.isVarbindError(varbind)) continue
-
-        const oid = varbind.oid.split('.').map(Number)
-        // Format: ...frame.slot.port
-        if (oid.length >= 3) {
-          const frame = oid[oid.length - 3]
-          const slot = oid[oid.length - 2]
-          const portNum = oid[oid.length - 1]
-
-          if (!cards.has(frame)) {
-            cards.set(frame, {
-              frame,
-              card: frame, // Frame = Card
-              slots: new Map(),
-            })
-          }
-
-          const card = cards.get(frame)!
-          if (!card.slots.has(slot)) {
-            card.slots.set(slot, new Set())
-          }
-          card.slots.get(slot)!.add(portNum)
-        }
-      }
-
-      // Convert to array format
-      const result = Array.from(cards.values()).map((card) => {
-        const slots = Array.from(card.slots.entries()).map(([slot, ports]) => ({
-          slot,
-          ports: Array.from(ports).sort((a, b) => a - b),
-        }))
-
-        return {
-          frame: card.frame,
-          card: card.card,
-          slots,
-          totalSlots: slots.length,
-          totalPorts: slots.reduce((sum, s) => sum + s.ports.length, 0),
-        }
-      })
-
-      resolve(result.sort((a, b) => a.frame - b.frame))
-    })
-  })
+    return cards
+  } catch (error: any) {
+    console.error('[Card-SNMP] Error:', error)
+    throw error
+  }
 }
 
 /**
@@ -191,12 +227,13 @@ export async function GET(
 
     console.log(`[Card-API] Getting cards from OLT ${olt.name} (${olt.ipAddress})...`)
 
-    // Get cards via SNMP
+    // Get cards via SNMP (extract from ONU data)
     const cards = await getAllCardsViaSNMP(
       olt.ipAddress,
       olt.snmpPort,
       olt.snmpCommunityWrite,
-      olt.snmpVersion
+      olt.snmpVersion,
+      olt.id
     )
 
     return NextResponse.json({

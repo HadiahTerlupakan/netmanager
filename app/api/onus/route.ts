@@ -11,6 +11,12 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '10', 10)
     const search = searchParams.get('search') || ''
+    
+    // Get filters
+    const oltId = searchParams.get('oltId') || null
+    const card = searchParams.get('card') || null // Format: "Frame/Slot"
+    const port = searchParams.get('port') || null // Format: "Frame/Slot/Port"
+    const type = searchParams.get('type') || null
 
     // Fetch langsung dari SNMP tanpa database
     const oltRepo = getOLTRepository()
@@ -39,7 +45,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch ONU data langsung dari SNMP untuk semua OLT
-    let allOnus: Array<{
+    // Simpan data sebelum filter untuk types extraction
+    let allOnusBeforeFilters: Array<{
       id?: string
       oltId: string
       oltName: string
@@ -73,14 +80,57 @@ export async function GET(req: NextRequest) {
           oltName: olt.name,
         }))
 
-        allOnus = [...allOnus, ...onusWithOltName]
+        allOnusBeforeFilters = [...allOnusBeforeFilters, ...onusWithOltName]
       } catch (error: any) {
         console.error(`[All-ONU] Error fetching ONUs from OLT ${olt.name}:`, error)
         // Continue dengan OLT berikutnya, jangan throw error
         // Data dari OLT lain masih bisa ditampilkan
       }
     }
+    
+    // Start with all data, then apply filters
+    let allOnus = [...allOnusBeforeFilters]
 
+    // Apply filters
+    // Filter by OLT
+    if (oltId) {
+      allOnus = allOnus.filter((onu) => onu.oltId === oltId)
+    }
+    
+    // Filter by Card (Frame/Slot)
+    if (card) {
+      const [frame, slot] = card.split('/').map(Number)
+      allOnus = allOnus.filter((onu) => {
+        const match = onu.gponOnu.match(/^(\d+)\/(\d+)\/(\d+):/)
+        if (match) {
+          const onuFrame = parseInt(match[1], 10)
+          const onuSlot = parseInt(match[2], 10)
+          return onuFrame === frame && onuSlot === slot
+        }
+        return false
+      })
+    }
+    
+    // Filter by Port (Frame/Slot/Port)
+    if (port) {
+      const [frame, slot, portNum] = port.split('/').map(Number)
+      allOnus = allOnus.filter((onu) => {
+        const match = onu.gponOnu.match(/^(\d+)\/(\d+)\/(\d+):/)
+        if (match) {
+          const onuFrame = parseInt(match[1], 10)
+          const onuSlot = parseInt(match[2], 10)
+          const onuPort = parseInt(match[3], 10)
+          return onuFrame === frame && onuSlot === slot && onuPort === portNum
+        }
+        return false
+      })
+    }
+    
+    // Filter by Type
+    if (type) {
+      allOnus = allOnus.filter((onu) => onu.actualType === type)
+    }
+    
     // Apply search filter
     if (search) {
       const searchLower = search.toLowerCase()
@@ -137,6 +187,20 @@ export async function GET(req: NextRequest) {
     const criticalPercentage = total > 0 ? ((criticalCount / total) * 100).toFixed(1) : '0'
     const otherPercentage = total > 0 ? ((otherCount / total) * 100).toFixed(1) : '0'
 
+    // Extract unique types for dropdown (from all data before filters)
+    const typeMap = new Map<string, number>()
+    allOnusBeforeFilters.forEach((onu) => {
+      if (onu.actualType) {
+        const count = typeMap.get(onu.actualType) || 0
+        typeMap.set(onu.actualType, count + 1)
+      }
+    })
+    const typesArray = Array.from(typeMap.keys()).sort()
+    const typeCountsObj: Record<string, number> = {}
+    typeMap.forEach((count, type) => {
+      typeCountsObj[type] = count
+    })
+
     // Apply pagination
     const startIndex = (page - 1) * limit
     const endIndex = startIndex + limit
@@ -181,6 +245,11 @@ export async function GET(req: NextRequest) {
           na: naCount,
         },
       },
+      // Include types and counts for dropdown (from all data before filters)
+      types: typesArray,
+      typeCounts: typeCountsObj,
+      // Include total count for "All Types" (before any filters)
+      totalOnus: allOnusBeforeFilters.length,
     })
   } catch (error: any) {
     console.error('Error fetching ONUs:', error)

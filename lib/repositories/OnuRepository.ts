@@ -16,6 +16,14 @@ export class OnuRepository implements IOnuRepository {
   async findAll(): Promise<OnuPublic[]> {
     const onus = await this.client.onu.findMany({
       orderBy: { lastUpdate: 'desc' },
+      include: {
+        olt: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     })
     return onus
   }
@@ -27,8 +35,10 @@ export class OnuRepository implements IOnuRepository {
     // Build where clause dynamically
     const whereConditions: Prisma.OnuWhereInput[] = []
 
-    // Filter by OLT Name
-    if (filters.oltName) {
+    // Filter by OLT ID (prioritas lebih tinggi dari oltName)
+    if (filters.oltId) {
+      whereConditions.push({ oltId: filters.oltId })
+    } else if (filters.oltName) {
       // Get OLT by name
       const olt = await this.client.olt.findFirst({
         where: { name: filters.oltName },
@@ -112,6 +122,14 @@ export class OnuRepository implements IOnuRepository {
       allOnus = await this.client.onu.findMany({
         where: whereClause,
         orderBy: { lastUpdate: 'desc' },
+        include: {
+          olt: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
       })
 
       // Filter by signal quality
@@ -140,22 +158,73 @@ export class OnuRepository implements IOnuRepository {
       }
     }
 
-    // For port filtering, we need to do additional filtering in memory
+    // For port filtering (Frame/Slot/Port), we need to do additional filtering in memory
     // because Prisma doesn't support complex string parsing in queries
     if (filters.port && !filters.signal) {
       allOnus = await this.client.onu.findMany({
         where: whereClause,
         orderBy: { lastUpdate: 'desc' },
+        include: {
+          olt: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
       })
 
-      // More precise port filtering
-      const portNum = parseInt(filters.port, 10)
+      // More precise port filtering - Format: "Frame/Slot/Port"
+      const [frame, slot, portNum] = filters.port.split('/').map(Number)
       allOnus = allOnus.filter((onu) => {
         // Format: Frame/Slot/Port:OnuID
-        const match = onu.gponOnu.match(/^\d+\/\d+\/(\d+)(?::\d+)?$/)
+        const match = onu.gponOnu.match(/^(\d+)\/(\d+)\/(\d+):/)
         if (match) {
-          const onuPort = parseInt(match[1], 10)
-          return onuPort === portNum
+          const onuFrame = parseInt(match[1], 10)
+          const onuSlot = parseInt(match[2], 10)
+          const onuPort = parseInt(match[3], 10)
+          return onuFrame === frame && onuSlot === slot && onuPort === portNum
+        }
+        return false
+      })
+
+      const total = allOnus.length
+      const totalPages = Math.ceil(total / limit)
+      const paginatedOnus = allOnus.slice(skip, skip + limit)
+
+      return {
+        onus: paginatedOnus,
+        total,
+        page,
+        limit,
+        totalPages,
+      }
+    }
+    
+    // For card filtering (Frame/Slot), we need to do additional filtering in memory
+    if (filters.card && !filters.signal && !filters.port) {
+      allOnus = await this.client.onu.findMany({
+        where: whereClause,
+        orderBy: { lastUpdate: 'desc' },
+        include: {
+          olt: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      })
+
+      // More precise card filtering - Format: "Frame/Slot"
+      const [frame, slot] = filters.card.split('/').map(Number)
+      allOnus = allOnus.filter((onu) => {
+        // Format: Frame/Slot/Port:OnuID
+        const match = onu.gponOnu.match(/^(\d+)\/(\d+)\/(\d+):/)
+        if (match) {
+          const onuFrame = parseInt(match[1], 10)
+          const onuSlot = parseInt(match[2], 10)
+          return onuFrame === frame && onuSlot === slot
         }
         return false
       })
@@ -180,6 +249,14 @@ export class OnuRepository implements IOnuRepository {
         orderBy: { lastUpdate: 'desc' },
         skip,
         take: limit,
+        include: {
+          olt: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
       }),
       this.client.onu.count({ where: whereClause }),
     ])
@@ -199,6 +276,14 @@ export class OnuRepository implements IOnuRepository {
     const onus = await this.client.onu.findMany({
       where: { oltId },
       orderBy: { gponOnu: 'asc' },
+      include: {
+        olt: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     })
     return onus
   }
@@ -209,6 +294,14 @@ export class OnuRepository implements IOnuRepository {
         oltId_gponOnu: {
           oltId,
           gponOnu,
+        },
+      },
+      include: {
+        olt: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
       },
     })

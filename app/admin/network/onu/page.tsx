@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   HiCheckCircle, 
   HiExclamationTriangle, 
@@ -15,11 +15,16 @@ import {
   HiOutlineCreditCard,
   HiOutlineRectangleStack,
   HiOutlineCog6Tooth,
-  HiArrowPath
+  HiArrowPath,
+  HiXMark,
+  HiCheck,
+  HiMagnifyingGlass,
+  HiSignal
 } from 'react-icons/hi2'
 
 type OnuData = {
   id: string
+  oltId: string
   oltName: string
   name: string
   description: string | null
@@ -40,6 +45,22 @@ type SummaryData = {
   other: { count: number; percentage: string; los: number; na: number }
 }
 
+type OLT = {
+  id: string
+  name: string
+  ipAddress: string
+  snmpConnected: boolean
+  snmpCommunityWrite: string | null
+}
+
+type Card = {
+  frame: number
+  card: number
+  slots: Array<{ slot: number; ports: number[] }>
+  totalSlots: number
+  totalPorts: number
+}
+
 export default function AllOnuPage() {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(5)
@@ -47,6 +68,7 @@ export default function AllOnuPage() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [onus, setOnus] = useState<OnuData[]>([])
+  const [allOnus, setAllOnus] = useState<OnuData[]>([]) // Semua ONU tanpa filter
   const [summaryData, setSummaryData] = useState<SummaryData>({
     total: 0,
     good: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
@@ -61,7 +83,97 @@ export default function AllOnuPage() {
     totalPages: 0,
   })
 
-  // Fetch data dari API
+  // Filter states
+  const [selectedOlt, setSelectedOlt] = useState<string | null>(null)
+  const [selectedCard, setSelectedCard] = useState<string | null>(null)
+  const [selectedPort, setSelectedPort] = useState<string | null>(null)
+  const [selectedType, setSelectedType] = useState<string | null>(null)
+
+  // Dropdown data
+  const [olts, setOlts] = useState<OLT[]>([])
+  const [cards, setCards] = useState<Card[]>([])
+  const [ports, setPorts] = useState<string[]>([])
+  const [types, setTypes] = useState<string[]>([])
+  const [typeCounts, setTypeCounts] = useState<Record<string, number>>({})
+
+  // Search state for types
+  const [typeSearch, setTypeSearch] = useState('')
+
+  // Dropdown open states
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const dropdownRefs = {
+    olt: useRef<HTMLDivElement>(null),
+    card: useRef<HTMLDivElement>(null),
+    port: useRef<HTMLDivElement>(null),
+    type: useRef<HTMLDivElement>(null),
+  }
+
+  // Fetch OLTs
+  const fetchOlts = async () => {
+    try {
+      const res = await fetch('/api/olts')
+      const data = await res.json()
+      if (data.olts) {
+        const connectedOlts = data.olts.filter(
+          (olt: any) => olt.snmpConnected && olt.snmpCommunityWrite && olt.type?.toLowerCase().includes('c300')
+        )
+        setOlts(connectedOlts)
+      }
+    } catch (error) {
+      console.error('Error fetching OLTs:', error)
+    }
+  }
+
+  // Fetch Cards dari OLT yang dipilih
+  const fetchCards = async (oltId: string) => {
+    try {
+      const res = await fetch(`/api/olts/${oltId}/cards`)
+      const data = await res.json()
+      if (data.cards) {
+        setCards(data.cards)
+      } else {
+        setCards([])
+      }
+    } catch (error) {
+      console.error('Error fetching Cards:', error)
+      setCards([])
+    }
+  }
+
+  // Extract ports dari cards yang dipilih
+  const extractPorts = (selectedCardStr: string) => {
+    if (!selectedCardStr || !selectedOlt) return []
+    
+    const [frame, slot] = selectedCardStr.split('/').map(Number)
+    const card = cards.find(c => c.frame === frame)
+    if (!card) return []
+    
+    const slotData = card.slots.find(s => s.slot === slot)
+    if (!slotData) return []
+    
+    return slotData.ports.map(p => `${frame}/${slot}/${p}`)
+  }
+
+  // Extract types dan counts dari ONU data
+  const extractTypesAndCounts = (onusData: OnuData[] = allOnus) => {
+    const typeMap = new Map<string, number>()
+    onusData.forEach(onu => {
+      if (onu.actualType) {
+        const count = typeMap.get(onu.actualType) || 0
+        typeMap.set(onu.actualType, count + 1)
+      }
+    })
+    
+    const typesArray = Array.from(typeMap.keys()).sort()
+    const countsObj: Record<string, number> = {}
+    typeMap.forEach((count, type) => {
+      countsObj[type] = count
+    })
+    
+    return { types: typesArray, counts: countsObj }
+  }
+
+  // Fetch data dari API dengan server-side filtering
   const fetchOnus = async () => {
     setLoading(true)
     try {
@@ -70,6 +182,10 @@ export default function AllOnuPage() {
         limit: limit.toString(),
       })
       if (search) params.append('search', search)
+      if (selectedOlt) params.append('oltId', selectedOlt)
+      if (selectedCard) params.append('card', selectedCard)
+      if (selectedPort) params.append('port', selectedPort)
+      if (selectedType) params.append('type', selectedType)
 
       const res = await fetch(`/api/onus?${params.toString()}`)
       const data = await res.json()
@@ -77,24 +193,60 @@ export default function AllOnuPage() {
       // Handle error dari response
       if (data.error) {
         console.error('Error from API:', data.error)
-        // Tetap set data kosong agar UI bisa render
         setOnus([])
         setSummaryData(data.summary || summaryData)
         setPagination(data.pagination || pagination)
-        // Tampilkan alert jika ada error
         if (data.error && data.error !== 'Gagal mengambil data ONU') {
           alert(`Error: ${data.error}`)
         }
       } else {
+        // Set data dari API (sudah terfilter dan ter-paginate)
         setOnus(data.onus || [])
         setSummaryData(data.summary || summaryData)
         setPagination(data.pagination || pagination)
+        
+        // Update types dari API (jika tersedia)
+        if (data.types && data.typeCounts) {
+          setTypes(data.types)
+          setTypeCounts(data.typeCounts)
+          // Simpan total untuk "All Types" badge
+          if (data.totalOnus !== undefined) {
+            // Store totalOnus untuk digunakan di dropdown
+            setAllOnus(Array(data.totalOnus).fill(null)) // Dummy array untuk tracking total
+          }
+        }
       }
     } catch (error: any) {
       console.error('Error fetching ONUs:', error)
       setOnus([])
+      setTypes([])
+      setTypeCounts({})
     } finally {
       setLoading(false)
+    }
+  }
+  
+  // Fetch types separately untuk dropdown (tanpa filter, hanya sekali)
+  const fetchTypes = async () => {
+    try {
+      const params = new URLSearchParams({
+        page: '1',
+        limit: '10', // Minimal data, hanya butuh types dari response
+      })
+      const res = await fetch(`/api/onus?${params.toString()}`)
+      const data = await res.json()
+      
+      if (!data.error && data.types && data.typeCounts) {
+        setTypes(data.types)
+        setTypeCounts(data.typeCounts)
+        // Store total count untuk "All Types" badge
+        if (data.totalOnus !== undefined) {
+          // Use a simple number instead of array
+          setAllOnus(Array(data.totalOnus).fill(null) as any)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching types:', error)
     }
   }
 
@@ -111,10 +263,50 @@ export default function AllOnuPage() {
     }
   }
 
-  // Fetch data saat page/limit/search berubah
+  // Fetch OLTs and types on mount
+  useEffect(() => {
+    fetchOlts()
+    fetchTypes() // Fetch types sekali untuk dropdown
+  }, [])
+
+  // Fetch cards when OLT selected
+  useEffect(() => {
+    if (selectedOlt) {
+      fetchCards(selectedOlt)
+      setSelectedCard(null)
+      setSelectedPort(null)
+      setPorts([])
+    } else {
+      setCards([])
+      setSelectedCard(null)
+      setSelectedPort(null)
+      setPorts([])
+    }
+  }, [selectedOlt])
+
+  // Update ports when card selected
+  useEffect(() => {
+    if (selectedCard && cards.length > 0) {
+      const extractedPorts = extractPorts(selectedCard)
+      setPorts(extractedPorts)
+      setSelectedPort(null)
+    } else {
+      setPorts([])
+      setSelectedPort(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCard, cards])
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [selectedOlt, selectedCard, selectedPort, selectedType])
+
+  // Fetch data saat page/limit/search/filters berubah
   useEffect(() => {
     fetchOnus()
-  }, [page, limit])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, limit, selectedOlt, selectedCard, selectedPort, selectedType])
 
   // Debounce search
   useEffect(() => {
@@ -127,7 +319,27 @@ export default function AllOnuPage() {
     }, 500)
 
     return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        openDropdown &&
+        dropdownRefs[openDropdown as keyof typeof dropdownRefs]?.current &&
+        !dropdownRefs[openDropdown as keyof typeof dropdownRefs].current?.contains(event.target as Node)
+      ) {
+        setOpenDropdown(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDropdown])
 
   const getSignalColor = (rxOlt: string | null) => {
     if (!rxOlt || rxOlt === 'N/A') return 'text-gray-500'
@@ -457,26 +669,309 @@ export default function AllOnuPage() {
         <div className="flex flex-wrap items-center gap-4 mb-4">
           {/* Filter Buttons */}
           <div className="flex flex-wrap gap-2">
-            <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-              <HiBars3 className="w-4 h-4" />
-              All OLTs
-              <HiChevronDown className="w-4 h-4" />
-            </button>
-            <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-              <HiOutlineCreditCard className="w-4 h-4" />
-              All Cards
-              <HiChevronDown className="w-4 h-4" />
-            </button>
-            <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-              <HiOutlineRectangleStack className="w-4 h-4" />
-              All Ports
-              <HiChevronDown className="w-4 h-4" />
-            </button>
-            <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-              <HiOutlineCog6Tooth className="w-4 h-4" />
-              All Types
-              <HiChevronDown className="w-4 h-4" />
-            </button>
+            {/* All OLTs Dropdown */}
+            <div className="relative" ref={dropdownRefs.olt}>
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'olt' ? null : 'olt')}
+                className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
+                  selectedOlt ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                <HiBars3 className="w-4 h-4" />
+                {selectedOlt ? olts.find(o => o.id === selectedOlt)?.name || 'All OLTs' : 'All OLTs'}
+                {selectedOlt && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedOlt(null)
+                      setSelectedCard(null)
+                      setSelectedPort(null)
+                      setCards([])
+                      setPorts([])
+                    }}
+                    className="ml-1 hover:bg-green-700 rounded p-0.5 cursor-pointer inline-flex items-center"
+                  >
+                    <HiXMark className="w-3 h-3" />
+                  </span>
+                )}
+                <HiChevronDown className="w-4 h-4" />
+              </button>
+              {openDropdown === 'olt' && (
+                <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setSelectedOlt(null)
+                      setOpenDropdown(null)
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      !selectedOlt ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                    }`}
+                  >
+                    All OLTs
+                  </button>
+                  {olts.map((olt) => (
+                    <button
+                      key={olt.id}
+                      onClick={() => {
+                        setSelectedOlt(olt.id)
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                        selectedOlt === olt.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                      }`}
+                    >
+                      {olt.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* All Cards Dropdown */}
+            <div className="relative" ref={dropdownRefs.card}>
+              <button
+                onClick={() => selectedOlt && setOpenDropdown(openDropdown === 'card' ? null : 'card')}
+                disabled={!selectedOlt}
+                className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
+                  !selectedOlt
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : selectedCard
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                <HiOutlineCreditCard className="w-4 h-4" />
+                {selectedCard ? `Card ${selectedCard}` : 'All Cards'}
+                {selectedCard && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedCard(null)
+                      setSelectedPort(null)
+                      setPorts([])
+                    }}
+                    className="ml-1 hover:bg-green-700 rounded p-0.5 cursor-pointer inline-flex items-center"
+                  >
+                    <HiXMark className="w-3 h-3" />
+                  </span>
+                )}
+                <HiChevronDown className="w-4 h-4" />
+              </button>
+              {openDropdown === 'card' && selectedOlt && (
+                <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setSelectedCard(null)
+                      setSelectedPort(null)
+                      setPorts([])
+                      setOpenDropdown(null)
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      !selectedCard ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                    }`}
+                  >
+                    All Cards
+                  </button>
+                  {cards.map((card) =>
+                    card.slots.map((slot) => (
+                      <button
+                        key={`${card.frame}/${slot.slot}`}
+                        onClick={() => {
+                          setSelectedCard(`${card.frame}/${slot.slot}`)
+                          setOpenDropdown(null)
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                          selectedCard === `${card.frame}/${slot.slot}` ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                        }`}
+                      >
+                        Frame {card.frame} / Slot {slot.slot} ({slot.ports.length} ports)
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* All Ports Dropdown */}
+            <div className="relative" ref={dropdownRefs.port}>
+              <button
+                onClick={() => selectedCard && setOpenDropdown(openDropdown === 'port' ? null : 'port')}
+                disabled={!selectedCard}
+                className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
+                  !selectedCard
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : selectedPort
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                <HiOutlineRectangleStack className="w-4 h-4" />
+                {selectedPort ? `Port ${selectedPort.split('/')[2]}` : 'All Ports'}
+                {selectedPort && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedPort(null)
+                    }}
+                    className="ml-1 hover:bg-green-700 rounded p-0.5 cursor-pointer inline-flex items-center"
+                  >
+                    <HiXMark className="w-3 h-3" />
+                  </span>
+                )}
+                <HiChevronDown className="w-4 h-4" />
+              </button>
+              {openDropdown === 'port' && selectedCard && (
+                <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setSelectedPort(null)
+                      setOpenDropdown(null)
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      !selectedPort ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                    }`}
+                  >
+                    All Ports
+                  </button>
+                  {ports.map((port) => {
+                    const portNum = port.split('/')[2]
+                    return (
+                      <button
+                        key={port}
+                        onClick={() => {
+                          setSelectedPort(port)
+                          setOpenDropdown(null)
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                          selectedPort === port ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                        }`}
+                      >
+                        Port {portNum}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* All Types Dropdown */}
+            <div className="relative" ref={dropdownRefs.type}>
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
+                className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
+                  selectedType ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                <HiOutlineCog6Tooth className="w-4 h-4" />
+                {selectedType || 'All Types'}
+                {selectedType && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedType(null)
+                    }}
+                    className="ml-1 hover:bg-green-700 rounded p-0.5 cursor-pointer inline-flex items-center"
+                  >
+                    <HiXMark className="w-3 h-3" />
+                  </span>
+                )}
+                <HiChevronDown className="w-4 h-4" />
+              </button>
+              {openDropdown === 'type' && (
+                <div className="absolute top-full left-0 mt-1 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-96 overflow-hidden flex flex-col">
+                  {/* Search Bar */}
+                  <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+                    <div className="relative">
+                      <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={typeSearch}
+                        onChange={(e) => setTypeSearch(e.target.value)}
+                        placeholder='Search types...'
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Types List */}
+                  <div className="overflow-y-auto flex-1">
+                    {/* All Types Option */}
+                    <button
+                      onClick={() => {
+                        setSelectedType(null)
+                        setOpenDropdown(null)
+                        setTypeSearch('')
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between ${
+                        !selectedType ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {!selectedType && (
+                          <HiCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        )}
+                        <span className={!selectedType ? 'font-medium' : ''}>All Types</span>
+                      </div>
+                      <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium rounded-full">
+                        {allOnus.length}
+                      </span>
+                    </button>
+
+                    {/* Filtered Types */}
+                    {types.length > 0 ? (
+                      types
+                        .filter((type) => 
+                          type.toLowerCase().includes(typeSearch.toLowerCase())
+                        )
+                        .map((type) => {
+                          const count = typeCounts[type] || 0
+                          const isSelected = selectedType === type
+                          return (
+                            <button
+                              key={type}
+                              onClick={() => {
+                                setSelectedType(type)
+                                setOpenDropdown(null)
+                                setTypeSearch('')
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between ${
+                                isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {isSelected && (
+                                  <HiCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                )}
+                                {!isSelected && (
+                                  <HiSignal className="w-4 h-4 text-gray-400" />
+                                )}
+                                <span className={isSelected ? 'font-medium' : ''}>{type}</span>
+                              </div>
+                              <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-full">
+                                {count}
+                              </span>
+                            </button>
+                          )
+                        })
+                    ) : (
+                      <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                        {loading ? 'Loading types...' : 'No types available. Please refresh data.'}
+                      </div>
+                    )}
+                    
+                    {/* No Results from Search */}
+                    {types.length > 0 && types.filter((type) => 
+                      type.toLowerCase().includes(typeSearch.toLowerCase())
+                    ).length === 0 && typeSearch && (
+                      <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No types found matching &quot;{typeSearch}&quot;
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Status Legend */}
@@ -592,7 +1087,7 @@ export default function AllOnuPage() {
               ) : onus.length === 0 ? (
                 <tr key="empty">
                   <td colSpan={11} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Tidak ada data ONU. Klik "Sync dari SNMP" untuk mengambil data dari OLT C300.
+                    Tidak ada data ONU. Klik &quot;Refresh&quot; untuk mengambil data dari OLT C300.
                   </td>
                 </tr>
               ) : (

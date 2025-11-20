@@ -5,6 +5,8 @@
 
 import { startOltSyncScheduler } from './olt-sync-scheduler'
 import { startMikroTikPingScheduler } from './mikrotik-ping-scheduler'
+// ONU sync scheduler disabled - menggunakan realtime SNMP query instead
+// import { startOnuSyncScheduler } from './onu-sync-scheduler'
 
 // Start OLT sync scheduler (setiap 5 menit)
 // Bisa diubah melalui environment variable
@@ -14,6 +16,9 @@ const OLT_SYNC_CRON = process.env.OLT_SYNC_CRON || '*/5 * * * *'
 // Bisa diubah melalui environment variable
 const MIKROTIK_PING_CRON = process.env.MIKROTIK_PING_CRON || '*/5 * * * *'
 
+// ONU sync scheduler disabled - data diambil langsung dari SNMP secara realtime
+// const ONU_SYNC_CRON = process.env.ONU_SYNC_CRON || '*/10 * * * *'
+
 export function startAllSchedulers() {
   console.log('[Scheduler] Starting all schedulers...')
   
@@ -22,6 +27,9 @@ export function startAllSchedulers() {
   
   // Start MikroTik ping check scheduler
   startMikroTikPingScheduler(MIKROTIK_PING_CRON)
+  
+  // ONU sync scheduler disabled - menggunakan realtime SNMP query
+  // startOnuSyncScheduler(ONU_SYNC_CRON)
   
   console.log('[Scheduler] All schedulers started successfully')
 }

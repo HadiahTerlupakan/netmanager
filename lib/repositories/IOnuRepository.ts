@@ -1,6 +1,10 @@
 export interface OnuPublic {
   id: string
   oltId: string
+  olt?: {
+    id: string
+    name: string
+  }
   name: string
   description: string | null
   pppoe: string | null
@@ -161,9 +165,10 @@ export interface OnuUpdateData {
 }
 
 export interface OnuFilters {
+  oltId?: string // Filter by OLT ID
   oltName?: string
-  card?: string
-  port?: string
+  card?: string // Format: "Frame/Slot"
+  port?: string // Format: "Frame/Slot/Port"
   type?: string
   status?: string
   signal?: string

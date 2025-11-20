@@ -799,7 +799,30 @@ export async function getC300GponOnuDataViaSNMP(
       const statusValue = status[idx] || ""
       const rxValue = rx[idx] || ""  // RX OLT (metode lama, fallback)
       const rxOltNewValue = rxOltNew[idx] || ""  // RX OLT (metode baru)
-      const rxOnuNewValue = rxOnuNew[idx] || ""  // RX ONU (metode baru)
+      
+      // RX ONU menggunakan format index berbeda: {composite_index}.{onu_id}.1
+      // Coba match dengan index yang ada, atau dengan format .1 di akhir
+      let rxOnuNewValue = rxOnuNew[idx] || ""
+      if (!rxOnuNewValue) {
+        // Coba dengan format .1 di akhir
+        const idxWithOne = `${idx}.1`
+        rxOnuNewValue = rxOnuNew[idxWithOne] || ""
+      }
+      if (!rxOnuNewValue) {
+        // Coba cari berdasarkan onu_id saja (ambil yang pertama cocok)
+        const indexParts = idx.split('.')
+        if (indexParts.length >= 2) {
+          const onuId = indexParts[1]
+          const matchingKeys = Object.keys(rxOnuNew).filter(k => {
+            const parts = k.split('.')
+            return parts.length >= 2 && parts[parts.length - 2] === onuId
+          })
+          if (matchingKeys.length > 0) {
+            rxOnuNewValue = rxOnuNew[matchingKeys[0]] || ""
+          }
+        }
+      }
+      
       const txValue = tx[idx] || ""
       const nameValue = name[idx] || ""
       const descValue = desc[idx] || ""
