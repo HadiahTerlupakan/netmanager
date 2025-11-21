@@ -15,6 +15,7 @@ export default function OLTPage() {
   const [viewOlt, setViewOlt] = useState<any | null>(null)
   const [onus, setOnus] = useState<any[]>([])
   const [loadingOnus, setLoadingOnus] = useState(false)
+  const [onuPagination, setOnuPagination] = useState<{ total: number; page: number; limit: number; totalPages: number } | null>(null)
   useEffect(() => {
     loadOlts()
   }, [])
@@ -176,7 +177,8 @@ export default function OLTPage() {
     
     try {
       // Fetch ONU data dari database untuk OLT ini (bukan dari SNMP)
-      const res = await fetch(`/api/onus/database?oltId=${olt.id}&limit=500&page=1`, {
+      // Gunakan limit yang lebih besar (2000) untuk memastikan semua ONU terlihat
+      const res = await fetch(`/api/onus/database?oltId=${olt.id}&limit=2000&page=1`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache',
@@ -191,6 +193,7 @@ export default function OLTPage() {
       
       const data = await res.json()
       setOnus(data.onus || [])
+      setOnuPagination(data.pagination || null)
     } catch (error: any) {
       console.error('Error loading ONUs:', error)
       alert('Terjadi kesalahan saat memuat data ONU: ' + (error.message || 'Unknown error'))
@@ -517,7 +520,7 @@ export default function OLTPage() {
                   Data ONU - {viewOlt.name}
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  {viewOlt.ipAddress} | Total: {onus.length} ONU
+                  {viewOlt.ipAddress} | Total: {onuPagination?.total ?? onus.length} ONU {onuPagination && onuPagination.totalPages > 1 ? `(Halaman ${onuPagination.page}/${onuPagination.totalPages})` : ''}
                 </p>
               </div>
               <button
@@ -525,6 +528,7 @@ export default function OLTPage() {
                   setIsViewModalOpen(false)
                   setViewOlt(null)
                   setOnus([])
+                  setOnuPagination(null)
                 }}
                 className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
               >
@@ -611,7 +615,8 @@ export default function OLTPage() {
             {/* Footer */}
             <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                Menampilkan {onus.length} ONU dari database
+                Menampilkan {onus.length} dari {onuPagination?.total ?? onus.length} ONU di database
+                {onuPagination && onuPagination.totalPages > 1 && ` (Halaman ${onuPagination.page}/${onuPagination.totalPages})`}
               </div>
               <div className="flex gap-2">
                 <button
