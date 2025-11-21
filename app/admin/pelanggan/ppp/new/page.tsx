@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiDocumentText } from 'react-icons/hi2'
+import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiDocumentText, HiMapPin } from 'react-icons/hi2'
+import Modal from '@/components/common/Modal'
+import { MapPickerWithSearch } from '@/components/common/MapPicker'
 
 type HargaPaket = {
   id: string
@@ -54,6 +56,7 @@ export default function PelangganPPPNewPage() {
   const [scanningKTP, setScanningKTP] = useState(false)
   const [ktpScanError, setKtpScanError] = useState<string | null>(null)
   const [ktpScanSuccess, setKtpScanSuccess] = useState(false)
+  const [showMapPicker, setShowMapPicker] = useState(false)
 
   const [formData, setFormData] = useState({
     idPelanggan: '',
@@ -1633,9 +1636,19 @@ export default function PelangganPPPNewPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Titik Koordinat (Tikor)
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Titik Koordinat (Tikor)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowMapPicker(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
+                >
+                  <HiMapPin className="w-3.5 h-3.5" />
+                  Pilih dari Peta
+                </button>
+              </div>
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
@@ -2187,6 +2200,52 @@ export default function PelangganPPPNewPage() {
         </div>
         )}
       </div>
+
+      {/* Modal Pilih Koordinat dari Peta */}
+      <Modal
+        open={showMapPicker}
+        title="Pilih Titik Koordinat dari Peta"
+        onClose={() => setShowMapPicker(false)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowMapPicker(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              Tutup
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Klik pada peta untuk memilih koordinat. Anda juga dapat mencari alamat menggunakan fitur pencarian.
+          </p>
+          <MapPickerWithSearch
+            lat={formData.latitude}
+            lon={formData.longitude}
+            height={500}
+            onChange={(lat, lon) => {
+              setFormData((prev) => ({
+                ...prev,
+                latitude: lat,
+                longitude: lon,
+              }))
+            }}
+          />
+          {formData.latitude && formData.longitude && (
+            <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+              <p className="text-xs font-medium text-indigo-900 dark:text-indigo-300 mb-1">
+                Koordinat Terpilih:
+              </p>
+              <p className="text-sm text-indigo-700 dark:text-indigo-400">
+                Latitude: {formData.latitude.toFixed(6)}, Longitude: {formData.longitude.toFixed(6)}
+              </p>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -4,10 +4,11 @@
  */
 
 import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
-import { getC300GponOnuDataViaSNMP } from '@/app/api/onus/sync/route'
+import { getC300GponOnuDataViaSNMP, countOnuFromSNMP } from '@/app/api/onus/sync/route'
+import { fetchOnuDataPaginated } from '@/lib/services/snmp-optimized'
 
 /**
- * Sync ONU data dari semua OLT yang terhubung via SNMP
+ * Sync ONU data dari semua OLT yang terhubung via SNMP (Optimized Version)
  * @returns Jumlah total ONU yang berhasil di-sync
  */
 export async function syncAllOnuData(): Promise<number> {
@@ -34,46 +35,75 @@ export async function syncAllOnuData(): Promise<number> {
   let totalSynced = 0
   const errors: string[] = []
 
-  // Sync ONU dari setiap OLT
+  // Sync ONU dari setiap OLT menggunakan optimized approach
   for (const olt of connectedOlts) {
     try {
-      console.log(`[ONU-Sync] Syncing ONU data from OLT ${olt.name} (${olt.ipAddress})...`)
+      console.log(`[ONU-Sync] Syncing ONU data from OLT ${olt.name} (${olt.ipAddress}) using optimized approach...`)
 
-      const onuData = await getC300GponOnuDataViaSNMP(
-        olt.ipAddress,
-        olt.snmpPort,
-        olt.snmpCommunityWrite,
-        olt.snmpVersion,
-        olt.id
-      )
+      // Use optimized pagination approach for large datasets
+      const pageSize = 100 // Process 100 ONUs at a time
+      let page = 1
+      let hasMoreData = true
+      let totalOnuSynced = 0
 
-      if (onuData.length === 0) {
-        console.log(`[ONU-Sync] No ONU data found for OLT ${olt.name}`)
-        continue
-      }
+      while (hasMoreData) {
+        console.log(`[ONU-Sync] Processing page ${page} for OLT ${olt.name}...`)
 
-      console.log(`[ONU-Sync] Saving ${onuData.length} ONUs to database for OLT ${olt.name}...`)
+        const result = await fetchOnuDataPaginated(
+          olt.ipAddress,
+          olt.snmpPort || 161,
+          olt.snmpCommunityWrite || 'public',
+          olt.snmpVersion || '2c',
+          olt.id,
+          page,
+          pageSize
+        )
 
-      // Upsert setiap ONU
-      let savedCount = 0
-      for (const onu of onuData) {
-        try {
-          await onuRepo.upsert(olt.id, onu.gponOnu, {
-            oltId: olt.id,
-            name: onu.name,
-            description: onu.description,
-            pppoe: onu.pppoe,
-            gponOnu: onu.gponOnu,
-            status: onu.status,
-            rxOlt: onu.rxOlt,
-            rxOnu: onu.rxOnu,
-            serialNumber: onu.serialNumber,
-            actualType: onu.actualType,
-            lastSeen: new Date(), // Update last seen time
-          })
-          savedCount++
-        } catch (error: any) {
-          console.error(`[ONU-Sync] Error saving ONU ${onu.gponOnu}:`, error.message)
+        if (result.data.length === 0) {
+          hasMoreData = false
+          break
+        }
+
+        console.log(`[ONU-Sync] Processing ${result.data.length} ONUs from page ${page}...`)
+
+        // Batch upsert untuk setiap halaman
+        const upsertPromises = result.data.map(async (onu) => {
+          try {
+            await onuRepo.upsert(olt.id, onu.gponOnu, {
+              oltId: olt.id,
+              name: onu.name,
+              description: onu.description,
+              pppoe: onu.pppoe,
+              gponOnu: onu.gponOnu,
+              status: onu.status,
+              rxOlt: onu.rxOlt,
+              rxOnu: onu.rxOnu,
+              serialNumber: onu.serialNumber,
+              actualType: onu.actualType,
+              lastSeen: new Date(),
+            })
+            return true
+          } catch (error: any) {
+            console.error(`[ONU-Sync] Error saving ONU ${onu.gponOnu}:`, error.message)
+            return false
+          }
+        })
+
+        const results = await Promise.allSettled(upsertPromises)
+        const savedCount = results.filter(r => r.status === 'fulfilled' && r.value).length
+
+        totalOnuSynced += savedCount
+        totalSynced += savedCount
+
+        console.log(`[ONU-Sync] Page ${page}: ${savedCount}/${result.data.length} ONUs saved successfully`)
+
+        // Check if we have more data
+        hasMoreData = result.pagination.page < result.pagination.totalPages
+        page++
+
+        // Add small delay to prevent overwhelming the OLT
+        if (hasMoreData) {
+          await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay between pages
         }
       }
 
@@ -82,13 +112,62 @@ export async function syncAllOnuData(): Promise<number> {
         onuLastSync: new Date(),
       })
 
-      totalSynced += savedCount
-      console.log(`[ONU-Sync] Successfully saved ${savedCount}/${onuData.length} ONUs for OLT ${olt.name}`)
+      console.log(`[ONU-Sync] Successfully synced ${totalOnuSynced} ONUs for OLT ${olt.name}`)
     } catch (error: any) {
-      const errorMsg = `Error syncing OLT ${olt.name}: ${error.message}`
-      console.error(`[ONU-Sync] ${errorMsg}`)
-      errors.push(errorMsg)
-      // Continue dengan OLT berikutnya
+      console.error(`[ONU-Sync] Error with optimized approach for OLT ${olt.name}, falling back to legacy:`, error.message)
+
+      // Fallback to legacy approach if optimized fails
+      try {
+        const onuData = await getC300GponOnuDataViaSNMP(
+          olt.ipAddress,
+          olt.snmpPort,
+          olt.snmpCommunityWrite,
+          olt.snmpVersion,
+          olt.id
+        )
+
+        if (onuData.length === 0) {
+          console.log(`[ONU-Sync] No ONU data found for OLT ${olt.name} (legacy fallback)`)
+          continue
+        }
+
+        console.log(`[ONU-Sync] Legacy fallback: Processing ${onuData.length} ONUs for OLT ${olt.name}...`)
+
+        // Upsert setiap ONU
+        let savedCount = 0
+        for (const onu of onuData) {
+          try {
+            await onuRepo.upsert(olt.id, onu.gponOnu, {
+              oltId: olt.id,
+              name: onu.name,
+              description: onu.description,
+              pppoe: onu.pppoe,
+              gponOnu: onu.gponOnu,
+              status: onu.status,
+              rxOlt: onu.rxOlt,
+              rxOnu: onu.rxOnu,
+              serialNumber: onu.serialNumber,
+              actualType: onu.actualType,
+              lastSeen: new Date(),
+            })
+            savedCount++
+          } catch (error: any) {
+            console.error(`[ONU-Sync] Error saving ONU ${onu.gponOnu}:`, error.message)
+          }
+        }
+
+        // Update OLT onuLastSync
+        await oltRepo.update(olt.id, {
+          onuLastSync: new Date(),
+        })
+
+        totalSynced += savedCount
+        console.log(`[ONU-Sync] Legacy fallback: Successfully saved ${savedCount}/${onuData.length} ONUs for OLT ${olt.name}`)
+      } catch (fallbackError: any) {
+        const errorMsg = `Error syncing OLT ${olt.name} (both optimized and legacy failed): ${fallbackError.message}`
+        console.error(`[ONU-Sync] ${errorMsg}`)
+        errors.push(errorMsg)
+      }
     }
   }
 
@@ -101,11 +180,15 @@ export async function syncAllOnuData(): Promise<number> {
 }
 
 /**
- * Sync ONU data dari OLT tertentu
+ * Sync ONU data dari OLT tertentu dengan progress tracking
  * @param oltId - OLT ID
+ * @param onProgress - Callback untuk update progress (percentage: number)
  * @returns Jumlah ONU yang berhasil di-sync
  */
-export async function syncOnuDataByOltId(oltId: string): Promise<number> {
+export async function syncOnuDataByOltId(
+  oltId: string,
+  onProgress?: (percentage: number) => Promise<void>
+): Promise<number> {
   const oltRepo = getOLTRepository()
   const onuRepo = getOnuRepository()
 
@@ -128,48 +211,279 @@ export async function syncOnuDataByOltId(oltId: string): Promise<number> {
 
   console.log(`[ONU-Sync] Syncing ONU data from OLT ${olt.name} (${olt.ipAddress})...`)
 
+  // STEP 0: Hapus data ONU lama sebelum sync dimulai
+  console.log(`[ONU-Sync] Step 0: Deleting existing ONU data for OLT ${olt.name}...`)
+  try {
+    // Hitung jumlah ONU yang akan dihapus
+    const existingCount = await onuRepo.countByOltId(oltId)
+    if (existingCount > 0) {
+      await onuRepo.deleteByOltId(oltId)
+      console.log(`[ONU-Sync] Deleted ${existingCount} existing ONUs for OLT ${olt.name}`)
+    } else {
+      console.log(`[ONU-Sync] No existing ONU data to delete for OLT ${olt.name}`)
+    }
+  } catch (error: any) {
+    console.error(`[ONU-Sync] Error deleting existing ONU data:`, error.message)
+    // Lanjutkan sync meskipun delete gagal (mungkin tidak ada data lama)
+  }
+
+  // Update progress: 0% (mulai) - ini akan membuat total progress = 10% + 0% = 10%
+  if (onProgress) {
+    console.log(`[ONU-Sync] Calling onProgress(0) to set initial progress...`)
+    await onProgress(0)
+    console.log(`[ONU-Sync] onProgress(0) completed`)
+  }
+
+  // STEP 1: Hitung jumlah ONU terlebih dahulu (hanya ambil count, tidak ambil semua data)
+  console.log(`[ONU-Sync] Step 1: Counting total ONUs from SNMP...`)
+  let totalOnuCount = 0
+  try {
+    totalOnuCount = await countOnuFromSNMP(
+      olt.ipAddress,
+      olt.snmpPort,
+      olt.snmpCommunityWrite,
+      olt.snmpVersion
+    )
+    console.log(`[ONU-Sync] Found ${totalOnuCount} ONUs on OLT ${olt.name}`)
+    
+    // Update progress: 5% setelah menghitung jumlah ONU
+    if (onProgress && totalOnuCount > 0) {
+      await onProgress(5)
+      console.log(`[ONU-Sync] Progress updated: 5% (ONU count: ${totalOnuCount})`)
+    }
+  } catch (error: any) {
+    console.warn(`[ONU-Sync] Failed to count ONUs, will fetch all data: ${error.message}`)
+    // Jika gagal menghitung, lanjutkan dengan fetch semua data
+  }
+
+  // STEP 2: Fetch semua data ONU dari SNMP secara bertahap
+  console.log(`[ONU-Sync] Step 2: Fetching ONU data from SNMP...`)
+  console.log(`[ONU-Sync] Expected ONU count from Step 1: ${totalOnuCount}`)
+  
+  // JANGAN gunakan maxResults untuk memastikan semua data terambil
   const onuData = await getC300GponOnuDataViaSNMP(
     olt.ipAddress,
     olt.snmpPort,
     olt.snmpCommunityWrite,
     olt.snmpVersion,
     olt.id
+    // TIDAK ada maxResults - ambil semua data
   )
+  console.log(`[ONU-Sync] Fetched ${onuData.length} ONUs from SNMP`)
+  
+  // Bandingkan jumlah ONU yang di-count vs yang di-fetch
+  if (totalOnuCount > 0 && onuData.length !== totalOnuCount) {
+    console.warn(`[ONU-Sync] WARNING: Count mismatch! Expected ${totalOnuCount} ONUs but fetched ${onuData.length} ONUs`)
+    console.warn(`[ONU-Sync] Using fetched count (${onuData.length}) for progress tracking as it's more accurate`)
+  }
+  
+  // Gunakan onuData.length sebagai expectedCount karena lebih akurat (data yang benar-benar di-fetch)
+  // Hanya gunakan totalOnuCount jika onuData.length adalah 0 (untuk kasus edge case)
+  const expectedCount = onuData.length > 0 ? onuData.length : (totalOnuCount > 0 ? totalOnuCount : 0)
 
   if (onuData.length === 0) {
     console.log(`[ONU-Sync] No ONU data found for OLT ${olt.name}`)
+    // Update progress: 100% (selesai, meskipun tidak ada data)
+    if (onProgress) {
+      console.log(`[ONU-Sync] No ONU data, calling onProgress(100)...`)
+      await onProgress(100)
+      console.log(`[ONU-Sync] onProgress(100) completed`)
+    }
     return 0
   }
 
   console.log(`[ONU-Sync] Saving ${onuData.length} ONUs to database for OLT ${olt.name}...`)
+  console.log(`[ONU-Sync] Expected total ONUs: ${expectedCount} (${expectedCount === onuData.length ? 'from fetched data' : totalOnuCount > 0 ? 'from count step' : 'estimated'})`)
 
-  // Upsert setiap ONU
+  // Gunakan onuData.length sebagai actualTotal karena itu adalah data yang benar-benar di-fetch
+  // Ini lebih akurat daripada count step yang mungkin tidak lengkap
+  const actualTotal = onuData.length > 0 ? onuData.length : expectedCount
+
+  // Update progress: 10% setelah fetch data selesai
+  if (onProgress && actualTotal > 0) {
+    await onProgress(10)
+    console.log(`[ONU-Sync] Progress updated: 10% (Data fetched, starting to save...)`)
+  }
+
+  // Hitung batch size untuk progress tracking
+  // Pastikan minimal 10 batch untuk progress yang lebih smooth
+  // Jika ONU sedikit, bagi menjadi batch yang lebih kecil
+  const minBatches = 10
+  const totalBatches = actualTotal >= minBatches 
+    ? minBatches 
+    : Math.max(1, actualTotal) // Jika ONU < 10, gunakan jumlah ONU sebagai batch
+  const batchSize = Math.max(1, Math.ceil(actualTotal / totalBatches))
   let savedCount = 0
-  for (const onu of onuData) {
-    try {
-      await onuRepo.upsert(olt.id, onu.gponOnu, {
-        oltId: olt.id,
-        name: onu.name,
-        description: onu.description,
-        pppoe: onu.pppoe,
-        gponOnu: onu.gponOnu,
-        status: onu.status,
-        rxOlt: onu.rxOlt,
-        rxOnu: onu.rxOnu,
-        serialNumber: onu.serialNumber,
-        actualType: onu.actualType,
-        lastSeen: new Date(),
-      })
-      savedCount++
-    } catch (error: any) {
-      console.error(`[ONU-Sync] Error saving ONU ${onu.gponOnu}:`, error.message)
+  let currentBatch = 0
+  let lastProgress = 10 // Track progress terakhir, mulai dari 10% (setelah fetch data)
+
+  console.log(`[ONU-Sync] Processing ${actualTotal} ONUs in ${totalBatches} batches (batch size: ${batchSize})...`)
+
+  // Process ONU dalam batch untuk memastikan setiap batch tersimpan dengan baik
+  for (let batchStart = 0; batchStart < onuData.length; batchStart += batchSize) {
+    const batchEnd = Math.min(batchStart + batchSize, onuData.length)
+    const batch = onuData.slice(batchStart, batchEnd)
+    
+    currentBatch++
+    console.log(`[ONU-Sync] Processing batch ${currentBatch}/${totalBatches} (ONUs ${batchStart + 1}-${batchEnd} of ${onuData.length})...`)
+
+    // Simpan semua ONU dalam batch ini dengan semua field
+    let batchSavedCount = 0
+    for (const onu of batch) {
+      try {
+        await onuRepo.upsert(olt.id, onu.gponOnu, {
+          oltId: olt.id,
+          name: onu.name,
+          description: onu.description,
+          pppoe: onu.pppoe,
+          gponOnu: onu.gponOnu,
+          status: onu.status,
+          rxOlt: onu.rxOlt,
+          rxOnu: onu.rxOnu,
+          txOlt: onu.txOlt,
+          txOnu: onu.txOnu,
+          serialNumber: onu.serialNumber,
+          actualType: onu.actualType,
+          registerTime: onu.registerTime,
+          distance: onu.distance,
+          lastSeen: onu.lastSeen || new Date(),
+          registrationMode: onu.registrationMode,
+          softwareVersion: onu.softwareVersion,
+          hardwareVersion: onu.hardwareVersion,
+          temperature: onu.temperature,
+          laserBiasCurrent: onu.laserBiasCurrent,
+          vendorId: onu.vendorId,
+          equipmentId: onu.equipmentId,
+          firmwareVersion: onu.firmwareVersion,
+          macAddress: onu.macAddress,
+          batteryStatus: onu.batteryStatus,
+          opticalTransceiverType: onu.opticalTransceiverType,
+          lastDeregTime: onu.lastDeregTime,
+          authMode: onu.authMode,
+          loid: onu.loid,
+          password: onu.password,
+          configState: onu.configState,
+          powerLevel: onu.powerLevel,
+          dyingGaspTime: onu.dyingGaspTime,
+          rxPowerStatus: onu.rxPowerStatus,
+          txPowerStatus: onu.txPowerStatus,
+          rxBytes: onu.rxBytes,
+          txBytes: onu.txBytes,
+          rxPackets: onu.rxPackets,
+          txPackets: onu.txPackets,
+          rxErrors: onu.rxErrors,
+          txErrors: onu.txErrors,
+          rxDrops: onu.rxDrops,
+          txDrops: onu.txDrops,
+          wifiEnable: onu.wifiEnable,
+          wifiSsid: onu.wifiSsid,
+          wifiSecurityMode: onu.wifiSecurityMode,
+          wifiChannel: onu.wifiChannel,
+        })
+        batchSavedCount++
+        savedCount++
+        
+        // Update progress setiap beberapa ONU untuk progress yang lebih smooth dan terlihat
+        // Progress dihitung dari 10% (setelah fetch) sampai 90% (sebelum final 100%)
+        // Jadi range progress untuk saving: 10% - 90% = 80% range
+        // Update lebih sering untuk progress yang lebih terlihat, tapi tidak terlalu sering untuk menghindari timeout
+        const updateInterval = Math.max(2, Math.min(5, Math.ceil(actualTotal / 30))) // Update setiap 2-5 ONU
+        if (savedCount % updateInterval === 0 || savedCount === onuData.length) {
+          // Progress dari 10% sampai 90% berdasarkan savedCount / actualTotal
+          // Formula: 10 + (savedCount / actualTotal) * 80
+          let currentProgress = actualTotal > 0 
+            ? Math.min(90, Math.floor(10 + (savedCount / actualTotal) * 80))
+            : 90
+          
+          // Pastikan progress selalu naik, tidak turun
+          if (currentProgress < lastProgress) {
+            currentProgress = lastProgress
+          }
+          
+          // Update progress jika ada perubahan (tidak perlu batasi dengan expectedCount karena bisa ada lebih banyak ONU)
+          if (onProgress && currentProgress > lastProgress) {
+            try {
+              lastProgress = currentProgress
+              await onProgress(currentProgress)
+              console.log(`[ONU-Sync] Progress updated: ${currentProgress}% (${savedCount}/${actualTotal} ONUs saved)`)
+              // Delay kecil untuk memastikan UI update
+              await new Promise(resolve => setTimeout(resolve, 50))
+            } catch (error: any) {
+              console.error(`[ONU-Sync] Error updating progress:`, error.message)
+            }
+          }
+        }
+      } catch (error: any) {
+        console.error(`[ONU-Sync] Error saving ONU ${onu.gponOnu}:`, error.message)
+      }
+    }
+
+    // Setelah batch tersimpan dengan baik, update progress berdasarkan jumlah ONU yang sudah disimpan
+    // Progress ONU sync: 10-90% (berdasarkan jumlah ONU yang sudah disimpan)
+    // Gunakan actualTotal yang sudah didefinisikan di luar loop
+    let progressPercentage = 0
+    if (actualTotal > 0) {
+      // Hitung progress berdasarkan jumlah ONU yang sudah disimpan
+      // Range: 10% (setelah fetch) sampai 90% (sebelum final 100%)
+      progressPercentage = Math.min(90, Math.floor(10 + (savedCount / actualTotal) * 80))
+      
+      // Pastikan progress minimal naik sesuai dengan batch number
+      // Hitung total batch berdasarkan actualTotal, bukan expectedCount
+      const actualTotalBatches = actualTotal >= minBatches 
+        ? minBatches 
+        : Math.max(1, actualTotal)
+      const batchBasedProgress = Math.min(90, Math.floor(10 + (currentBatch / actualTotalBatches) * 80))
+      progressPercentage = Math.max(progressPercentage, batchBasedProgress)
+    } else {
+      progressPercentage = 90
+    }
+    
+    // Pastikan progress tidak turun (harus selalu naik)
+    let finalProgress = Math.min(90, progressPercentage)
+    
+    // Pastikan progress selalu naik dari progress terakhir
+    if (finalProgress < lastProgress) {
+      finalProgress = lastProgress
+    }
+    
+    if (onProgress && finalProgress > lastProgress) {
+      console.log(`[ONU-Sync] Batch ${currentBatch}/${totalBatches} completed: ${batchSavedCount}/${batch.length} ONUs saved (Total: ${savedCount}/${actualTotal}). Calling onProgress(${finalProgress})...`)
+      try {
+        lastProgress = finalProgress
+        // Pastikan progress di-update dengan await
+        await onProgress(finalProgress)
+        console.log(`[ONU-Sync] onProgress(${finalProgress}) completed successfully`)
+        
+        // Tambahkan delay kecil untuk memastikan progress terlihat dan database update selesai
+        // Delay dikurangi untuk menghindari timeout, tapi tetap cukup untuk progress terlihat
+        const delay = currentBatch < totalBatches ? 100 : 150 // 100ms untuk batch biasa, 150ms untuk batch terakhir
+        await new Promise(resolve => setTimeout(resolve, delay))
+      } catch (error: any) {
+        console.error(`[ONU-Sync] Error calling onProgress(${finalProgress}):`, error.message)
+        console.error(`[ONU-Sync] Error stack:`, error.stack)
+      }
+    } else {
+      console.log(`[ONU-Sync] Batch ${currentBatch}/${totalBatches} completed: ${batchSavedCount}/${batch.length} ONUs saved. ONU Progress: ${finalProgress}% (Total saved: ${savedCount}/${actualTotal}) - ${onProgress ? 'Progress not increased' : 'No progress callback'}`)
     }
   }
 
-  // Update OLT onuLastSync
+  // Update OLT onuLastSync dan pastikan progress 100%
   await oltRepo.update(olt.id, {
     onuLastSync: new Date(),
   })
+
+  // Update progress: 100% (selesai)
+  if (onProgress) {
+    console.log(`[ONU-Sync] All batches completed, calling onProgress(100)...`)
+    try {
+      // Pastikan progress 100% di-update dengan delay untuk memastikan terlihat
+      await new Promise(resolve => setTimeout(resolve, 100))
+      await onProgress(100)
+      console.log(`[ONU-Sync] onProgress(100) completed successfully`)
+    } catch (error: any) {
+      console.error(`[ONU-Sync] Error calling onProgress(100):`, error.message)
+    }
+  }
 
   console.log(`[ONU-Sync] Successfully saved ${savedCount}/${onuData.length} ONUs for OLT ${olt.name}`)
   return savedCount

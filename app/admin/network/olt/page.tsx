@@ -1,14 +1,20 @@
 "use client"
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import OLTModal from '@/components/olt/OLTModal'
-import { HiOutlinePlus, HiOutlineSignal, HiArrowPath, HiPencil, HiOutlineCpuChip, HiOutlineFire, HiOutlineSignal as HiSignal, HiOutlineComputerDesktop, HiOutlineClock, HiCheck, HiOutlineCalendar, HiTrash } from 'react-icons/hi2'
+import { HiOutlinePlus, HiOutlineSignal, HiArrowPath, HiPencil, HiOutlineCpuChip, HiOutlineFire, HiOutlineSignal as HiSignal, HiOutlineComputerDesktop, HiOutlineClock, HiCheck, HiOutlineCalendar, HiTrash, HiEye } from 'react-icons/hi2'
 
 export default function OLTPage() {
+  const router = useRouter()
   const [olts, setOlts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedOlt, setSelectedOlt] = useState<any | null>(null)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false)
+  const [viewOlt, setViewOlt] = useState<any | null>(null)
+  const [onus, setOnus] = useState<any[]>([])
+  const [loadingOnus, setLoadingOnus] = useState(false)
   useEffect(() => {
     loadOlts()
   }, [])
@@ -56,7 +62,7 @@ export default function OLTPage() {
       return
     }
 
-    if (!confirm(`Sync data dari ${olt.name}?`)) return
+    if (!confirm(`Sync data dari ${olt.name}? Sync akan berjalan di background.`)) return
 
     try {
       const res = await fetch(`/api/olts/${olt.id}/sync`, {
@@ -65,18 +71,131 @@ export default function OLTPage() {
 
       if (!res.ok) {
         const error = await res.json()
-        alert(error.error || 'Gagal sync data')
+        alert(error.error || 'Gagal memulai sync')
         return
       }
 
       const result = await res.json()
-      alert(`Sync berhasil!\n\nVersion: ${result.data.version || 'N/A'}\nTemperature: ${result.data.temperature || 'N/A'}°C\nConnected Devices: ${result.data.connectedDevices || 0}\nUptime: ${result.data.uptime || 'N/A'}`)
       
-      // Refresh list
+      // Tampilkan pesan bahwa sync dimulai di background
+      alert(`Sync dimulai di background untuk ${result.oltName || olt.name}.\n\nProgress dapat dilihat di kolom "Synchronization Status".\nHalaman akan otomatis refresh setiap 3 detik untuk melihat progress.`)
+      
+      // Refresh list untuk melihat progress awal
       await loadOlts()
+      
+      // Start auto-refresh untuk melihat progress sync
+      startAutoRefresh(olt.id)
     } catch (error: any) {
-      console.error('Error syncing OLT:', error)
-      alert('Terjadi kesalahan saat sync: ' + (error.message || 'Unknown error'))
+      console.error('Error starting sync:', error)
+      alert('Terjadi kesalahan saat memulai sync: ' + (error.message || 'Unknown error'))
+    }
+  }
+
+  // Auto-refresh untuk melihat progress sync
+  const [refreshingOltId, setRefreshingOltId] = useState<string | null>(null)
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const startAutoRefresh = (oltId: string) => {
+    // Stop refresh sebelumnya jika ada
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current)
+    }
+    
+    setRefreshingOltId(oltId)
+    
+    // Refresh setiap 3 detik
+    refreshIntervalRef.current = setInterval(async () => {
+      // Load data terbaru
+      const freshOlts = await fetch('/api/olts', { cache: 'no-store' })
+        .then(res => res.json())
+        .then(data => data.olts || [])
+        .catch(() => [])
+      
+      // Update state
+      setOlts(freshOlts)
+      
+      // Cek apakah sync sudah selesai (progress = 100%)
+      const olt = freshOlts.find((o: any) => o.id === oltId)
+      if (olt && olt.syncStatus === '100') {
+        // Stop auto-refresh jika sudah selesai
+        if (refreshIntervalRef.current) {
+          clearInterval(refreshIntervalRef.current)
+          refreshIntervalRef.current = null
+        }
+        setRefreshingOltId(null)
+        console.log(`[Auto-Refresh] Sync completed for OLT ${oltId}, stopping auto-refresh`)
+      }
+    }, 3000) // Refresh setiap 3 detik
+  }
+
+  // Cleanup interval saat component unmount
+  useEffect(() => {
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current)
+      }
+    }
+  }, [])
+
+  const runAutoConnectionTest = async (oltId: string, formData: any) => {
+    try {
+      const response = await fetch('/api/olts/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          oltId,
+          ipAddress: formData.ipAddress,
+          snmpPort: formData.snmpPort ?? 161,
+          snmpCommunityWrite: formData.snmpCommunityWrite || 'public',
+          snmpVersion: formData.snmpVersion || '2',
+          telnetPort: formData.telnetPort ?? 23,
+          telnetUsername: formData.telnetUsername || 'zte',
+          telnetPassword: formData.telnetPassword || '',
+        }),
+      })
+
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        const errorMessage = (result && (result.error as string)) || 'Test connection gagal'
+        return { success: false, error: errorMessage }
+      }
+
+      return result
+    } catch (error: any) {
+      console.error('Auto test connection gagal:', error)
+      return { success: false, error: error?.message || 'Test connection gagal' }
+    }
+  }
+
+  const handleView = async (olt: any) => {
+    setViewOlt(olt)
+    setIsViewModalOpen(true)
+    setLoadingOnus(true)
+    setOnus([])
+    
+    try {
+      // Fetch ONU data dari database untuk OLT ini (bukan dari SNMP)
+      const res = await fetch(`/api/onus/database?oltId=${olt.id}&limit=500&page=1`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Gagal memuat data ONU' }))
+        alert(error.error || 'Gagal memuat data ONU')
+        return
+      }
+      
+      const data = await res.json()
+      setOnus(data.onus || [])
+    } catch (error: any) {
+      console.error('Error loading ONUs:', error)
+      alert('Terjadi kesalahan saat memuat data ONU: ' + (error.message || 'Unknown error'))
+    } finally {
+      setLoadingOnus(false)
     }
   }
 
@@ -113,10 +232,29 @@ export default function OLTPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         })
+        const result = await res.json().catch(() => ({}))
         if (!res.ok) {
-          const error = await res.json()
-          alert(error.error || 'Gagal menambah OLT')
+          alert((result && result.error) || 'Gagal menambah OLT')
           throw new Error('Failed to create OLT')
+        }
+
+        if (result?.id) {
+          const connectionResult = await runAutoConnectionTest(result.id as string, data)
+          if (connectionResult) {
+            if ('error' in connectionResult && connectionResult.error) {
+              alert(
+                `OLT berhasil dibuat, namun test connection otomatis gagal: ${connectionResult.error}`
+              )
+            } else if (
+              connectionResult.snmp &&
+              connectionResult.snmp.success === false &&
+              connectionResult.snmp.message
+            ) {
+              alert(
+                `OLT berhasil dibuat, namun SNMP belum terhubung: ${connectionResult.snmp.message}`
+              )
+            }
+          }
         }
       } else {
         const res = await fetch(`/api/olts/${selectedOlt.id}`, {
@@ -317,6 +455,13 @@ export default function OLTPage() {
                     <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
                       <div className="flex items-center justify-end gap-2">
                         <button
+                          onClick={() => handleView(olt)}
+                          className="p-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                          title="Lihat Data ONU"
+                        >
+                          <HiEye className="w-5 h-5" />
+                        </button>
+                        <button
                           onClick={() => handleSync(olt)}
                           disabled={!olt.snmpConnected}
                           className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -360,6 +505,136 @@ export default function OLTPage() {
         mode={modalMode}
         onTestSuccess={loadOlts}
       />
+
+      {/* View ONU Modal */}
+      {isViewModalOpen && viewOlt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Data ONU - {viewOlt.name}
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {viewOlt.ipAddress} | Total: {onus.length} ONU
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsViewModalOpen(false)
+                  setViewOlt(null)
+                  setOnus([])
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto px-6 py-4">
+              {loadingOnus ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="mb-4 text-4xl">⏳</div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data ONU...</p>
+                  </div>
+                </div>
+              ) : onus.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Tidak ada data ONU yang tersimpan untuk OLT ini.
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                    Silakan sync data terlebih dahulu untuk melihat data ONU.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">GPON ONU</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Name</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Status</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">RX OLT</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">RX ONU</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">TX OLT</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">TX ONU</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Serial Number</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Type</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">PPPoE</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">MAC Address</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Last Seen</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {onus.map((onu, index) => (
+                        <tr key={onu.id || index} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
+                          <td className="px-3 py-2 text-gray-900 dark:text-white font-mono text-xs">{onu.gponOnu || 'N/A'}</td>
+                          <td className="px-3 py-2 text-gray-900 dark:text-white">{onu.name || 'N/A'}</td>
+                          <td className="px-3 py-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                              onu.status === 'Online' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : onu.status === 'LOS'
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                                : onu.status === 'DyingGasp'
+                                ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
+                            }`}>
+                              {onu.status || 'Unknown'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">{onu.rxOlt || 'N/A'}</td>
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">{onu.rxOnu || 'N/A'}</td>
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">{onu.txOlt || 'N/A'}</td>
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">{onu.txOnu || 'N/A'}</td>
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 font-mono text-xs">{onu.serialNumber || 'N/A'}</td>
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">{onu.actualType || 'N/A'}</td>
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">{onu.pppoe || 'N/A'}</td>
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 font-mono text-xs">{onu.macAddress || 'N/A'}</td>
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">
+                            {onu.lastSeen ? new Date(onu.lastSeen).toLocaleString('id-ID') : 'N/A'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Menampilkan {onus.length} ONU dari database
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => router.push(`/admin/network/onu?oltId=${viewOlt.id}`)}
+                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Lihat Detail Lengkap
+                </button>
+                <button
+                  onClick={() => {
+                    setIsViewModalOpen(false)
+                    setViewOlt(null)
+                    setOnus([])
+                  }}
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

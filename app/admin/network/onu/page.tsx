@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { 
   HiCheckCircle, 
   HiExclamationTriangle, 
@@ -49,8 +49,11 @@ type OLT = {
   id: string
   name: string
   ipAddress: string
+  type?: string // OLT type (e.g., ZTE-C300)
   snmpConnected: boolean
   snmpCommunityWrite: string | null
+  snmpPort?: number
+  snmpVersion?: string
 }
 
 type Card = {
@@ -61,45 +64,48 @@ type Card = {
   totalPorts: number
 }
 
+const DEFAULT_LIMIT = 5
+const ROW_HEIGHT = 68
+const GRID_TEMPLATE_COLUMNS = '60px 170px 220px 240px 150px 140px 140px 140px 150px 200px 160px 120px'
+
+const INITIAL_SUMMARY: SummaryData = {
+  total: 0,
+  good: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
+  warning: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
+  critical: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
+  other: { count: 0, percentage: '0', los: 0, na: 0 },
+}
+
+const INITIAL_PAGINATION = {
+  page: 1,
+  limit: DEFAULT_LIMIT,
+  total: 0,
+  totalPages: 0,
+}
+
 export default function AllOnuPage() {
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(5)
+  const [limit, setLimit] = useState(DEFAULT_LIMIT)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [syncing, setSyncing] = useState(false)
   const [onus, setOnus] = useState<OnuData[]>([])
-  const [allOnus, setAllOnus] = useState<OnuData[]>([]) // Semua ONU tanpa filter
-  const [summaryData, setSummaryData] = useState<SummaryData>({
-    total: 0,
-    good: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
-    warning: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
-    critical: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
-    other: { count: 0, percentage: '0', los: 0, na: 0 },
-  })
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 5,
-    total: 0,
-    totalPages: 0,
-  })
+  const [allOnus, setAllOnus] = useState<OnuData[]>([])
+  const [summaryData, setSummaryData] = useState<SummaryData>(INITIAL_SUMMARY)
+  const [pagination, setPagination] = useState({ ...INITIAL_PAGINATION })
+  const [nextCursor, setNextCursor] = useState<number | null>(0)
+  const [page, setPage] = useState(1)
 
-  // Filter states
   const [selectedOlt, setSelectedOlt] = useState<string | null>(null)
   const [selectedCard, setSelectedCard] = useState<string | null>(null)
   const [selectedPort, setSelectedPort] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<string | null>(null)
 
-  // Dropdown data
   const [olts, setOlts] = useState<OLT[]>([])
   const [cards, setCards] = useState<Card[]>([])
+  const [globalCards, setGlobalCards] = useState<Card[]>([])
   const [ports, setPorts] = useState<string[]>([])
   const [types, setTypes] = useState<string[]>([])
   const [typeCounts, setTypeCounts] = useState<Record<string, number>>({})
-
-  // Search state for types
   const [typeSearch, setTypeSearch] = useState('')
-
-  // Dropdown open states
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const dropdownRefs = {
     olt: useRef<HTMLDivElement>(null),
@@ -107,16 +113,27 @@ export default function AllOnuPage() {
     port: useRef<HTMLDivElement>(null),
     type: useRef<HTMLDivElement>(null),
   }
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  const searchRef = useRef(search)
+  const hasCardOptions = cards.length > 0
 
-  // Fetch OLTs
   const fetchOlts = async () => {
     try {
       const res = await fetch('/api/olts')
       const data = await res.json()
       if (data.olts) {
-        const connectedOlts = data.olts.filter(
-          (olt: any) => olt.snmpConnected && olt.snmpCommunityWrite && olt.type?.toLowerCase().includes('c300')
-        )
+        const connectedOlts = data.olts
+          .filter((olt: any) => olt.snmpConnected && olt.snmpCommunityWrite && olt.type?.toLowerCase().includes('c300'))
+          .map((olt: any) => ({
+            id: olt.id,
+            name: olt.name,
+            ipAddress: olt.ipAddress,
+            type: olt.type,
+            snmpConnected: olt.snmpConnected,
+            snmpCommunityWrite: olt.snmpCommunityWrite,
+            snmpPort: olt.snmpPort,
+            snmpVersion: olt.snmpVersion,
+          }))
         setOlts(connectedOlts)
       }
     } catch (error) {
@@ -124,7 +141,6 @@ export default function AllOnuPage() {
     }
   }
 
-  // Fetch Cards dari OLT yang dipilih
   const fetchCards = async (oltId: string) => {
     try {
       const res = await fetch(`/api/olts/${oltId}/cards`)
@@ -140,9 +156,8 @@ export default function AllOnuPage() {
     }
   }
 
-  // Extract ports dari cards yang dipilih
   const extractPorts = (selectedCardStr: string) => {
-    if (!selectedCardStr || !selectedOlt) return []
+    if (!selectedCardStr) return []
     
     const [frame, slot] = selectedCardStr.split('/').map(Number)
     const card = cards.find(c => c.frame === frame)
@@ -154,7 +169,6 @@ export default function AllOnuPage() {
     return slotData.ports.map(p => `${frame}/${slot}/${p}`)
   }
 
-  // Extract types dan counts dari ONU data
   const extractTypesAndCounts = (onusData: OnuData[] = allOnus) => {
     const typeMap = new Map<string, number>()
     onusData.forEach(onu => {
@@ -173,60 +187,160 @@ export default function AllOnuPage() {
     return { types: typesArray, counts: countsObj }
   }
 
-  // Fetch data dari API dengan server-side filtering
-  const fetchOnus = async () => {
-    setLoading(true)
+  type FetchOptions = {
+    reset?: boolean
+    cursorOverride?: number
+    searchValue?: string
+  }
+
+  const fetchOnus = useCallback(async (options: FetchOptions = {}) => {
+    const { reset = false, cursorOverride, searchValue } = options
+    const appliedSearch = searchValue ?? searchRef.current ?? ''
+    
+    // Untuk pagination, selalu gunakan cursor dari page
+    const calculatedCursor = (page - 1) * limit
+    const targetCursor = cursorOverride !== undefined && cursorOverride !== null
+      ? cursorOverride
+      : calculatedCursor
+
+    if (targetCursor < 0 || isNaN(targetCursor)) {
+      return
+    }
+
+    if (reset) {
+      setLoading(true)
+      setOnus([])
+    }
+
+    let loadingCleared = false
+
     try {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
+        cursor: targetCursor.toString(),
       })
-      if (search) params.append('search', search)
+      if (appliedSearch.trim()) params.append('search', appliedSearch.trim())
       if (selectedOlt) params.append('oltId', selectedOlt)
       if (selectedCard) params.append('card', selectedCard)
       if (selectedPort) params.append('port', selectedPort)
       if (selectedType) params.append('type', selectedType)
+      if (reset) params.append('forceRefresh', 'true')
 
       const res = await fetch(`/api/onus?${params.toString()}`)
       const data = await res.json()
-      
-      // Handle error dari response
+
+      if (data.fromCache && reset) {
+        setLoading(false)
+        loadingCleared = true
+      }
+
       if (data.error) {
         console.error('Error from API:', data.error)
-        setOnus([])
-        setSummaryData(data.summary || summaryData)
-        setPagination(data.pagination || pagination)
         if (data.error && data.error !== 'Gagal mengambil data ONU') {
           alert(`Error: ${data.error}`)
         }
-      } else {
-        // Set data dari API (sudah terfilter dan ter-paginate)
-        setOnus(data.onus || [])
-        setSummaryData(data.summary || summaryData)
-        setPagination(data.pagination || pagination)
-        
-        // Update types dari API (jika tersedia)
-        if (data.types && data.typeCounts) {
-          setTypes(data.types)
-          setTypeCounts(data.typeCounts)
-          // Simpan total untuk "All Types" badge
-          if (data.totalOnus !== undefined) {
-            // Store totalOnus untuk digunakan di dropdown
-            setAllOnus(Array(data.totalOnus).fill(null)) // Dummy array untuk tracking total
-          }
+        setOnus([])
+        setSummaryData(data.summary || INITIAL_SUMMARY)
+        setPagination(data.pagination || { ...INITIAL_PAGINATION, limit })
+        setNextCursor(null)
+        return
+      }
+
+      const incomingOnus: OnuData[] = data.onus || []
+      // Always replace data, jangan append
+      setOnus(incomingOnus)
+      setSummaryData(data.summary || INITIAL_SUMMARY)
+      setPagination(data.pagination || { ...INITIAL_PAGINATION, limit })
+      // Update nextCursor untuk tracking, tapi untuk pagination kita gunakan page-based
+      setNextCursor(data.nextCursor ?? null)
+
+      if (data.types && data.typeCounts) {
+        setTypes(data.types)
+        setTypeCounts(data.typeCounts)
+        if (data.totalOnus !== undefined) {
+          setAllOnus(Array(data.totalOnus).fill(null))
         }
+      }
+
+      if (!selectedOlt && data.cards) {
+        setGlobalCards(data.cards)
+        setCards(data.cards)
       }
     } catch (error: any) {
       console.error('Error fetching ONUs:', error)
-      setOnus([])
+      if (reset) {
+        setOnus([])
+      }
       setTypes([])
       setTypeCounts({})
+      setNextCursor(null)
     } finally {
-      setLoading(false)
+      if (reset && !loadingCleared) {
+        setLoading(false)
+      }
+    }
+  }, [limit, page, selectedCard, selectedOlt, selectedPort, selectedType])
+
+  const calculateSummary = (onus: OnuData[]): SummaryData => {
+    const total = onus.length
+    let good = { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 }
+    let warning = { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 }
+    let critical = { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 }
+    let other = { count: 0, percentage: '0', los: 0, na: 0 }
+
+    onus.forEach(onu => {
+      const rxOlt = onu.rxOlt ? parseFloat(onu.rxOlt.replace(/[^\d.-]/g, '')) : null
+      const rxOnu = onu.rxOnu ? parseFloat(onu.rxOnu.replace(/[^\d.-]/g, '')) : null
+
+      if (onu.status === 'Online' && rxOlt !== null && rxOlt > -30 && rxOnu !== null && rxOnu > -40) {
+        good.count++
+        good.rxOlt++
+        good.rxOnu++
+      } else if (onu.status === 'Online' && ((rxOlt !== null && rxOlt >= -28) || (rxOnu !== null && rxOnu >= -35))) {
+        warning.count++
+        warning.rxOlt++
+        warning.rxOnu++
+      } else if (onu.status === 'LOS' || (rxOlt !== null && rxOlt <= -35) || (rxOnu !== null && rxOnu <= -45)) {
+        critical.count++
+        critical.rxOlt++
+        critical.rxOnu++
+      } else {
+        other.count++
+        if (onu.status === 'LOS') other.los++
+        else other.na++
+      }
+    })
+
+    good.percentage = total > 0 ? ((good.count / total) * 100).toFixed(1) : '0'
+    warning.percentage = total > 0 ? ((warning.count / total) * 100).toFixed(1) : '0'
+    critical.percentage = total > 0 ? ((critical.count / total) * 100).toFixed(1) : '0'
+    other.percentage = total > 0 ? ((other.count / total) * 100).toFixed(1) : '0'
+
+    return {
+      total,
+      good,
+      warning,
+      critical,
+      other
     }
   }
-  
-  // Fetch types separately untuk dropdown (tanpa filter, hanya sekali)
+
+  const updateTypesFromOnus = (onus: OnuData[]) => {
+    const typeMap = new Map<string, number>()
+    onus.forEach(onu => {
+      if (onu.actualType) {
+        typeMap.set(onu.actualType, (typeMap.get(onu.actualType) || 0) + 1)
+      }
+    })
+
+    const newTypes = Array.from(typeMap.keys()).sort()
+    const newTypeCounts = Object.fromEntries(typeMap)
+
+    setTypes(newTypes)
+    setTypeCounts(newTypeCounts)
+  }
+
   const fetchTypes = async () => {
     try {
       const params = new URLSearchParams({
@@ -250,41 +364,46 @@ export default function AllOnuPage() {
     }
   }
 
-  // Refresh data langsung dari SNMP
+  useEffect(() => {
+    searchRef.current = search
+  }, [search])
+
   const handleRefresh = async () => {
-    setSyncing(true)
+    setNextCursor(0)
     try {
-      await fetchOnus()
+      await fetchOnus({ reset: true, cursorOverride: 0, searchValue: searchRef.current ?? '' })
     } catch (error: any) {
       console.error('Error refreshing ONUs:', error)
       alert('Terjadi kesalahan saat refresh: ' + (error.message || 'Unknown error'))
-    } finally {
-      setSyncing(false)
     }
   }
 
-  // Fetch OLTs and types on mount
   useEffect(() => {
     fetchOlts()
-    fetchTypes() // Fetch types sekali untuk dropdown
+    fetchTypes()
   }, [])
-
-  // Fetch cards when OLT selected
   useEffect(() => {
+    if (olts.length > 0 && !selectedOlt) {
+      fetchOnus()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [olts.length])
+
+  useEffect(() => {
+    setSelectedCard(null)
+    setSelectedPort(null)
+    setPorts([])
     if (selectedOlt) {
       fetchCards(selectedOlt)
-      setSelectedCard(null)
-      setSelectedPort(null)
-      setPorts([])
-    } else {
-      setCards([])
-      setSelectedCard(null)
-      setSelectedPort(null)
-      setPorts([])
     }
   }, [selectedOlt])
 
-  // Update ports when card selected
+  useEffect(() => {
+    if (!selectedOlt) {
+      setCards(globalCards)
+    }
+  }, [globalCards, selectedOlt])
+
   useEffect(() => {
     if (selectedCard && cards.length > 0) {
       const extractedPorts = extractPorts(selectedCard)
@@ -297,32 +416,36 @@ export default function AllOnuPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCard, cards])
 
-  // Reset page when filters change
   useEffect(() => {
     setPage(1)
+    setNextCursor(0)
+    setOnus([])
   }, [selectedOlt, selectedCard, selectedPort, selectedType])
 
-  // Fetch data saat page/limit/search/filters berubah
   useEffect(() => {
-    fetchOnus()
+    if (olts.length > 0) {
+      const cursorForPage = (page - 1) * limit
+      // Clear data dan set loading sebelum fetch
+      setOnus([])
+      setLoading(true)
+      setNextCursor(cursorForPage)
+      fetchOnus({ reset: true, cursorOverride: cursorForPage })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, limit, selectedOlt, selectedCard, selectedPort, selectedType])
 
-  // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (page === 1) {
-        fetchOnus()
-      } else {
-        setPage(1)
-      }
+      setPage(1)
+      setNextCursor(0)
+      setOnus([])
+      fetchOnus({ reset: true, cursorOverride: 0 })
     }, 500)
 
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search])
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -340,6 +463,7 @@ export default function AllOnuPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openDropdown])
+
 
   const getSignalColor = (rxOlt: string | null) => {
     if (!rxOlt || rxOlt === 'N/A') return 'text-gray-500'
@@ -404,6 +528,7 @@ export default function AllOnuPage() {
       </div>
     )
   }
+
 
   return (
     <div className="space-y-5 p-6">
@@ -654,15 +779,9 @@ export default function AllOnuPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">ONUS (Data Langsung dari SNMP)</h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleRefresh}
-              disabled={syncing || loading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <HiArrowPath className={`w-4 h-4 ${syncing || loading ? 'animate-spin' : ''}`} />
-              {syncing || loading ? 'Loading...' : 'Refresh'}
-            </button>
+          <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium rounded-full">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            Live
           </div>
         </div>
         
@@ -730,10 +849,10 @@ export default function AllOnuPage() {
             {/* All Cards Dropdown */}
             <div className="relative" ref={dropdownRefs.card}>
               <button
-                onClick={() => selectedOlt && setOpenDropdown(openDropdown === 'card' ? null : 'card')}
-                disabled={!selectedOlt}
+                onClick={() => hasCardOptions && setOpenDropdown(openDropdown === 'card' ? null : 'card')}
+                disabled={!hasCardOptions}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
-                  !selectedOlt
+                  !hasCardOptions
                     ? 'bg-gray-400 cursor-not-allowed'
                     : selectedCard
                     ? 'bg-green-600 hover:bg-green-700'
@@ -757,7 +876,7 @@ export default function AllOnuPage() {
                 )}
                 <HiChevronDown className="w-4 h-4" />
               </button>
-              {openDropdown === 'card' && selectedOlt && (
+              {openDropdown === 'card' && hasCardOptions && (
                 <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
                   <button
                     onClick={() => {
@@ -1006,7 +1125,12 @@ export default function AllOnuPage() {
             <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
             <select
               value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
+              onChange={(e) => {
+                setLimit(Number(e.target.value))
+                setPage(1)
+                setNextCursor(0)
+                setOnus([])
+              }}
               className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
             >
               <option value={5}>5</option>
@@ -1030,7 +1154,7 @@ export default function AllOnuPage() {
         </div>
       </div>
 
-      {/* Data Table */}
+      {/* Data Table - Optimized dengan pagination dan Load More */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -1077,7 +1201,7 @@ export default function AllOnuPage() {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
               {loading ? (
                 <tr key="loading">
-                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <td colSpan={12} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
                     <div className="flex items-center justify-center gap-2">
                       <HiArrowPath className="w-5 h-5 animate-spin" />
                       Memuat data ONU...
@@ -1086,13 +1210,13 @@ export default function AllOnuPage() {
                 </tr>
               ) : onus.length === 0 ? (
                 <tr key="empty">
-                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <td colSpan={12} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
                     Tidak ada data ONU. Klik &quot;Refresh&quot; untuk mengambil data dari OLT C300.
                   </td>
                 </tr>
               ) : (
-                onus.map((onu) => (
-                  <tr key={onu.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
+                onus.map((onu, index) => (
+                  <tr key={`${onu.oltId}-${onu.gponOnu}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
                     <td className="px-4 py-3">
                       <input type="checkbox" className="rounded border-gray-300" />
                     </td>
@@ -1145,10 +1269,16 @@ export default function AllOnuPage() {
         </div>
 
         {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Showing {onus.length > 0 ? (page - 1) * limit + 1 : 0} to {Math.min(page * limit, pagination.total)} of {pagination.total} entries
-          </div>
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              {pagination.total > 0 ? (
+                <>
+                  Showing {(page - 1) * limit + 1} to {Math.min(page * limit, pagination.total)} of {pagination.total} entries
+                </>
+              ) : (
+                <>No entries</>
+              )}
+            </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -1157,35 +1287,78 @@ export default function AllOnuPage() {
             >
               Previous
             </button>
-            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-              const pageNum = i + 1
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => setPage(pageNum)}
-                  disabled={loading}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                    page === pageNum
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              )
-            })}
-            {pagination.totalPages > 5 && (
-              <>
-                <span className="px-2 text-sm text-gray-500">...</span>
-                <button
-                  onClick={() => setPage(pagination.totalPages)}
-                  disabled={loading}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {pagination.totalPages}
-                </button>
-              </>
-            )}
+            {(() => {
+              const totalPages = pagination.totalPages
+              if (totalPages === 0) return null
+              
+              const getPageNumbers = () => {
+                const pages: (number | string)[] = []
+                const maxVisible = 5
+                
+                if (totalPages <= maxVisible) {
+                  // Tampilkan semua halaman jika total halaman <= 5
+                  for (let i = 1; i <= totalPages; i++) {
+                    pages.push(i)
+                  }
+                } else {
+                  // Tampilkan halaman di sekitar halaman saat ini
+                  if (page <= 3) {
+                    // Dekat dengan awal
+                    for (let i = 1; i <= 4; i++) {
+                      pages.push(i)
+                    }
+                    pages.push('...')
+                    pages.push(totalPages)
+                  } else if (page >= totalPages - 2) {
+                    // Dekat dengan akhir
+                    pages.push(1)
+                    pages.push('...')
+                    for (let i = totalPages - 3; i <= totalPages; i++) {
+                      pages.push(i)
+                    }
+                  } else {
+                    // Di tengah
+                    pages.push(1)
+                    pages.push('...')
+                    for (let i = page - 1; i <= page + 1; i++) {
+                      pages.push(i)
+                    }
+                    pages.push('...')
+                    pages.push(totalPages)
+                  }
+                }
+                
+                return pages
+              }
+              
+              const pageNumbers = getPageNumbers()
+              
+              return pageNumbers.map((pageNum, index) => {
+                if (pageNum === '...') {
+                  return (
+                    <span key={`ellipsis-${index}`} className="px-2 text-sm text-gray-500">
+                      ...
+                    </span>
+                  )
+                }
+                
+                const num = pageNum as number
+                return (
+                  <button
+                    key={num}
+                    onClick={() => setPage(num)}
+                    disabled={loading}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      page === num
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                )
+              })
+            })()}
             <button
               onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
               disabled={page >= pagination.totalPages || loading}

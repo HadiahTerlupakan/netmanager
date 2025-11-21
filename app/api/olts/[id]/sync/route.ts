@@ -2,8 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getOLTRepository } from '@/lib/repositories'
+import { syncOnuDataByOltId } from '@/lib/services/onu-sync'
 import snmp from 'net-snmp'
 import '@/lib/utils/event-emitter-config'
+
+// Set max duration untuk sync yang memakan waktu lama (10 menit)
+export const maxDuration = 600 // 10 menit dalam detik
+export const dynamic = 'force-dynamic'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -114,6 +119,140 @@ function formatUptime(centiseconds: number | null): string | null {
   }
 }
 
+// Background sync function - tidak blocking
+async function runSyncInBackground(oltId: string) {
+  console.log(`[OLT-Sync-BG] Starting background sync for OLT ${oltId}...`)
+  const oltRepository = getOLTRepository()
+  
+  try {
+    const olt = await oltRepository.findById(oltId)
+
+    if (!olt) {
+      console.error(`[OLT-Sync-BG] OLT ${oltId} not found`)
+      await oltRepository.update(oltId, {
+        syncStatus: '0',
+      })
+      return
+    }
+
+    if (!olt.snmpConnected) {
+      console.error(`[OLT-Sync-BG] OLT ${olt.name} SNMP not connected`)
+      await oltRepository.update(oltId, {
+        syncStatus: '0',
+      })
+      return
+    }
+    // Get data dari SNMP
+    const [version, uptimeStr, model, devicesStr, tempStr] = await Promise.all([
+      getSNMPValue(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_OIDS.sysDescr),
+      getSNMPValue(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_OIDS.sysUpTime),
+      getSNMPValue(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_OIDS.sysName),
+      getSNMPValue(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_OIDS.connectedDevices),
+      getSNMPValue(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_OIDS.temperature),
+    ])
+
+    // Parse data
+    const uptime = uptimeStr ? formatUptime(parseInt(uptimeStr)) : null
+    const temperature = tempStr ? parseInt(tempStr) : null
+    const connectedDevices = devicesStr ? parseInt(devicesStr) : null
+
+    // Cek syncStatus saat ini - jika sudah 100%, saat sync ulang tidak reset ke 0%
+    // Progress akan tetap di 100% sampai sync baru dimulai, lalu mulai dari 10%
+    const currentSyncStatus = olt.syncStatus ? parseInt(olt.syncStatus, 10) : 0
+    
+    // Jika sync sudah 100%, saat sync ulang tetap mulai dari 10% (tidak reset ke 0%)
+    // Progress akan naik dari 10% ke 100% lagi
+    const startProgress = '10' // Mulai dari 10% saat sync baru dimulai
+
+    // Update OLT dengan data yang didapat (sync OLT data - 10% progress)
+    const updateData: any = {
+      syncStatus: startProgress, // Mulai dengan 10% setelah sync OLT data
+      syncDate: new Date(),
+    }
+
+    if (version) updateData.version = version.substring(0, 200) // Limit length
+    if (uptime) updateData.uptime = uptime
+    if (temperature !== null && !isNaN(temperature)) updateData.temperature = temperature
+    if (connectedDevices !== null && !isNaN(connectedDevices) && connectedDevices >= 0) {
+      updateData.connectedDevices = connectedDevices
+    }
+    if (model) updateData.model = model
+
+    await oltRepository.update(oltId, updateData)
+    console.log(`[OLT-Sync-BG] OLT data synced, progress: 10%`)
+
+    // Setelah sync OLT berhasil, sync semua ONU dari OLT ini dengan progress tracking
+    let onuSyncResult: { success: boolean; count?: number; error?: string } | null = null
+    try {
+      // Cek apakah OLT adalah C300 dan SNMP connected (required untuk sync ONU)
+      if (olt.type?.toLowerCase().includes('c300') && olt.snmpConnected && olt.snmpCommunityWrite) {
+        console.log(`[OLT-Sync-BG] Starting ONU sync for OLT ${olt.name} (${olt.ipAddress})...`)
+        
+        // Progress callback untuk update syncStatus secara bertahap
+        const onProgress = async (percentage: number) => {
+          try {
+            // Progress ONU sync: 0-90% (10 batch, 9% per batch)
+            // Total progress = 10% (OLT) + progress ONU (0-90%)
+            // Jadi: 10% + 0% = 10%, 10% + 9% = 19%, 10% + 18% = 28%, ..., 10% + 90% = 100%
+            const totalProgress = Math.min(100, 10 + percentage)
+            console.log(`[OLT-Sync-BG] Updating progress: ${totalProgress}% (ONU sync: ${percentage}%)`)
+            await oltRepository.update(oltId, {
+              syncStatus: totalProgress.toString(),
+            })
+            console.log(`[OLT-Sync-BG] Progress updated successfully: ${totalProgress}% (ONU sync: ${percentage}%)`)
+          } catch (error: any) {
+            console.error(`[OLT-Sync-BG] Error updating progress:`, error.message)
+            // Jangan throw error, biarkan sync tetap berjalan
+          }
+        }
+        
+        const onuCount = await syncOnuDataByOltId(oltId, onProgress)
+        onuSyncResult = {
+          success: true,
+          count: onuCount,
+        }
+        console.log(`[OLT-Sync-BG] ONU sync completed: ${onuCount} ONUs synced, progress: 100%`)
+      } else {
+        console.log(`[OLT-Sync-BG] Skipping ONU sync: OLT is not C300 or SNMP not connected`)
+        // Jika tidak sync ONU, langsung set ke 100%
+        await oltRepository.update(oltId, {
+          syncStatus: '100',
+        })
+        onuSyncResult = {
+          success: false,
+          error: 'OLT is not C300 or SNMP not connected',
+        }
+      }
+    } catch (onuSyncError: any) {
+      console.error(`[OLT-Sync-BG] ONU sync failed:`, onuSyncError.message)
+      // Set progress ke 100% meskipun ada error (OLT data sudah tersimpan)
+      await oltRepository.update(oltId, {
+        syncStatus: '100',
+      })
+      onuSyncResult = {
+        success: false,
+        error: onuSyncError.message || 'Gagal sync ONU data',
+      }
+      // Jangan fail request jika sync ONU gagal, karena sync OLT sudah berhasil
+    }
+
+    console.log(`[OLT-Sync-BG] Background sync completed for OLT ${olt.name}`)
+  } catch (error: any) {
+    console.error(`[OLT-Sync-BG] Background sync error:`, error)
+    console.error(`[OLT-Sync-BG] Error stack:`, error.stack)
+    // Update status ke error jika perlu
+    try {
+      const oltRepository = getOLTRepository()
+      await oltRepository.update(oltId, {
+        syncStatus: '0',
+      })
+      console.log(`[OLT-Sync-BG] Progress updated to 0% (error occurred)`)
+    } catch (updateError: any) {
+      console.error(`[OLT-Sync-BG] Failed to update error status:`, updateError.message)
+    }
+  }
+}
+
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -130,50 +269,39 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'SNMP tidak connected. Silakan test connection terlebih dahulu.' }, { status: 400 })
   }
 
+  // Update progress ke 1% segera untuk menunjukkan sync sudah dimulai
+  // Ini dilakukan sebelum background process untuk memastikan user melihat progress
   try {
-    // Get data dari SNMP
-    const [version, uptimeStr, model, devicesStr, tempStr] = await Promise.all([
-      getSNMPValue(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_OIDS.sysDescr),
-      getSNMPValue(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_OIDS.sysUpTime),
-      getSNMPValue(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_OIDS.sysName),
-      getSNMPValue(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_OIDS.connectedDevices),
-      getSNMPValue(olt.ipAddress, olt.snmpPort, olt.snmpCommunityWrite, olt.snmpVersion, SNMP_OIDS.temperature),
-    ])
-
-    // Parse data
-    const uptime = uptimeStr ? formatUptime(parseInt(uptimeStr)) : null
-    const temperature = tempStr ? parseInt(tempStr) : null
-    const connectedDevices = devicesStr ? parseInt(devicesStr) : null
-
-    // Update OLT dengan data yang didapat
-    const updateData: any = {
-      syncStatus: '100',
-      syncDate: new Date(),
-    }
-
-    if (version) updateData.version = version.substring(0, 200) // Limit length
-    if (uptime) updateData.uptime = uptime
-    if (temperature !== null && !isNaN(temperature)) updateData.temperature = temperature
-    if (connectedDevices !== null && !isNaN(connectedDevices) && connectedDevices >= 0) {
-      updateData.connectedDevices = connectedDevices
-    }
-    if (model) updateData.model = model
-
-    await oltRepository.update(id, updateData)
-
-    return NextResponse.json({
-      success: true,
-      message: 'Data berhasil di-sync dari device',
-      data: {
-        version: updateData.version || olt.version,
-        temperature: updateData.temperature !== undefined ? updateData.temperature : olt.temperature,
-        connectedDevices: updateData.connectedDevices !== undefined ? updateData.connectedDevices : olt.connectedDevices,
-        uptime: updateData.uptime || olt.uptime,
-        model: updateData.model || olt.model,
-      },
+    await oltRepository.update(id, {
+      syncStatus: '1',
     })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Gagal sync data dari device' }, { status: 500 })
+    console.log(`[OLT-Sync] Progress updated to 1% (sync starting)`)
+  } catch (updateError: any) {
+    console.error(`[OLT-Sync] Failed to update initial progress:`, updateError.message)
+    // Continue anyway
   }
+
+  // Jalankan sync di background (non-blocking)
+  // Gunakan setTimeout dengan delay 0 untuk memastikan response dikirim dulu
+  // Ini memastikan background process berjalan setelah response dikirim
+  setTimeout(() => {
+    console.log(`[OLT-Sync] Starting background sync for OLT ${id}...`)
+    runSyncInBackground(id)
+      .then(() => {
+        console.log(`[OLT-Sync] Background sync completed successfully for OLT ${id}`)
+      })
+      .catch((error) => {
+        console.error(`[OLT-Sync] Background sync error for OLT ${id}:`, error)
+        console.error(`[OLT-Sync] Error stack:`, error.stack)
+      })
+  }, 0)
+
+  // Langsung return response tanpa menunggu sync selesai
+  return NextResponse.json({
+    success: true,
+    message: 'Sync dimulai di background. Progress dapat dilihat di kolom Synchronization Status.',
+    oltId: id,
+    oltName: olt.name,
+  })
 }
 

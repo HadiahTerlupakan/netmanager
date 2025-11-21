@@ -2,6 +2,14 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import 'ol/ol.css'
+import { 
+  HiOutlineServer, 
+  HiOutlineCube, 
+  HiOutlineSignal,
+  HiOutlineLink,
+  HiOutlineBuildingOffice,
+  HiOutlineUserGroup
+} from 'react-icons/hi2'
 
 type TopologyData = {
   otbs: Array<{
@@ -72,6 +80,22 @@ type TopologyData = {
     lineColor: string
     isActive: boolean
   }>
+  pelanggans: Array<{
+    id: string
+    idPelanggan: string
+    nama: string
+    latitude: number
+    longitude: number
+    alamat: string | null
+    status: string
+    odpId: string
+    odp: {
+      id: string
+      name: string
+      latitude: number
+      longitude: number
+    }
+  }>
 }
 
 type VisibilityState = {
@@ -80,6 +104,7 @@ type VisibilityState = {
   odp: boolean
   joinbox: boolean
   pole: boolean
+  pelanggan: boolean
   kmz: boolean
 }
 
@@ -97,8 +122,10 @@ export default function TopologyMap() {
     odp: true,
     joinbox: true,
     pole: true,
+    pelanggan: true,
     kmz: true,
   })
+  const visibilityRef = useRef<VisibilityState>(visibility)
   const [selectedFeature, setSelectedFeature] = useState<any>(null)
 
   // Fetch data
@@ -118,9 +145,15 @@ export default function TopologyMap() {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    visibilityRef.current = visibility
+  }, [visibility])
+
   // Initialize map (only once when data is loaded)
   useEffect(() => {
     if (!mapEl.current || loading || !data) return
+
+    const visibilitySnapshot = visibilityRef.current
 
     // Prevent multiple map instances - cleanup existing map first
     if (mapRef.current) {
@@ -152,6 +185,7 @@ export default function TopologyMap() {
       const { default: LineString } = await import('ol/geom/LineString')
       const { Style, Fill, Stroke, Text } = await import('ol/style')
       const { default: CircleStyle } = await import('ol/style/Circle')
+      const { default: Icon } = await import('ol/style/Icon')
       const { default: Polygon } = await import('ol/geom/Polygon')
       const { defaults: defaultControls, Zoom, Attribution } = await import('ol/control')
       const { Overlay } = await import('ol')
@@ -160,7 +194,7 @@ export default function TopologyMap() {
       let centerLonLat: [number, number] = [106.816666, -6.2] // Default Jakarta
       if (data) {
         const allCoords: Array<[number, number]> = []
-        ;[...data.otbs, ...data.odcs, ...data.odps, ...data.joinboxes, ...data.poles].forEach(
+        ;[...data.otbs, ...data.odcs, ...data.odps, ...data.joinboxes, ...data.poles, ...(data.pelanggans || [])].forEach(
           (item) => {
             if (item.latitude && item.longitude) {
               allCoords.push([item.longitude, item.latitude])
@@ -199,6 +233,10 @@ export default function TopologyMap() {
       const poleSource = new VectorSource()
       const poleLayer = new VectorLayer({ source: poleSource })
       poleLayer.set('name', 'pole')
+
+      const pelangganSource = new VectorSource()
+      const pelangganLayer = new VectorLayer({ source: pelangganSource })
+      pelangganLayer.set('name', 'pelanggan')
 
       // KMZ layers - hanya tampilkan garis/polygon, sembunyikan point/marker
       const kmzLayers: any[] = []
@@ -352,6 +390,7 @@ export default function TopologyMap() {
           odpLayer,
           joinboxLayer,
           poleLayer,
+          pelangganLayer,
         ],
         view: view,
         controls: defaultControls({ zoom: false, rotate: false, attribution: false }).extend([
@@ -457,6 +496,31 @@ export default function TopologyMap() {
         }),
       })
 
+      // Style untuk pelanggan tanpa text (default) - menggunakan circle sederhana
+      const pelangganStyle = new Style({
+        image: new CircleStyle({
+          radius: 7,
+          fill: new Fill({ color: '#ec4899' }), // Pink
+          stroke: new Stroke({ color: '#ffffff', width: 2 }),
+        }),
+      })
+
+      // Style untuk pelanggan dengan text (saat hover)
+      const pelangganStyleWithText = (text: string) => new Style({
+        image: new CircleStyle({
+          radius: 7,
+          fill: new Fill({ color: '#ec4899' }), // Pink
+          stroke: new Stroke({ color: '#ffffff', width: 2 }),
+        }),
+        text: new Text({
+          text: text,
+          offsetY: -15,
+          fill: new Fill({ color: '#be185d' }),
+          stroke: new Stroke({ color: '#ffffff', width: 3 }),
+          font: 'bold 11px sans-serif',
+        }),
+      })
+
       // Function to convert color name to hex
       const colorNameToHex = (colorName: string): string => {
         if (!colorName) return '#6366f1'
@@ -496,6 +560,34 @@ export default function TopologyMap() {
         return colorMap[normalized] || '#6366f1' // Default to indigo if not found
       }
 
+      // Hover handler untuk menampilkan nama pelanggan
+      let hoveredFeature: any = null
+      map.on('pointermove', (evt) => {
+        const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f)
+        const featureType = feature?.get('type')
+        const featureData = feature?.get('data')
+
+        // Reset style feature sebelumnya yang di-hover
+        if (hoveredFeature && hoveredFeature !== feature) {
+          const prevType = hoveredFeature.get('type')
+          if (prevType === 'pelanggan' && 'setStyle' in hoveredFeature) {
+            (hoveredFeature as any).setStyle(pelangganStyle) // Kembalikan ke style tanpa text
+          }
+          hoveredFeature = null
+        }
+
+        // Set style dengan text untuk pelanggan yang sedang di-hover
+        if (feature && featureType === 'pelanggan' && featureData) {
+          const text = featureData.nama || featureData.idPelanggan || ''
+          if (text && 'setStyle' in feature) {
+            (feature as any).setStyle(pelangganStyleWithText(text))
+            hoveredFeature = feature
+            map.getViewport().style.cursor = 'pointer'
+          }
+        } else {
+          map.getViewport().style.cursor = ''
+        }
+      })
 
       // Click handler
       map.on('click', (evt) => {
@@ -519,8 +611,12 @@ export default function TopologyMap() {
           return
         }
         
-        // Double check bahwa featureData memiliki property name yang valid
-        if (!('name' in featureData) || featureData.name === undefined || featureData.name === null) {
+        // Double check bahwa featureData memiliki property name atau nama yang valid
+        const hasName = ('name' in featureData && featureData.name !== undefined && featureData.name !== null) ||
+                        ('nama' in featureData && featureData.nama !== undefined && featureData.nama !== null) ||
+                        ('idPelanggan' in featureData && featureData.idPelanggan !== undefined && featureData.idPelanggan !== null)
+        
+        if (!hasName) {
           popupEl.style.display = 'none'
           setSelectedFeature(null)
           return
@@ -531,9 +627,14 @@ export default function TopologyMap() {
         const coordinate = evt.coordinate
         
         // Build popup content safely dengan null checks
-        const name = (featureData && featureData.name) ? String(featureData.name) : 'Tidak ada nama'
+        const name = (featureData && (featureData.name || featureData.nama || featureData.idPelanggan)) 
+          ? String(featureData.name || featureData.nama || featureData.idPelanggan) 
+          : 'Tidak ada nama'
         const location = (featureData && featureData.location) ? String(featureData.location) : null
+        const alamat = (featureData && featureData.alamat) ? String(featureData.alamat) : null
         const notes = (featureData && featureData.notes) ? String(featureData.notes) : null
+        const idPelanggan = (featureData && featureData.idPelanggan) ? String(featureData.idPelanggan) : null
+        const status = (featureData && featureData.status) ? String(featureData.status) : null
         const latitude = (featureData && typeof featureData.latitude === 'number') ? featureData.latitude.toFixed(6) : 'N/A'
         const longitude = (featureData && typeof featureData.longitude === 'number') ? featureData.longitude.toFixed(6) : 'N/A'
         const typeLabel = featureType ? String(featureType).toUpperCase() : 'UNKNOWN'
@@ -543,7 +644,10 @@ export default function TopologyMap() {
             <div class="font-semibold text-sm">${name}</div>
             <div class="text-xs text-gray-600 dark:text-gray-400">
               <div>Tipe: ${typeLabel}</div>
+              ${idPelanggan ? `<div>ID: ${idPelanggan}</div>` : ''}
               ${location ? `<div>Lokasi: ${location}</div>` : ''}
+              ${alamat ? `<div>Alamat: ${alamat}</div>` : ''}
+              ${status ? `<div>Status: ${status}</div>` : ''}
               <div>Koordinat: ${latitude}, ${longitude}</div>
               ${notes ? `<div class="mt-1">Catatan: ${notes}</div>` : ''}
             </div>
@@ -554,14 +658,16 @@ export default function TopologyMap() {
       })
 
       // Set initial visibility
-      otbLayer.setVisible(visibility.otb)
-      odcLayer.setVisible(visibility.odc)
-      odpLayer.setVisible(visibility.odp)
-      joinboxLayer.setVisible(visibility.joinbox)
-      poleLayer.setVisible(visibility.pole)
-      kmzLayers.forEach((layer) => layer.setVisible(visibility.kmz))
+      otbLayer.setVisible(visibilitySnapshot.otb)
+      odcLayer.setVisible(visibilitySnapshot.odc)
+      odpLayer.setVisible(visibilitySnapshot.odp)
+      joinboxLayer.setVisible(visibilitySnapshot.joinbox)
+      poleLayer.setVisible(visibilitySnapshot.pole)
+      pelangganLayer.setVisible(visibilitySnapshot.pelanggan)
+      kmzLayers.forEach((layer) => layer.setVisible(visibilitySnapshot.kmz))
       topologyLayer.setVisible(
-        (visibility.otb && visibility.odc) || (visibility.odc && visibility.odp)
+        (visibilitySnapshot.otb && visibilitySnapshot.odc) ||
+          (visibilitySnapshot.odc && visibilitySnapshot.odp)
       )
 
       // Only assign to ref if component is still mounted
@@ -589,6 +695,7 @@ export default function TopologyMap() {
             const { fromLonLat } = await import('ol/proj')
             const { Style, Fill, Stroke, Text } = await import('ol/style')
             const { default: CircleStyle } = await import('ol/style/Circle')
+            const { default: Icon } = await import('ol/style/Icon')
 
             // Create styles
             const otbStyle = new Style({
@@ -666,6 +773,31 @@ export default function TopologyMap() {
               }),
             })
 
+            // Style untuk pelanggan tanpa text (default) - menggunakan circle sederhana
+            const pelangganStyle = new Style({
+              image: new CircleStyle({
+                radius: 7,
+                fill: new Fill({ color: '#ec4899' }), // Pink
+                stroke: new Stroke({ color: '#ffffff', width: 2 }),
+              }),
+            })
+
+            // Style untuk pelanggan dengan text (saat hover)
+            const pelangganStyleWithText = (text: string) => new Style({
+              image: new CircleStyle({
+                radius: 7,
+                fill: new Fill({ color: '#ec4899' }), // Pink
+                stroke: new Stroke({ color: '#ffffff', width: 2 }),
+              }),
+              text: new Text({
+                text: text,
+                offsetY: -15,
+                fill: new Fill({ color: '#be185d' }),
+                stroke: new Stroke({ color: '#ffffff', width: 3 }),
+                font: 'bold 11px sans-serif',
+              }),
+            })
+
             const colorNameToHex = (colorName: string): string => {
               if (!colorName) return '#6366f1'
               if (colorName.startsWith('#')) {
@@ -709,9 +841,10 @@ export default function TopologyMap() {
             odpSource.clear()
             joinboxSource.clear()
             poleSource.clear()
+            pelangganSource.clear()
             topologySource.clear()
 
-            if (visibility.otb) {
+            if (visibilitySnapshot.otb) {
               data.otbs.forEach((otb) => {
                 const f = new Feature({
                   geometry: new Point(fromLonLat([otb.longitude, otb.latitude])),
@@ -726,7 +859,7 @@ export default function TopologyMap() {
               })
             }
 
-            if (visibility.odc) {
+            if (visibilitySnapshot.odc) {
               data.odcs.forEach((odc) => {
                 const f = new Feature({
                   geometry: new Point(fromLonLat([odc.longitude, odc.latitude])),
@@ -739,7 +872,11 @@ export default function TopologyMap() {
                 f.set('data', odc)
                 odcSource.addFeature(f)
 
-                if (visibility.otb && odc.otbCore?.otb?.latitude && odc.otbCore?.otb?.longitude) {
+                if (
+                  visibilitySnapshot.otb &&
+                  odc.otbCore?.otb?.latitude &&
+                  odc.otbCore?.otb?.longitude
+                ) {
                   const line = new Feature({
                     geometry: new LineString([
                       fromLonLat([odc.otbCore.otb.longitude, odc.otbCore.otb.latitude]),
@@ -758,7 +895,7 @@ export default function TopologyMap() {
               })
             }
 
-            if (visibility.odp) {
+            if (visibilitySnapshot.odp) {
               data.odps.forEach((odp) => {
                 const f = new Feature({
                   geometry: new Point(fromLonLat([odp.longitude, odp.latitude])),
@@ -771,7 +908,11 @@ export default function TopologyMap() {
                 f.set('data', odp)
                 odpSource.addFeature(f)
 
-                if (visibility.odc && odp.odcOutput?.odc?.latitude && odp.odcOutput?.odc?.longitude) {
+                if (
+                  visibilitySnapshot.odc &&
+                  odp.odcOutput?.odc?.latitude &&
+                  odp.odcOutput?.odc?.longitude
+                ) {
                   const line = new Feature({
                     geometry: new LineString([
                       fromLonLat([odp.odcOutput.odc.longitude, odp.odcOutput.odc.latitude]),
@@ -790,7 +931,7 @@ export default function TopologyMap() {
               })
             }
 
-            if (visibility.joinbox) {
+            if (visibilitySnapshot.joinbox) {
               data.joinboxes.forEach((joinbox) => {
                 const f = new Feature({
                   geometry: new Point(fromLonLat([joinbox.longitude, joinbox.latitude])),
@@ -805,7 +946,7 @@ export default function TopologyMap() {
               })
             }
 
-            if (visibility.pole) {
+            if (visibilitySnapshot.pole) {
               data.poles.forEach((pole) => {
                 const f = new Feature({
                   geometry: new Point(fromLonLat([pole.longitude, pole.latitude])),
@@ -820,19 +961,56 @@ export default function TopologyMap() {
               })
             }
 
+            if (visibilitySnapshot.pelanggan && data.pelanggans) {
+              data.pelanggans.forEach((pelanggan) => {
+                const f = new Feature({
+                  geometry: new Point(fromLonLat([pelanggan.longitude, pelanggan.latitude])),
+                })
+                // Gunakan style tanpa text (text akan muncul saat hover)
+                f.setStyle(pelangganStyle)
+                f.set('type', 'pelanggan')
+                f.set('data', pelanggan)
+                pelangganSource.addFeature(f)
+
+                // Tambahkan garis koneksi dari ODP ke pelanggan
+                if (
+                  visibilitySnapshot.odp &&
+                  pelanggan.odp?.latitude &&
+                  pelanggan.odp?.longitude
+                ) {
+                  const line = new Feature({
+                    geometry: new LineString([
+                      fromLonLat([pelanggan.odp.longitude, pelanggan.odp.latitude]),
+                      fromLonLat([pelanggan.longitude, pelanggan.latitude]),
+                    ]),
+                  })
+                  const styleFunction = createTopologyStyle('#ec4899') // Pink untuk koneksi pelanggan
+                  line.setStyle(styleFunction)
+                  line.set('type', 'topology')
+                  line.set('from', 'ODP')
+                  line.set('to', 'PELANGGAN')
+                  line.set('coreColor', '#ec4899')
+                  topologySource.addFeature(line)
+                }
+              })
+            }
+
             // Update layer visibility
-            otbLayer.setVisible(visibility.otb)
-            odcLayer.setVisible(visibility.odc)
-            odpLayer.setVisible(visibility.odp)
-            joinboxLayer.setVisible(visibility.joinbox)
-            poleLayer.setVisible(visibility.pole)
+            otbLayer.setVisible(visibilitySnapshot.otb)
+            odcLayer.setVisible(visibilitySnapshot.odc)
+            odpLayer.setVisible(visibilitySnapshot.odp)
+            joinboxLayer.setVisible(visibilitySnapshot.joinbox)
+            poleLayer.setVisible(visibilitySnapshot.pole)
+            pelangganLayer.setVisible(visibilitySnapshot.pelanggan)
             topologyLayer.setVisible(
-              (visibility.otb && visibility.odc) || (visibility.odc && visibility.odp)
+              (visibilitySnapshot.otb && visibilitySnapshot.odc) ||
+                (visibilitySnapshot.odc && visibilitySnapshot.odp) ||
+                (visibilitySnapshot.odp && visibilitySnapshot.pelanggan)
             )
 
             // Auto-zoom
             const view = map.getView()
-            const allSources = [otbSource, odcSource, odpSource, joinboxSource, poleSource, topologySource]
+            const allSources = [otbSource, odcSource, odpSource, joinboxSource, poleSource, pelangganSource, topologySource]
             const allFeatures: any[] = []
             allSources.forEach((source) => {
               source.getFeatures().forEach((f) => allFeatures.push(f))
@@ -905,6 +1083,7 @@ export default function TopologyMap() {
       const { fromLonLat } = await import('ol/proj')
       const { Style, Fill, Stroke, Text } = await import('ol/style')
       const { default: CircleStyle } = await import('ol/style/Circle')
+      const { default: Icon } = await import('ol/style/Icon')
 
       const map = mapRef.current
       if (!map) return
@@ -915,9 +1094,10 @@ export default function TopologyMap() {
       const odpLayer = layers.find((l: any) => l.get('name') === 'odp') as any
       const joinboxLayer = layers.find((l: any) => l.get('name') === 'joinbox') as any
       const poleLayer = layers.find((l: any) => l.get('name') === 'pole') as any
+      const pelangganLayer = layers.find((l: any) => l.get('name') === 'pelanggan') as any
       const topologyLayer = layers.find((l: any) => l.get('name') === 'topology') as any
 
-      if (!otbLayer || !odcLayer || !odpLayer || !joinboxLayer || !poleLayer || !topologyLayer) {
+      if (!otbLayer || !odcLayer || !odpLayer || !joinboxLayer || !poleLayer || !pelangganLayer || !topologyLayer) {
         console.warn('Layers not found')
         return
       }
@@ -927,9 +1107,10 @@ export default function TopologyMap() {
       const odpSource = odpLayer.getSource()
       const joinboxSource = joinboxLayer.getSource()
       const poleSource = poleLayer.getSource()
+      const pelangganSource = pelangganLayer.getSource()
       const topologySource = topologyLayer.getSource()
 
-      if (!otbSource || !odcSource || !odpSource || !joinboxSource || !poleSource || !topologySource) {
+      if (!otbSource || !odcSource || !odpSource || !joinboxSource || !poleSource || !pelangganSource || !topologySource) {
         console.warn('Sources not found')
         return
       }
@@ -1010,6 +1191,31 @@ export default function TopologyMap() {
         }),
       })
 
+      // Style untuk pelanggan tanpa text (default) - menggunakan circle sederhana
+      const pelangganStyle = new Style({
+        image: new CircleStyle({
+          radius: 7,
+          fill: new Fill({ color: '#ec4899' }), // Pink
+          stroke: new Stroke({ color: '#ffffff', width: 2 }),
+        }),
+      })
+
+      // Style untuk pelanggan dengan text (saat hover)
+      const pelangganStyleWithText = (text: string) => new Style({
+        image: new CircleStyle({
+          radius: 7,
+          fill: new Fill({ color: '#ec4899' }), // Pink
+          stroke: new Stroke({ color: '#ffffff', width: 2 }),
+        }),
+        text: new Text({
+          text: text,
+          offsetY: -15,
+          fill: new Fill({ color: '#be185d' }),
+          stroke: new Stroke({ color: '#ffffff', width: 3 }),
+          font: 'bold 11px sans-serif',
+        }),
+      })
+
       // Function to convert color name to hex
       const colorNameToHex = (colorName: string): string => {
         if (!colorName) return '#6366f1'
@@ -1054,6 +1260,7 @@ export default function TopologyMap() {
       odpSource.clear()
       joinboxSource.clear()
       poleSource.clear()
+      pelangganSource.clear()
       topologySource.clear()
 
       // Add features based on visibility (same logic as before)
@@ -1166,6 +1373,38 @@ export default function TopologyMap() {
         })
       }
 
+      if (visibility.pelanggan && data.pelanggans) {
+        data.pelanggans.forEach((pelanggan) => {
+          const f = new Feature({
+            geometry: new Point(fromLonLat([pelanggan.longitude, pelanggan.latitude])),
+          })
+          const style = pelangganStyle.clone()!
+          const text = style.getText()
+          if (text) text.setText(pelanggan.nama || pelanggan.idPelanggan)
+          f.setStyle(style)
+          f.set('type', 'pelanggan')
+          f.set('data', pelanggan)
+          pelangganSource.addFeature(f)
+
+          // Tambahkan garis koneksi dari ODP ke pelanggan
+          if (visibility.odp && pelanggan.odp?.latitude && pelanggan.odp?.longitude) {
+            const line = new Feature({
+              geometry: new LineString([
+                fromLonLat([pelanggan.odp.longitude, pelanggan.odp.latitude]),
+                fromLonLat([pelanggan.longitude, pelanggan.latitude]),
+              ]),
+            })
+            const styleFunction = createTopologyStyle('#ec4899') // Pink untuk koneksi pelanggan
+            line.setStyle(styleFunction)
+            line.set('type', 'topology')
+            line.set('from', 'ODP')
+            line.set('to', 'PELANGGAN')
+            line.set('coreColor', '#ec4899')
+            topologySource.addFeature(line)
+          }
+        })
+      }
+
       // Update layer visibility - set after features are added/removed
       // When visibility is false, source is already empty (features not added above)
       // So we just need to hide the layer
@@ -1174,6 +1413,7 @@ export default function TopologyMap() {
       odpLayer.setVisible(visibility.odp)
       joinboxLayer.setVisible(visibility.joinbox)
       poleLayer.setVisible(visibility.pole)
+      pelangganLayer.setVisible(visibility.pelanggan)
       
       // Update KMZ layers visibility
       const allLayers = map.getLayers().getArray()
@@ -1196,7 +1436,7 @@ export default function TopologyMap() {
 
       // Auto-zoom to fit all visible features
       const view = map.getView()
-      const allSources = [otbSource, odcSource, odpSource, joinboxSource, poleSource, topologySource]
+      const allSources = [otbSource, odcSource, odpSource, joinboxSource, poleSource, pelangganSource, topologySource]
       const allFeatures: any[] = []
       allSources.forEach((source) => {
         source.getFeatures().forEach((f: any) => allFeatures.push(f))
@@ -1247,39 +1487,77 @@ export default function TopologyMap() {
     odp: data.odps.length,
     joinbox: data.joinboxes.length,
     pole: data.poles.length,
+    pelanggan: data.pelanggans?.length || 0,
   }
 
   return (
     <div className="space-y-4">
       {/* Stats Panel */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md">
-          <div className="text-xs text-blue-600 dark:text-blue-400">OTB</div>
-          <div className="text-lg font-semibold text-blue-900 dark:text-blue-100">{stats.otb}</div>
-        </div>
-        <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-md">
-          <div className="text-xs text-green-600 dark:text-green-400">ODC</div>
-          <div className="text-lg font-semibold text-green-900 dark:text-green-100">
-            {stats.odc}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* OTB Card */}
+        <div className="group relative bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-800 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+              <HiOutlineServer className="w-5 h-5" />
+            </div>
           </div>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">OTB</div>
+          <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">{stats.otb}</div>
         </div>
-        <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-md">
-          <div className="text-xs text-orange-600 dark:text-orange-400">ODP</div>
-          <div className="text-lg font-semibold text-orange-900 dark:text-orange-100">
-            {stats.odp}
+
+        {/* ODC Card */}
+        <div className="group relative bg-white dark:bg-gray-800 border border-green-200 dark:border-green-800 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-green-300 dark:hover:border-green-700 transition-all duration-200">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform">
+              <HiOutlineCube className="w-5 h-5" />
+            </div>
           </div>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">ODC</div>
+          <div className="text-2xl font-bold text-green-900 dark:text-green-100">{stats.odc}</div>
         </div>
-        <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-md">
-          <div className="text-xs text-purple-600 dark:text-purple-400">Joinbox</div>
-          <div className="text-lg font-semibold text-purple-900 dark:text-purple-100">
-            {stats.joinbox}
+
+        {/* ODP Card */}
+        <div className="group relative bg-white dark:bg-gray-800 border border-orange-200 dark:border-orange-800 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-orange-300 dark:hover:border-orange-700 transition-all duration-200">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform">
+              <HiOutlineSignal className="w-5 h-5" />
+            </div>
           </div>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">ODP</div>
+          <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">{stats.odp}</div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-900/20 p-3 rounded-md">
-          <div className="text-xs text-gray-600 dark:text-gray-400">Pole</div>
-          <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {stats.pole}
+
+        {/* Joinbox Card */}
+        <div className="group relative bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-800 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-purple-300 dark:hover:border-purple-700 transition-all duration-200">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+              <HiOutlineLink className="w-5 h-5" />
+            </div>
           </div>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Joinbox</div>
+          <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">{stats.joinbox}</div>
+        </div>
+
+        {/* Pole Card */}
+        <div className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 group-hover:scale-110 transition-transform">
+              <HiOutlineBuildingOffice className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Pole</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.pole}</div>
+        </div>
+
+        {/* Pelanggan Card */}
+        <div className="group relative bg-white dark:bg-gray-800 border border-pink-200 dark:border-pink-800 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-pink-300 dark:hover:border-pink-700 transition-all duration-200">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 group-hover:scale-110 transition-transform">
+              <HiOutlineUserGroup className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Pelanggan</div>
+          <div className="text-2xl font-bold text-pink-900 dark:text-pink-100">{stats.pelanggan}</div>
         </div>
       </div>
 
@@ -1310,6 +1588,10 @@ export default function TopologyMap() {
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded-full bg-gray-500 border-2 border-white"></div>
               <span>Pole</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-pink-500 border-2 border-white"></div>
+              <span>Pelanggan</span>
             </div>
             {data && data.kmzFiles && data.kmzFiles.filter(f => f.isActive).length > 0 && (
               <div className="flex items-center gap-2">
@@ -1374,6 +1656,15 @@ export default function TopologyMap() {
                 className="rounded"
               />
               <span>Pole</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={visibility.pelanggan}
+                onChange={(e) => setVisibility({ ...visibility, pelanggan: e.target.checked })}
+                className="rounded"
+              />
+              <span>Pelanggan</span>
             </label>
             {data && data.kmzFiles && data.kmzFiles.filter(f => f.isActive).length > 0 && (
               <label className="flex items-center gap-2 cursor-pointer">

@@ -4,6 +4,40 @@ import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import path from 'path'
+import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
+
+const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
+
+const parseBooleanFlag = (
+  value: FormDataEntryValue | null,
+  defaultValue = false
+): boolean => {
+  if (value === null) {
+    return defaultValue
+  }
+
+  if (typeof value === 'string') {
+    return BOOLEAN_TRUE_VALUES.has(value.toLowerCase())
+  }
+
+  return defaultValue
+}
+
+const parseEnumValue = <T extends string>(
+  value: string | null,
+  enumObject: Record<string, T>
+): T | null => {
+  if (!value) {
+    return null
+  }
+
+  const normalized = value.toUpperCase()
+  const matched = (Object.values(enumObject) as string[]).find(
+    (enumValue) => enumValue.toUpperCase() === normalized
+  )
+
+  return (matched as T | undefined) ?? null
+}
 
 /**
  * GET /api/pelanggan-ppp
@@ -89,12 +123,9 @@ export async function POST(req: NextRequest) {
     const jenisDokumen = formData.get('jenisDokumen') as string | null
     const noDokumen = formData.get('noDokumen') as string | null
     const catatan = formData.get('catatan') as string | null
-    const usePPNRaw = formData.get('usePPN')
-    const usePPN = usePPNRaw === 'true' || usePPNRaw === true || usePPNRaw === '1'
-    const useDiscountRaw = formData.get('useDiscount')
-    const useDiscount = useDiscountRaw === 'true' || useDiscountRaw === true || useDiscountRaw === '1'
-    const useProrateRaw = formData.get('useProrate')
-    const useProrate = useProrateRaw === 'true' || useProrateRaw === true || useProrateRaw === '1'
+    const usePPN = parseBooleanFlag(formData.get('usePPN'), true)
+    const useDiscount = parseBooleanFlag(formData.get('useDiscount'))
+    const useProrate = parseBooleanFlag(formData.get('useProrate'))
     const discountType = formData.get('discountType') as string | null
     const discountValueRaw = formData.get('discountValue') as string | null
     const discountValue = discountValueRaw ? parseFloat(discountValueRaw) : null
@@ -103,28 +134,27 @@ export async function POST(req: NextRequest) {
     const discountDurationUnit = formData.get('discountDurationUnit') as string | null
     const biayaInstalasiRaw = formData.get('biayaInstalasi') as string | null
     const biayaInstalasi = biayaInstalasiRaw ? parseInt(biayaInstalasiRaw) : null
-    const biayaInstalasiIsRecurringRaw = formData.get('biayaInstalasiIsRecurring')
-    const biayaInstalasiIsRecurring = biayaInstalasiIsRecurringRaw === 'true' || biayaInstalasiIsRecurringRaw === true || biayaInstalasiIsRecurringRaw === '1'
-    const useDiskonBiayaInstalasiRaw = formData.get('useDiskonBiayaInstalasi')
-    const useDiskonBiayaInstalasi = useDiskonBiayaInstalasiRaw === 'true' || useDiskonBiayaInstalasiRaw === true || useDiskonBiayaInstalasiRaw === '1'
+    const biayaInstalasiIsRecurring = parseBooleanFlag(formData.get('biayaInstalasiIsRecurring'))
+    const useDiskonBiayaInstalasi = parseBooleanFlag(formData.get('useDiskonBiayaInstalasi'))
     const biayaInstalasiDiskonRaw = formData.get('biayaInstalasiDiskon') as string | null
     const biayaInstalasiDiskon = biayaInstalasiDiskonRaw ? parseFloat(biayaInstalasiDiskonRaw) : null
     const biayaSewaPerangkatRaw = formData.get('biayaSewaPerangkat') as string | null
     const biayaSewaPerangkat = biayaSewaPerangkatRaw ? parseInt(biayaSewaPerangkatRaw) : null
-    const biayaSewaPerangkatIsRecurringRaw = formData.get('biayaSewaPerangkatIsRecurring')
-    const biayaSewaPerangkatIsRecurring = biayaSewaPerangkatIsRecurringRaw === 'true' || biayaSewaPerangkatIsRecurringRaw === true || biayaSewaPerangkatIsRecurringRaw === '1'
+    const biayaSewaPerangkatIsRecurring = parseBooleanFlag(formData.get('biayaSewaPerangkatIsRecurring'), true)
     const biayaSewaPerangkatDiskonRaw = formData.get('biayaSewaPerangkatDiskon') as string | null
     const biayaSewaPerangkatDiskon = biayaSewaPerangkatDiskonRaw ? parseFloat(biayaSewaPerangkatDiskonRaw) : null
     const biayaLainnyaRaw = formData.get('biayaLainnya') as string | null
     const biayaLainnya = biayaLainnyaRaw ? parseInt(biayaLainnyaRaw) : null
-    const biayaLainnyaIsRecurringRaw = formData.get('biayaLainnyaIsRecurring')
-    const biayaLainnyaIsRecurring = biayaLainnyaIsRecurringRaw === 'true' || biayaLainnyaIsRecurringRaw === true || biayaLainnyaIsRecurringRaw === '1'
-    const useDiskonBiayaLainnyaRaw = formData.get('useDiskonBiayaLainnya')
-    const useDiskonBiayaLainnya = useDiskonBiayaLainnyaRaw === 'true' || useDiskonBiayaLainnyaRaw === true || useDiskonBiayaLainnyaRaw === '1'
+    const biayaLainnyaIsRecurring = parseBooleanFlag(formData.get('biayaLainnyaIsRecurring'))
+    const useDiskonBiayaLainnya = parseBooleanFlag(formData.get('useDiskonBiayaLainnya'))
     const biayaLainnyaDiskonRaw = formData.get('biayaLainnyaDiskon') as string | null
     const biayaLainnyaDiskon = biayaLainnyaDiskonRaw ? parseFloat(biayaLainnyaDiskonRaw) : null
     const keteranganBiayaLainnya = formData.get('keteranganBiayaLainnya') as string | null
     const odpId = formData.get('odpId') as string | null
+    const tipeValue = parseEnumValue(tipe, TipePelanggan) ?? TipePelanggan.REGULER
+    const statusValue = parseEnumValue(status, Status) ?? Status.AKTIF
+    const discountTypeValue = parseEnumValue(discountType, DiscountType)
+    const discountDurationUnitValue = parseEnumValue(discountDurationUnit, DurasiUnit)
     
     // Handle file uploads dengan struktur folder yang rapi
     // Struktur: public/uploads/pelanggan/ID_PELANGGAN/ktp.webp, rumah.webp, bast.webp
@@ -228,10 +258,10 @@ export async function POST(req: NextRequest) {
         password: password.trim(), // Password PPPoE
         passwordLogin: passwordLogin.trim(), // Password Login Portal
         hargaPaketId,
-        tipe: tipe || 'REGULER',
+        tipe: tipeValue,
         tanggalAktif: new Date(tanggalAktif),
         jatuhTempo: new Date(jatuhTempo),
-        status: status || 'AKTIF',
+        status: statusValue,
         alamat: alamat?.trim() || null,
         provinsi: provinsi?.trim() || null,
         kabupatenKota: kabupatenKota?.trim() || null,
@@ -250,10 +280,10 @@ export async function POST(req: NextRequest) {
         usePPN: usePPN ?? true,
         useDiscount: useDiscount ?? false,
         useProrate: useProrate ?? false,
-        discountType: discountType || null,
+        discountType: discountTypeValue,
         discountValue: discountValue || null,
         discountDuration: discountDuration || null,
-        discountDurationUnit: discountDurationUnit || null,
+        discountDurationUnit: discountDurationUnitValue,
         biayaInstalasi: biayaInstalasi || null,
         biayaInstalasiIsRecurring: biayaInstalasiIsRecurring ?? false,
         biayaInstalasiDiskon: useDiskonBiayaInstalasi ? (biayaInstalasiDiskon || null) : null,

@@ -126,6 +126,33 @@ export async function GET() {
       },
     })
 
+    // Ambil semua Pelanggan yang memiliki koordinat dan ODP
+    const pelanggans = await prisma.pelanggan.findMany({
+      where: {
+        latitude: { not: null },
+        longitude: { not: null },
+        odpId: { not: null },
+      },
+      select: {
+        id: true,
+        idPelanggan: true,
+        nama: true,
+        latitude: true,
+        longitude: true,
+        alamat: true,
+        status: true,
+        odpId: true,
+        odp: {
+          select: {
+            id: true,
+            name: true,
+            latitude: true,
+            longitude: true,
+          },
+        },
+      },
+    })
+
     // Ambil semua KMZ files yang aktif
     const kmzRepository = getKmzRepository()
     const kmzFiles = await kmzRepository.findActive()
@@ -136,6 +163,7 @@ export async function GET() {
       odps,
       joinboxes,
       poles,
+      pelanggans,
       kmzFiles,
     })
   } catch (error: any) {

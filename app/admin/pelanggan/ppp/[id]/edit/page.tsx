@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiDocumentText } from 'react-icons/hi2'
+import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiDocumentText, HiMapPin } from 'react-icons/hi2'
+import Modal from '@/components/common/Modal'
+import { MapPickerWithSearch } from '@/components/common/MapPicker'
 
 type HargaPaket = {
   id: string
@@ -29,6 +31,13 @@ type HargaPaket = {
   } | null
 }
 
+type Odp = {
+  id: string
+  name: string
+  location: string | null
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+}
+
 export default function PelangganPPPEditPage() {
   const router = useRouter()
   const params = useParams()
@@ -38,6 +47,7 @@ export default function PelangganPPPEditPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([])
+  const [odps, setOdps] = useState<Odp[]>([])
   const [idPelangganError, setIdPelangganError] = useState<string | null>(null)
   const [checkingId, setCheckingId] = useState(false)
   const [showPasswordLogin, setShowPasswordLogin] = useState(false)
@@ -53,6 +63,7 @@ export default function PelangganPPPEditPage() {
   const [scanningKTP, setScanningKTP] = useState(false)
   const [ktpScanError, setKtpScanError] = useState<string | null>(null)
   const [ktpScanSuccess, setKtpScanSuccess] = useState(false)
+  const [showMapPicker, setShowMapPicker] = useState(false)
 
   const [formData, setFormData] = useState({
     idPelanggan: '',
@@ -99,6 +110,7 @@ export default function PelangganPPPEditPage() {
     useDiskonBiayaLainnya: false, // Centang untuk menggunakan diskon biaya lainnya
     biayaLainnyaDiskon: null as number | null,
     keteranganBiayaLainnya: '',
+    odpId: '', // ODP yang digunakan pelanggan
   })
 
   // Load data existing pelanggan
@@ -157,6 +169,7 @@ export default function PelangganPPPEditPage() {
         useDiskonBiayaLainnya: data.biayaLainnyaDiskon ? true : false,
         biayaLainnyaDiskon: data.biayaLainnyaDiskon || null,
         keteranganBiayaLainnya: data.keteranganBiayaLainnya || '',
+        odpId: data.odpId || '',
       })
       
       // Set existing file paths
@@ -177,6 +190,7 @@ export default function PelangganPPPEditPage() {
       loadPelangganData()
     }
     loadHargaPakets()
+    loadOdps()
   }, [id])
 
   const loadHargaPakets = async () => {
@@ -191,6 +205,18 @@ export default function PelangganPPPEditPage() {
       console.error('Error loading harga pakets:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadOdps = async () => {
+    try {
+      const res = await fetch('/api/odps')
+      if (res.ok) {
+        const data = await res.json()
+        setOdps(data.odps || [])
+      }
+    } catch (err: any) {
+      console.error('Error loading ODPs:', err)
     }
   }
 
@@ -1616,10 +1642,49 @@ export default function PelangganPPPEditPage() {
               </div>
             </div>
 
+            {/* ODP Selection */}
+            <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                ODP (Optical Distribution Point)
+              </h4>
+              <div className="space-y-2">
+                <label htmlFor="odpId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Pilih ODP
+                </label>
+                <select
+                  id="odpId"
+                  name="odpId"
+                  value={formData.odpId}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                >
+                  <option value="">-- Pilih ODP --</option>
+                  {odps.map((odp) => (
+                    <option key={odp.id} value={odp.id}>
+                      {odp.name} {odp.location ? `- ${odp.location}` : ''} ({odp.status})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Pilih ODP yang digunakan oleh pelanggan (opsional)
+                </p>
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Titik Koordinat (Tikor)
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Titik Koordinat (Tikor)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowMapPicker(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
+                >
+                  <HiMapPin className="w-3.5 h-3.5" />
+                  Pilih dari Peta
+                </button>
+              </div>
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
@@ -2171,6 +2236,52 @@ export default function PelangganPPPEditPage() {
         </div>
         )}
       </div>
+
+      {/* Modal Pilih Koordinat dari Peta */}
+      <Modal
+        open={showMapPicker}
+        title="Pilih Titik Koordinat dari Peta"
+        onClose={() => setShowMapPicker(false)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowMapPicker(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              Tutup
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Klik pada peta untuk memilih koordinat. Anda juga dapat mencari alamat menggunakan fitur pencarian.
+          </p>
+          <MapPickerWithSearch
+            lat={formData.latitude}
+            lon={formData.longitude}
+            height={500}
+            onChange={(lat, lon) => {
+              setFormData((prev) => ({
+                ...prev,
+                latitude: lat,
+                longitude: lon,
+              }))
+            }}
+          />
+          {formData.latitude && formData.longitude && (
+            <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+              <p className="text-xs font-medium text-indigo-900 dark:text-indigo-300 mb-1">
+                Koordinat Terpilih:
+              </p>
+              <p className="text-sm text-indigo-700 dark:text-indigo-400">
+                Latitude: {formData.latitude.toFixed(6)}, Longitude: {formData.longitude.toFixed(6)}
+              </p>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }
