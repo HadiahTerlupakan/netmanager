@@ -4,6 +4,7 @@ import { snmpWalkSimple } from '@/lib/utils/snmp-helpers'
 import { ONU_OIDS } from '@/lib/utils/onu-oids'
 import type { OnuSyncData } from '@/lib/types/onu-sync'
 import { buildGponPortMap, buildCompositeIndex, parseCompositeIndex, parseGponOnu } from '@/lib/services/onu-sync-helpers'
+import { StreamingONUProcessor } from '@/lib/services/onu-sync/streaming-onu-processor'
 import {
   isValidName,
   isTimestamp,
@@ -27,86 +28,6 @@ import {
 
 // Re-export types dan functions dari helper modules
 export type { OnuSyncData } from '@/lib/types/onu-sync'
-
-// Cache system untuk sync ONU data
-// Cache menyimpan hasil SNMP fetch untuk mengurangi beban pada OLT
-// Cache key: kombinasi oltId dan IP address
-// Cache TTL: 10 menit (data ONU tidak berubah terlalu sering, tapi sync sangat lambat)
-interface SyncCacheEntry {
-  onuData: Array<OnuSyncData>
-  timestamp: number
-  oltId: string
-  oltIpAddress: string
-}
-
-const syncCache = new Map<string, SyncCacheEntry>()
-const SYNC_CACHE_TTL = 10 * 60 * 1000 // 10 menit
-
-/**
- * Generate cache key untuk sync ONU
- */
-function getSyncCacheKey(oltId: string, ipAddress: string): string {
-  return `sync:${oltId}:${ipAddress}`
-}
-
-/**
- * Get cached sync data
- */
-function getCachedSyncData(oltId: string, ipAddress: string): Array<OnuSyncData> | null {
-  const cacheKey = getSyncCacheKey(oltId, ipAddress)
-  const entry = syncCache.get(cacheKey)
-  
-  if (!entry) {
-    return null
-  }
-  
-  const now = Date.now()
-  if (now - entry.timestamp > SYNC_CACHE_TTL) {
-    syncCache.delete(cacheKey)
-    console.log(`[All-ONU-Cache] Cache expired for OLT ${oltId} (${ipAddress})`)
-    return null
-  }
-  
-  const ageSeconds = Math.round((now - entry.timestamp) / 1000)
-  console.log(`[All-ONU-Cache] Cache hit for OLT ${oltId} (${ipAddress}) - ${entry.onuData.length} ONUs (age: ${ageSeconds}s)`)
-  return entry.onuData
-}
-
-/**
- * Set cached sync data
- */
-function setCachedSyncData(oltId: string, ipAddress: string, onuData: Array<OnuSyncData>): void {
-  const cacheKey = getSyncCacheKey(oltId, ipAddress)
-  syncCache.set(cacheKey, {
-    onuData,
-    timestamp: Date.now(),
-    oltId,
-    oltIpAddress: ipAddress,
-  })
-  console.log(`[All-ONU-Cache] Cached ${onuData.length} ONUs for OLT ${oltId} (${ipAddress}) - TTL: ${SYNC_CACHE_TTL / 1000 / 60} minutes`)
-}
-
-/**
- * Clear cache untuk OLT tertentu atau semua cache
- */
-export function clearSyncCache(oltId?: string): void {
-  if (oltId) {
-    // Clear cache untuk OLT tertentu
-    const keysToDelete: string[] = []
-    for (const [key, entry] of syncCache.entries()) {
-      if (entry.oltId === oltId) {
-        keysToDelete.push(key)
-      }
-    }
-    keysToDelete.forEach(key => syncCache.delete(key))
-    console.log(`[All-ONU-Cache] Cleared cache for OLT ${oltId} (${keysToDelete.length} entries)`)
-  } else {
-    // Clear semua cache
-    const count = syncCache.size
-    syncCache.clear()
-    console.log(`[All-ONU-Cache] Cleared all sync cache (${count} entries)`)
-  }
-}
 
 /**
  * Menghitung jumlah ONU dari OLT via SNMP (hanya count, tidak ambil semua data)
@@ -150,24 +71,6 @@ export async function countOnuFromSNMP(
  * Helper function untuk memproses ONU data dari index
  * Mengembalikan OnuSyncData object
  */
-function processOnuDataFromIndex(
-  idx: string,
-  oltId: string,
-  statusNew: Record<string, string>,
-  status: Record<string, string>,
-  name: Record<string, string>,
-  desc: Record<string, string>,
-  sn: Record<string, string>,
-  rx: Record<string, string>,
-  tx: Record<string, string>,
-  reg: Record<string, string>,
-  pppoe: Record<string, string>,
-  rxOltData: Record<string, string>,
-  rxOnuNew: Record<string, string>,
-  txOnuNew: Record<string, string>,
-  actualType: Record<string, string>,
-  zteAnPonData: Record<string, Record<string, string>>
-): OnuSyncData {
   // Parse index untuk mendapatkan gponOnu menggunakan helper function
   const gponOnu = parseGponOnu(idx)
 
@@ -1186,114 +1089,51 @@ export async function getC300GponOnuDataViaSNMP(
     }
 
 
-    // STEP 3: Process SEMUA ONU data dari statusNew
-    // JANGAN bergantung pada Card/PON structure untuk filtering
-    // Langsung proses SEMUA index dari statusNew untuk memastikan tidak ada yang terlewat
-    // PROSES PARALLEL DENGAN CONTROLLED CONCURRENCY untuk efisiensi
-    // Setiap ONU dipastikan datanya lengkap ter-baca sebelum diproses
+    // STEP 3: Process SEMUA ONU data menggunakan Streaming Processor
+    // Menggunakan streaming approach untuk mengurangi memory usage
+    // Tidak memuat semua ONUs ke memory sekaligus
     console.log(`[C300-GPON-SNMP] ========================================`)
-    console.log(`[C300-GPON-SNMP] STEP 3: PROCESSING ALL ONU DATA (PARALLEL WITH CONCURRENCY CONTROL)`)
+    console.log(`[C300-GPON-SNMP] STEP 3: PROCESSING ALL ONU DATA (STREAMING APPROACH)`)
     console.log(`[C300-GPON-SNMP] ========================================`)
-    
-    const onus: Array<OnuSyncData> = []
-    const allOnuIndexes = Object.keys(statusNew)
-    
-    // Warning jika statusNew tidak lengkap
-    if (expectedCount && allOnuIndexes.length < expectedCount) {
-      const missing = expectedCount - allOnuIndexes.length
-      console.warn(`[C300-GPON-SNMP] WARNING: Status New incomplete! Processing ${allOnuIndexes.length} ONUs but expected ${expectedCount} ONUs (missing ${missing})`)
-      console.warn(`[C300-GPON-SNMP] Will process all available ONUs from Status New`)
-    }
-    
-    console.log(`[C300-GPON-SNMP] Processing ${allOnuIndexes.length} ONU(s) from statusNew${expectedCount ? ` (expected: ${expectedCount})` : ''}...`)
-    console.log(`[C300-GPON-SNMP] Using parallel processing with controlled concurrency (5 concurrent ONUs)`)
-    console.log(`[C300-GPON-SNMP] Each ONU is processed with retry mechanism to ensure complete data reading`)
-    
-    if (allOnuIndexes.length === 0) {
-      console.warn(`[C300-GPON-SNMP] ERROR: No ONU indexes found in Status New! Cannot process any ONUs.`)
-      return []
-    }
-    
-    // Helper function untuk process single ONU dengan retry
-    const processSingleOnu = async (idx: string, retryCount = 0): Promise<OnuSyncData | null> => {
-      const maxRetries = 2
-      
-      try {
-        const onuData = processOnuDataFromIndex(
-          idx,
-          oltId,
-          statusNew,
-          status,
-          name,
-          desc,
-          sn,
-          rx,
-          tx,
-          reg,
-          pppoe,
-          rxOltData,
-          rxOnuNew,
-          txOnuNew,
-          actualType,
-          zteAnPonData
-        )
-        
-        // Validasi: pastikan data penting ada (name atau status atau serial)
-        const hasData = onuData.name || onuData.status !== 'Unknown' || onuData.serialNumber
-        if (!hasData && retryCount < maxRetries) {
-          console.warn(`[C300-GPON-SNMP] ONU ${idx}: Data incomplete, retrying... (attempt ${retryCount + 1}/${maxRetries})`)
-          await new Promise(resolve => setTimeout(resolve, 100)) // Delay kecil sebelum retry
-          return processSingleOnu(idx, retryCount + 1)
-        }
-        
-        return onuData
-      } catch (error: any) {
-        if (retryCount < maxRetries) {
-          console.warn(`[C300-GPON-SNMP] ONU ${idx}: Error processing, retrying... (attempt ${retryCount + 1}/${maxRetries}): ${error.message || error}`)
-          await new Promise(resolve => setTimeout(resolve, 100)) // Delay kecil sebelum retry
-          return processSingleOnu(idx, retryCount + 1)
-        } else {
-          console.warn(`[C300-GPON-SNMP] ONU ${idx}: Error after ${maxRetries} retries: ${error.message || error}`)
-          return null
+
+    // Initialize streaming processor with optimized settings
+    const streamingProcessor = new StreamingONUProcessor({
+      batchSize: 30,           // Process 30 ONUs at a time to control memory
+      concurrencyLimit: 5,     // 5 concurrent ONUs for efficiency
+      retryAttempts: 2,        // Retry failed ONUs up to 2 times
+      retryDelay: 100,         // 100ms delay between retries
+      onProgress: (processed, total) => {
+        // Log progress every 100 ONUs
+        if (processed % 100 === 0 || processed === total) {
+          console.log(`[C300-GPON-SNMP] Streaming Progress: ${processed}/${total} ONUs processed (${((processed/total)*100).toFixed(1)}%)`)
         }
       }
-    }
-    
-    // Process semua ONU secara parallel dengan controlled concurrency
-    // Concurrency limit: 5 ONU diproses bersamaan
-    const concurrencyLimit = 5
-    const allOnuIndexesArray = Array.from(allOnuIndexes)
-    
-    for (let i = 0; i < allOnuIndexesArray.length; i += concurrencyLimit) {
-      const batch = allOnuIndexesArray.slice(i, i + concurrencyLimit)
-      const batchNum = Math.floor(i / concurrencyLimit) + 1
-      const totalBatches = Math.ceil(allOnuIndexesArray.length / concurrencyLimit)
-      
-      // Progress log setiap batch
-      if (i > 0) {
-        console.log(`[C300-GPON-SNMP] Progress: ${i}/${allOnuIndexesArray.length} ONUs processed... (batch ${batchNum - 1}/${totalBatches})`)
-      }
-      
-      // Process batch secara parallel
-      const batchResults = await Promise.all(
-        batch.map(async (idx) => {
-          const result = await processSingleOnu(idx)
-          return result
-        })
-      )
-      
-      // Filter null results dan tambahkan ke onus array
-      const validResults = batchResults.filter((result): result is OnuSyncData => result !== null)
-      onus.push(...validResults)
-      
-      // Small delay antara batch untuk stabilitas (memberi waktu OLT untuk refresh)
-      if (i + concurrencyLimit < allOnuIndexesArray.length) {
-        await new Promise(resolve => setTimeout(resolve, 50))
-      }
-    }
-    
+    })
+
+    // Process ONUs using streaming approach
+    const onus = await streamingProcessor.processOnusStreaming(
+      statusNew,
+      {
+        status,
+        name,
+        desc,
+        sn,
+        rx,
+        tx,
+        reg,
+        pppoe,
+        rxOltData,
+        rxOnuNew,
+        txOnuNew,
+        actualType,
+        zteAnPonData
+      },
+      oltId,
+      expectedCount
+    )
+
     console.log(`[C300-GPON-SNMP] ========================================`)
-    console.log(`[C300-GPON-SNMP] Processed all ${onus.length} ONUs from statusNew`)
+    console.log(`[C300-GPON-SNMP] Stream processed ${onus.length} ONUs from statusNew`)
     console.log(`[C300-GPON-SNMP] ========================================`)
 
     // Final summary dengan metrics
@@ -1306,17 +1146,16 @@ export async function getC300GponOnuDataViaSNMP(
     const totalOnus = onus.length
     const qualityMetrics = {
       withName: onus.filter(o => o.name && !o.name.startsWith('ONU-')).length,
-      withStatus: onus.filter(o => o.status !== 'Unknown').length,
       online: onus.filter(o => o.status === 'Online').length,
-      withRxOlt: onus.filter(o => o.rxOlt && o.rxOlt !== 'N/A').length,
-      withRxOnu: onus.filter(o => o.rxOnu && o.rxOnu !== 'N/A').length,
-      withSerial: onus.filter(o => o.serialNumber).length,
-      withDescription: onus.filter(o => o.description && !o.description.startsWith('Index:')).length,
       withValidSignal: onus.filter(o => {
-        const rxOlt = parseFloat(o.rxOlt?.replace(/[^\d.-]/g, '') || '0')
-        const rxOnu = parseFloat(o.rxOnu?.replace(/[^\d.-]/g, '') || '0')
+        const rxOlt = o.opticalRxPower || 0
+        const rxOnu = o.onuOpticalRxPower || 0
         return !isNaN(rxOlt) && rxOlt > -30 && !isNaN(rxOnu) && rxOnu > -30
       }).length,
+      withRxOlt: onus.filter(o => o.opticalRxPower !== null).length,
+      withRxOnu: onus.filter(o => o.onuOpticalRxPower !== null).length,
+      withSerial: onus.filter(o => o.serialNumber).length,
+      withDescription: onus.filter(o => o.description && !o.description.startsWith('Index:')).length,
     }
 
     console.log(`[C300-GPON-SNMP] Quality Metrics:`)
@@ -1341,10 +1180,9 @@ export async function getC300GponOnuDataViaSNMP(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { oltId, clear = false, forceRefresh = false } = body
+    const { oltId, clear = false } = body
 
     console.log(`[All-ONU] Starting sync from ${oltId ? 'specific' : 'all'} OLTs...`)
-    console.log(`[All-ONU] Cache enabled: ${!forceRefresh} (TTL: ${SYNC_CACHE_TTL / 1000 / 60} minutes)`)
 
     const oltRepo = getOLTRepository()
     const onuRepo = getOnuRepository()
@@ -1387,18 +1225,6 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Clear cache jika forceRefresh atau clear
-    if (forceRefresh || clear) {
-      if (forceRefresh) {
-        console.log(`[All-ONU] Force refresh requested, clearing cache...`)
-        if (oltId) {
-          clearSyncCache(oltId)
-        } else {
-          clearSyncCache()
-        }
-      }
-    }
-
     // Clear existing data only if specified
     if (clear) {
       console.log(`[All-ONU] Clearing existing ONU data...`)
@@ -1411,50 +1237,19 @@ export async function POST(req: NextRequest) {
 
     let totalSynced = 0
     const errors: string[] = []
-    const cacheStats = {
-      hits: 0,
-      misses: 0,
-    }
 
     // Sync ONU dari setiap OLT
     for (const olt of connectedOlts) {
       try {
         console.log(`[All-ONU] Trying C300 GPON parser (standard GPON MIB .1012) for OLT ${olt.name}...`)
 
-        // Check cache terlebih dahulu (jika tidak force refresh)
-        let onuData: Array<OnuSyncData> = []
-        let fromCache = false
-
-        if (!forceRefresh) {
-          const cachedData = getCachedSyncData(olt.id, olt.ipAddress)
-          if (cachedData) {
-            onuData = cachedData
-            fromCache = true
-            cacheStats.hits++
-            console.log(`[All-ONU] Using cached ONU data for OLT ${olt.name} (${onuData.length} ONUs)`)
-          } else {
-            cacheStats.misses++
-          }
-        } else {
-          cacheStats.misses++
-        }
-
-        // Fetch dari SNMP jika tidak ada cache atau force refresh
-        if (!fromCache) {
-          console.log(`[All-ONU] Fetching ONU data from SNMP for OLT ${olt.name}...`)
-          onuData = await getC300GponOnuDataViaSNMP(
-            olt.ipAddress,
-            olt.snmpPort,
-            olt.snmpCommunityWrite,
-            olt.snmpVersion,
-            olt.id
-          )
-
-          // Cache hasil fetch (jika berhasil)
-          if (onuData.length > 0) {
-            setCachedSyncData(olt.id, olt.ipAddress, onuData)
-          }
-        }
+        const onuData = await getC300GponOnuDataViaSNMP(
+          olt.ipAddress,
+          olt.snmpPort,
+          olt.snmpCommunityWrite,
+          olt.snmpVersion,
+          olt.id
+        )
 
         if (onuData.length === 0) {
           console.log(`[All-ONU] No ONU data found for OLT ${olt.name}`)
@@ -1564,11 +1359,6 @@ export async function POST(req: NextRequest) {
       total: connectedOlts.length,
       oltId: oltId, // Include oltId in response for tracking
       errors: errors.length > 0 ? errors : undefined,
-      cache: {
-        hits: cacheStats.hits,
-        misses: cacheStats.misses,
-        ttl: SYNC_CACHE_TTL / 1000 / 60, // TTL dalam menit
-      },
     })
   } catch (error: any) {
     console.error('[All-ONU] Error:', error)

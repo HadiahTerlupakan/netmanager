@@ -225,7 +225,9 @@ export default function AllOnuPage() {
       if (selectedCard) params.append('card', selectedCard)
       if (selectedPort) params.append('port', selectedPort)
       if (selectedType) params.append('type', selectedType)
-      if (reset) params.append('forceRefresh', 'true')
+      // Jangan kirim forceRefresh saat pagination - hanya saat benar-benar refresh manual
+      // forceRefresh hanya untuk refresh button atau perubahan filter yang signifikan
+      // if (reset) params.append('forceRefresh', 'true')
 
       const res = await fetch(`/api/onus?${params.toString()}`)
       const data = await res.json()
@@ -369,25 +371,79 @@ export default function AllOnuPage() {
   }, [search])
 
   const handleRefresh = async () => {
+    if (!selectedOlt) {
+      alert('Silakan pilih OLT terlebih dahulu sebelum melakukan refresh.')
+      return
+    }
     setNextCursor(0)
+    setPage(1)
     try {
-      await fetchOnus({ reset: true, cursorOverride: 0, searchValue: searchRef.current ?? '' })
+      // Kirim forceRefresh hanya saat refresh manual
+      const params = new URLSearchParams({
+        page: '1',
+        limit: limit.toString(),
+        cursor: '0',
+        forceRefresh: 'true', // Force refresh untuk refresh manual
+      })
+      if (searchRef.current?.trim()) params.append('search', searchRef.current.trim())
+      if (selectedOlt) params.append('oltId', selectedOlt)
+      if (selectedCard) params.append('card', selectedCard)
+      if (selectedPort) params.append('port', selectedPort)
+      if (selectedType) params.append('type', selectedType)
+
+      setLoading(true)
+      setOnus([])
+      
+      const res = await fetch(`/api/onus?${params.toString()}`)
+      const data = await res.json()
+
+      if (data.error) {
+        console.error('Error from API:', data.error)
+        alert(`Error: ${data.error}`)
+        setOnus([])
+        setSummaryData(data.summary || INITIAL_SUMMARY)
+        setPagination(data.pagination || { ...INITIAL_PAGINATION, limit })
+        return
+      }
+
+      const incomingOnus: OnuData[] = data.onus || []
+      setOnus(incomingOnus)
+      setSummaryData(data.summary || INITIAL_SUMMARY)
+      setPagination(data.pagination || { ...INITIAL_PAGINATION, limit })
+      setNextCursor(data.nextCursor ?? null)
+
+      if (data.types && data.typeCounts) {
+        setTypes(data.types)
+        setTypeCounts(data.typeCounts)
+        if (data.totalOnus !== undefined) {
+          setAllOnus(Array(data.totalOnus).fill(null))
+        }
+      }
+
+      if (!selectedOlt && data.cards) {
+        setGlobalCards(data.cards)
+        setCards(data.cards)
+      }
     } catch (error: any) {
       console.error('Error refreshing ONUs:', error)
       alert('Terjadi kesalahan saat refresh: ' + (error.message || 'Unknown error'))
+    } finally {
+      setLoading(false)
     }
   }
 
   useEffect(() => {
     fetchOlts()
-    fetchTypes()
+    // Tidak fetch types jika OLT belum dipilih
   }, [])
-  useEffect(() => {
-    if (olts.length > 0 && !selectedOlt) {
-      fetchOnus()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [olts.length])
+  
+  // Hapus auto-fetch jika OLT belum dipilih - sekarang wajib pilih OLT dulu
+  // useEffect(() => {
+  //   if (olts.length > 0 && !selectedOlt) {
+  //     fetchOnus()
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [olts.length])
 
   useEffect(() => {
     setSelectedCard(null)
@@ -423,28 +479,40 @@ export default function AllOnuPage() {
   }, [selectedOlt, selectedCard, selectedPort, selectedType])
 
   useEffect(() => {
-    if (olts.length > 0) {
+    // Hanya fetch jika OLT sudah dipilih
+    if (olts.length > 0 && selectedOlt) {
       const cursorForPage = (page - 1) * limit
       // Clear data dan set loading sebelum fetch
       setOnus([])
       setLoading(true)
       setNextCursor(cursorForPage)
-      fetchOnus({ reset: true, cursorOverride: cursorForPage })
+      // Jangan kirim reset=true saat pagination - biarkan cache digunakan
+      // Cache akan digunakan otomatis oleh API jika masih valid
+      fetchOnus({ reset: false, cursorOverride: cursorForPage })
+    } else if (!selectedOlt) {
+      // Clear data jika OLT tidak dipilih
+      setOnus([])
+      setSummaryData(INITIAL_SUMMARY)
+      setPagination({ ...INITIAL_PAGINATION, limit })
+      setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, limit, selectedOlt, selectedCard, selectedPort, selectedType])
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(1)
-      setNextCursor(0)
-      setOnus([])
-      fetchOnus({ reset: true, cursorOverride: 0 })
-    }, 500)
+    // Hanya search jika OLT sudah dipilih
+    if (selectedOlt) {
+      const timer = setTimeout(() => {
+        setPage(1)
+        setNextCursor(0)
+        setOnus([])
+        fetchOnus({ reset: true, cursorOverride: 0 })
+      }, 500)
 
-    return () => clearTimeout(timer)
+      return () => clearTimeout(timer)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search])
+  }, [search, selectedOlt])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -779,25 +847,44 @@ export default function AllOnuPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">ONUS (Data Langsung dari SNMP)</h2>
-          <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium rounded-full">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            Live
-          </div>
+          {selectedOlt && (
+            <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium rounded-full">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              Live
+            </div>
+          )}
         </div>
+        
+        {/* Warning jika OLT belum dipilih */}
+        {!selectedOlt && (
+          <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <div className="flex items-start gap-3">
+              <HiExclamationTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-300 mb-1">
+                  Pilih OLT Terlebih Dahulu
+                </h3>
+                <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                  Silakan pilih OLT dari dropdown &quot;All OLTs&quot; di bawah ini untuk menampilkan data ONU.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="flex flex-wrap items-center gap-4 mb-4">
           {/* Filter Buttons */}
           <div className="flex flex-wrap gap-2">
-            {/* All OLTs Dropdown */}
+            {/* All OLTs Dropdown - WAJIB DIPILIH */}
             <div className="relative" ref={dropdownRefs.olt}>
               <button
                 onClick={() => setOpenDropdown(openDropdown === 'olt' ? null : 'olt')}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
-                  selectedOlt ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
+                  selectedOlt ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
                 }`}
               >
                 <HiBars3 className="w-4 h-4" />
-                {selectedOlt ? olts.find(o => o.id === selectedOlt)?.name || 'All OLTs' : 'All OLTs'}
+                {selectedOlt ? olts.find(o => o.id === selectedOlt)?.name || 'Pilih OLT' : 'Pilih OLT *'}
                 {selectedOlt && (
                   <span
                     onClick={(e) => {
@@ -807,6 +894,8 @@ export default function AllOnuPage() {
                       setSelectedPort(null)
                       setCards([])
                       setPorts([])
+                      setOnus([])
+                      setSummaryData(INITIAL_SUMMARY)
                     }}
                     className="ml-1 hover:bg-green-700 rounded p-0.5 cursor-pointer inline-flex items-center"
                   >
@@ -817,31 +906,45 @@ export default function AllOnuPage() {
               </button>
               {openDropdown === 'olt' && (
                 <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
-                  <button
-                    onClick={() => {
-                      setSelectedOlt(null)
-                      setOpenDropdown(null)
-                    }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                      !selectedOlt ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                    }`}
-                  >
-                    All OLTs
-                  </button>
-                  {olts.map((olt) => (
-                    <button
-                      key={olt.id}
-                      onClick={() => {
-                        setSelectedOlt(olt.id)
-                        setOpenDropdown(null)
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                        selectedOlt === olt.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                      }`}
-                    >
-                      {olt.name}
-                    </button>
-                  ))}
+                  {olts.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                      Tidak ada OLT yang tersedia. Pastikan OLT sudah dikonfigurasi dengan SNMP.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase border-b border-gray-200 dark:border-gray-700">
+                        Pilih OLT (Wajib)
+                      </div>
+                      {olts.map((olt) => (
+                        <button
+                          key={olt.id}
+                          onClick={() => {
+                            setSelectedOlt(olt.id)
+                            setOpenDropdown(null)
+                            // Reset filters saat ganti OLT
+                            setSelectedCard(null)
+                            setSelectedPort(null)
+                            setSelectedType(null)
+                            setPage(1)
+                            setNextCursor(0)
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                            selectedOlt === olt.id ? 'bg-blue-50 dark:bg-blue-900/20 font-medium' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>{olt.name}</span>
+                            {selectedOlt === olt.id && (
+                              <HiCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {olt.ipAddress}
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -849,10 +952,10 @@ export default function AllOnuPage() {
             {/* All Cards Dropdown */}
             <div className="relative" ref={dropdownRefs.card}>
               <button
-                onClick={() => hasCardOptions && setOpenDropdown(openDropdown === 'card' ? null : 'card')}
-                disabled={!hasCardOptions}
+                onClick={() => hasCardOptions && selectedOlt && setOpenDropdown(openDropdown === 'card' ? null : 'card')}
+                disabled={!hasCardOptions || !selectedOlt}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
-                  !hasCardOptions
+                  !hasCardOptions || !selectedOlt
                     ? 'bg-gray-400 cursor-not-allowed'
                     : selectedCard
                     ? 'bg-green-600 hover:bg-green-700'
@@ -914,10 +1017,10 @@ export default function AllOnuPage() {
             {/* All Ports Dropdown */}
             <div className="relative" ref={dropdownRefs.port}>
               <button
-                onClick={() => selectedCard && setOpenDropdown(openDropdown === 'port' ? null : 'port')}
-                disabled={!selectedCard}
+                onClick={() => selectedCard && selectedOlt && setOpenDropdown(openDropdown === 'port' ? null : 'port')}
+                disabled={!selectedCard || !selectedOlt}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
-                  !selectedCard
+                  !selectedCard || !selectedOlt
                     ? 'bg-gray-400 cursor-not-allowed'
                     : selectedPort
                     ? 'bg-green-600 hover:bg-green-700'
@@ -976,9 +1079,14 @@ export default function AllOnuPage() {
             {/* All Types Dropdown */}
             <div className="relative" ref={dropdownRefs.type}>
               <button
-                onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
+                onClick={() => selectedOlt && setOpenDropdown(openDropdown === 'type' ? null : 'type')}
+                disabled={!selectedOlt}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
-                  selectedType ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
+                  !selectedOlt
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : selectedType
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
                 <HiOutlineCog6Tooth className="w-4 h-4" />
@@ -1113,7 +1221,28 @@ export default function AllOnuPage() {
           </div>
 
           {/* Export Button */}
-          <button className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
+          <button 
+            onClick={handleRefresh}
+            disabled={!selectedOlt}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
+              !selectedOlt 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-green-600 hover:bg-green-700'
+            }`}
+          >
+            <HiArrowPath className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          
+          {/* Export Button */}
+          <button 
+            disabled={!selectedOlt}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
+              !selectedOlt 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-green-600 hover:bg-green-700'
+            }`}
+          >
             <HiArrowDownTray className="w-4 h-4" />
             Export
           </button>
@@ -1131,7 +1260,10 @@ export default function AllOnuPage() {
                 setNextCursor(0)
                 setOnus([])
               }}
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+              disabled={!selectedOlt}
+              className={`px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white ${
+                !selectedOlt ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -1147,8 +1279,11 @@ export default function AllOnuPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Search..."
+              disabled={!selectedOlt}
+              className={`px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                !selectedOlt ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              placeholder={selectedOlt ? "Search..." : "Pilih OLT terlebih dahulu"}
             />
           </div>
         </div>
@@ -1208,10 +1343,26 @@ export default function AllOnuPage() {
                     </div>
                   </td>
                 </tr>
+              ) : !selectedOlt ? (
+                <tr key="no-olt-selected">
+                  <td colSpan={12} className="px-4 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <HiExclamationTriangle className="w-12 h-12 text-yellow-500 dark:text-yellow-400" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                          Pilih OLT Terlebih Dahulu
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Silakan pilih OLT dari dropdown &quot;Pilih OLT *&quot; di atas untuk menampilkan data ONU.
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
               ) : onus.length === 0 ? (
                 <tr key="empty">
                   <td colSpan={12} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Tidak ada data ONU. Klik &quot;Refresh&quot; untuk mengambil data dari OLT C300.
+                    Tidak ada data ONU untuk OLT yang dipilih. Klik &quot;Refresh&quot; untuk mengambil data dari OLT C300.
                   </td>
                 </tr>
               ) : (
