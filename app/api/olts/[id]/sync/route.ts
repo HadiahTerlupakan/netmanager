@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { getOLTRepository } from '@/lib/repositories'
+import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
 import { syncOnuDataByOltId } from '@/lib/services/onu-sync'
 import snmp from 'net-snmp'
 import '@/lib/utils/event-emitter-config'
@@ -189,12 +189,27 @@ async function runSyncInBackground(oltId: string) {
         console.log(`[OLT-Sync-BG] Starting ONU sync for OLT ${olt.name} (${olt.ipAddress})...`)
         
         // Progress callback untuk update syncStatus secara bertahap
+        // Progress ini akan di-baca oleh frontend dari syncStatus di database
         const onProgress = async (percentage: number) => {
           try {
-            // Progress ONU sync: 0-90% (10 batch, 9% per batch)
-            // Total progress = 10% (OLT) + progress ONU (0-90%)
-            // Jadi: 10% + 0% = 10%, 10% + 9% = 19%, 10% + 18% = 28%, ..., 10% + 90% = 100%
-            const totalProgress = Math.min(100, 10 + percentage)
+            // Progress ONU sync: 0-95% (saving ONUs), kemudian 100% setelah semua proses selesai dan terverifikasi
+            // Total progress = 10% (OLT) + progress ONU (0-95% atau 100%)
+            // Formula untuk memastikan frontend tidak melihat 100% sebelum proses benar-benar selesai:
+            //   - Jika percentage < 100: totalProgress = 10 + (percentage / 95) * 89 = 10% sampai 99%
+            //   - Jika percentage = 100: totalProgress = 100 (hanya setelah verifikasi berhasil)
+            // Contoh: percentage=0->10%, percentage=50->56%, percentage=90->94%, percentage=95->99%, percentage=100->100%
+            let totalProgress: number
+            if (percentage >= 100) {
+              // Progress 100% hanya setelah verifikasi berhasil
+              totalProgress = 100
+            } else {
+            // Progress maksimal 99% sebelum final 100%
+            // Range: 10% (OLT) sampai 99% (sebelum final)
+            // Formula: 10 + (percentage / 95) * 89 = 10% sampai 99%
+            // Contoh: percentage=90 -> 10+(90/95)*89=94%, percentage=95 -> 10+(95/95)*89=99%
+            totalProgress = Math.min(99, 10 + Math.floor((percentage / 95) * 89))
+            }
+            
             console.log(`[OLT-Sync-BG] Updating progress: ${totalProgress}% (ONU sync: ${percentage}%)`)
             await oltRepository.update(oltId, {
               syncStatus: totalProgress.toString(),
@@ -207,11 +222,48 @@ async function runSyncInBackground(oltId: string) {
         }
         
         const onuCount = await syncOnuDataByOltId(oltId, onProgress)
+        
+        // Verifikasi final: pastikan data benar-benar tersimpan di database sebelum set result
+        // Progress 100% sudah di-update di dalam syncOnuDataByOltId setelah verifikasi berhasil
+        // Tapi kita perlu verifikasi sekali lagi di sini untuk memastikan
+        console.log(`[OLT-Sync-BG] Final verification: checking ONU data in database...`)
+        const onuRepo = getOnuRepository()
+        const finalOnuCount = await onuRepo.countByOltId(oltId)
+        console.log(`[OLT-Sync-BG] Final verification: ${finalOnuCount} ONUs found in database (expected: ${onuCount})`)
+        
+        // Pastikan semua proses benar-benar selesai sebelum set result
+        // Delay untuk memastikan semua database operations sudah commit
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // Update progress 100% hanya jika verifikasi berhasil
+        // Progress 100% mungkin sudah di-update di syncOnuDataByOltId, tapi kita pastikan sekali lagi
+        if (finalOnuCount > 0 && finalOnuCount >= onuCount * 0.95) {
+          // Cek progress saat ini untuk menghindari double update
+          const currentOlt = await oltRepository.findById(oltId)
+          const currentProgress = currentOlt?.syncStatus ? parseInt(currentOlt.syncStatus, 10) : 0
+          
+          if (currentProgress < 100) {
+            console.log(`[OLT-Sync-BG] Final verification successful, updating progress to 100%...`)
+            await oltRepository.update(oltId, {
+              syncStatus: '100',
+            })
+            console.log(`[OLT-Sync-BG] Progress updated to 100% after final verification`)
+          } else {
+            console.log(`[OLT-Sync-BG] Final verification successful, progress already at 100%`)
+          }
+        } else {
+          console.warn(`[OLT-Sync-BG] WARNING: Final verification incomplete (${finalOnuCount}/${onuCount} ONUs). Progress will remain at 99%`)
+          // Progress tetap di 99% jika verifikasi gagal
+          await oltRepository.update(oltId, {
+            syncStatus: '99',
+          })
+        }
+        
         onuSyncResult = {
           success: true,
           count: onuCount,
         }
-        console.log(`[OLT-Sync-BG] ONU sync completed: ${onuCount} ONUs synced, progress: 100%`)
+        console.log(`[OLT-Sync-BG] ONU sync completed: ${onuCount} ONUs synced, ${finalOnuCount} ONUs verified in database`)
       } else {
         console.log(`[OLT-Sync-BG] Skipping ONU sync: OLT is not C300 or SNMP not connected`)
         // Jika tidak sync ONU, langsung set ke 100%

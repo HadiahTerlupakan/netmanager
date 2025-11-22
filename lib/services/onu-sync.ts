@@ -261,13 +261,15 @@ export async function syncOnuDataByOltId(
   console.log(`[ONU-Sync] Expected ONU count from Step 1: ${totalOnuCount}`)
   
   // JANGAN gunakan maxResults untuk memastikan semua data terambil
+  // Pass totalOnuCount sebagai expectedCount untuk validasi dan retry mechanism
   const onuData = await getC300GponOnuDataViaSNMP(
     olt.ipAddress,
     olt.snmpPort,
     olt.snmpCommunityWrite,
     olt.snmpVersion,
-    olt.id
-    // TIDAK ada maxResults - ambil semua data
+    olt.id,
+    undefined, // maxResults - tidak digunakan
+    totalOnuCount > 0 ? totalOnuCount : undefined // expectedCount dari Step 1
   )
   console.log(`[ONU-Sync] Fetched ${onuData.length} ONUs from SNMP`)
   
@@ -384,16 +386,16 @@ export async function syncOnuDataByOltId(
         savedCount++
         
         // Update progress setiap beberapa ONU untuk progress yang lebih smooth dan terlihat
-        // Progress dihitung dari 10% (setelah fetch) sampai 90% (sebelum final 100%)
-        // Jadi range progress untuk saving: 10% - 90% = 80% range
+        // Progress dihitung dari 10% (setelah fetch) sampai 95% (sebelum final 100%)
+        // Jadi range progress untuk saving: 10% - 95% = 85% range
         // Update lebih sering untuk progress yang lebih terlihat, tapi tidak terlalu sering untuk menghindari timeout
         const updateInterval = Math.max(2, Math.min(5, Math.ceil(actualTotal / 30))) // Update setiap 2-5 ONU
         if (savedCount % updateInterval === 0 || savedCount === onuData.length) {
-          // Progress dari 10% sampai 90% berdasarkan savedCount / actualTotal
-          // Formula: 10 + (savedCount / actualTotal) * 80
+          // Progress dari 10% sampai 95% berdasarkan savedCount / actualTotal
+          // Formula: 10 + (savedCount / actualTotal) * 85
           let currentProgress = actualTotal > 0 
-            ? Math.min(90, Math.floor(10 + (savedCount / actualTotal) * 80))
-            : 90
+            ? Math.min(95, Math.floor(10 + (savedCount / actualTotal) * 85))
+            : 95
           
           // Pastikan progress selalu naik, tidak turun
           if (currentProgress < lastProgress) {
@@ -419,27 +421,28 @@ export async function syncOnuDataByOltId(
     }
 
     // Setelah batch tersimpan dengan baik, update progress berdasarkan jumlah ONU yang sudah disimpan
-    // Progress ONU sync: 10-90% (berdasarkan jumlah ONU yang sudah disimpan)
+    // Progress ONU sync: 10-95% (berdasarkan jumlah ONU yang sudah disimpan)
     // Gunakan actualTotal yang sudah didefinisikan di luar loop
     let progressPercentage = 0
     if (actualTotal > 0) {
       // Hitung progress berdasarkan jumlah ONU yang sudah disimpan
-      // Range: 10% (setelah fetch) sampai 90% (sebelum final 100%)
-      progressPercentage = Math.min(90, Math.floor(10 + (savedCount / actualTotal) * 80))
+      // Range: 10% (setelah fetch) sampai 95% (sebelum final 100%)
+      progressPercentage = Math.min(95, Math.floor(10 + (savedCount / actualTotal) * 85))
       
       // Pastikan progress minimal naik sesuai dengan batch number
       // Hitung total batch berdasarkan actualTotal, bukan expectedCount
       const actualTotalBatches = actualTotal >= minBatches 
         ? minBatches 
         : Math.max(1, actualTotal)
-      const batchBasedProgress = Math.min(90, Math.floor(10 + (currentBatch / actualTotalBatches) * 80))
+      const batchBasedProgress = Math.min(95, Math.floor(10 + (currentBatch / actualTotalBatches) * 85))
       progressPercentage = Math.max(progressPercentage, batchBasedProgress)
     } else {
-      progressPercentage = 90
+      progressPercentage = 95
     }
     
     // Pastikan progress tidak turun (harus selalu naik)
-    let finalProgress = Math.min(90, progressPercentage)
+    // Maksimal 95% sebelum final 100% (setelah semua proses benar-benar selesai)
+    let finalProgress = Math.min(95, progressPercentage)
     
     // Pastikan progress selalu naik dari progress terakhir
     if (finalProgress < lastProgress) {
@@ -467,22 +470,103 @@ export async function syncOnuDataByOltId(
     }
   }
 
-  // Update OLT onuLastSync dan pastikan progress 100%
+  // Pastikan semua operasi database sudah commit dengan delay yang lebih lama
+  // Delay ini memastikan bahwa semua write operations sudah benar-benar selesai
+  console.log(`[ONU-Sync] Waiting for all database operations to complete...`)
+  await new Promise(resolve => setTimeout(resolve, 2000)) // 2 detik delay untuk memastikan semua commit selesai
+
+  // Verifikasi bahwa semua ONU benar-benar tersimpan sebelum update progress 100%
+  // Retry verifikasi beberapa kali untuk memastikan database sudah commit
+  console.log(`[ONU-Sync] Verifying all ONUs are saved in database...`)
+  let actualSavedCount = 0
+  let verificationAttempts = 0
+  const maxVerificationAttempts = 10 // Increase retry attempts
+  let verificationSuccess = false
+  
+  while (verificationAttempts < maxVerificationAttempts) {
+    actualSavedCount = await onuRepo.countByOltId(olt.id)
+    console.log(`[ONU-Sync] Verification attempt ${verificationAttempts + 1}/${maxVerificationAttempts}: ${actualSavedCount} ONUs found in database (expected: ${savedCount}, total data: ${onuData.length})`)
+    
+    // Jika count sudah sesuai atau mendekati (dalam toleransi 5%), anggap berhasil
+    // Minimal harus ada data di database (tidak boleh 0)
+    const minRequired = Math.max(1, Math.floor(onuData.length * 0.95))
+    if (actualSavedCount >= minRequired && actualSavedCount > 0) {
+      console.log(`[ONU-Sync] Verification successful: ${actualSavedCount} ONUs found in database (expected: ${savedCount}, required: ${minRequired})`)
+      verificationSuccess = true
+      break
+    }
+    
+    // Jika belum sesuai, tunggu dan coba lagi
+    verificationAttempts++
+    if (verificationAttempts < maxVerificationAttempts) {
+      const delay = verificationAttempts * 500 // Progressive delay: 500ms, 1000ms, 1500ms, etc.
+      console.log(`[ONU-Sync] Verification incomplete (${actualSavedCount}/${minRequired}), waiting ${delay}ms before retry...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+    } else {
+      console.warn(`[ONU-Sync] WARNING: Verification failed after ${maxVerificationAttempts} attempts. Found ${actualSavedCount} ONUs but expected at least ${minRequired}`)
+      console.warn(`[ONU-Sync] This might indicate database commit delay or save operation failure.`)
+    }
+  }
+  
+  // Update OLT onuLastSync - pastikan ini benar-benar commit sebelum update progress
+  console.log(`[ONU-Sync] Updating OLT onuLastSync...`)
   await oltRepo.update(olt.id, {
     onuLastSync: new Date(),
   })
+  console.log(`[ONU-Sync] OLT onuLastSync updated successfully`)
+  
+  // Delay lagi untuk memastikan onuLastSync commit
+  await new Promise(resolve => setTimeout(resolve, 500))
 
-  // Update progress: 100% (selesai)
+  // Update progress: 100% (selesai) - HANYA setelah verifikasi berhasil
+  // Gunakan actualSavedCount dari database sebagai acuan utama, bukan savedCount dari counter
+  // Karena actualSavedCount adalah data yang benar-benar ada di database
+  const finalCount = actualSavedCount > 0 ? actualSavedCount : savedCount
+  
   if (onProgress) {
-    console.log(`[ONU-Sync] All batches completed, calling onProgress(100)...`)
-    try {
-      // Pastikan progress 100% di-update dengan delay untuk memastikan terlihat
-      await new Promise(resolve => setTimeout(resolve, 100))
-      await onProgress(100)
-      console.log(`[ONU-Sync] onProgress(100) completed successfully`)
-    } catch (error: any) {
-      console.error(`[ONU-Sync] Error calling onProgress(100):`, error.message)
+    // Hanya update progress 100% jika verifikasi berhasil (ada data di database)
+    if (verificationSuccess && actualSavedCount > 0) {
+      console.log(`[ONU-Sync] ========================================`)
+      console.log(`[ONU-Sync] VERIFICATION SUCCESSFUL - Updating progress to 100%`)
+      console.log(`[ONU-Sync] ========================================`)
+      console.log(`[ONU-Sync] Database verification: ${actualSavedCount} ONUs found in database`)
+      console.log(`[ONU-Sync] Expected: ${onuData.length} ONUs, Attempted to save: ${savedCount} ONUs`)
+      console.log(`[ONU-Sync] ========================================`)
+      
+      try {
+        // Update progress ke 100% dengan delay tambahan untuk memastikan UI update
+        await onProgress(100)
+        console.log(`[ONU-Sync] Progress updated to 100% successfully`)
+        
+        // Delay lagi untuk memastikan progress update terlihat di frontend dan database commit
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        console.log(`[ONU-Sync] All sync processes completed. Final count: ${actualSavedCount} ONUs in database`)
+      } catch (error: any) {
+        console.error(`[ONU-Sync] Error calling onProgress(100):`, error.message)
+      }
+    } else {
+      // Jika verifikasi gagal (tidak ada data di database), update progress ke 95% (bukan 100%)
+      // Ini menunjukkan bahwa proses belum benar-benar selesai
+      console.warn(`[ONU-Sync] ========================================`)
+      console.warn(`[ONU-Sync] VERIFICATION FAILED - Progress will NOT be 100%`)
+      console.warn(`[ONU-Sync] ========================================`)
+      console.warn(`[ONU-Sync] Only ${actualSavedCount} ONUs found in database`)
+      console.warn(`[ONU-Sync] Expected: ${onuData.length} ONUs, Attempted to save: ${savedCount} ONUs`)
+      console.warn(`[ONU-Sync] Progress will remain at 95% until data is verified in database`)
+      console.warn(`[ONU-Sync] ========================================`)
+      
+      try {
+        // Update progress ke 95% untuk menunjukkan masih ada proses final
+        await onProgress(95)
+        console.log(`[ONU-Sync] Progress updated to 95% (verification incomplete: ${actualSavedCount}/${onuData.length} ONUs in database)`)
+        console.warn(`[ONU-Sync] WARNING: Progress is 95% because database verification failed.`)
+        console.warn(`[ONU-Sync] Data may still be saving or there was an error during save operation.`)
+      } catch (error: any) {
+        console.error(`[ONU-Sync] Error calling onProgress(95):`, error.message)
+      }
     }
+  } else {
+    console.log(`[ONU-Sync] All sync processes completed. Final count: ${actualSavedCount} ONUs in database (attempted to save: ${savedCount}, expected: ${onuData.length})`)
   }
 
   console.log(`[ONU-Sync] Successfully saved ${savedCount}/${onuData.length} ONUs for OLT ${olt.name}`)
