@@ -319,27 +319,99 @@ export class OnuRepository implements IOnuRepository {
     return onu
   }
 
-  async upsert(oltId: string, gponOnu: string, data: OnuCreateData): Promise<{ id: string }> {
-    const onu = await this.client.onu.upsert({
+  async upsert(oltId: string, gponOnu: string, data: OnuCreateData): Promise<{ id: string; updated: boolean }> {
+    // Cek apakah data sudah ada
+    const existing = await this.client.onu.findUnique({
       where: {
         oltId_gponOnu: {
           oltId,
           gponOnu,
         },
       },
-      create: {
-        ...data,
-        oltId,
-        gponOnu,
-        lastUpdate: new Date(),
-      },
-      update: {
-        ...data,
-        lastUpdate: new Date(),
-      },
-      select: { id: true },
     })
-    return onu
+
+    if (existing) {
+      // Hanya update field yang berubah untuk optimasi
+      const updateData: any = {}
+      let hasChanges = false
+
+      // Compare dan hanya update field yang berbeda
+      const fieldsToCheck: (keyof OnuCreateData)[] = [
+        'name', 'description', 'pppoe', 'status', 'rxOlt', 'rxOnu', 'txOlt', 'txOnu',
+        'serialNumber', 'actualType', 'registerTime', 'distance', 'lastSeen',
+        'registrationMode', 'softwareVersion', 'hardwareVersion', 'temperature',
+        'laserBiasCurrent', 'vendorId', 'equipmentId', 'firmwareVersion',
+        'macAddress', 'batteryStatus', 'opticalTransceiverType', 'lastDeregTime',
+        'authMode', 'loid', 'password', 'configState', 'powerLevel', 'dyingGaspTime',
+        'rxPowerStatus', 'txPowerStatus', 'rxBytes', 'txBytes', 'rxPackets', 'txPackets',
+        'rxErrors', 'txErrors', 'rxDrops', 'txDrops', 'wifiEnable', 'wifiSsid',
+        'wifiSecurityMode', 'wifiChannel'
+      ]
+
+      for (const field of fieldsToCheck) {
+        const newValue = data[field]
+        const oldValue = existing[field as keyof typeof existing]
+        
+        // Compare values (handle null/undefined)
+        if (newValue !== undefined) {
+          let isDifferent = false
+          
+          // Handle null comparison
+          if (newValue === null && oldValue === null) {
+            isDifferent = false
+          } else if (newValue === null || oldValue === null) {
+            isDifferent = true
+          }
+          // Deep comparison for dates
+          else if (newValue instanceof Date && oldValue instanceof Date) {
+            isDifferent = newValue.getTime() !== oldValue.getTime()
+          }
+          // Handle bigint comparison
+          else if (typeof newValue === 'bigint' && typeof oldValue === 'bigint') {
+            isDifferent = newValue !== oldValue
+          }
+          // Regular comparison
+          else {
+            isDifferent = newValue !== oldValue
+          }
+          
+          if (isDifferent) {
+            updateData[field] = newValue
+            hasChanges = true
+          }
+        }
+      }
+
+      // Jika ada perubahan, update
+      if (hasChanges) {
+        updateData.lastUpdate = new Date()
+        await this.client.onu.update({
+          where: {
+            oltId_gponOnu: {
+              oltId,
+              gponOnu,
+            },
+          },
+          data: updateData,
+        })
+        return { id: existing.id, updated: true }
+      } else {
+        // Tidak ada perubahan, skip update
+        return { id: existing.id, updated: false }
+      }
+    } else {
+      // Insert baru
+      const onu = await this.client.onu.create({
+        data: {
+          ...data,
+          oltId,
+          gponOnu,
+          lastUpdate: new Date(),
+        },
+        select: { id: true },
+      })
+      return { id: onu.id, updated: true }
+    }
   }
 
   async update(id: string, data: OnuUpdateData): Promise<void> {

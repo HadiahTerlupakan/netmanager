@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
-import { getC300GponOnuDataViaSNMP } from '../onus/sync/route'
 
 // Simple in-memory cache untuk ONU data
 // Cache key: kombinasi filter parameters
@@ -33,8 +32,17 @@ interface AggregateCacheEntry {
 
 const cache = new Map<string, CacheEntry>()
 const aggregateCache = new Map<string, AggregateCacheEntry>()
-const CACHE_TTL = 30000 // 30 detik untuk data ONU
+const CACHE_TTL = 120000 // 2 menit untuk data ONU (lebih lama untuk stabilitas)
 const AGGREGATE_CACHE_TTL = 300000 // 5 menit untuk agregat (summary/types/cards)
+
+// Export function untuk clear cache (dipanggil saat data di-sync)
+export function clearOnuCache(): void {
+  const count = cache.size
+  const aggregateCount = aggregateCache.size
+  cache.clear()
+  aggregateCache.clear()
+  console.log(`[All-ONU] Cleared all ONU cache (${count} data entries, ${aggregateCount} aggregate entries)`)
+}
 
 type CardSummary = {
   frame: number
@@ -134,14 +142,18 @@ export async function GET(req: NextRequest) {
     const forceRefresh = searchParams.get('forceRefresh') === 'true'
     const cursorParam = searchParams.get('cursor')
     const cursor = cursorParam !== null ? Math.max(parseInt(cursorParam, 10) || 0, 0) : null
-
-    // Check cache untuk base data (tanpa filter search, karena search dilakukan setelah fetch)
-    // Cache key berdasarkan OLT/Card/Port/Type (tanpa search, karena search adalah client-side filter)
-    // Skip cache jika forceRefresh=true (untuk halaman terakhir atau refresh manual)
-    const baseCacheKey = getCacheKey(oltId, card, port, type, '')
-    const aggregateCacheKey = `aggregate:${oltId || 'all'}:${card || 'all'}:${port || 'all'}:${type || 'all'}`
     
-    // Check cache untuk agregat terlebih dahulu (TTL lebih panjang)
+    // Log request untuk debugging
+    console.log(`[All-ONU] Request received: oltId=${oltId || 'ALL'}, page=${page}, limit=${limit}, card=${card || 'ALL'}, port=${port || 'ALL'}, type=${type || 'ALL'}, forceRefresh=${forceRefresh}`)
+
+    // Cache key yang konsisten: selalu gunakan key untuk SEMUA data (tanpa filter)
+    // Filter akan dilakukan setelah fetch, bukan sebelum
+    // Ini memastikan data selalu konsisten dan tidak berbeda-beda
+    const baseCacheKey = 'onu:all:all:all:all:' // Key konsisten untuk semua data
+    const aggregateCacheKey = 'aggregate:all:all:all:all'
+    
+    // Check cache untuk base data (semua data, tanpa filter)
+    // Skip cache jika forceRefresh=true (untuk refresh manual)
     const cachedAggregate = forceRefresh ? null : getCachedAggregate(aggregateCacheKey)
     const cachedEntry = forceRefresh ? null : getCachedData(baseCacheKey)
     
@@ -160,55 +172,43 @@ export async function GET(req: NextRequest) {
     }> = []
 
     let fromCache = false
+    let fromDatabase = false
+    
+    // Prioritas 1: Gunakan cache jika tersedia dan tidak force refresh
     if (cachedEntry && !forceRefresh) {
       console.log(`[All-ONU] Using cached data (${cachedEntry.data.length} ONUs, age: ${Math.round((Date.now() - cachedEntry.timestamp) / 1000)}s)`)
       allOnuData = cachedEntry.data
       fromCache = true
     } else {
-      if (forceRefresh) {
-        console.log(`[All-ONU] Force refresh requested, skipping cache and fetching fresh data from SNMP...`)
-      } else {
-        console.log(`[All-ONU] Fetching ONU data directly from SNMP...`)
-      }
-      console.log(`[All-ONU] Fetching ONU data directly from SNMP...`)
-      
+      // Prioritas 2: Ambil dari database (lebih cepat dari SNMP)
+      // Hanya fetch dari SNMP jika forceRefresh=true atau data tidak ada di database
+      const onuRepo = getOnuRepository()
       const oltRepo = getOLTRepository()
-      const allOlts = await oltRepo.findAll()
-      const targetOlts = oltId 
-        ? allOlts.filter(olt => olt.id === oltId && olt.snmpConnected && olt.snmpCommunityWrite && olt.type?.toLowerCase().includes('c300'))
-        : allOlts.filter(olt => olt.snmpConnected && olt.snmpCommunityWrite && olt.type?.toLowerCase().includes('c300'))
-
-      if (targetOlts.length === 0) {
-        return NextResponse.json({
-          onus: [],
-          pagination: { page, limit, total: 0, totalPages: 0 },
-          summary: {
-            total: 0,
-            good: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
-            warning: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
-            critical: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
-            other: { count: 0, percentage: '0', los: 0, na: 0 },
-          },
-          types: [],
-          typeCounts: {},
-          totalOnus: 0,
-        })
-      }
-
-      for (const olt of targetOlts) {
-        try {
-          const onuData = await getC300GponOnuDataViaSNMP(
-            olt.ipAddress,
-            olt.snmpPort || 161,
-            olt.snmpCommunityWrite!,
-            olt.snmpVersion || '2c',
-            olt.id
-          )
-
-          const convertedData = onuData.map(onu => ({
+      
+      // HANYA ambil dari database (yang sudah di-sync dari menu OLT)
+      // Jangan fetch langsung dari SNMP - biarkan menu OLT yang handle sync
+      // SELALU ambil SEMUA data dari database untuk konsistensi cache
+      // Filter akan dilakukan setelah fetch, bukan sebelum
+      console.log(`[All-ONU] Fetching ALL ONU data from database (for consistent caching)...`)
+      
+      try {
+        // SELALU ambil SEMUA data ONU dari database (semua OLT)
+        // Ini memastikan cache selalu konsisten dan tidak berbeda-beda
+        const allOnusInDb = await onuRepo.findAll()
+        
+        if (allOnusInDb.length > 0) {
+          // Get OLT names untuk mapping
+          const allOlts = await oltRepo.findAll()
+          const oltNameMap = new Map<string, string>()
+          allOlts.forEach(olt => {
+            oltNameMap.set(olt.id, olt.name)
+          })
+          
+          // Convert semua data ONU
+          const convertedData = allOnusInDb.map(onu => ({
             id: onu.gponOnu,
             oltId: onu.oltId,
-            oltName: olt.name,
+            oltName: oltNameMap.get(onu.oltId) || `OLT ${onu.oltId}`, // Use OLT name if available, otherwise fallback
             name: onu.name,
             description: onu.description,
             pppoe: onu.pppoe,
@@ -219,21 +219,41 @@ export async function GET(req: NextRequest) {
             serialNumber: onu.serialNumber,
             actualType: onu.actualType
           }))
-
+          
           allOnuData.push(...convertedData)
-        } catch (error: any) {
-          console.error(`[All-ONU] Error fetching ONU data from OLT ${olt.name}:`, error.message)
+          fromDatabase = true
+          
+          const oltIdsInDb = new Set(allOnusInDb.map(onu => onu.oltId))
+          console.log(`[All-ONU] Loaded ${allOnuData.length} ONUs from database untuk ${oltIdsInDb.size} OLT ID(s): ${Array.from(oltIdsInDb).join(', ')}`)
+        } else {
+          console.log(`[All-ONU] No ONU data in database`)
         }
-      }
 
-      // Cache hasil fetch (tanpa filter search)
-      cache.set(baseCacheKey, {
-        data: allOnuData,
-        timestamp: Date.now()
-      })
-      console.log(`[All-ONU] Cached ${allOnuData.length} ONUs for ${CACHE_TTL / 1000}s`)
+        // Cache hasil jika ada data (selalu cache semua data, tanpa filter)
+        // Ini memastikan data konsisten untuk semua request berikutnya
+        if (allOnuData.length > 0) {
+          cache.set(baseCacheKey, {
+            data: allOnuData,
+            timestamp: Date.now()
+          })
+          console.log(`[All-ONU] Cached ${allOnuData.length} ONUs from database (all OLTs, no filters) for ${CACHE_TTL / 1000}s`)
+        }
+        
+        // Hapus logika lama yang kompleks - sekarang lebih sederhana
+        // Jika oltId ada, hanya ambil data untuk OLT tersebut
+        // Jika tidak, ambil semua data dari database
+      } catch (error: any) {
+        console.error(`[All-ONU] Error fetching from database:`, error.message)
+      }
+      
+      // Hapus logika fetch dari SNMP - biarkan menu OLT yang handle sync
+      // Data akan tersedia setelah sync dari menu OLT
+      // Jika forceRefresh=true, tetap hanya ambil dari database (tidak fetch dari SNMP)
+      // User harus sync dari menu OLT terlebih dahulu
     }
 
+    // Filter berdasarkan oltId (jika sudah di-filter di atas, ini akan tetap sama)
+    // Tapi tetap perlu filter di sini untuk memastikan konsistensi
     let filteredOnus = allOnuData
 
     if (oltId) {
@@ -349,16 +369,54 @@ export async function GET(req: NextRequest) {
     let cardsSummary: CardSummary[]
     let totalOnusCount: number
 
+    // Hitung total dari filteredOnus (untuk filter yang aktif)
+    // Ini memastikan pagination dan summary sesuai dengan data yang benar-benar ada setelah filtering
+    const total = filteredOnus.length
+    
     if (cachedAggregate && !forceRefresh) {
-      console.log(`[All-ONU] Using cached aggregate data (age: ${Math.round((Date.now() - cachedAggregate.timestamp) / 1000)}s)`)
-      summaryData = cachedAggregate.summary
+      // Gunakan cached aggregate hanya untuk types, cards, dan totalOnus (untuk dropdown/filter)
+      // Tapi summary harus dihitung dari filteredOnus untuk akurasi
+      console.log(`[All-ONU] Using cached aggregate data for types/cards (age: ${Math.round((Date.now() - cachedAggregate.timestamp) / 1000)}s)`)
       typesArray = cachedAggregate.types
       typeCountsObj = cachedAggregate.typeCounts
       cardsSummary = cachedAggregate.cards
       totalOnusCount = cachedAggregate.totalOnus
+      
+      // Hitung summary dari filteredOnus (bukan dari cache)
+      const goodPercentage = total > 0 ? ((goodCount / total) * 100).toFixed(1) : '0'
+      const warningPercentage = total > 0 ? ((warningCount / total) * 100).toFixed(1) : '0'
+      const criticalPercentage = total > 0 ? ((criticalCount / total) * 100).toFixed(1) : '0'
+      const otherPercentage = total > 0 ? ((otherCount / total) * 100).toFixed(1) : '0'
+
+      summaryData = {
+        total,
+        good: {
+          count: goodCount,
+          percentage: goodPercentage,
+          rxOlt: goodRxOlt,
+          rxOnu: goodRxOnu,
+        },
+        warning: {
+          count: warningCount,
+          percentage: warningPercentage,
+          rxOlt: warningRxOlt,
+          rxOnu: warningRxOnu,
+        },
+        critical: {
+          count: criticalCount,
+          percentage: criticalPercentage,
+          rxOlt: criticalRxOlt,
+          rxOnu: criticalRxOnu,
+        },
+        other: {
+          count: otherCount,
+          percentage: otherPercentage,
+          los: losCount,
+          na: naCount,
+        },
+      }
     } else {
-      // Hitung summary dari filteredOnus (untuk filter yang aktif)
-      const total = filteredOnus.length
+      // Hitung semua dari filteredOnus
       const goodPercentage = total > 0 ? ((goodCount / total) * 100).toFixed(1) : '0'
       const warningPercentage = total > 0 ? ((warningCount / total) * 100).toFixed(1) : '0'
       const criticalPercentage = total > 0 ? ((criticalCount / total) * 100).toFixed(1) : '0'
@@ -421,9 +479,8 @@ export async function GET(req: NextRequest) {
       console.log(`[All-ONU] Cached aggregate data for ${AGGREGATE_CACHE_TTL / 1000}s`)
     }
 
-    const total = summaryData.total
-
     // Pagination - selalu gunakan startIndex dari page untuk pagination tradisional
+    // total sudah dihitung dari filteredOnus.length di atas
     const startIndex = (page - 1) * limit
     const endIndex = Math.min(startIndex + limit, total)
     const paginatedOnus = filteredOnus.slice(startIndex, endIndex)
@@ -431,6 +488,9 @@ export async function GET(req: NextRequest) {
     // nextCursor untuk tracking, tapi tidak digunakan untuk pagination
     const nextCursor = endIndex < total ? endIndex : null
     const currentPage = page
+
+    // Calculate cache age untuk logging
+    const cacheAge = cachedEntry ? Math.round((Date.now() - cachedEntry.timestamp) / 1000) : null
 
     return NextResponse.json({
       onus: paginatedOnus,
@@ -447,6 +507,8 @@ export async function GET(req: NextRequest) {
       nextCursor,
       cards: cardsSummary,
       fromCache, // Flag untuk menandai apakah data dari cache
+      fromDatabase, // Flag untuk menandai apakah data dari database (bukan SNMP)
+      cacheAge, // Umur cache dalam detik (untuk debugging)
     })
   } catch (error: any) {
     console.error('Error fetching ONUs:', error)

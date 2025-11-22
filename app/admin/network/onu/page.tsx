@@ -107,6 +107,17 @@ export default function AllOnuPage() {
   const [typeCounts, setTypeCounts] = useState<Record<string, number>>({})
   const [typeSearch, setTypeSearch] = useState('')
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  
+  // Polling state
+  const [pollingEnabled, setPollingEnabled] = useState(true)
+  const [pollingInterval, setPollingInterval] = useState(30) // detik
+  const [lastPollTime, setLastPollTime] = useState<Date | null>(null)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const isPageVisibleRef = useRef(true)
+  const isPollingRef = useRef(false) // Flag untuk mencegah multiple polling concurrent
+  const isPaginationRef = useRef(false) // Flag untuk mencegah polling saat pagination
+  const pollingAbortControllerRef = useRef<AbortController | null>(null) // Untuk cancel polling request
+  
   const dropdownRefs = {
     olt: useRef<HTMLDivElement>(null),
     card: useRef<HTMLDivElement>(null),
@@ -115,6 +126,9 @@ export default function AllOnuPage() {
   }
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
   const searchRef = useRef(search)
+  const selectedCardRef = useRef(selectedCard)
+  const selectedPortRef = useRef(selectedPort)
+  const selectedTypeRef = useRef(selectedType)
   const hasCardOptions = cards.length > 0
 
   const fetchOlts = async () => {
@@ -122,19 +136,19 @@ export default function AllOnuPage() {
       const res = await fetch('/api/olts')
       const data = await res.json()
       if (data.olts) {
-        const connectedOlts = data.olts
-          .filter((olt: any) => olt.snmpConnected && olt.snmpCommunityWrite && olt.type?.toLowerCase().includes('c300'))
-          .map((olt: any) => ({
-            id: olt.id,
-            name: olt.name,
-            ipAddress: olt.ipAddress,
-            type: olt.type,
-            snmpConnected: olt.snmpConnected,
-            snmpCommunityWrite: olt.snmpCommunityWrite,
-            snmpPort: olt.snmpPort,
-            snmpVersion: olt.snmpVersion,
-          }))
-        setOlts(connectedOlts)
+        // Ambil semua OLT, tidak perlu filter SNMP status
+        // Data akan diambil dari database yang sudah di-sync
+        const allOlts = data.olts.map((olt: any) => ({
+          id: olt.id,
+          name: olt.name,
+          ipAddress: olt.ipAddress,
+          type: olt.type,
+          snmpConnected: olt.snmpConnected,
+          snmpCommunityWrite: olt.snmpCommunityWrite,
+          snmpPort: olt.snmpPort,
+          snmpVersion: olt.snmpVersion,
+        }))
+        setOlts(allOlts)
       }
     } catch (error) {
       console.error('Error fetching OLTs:', error)
@@ -197,6 +211,12 @@ export default function AllOnuPage() {
     const { reset = false, cursorOverride, searchValue } = options
     const appliedSearch = searchValue ?? searchRef.current ?? ''
     
+    // Set flag pagination untuk mencegah polling saat pagination
+    const isPaginationRequest = !reset && onus.length > 0
+    if (isPaginationRequest) {
+      isPaginationRef.current = true
+    }
+    
     // Untuk pagination, selalu gunakan cursor dari page
     const calculatedCursor = (page - 1) * limit
     const targetCursor = cursorOverride !== undefined && cursorOverride !== null
@@ -204,13 +224,23 @@ export default function AllOnuPage() {
       : calculatedCursor
 
     if (targetCursor < 0 || isNaN(targetCursor)) {
+      if (isPaginationRequest) {
+        isPaginationRef.current = false
+      }
       return
     }
 
+    // Hanya set loading jika reset (perubahan filter) atau jika tidak ada data
+    // Jangan set loading untuk pagination karena cache akan langsung memberikan data
+    // Ini mencegah loading indicator muncul saat pagination dengan cache
     if (reset) {
       setLoading(true)
       setOnus([])
+    } else if (onus.length === 0) {
+      // Hanya set loading jika tidak ada data (first load)
+      setLoading(true)
     }
+    // Jika pagination dan sudah ada data, jangan set loading - biarkan cache handle
 
     let loadingCleared = false
 
@@ -232,9 +262,12 @@ export default function AllOnuPage() {
       const res = await fetch(`/api/onus?${params.toString()}`)
       const data = await res.json()
 
-      if (data.fromCache && reset) {
+      // Clear loading lebih cepat jika data dari cache (baik reset maupun pagination)
+      // Ini mencegah loading indicator muncul saat pagination dengan cache
+      if (data.fromCache) {
         setLoading(false)
         loadingCleared = true
+        console.log(`[All-ONU] Data from cache (age: ${data.cacheAge || 'unknown'}s), loading cleared immediately - no loading indicator`)
       }
 
       if (data.error) {
@@ -252,10 +285,25 @@ export default function AllOnuPage() {
       const incomingOnus: OnuData[] = data.onus || []
       // Always replace data, jangan append
       setOnus(incomingOnus)
+      
+      // Jika data dari cache, pastikan loading sudah di-clear
+      // Ini untuk memastikan tidak ada loading indicator yang tersisa
+      if (data.fromCache && !loadingCleared) {
+        setLoading(false)
+        loadingCleared = true
+      }
       setSummaryData(data.summary || INITIAL_SUMMARY)
       setPagination(data.pagination || { ...INITIAL_PAGINATION, limit })
       // Update nextCursor untuk tracking, tapi untuk pagination kita gunakan page-based
       setNextCursor(data.nextCursor ?? null)
+      
+      // Clear pagination flag setelah data berhasil di-load
+      if (isPaginationRequest) {
+        // Delay kecil untuk memastikan state update selesai
+        setTimeout(() => {
+          isPaginationRef.current = false
+        }, 500)
+      }
 
       if (data.types && data.typeCounts) {
         setTypes(data.types)
@@ -278,11 +326,20 @@ export default function AllOnuPage() {
       setTypeCounts({})
       setNextCursor(null)
     } finally {
-      if (reset && !loadingCleared) {
+      // Clear loading jika belum di-clear (baik reset maupun pagination)
+      // Tapi hanya jika belum di-clear oleh cache check
+      if (!loadingCleared) {
         setLoading(false)
       }
+      
+      // Clear pagination flag di finally untuk memastikan selalu di-clear
+      if (isPaginationRequest) {
+        setTimeout(() => {
+          isPaginationRef.current = false
+        }, 500)
+      }
     }
-  }, [limit, page, selectedCard, selectedOlt, selectedPort, selectedType])
+  }, [limit, page, selectedCard, selectedOlt, selectedPort, selectedType, onus.length])
 
   const calculateSummary = (onus: OnuData[]): SummaryData => {
     const total = onus.length
@@ -370,11 +427,187 @@ export default function AllOnuPage() {
     searchRef.current = search
   }, [search])
 
-  const handleRefresh = async () => {
-    if (!selectedOlt) {
-      alert('Silakan pilih OLT terlebih dahulu sebelum melakukan refresh.')
+  // Update refs untuk filter (untuk digunakan di polling tanpa trigger re-render)
+  useEffect(() => {
+    selectedCardRef.current = selectedCard
+  }, [selectedCard])
+
+  useEffect(() => {
+    selectedPortRef.current = selectedPort
+  }, [selectedPort])
+
+  useEffect(() => {
+    selectedTypeRef.current = selectedType
+  }, [selectedType])
+
+  // Polling function - Non-blocking, tidak mengganggu pagination
+  const startPolling = useCallback(() => {
+    // Stop polling sebelumnya jika ada
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
+    }
+
+    // Hanya start polling jika OLT sudah dipilih dan polling enabled
+    if (!selectedOlt || !pollingEnabled) {
       return
     }
+
+    console.log(`[Polling] Starting polling with interval ${pollingInterval}s`)
+    
+    // Polling function - Non-blocking, hanya refresh data tanpa mengubah pagination
+    const poll = async () => {
+      // Skip jika halaman tidak visible
+      if (!isPageVisibleRef.current) {
+        console.log(`[Polling] Page not visible, skipping poll`)
+        return
+      }
+
+      // Skip jika sedang pagination (user sedang navigate)
+      if (isPaginationRef.current) {
+        console.log(`[Polling] Pagination in progress, skipping poll`)
+        return
+      }
+
+      // Skip jika polling sedang berjalan (prevent concurrent polling)
+      if (isPollingRef.current) {
+        console.log(`[Polling] Previous poll still running, skipping`)
+        return
+      }
+
+      // Cancel previous request jika ada
+      if (pollingAbortControllerRef.current) {
+        pollingAbortControllerRef.current.abort()
+      }
+
+      // Create new abort controller untuk request ini
+      const abortController = new AbortController()
+      pollingAbortControllerRef.current = abortController
+
+      isPollingRef.current = true
+      console.log(`[Polling] Fetching data (background, non-blocking)...`)
+      setLastPollTime(new Date())
+      
+      try {
+        // Polling hanya refresh data untuk halaman saat ini, tidak mengubah state
+        // Gunakan current page dan limit, tapi jangan trigger state update yang bisa conflict
+        // Gunakan ref untuk mendapatkan nilai current tanpa trigger re-render
+        const currentPage = page
+        const currentLimit = limit
+        const cursorForPage = (currentPage - 1) * currentLimit
+
+        // Fetch dengan abort signal untuk bisa di-cancel jika perlu
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          limit: currentLimit.toString(),
+          cursor: cursorForPage.toString(),
+        })
+        // Polling untuk semua OLT (tidak perlu kirim oltId jika tidak dipilih)
+        // Gunakan selectedOlt dari state (akan di-capture dalam closure)
+        if (selectedOlt) params.append('oltId', selectedOlt)
+        // Gunakan ref untuk filter yang berubah (tidak perlu di dependency array)
+        const currentCard = selectedCardRef.current
+        const currentPort = selectedPortRef.current
+        const currentType = selectedTypeRef.current
+        if (currentCard) params.append('card', currentCard)
+        if (currentPort) params.append('port', currentPort)
+        if (currentType) params.append('type', currentType)
+        const searchValue = searchRef.current
+        if (searchValue?.trim()) params.append('search', searchValue.trim())
+
+        const res = await fetch(`/api/onus?${params.toString()}`, {
+          signal: abortController.signal,
+        })
+
+        // Check jika request di-cancel
+        if (abortController.signal.aborted) {
+          console.log(`[Polling] Request cancelled`)
+          return
+        }
+
+        const data = await res.json()
+
+        // Hanya update jika tidak ada error dan tidak sedang pagination
+        if (!data.error && !isPaginationRef.current) {
+          // Update data secara non-blocking, tidak mengubah pagination state
+          if (data.onus && data.onus.length > 0) {
+            setOnus(data.onus)
+            setSummaryData(data.summary || INITIAL_SUMMARY)
+            // Jangan update pagination dari polling, biarkan user control
+            console.log(`[Polling] Data refreshed (${data.onus.length} ONUs)`)
+          }
+        }
+      } catch (error: any) {
+        // Ignore abort errors
+        if (error.name === 'AbortError') {
+          console.log(`[Polling] Request aborted`)
+          return
+        }
+        console.error('[Polling] Error during poll:', error)
+      } finally {
+        isPollingRef.current = false
+        if (pollingAbortControllerRef.current === abortController) {
+          pollingAbortControllerRef.current = null
+        }
+      }
+    }
+
+    // Poll immediately on start (dengan delay kecil untuk tidak conflict dengan initial load)
+    setTimeout(() => {
+      poll()
+    }, 1000)
+
+    // Set interval
+    pollingIntervalRef.current = setInterval(() => {
+      poll()
+    }, pollingInterval * 1000)
+  }, [selectedOlt, pollingEnabled, pollingInterval, page, limit])
+
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
+      console.log(`[Polling] Stopped polling`)
+    }
+  }, [])
+
+  // Handle polling start/stop
+  // Polling berjalan untuk semua OLT (tidak perlu pilih OLT)
+  useEffect(() => {
+    if (pollingEnabled && olts.length > 0) {
+      startPolling()
+    } else {
+      stopPolling()
+    }
+
+    return () => {
+      stopPolling()
+    }
+  }, [pollingEnabled, olts.length, pollingInterval, startPolling, stopPolling])
+
+  // Page Visibility API - pause polling saat tab tidak aktif
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      isPageVisibleRef.current = !document.hidden
+      if (document.hidden) {
+        console.log(`[Polling] Page hidden, pausing polling`)
+      } else {
+        console.log(`[Polling] Page visible, resuming polling`)
+        // Resume polling jika enabled (tidak perlu selectedOlt)
+        if (pollingEnabled && olts.length > 0) {
+          startPolling()
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [pollingEnabled, olts.length, startPolling])
+
+  const handleRefresh = async () => {
+    // Tidak perlu pilih OLT - refresh semua data
     setNextCursor(0)
     setPage(1)
     try {
@@ -434,16 +667,15 @@ export default function AllOnuPage() {
 
   useEffect(() => {
     fetchOlts()
-    // Tidak fetch types jika OLT belum dipilih
   }, [])
   
-  // Hapus auto-fetch jika OLT belum dipilih - sekarang wajib pilih OLT dulu
-  // useEffect(() => {
-  //   if (olts.length > 0 && !selectedOlt) {
-  //     fetchOnus()
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [olts.length])
+  // Auto-fetch data saat OLTs sudah dimuat (langsung tampilkan semua data tanpa perlu pilih OLT)
+  useEffect(() => {
+    if (olts.length > 0) {
+      fetchOnus({ reset: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [olts.length])
 
   useEffect(() => {
     setSelectedCard(null)
@@ -479,18 +711,25 @@ export default function AllOnuPage() {
   }, [selectedOlt, selectedCard, selectedPort, selectedType])
 
   useEffect(() => {
-    // Hanya fetch jika OLT sudah dipilih
-    if (olts.length > 0 && selectedOlt) {
+    // Fetch data untuk semua OLT (tidak perlu pilih OLT dulu)
+    if (olts.length > 0) {
       const cursorForPage = (page - 1) * limit
-      // Clear data dan set loading sebelum fetch
-      setOnus([])
-      setLoading(true)
+      // Set flag pagination jika ini bukan initial load (sudah ada data sebelumnya)
+      // Ini mencegah polling mengganggu saat user navigate pagination
+      if (onus.length > 0) {
+        isPaginationRef.current = true
+      }
+      // Jangan clear data dan set loading saat pagination - biarkan data tetap tampil
+      // Loading hanya akan muncul jika benar-benar perlu fetch dari server
+      // Jika cache tersedia, data akan langsung muncul tanpa loading
       setNextCursor(cursorForPage)
       // Jangan kirim reset=true saat pagination - biarkan cache digunakan
       // Cache akan digunakan otomatis oleh API jika masih valid
+      // Jangan set loading di sini - biarkan fetchOnus yang handle berdasarkan cache
+      // fetchOnus akan clear loading dengan cepat jika data dari cache
       fetchOnus({ reset: false, cursorOverride: cursorForPage })
-    } else if (!selectedOlt) {
-      // Clear data jika OLT tidak dipilih
+    } else {
+      // Clear data jika OLT belum di-load
       setOnus([])
       setSummaryData(INITIAL_SUMMARY)
       setPagination({ ...INITIAL_PAGINATION, limit })
@@ -847,30 +1086,77 @@ export default function AllOnuPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">ONUS (Data Langsung dari SNMP)</h2>
-          {selectedOlt && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium rounded-full">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              Live
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Polling Status */}
+            {selectedOlt && (
+              <>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPollingEnabled(!pollingEnabled)}
+                    className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      pollingEnabled
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                    title={pollingEnabled ? 'Klik untuk pause polling' : 'Klik untuk resume polling'}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${pollingEnabled ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                    {pollingEnabled ? 'Polling Aktif' : 'Polling Paused'}
+                  </button>
+                  {lastPollTime && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Terakhir: {lastPollTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Polling Interval Selector */}
+                {pollingEnabled && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Interval:</span>
+                    <select
+                      value={pollingInterval}
+                      onChange={(e) => {
+                        const newInterval = parseInt(e.target.value, 10)
+                        setPollingInterval(newInterval)
+                        // Restart polling dengan interval baru
+                        stopPolling()
+                        setTimeout(() => {
+                          if (pollingEnabled && olts.length > 0) {
+                            startPolling()
+                          }
+                        }, 100)
+                      }}
+                      className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <option value={10}>10s</option>
+                      <option value={30}>30s</option>
+                      <option value={60}>1m</option>
+                      <option value={120}>2m</option>
+                      <option value={300}>5m</option>
+                    </select>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
         
         {/* Warning jika OLT belum dipilih */}
-        {!selectedOlt && (
-          <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-            <div className="flex items-start gap-3">
-              <HiExclamationTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-300 mb-1">
-                  Pilih OLT Terlebih Dahulu
-                </h3>
-                <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                  Silakan pilih OLT dari dropdown &quot;All OLTs&quot; di bawah ini untuk menampilkan data ONU.
-                </p>
-              </div>
+        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-start gap-3">
+            <HiInformationCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
+                Data ONU dari Semua OLT
+              </h3>
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                Menampilkan data ONU dari semua OLT yang terhubung. Data diambil dari database yang di-update secara otomatis setiap 5 menit oleh background scheduler. Gunakan filter OLT di atas untuk melihat data dari OLT tertentu.
+              </p>
             </div>
           </div>
-        )}
+        </div>
         
         <div className="flex flex-wrap items-center gap-4 mb-4">
           {/* Filter Buttons */}
@@ -913,7 +1199,7 @@ export default function AllOnuPage() {
                   ) : (
                     <>
                       <div className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase border-b border-gray-200 dark:border-gray-700">
-                        Pilih OLT (Wajib)
+                        Pilih OLT (Opsional - Filter)
                       </div>
                       {olts.map((olt) => (
                         <button
@@ -952,8 +1238,8 @@ export default function AllOnuPage() {
             {/* All Cards Dropdown */}
             <div className="relative" ref={dropdownRefs.card}>
               <button
-                onClick={() => hasCardOptions && selectedOlt && setOpenDropdown(openDropdown === 'card' ? null : 'card')}
-                disabled={!hasCardOptions || !selectedOlt}
+                onClick={() => hasCardOptions && setOpenDropdown(openDropdown === 'card' ? null : 'card')}
+                disabled={!hasCardOptions}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
                   !hasCardOptions || !selectedOlt
                     ? 'bg-gray-400 cursor-not-allowed'
@@ -1017,8 +1303,8 @@ export default function AllOnuPage() {
             {/* All Ports Dropdown */}
             <div className="relative" ref={dropdownRefs.port}>
               <button
-                onClick={() => selectedCard && selectedOlt && setOpenDropdown(openDropdown === 'port' ? null : 'port')}
-                disabled={!selectedCard || !selectedOlt}
+                onClick={() => selectedCard && setOpenDropdown(openDropdown === 'port' ? null : 'port')}
+                disabled={!selectedCard}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
                   !selectedCard || !selectedOlt
                     ? 'bg-gray-400 cursor-not-allowed'
@@ -1079,8 +1365,8 @@ export default function AllOnuPage() {
             {/* All Types Dropdown */}
             <div className="relative" ref={dropdownRefs.type}>
               <button
-                onClick={() => selectedOlt && setOpenDropdown(openDropdown === 'type' ? null : 'type')}
-                disabled={!selectedOlt}
+                onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
+                disabled={false}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
                   !selectedOlt
                     ? 'bg-gray-400 cursor-not-allowed'
@@ -1220,7 +1506,7 @@ export default function AllOnuPage() {
             <SignalBars rxOlt="-30.0" />
           </div>
 
-          {/* Export Button */}
+          {/* Refresh Button */}
           <button 
             onClick={handleRefresh}
             disabled={!selectedOlt}
@@ -1229,6 +1515,7 @@ export default function AllOnuPage() {
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : 'bg-green-600 hover:bg-green-700'
             }`}
+            title="Refresh manual (tidak terpengaruh polling)"
           >
             <HiArrowPath className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -1240,7 +1527,7 @@ export default function AllOnuPage() {
             className={`inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
               !selectedOlt 
                 ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-green-600 hover:bg-green-700'
+                : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
             <HiArrowDownTray className="w-4 h-4" />
@@ -1283,7 +1570,7 @@ export default function AllOnuPage() {
               className={`px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                 !selectedOlt ? 'opacity-50 cursor-not-allowed' : ''
               }`}
-              placeholder={selectedOlt ? "Search..." : "Pilih OLT terlebih dahulu"}
+              placeholder="Search..."
             />
           </div>
         </div>
@@ -1343,26 +1630,10 @@ export default function AllOnuPage() {
                     </div>
                   </td>
                 </tr>
-              ) : !selectedOlt ? (
-                <tr key="no-olt-selected">
-                  <td colSpan={12} className="px-4 py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <HiExclamationTriangle className="w-12 h-12 text-yellow-500 dark:text-yellow-400" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                          Pilih OLT Terlebih Dahulu
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Silakan pilih OLT dari dropdown &quot;Pilih OLT *&quot; di atas untuk menampilkan data ONU.
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
               ) : onus.length === 0 ? (
                 <tr key="empty">
                   <td colSpan={12} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Tidak ada data ONU untuk OLT yang dipilih. Klik &quot;Refresh&quot; untuk mengambil data dari OLT C300.
+                    Tidak ada data ONU di database. Data akan tersedia setelah background scheduler sync (runs every 5 minutes). Klik &quot;Refresh&quot; untuk force fetch dari SNMP.
                   </td>
                 </tr>
               ) : (
@@ -1432,7 +1703,10 @@ export default function AllOnuPage() {
             </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
+              onClick={() => {
+                isPaginationRef.current = true
+                setPage(p => Math.max(1, p - 1))
+              }}
               disabled={page === 1 || loading}
               className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -1497,7 +1771,10 @@ export default function AllOnuPage() {
                 return (
                   <button
                     key={num}
-                    onClick={() => setPage(num)}
+                    onClick={() => {
+                      isPaginationRef.current = true
+                      setPage(num)
+                    }}
                     disabled={loading}
                     className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       page === num
@@ -1511,7 +1788,10 @@ export default function AllOnuPage() {
               })
             })()}
             <button
-              onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+              onClick={() => {
+                isPaginationRef.current = true
+                setPage(p => Math.min(pagination.totalPages, p + 1))
+              }}
               disabled={page >= pagination.totalPages || loading}
               className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >

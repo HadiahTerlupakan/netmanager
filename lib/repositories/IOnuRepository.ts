@@ -194,7 +194,7 @@ export interface IOnuRepository {
   findByGponOnu(oltId: string, gponOnu: string): Promise<OnuPublic | null>
   findWithFilters(filters: OnuFilters, pagination: PaginationOptions): Promise<PaginatedOnuResult>
   create(data: OnuCreateData): Promise<{ id: string }>
-  upsert(oltId: string, gponOnu: string, data: OnuCreateData): Promise<{ id: string }>
+  upsert(oltId: string, gponOnu: string, data: OnuCreateData): Promise<{ id: string; updated: boolean }>
   update(id: string, data: OnuUpdateData): Promise<void>
   delete(id: string): Promise<void>
   deleteByOltId(oltId: string): Promise<void>
