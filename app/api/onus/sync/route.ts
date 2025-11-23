@@ -165,11 +165,11 @@ export async function countOnuFromSNMP(
       console.warn(`[C300-GPON-SNMP-Count] WARNING: Only ${count} ONUs found. This might be incomplete. Expected 600+ ONUs.`)
     }
     
-    return count
+      return count
   } catch (error: any) {
     console.warn(`[C300-GPON-SNMP-Count] Failed to count ONUs: ${error.message || error}`)
     console.warn(`[C300-GPON-SNMP-Count] Returning 0 - will retry on next sync`)
-    return 0
+      return 0
   }
 }
 
@@ -1136,10 +1136,10 @@ export async function getC300GponOnuDataViaSNMP(
                 const index = oidParts.slice(baseOidParts.length).join('.')
                 let valueStr: string
                 if (Buffer.isBuffer(result.value)) {
-                  valueStr = Array.from(result.value)
-                    .map(b => b.toString(16).toUpperCase().padStart(2, '0'))
+                  valueStr = Array.from(result.value as Uint8Array)
+                    .map((b: number) => b.toString(16).toUpperCase().padStart(2, '0'))
                     .join(' ')
-                } else {
+    } else {
                   valueStr = result.value.toString()
                 }
                 getNextData[index] = valueStr
@@ -1196,8 +1196,8 @@ export async function getC300GponOnuDataViaSNMP(
                 const index = oidParts.slice(baseOidParts.length).join('.')
                 let valueStr: string
                 if (Buffer.isBuffer(result.value)) {
-                  valueStr = Array.from(result.value)
-                    .map(b => b.toString(16).toUpperCase().padStart(2, '0'))
+                  valueStr = Array.from(result.value as Uint8Array)
+                    .map((b: number) => b.toString(16).toUpperCase().padStart(2, '0'))
                     .join(' ')
                 } else {
                   valueStr = result.value.toString()
@@ -1309,8 +1309,8 @@ export async function getC300GponOnuDataViaSNMP(
                 const index = oidParts.slice(baseOidParts.length).join('.')
                 let valueStr: string
                 if (Buffer.isBuffer(result.value)) {
-                  valueStr = Array.from(result.value)
-                    .map(b => b.toString(16).toUpperCase().padStart(2, '0'))
+                  valueStr = Array.from(result.value as Uint8Array)
+                    .map((b: number) => b.toString(16).toUpperCase().padStart(2, '0'))
                     .join(' ')
                 } else {
                   valueStr = result.value.toString()
@@ -2463,7 +2463,7 @@ export async function POST(req: NextRequest) {
               nameOid: onu.nameOid || null,
               descOid: onu.descOid || null,
               compositeIndex: onu.compositeIndex || null,
-            })
+                })
                 savedCount++
               } catch (error: any) {
                 console.error(`[All-ONU] Error saving ONU ${onu.gponOnu}:`, error.message)

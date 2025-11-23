@@ -1,6 +1,8 @@
 /**
  * SNMP Helper Functions
  * Utility functions untuk SNMP operations (Get, Walk, dll)
+ * 
+ * Menggunakan net-snmp dengan type definitions dari @types/net-snmp
  */
 
 import snmp from 'net-snmp'
@@ -1761,4 +1763,3 @@ export async function snmpGetBulkSimple(
     return await snmpWalkSimple(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
   }
 }
-
