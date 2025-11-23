@@ -193,8 +193,13 @@ export async function snmpTable(
     let resolved = false
     let session: any = null
     let timeoutId: NodeJS.Timeout | null = null
+    const results: Record<string, string> = {}
+    
+    // Map untuk menyimpan base OID untuk setiap kolom (untuk extract index)
+    const columnBaseOids: Record<string, string> = {}
+    const columnNames: Record<string, string> = {}
 
-    const finish = (results: Record<string, string>) => {
+    const finish = (error?: any) => {
       if (resolved) return
       resolved = true
       if (timeoutId) clearTimeout(timeoutId)
@@ -214,7 +219,19 @@ export async function snmpTable(
         }
         session = null
       }
-      resolve(results)
+      
+      if (error) {
+        if (Object.keys(results).length > 0) {
+          console.log(`[SNMP-Table] Completed with ${Object.keys(results).length} entries despite error: ${error.message || error}`)
+          resolve(results)
+        } else {
+          console.error(`[SNMP-Table] Failed:`, error.message || error)
+          resolve({})
+        }
+      } else {
+        console.log(`[SNMP-Table] Retrieved ${Object.keys(results).length} entries from ${columns.length} columns`)
+        resolve(results)
+      }
     }
 
     try {
@@ -229,60 +246,220 @@ export async function snmpTable(
         port: port,
         version: snmpVersion,
         retries: 2,
-        timeout: 5000,
+        timeout: 10000,
       })
 
       // Build full OIDs untuk setiap kolom
-      const fullOids = columns.map(col => {
+      const fullOids = columns.map((col, idx) => {
         // Jika column sudah full OID, gunakan langsung
         if (col.includes(baseOid)) {
+          // Base OID untuk matching adalah full OID column (termasuk column number)
+          columnBaseOids[col] = col
+          columnNames[col] = col.split('.').pop() || col // Ambil column number dari akhir OID
           return col
         }
         // Jika column adalah relative OID, gabungkan dengan baseOid
         const baseOidClean = baseOid.endsWith('.') ? baseOid.slice(0, -1) : baseOid
-        return `${baseOidClean}.${col}`
+        const fullOid = `${baseOidClean}.${col}`
+        // Base OID untuk matching adalah full OID column (termasuk column number)
+        columnBaseOids[fullOid] = fullOid
+        columnNames[fullOid] = col
+        return fullOid
       })
 
-      console.log(`[SNMP-Table] Fetching table with baseOid: ${baseOid}, columns: ${columns.length}`)
+      console.log(`[SNMP-Table] Fetching table with baseOid: ${baseOid}, columns: ${columns.join(',')}`)
       console.log(`[SNMP-Table] Full OIDs:`, fullOids)
-
-      // Gunakan GETBULK untuk setiap kolom secara paralel (lebih efisien daripada multiple GET)
-      // Ini adalah implementasi SNMP TABLE menggunakan GETBULK
-      Promise.all(
-        fullOids.map(oid => 
-          snmpGetBulkSimple(ipAddress, port, community, version, oid, timeout)
-            .catch((error) => {
-              console.warn(`[SNMP-Table] GETBULK failed for OID ${oid}:`, error.message || error)
-              return {}
-            })
-        )
-      ).then(resultsArray => {
-        // Gabungkan semua hasil dengan format: "columnOid.index"
-        const combinedResults: Record<string, string> = {}
-        for (let i = 0; i < resultsArray.length; i++) {
-          const columnResults = resultsArray[i]
-          const columnOid = columns[i]
-          
-          for (const [index, value] of Object.entries(columnResults)) {
-            // Key format: "columnOid.index" (misalnya: "4.268632320.3")
-            combinedResults[`${columnOid}.${index}`] = value
-          }
-        }
-        
-        console.log(`[SNMP-Table] Retrieved ${Object.keys(combinedResults).length} entries from ${columns.length} columns`)
-        finish(combinedResults)
-      }).catch(error => {
-        console.error(`[SNMP-Table] Failed:`, error.message || error)
-        finish({})
-      })
+      console.log(`[SNMP-Table] Column base OIDs mapping:`, Object.entries(columnBaseOids).map(([k, v]) => `${k} -> base: ${v}`))
+      console.log(`[SNMP-Table] Column names mapping:`, Object.entries(columnNames).map(([k, v]) => `${k} -> name: ${v}`))
 
       timeoutId = setTimeout(() => {
-        console.warn(`[SNMP-Table] Timeout after ${timeout}ms`)
-        finish({})
+        if (!resolved) {
+          if (Object.keys(results).length > 0) {
+            console.log(`[SNMP-Table] Timeout reached with ${Object.keys(results).length} entries`)
+            finish()
+          } else {
+            finish(new Error('SNMP TABLE timeout - no results'))
+          }
+        }
       }, timeout)
+
+      // Normalize OIDs (hilangkan leading dot jika ada)
+      const normalizedOids = fullOids.map(oid => oid.startsWith('.') ? oid.substring(1) : oid)
+
+      // SNMP TABLE menggunakan GETBULK dengan multiple OIDs dalam satu request
+      // nonRepeaters = 0 (semua OID perlu di-repeat untuk setiap row)
+      // maxRepetitions = jumlah rows per request (50-100 untuk efisiensi)
+      const nonRepeaters = 0
+      const maxRepetitions = 100 // Ambil 100 rows per request
+      
+      // Track current OIDs untuk setiap kolom (untuk next request)
+      let currentOids = [...normalizedOids]
+      let hasMoreData = true
+
+      const doGetBulk = () => {
+        if (resolved || !hasMoreData) {
+          finish()
+          return
+        }
+
+        console.log(`[SNMP-Table] GETBULK request: ${currentOids.length} OIDs, nonRepeaters=${nonRepeaters}, maxRepetitions=${maxRepetitions}`)
+        
+        session.getBulk(currentOids, nonRepeaters, maxRepetitions, (error: any, varbinds: any[]) => {
+          if (resolved) return
+
+          if (error) {
+            console.warn(`[SNMP-Table] GETBULK error: ${error.message || error}`)
+            // Jika sudah ada hasil, anggap berhasil
+            if (Object.keys(results).length > 0) {
+              finish()
+            } else {
+              finish(error)
+            }
+            return
+          }
+
+          if (!varbinds || varbinds.length === 0) {
+            console.log(`[SNMP-Table] No more varbinds, completing with ${Object.keys(results).length} entries`)
+            hasMoreData = false
+            finish()
+            return
+          }
+
+          console.log(`[SNMP-Table] Received ${varbinds.length} varbinds`)
+
+          // Flatten varbinds jika ada nested arrays
+          const flatVarbinds: any[] = []
+          for (const item of varbinds) {
+            if (Array.isArray(item)) {
+              flatVarbinds.push(...item)
+            } else {
+              flatVarbinds.push(item)
+            }
+          }
+
+          console.log(`[SNMP-Table] Flattened to ${flatVarbinds.length} varbinds`)
+
+          // Process varbinds - match dengan kolom berdasarkan OID prefix
+          // Track next OID untuk setiap kolom (gunakan OID terakhir dari setiap kolom)
+          const nextOids: string[] = new Array(normalizedOids.length).fill('')
+          let hasNewData = false
+
+          // Group varbinds berdasarkan kolom (match berdasarkan OID prefix)
+          for (const varbind of flatVarbinds) {
+            if (!varbind || typeof varbind !== 'object' || !varbind.oid) {
+              console.warn(`[SNMP-Table] Skipping invalid varbind:`, varbind)
+              continue
+            }
+
+            const varbindOid = varbind.oid.toString()
+            const varbindOidParts = varbindOid.split('.').filter((p: string) => p.length > 0)
+
+            // Skip error varbinds
+            if (varbind.type === 130 || varbind.type === 129) { // EndOfMibView or noSuchInstance
+              console.log(`[SNMP-Table] Skipping error varbind: type=${varbind.type}, oid=${varbindOid}`)
+              continue
+            }
+
+            // Cari kolom yang sesuai dengan varbind OID (match berdasarkan prefix)
+            let matched = false
+            for (let colIdx = 0; colIdx < normalizedOids.length; colIdx++) {
+              const fullOid = normalizedOids[colIdx]
+              const baseOidForColumn = columnBaseOids[fullOid]
+              
+              if (!baseOidForColumn) {
+                console.warn(`[SNMP-Table] No baseOid found for fullOid: ${fullOid}`)
+                continue
+              }
+              
+              const baseOidParts = baseOidForColumn.split('.').filter((p: string) => p.length > 0)
+              
+              // Cek apakah varbind OID dimulai dengan base OID kolom ini (yang sudah termasuk column number)
+              if (varbindOidParts.length > baseOidParts.length) {
+                const isMatch = baseOidParts.every((part, idx) => varbindOidParts[idx] === part)
+                
+                if (isMatch) {
+                  // Extract index (bagian setelah full OID column, yaitu compositeIndex.onuId)
+                  // baseOidForColumn sudah termasuk column number, jadi index adalah bagian setelahnya
+                  const index = varbindOidParts.slice(baseOidParts.length).join('.')
+                  const columnName = columnNames[fullOid]
+                  
+                  console.log(`[SNMP-Table] Matched varbind: oid=${varbindOid}, baseOid=${baseOidForColumn}, index=${index}, columnName=${columnName}`)
+                  
+                  // Convert value to string
+                  let valueStr: string
+                  if (Buffer.isBuffer(varbind.value)) {
+                    valueStr = Array.from(varbind.value as Uint8Array)
+                      .map((b: number) => b.toString(16).toUpperCase().padStart(2, '0'))
+                      .join(' ')
+                  } else {
+                    valueStr = varbind.value.toString()
+                  }
+                  
+                  // Simpan hasil dengan format: "columnOid.index"
+                  const key = `${columnName}.${index}`
+                  if (!results[key]) {
+                    results[key] = valueStr
+                    hasNewData = true
+                    // Log hanya untuk beberapa entries pertama untuk debugging
+                    if (Object.keys(results).length <= 10) {
+                      console.log(`[SNMP-Table] Added result: ${key} = ${valueStr.substring(0, 50)}... (varbindOid: ${varbindOid}, baseOid: ${baseOidForColumn})`)
+                    }
+                  }
+                  
+                  // Update next OID untuk kolom ini (gunakan OID terakhir untuk kolom ini)
+                  // Simpan OID terakhir yang match dengan kolom ini
+                  if (!nextOids[colIdx] || varbindOid > nextOids[colIdx]) {
+                    nextOids[colIdx] = varbindOid
+                  }
+                  
+                  matched = true
+                  break
+                }
+              }
+            }
+            
+            if (!matched) {
+              console.warn(`[SNMP-Table] Varbind OID ${varbindOid} (type=${varbind.type}) tidak match dengan kolom manapun`)
+              console.warn(`[SNMP-Table] Expected OIDs:`, normalizedOids)
+              console.warn(`[SNMP-Table] Column base OIDs:`, Object.entries(columnBaseOids).map(([k, v]) => `${k} -> ${v}`))
+            }
+          }
+
+          if (!hasNewData) {
+            console.log(`[SNMP-Table] No new data, completing with ${Object.keys(results).length} entries`)
+            hasMoreData = false
+            finish()
+            return
+          }
+
+          // Update currentOids untuk next request (gunakan nextOids jika ada, jika tidak gunakan yang lama)
+          // Next OID untuk setiap kolom adalah OID terakhir yang match dengan kolom tersebut
+          const hasNextOids = nextOids.some(oid => oid && oid.length > 0)
+          if (hasNextOids) {
+            // Update currentOids dengan nextOids (jika ada), jika tidak gunakan yang lama
+            currentOids = nextOids.map((oid, idx) => {
+              if (oid && oid.length > 0) {
+                return oid.startsWith('.') ? oid.substring(1) : oid
+              }
+              return currentOids[idx]
+            })
+            console.log(`[SNMP-Table] Continuing with ${Object.keys(results).length} entries so far, next OIDs:`, currentOids)
+            // Continue dengan next GETBULK
+            setTimeout(() => doGetBulk(), 50)
+          } else {
+            // Tidak ada next OID, selesai
+            console.log(`[SNMP-Table] No next OIDs, completing with ${Object.keys(results).length} entries`)
+            hasMoreData = false
+            finish()
+          }
+        })
+      }
+
+      // Start GETBULK
+      doGetBulk()
     } catch (error: any) {
       console.error(`[SNMP-Table] Error:`, error.message || error)
-      finish({})
+      finish(error)
     }
   })
 }
@@ -1344,7 +1521,7 @@ async function snmpGetBulk(
             if (!varbind || !varbind.oid) continue
 
             const varbindOid = varbind.oid.toString()
-            const varbindOidParts = varbindOid.split('.').filter(p => p.length > 0)
+            const varbindOidParts = varbindOid.split('.').filter((p: string) => p.length > 0)
             
             // Check EndOfMibView terlebih dahulu
             if (snmp.isVarbindError(varbind) && varbind.value === snmp.ObjectType.EndOfMibView) {
@@ -1390,8 +1567,8 @@ async function snmpGetBulk(
               // Convert value to string
               let valueStr: string
               if (Buffer.isBuffer(varbind.value)) {
-                valueStr = Array.from(varbind.value)
-                  .map(b => b.toString(16).toUpperCase().padStart(2, '0'))
+                valueStr = Array.from(varbind.value as Uint8Array)
+                  .map((b: number) => b.toString(16).toUpperCase().padStart(2, '0'))
                   .join(' ')
               } else {
                 valueStr = varbind.value.toString()

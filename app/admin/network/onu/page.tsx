@@ -121,6 +121,13 @@ export default function AllOnuPage() {
   const [pollingInterval, setPollingInterval] = useState(30) // detik
   const [lastPollTime, setLastPollTime] = useState<Date | null>(null)
   
+  // SNMP TABLE test modal state
+  const [testTableModalOpen, setTestTableModalOpen] = useState(false)
+  const [testTableLoading, setTestTableLoading] = useState(false)
+  const [testTableResult, setTestTableResult] = useState<any>(null)
+  const [testTableError, setTestTableError] = useState<string | null>(null)
+  const [selectedOnuForTest, setSelectedOnuForTest] = useState<OnuData | null>(null)
+  
   // Cache untuk data live dari SNMP GET (key: gponOnu, value: OnuData)
   const liveDataCacheRef = useRef<Map<string, { data: OnuData; timestamp: number }>>(new Map())
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -220,6 +227,45 @@ export default function AllOnuPage() {
 
   // Fungsi untuk update ONU yang sedang ditampilkan menggunakan SNMP GET
   // Mengembalikan data terbaru yang sudah di-update
+  // Fungsi untuk test SNMP TABLE
+  const handleTestSnmpTable = async (onu: OnuData) => {
+    if (!onu.statusOid || !onu.compositeIndex) {
+      alert('ONU belum memiliki OID yang tersimpan. Silakan sync ONU terlebih dahulu.')
+      return
+    }
+
+    setSelectedOnuForTest(onu)
+    setTestTableModalOpen(true)
+    setTestTableLoading(true)
+    setTestTableResult(null)
+    setTestTableError(null)
+
+    try {
+      const res = await fetch('/api/onus/test-table', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          onuId: onu.id,
+          oltId: onu.oltId,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.success) {
+        setTestTableResult(data)
+      } else {
+        setTestTableError(data.error || 'Gagal test SNMP TABLE')
+      }
+    } catch (error: any) {
+      setTestTableError(error.message || 'Gagal test SNMP TABLE')
+    } finally {
+      setTestTableLoading(false)
+    }
+  }
+
   const updateDisplayedOnus = useCallback(async (onusToUpdate: OnuData[]): Promise<OnuData[] | null> => {
     try {
       // Siapkan data untuk update
@@ -1895,10 +1941,21 @@ export default function AllOnuPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <button className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors">
-                        <HiCog6Tooth className="w-4 h-4" />
-                        Setting
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleTestSnmpTable(onu)}
+                          disabled={!onu.statusOid || !onu.compositeIndex}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={!onu.statusOid || !onu.compositeIndex ? 'OID belum tersimpan, sync ONU terlebih dahulu' : 'Test SNMP TABLE'}
+                        >
+                          <HiOutlineTableCells className="w-4 h-4" />
+                          Test Table
+                        </button>
+                        <button className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors">
+                          <HiCog6Tooth className="w-4 h-4" />
+                          Setting
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -2017,6 +2074,163 @@ export default function AllOnuPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal Test SNMP TABLE */}
+      {testTableModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Test SNMP TABLE
+                </h3>
+                {selectedOnuForTest && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    ONU: {selectedOnuForTest.gponOnu} - {selectedOnuForTest.name}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setTestTableModalOpen(false)
+                  setTestTableResult(null)
+                  setTestTableError(null)
+                  setSelectedOnuForTest(null)
+                }}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <HiXMark className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {testTableLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="flex flex-col items-center gap-3">
+                    <HiArrowPath className="w-8 h-8 animate-spin text-blue-600" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Menguji SNMP TABLE...
+                    </p>
+                  </div>
+                </div>
+              ) : testTableError ? (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-red-800 dark:text-red-400">
+                    <HiExclamationTriangle className="w-5 h-5" />
+                    <span className="font-medium">Error</span>
+                  </div>
+                  <p className="text-sm text-red-700 dark:text-red-300 mt-2">
+                    {testTableError}
+                  </p>
+                </div>
+              ) : testTableResult ? (
+                <div className="space-y-4">
+                  {/* Info */}
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="col-span-2">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">Base OID:</span>
+                        <p className="font-mono text-xs text-gray-600 dark:text-gray-400 mt-1 break-all">
+                          {testTableResult.baseOid || 'N/A'}
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">Columns:</span>
+                        <p className="text-gray-600 dark:text-gray-400 mt-1 break-all">
+                          {testTableResult.columns || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">Composite Index:</span>
+                        <p className="text-gray-600 dark:text-gray-400 mt-1">
+                          {testTableResult.onu?.compositeIndex || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">ONU ID:</span>
+                        <p className="text-gray-600 dark:text-gray-400 mt-1">
+                          {testTableResult.onu?.onuId || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">Total Results:</span>
+                        <p className="text-gray-600 dark:text-gray-400 mt-1">
+                          {testTableResult.totalResults || 0}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">Raw Total Results:</span>
+                        <p className="text-gray-600 dark:text-gray-400 mt-1">
+                          {testTableResult.rawTotalResults || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Results Table */}
+                  {testTableResult.results && Object.keys(testTableResult.results).length > 0 ? (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-gray-50 dark:bg-gray-900/50">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">
+                                Key (Column.Index)
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">
+                                Value
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {Object.entries(testTableResult.results).map(([key, value]) => (
+                              <tr key={key} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
+                                <td className="px-4 py-3 text-sm font-mono text-gray-900 dark:text-white">
+                                  {key}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 break-all">
+                                  {String(value)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-400">
+                        <HiInformationCircle className="w-5 h-5" />
+                        <span className="font-medium">Tidak ada data</span>
+                      </div>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-2">
+                        SNMP TABLE tidak mengembalikan data untuk ONU ini.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+              <button
+                onClick={() => {
+                  setTestTableModalOpen(false)
+                  setTestTableResult(null)
+                  setTestTableError(null)
+                  setSelectedOnuForTest(null)
+                }}
+                className="px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded hover:bg-gray-700 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
