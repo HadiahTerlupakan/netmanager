@@ -95,16 +95,70 @@ export function buildCompositeIndex(frame: number, slot: number, port: number): 
 }
 
 /**
- * Parse composite index ke frame/slot/port
+ * Decode composite index berdasarkan struktur ifIndex (Type 1, Type 3, Type 6)
+ * Berdasarkan kode Perl decode_onu yang menggunakan binary parsing
+ * 
+ * Type 1 (GPON): [4bit type][4bit shelf][8bit slot][8bit olt][8bit reserved]
+ * Type 3 (EPON ONU): [4bit type][4bit shelf][5bit slot][3bit olt][8bit onu][8bit reserved]
+ * Type 6 (CES): [4bit type][4bit shelf][8bit slot]
+ */
+export function decodeCompositeIndex(compositeIndex: number): {
+  type: number
+  shelf: number
+  slot: number
+  port?: number // olt untuk Type 1, olt untuk Type 3
+  onu?: number // hanya untuk Type 3
+} | null {
+  // Convert ke binary string (32 bit)
+  const bin = compositeIndex.toString(2).padStart(32, '0')
+  
+  // Extract type (4 bit pertama)
+  const type = parseInt(bin.substring(0, 4), 2)
+  
+  if (type === 1) {
+    // Type 1: [4bit type][4bit shelf][8bit slot][8bit olt][8bit reserved]
+    const shelf = parseInt(bin.substring(4, 8), 2)
+    const slot = parseInt(bin.substring(8, 16), 2)
+    const olt = parseInt(bin.substring(16, 24), 2) // ini adalah port (PON)
+    
+    if (slot > 0 && olt > 0) {
+      return { type, shelf, slot, port: olt }
+    }
+  } else if (type === 3) {
+    // Type 3: [4bit type][4bit shelf][5bit slot][3bit olt][8bit onu][8bit reserved]
+    const shelf = parseInt(bin.substring(4, 8), 2)
+    const slot = parseInt(bin.substring(8, 13), 2)
+    const olt = parseInt(bin.substring(13, 16), 2) // ini adalah port (PON)
+    const onu = parseInt(bin.substring(16, 24), 2)
+    
+    if (slot > 0 && olt >= 0) {
+      return { type, shelf, slot, port: olt + 1, onu } // olt + 1 sesuai kode Perl
+    }
+  } else if (type === 6) {
+    // Type 6: [4bit type][4bit shelf][8bit slot]
+    const shelf = parseInt(bin.substring(4, 8), 2)
+    const slot = parseInt(bin.substring(8, 16), 2)
+    
+    return { type, shelf, slot }
+  }
+  
+  return null
+}
+
+/**
+ * Parse composite index ke frame/slot/port (backward compatibility)
+ * Menggunakan decodeCompositeIndex untuk Type 1
  */
 export function parseCompositeIndex(compositeIndex: number): { type: number; shelf: number; slot: number; port: number } | null {
-  const type = (compositeIndex >> 28) & 0xF
-  const shelf = (compositeIndex >> 24) & 0xF
-  const slot = (compositeIndex >> 16) & 0xFF
-  const port = (compositeIndex >> 8) & 0xFF
+  const decoded = decodeCompositeIndex(compositeIndex)
   
-  if (type === 1 && slot > 0 && port > 0) {
-    return { type, shelf, slot, port }
+  if (decoded && decoded.type === 1 && decoded.port) {
+    return {
+      type: decoded.type,
+      shelf: decoded.shelf,
+      slot: decoded.slot,
+      port: decoded.port
+    }
   }
   
   return null

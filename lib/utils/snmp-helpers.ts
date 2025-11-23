@@ -295,6 +295,8 @@ export async function snmpTable(
       // Track current OIDs untuk setiap kolom (untuk next request)
       let currentOids = [...normalizedOids]
       let hasMoreData = true
+      // Track kolom yang sudah selesai (mencapai EndOfMibView)
+      const columnFinished: boolean[] = new Array(normalizedOids.length).fill(false)
 
       const doGetBulk = () => {
         if (resolved || !hasMoreData) {
@@ -342,21 +344,34 @@ export async function snmpTable(
           // Process varbinds - match dengan kolom berdasarkan OID prefix
           // Track next OID untuk setiap kolom (gunakan OID terakhir dari setiap kolom)
           const nextOids: string[] = new Array(normalizedOids.length).fill('')
+          const columnHasData: boolean[] = new Array(normalizedOids.length).fill(false)
           let hasNewData = false
+          let totalProcessed = 0
 
           // Group varbinds berdasarkan kolom (match berdasarkan OID prefix)
           for (const varbind of flatVarbinds) {
             if (!varbind || typeof varbind !== 'object' || !varbind.oid) {
-              console.warn(`[SNMP-Table] Skipping invalid varbind:`, varbind)
               continue
             }
 
             const varbindOid = varbind.oid.toString()
             const varbindOidParts = varbindOid.split('.').filter((p: string) => p.length > 0)
 
-            // Skip error varbinds
-            if (varbind.type === 130 || varbind.type === 129) { // EndOfMibView or noSuchInstance
-              console.log(`[SNMP-Table] Skipping error varbind: type=${varbind.type}, oid=${varbindOid}`)
+            // Skip error varbinds (EndOfMibView atau noSuchInstance)
+            if (varbind.type === 130 || varbind.type === 129) {
+              // EndOfMibView atau noSuchInstance - ini normal untuk akhir data
+              // Tandai kolom yang sesuai sebagai selesai
+              for (let colIdx = 0; colIdx < normalizedOids.length; colIdx++) {
+                const fullOid = normalizedOids[colIdx]
+                const baseOidForColumn = columnBaseOids[fullOid]
+                if (baseOidForColumn && varbindOid.startsWith(baseOidForColumn)) {
+                  // Kolom ini sudah selesai
+                  if (!columnFinished[colIdx]) {
+                    columnFinished[colIdx] = true
+                    console.log(`[SNMP-Table] Column ${colIdx} (${fullOid}) reached end at ${varbindOid}`)
+                  }
+                }
+              }
               continue
             }
 
@@ -367,7 +382,6 @@ export async function snmpTable(
               const baseOidForColumn = columnBaseOids[fullOid]
               
               if (!baseOidForColumn) {
-                console.warn(`[SNMP-Table] No baseOid found for fullOid: ${fullOid}`)
                 continue
               }
               
@@ -378,12 +392,12 @@ export async function snmpTable(
                 const isMatch = baseOidParts.every((part, idx) => varbindOidParts[idx] === part)
                 
                 if (isMatch) {
+                  columnHasData[colIdx] = true
+                  totalProcessed++
+                  
                   // Extract index (bagian setelah full OID column, yaitu compositeIndex.onuId)
-                  // baseOidForColumn sudah termasuk column number, jadi index adalah bagian setelahnya
                   const index = varbindOidParts.slice(baseOidParts.length).join('.')
                   const columnName = columnNames[fullOid]
-                  
-                  console.log(`[SNMP-Table] Matched varbind: oid=${varbindOid}, baseOid=${baseOidForColumn}, index=${index}, columnName=${columnName}`)
                   
                   // Convert value to string
                   let valueStr: string
@@ -397,18 +411,19 @@ export async function snmpTable(
                   
                   // Simpan hasil dengan format: "columnOid.index"
                   const key = `${columnName}.${index}`
-                  if (!results[key]) {
+                  const isNewEntry = !results[key]
+                  if (isNewEntry) {
                     results[key] = valueStr
                     hasNewData = true
                     // Log hanya untuk beberapa entries pertama untuk debugging
                     if (Object.keys(results).length <= 10) {
-                      console.log(`[SNMP-Table] Added result: ${key} = ${valueStr.substring(0, 50)}... (varbindOid: ${varbindOid}, baseOid: ${baseOidForColumn})`)
+                      console.log(`[SNMP-Table] Added result: ${key} = ${valueStr.substring(0, 50)}...`)
                     }
                   }
                   
-                  // Update next OID untuk kolom ini (gunakan OID terakhir untuk kolom ini)
-                  // Simpan OID terakhir yang match dengan kolom ini
-                  if (!nextOids[colIdx] || varbindOid > nextOids[colIdx]) {
+                  // Update next OID untuk kolom ini menggunakan OID comparison yang benar
+                  // Gunakan compareOids untuk membandingkan OID secara numerik
+                  if (!nextOids[colIdx] || compareOids(varbindOid, nextOids[colIdx]) > 0) {
                     nextOids[colIdx] = varbindOid
                   }
                   
@@ -418,37 +433,67 @@ export async function snmpTable(
               }
             }
             
-            if (!matched) {
+            // Hanya log warning untuk beberapa varbind pertama yang tidak match (untuk mengurangi spam log)
+            if (!matched && totalProcessed < 20) {
               console.warn(`[SNMP-Table] Varbind OID ${varbindOid} (type=${varbind.type}) tidak match dengan kolom manapun`)
-              console.warn(`[SNMP-Table] Expected OIDs:`, normalizedOids)
-              console.warn(`[SNMP-Table] Column base OIDs:`, Object.entries(columnBaseOids).map(([k, v]) => `${k} -> ${v}`))
             }
           }
 
-          if (!hasNewData) {
-            console.log(`[SNMP-Table] No new data, completing with ${Object.keys(results).length} entries`)
+          // Update currentOids untuk next request
+          // Gunakan nextOids untuk kolom yang masih aktif (masih ada data dan belum selesai)
+          // Untuk kolom yang sudah selesai, tetap gunakan currentOids (tidak akan diupdate lagi)
+          let hasActiveColumns = false
+          currentOids = nextOids.map((oid, idx) => {
+            // Jika kolom sudah selesai, jangan update
+            if (columnFinished[idx]) {
+              return currentOids[idx]
+            }
+            
+            // Jika ada nextOid untuk kolom ini, gunakan untuk request berikutnya
+            if (oid && oid.length > 0) {
+              hasActiveColumns = true
+              return oid.startsWith('.') ? oid.substring(1) : oid
+            }
+            
+            // Jika tidak ada nextOid tapi kolom ini sudah pernah dapat data,
+            // berarti mungkin sudah selesai (tapi belum dapat EndOfMibView)
+            // Tetap gunakan currentOids untuk request berikutnya
+            if (columnHasData[idx]) {
+              // Tetap lanjutkan untuk memastikan semua data terambil
+              hasActiveColumns = true
+              return currentOids[idx]
+            }
+            
+            // Kolom ini belum pernah dapat data, tetap gunakan currentOids
+            return currentOids[idx]
+          })
+
+          // Jika semua kolom sudah selesai, selesai
+          const allColumnsFinished = columnFinished.every(finished => finished)
+          if (allColumnsFinished) {
+            console.log(`[SNMP-Table] All columns finished, completing with ${Object.keys(results).length} entries`)
             hasMoreData = false
             finish()
             return
           }
 
-          // Update currentOids untuk next request (gunakan nextOids jika ada, jika tidak gunakan yang lama)
-          // Next OID untuk setiap kolom adalah OID terakhir yang match dengan kolom tersebut
-          const hasNextOids = nextOids.some(oid => oid && oid.length > 0)
-          if (hasNextOids) {
-            // Update currentOids dengan nextOids (jika ada), jika tidak gunakan yang lama
-            currentOids = nextOids.map((oid, idx) => {
-              if (oid && oid.length > 0) {
-                return oid.startsWith('.') ? oid.substring(1) : oid
-              }
-              return currentOids[idx]
-            })
-            console.log(`[SNMP-Table] Continuing with ${Object.keys(results).length} entries so far, next OIDs:`, currentOids)
+          // Jika tidak ada data baru DAN tidak ada kolom aktif, selesai
+          if (!hasNewData && !hasActiveColumns) {
+            console.log(`[SNMP-Table] No new data and no active columns, completing with ${Object.keys(results).length} entries`)
+            hasMoreData = false
+            finish()
+            return
+          }
+
+          // Jika masih ada kolom aktif, lanjutkan
+          if (hasActiveColumns) {
+            const activeCount = columnFinished.filter(f => !f).length
+            console.log(`[SNMP-Table] Continuing with ${Object.keys(results).length} entries (${totalProcessed} varbinds processed, ${activeCount} active columns), next OIDs:`, currentOids)
             // Continue dengan next GETBULK
             setTimeout(() => doGetBulk(), 50)
           } else {
-            // Tidak ada next OID, selesai
-            console.log(`[SNMP-Table] No next OIDs, completing with ${Object.keys(results).length} entries`)
+            // Tidak ada kolom aktif lagi, selesai
+            console.log(`[SNMP-Table] No active columns, completing with ${Object.keys(results).length} entries`)
             hasMoreData = false
             finish()
           }
@@ -1262,13 +1307,15 @@ export async function snmpWalkSimple(
   let walkResults = await snmpWalk(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
   
   // Validasi hasil: jika ada expected count dan tidak sesuai, coba dengan getNext
+  // OPTIMASI: Lebih agresif menggunakan GET NEXT untuk menangani data yang terputus-putus
   if (expectedCount !== undefined && walkResults.length < expectedCount) {
     const missing = expectedCount - walkResults.length
     const missingPercentage = (missing / expectedCount) * 100
     
-    // Jika missing > 5%, coba dengan getNext untuk memastikan semua data terambil
-    if (missingPercentage > 5) {
-      console.log(`[SNMP-WalkSimple] Subtree incomplete (got ${walkResults.length}, expected ${expectedCount}, missing ${missingPercentage.toFixed(1)}%), trying getNext...`)
+    // Jika missing > 1% (lebih agresif dari 5%), coba dengan getNext untuk memastikan semua data terambil
+    // GET NEXT lebih reliable untuk data yang terputus-putus
+    if (missingPercentage > 1) {
+      console.log(`[SNMP-WalkSimple] Subtree incomplete (got ${walkResults.length}, expected ${expectedCount}, missing ${missing} = ${missingPercentage.toFixed(1)}%), trying getNext to handle fragmented data...`)
       
       try {
         const getNextResults = await snmpWalkWithGetNext(
@@ -1283,7 +1330,8 @@ export async function snmpWalkSimple(
         
         // Gunakan hasil getNext jika lebih lengkap
         if (getNextResults.length >= walkResults.length) {
-          console.log(`[SNMP-WalkSimple] GetNext returned ${getNextResults.length} results (vs ${walkResults.length} from subtree), using getNext results`)
+          const improvement = getNextResults.length - walkResults.length
+          console.log(`[SNMP-WalkSimple] GetNext returned ${getNextResults.length} results (vs ${walkResults.length} from subtree, +${improvement} more), using getNext results`)
           walkResults = getNextResults
         } else {
           console.log(`[SNMP-WalkSimple] GetNext returned fewer results (${getNextResults.length} vs ${walkResults.length}), keeping subtree results`)
@@ -1291,6 +1339,28 @@ export async function snmpWalkSimple(
       } catch (getNextError: any) {
         console.warn(`[SNMP-WalkSimple] GetNext fallback failed: ${getNextError.message || getNextError}, using subtree results`)
         // Gunakan hasil subtree meskipun tidak lengkap
+      }
+    } else if (missingPercentage > 0) {
+      // Jika missing kecil (< 1%), tetap coba getNext untuk memastikan tidak ada yang terlewat
+      console.log(`[SNMP-WalkSimple] Minor missing (${missing} = ${missingPercentage.toFixed(1)}%), trying getNext to ensure completeness...`)
+      try {
+        const getNextResults = await snmpWalkWithGetNext(
+          ipAddress,
+          port,
+          community,
+          version,
+          oid,
+          Math.min(timeout, 60000), // Timeout lebih pendek untuk minor missing
+          expectedCount
+        )
+        
+        if (getNextResults.length > walkResults.length) {
+          const improvement = getNextResults.length - walkResults.length
+          console.log(`[SNMP-WalkSimple] GetNext found ${improvement} additional results, using getNext results`)
+          walkResults = getNextResults
+        }
+      } catch (getNextError: any) {
+        // Ignore error untuk minor missing, gunakan subtree results
       }
     }
   }
@@ -1513,6 +1583,8 @@ async function snmpGetBulk(
 
           let hasNewData = false
           let nextOid: string | null = null
+          let hasValidVarbinds = false
+          let reachedEndOfMib = false
 
           // Base OID untuk validasi subtree (gunakan OID awal, bukan currentOid yang mungkin sudah berubah)
           const baseOidParts = normalizedOid.split('.').filter(p => p.length > 0)
@@ -1526,8 +1598,8 @@ async function snmpGetBulk(
             // Check EndOfMibView terlebih dahulu
             if (snmp.isVarbindError(varbind) && varbind.value === snmp.ObjectType.EndOfMibView) {
               console.log(`[SNMP-GetBulk] EndOfMibView reached, total results: ${Object.keys(results).length}`)
-              finish()
-              return
+              reachedEndOfMib = true
+              break // Keluar dari loop, tapi jangan langsung finish - proses varbind yang sudah ada dulu
             }
 
             // Skip error varbinds (kecuali EndOfMibView yang sudah di-handle di atas)
@@ -1560,6 +1632,8 @@ async function snmpGetBulk(
               return
             }
 
+            hasValidVarbinds = true
+
             // Extract index dari OID
             if (varbindOidParts.length > baseOidParts.length) {
               const index = varbindOidParts.slice(baseOidParts.length).join('.')
@@ -1580,23 +1654,49 @@ async function snmpGetBulk(
               }
             }
 
-            // Simpan OID terakhir untuk next request (selalu update untuk loop berikutnya)
-            nextOid = varbindOid
+            // Simpan OID terakhir yang valid untuk next request
+            // Gunakan compareOids untuk memastikan kita selalu menggunakan OID terbesar
+            if (!nextOid || compareOids(varbindOid, nextOid) > 0) {
+              nextOid = varbindOid
+            }
           }
 
-          // Jika tidak ada data baru, selesai
-          if (!hasNewData) {
-            console.log(`[SNMP-GetBulk] No new data, completing with ${Object.keys(results).length} results`)
+          // Jika mencapai EndOfMibView, selesai
+          if (reachedEndOfMib) {
+            console.log(`[SNMP-GetBulk] EndOfMibView reached, completing with ${Object.keys(results).length} results`)
+            finish()
+            return
+          }
+
+          // Jika tidak ada varbind yang valid sama sekali, selesai
+          if (!hasValidVarbinds) {
+            console.log(`[SNMP-GetBulk] No valid varbinds, completing with ${Object.keys(results).length} results`)
             finish()
             return
           }
 
           // Update currentOid untuk next request (gunakan OID terakhir yang valid)
+          // PENTING: Lanjutkan loop meskipun tidak ada data baru dalam batch ini,
+          // karena mungkin masih ada data di batch berikutnya
           if (nextOid) {
+            // Increment nextOid untuk memastikan kita tidak stuck di OID yang sama
+            // Tapi hanya jika nextOid sama dengan currentOid (untuk menghindari loop tak terbatas)
+            if (nextOid === currentOid) {
+              // Jika nextOid sama dengan currentOid, berarti mungkin sudah selesai
+              // Tapi cek dulu apakah kita sudah mencapai expectedCount
+              if (expectedCount !== undefined && Object.keys(results).length >= expectedCount) {
+                console.log(`[SNMP-GetBulk] Reached expected count (${expectedCount}), completing...`)
+                finish()
+                return
+              }
+              // Jika belum mencapai expectedCount, mungkin ada masalah - tetap lanjutkan sekali lagi
+              console.log(`[SNMP-GetBulk] Warning: nextOid same as currentOid, but continuing...`)
+            }
+            
             currentOid = nextOid
-            console.log(`[SNMP-GetBulk] Next OID: ${nextOid}, total results so far: ${Object.keys(results).length}`)
+            console.log(`[SNMP-GetBulk] Next OID: ${nextOid}, total results so far: ${Object.keys(results).length}${hasNewData ? ' (new data)' : ' (no new data, but continuing)'}`)
           } else {
-            // Jika tidak ada nextOid, berarti sudah selesai
+            // Jika tidak ada nextOid, berarti tidak ada varbind yang valid
             console.log(`[SNMP-GetBulk] No next OID, completing with ${Object.keys(results).length} results`)
             finish()
             return
@@ -1643,10 +1743,15 @@ export async function snmpGetBulkSimple(
     }
     
     // Validasi hasil jika ada expectedCount
-    if (expectedCount !== undefined && resultCount < expectedCount * 0.9) {
-      // Jika hasil kurang dari 90% dari expected, fallback ke WALK
-      console.warn(`[SNMP-GetBulkSimple] GETBULK returned ${resultCount} results (expected: ${expectedCount}), falling back to WALK...`)
-      return await snmpWalkSimple(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
+    // Perbaikan: Gunakan threshold 95% untuk dataset besar (lebih ketat)
+    if (expectedCount !== undefined) {
+      const threshold = expectedCount > 500 ? 0.95 : 0.90 // 95% untuk dataset besar, 90% untuk kecil
+      if (resultCount < expectedCount * threshold) {
+        const missing = expectedCount - resultCount
+        const missingPercentage = ((missing / expectedCount) * 100).toFixed(1)
+        console.warn(`[SNMP-GetBulkSimple] GETBULK returned ${resultCount} results (expected: ${expectedCount}, missing: ${missing} = ${missingPercentage}%), falling back to WALK...`)
+        return await snmpWalkSimple(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
+      }
     }
     
     return result
