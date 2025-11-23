@@ -758,23 +758,23 @@ export async function snmpWalk(
           let requiredStableChecks = 2 // Default 2 checks
           let minStableTime = 3000 // Minimal 3 detik untuk dataset kecil
           
-          // Untuk dataset besar atau jika ada expected count, tunggu lebih lama
+          // OPTIMASI: Untuk dataset besar atau jika ada expected count, tunggu lebih lama (dikurangi)
           if (expectedCount !== undefined && expectedCount > 500) {
-            requiredStableChecks = 5 // 5 checks = 15 detik untuk dataset besar dengan expected count
-            minStableTime = 5000 // Minimal 5 detik
+            requiredStableChecks = 3 // 3 checks = 3 detik untuk dataset besar dengan expected count (dikurangi dari 5)
+            minStableTime = 3000 // Minimal 3 detik (dikurangi dari 5)
           } else if (results.length > 500) {
-            requiredStableChecks = 5 // 5 checks = 15 detik untuk dataset besar
-            minStableTime = 5000 // Minimal 5 detik
+            requiredStableChecks = 3 // 3 checks = 3 detik untuk dataset besar (dikurangi dari 5)
+            minStableTime = 3000 // Minimal 3 detik (dikurangi dari 5)
           } else if (results.length > 300) {
-            requiredStableChecks = 4 // 4 checks = 12 detik
-            minStableTime = 4000 // Minimal 4 detik
+            requiredStableChecks = 3 // 3 checks = 3 detik (dikurangi dari 4)
+            minStableTime = 3000 // Minimal 3 detik (dikurangi dari 4)
           } else if (results.length > 100) {
-            requiredStableChecks = 3 // 3 checks = 9 detik
-            minStableTime = 3000 // Minimal 3 detik
+            requiredStableChecks = 3 // 3 checks = 3 detik (tetap)
+            minStableTime = 3000 // Minimal 3 detik (tetap)
           } else {
-            // Untuk dataset kecil (< 100), gunakan 2 checks (6 detik)
+            // Untuk dataset kecil (< 100), gunakan 2 checks (2 detik)
             requiredStableChecks = 2
-            minStableTime = 3000 // Minimal 3 detik
+            minStableTime = 2000 // Minimal 2 detik (dikurangi dari 3)
           }
           
           // Cek apakah data masih terus masuk dalam history
@@ -796,8 +796,8 @@ export async function snmpWalk(
             }
           }
           
-          // Cek maksimal wait time berdasarkan dataset size
-          const MAX_STABILITY_WAIT_TIME = results.length > 500 ? 60000 : 30000 // 60 detik untuk dataset besar, 30 detik untuk kecil
+          // OPTIMASI: Cek maksimal wait time berdasarkan dataset size (dikurangi untuk lebih cepat)
+          const MAX_STABILITY_WAIT_TIME = results.length > 500 ? 45000 : 20000 // 45 detik untuk dataset besar, 20 detik untuk kecil (dikurangi)
           const elapsedTime = stabilityCheckStartTime ? Date.now() - stabilityCheckStartTime : 0
           
           // Jika ada expected count dan belum tercapai, tunggu lebih lama
@@ -819,7 +819,7 @@ export async function snmpWalk(
             return
           }
           
-          // Pastikan minimal stable time tercapai
+          // OPTIMASI: Pastikan minimal stable time tercapai (dikurangi dari 9 detik menjadi 3 detik)
           if (elapsedTime >= minStableTime && stableCount >= requiredStableChecks) {
             const totalWaitTime = requiredStableChecks * (checkInterval / 1000)
             console.log(`[SNMP-Walk] Stable (no new results for ${totalWaitTime}s), completing with ${results.length} results${expectedCount ? ` (expected: ${expectedCount})` : ''}`)
@@ -1030,7 +1030,9 @@ export async function snmpWalk(
       
       try {
         const oidString = oid.startsWith('.') ? oid.substring(1) : oid
-        console.log(`[SNMP-Walk] Using subtree for OID: ${oidString} (will only fetch data within this subtree)`)
+        // Untuk SNMP v2c, subtree() menggunakan GETBULK (bulkwalk) secara otomatis
+        // Sesuai dengan snmpbulkwalk -v2c -Cr<max-repeaters>
+        console.log(`[SNMP-Walk] Using bulkwalk (GETBULK via subtree) for OID: ${oidString} (will only fetch data within this subtree)`)
         session.subtree(oidString, wrappedCallback)
       } catch (subtreeError: any) {
         console.error(`[SNMP-Walk] Error calling session.subtree:`, subtreeError?.message || String(subtreeError))
@@ -1047,7 +1049,7 @@ export async function snmpWalk(
 
 /**
  * SNMP Walk Simple - mengembalikan Record<string, string>
- * Menggunakan subtree dengan fallback ke getNext jika hasil tidak lengkap
+ * OPTIMASI: Menggunakan GETBULK (bulkwalk) untuk SNMP v2c, dengan fallback ke subtree jika diperlukan
  */
 export async function snmpWalkSimple(
   ipAddress: string,
@@ -1059,7 +1061,27 @@ export async function snmpWalkSimple(
   maxResults?: number,
   expectedCount?: number
 ): Promise<Record<string, string>> {
-  // Coba menggunakan subtree terlebih dahulu
+  // OPTIMASI: Untuk SNMP v2c, coba gunakan GETBULK terlebih dahulu (lebih efisien)
+  if (version === '2c' || version === '2') {
+    try {
+      console.log(`[SNMP-WalkSimple] Using GETBULK (bulkwalk) for SNMP v2c...`)
+      const bulkResults = await snmpGetBulk(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
+      
+      // Jika GETBULK berhasil dan mendapatkan data, gunakan hasilnya
+      if (Object.keys(bulkResults).length > 0) {
+        console.log(`[SNMP-WalkSimple] GETBULK (bulkwalk) successful: ${Object.keys(bulkResults).length} results`)
+        return bulkResults
+      }
+      
+      // Jika GETBULK return 0 results, fallback ke subtree
+      console.log(`[SNMP-WalkSimple] GETBULK returned 0 results, falling back to subtree...`)
+    } catch (bulkError: any) {
+      // Jika GETBULK gagal, fallback ke subtree
+      console.warn(`[SNMP-WalkSimple] GETBULK failed: ${bulkError.message || bulkError}, falling back to subtree...`)
+    }
+  }
+  
+  // Fallback: Gunakan subtree (yang juga menggunakan GETBULK untuk SNMP v2c)
   let walkResults = await snmpWalk(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
   
   // Validasi hasil: jika ada expected count dan tidak sesuai, coba dengan getNext
@@ -1159,8 +1181,267 @@ export async function snmpWalkSimple(
 }
 
 /**
- * SNMP GetBulk Simple - wrapper untuk snmpWalkSimple dengan interface yang sama
- * Untuk kompatibilitas dengan kode yang sudah menggunakan snmpGetBulkSimple
+ * SNMP GetBulk - implementasi GETBULK yang sebenarnya menggunakan session.getBulk()
+ * Lebih efisien daripada WALK karena menggunakan GETBULK operation
+ */
+async function snmpGetBulk(
+  ipAddress: string,
+  port: number,
+  community: string,
+  version: string,
+  oid: string,
+  timeout: number = 30000,
+  maxResults?: number,
+  expectedCount?: number
+): Promise<Record<string, string>> {
+  return new Promise((resolve, reject) => {
+    let resolved = false
+    let session: any = null
+    let timeoutId: NodeJS.Timeout | null = null
+    const results: Record<string, string> = {}
+    let currentOid: string = oid
+    // OPTIMASI: Meningkatkan maxRepetitions untuk mengambil lebih banyak data per request (seperti snmpbulkget -Cr)
+    const maxRepetitions = expectedCount && expectedCount > 100 ? 100 : 50 // GETBULK max repetitions per request
+    const nonRepeaters = 0 // Number of non-repeating OIDs (seperti snmpbulkget -Cn)
+
+    const finish = (error?: any) => {
+      if (resolved) return
+      resolved = true
+      
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+      
+      if (session) {
+        try {
+          setTimeout(() => {
+            try {
+              if (typeof session.close === 'function') {
+                session.close()
+              }
+            } catch (e) {
+              // Ignore
+            }
+          }, 100)
+        } catch (e) {
+          // Ignore
+        }
+        session = null
+      }
+      
+      if (error) {
+        if (Object.keys(results).length > 0) {
+          console.log(`[SNMP-GetBulk] Completed with ${Object.keys(results).length} results despite error: ${error.message || error}`)
+          resolve(results)
+        } else {
+          reject(error)
+        }
+      } else {
+        const finalCount = Object.keys(results).length
+        if (expectedCount !== undefined && finalCount !== expectedCount) {
+          const diff = Math.abs(finalCount - expectedCount)
+          const diffPercentage = (diff / expectedCount) * 100
+          if (diffPercentage > 5) {
+            console.warn(`[SNMP-GetBulk] Count mismatch: expected ${expectedCount}, got ${finalCount} (${diffPercentage.toFixed(1)}% difference)`)
+          }
+        }
+        console.log(`[SNMP-GetBulk] Completed with ${finalCount} results${expectedCount ? ` (expected: ${expectedCount})` : ''}`)
+        resolve(results)
+      }
+    }
+
+    try {
+      let snmpVersion: 0 | 1 | undefined = 1
+      if (version === '1') {
+        snmpVersion = 0
+      } else if (version === '3') {
+        console.warn(`[SNMP-GetBulk] SNMP v3 is not supported, using v2c instead`)
+        snmpVersion = 1
+      }
+
+      session = snmp.createSession(ipAddress, community, {
+        port: port,
+        version: snmpVersion,
+        retries: 2,
+        timeout: 10000,
+      })
+
+      timeoutId = setTimeout(() => {
+        if (!resolved) {
+          if (Object.keys(results).length > 0) {
+            console.log(`[SNMP-GetBulk] Timeout reached with ${Object.keys(results).length} results`)
+            finish()
+          } else {
+            finish(new Error('SNMP GETBULK timeout - no results'))
+          }
+        }
+      }, timeout)
+
+      // Normalize OID
+      const normalizedOid = currentOid.startsWith('.') ? currentOid.substring(1) : currentOid
+
+      // Helper function untuk melakukan GETBULK
+      const doGetBulk = () => {
+        if (resolved) return
+
+        // Check maxResults
+        if (maxResults !== undefined && Object.keys(results).length >= maxResults) {
+          console.log(`[SNMP-GetBulk] Reached maxResults (${maxResults}), stopping...`)
+          finish()
+          return
+        }
+
+        // Check expectedCount
+        if (expectedCount !== undefined && Object.keys(results).length >= expectedCount) {
+          console.log(`[SNMP-GetBulk] Reached expected count (${expectedCount}), completing...`)
+          finish()
+          return
+        }
+
+        // Format yang benar untuk getBulk: session.getBulk(oids, nonRepeaters, maxRepetitions, callback)
+        // Sesuai dengan snmpbulkget: -Cn<nonrepeaters> -Cr<maxrepeaters>
+        const normalizedOidForRequest = currentOid.startsWith('.') ? currentOid.substring(1) : currentOid
+        console.log(`[SNMP-GetBulk] Requesting: OID=${normalizedOidForRequest}, nonRepeaters=${nonRepeaters}, maxRepetitions=${maxRepetitions}`)
+        
+        session.getBulk([normalizedOidForRequest], nonRepeaters, maxRepetitions, (error: any, varbinds: any[]) => {
+          if (resolved) return
+
+          if (error) {
+            console.log(`[SNMP-GetBulk] Error in callback: ${error.message || error}, current results: ${Object.keys(results).length}`)
+            // Jika sudah ada hasil, anggap berhasil
+            if (Object.keys(results).length > 0) {
+              console.log(`[SNMP-GetBulk] Error but have ${Object.keys(results).length} results, completing...`)
+              finish()
+            } else {
+              finish(error)
+            }
+            return
+          }
+
+          console.log(`[SNMP-GetBulk] Received ${varbinds ? varbinds.length : 0} varbinds, current results: ${Object.keys(results).length}`)
+
+          if (!varbinds || varbinds.length === 0) {
+            // Jika belum ada hasil sama sekali dan ini request pertama, mungkin GETBULK tidak cocok
+            if (Object.keys(results).length === 0) {
+              // Langsung finish dengan error untuk trigger fallback ke WALK
+              finish(new Error('GETBULK returned empty varbinds on first request'))
+              return
+            }
+            // Jika sudah ada hasil, tidak ada data lagi, selesai
+            console.log(`[SNMP-GetBulk] No more varbinds, completing with ${Object.keys(results).length} results`)
+            finish()
+            return
+          }
+
+          let hasNewData = false
+          let nextOid: string | null = null
+
+          // Base OID untuk validasi subtree (gunakan OID awal, bukan currentOid yang mungkin sudah berubah)
+          const baseOidParts = normalizedOid.split('.').filter(p => p.length > 0)
+          
+          for (const varbind of varbinds) {
+            if (!varbind || !varbind.oid) continue
+
+            const varbindOid = varbind.oid.toString()
+            const varbindOidParts = varbindOid.split('.').filter(p => p.length > 0)
+            
+            // Check EndOfMibView terlebih dahulu
+            if (snmp.isVarbindError(varbind) && varbind.value === snmp.ObjectType.EndOfMibView) {
+              console.log(`[SNMP-GetBulk] EndOfMibView reached, total results: ${Object.keys(results).length}`)
+              finish()
+              return
+            }
+
+            // Skip error varbinds (kecuali EndOfMibView yang sudah di-handle di atas)
+            if (snmp.isVarbindError(varbind)) {
+              continue
+            }
+            
+            // Check jika OID masih dalam subtree (hanya ambil OID yang masih dalam base OID)
+            // Pastikan varbind OID masih dalam subtree
+            if (varbindOidParts.length < baseOidParts.length) {
+              // OID lebih pendek dari base, sudah keluar dari subtree
+              console.log(`[SNMP-GetBulk] OID ${varbindOid} is shorter than base, stopping...`)
+              finish()
+              return
+            }
+            
+            // Bandingkan base OID parts
+            let isInSubtree = true
+            for (let i = 0; i < baseOidParts.length; i++) {
+              if (varbindOidParts[i] !== baseOidParts[i]) {
+                isInSubtree = false
+                break
+              }
+            }
+            
+            if (!isInSubtree) {
+              // OID sudah keluar dari subtree, selesai
+              console.log(`[SNMP-GetBulk] OID ${varbindOid} is outside subtree ${normalizedOid}, stopping...`)
+              finish()
+              return
+            }
+
+            // Extract index dari OID
+            if (varbindOidParts.length > baseOidParts.length) {
+              const index = varbindOidParts.slice(baseOidParts.length).join('.')
+              
+              // Convert value to string
+              let valueStr: string
+              if (Buffer.isBuffer(varbind.value)) {
+                valueStr = Array.from(varbind.value)
+                  .map(b => b.toString(16).toUpperCase().padStart(2, '0'))
+                  .join(' ')
+              } else {
+                valueStr = varbind.value.toString()
+              }
+
+              if (!results[index]) {
+                results[index] = valueStr
+                hasNewData = true
+              }
+            }
+
+            // Simpan OID terakhir untuk next request (selalu update untuk loop berikutnya)
+            nextOid = varbindOid
+          }
+
+          // Jika tidak ada data baru, selesai
+          if (!hasNewData) {
+            console.log(`[SNMP-GetBulk] No new data, completing with ${Object.keys(results).length} results`)
+            finish()
+            return
+          }
+
+          // Update currentOid untuk next request (gunakan OID terakhir yang valid)
+          if (nextOid) {
+            currentOid = nextOid
+            console.log(`[SNMP-GetBulk] Next OID: ${nextOid}, total results so far: ${Object.keys(results).length}`)
+          } else {
+            // Jika tidak ada nextOid, berarti sudah selesai
+            console.log(`[SNMP-GetBulk] No next OID, completing with ${Object.keys(results).length} results`)
+            finish()
+            return
+          }
+
+          // Continue dengan GETBULK berikutnya (tanpa delay untuk lebih cepat)
+          doGetBulk()
+        })
+      }
+
+      console.log(`[SNMP-GetBulk] Using GETBULK for OID: ${normalizedOid}${expectedCount ? ` (expected: ${expectedCount})` : ''}`)
+      doGetBulk()
+
+    } catch (error: any) {
+      finish(error)
+    }
+  })
+}
+
+/**
+ * SNMP GetBulk Simple - menggunakan implementasi GETBULK yang sebenarnya
+ * Fallback ke snmpWalkSimple jika GETBULK gagal
  */
 export async function snmpGetBulkSimple(
   ipAddress: string,
@@ -1172,7 +1453,30 @@ export async function snmpGetBulkSimple(
   maxResults?: number,
   expectedCount?: number
 ): Promise<Record<string, string>> {
-  // Gunakan snmpWalkSimple sebagai implementasi
-  return await snmpWalkSimple(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
+  try {
+    // Coba menggunakan GETBULK yang sebenarnya
+    const result = await snmpGetBulk(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
+    
+    const resultCount = Object.keys(result).length
+    
+    // OPTIMASI: Jika hasil 0, langsung fallback ke WALK (GETBULK mungkin tidak cocok untuk OID ini)
+    if (resultCount === 0) {
+      console.warn(`[SNMP-GetBulkSimple] GETBULK returned 0 results, falling back to WALK...`)
+      return await snmpWalkSimple(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
+    }
+    
+    // Validasi hasil jika ada expectedCount
+    if (expectedCount !== undefined && resultCount < expectedCount * 0.9) {
+      // Jika hasil kurang dari 90% dari expected, fallback ke WALK
+      console.warn(`[SNMP-GetBulkSimple] GETBULK returned ${resultCount} results (expected: ${expectedCount}), falling back to WALK...`)
+      return await snmpWalkSimple(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
+    }
+    
+    return result
+  } catch (error: any) {
+    // Jika GETBULK gagal, fallback ke WALK
+    console.warn(`[SNMP-GetBulkSimple] GETBULK failed: ${error.message || error}, falling back to WALK...`)
+    return await snmpWalkSimple(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
+  }
 }
 

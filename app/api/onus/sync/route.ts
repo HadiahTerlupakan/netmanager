@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
-import { snmpGetBulkSimple } from '@/lib/utils/snmp-helpers'
+import { snmpGetBulkSimple, snmpTable } from '@/lib/utils/snmp-helpers'
 import { ONU_OIDS } from '@/lib/utils/onu-oids'
 import type { OnuSyncData } from '@/lib/types/onu-sync'
 import { buildGponPortMap, buildCompositeIndex, parseCompositeIndex, parseGponOnu } from '@/lib/services/onu-sync-helpers'
@@ -713,28 +713,114 @@ export async function getC300GponOnuDataViaSNMP(
   const oidZteWifiChannel = ONU_OIDS.ZTE_WIFI_CHANNEL
 
   try {
-    // STEP 1: Discovery Card dan PON structure terlebih dahulu
+    // OPTIMASI: Gabungkan discovery dengan fetch Status New utama untuk menghindari redundant fetch
+    // STEP 1: Fetch Status New (untuk discovery dan data utama sekaligus)
     console.log(`[C300-GPON-SNMP] ========================================`)
-    console.log(`[C300-GPON-SNMP] STEP 1: DISCOVERY CARD & PON STRUCTURE`)
+    console.log(`[C300-GPON-SNMP] STEP 1: FETCHING STATUS NEW (for discovery + main data)`)
     console.log(`[C300-GPON-SNMP] ========================================`)
-    const cardPonStructure = await discoverCardAndPonStructure(ipAddress, port, community, version)
     
-    if (cardPonStructure.length === 0) {
-      console.warn(`[C300-GPON-SNMP] No Card/PON structure found, falling back to standard GETBULK method...`)
-      // Fallback ke metode lama jika tidak ada Card/PON yang ditemukan
-    } else {
-      console.log(`[C300-GPON-SNMP] Discovered ${cardPonStructure.length} Card/PON combinations, will fetch ONU data per PON`)
+    // Timeout adaptif berdasarkan expected count (didefinisikan lebih awal untuk digunakan di semua fetch)
+    const adaptiveTimeout = expectedCount && expectedCount > 500 ? 300000 : 180000 // 5 menit untuk dataset besar, 3 menit untuk kecil
+    
+    // Fetch Status New sekali untuk discovery dan data utama
+    let statusNew: Record<string, string> = {}
+    let cardPonStructure: Array<{ card: number; pon: number; compositeIndex: number }> = []
+    
+    // Fetch Status New dengan retry mechanism
+    const maxStatusRetries = 3
+    for (let attempt = 1; attempt <= maxStatusRetries; attempt++) {
+      try {
+        console.log(`[C300-GPON-SNMP] Fetching Status New (attempt ${attempt}/${maxStatusRetries})...`)
+        const timeout = adaptiveTimeout
+        const data = await snmpGetBulkSimple(ipAddress, port, community, version, oidStatusNew, timeout, undefined, expectedCount)
+        
+        const currentCount = Object.keys(data).length
+        statusNew = { ...statusNew, ...data }
+        
+        if (expectedCount) {
+          if (currentCount >= expectedCount) {
+            console.log(`[C300-GPON-SNMP] Status New: Complete! Got ${currentCount} entries (expected: ${expectedCount})`)
+            break
+          } else {
+            const missing = expectedCount - currentCount
+            console.log(`[C300-GPON-SNMP] Status New: Only ${currentCount} entries, missing ${missing} entries (expected: ${expectedCount})`)
+          }
+        } else {
+          if (currentCount >= 600) {
+            console.log(`[C300-GPON-SNMP] Status New: Complete! Got ${currentCount} entries`)
+            break
+          } else {
+            console.log(`[C300-GPON-SNMP] Status New: Only ${currentCount} entries, retrying...`)
+          }
+        }
+        
+        if (attempt < maxStatusRetries) {
+          const delay = attempt * 500
+          console.log(`[C300-GPON-SNMP] Status New: Retrying in ${delay/1000} seconds...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+        }
+      } catch (e: any) {
+        console.warn(`[C300-GPON-SNMP] SNMP GETBULK failed for status (new, attempt ${attempt}): ${e.message || e}`)
+        if (attempt < maxStatusRetries) {
+          const delay = attempt * 500
+          await new Promise(resolve => setTimeout(resolve, delay))
+        }
+      }
     }
     
-    // STEP 2: Fetch semua data ONU secara global terlebih dahulu (untuk digunakan nanti)
+    // Extract Card/PON structure dari Status New yang sudah di-fetch (tidak perlu fetch lagi)
+    if (Object.keys(statusNew).length > 0) {
+      console.log(`[C300-GPON-SNMP] Extracting Card/PON structure from Status New data...`)
+      const cardPonSet = new Set<string>()
+      const cardPonList: Array<{ card: number; pon: number; compositeIndex: number }> = []
+      
+      for (const idx of Object.keys(statusNew)) {
+        const indexParts = idx.split('.')
+        if (indexParts.length >= 1) {
+          const compositeIndex = parseInt(indexParts[0], 10)
+          if (!isNaN(compositeIndex)) {
+            const parsed = parseCompositeIndex(compositeIndex)
+            if (parsed && parsed.type === 1 && parsed.slot > 0 && parsed.port > 0) {
+              const card = parsed.slot
+              const pon = parsed.port
+              const key = `${card}-${pon}`
+              
+              if (!cardPonSet.has(key)) {
+                cardPonSet.add(key)
+                cardPonList.push({ card, pon, compositeIndex })
+              }
+            }
+          }
+        }
+      }
+      
+      cardPonList.sort((a, b) => {
+        if (a.card !== b.card) return a.card - b.card
+        return a.pon - b.pon
+      })
+      
+      cardPonStructure = cardPonList
+      
+      if (cardPonStructure.length > 0) {
+        const cardGroups = new Map<number, number[]>()
+        for (const { card, pon } of cardPonStructure) {
+          if (!cardGroups.has(card)) {
+            cardGroups.set(card, [])
+          }
+          cardGroups.get(card)!.push(pon)
+        }
+        
+        for (const [card, pons] of Array.from(cardGroups.entries()).sort((a, b) => a[0] - b[0])) {
+          console.log(`[C300-GPON-SNMP]   Card ${card}: ${pons.length} PON(s) - PONs: ${pons.sort((a, b) => a - b).join(', ')}`)
+        }
+      }
+    }
+    
+    // STEP 2: Fetch semua data ONU lainnya secara global
     console.log(`[C300-GPON-SNMP] ========================================`)
     console.log(`[C300-GPON-SNMP] STEP 2: FETCHING ALL ONU DATA (GLOBAL)`)
     console.log(`[C300-GPON-SNMP] ========================================`)
     console.log(`[C300-GPON-SNMP] Fetching OIDs using GETBULK${maxResults ? ` (max ${maxResults} results)` : ''}...`)
-        
-      
-    // Timeout adaptif berdasarkan expected count (didefinisikan lebih awal untuk digunakan di semua fetch)
-    const adaptiveTimeout = expectedCount && expectedCount > 500 ? 300000 : 180000 // 5 menit untuk dataset besar, 3 menit untuk kecil
     
     // Fetch TX ONU
     // TIDAK gunakan maxResults untuk memastikan semua data terambil
@@ -966,86 +1052,15 @@ export async function getC300GponOnuDataViaSNMP(
       return fetchWithFallbackAndRetry(mainOid, altOid, name)
     }
 
-    // Batch 1: Critical data untuk menentukan ONU existence
-    // Fetch statusNew dengan retry mechanism untuk memastikan semua data terambil
-    console.log(`[C300-GPON-SNMP] Fetching Status New with retry mechanism...`)
+    // OPTIMASI: Status New sudah di-fetch di STEP 1, tidak perlu fetch lagi
+    // Batch 1: Validasi Status New yang sudah di-fetch
+    console.log(`[C300-GPON-SNMP] Using Status New data from STEP 1 (${Object.keys(statusNew).length} entries)`)
     if (expectedCount) {
       console.log(`[C300-GPON-SNMP] Expected ONU count from previous step: ${expectedCount}`)
     }
-    let statusNew: Record<string, string> = {}
-    
-    // Fetch statusNew dengan retry hingga lengkap
-    // Gunakan expectedCount jika tersedia untuk validasi
-    const targetCount = expectedCount || 600 // Minimum 600 jika tidak ada expectedCount
-    const maxStatusRetries = 3 // Dikurangi dari 5 menjadi 3
-    const timeout = expectedCount && expectedCount > 500 ? 300000 : 180000 // Timeout adaptif: 5 menit untuk dataset besar, 3 menit untuk kecil
-    
-    let lastCount = 0
-    for (let attempt = 1; attempt <= maxStatusRetries; attempt++) {
-      try {
-        console.log(`[C300-GPON-SNMP] Fetching Status New (attempt ${attempt}/${maxStatusRetries})...`)
-        const data = await snmpGetBulkSimple(ipAddress, port, community, version, oidStatusNew, timeout, undefined, expectedCount)
-        
-        const currentCount = Object.keys(data).length
-        
-        // Early exit: jika hasil sama setelah 1 retry, accept hasil yang ada (lebih cepat)
-        if (attempt >= 2 && currentCount === lastCount && lastCount > 0) {
-          console.log(`[C300-GPON-SNMP] Status New: No change after retry (${currentCount} entries), accepting current result`)
-          statusNew = data
-          break
-        }
-        
-        // Update jika dapat data lebih banyak
-        if (currentCount > Object.keys(statusNew).length) {
-          statusNew = data
-          console.log(`[C300-GPON-SNMP] Status New: ${currentCount} entries (target: ${targetCount})`)
-        }
-        
-        lastCount = currentCount
-        
-        // Validasi: jika ada expectedCount, pastikan sesuai
-        // Jika tidak ada expectedCount, minimal 600 entries
-        if (expectedCount) {
-          // Jika sudah sesuai dengan expectedCount (atau lebih), anggap lengkap
-          if (currentCount >= expectedCount) {
-            console.log(`[C300-GPON-SNMP] Status New: Complete! Got ${currentCount} entries (expected: ${expectedCount})`)
-            break
-          } else {
-            const missing = expectedCount - currentCount
-            // Early exit jika missing < 5% (tidak perlu retry lagi)
-            if (missing < expectedCount * 0.05) {
-              console.log(`[C300-GPON-SNMP] Status New: Got ${currentCount} entries, missing ${missing} (< 5%), accepting result`)
-              break
-            }
-            console.log(`[C300-GPON-SNMP] Status New: Only ${currentCount} entries, missing ${missing} entries (expected: ${expectedCount})`)
-          }
-        } else {
-          // Jika tidak ada expectedCount, minimal 600 entries
-          if (currentCount >= 600) {
-            console.log(`[C300-GPON-SNMP] Status New: Complete! Got ${currentCount} entries`)
-            break
-          } else {
-            console.log(`[C300-GPON-SNMP] Status New: Only ${currentCount} entries, retrying...`)
-          }
-        }
-        
-        // Jika belum lengkap dan masih ada attempt, retry dengan delay lebih pendek
-        if (attempt < maxStatusRetries) {
-          const delay = attempt * 500 // Progressive delay: 0.5s, 1s (lebih cepat)
-          console.log(`[C300-GPON-SNMP] Status New: Retrying in ${delay/1000} seconds...`)
-          await new Promise(resolve => setTimeout(resolve, delay))
-        }
-      } catch (e: any) {
-        console.warn(`[C300-GPON-SNMP] SNMP GETBULK failed for status (new, attempt ${attempt}): ${e.message || e}`)
-        if (attempt < maxStatusRetries) {
-          const delay = attempt * 500 // Delay lebih cepat: 0.5s, 1s
-          await new Promise(resolve => setTimeout(resolve, delay))
-        }
-      }
-    }
     
     if (Object.keys(statusNew).length === 0) {
-      console.warn(`[C300-GPON-SNMP] WARNING: No Status New data found after ${maxStatusRetries} attempts`)
+      console.warn(`[C300-GPON-SNMP] WARNING: No Status New data found`)
     } else {
       const finalCount = Object.keys(statusNew).length
       if (expectedCount && finalCount < expectedCount) {
@@ -1454,7 +1469,7 @@ export async function getC300GponOnuDataViaSNMP(
               community,
               version,
               oidStatusNew,
-              timeout,
+              adaptiveTimeout,
               undefined,
               expectedCount
             )
