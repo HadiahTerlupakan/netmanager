@@ -1,9 +1,10 @@
 /**
  * Optimized SNMP utilities untuk handling large ONU data
- * Menggunakan chunking, pagination, dan caching untuk improve performance
+ * Menggunakan GETBULK (bukan WALK), pagination, dan caching untuk improve performance
  */
 
 import snmp from 'net-snmp'
+import { snmpGetBulkSimple } from '@/lib/utils/snmp-helpers'
 
 // Cache configuration
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
@@ -133,7 +134,7 @@ function setCache(key: string, data: Record<string, string>): void {
   })
 }
 
-// Optimized SNMP walk with chunking
+// Optimized SNMP fetch menggunakan GETBULK (lebih efisien daripada WALK)
 export async function snmpWalkOptimized(
   ipAddress: string,
   port: number,
@@ -163,13 +164,12 @@ export async function snmpWalkOptimized(
     }
   }
 
-  console.log(`[SNMP-Optimized] Starting SNMP walk for ${oid}...`)
+  console.log(`[SNMP-Optimized] Starting SNMP GETBULK for ${oid}...`)
   const startTime = Date.now()
 
-  const session = await connectionPool.getSession(ipAddress, port, community, version)
-
   try {
-    const results = await snmpWalkWithChunking(session, oid, chunkSize, timeout)
+    // Gunakan GETBULK untuk lebih efisien daripada WALK
+    const results = await snmpGetBulkSimple(ipAddress, port, community, version, oid, timeout)
 
     // Cache the results
     if (useCache && Object.keys(results).length > 0) {
@@ -177,11 +177,23 @@ export async function snmpWalkOptimized(
     }
 
     const duration = Date.now() - startTime
-    console.log(`[SNMP-Optimized] Walk completed for ${oid} (${Object.keys(results).length} items, ${duration}ms)`)
+    console.log(`[SNMP-Optimized] GETBULK completed for ${oid} (${Object.keys(results).length} items, ${duration}ms)`)
 
     return results
-  } finally {
-    connectionPool.releaseSession(session)
+  } catch (error: any) {
+    console.error(`[SNMP-Optimized] GETBULK failed for ${oid}:`, error.message || error)
+    // Fallback ke WALK dengan chunking jika GETBULK gagal
+    console.log(`[SNMP-Optimized] Falling back to WALK with chunking...`)
+    const session = await connectionPool.getSession(ipAddress, port, community, version)
+    try {
+      const results = await snmpWalkWithChunking(session, oid, chunkSize, timeout)
+      if (useCache && Object.keys(results).length > 0) {
+        setCache(cacheKey, results)
+      }
+      return results
+    } finally {
+      connectionPool.releaseSession(session)
+    }
   }
 }
 

@@ -14,8 +14,13 @@ export class OnuRepository implements IOnuRepository {
   constructor(private client: PrismaClient = prisma) {}
 
   async findAll(): Promise<OnuPublic[]> {
+    // Gunakan sorting yang stabil berdasarkan gponOnu dan oltId untuk konsistensi
+    // Jangan gunakan lastUpdate karena bisa berubah setiap kali ada sync
     const onus = await this.client.onu.findMany({
-      orderBy: { lastUpdate: 'desc' },
+      orderBy: [
+        { oltId: 'asc' },
+        { gponOnu: 'asc' }
+      ],
       include: {
         olt: {
           select: {
@@ -25,7 +30,7 @@ export class OnuRepository implements IOnuRepository {
         },
       },
     })
-    return onus
+    return onus as OnuPublic[]
   }
 
   async findWithFilters(filters: OnuFilters, pagination: PaginationOptions): Promise<PaginatedOnuResult> {
@@ -114,6 +119,11 @@ export class OnuRepository implements IOnuRepository {
     const whereClause: Prisma.OnuWhereInput = whereConditions.length > 0 
       ? { AND: whereConditions } 
       : {}
+    
+    // Debug logging untuk troubleshooting
+    if (filters.oltId) {
+      console.log(`[OnuRepository] findWithFilters: oltId=${filters.oltId}, whereClause:`, JSON.stringify(whereClause))
+    }
 
     // Get all ONUs for signal filtering (if needed)
     let allOnus: OnuPublic[] = []
@@ -130,7 +140,7 @@ export class OnuRepository implements IOnuRepository {
             },
           },
         },
-      })
+      }) as OnuPublic[]
 
       // Filter by signal quality
       allOnus = allOnus.filter((onu) => {
@@ -172,7 +182,7 @@ export class OnuRepository implements IOnuRepository {
             },
           },
         },
-      })
+      }) as OnuPublic[]
 
       // More precise port filtering - Format: "Frame/Slot/Port"
       const [frame, slot, portNum] = filters.port.split('/').map(Number)
@@ -214,7 +224,7 @@ export class OnuRepository implements IOnuRepository {
             },
           },
         },
-      })
+      }) as OnuPublic[]
 
       // More precise card filtering - Format: "Frame/Slot"
       const [frame, slot] = filters.card.split('/').map(Number)
@@ -246,7 +256,7 @@ export class OnuRepository implements IOnuRepository {
     const [onus, total] = await Promise.all([
       this.client.onu.findMany({
         where: whereClause,
-        orderBy: { lastUpdate: 'desc' },
+        orderBy: [{ oltId: 'asc' }, { gponOnu: 'asc' }], // Stable sorting
         skip,
         take: limit,
         include: {
@@ -257,6 +267,7 @@ export class OnuRepository implements IOnuRepository {
             },
           },
         },
+        // Explicitly include OID fields to ensure they're returned
       }),
       this.client.onu.count({ where: whereClause }),
     ])
@@ -264,7 +275,7 @@ export class OnuRepository implements IOnuRepository {
     const totalPages = Math.ceil(total / limit)
 
     return {
-      onus,
+      onus: onus as OnuPublic[],
       total,
       page,
       limit,
@@ -285,7 +296,7 @@ export class OnuRepository implements IOnuRepository {
         },
       },
     })
-    return onus
+    return onus as OnuPublic[]
   }
 
   async findByGponOnu(oltId: string, gponOnu: string): Promise<OnuPublic | null> {
@@ -305,7 +316,7 @@ export class OnuRepository implements IOnuRepository {
         },
       },
     })
-    return onu
+    return onu as OnuPublic | null
   }
 
   async create(data: OnuCreateData): Promise<{ id: string }> {

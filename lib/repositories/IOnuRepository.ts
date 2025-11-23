@@ -54,6 +54,13 @@ export interface OnuPublic {
   wifiSsid: string | null
   wifiSecurityMode: string | null
   wifiChannel: number | null
+  // SNMP OID fields
+  statusOid: string | null
+  rxOltOid: string | null
+  rxOnuOid: string | null
+  nameOid: string | null
+  descOid: string | null
+  compositeIndex: number | null
   lastUpdate: Date
   createdAt: Date
   updatedAt: Date
@@ -110,6 +117,13 @@ export interface OnuCreateData {
   wifiSsid?: string | null
   wifiSecurityMode?: string | null
   wifiChannel?: number | null
+  // SNMP OID fields - untuk fast SNMP GET
+  statusOid?: string | null
+  rxOltOid?: string | null
+  rxOnuOid?: string | null
+  nameOid?: string | null
+  descOid?: string | null
+  compositeIndex?: number | null
 }
 
 export interface OnuUpdateData {

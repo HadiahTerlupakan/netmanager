@@ -368,7 +368,7 @@ export default function OLTPage() {
               {olts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Tidak ada data OLT. Klik "Tambah OLT" untuk menambahkan.
+                    Tidak ada data OLT. Klik &quot;Tambah OLT&quot; untuk menambahkan.
                   </td>
                 </tr>
               ) : (
@@ -572,6 +572,7 @@ export default function OLTPage() {
                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Type</th>
                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">PPPoE</th>
                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">MAC Address</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Status OID</th>
                         <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Last Seen</th>
                       </tr>
                     </thead>
@@ -601,6 +602,30 @@ export default function OLTPage() {
                           <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">{onu.actualType || 'N/A'}</td>
                           <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">{onu.pppoe || 'N/A'}</td>
                           <td className="px-3 py-2 text-gray-600 dark:text-gray-400 font-mono text-xs">{onu.macAddress || 'N/A'}</td>
+                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 relative group">
+                            {onu.statusOid ? (
+                              <div className="group relative">
+                                <span className="text-xs font-mono text-gray-600 dark:text-gray-400 cursor-help" title={`Status: ${onu.statusOid}\nRX OLT: ${onu.rxOltOid || 'N/A'}\nRX ONU: ${onu.rxOnuOid || 'N/A'}\nName: ${onu.nameOid || 'N/A'}\nDesc: ${onu.descOid || 'N/A'}`}>
+                                  {onu.statusOid.length > 20 ? `${onu.statusOid.substring(0, 20)}...` : onu.statusOid}
+                                </span>
+                                <div className="absolute left-0 top-full mt-1 w-96 p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible z-50 transition-all">
+                                  <div className="font-semibold mb-1">SNMP OIDs:</div>
+                                  <div className="space-y-1 font-mono">
+                                    <div><span className="text-blue-300">Status:</span> {onu.statusOid || 'N/A'}</div>
+                                    <div><span className="text-blue-300">RX OLT:</span> {onu.rxOltOid || 'N/A'}</div>
+                                    <div><span className="text-blue-300">RX ONU:</span> {onu.rxOnuOid || 'N/A'}</div>
+                                    <div><span className="text-blue-300">Name:</span> {onu.nameOid || 'N/A'}</div>
+                                    <div><span className="text-blue-300">Desc:</span> {onu.descOid || 'N/A'}</div>
+                                    {onu.compositeIndex && <div><span className="text-blue-300">Composite Index:</span> {onu.compositeIndex}</div>}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400 dark:text-gray-500" title="OID akan terisi setelah sync ONU dijalankan">
+                                Belum sync
+                              </span>
+                            )}
+                          </td>
                           <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">
                             {onu.lastSeen ? new Date(onu.lastSeen).toLocaleString('id-ID') : 'N/A'}
                           </td>

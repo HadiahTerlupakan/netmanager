@@ -219,21 +219,11 @@ export async function syncOnuDataByOltId(
 
   console.log(`[ONU-Sync] Syncing ONU data from OLT ${olt.name} (${olt.ipAddress})...`)
 
-  // STEP 0: Hapus data ONU lama sebelum sync dimulai
-  console.log(`[ONU-Sync] Step 0: Deleting existing ONU data for OLT ${olt.name}...`)
-  try {
-    // Hitung jumlah ONU yang akan dihapus
-    const existingCount = await onuRepo.countByOltId(oltId)
-    if (existingCount > 0) {
-      await onuRepo.deleteByOltId(oltId)
-      console.log(`[ONU-Sync] Deleted ${existingCount} existing ONUs for OLT ${olt.name}`)
-    } else {
-      console.log(`[ONU-Sync] No existing ONU data to delete for OLT ${olt.name}`)
-    }
-  } catch (error: any) {
-    console.error(`[ONU-Sync] Error deleting existing ONU data:`, error.message)
-    // Lanjutkan sync meskipun delete gagal (mungkin tidak ada data lama)
-  }
+  // JANGAN hapus data ONU lama - gunakan upsert saja untuk menghindari jumlah data berubah-ubah
+  // Upsert sudah smart: hanya update field yang berubah, insert yang baru, skip yang sama
+  // Ini mencegah masalah jumlah ONU yang berubah-ubah saat sync berjalan
+  const existingCount = await onuRepo.countByOltId(oltId)
+  console.log(`[ONU-Sync] Found ${existingCount} existing ONUs for OLT ${olt.name} (will be updated/inserted via upsert)`)
 
   // Update progress: 0% (mulai) - ini akan membuat total progress = 10% + 0% = 10%
   if (onProgress) {
@@ -393,6 +383,13 @@ export async function syncOnuDataByOltId(
           wifiSsid: onu.wifiSsid,
           wifiSecurityMode: onu.wifiSecurityMode,
           wifiChannel: onu.wifiChannel,
+          // SNMP OID fields untuk fast GET
+          statusOid: onu.statusOid || null,
+          rxOltOid: onu.rxOltOid || null,
+          rxOnuOid: onu.rxOnuOid || null,
+          nameOid: onu.nameOid || null,
+          descOid: onu.descOid || null,
+          compositeIndex: onu.compositeIndex || null,
         })
         return result
       } catch (error: any) {
@@ -595,6 +592,79 @@ export async function syncOnuDataByOltId(
   }
 
   console.log(`[ONU-Sync] Successfully saved ${savedCount}/${onuData.length} ONUs for OLT ${olt.name}`)
+  
+  // STEP 3: Cleanup ONU yang sudah tidak ada di SNMP lagi (OPTIONAL - HATI-HATI!)
+  // PENTING: JANGAN hapus data jika fetch tidak lengkap atau ada error
+  // Hanya lakukan cleanup jika:
+  // 1. Sync berhasil (savedCount > 0)
+  // 2. Data yang di-fetch lengkap (onuData.length >= expectedCount atau minimal 80% dari existing)
+  // 3. Tidak ada error selama sync
+  // 4. JANGAN cleanup jika onuData.length === 0 (fetch gagal)
+  // Ini mencegah data hilang jika SNMP fetch gagal atau tidak lengkap
+  const existingCountBeforeSync = existingCount
+  
+  // Validasi ketat untuk mencegah penghapusan data yang tidak seharusnya
+  // JANGAN cleanup jika:
+  // - Tidak ada data yang di-fetch (fetch gagal)
+  // - Data yang di-fetch terlalu sedikit dibanding existing (fetch tidak lengkap)
+  // - Tidak ada data yang berhasil di-save
+  const minDataRequired = existingCountBeforeSync > 0 
+    ? Math.max(1, Math.floor(existingCountBeforeSync * 0.8)) // Minimal 80% dari existing
+    : 1 // Jika tidak ada existing, minimal 1 data
+  
+  const shouldCleanup = savedCount > 0 && 
+                        onuData.length > 0 && 
+                        onuData.length >= minDataRequired &&
+                        existingCountBeforeSync > 0 // Hanya cleanup jika sebelumnya ada data
+  
+  if (shouldCleanup) {
+    try {
+      console.log(`[ONU-Sync] Cleanup phase: Checking for ONUs that no longer exist in SNMP...`)
+      console.log(`[ONU-Sync] Existing before sync: ${existingCountBeforeSync}, Fetched: ${onuData.length}, Saved: ${savedCount}`)
+      
+      // Ambil semua gponOnu yang baru saja di-sync dari SNMP
+      const syncedGponOnus = new Set(onuData.map(onu => onu.gponOnu))
+      
+      // Ambil semua ONU dari database untuk OLT ini
+      const allDbOnus = await onuRepo.findByOltId(olt.id)
+      
+      // Cari ONU yang ada di database tapi tidak ada di SNMP (sudah dicabut/dihapus dari OLT)
+      const onusToDelete = allDbOnus.filter(dbOnu => !syncedGponOnus.has(dbOnu.gponOnu))
+      
+      if (onusToDelete.length > 0) {
+        // HANYA hapus jika jumlah yang akan dihapus tidak terlalu banyak (max 10% dari total)
+        // Ini mencegah penghapusan massal jika ada masalah dengan fetch
+        const maxDeleteAllowed = Math.max(1, Math.floor(allDbOnus.length * 0.1))
+        
+        if (onusToDelete.length <= maxDeleteAllowed) {
+          console.log(`[ONU-Sync] Found ${onusToDelete.length} ONUs that no longer exist in SNMP (will be deleted, within safe limit: ${maxDeleteAllowed})...`)
+          
+          // Hapus ONU yang sudah tidak ada di SNMP (cleanup)
+          // Ini dilakukan SETELAH semua upsert selesai, sehingga tidak mengganggu jumlah data
+          for (const onuToDelete of onusToDelete) {
+            try {
+              await onuRepo.delete(onuToDelete.id)
+            } catch (error: any) {
+              console.error(`[ONU-Sync] Error deleting ONU ${onuToDelete.gponOnu}:`, error.message)
+            }
+          }
+          
+          console.log(`[ONU-Sync] Cleanup completed: Deleted ${onusToDelete.length} ONUs that no longer exist in SNMP`)
+        } else {
+          console.warn(`[ONU-Sync] SKIPPING cleanup: Too many ONUs to delete (${onusToDelete.length} > ${maxDeleteAllowed})`)
+          console.warn(`[ONU-Sync] This might indicate a problem with SNMP fetch. Data will NOT be deleted to prevent data loss.`)
+        }
+      } else {
+        console.log(`[ONU-Sync] No cleanup needed - all database ONUs still exist in SNMP`)
+      }
+    } catch (error: any) {
+      console.error(`[ONU-Sync] Error during cleanup phase:`, error.message)
+      // Jangan throw error - cleanup bukan critical, lanjutkan saja
+    }
+  } else {
+    console.log(`[ONU-Sync] SKIPPING cleanup: Conditions not met (savedCount: ${savedCount}, onuData.length: ${onuData.length}, existing: ${existingCountBeforeSync})`)
+    console.log(`[ONU-Sync] This prevents data loss if SNMP fetch failed or incomplete`)
+  }
   
   // Clear cache setelah sync untuk memastikan data fresh
   if (savedCount > 0) {

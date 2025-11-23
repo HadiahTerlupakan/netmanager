@@ -52,6 +52,22 @@ type CardSummary = {
   totalPorts: number
 }
 
+// Helper function untuk parse gponOnu dengan pattern yang konsisten
+// Format: Frame/Slot/Port:OnuID atau Frame/Slot/Port
+function parseGponOnu(gponOnu: string): { frame: number; slot: number; port: number; onu: number | null } | null {
+  if (!gponOnu) return null
+  // Support kedua format: dengan atau tanpa :OnuID
+  const match = gponOnu.match(/^(\d+)\/(\d+)\/(\d+)(?::(\d+))?$/)
+  if (!match) return null
+  
+  return {
+    frame: parseInt(match[1], 10),
+    slot: parseInt(match[2], 10),
+    port: parseInt(match[3], 10),
+    onu: match[4] ? parseInt(match[4], 10) : null
+  }
+}
+
 function extractCardsFromOnuData(
   onus: Array<{ gponOnu: string }>
 ): CardSummary[] {
@@ -59,12 +75,12 @@ function extractCardsFromOnuData(
 
   onus.forEach((onu) => {
     if (!onu.gponOnu) return
-    const match = onu.gponOnu.match(/^(\d+)\/(\d+)\/(\d+)(?::\d+)?$/)
-    if (!match) return
+    const parsed = parseGponOnu(onu.gponOnu)
+    if (!parsed) return
 
-    const frame = parseInt(match[1], 10)
-    const slot = parseInt(match[2], 10)
-    const port = parseInt(match[3], 10)
+    const frame = parsed.frame
+    const slot = parsed.slot
+    const port = parsed.port
 
     if (!cardMap.has(frame)) {
       cardMap.set(frame, new Map())
@@ -195,6 +211,7 @@ export async function GET(req: NextRequest) {
         // SELALU ambil SEMUA data ONU dari database (semua OLT)
         // Ini memastikan cache selalu konsisten dan tidak berbeda-beda
         const allOnusInDb = await onuRepo.findAll()
+        console.log(`[All-ONU] Fetched ${allOnusInDb.length} ONUs from database (sorted by oltId, gponOnu)`)
         
         if (allOnusInDb.length > 0) {
           // Get OLT names untuk mapping
@@ -217,7 +234,14 @@ export async function GET(req: NextRequest) {
             rxOlt: onu.rxOlt,
             rxOnu: onu.rxOnu,
             serialNumber: onu.serialNumber,
-            actualType: onu.actualType
+            actualType: onu.actualType,
+            // SNMP OID fields
+            statusOid: onu.statusOid || null,
+            rxOltOid: onu.rxOltOid || null,
+            rxOnuOid: onu.rxOnuOid || null,
+            nameOid: onu.nameOid || null,
+            descOid: onu.descOid || null,
+            compositeIndex: onu.compositeIndex || null,
           }))
           
           allOnuData.push(...convertedData)
@@ -262,23 +286,19 @@ export async function GET(req: NextRequest) {
 
     if (card) {
       filteredOnus = filteredOnus.filter(onu => {
-        const match = onu.gponOnu.match(/^(\d+)\/(\d+)\/(\d+):(\d+)$/)
-        if (match) {
-          const cardKey = `${match[1]}/${match[2]}`
-          return cardKey === card
-        }
-        return false
+        const parsed = parseGponOnu(onu.gponOnu)
+        if (!parsed) return false
+        const cardKey = `${parsed.frame}/${parsed.slot}`
+        return cardKey === card
       })
     }
 
     if (port) {
       filteredOnus = filteredOnus.filter(onu => {
-        const match = onu.gponOnu.match(/^(\d+)\/(\d+)\/(\d+):(\d+)$/)
-        if (match) {
-          const portKey = `${match[1]}/${match[2]}/${match[3]}`
-          return portKey === port
-        }
-        return false
+        const parsed = parseGponOnu(onu.gponOnu)
+        if (!parsed) return false
+        const portKey = `${parsed.frame}/${parsed.slot}/${parsed.port}`
+        return portKey === port
       })
     }
 
@@ -299,31 +319,29 @@ export async function GET(req: NextRequest) {
 
     // Sort data secara konsisten untuk memastikan pagination stabil
     // Sort berdasarkan: OLT Name -> GPON ONU (card/port/onu)
+    // Gunakan sorting yang sama dengan database untuk konsistensi
     filteredOnus.sort((a, b) => {
-      // Sort by OLT name first
-      if (a.oltName !== b.oltName) {
-        return (a.oltName || '').localeCompare(b.oltName || '')
+      // Sort by OLT ID first (lebih stabil daripada name)
+      if (a.oltId !== b.oltId) {
+        return a.oltId.localeCompare(b.oltId)
       }
       // Then sort by GPON ONU (format: card/port/onu)
-      const parseGpon = (gpon: string) => {
-        const match = gpon.match(/^(\d+)\/(\d+)\/(\d+):(\d+)$/)
-        if (match) {
-          return {
-            card: parseInt(match[1]),
-            slot: parseInt(match[2]),
-            port: parseInt(match[3]),
-            onu: parseInt(match[4])
-          }
-        }
-        return { card: 0, slot: 0, port: 0, onu: 0 }
-      }
-      const aGpon = parseGpon(a.gponOnu)
-      const bGpon = parseGpon(b.gponOnu)
+      // Gunakan helper function yang sama untuk konsistensi
+      const aGpon = parseGponOnu(a.gponOnu)
+      const bGpon = parseGponOnu(b.gponOnu)
       
-      if (aGpon.card !== bGpon.card) return aGpon.card - bGpon.card
+      if (!aGpon || !bGpon) {
+        // Jika salah satu tidak bisa di-parse, sort berdasarkan string
+        return (a.gponOnu || '').localeCompare(b.gponOnu || '')
+      }
+      
+      if (aGpon.frame !== bGpon.frame) return aGpon.frame - bGpon.frame
       if (aGpon.slot !== bGpon.slot) return aGpon.slot - bGpon.slot
       if (aGpon.port !== bGpon.port) return aGpon.port - bGpon.port
-      return aGpon.onu - bGpon.onu
+      // Handle onu yang mungkin null
+      const aOnu = aGpon.onu ?? 0
+      const bOnu = bGpon.onu ?? 0
+      return aOnu - bOnu
     })
 
     let goodCount = 0
@@ -485,6 +503,9 @@ export async function GET(req: NextRequest) {
     const endIndex = Math.min(startIndex + limit, total)
     const paginatedOnus = filteredOnus.slice(startIndex, endIndex)
     const totalPages = Math.ceil(total / limit)
+    
+    // Log untuk debugging perubahan jumlah data
+    console.log(`[All-ONU] Pagination: page=${page}, limit=${limit}, total=${total}, filtered=${filteredOnus.length}, paginated=${paginatedOnus.length}, totalPages=${totalPages}`)
     // nextCursor untuk tracking, tapi tidak digunakan untuk pagination
     const nextCursor = endIndex < total ? endIndex : null
     const currentPage = page

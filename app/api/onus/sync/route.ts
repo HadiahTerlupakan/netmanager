@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
-import { snmpWalkSimple } from '@/lib/utils/snmp-helpers'
+import { snmpGetBulkSimple } from '@/lib/utils/snmp-helpers'
 import { ONU_OIDS } from '@/lib/utils/onu-oids'
 import type { OnuSyncData } from '@/lib/types/onu-sync'
 import { buildGponPortMap, buildCompositeIndex, parseCompositeIndex, parseGponOnu } from '@/lib/services/onu-sync-helpers'
+import { clearOnuCache } from '../route'
 import {
   isValidName,
   isTimestamp,
@@ -126,8 +127,8 @@ export async function countOnuFromSNMP(
   
   try {
     // Gunakan subtree terlebih dahulu karena lebih cepat untuk counting
-    const { snmpWalkSimple } = await import('@/lib/utils/snmp-helpers')
-    const statusData = await snmpWalkSimple(ipAddress, port, community, version, ONU_OIDS.STATUS_NEW, 300000)
+    const { snmpGetBulkSimple } = await import('@/lib/utils/snmp-helpers')
+    const statusData = await snmpGetBulkSimple(ipAddress, port, community, version, ONU_OIDS.STATUS_NEW, 300000)
     const count = Object.keys(statusData).length
     
     console.log(`[C300-GPON-SNMP-Count] Found ${count} ONUs on OLT ${ipAddress} using subtree`)
@@ -136,57 +137,15 @@ export async function countOnuFromSNMP(
     // Warning jika count terlalu kecil (kemungkinan tidak semua data terambil)
     if (count > 0 && count < 100) {
       console.warn(`[C300-GPON-SNMP-Count] WARNING: Only ${count} ONUs found. This might be incomplete. Expected 600+ ONUs.`)
-      console.warn(`[C300-GPON-SNMP-Count] Trying getNext as fallback for more accurate count...`)
-      
-      // Coba dengan getNext jika count terlalu kecil
-      try {
-        const { snmpWalkWithGetNext } = await import('@/lib/utils/snmp-helpers')
-        const getNextResults = await snmpWalkWithGetNext(
-          ipAddress,
-          port,
-          community,
-          version,
-          ONU_OIDS.STATUS_NEW,
-          300000
-        )
-        const getNextCount = getNextResults.length
-        
-        if (getNextCount > count) {
-          console.log(`[C300-GPON-SNMP-Count] GetNext found ${getNextCount} ONUs (vs ${count} from subtree), using getNext count`)
-          return getNextCount
-        } else if (getNextCount === count) {
-          console.log(`[C300-GPON-SNMP-Count] Both methods agree: ${count} ONUs`)
-        } else {
-          console.warn(`[C300-GPON-SNMP-Count] Subtree found more ONUs (${count}) than getNext (${getNextCount}), using subtree count`)
-        }
-      } catch (getNextError: any) {
-        console.warn(`[C300-GPON-SNMP-Count] GetNext fallback failed: ${getNextError.message || getNextError}, using subtree count`)
-      }
+      console.warn(`[C300-GPON-SNMP-Count] Count seems low, but using subtree result (${count} ONUs)`)
+      // Tidak perlu fallback ke WALK - subtree sudah cukup akurat
     }
     
     return count
   } catch (error: any) {
     console.warn(`[C300-GPON-SNMP-Count] Failed to count ONUs with subtree: ${error.message || error}`)
-    console.warn(`[C300-GPON-SNMP-Count] Trying getNext as fallback...`)
-    
-    // Fallback ke getNext jika subtree gagal
-    try {
-      const { snmpWalkWithGetNext } = await import('@/lib/utils/snmp-helpers')
-      const walkResults = await snmpWalkWithGetNext(
-        ipAddress,
-        port,
-        community,
-        version,
-        ONU_OIDS.STATUS_NEW,
-        300000
-      )
-      const count = walkResults.length
-      console.log(`[C300-GPON-SNMP-Count] Fallback to getNext: Found ${count} ONUs`)
-      return count
-    } catch (fallbackError: any) {
-      console.warn(`[C300-GPON-SNMP-Count] Fallback also failed: ${fallbackError.message || fallbackError}`)
-      return 0
-    }
+    console.warn(`[C300-GPON-SNMP-Count] Returning 0 - will retry on next sync`)
+    return 0
   }
 }
 
@@ -515,6 +474,33 @@ function processOnuDataFromIndex(
   const registrationMode: string | null = null
   const lastSeen = new Date()
 
+  // Build OID lengkap untuk setiap field (untuk fast SNMP GET)
+  // Format: baseOid.compositeIndex.onuId
+  const indexParts = idx.split('.')
+  let compositeIndexNum: number | null = null
+  if (indexParts.length >= 2) {
+    const compositeIndexStr = indexParts[0]
+    compositeIndexNum = parseInt(compositeIndexStr, 10) || null
+  }
+
+  const statusOid = compositeIndexNum ? `${ONU_OIDS.STATUS_NEW}.${idx}` : null
+  const rxOltOid = compositeIndexNum ? `${ONU_OIDS.RX_OLT_NEW}.${idx}` : null
+  const rxOnuOid = compositeIndexNum ? `${ONU_OIDS.RX_ONU_NEW}.${idx}` : null
+  const nameOid = compositeIndexNum ? `${ONU_OIDS.NAME}.${idx}` : null
+  const descOid = compositeIndexNum ? `${ONU_OIDS.DESC}.${idx}` : null
+
+  // Log OID untuk debugging (hanya untuk beberapa ONU pertama)
+  if (Math.random() < 0.01) { // Log 1% dari ONU untuk debugging
+    console.log(`[ONU-Sync] Built OIDs for ${gponOnu} (idx: ${idx}):`, {
+      statusOid,
+      rxOltOid,
+      rxOnuOid,
+      nameOid,
+      descOid,
+      compositeIndex: compositeIndexNum,
+    })
+  }
+
   return {
     oltId,
     name: finalName,
@@ -563,6 +549,13 @@ function processOnuDataFromIndex(
     wifiSsid,
     wifiSecurityMode,
     wifiChannel,
+    // SNMP OID fields
+    statusOid: statusOid || null,
+    rxOltOid: rxOltOid || null,
+    rxOnuOid: rxOnuOid || null,
+    nameOid: nameOid || null,
+    descOid: descOid || null,
+    compositeIndex: compositeIndexNum,
   }
 }
 
@@ -587,7 +580,7 @@ async function discoverCardAndPonStructure(
     
     try {
       // Gunakan timeout 5 menit (dikurangi dari 10 menit) karena stability check sudah dioptimasi
-      statusData = await snmpWalkSimple(ipAddress, port, community, version, oidStatusNew, 300000)
+      statusData = await snmpGetBulkSimple(ipAddress, port, community, version, oidStatusNew, 300000)
     } catch (e: any) {
       console.warn(`[C300-GPON-Discovery] Failed to fetch Status New: ${e.message || e}`)
     }
@@ -727,7 +720,7 @@ export async function getC300GponOnuDataViaSNMP(
     const cardPonStructure = await discoverCardAndPonStructure(ipAddress, port, community, version)
     
     if (cardPonStructure.length === 0) {
-      console.warn(`[C300-GPON-SNMP] No Card/PON structure found, falling back to standard walk method...`)
+      console.warn(`[C300-GPON-SNMP] No Card/PON structure found, falling back to standard GETBULK method...`)
       // Fallback ke metode lama jika tidak ada Card/PON yang ditemukan
     } else {
       console.log(`[C300-GPON-SNMP] Discovered ${cardPonStructure.length} Card/PON combinations, will fetch ONU data per PON`)
@@ -737,7 +730,7 @@ export async function getC300GponOnuDataViaSNMP(
     console.log(`[C300-GPON-SNMP] ========================================`)
     console.log(`[C300-GPON-SNMP] STEP 2: FETCHING ALL ONU DATA (GLOBAL)`)
     console.log(`[C300-GPON-SNMP] ========================================`)
-    console.log(`[C300-GPON-SNMP] Walking OIDs${maxResults ? ` (max ${maxResults} results)` : ''}...`)
+    console.log(`[C300-GPON-SNMP] Fetching OIDs using GETBULK${maxResults ? ` (max ${maxResults} results)` : ''}...`)
         
       
     // Timeout adaptif berdasarkan expected count (didefinisikan lebih awal untuk digunakan di semua fetch)
@@ -748,10 +741,10 @@ export async function getC300GponOnuDataViaSNMP(
     // Gunakan timeout adaptif berdasarkan expected count
     let txOnuNew: Record<string, string> = {}
     try {
-      txOnuNew = await snmpWalkSimple(ipAddress, port, community, version, oidTxOnuNew, adaptiveTimeout)
+      txOnuNew = await snmpGetBulkSimple(ipAddress, port, community, version, oidTxOnuNew, adaptiveTimeout)
       console.log(`[C300-GPON-SNMP] TX ONU: ${Object.keys(txOnuNew).length} entries`)
     } catch (e: any) {
-      console.warn(`[C300-GPON-SNMP] SNMP Walk failed for TX ONU: ${e.message || e}`)
+      console.warn(`[C300-GPON-SNMP] SNMP GETBULK failed for TX ONU: ${e.message || e}`)
       txOnuNew = {}
     }
 
@@ -802,7 +795,7 @@ export async function getC300GponOnuDataViaSNMP(
         testOids.map(async ([key, oid]) => {
           try {
             const testTimeout = 20000 // 20 detik untuk test (lebih cepat dari 30 detik)
-            const data = await snmpWalkSimple(ipAddress, port, community, version, oid, testTimeout)
+            const data = await snmpGetBulkSimple(ipAddress, port, community, version, oid, testTimeout)
             return { key, count: Object.keys(data).length }
           } catch (e: any) {
             return { key, count: 0 }
@@ -832,15 +825,15 @@ export async function getC300GponOnuDataViaSNMP(
       const optionalTimeout = 20000 // 20 detik untuk optional data (lebih cepat dari 30 detik)
       const fetchPromises = Object.entries(oids).map(async ([key, oid]) => {
         try {
-          const data = await snmpWalkSimple(ipAddress, port, community, version, oid, optionalTimeout)
+          const data = await snmpGetBulkSimple(ipAddress, port, community, version, oid, optionalTimeout)
           console.log(`[C300-GPON-SNMP] ZTE-AN-PON ${key}: ${Object.keys(data).length} entries`)
           return { key, data }
         } catch (e: any) {
           // Skip optional OID jika timeout atau error, tidak throw error
           if (e.message && e.message.includes('timeout')) {
-            console.warn(`[C300-GPON-SNMP] SNMP Walk timeout for ${key} (optional), skipping...`)
+            console.warn(`[C300-GPON-SNMP] SNMP GETBULK timeout for ${key} (optional), skipping...`)
           } else {
-            console.warn(`[C300-GPON-SNMP] SNMP Walk failed for ${key}: ${e.message || e}`)
+            console.warn(`[C300-GPON-SNMP] SNMP GETBULK failed for ${key}: ${e.message || e}`)
           }
           return { key, data: {} as Record<string, string> }
         }
@@ -874,7 +867,7 @@ export async function getC300GponOnuDataViaSNMP(
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           console.log(`[C300-GPON-SNMP] Fetching ${name} (main OID, attempt ${attempt}/${maxRetries})...`)
-          const data = await snmpWalkSimple(ipAddress, port, community, version, mainOid, timeout)
+          const data = await snmpGetBulkSimple(ipAddress, port, community, version, mainOid, timeout)
           
           if (Object.keys(data).length > 0) {
             result = { ...result, ...data }
@@ -915,7 +908,7 @@ export async function getC300GponOnuDataViaSNMP(
             }
           }
         } catch (e: any) {
-          console.warn(`[C300-GPON-SNMP] SNMP Walk failed for ${name} (main, attempt ${attempt}): ${e.message || e}`)
+          console.warn(`[C300-GPON-SNMP] SNMP GETBULK failed for ${name} (main, attempt ${attempt}): ${e.message || e}`)
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, 500)) // Delay 0.5 detik sebelum retry (lebih cepat)
           }
@@ -928,7 +921,7 @@ export async function getC300GponOnuDataViaSNMP(
         for (let attempt = 1; attempt <= maxAltRetries; attempt++) {
           try {
             console.log(`[C300-GPON-SNMP] Fetching ${name} (alt OID, attempt ${attempt}/${maxAltRetries})...`)
-            const data = await snmpWalkSimple(ipAddress, port, community, version, altOid, timeout)
+            const data = await snmpGetBulkSimple(ipAddress, port, community, version, altOid, timeout)
             
             if (Object.keys(data).length > 0) {
               // Merge dengan result yang sudah ada
@@ -953,7 +946,7 @@ export async function getC300GponOnuDataViaSNMP(
               }
             }
           } catch (e: any) {
-            console.warn(`[C300-GPON-SNMP] SNMP Walk failed for ${name} (alt, attempt ${attempt}): ${e.message || e}`)
+            console.warn(`[C300-GPON-SNMP] SNMP GETBULK failed for ${name} (alt, attempt ${attempt}): ${e.message || e}`)
             if (attempt < maxAltRetries) {
               await new Promise(resolve => setTimeout(resolve, 500)) // Delay 0.5 detik sebelum retry (lebih cepat)
             }
@@ -991,7 +984,7 @@ export async function getC300GponOnuDataViaSNMP(
     for (let attempt = 1; attempt <= maxStatusRetries; attempt++) {
       try {
         console.log(`[C300-GPON-SNMP] Fetching Status New (attempt ${attempt}/${maxStatusRetries})...`)
-        const data = await snmpWalkSimple(ipAddress, port, community, version, oidStatusNew, timeout, undefined, expectedCount)
+        const data = await snmpGetBulkSimple(ipAddress, port, community, version, oidStatusNew, timeout, undefined, expectedCount)
         
         const currentCount = Object.keys(data).length
         
@@ -1043,7 +1036,7 @@ export async function getC300GponOnuDataViaSNMP(
           await new Promise(resolve => setTimeout(resolve, delay))
         }
       } catch (e: any) {
-        console.warn(`[C300-GPON-SNMP] SNMP Walk failed for status (new, attempt ${attempt}): ${e.message || e}`)
+        console.warn(`[C300-GPON-SNMP] SNMP GETBULK failed for status (new, attempt ${attempt}): ${e.message || e}`)
         if (attempt < maxStatusRetries) {
           const delay = attempt * 500 // Delay lebih cepat: 0.5s, 1s
           await new Promise(resolve => setTimeout(resolve, delay))
@@ -1087,18 +1080,18 @@ export async function getC300GponOnuDataViaSNMP(
     
     const fetchStatusOld = async (): Promise<Record<string, string>> => {
       try {
-        return await snmpWalkSimple(ipAddress, port, community, version, oidStatus, adaptiveTimeout)
+        return await snmpGetBulkSimple(ipAddress, port, community, version, oidStatus, adaptiveTimeout)
       } catch (e: any) {
-        console.warn(`[C300-GPON-SNMP] SNMP Walk failed for status (old): ${e.message || e}`)
+        console.warn(`[C300-GPON-SNMP] SNMP GETBULK failed for status (old): ${e.message || e}`)
         return {}
       }
     }
     
     const fetchName = async (): Promise<Record<string, string>> => {
       try {
-        return await snmpWalkSimple(ipAddress, port, community, version, oidName, adaptiveTimeout)
+        return await snmpGetBulkSimple(ipAddress, port, community, version, oidName, adaptiveTimeout)
       } catch (e: any) {
-        console.warn(`[C300-GPON-SNMP] SNMP Walk failed for name: ${e.message || e}`)
+        console.warn(`[C300-GPON-SNMP] SNMP GETBULK failed for name: ${e.message || e}`)
         return {}
       }
     }
@@ -1117,12 +1110,12 @@ export async function getC300GponOnuDataViaSNMP(
     // Gunakan timeout lebih pendek (1.5 menit) untuk optional data, skip jika timeout
     const optionalTimeout = 90000 // 1.5 menit untuk optional data (lebih cepat)
     const optionalData = await Promise.allSettled([
-      snmpWalkSimple(ipAddress, port, community, version, oidRx, optionalTimeout),
-      snmpWalkSimple(ipAddress, port, community, version, oidTx, optionalTimeout),
-      snmpWalkSimple(ipAddress, port, community, version, oidDesc, optionalTimeout),
-      snmpWalkSimple(ipAddress, port, community, version, oidReg, optionalTimeout),
-      snmpWalkSimple(ipAddress, port, community, version, oidRxOnuNew, optionalTimeout),
-      snmpWalkSimple(ipAddress, port, community, version, oidPppoe, optionalTimeout),
+      snmpGetBulkSimple(ipAddress, port, community, version, oidRx, optionalTimeout),
+      snmpGetBulkSimple(ipAddress, port, community, version, oidTx, optionalTimeout),
+      snmpGetBulkSimple(ipAddress, port, community, version, oidDesc, optionalTimeout),
+      snmpGetBulkSimple(ipAddress, port, community, version, oidReg, optionalTimeout),
+      snmpGetBulkSimple(ipAddress, port, community, version, oidRxOnuNew, optionalTimeout),
+      snmpGetBulkSimple(ipAddress, port, community, version, oidPppoe, optionalTimeout),
       fetchZteAnPonData(),
     ])
 
@@ -1452,24 +1445,25 @@ export async function getC300GponOnuDataViaSNMP(
         
         // Coba retry dengan getNext jika selisih terlalu besar
         if (fetchedCount < expectedCount && diffPercentage > 10) {
-          console.log(`[C300-GPON-SNMP] Attempting retry with getNext to fetch missing ONUs...`)
+          console.log(`[C300-GPON-SNMP] Attempting retry with GETBULK (subtree) to fetch missing ONUs...`)
           try {
-            const { snmpWalkWithGetNext } = await import('@/lib/utils/snmp-helpers')
-            const getNextResults = await snmpWalkWithGetNext(
+            // Retry dengan GETBULK (subtree) - tidak menggunakan WALK
+            const retryResults = await snmpGetBulkSimple(
               ipAddress,
               port,
               community,
               version,
               oidStatusNew,
               timeout,
+              undefined,
               expectedCount
             )
             
-            const getNextCount = getNextResults.length
-            console.log(`[C300-GPON-SNMP] GetNext retry returned ${getNextCount} results`)
+            const retryCount = Object.keys(retryResults).length
+            console.log(`[C300-GPON-SNMP] GETBULK retry returned ${retryCount} results`)
             
-            if (getNextCount > fetchedCount) {
-              console.log(`[C300-GPON-SNMP] GetNext found more ONUs (${getNextCount} vs ${fetchedCount}), but cannot merge without re-fetching all data`)
+            if (retryCount > fetchedCount) {
+              console.log(`[C300-GPON-SNMP] GETBULK retry found more ONUs (${retryCount} vs ${fetchedCount}), but cannot merge without re-fetching all data`)
               console.warn(`[C300-GPON-SNMP] Consider re-running sync to get complete data`)
             }
           } catch (retryError: any) {
@@ -1589,14 +1583,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Clear existing data only if specified
+    // Clear existing data only if explicitly requested (clear=true)
+    // CATATAN: Untuk update normal, JANGAN gunakan clear=true
+    // Update normal menggunakan upsert yang hanya update field yang berubah, tidak menghapus data
     if (clear) {
-      console.log(`[All-ONU] Clearing existing ONU data...`)
+      console.log(`[All-ONU] WARNING: Clearing existing ONU data (clear=true was specified)...`)
+      console.log(`[All-ONU] This will delete all existing ONUs before sync. Use with caution!`)
       for (const olt of connectedOlts) {
         await onuRepo.deleteByOltId(olt.id)
         console.log(`[All-ONU] Deleted existing ONUs for OLT ${olt.name}`)
       }
       console.log(`[All-ONU] Existing ONU data cleared`)
+    } else {
+      console.log(`[All-ONU] Using upsert mode: will update existing ONUs and insert new ones (no deletion before sync)`)
     }
 
     let totalSynced = 0
@@ -1647,14 +1646,72 @@ export async function POST(req: NextRequest) {
         }
 
         if (onuData.length === 0) {
-          console.log(`[All-ONU] No ONU data found for OLT ${olt.name}`)
+          console.log(`[All-ONU] No ONU data found for OLT ${olt.name} from SNMP`)
+          console.log(`[All-ONU] Attempting to populate OIDs for existing ONUs in database...`)
+          
+          // Coba isi OID untuk ONU yang sudah ada di database
+          try {
+            const existingOnus = await onuRepo.findByOltId(olt.id)
+            if (existingOnus.length > 0) {
+              console.log(`[All-ONU] Found ${existingOnus.length} existing ONUs in database, populating OIDs...`)
+              
+              const { buildCompositeIndex } = await import('@/lib/services/onu-sync-helpers')
+              let oidPopulatedCount = 0
+              
+              for (const existingOnu of existingOnus) {
+                // Parse gponOnu untuk mendapatkan frame, slot, port, onu
+                const match = existingOnu.gponOnu.match(/^(\d+)\/(\d+)\/(\d+):(\d+)$/)
+                if (match) {
+                  const frame = parseInt(match[1], 10)
+                  const slot = parseInt(match[2], 10)
+                  const port = parseInt(match[3], 10)
+                  const onuId = parseInt(match[4], 10)
+                  
+                  // Hitung composite index
+                  const compositeIndex = buildCompositeIndex(frame, slot, port)
+                  const idx = `${compositeIndex}.${onuId}`
+                  
+                  // Build OID lengkap
+                  const statusOid = `${ONU_OIDS.STATUS_NEW}.${idx}`
+                  const rxOltOid = `${ONU_OIDS.RX_OLT_NEW}.${idx}`
+                  const rxOnuOid = `${ONU_OIDS.RX_ONU_NEW}.${idx}`
+                  const nameOid = `${ONU_OIDS.NAME}.${idx}`
+                  const descOid = `${ONU_OIDS.DESC}.${idx}`
+                  
+                  // Update OID jika belum ada
+                  if (!existingOnu.statusOid) {
+                    await onuRepo.upsert(olt.id, existingOnu.gponOnu, {
+                      oltId: olt.id,
+                      name: existingOnu.name,
+                      gponOnu: existingOnu.gponOnu,
+                      status: existingOnu.status,
+                      statusOid,
+                      rxOltOid,
+                      rxOnuOid,
+                      nameOid,
+                      descOid,
+                      compositeIndex,
+                    })
+                    oidPopulatedCount++
+                  }
+                }
+              }
+              
+              console.log(`[All-ONU] Populated OIDs for ${oidPopulatedCount}/${existingOnus.length} existing ONUs`)
+            }
+          } catch (oidError: any) {
+            console.error(`[All-ONU] Error populating OIDs for existing ONUs:`, oidError.message)
+          }
+          
           continue
         }
 
         console.log(`[All-ONU] Saving ${onuData.length} ONUs to database for OLT ${olt.name}...`)
+        console.log(`[All-ONU] Using UPSERT: will update existing ONUs and insert new ones (no deletion)`)
 
         // Optimized database operations dengan batching
-        console.log(`[All-ONU] Saving ${onuData.length} ONUs to database in optimized batches...`)
+        // UPSERT: Update existing ONUs, insert new ones, skip unchanged ones
+        console.log(`[All-ONU] Processing ${onuData.length} ONUs in optimized batches using upsert...`)
         let savedCount = 0
         const batchSize = 25 // Batch size untuk optimal performance
 
@@ -1720,7 +1777,14 @@ export async function POST(req: NextRequest) {
               wifiSsid: onu.wifiSsid,
               wifiSecurityMode: onu.wifiSecurityMode,
               wifiChannel: onu.wifiChannel,
-                })
+              // SNMP OID fields untuk fast GET
+              statusOid: onu.statusOid || null,
+              rxOltOid: onu.rxOltOid || null,
+              rxOnuOid: onu.rxOnuOid || null,
+              nameOid: onu.nameOid || null,
+              descOid: onu.descOid || null,
+              compositeIndex: onu.compositeIndex || null,
+            })
                 savedCount++
               } catch (error: any) {
                 console.error(`[All-ONU] Error saving ONU ${onu.gponOnu}:`, error.message)
@@ -1743,6 +1807,13 @@ export async function POST(req: NextRequest) {
         console.error(`[All-ONU] ${errorMsg}`)
         errors.push(errorMsg)
       }
+    }
+
+    // Clear cache ONU setelah sync selesai untuk memastikan data fresh
+    // Ini mencegah masalah jumlah data yang berubah-ubah karena cache stale
+    if (totalSynced > 0) {
+      console.log(`[All-ONU] Clearing ONU cache after sync (${totalSynced} ONUs synced)...`)
+      clearOnuCache()
     }
 
     return NextResponse.json({

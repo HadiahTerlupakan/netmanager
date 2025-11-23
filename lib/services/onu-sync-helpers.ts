@@ -3,7 +3,7 @@
  * Helper functions untuk ONU sync operations
  */
 
-import { snmpWalkSimple } from '@/lib/utils/snmp-helpers'
+import { snmpGetBulkSimple } from '@/lib/utils/snmp-helpers'
 import { ONU_OIDS } from '@/lib/utils/onu-oids'
 import type { GponPortInfo } from '@/lib/types/onu-sync'
 
@@ -45,7 +45,7 @@ export async function buildGponPortMap(
   const gponPortMap = new Map<string, GponPortInfo>()
   
   try {
-    const ifNameData = await snmpWalkSimple(ipAddress, port, community, version, ONU_OIDS.IF_NAME, 300000)
+    const ifNameData = await snmpGetBulkSimple(ipAddress, port, community, version, ONU_OIDS.IF_NAME, 300000)
     
     console.log(`[C300-GPON-SNMP] Found ${Object.keys(ifNameData).length} interfaces from IF-MIB`)
     

@@ -1,4 +1,4 @@
-import { snmpWalkSimple } from '@/lib/utils/snmp-helpers'
+import { snmpGetBulkSimple } from '@/lib/utils/snmp-helpers'
 import { buildGponPortMap } from './onu-sync-helpers'
 import { SNMPOIDCollector } from './snmp-oid-collector'
 import { ONUDataParser } from './onu-data-parser'
@@ -35,7 +35,7 @@ export class ONUDataFetcher {
     version: string
   ): Promise<number> {
     const statusOID = this.oidCollector.getOID('statusNew')
-    const statusData = await snmpWalkSimple(ipAddress, port, community, version, statusOID, 300000)
+    const statusData = await snmpGetBulkSimple(ipAddress, port, community, version, statusOID, 300000)
     return Object.keys(statusData).length
   }
 
@@ -175,7 +175,7 @@ export class ONUDataFetcher {
           return [oidName, data]
         } else {
           const oid = this.oidCollector.getOID(oidName)
-          const data = await snmpWalkSimple(ipAddress, port, community, version, oid, 300000)
+          const data = await snmpGetBulkSimple(ipAddress, port, community, version, oid, 300000)
           return [oidName, data]
         }
       } catch (error) {
@@ -211,7 +211,7 @@ export class ONUDataFetcher {
 
     const fetchPromises = Object.entries(zteOIDs).map(async ([key, oid]) => {
       try {
-        const data = await snmpWalkSimple(ipAddress, port, community, version, oid, 300000)
+        const data = await snmpGetBulkSimple(ipAddress, port, community, version, oid, 300000)
         results[key] = data
       } catch (error) {
         console.warn(`[ONU-DataFetcher] ZTE ${key} failed:`, error)
@@ -236,7 +236,7 @@ export class ONUDataFetcher {
     name: string
   ): Promise<Record<string, string>> {
     try {
-      const data = await snmpWalkSimple(ipAddress, port, community, version, mainOID, 300000)
+      const data = await snmpGetBulkSimple(ipAddress, port, community, version, mainOID, 300000)
       if (Object.keys(data).length > 0) {
         console.log(`[ONU-DataFetcher] ${name} (main): ${Object.keys(data).length} entries`)
         return data
@@ -247,7 +247,7 @@ export class ONUDataFetcher {
 
     if (altOID) {
       try {
-        const data = await snmpWalkSimple(ipAddress, port, community, version, altOID, 300000)
+        const data = await snmpGetBulkSimple(ipAddress, port, community, version, altOID, 300000)
         console.log(`[ONU-DataFetcher] ${name} (alt): ${Object.keys(data).length} entries`)
         return data
       } catch (error: any) {

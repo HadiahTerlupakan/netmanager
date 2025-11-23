@@ -35,6 +35,13 @@ type OnuData = {
   rxOnu: string | null
   serialNumber: string | null
   actualType: string | null
+  // SNMP OID fields
+  statusOid?: string | null
+  rxOltOid?: string | null
+  rxOnuOid?: string | null
+  nameOid?: string | null
+  descOid?: string | null
+  compositeIndex?: number | null
 }
 
 type SummaryData = {
@@ -67,6 +74,7 @@ type Card = {
 const DEFAULT_LIMIT = 5
 const ROW_HEIGHT = 68
 const GRID_TEMPLATE_COLUMNS = '60px 170px 220px 240px 150px 140px 140px 140px 150px 200px 160px 120px'
+const LIVE_DATA_CACHE_TTL = 30 * 1000 // 30 detik cache untuk data live
 
 const INITIAL_SUMMARY: SummaryData = {
   total: 0,
@@ -112,6 +120,9 @@ export default function AllOnuPage() {
   const [pollingEnabled, setPollingEnabled] = useState(true)
   const [pollingInterval, setPollingInterval] = useState(30) // detik
   const [lastPollTime, setLastPollTime] = useState<Date | null>(null)
+  
+  // Cache untuk data live dari SNMP GET (key: gponOnu, value: OnuData)
+  const liveDataCacheRef = useRef<Map<string, { data: OnuData; timestamp: number }>>(new Map())
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const isPageVisibleRef = useRef(true)
   const isPollingRef = useRef(false) // Flag untuk mencegah multiple polling concurrent
@@ -207,6 +218,71 @@ export default function AllOnuPage() {
     searchValue?: string
   }
 
+  // Fungsi untuk update ONU yang sedang ditampilkan menggunakan SNMP GET
+  // Mengembalikan data terbaru yang sudah di-update
+  const updateDisplayedOnus = useCallback(async (onusToUpdate: OnuData[]): Promise<OnuData[] | null> => {
+    try {
+      // Siapkan data untuk update
+      const onuList = onusToUpdate.map(onu => ({
+        gponOnu: onu.gponOnu,
+        oltId: onu.oltId,
+      }))
+
+      console.log(`[All-ONU] Updating ${onuList.length} displayed ONUs via SNMP GET...`)
+
+      // Panggil API untuk update
+      const res = await fetch('/api/onus/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ onuList }),
+      })
+
+      const updateResult = await res.json()
+
+      if (updateResult.success && updateResult.onus) {
+        // Update state dengan data terbaru
+        const updatedOnusMap = new Map<string, any>()
+        for (const updatedOnu of updateResult.onus) {
+          if (updatedOnu.updated && updatedOnu.data) {
+            updatedOnusMap.set(updatedOnu.gponOnu, updatedOnu.data)
+          }
+        }
+
+        // Merge data terbaru dengan data yang ada
+        // Hanya update field yang benar-benar ada datanya dari SNMP GET
+        const updatedOnus = onusToUpdate.map(onu => {
+          const updatedData = updatedOnusMap.get(onu.gponOnu)
+          if (updatedData && updatedData.status) {
+            // Hanya update jika ada status dari SNMP GET (ini indikator bahwa SNMP GET berhasil)
+            // Update semua field yang ada datanya dari SNMP GET
+            return {
+              ...onu,
+              status: updatedData.status, // Status dari SNMP GET (harus ada)
+              rxOlt: (updatedData.rxOlt && updatedData.rxOlt !== 'N/A') ? updatedData.rxOlt : onu.rxOlt,
+              rxOnu: (updatedData.rxOnu && updatedData.rxOnu !== 'N/A') ? updatedData.rxOnu : onu.rxOnu,
+              name: updatedData.name || onu.name,
+              description: updatedData.description !== undefined && updatedData.description !== null ? updatedData.description : onu.description,
+            }
+          }
+          // Jika tidak ada data dari SNMP GET (tidak ada status), tetap gunakan data dari database
+          console.warn(`[All-ONU] No SNMP GET data for ${onu.gponOnu}, keeping database data`)
+          return onu
+        })
+
+        console.log(`[All-ONU] Successfully updated ${updateResult.updated}/${updateResult.total} ONUs via SNMP GET`)
+        return updatedOnus
+      } else {
+        console.warn(`[All-ONU] Failed to update ONUs:`, updateResult.error)
+        return null
+      }
+    } catch (error: any) {
+      console.error(`[All-ONU] Error updating displayed ONUs:`, error.message)
+      return null
+    }
+  }, [])
+
   const fetchOnus = useCallback(async (options: FetchOptions = {}) => {
     const { reset = false, cursorOverride, searchValue } = options
     const appliedSearch = searchValue ?? searchRef.current ?? ''
@@ -283,8 +359,79 @@ export default function AllOnuPage() {
       }
 
       const incomingOnus: OnuData[] = data.onus || []
-      // Always replace data, jangan append
-      setOnus(incomingOnus)
+      
+      // OPTIMASI: Tampilkan data database dulu (instant), lalu update via SNMP GET di background
+      // Ini mencegah loading lama saat paginasi
+      const now = Date.now()
+      const cachedOnus: OnuData[] = []
+      const onusToFetch: OnuData[] = []
+      
+      for (const onu of incomingOnus) {
+        const cached = liveDataCacheRef.current.get(onu.gponOnu)
+        if (cached && (now - cached.timestamp) < LIVE_DATA_CACHE_TTL) {
+          // Gunakan data dari cache jika masih fresh
+          cachedOnus.push(cached.data)
+        } else {
+          // Perlu fetch dari SNMP GET (tapi tidak blocking)
+          onusToFetch.push(onu)
+        }
+      }
+      
+      // Tampilkan data database/cache dulu (instant) - tidak blocking
+      // Clear loading state segera setelah data ditampilkan (tidak menunggu SNMP GET)
+      if (cachedOnus.length === incomingOnus.length) {
+        // Semua data ada di cache, tampilkan langsung
+        setOnus(cachedOnus)
+        const newSummary = calculateSummary(cachedOnus)
+        setSummaryData(newSummary)
+        setLoading(false) // Clear loading segera
+        loadingCleared = true
+        console.log(`[All-ONU] Using cached live data for ${cachedOnus.length} ONUs`)
+      } else {
+        // Tampilkan data database/cache dulu (instant)
+        const displayOnus = [...cachedOnus, ...incomingOnus.filter(onu => !cachedOnus.find(c => c.gponOnu === onu.gponOnu))]
+        setOnus(displayOnus)
+        setSummaryData(data.summary || INITIAL_SUMMARY)
+        setLoading(false) // Clear loading segera - tidak menunggu SNMP GET
+        loadingCleared = true
+        console.log(`[All-ONU] Displaying database data instantly (${displayOnus.length} ONUs), updating ${onusToFetch.length} ONUs in background...`)
+        
+        // Lakukan SNMP GET di background (non-blocking) setelah data ditampilkan
+        if (onusToFetch.length > 0) {
+          // Update via SNMP GET di background (tidak blocking UI)
+          updateDisplayedOnus(onusToFetch).then((updatedOnus) => {
+            if (updatedOnus && updatedOnus.length > 0) {
+              // Update cache dengan data live
+              for (const onu of updatedOnus) {
+                liveDataCacheRef.current.set(onu.gponOnu, {
+                  data: onu,
+                  timestamp: Date.now()
+                })
+              }
+              
+              // Update UI dengan data live (non-blocking)
+              setOnus(prevOnus => {
+                const updatedMap = new Map(prevOnus.map(onu => [onu.gponOnu, onu]))
+                for (const updatedOnu of updatedOnus) {
+                  updatedMap.set(updatedOnu.gponOnu, updatedOnu)
+                }
+                const finalOnus = Array.from(updatedMap.values())
+                // Update summary dengan data live
+                const newSummary = calculateSummary(finalOnus)
+                setSummaryData(newSummary)
+                return finalOnus
+              })
+              
+              console.log(`[All-ONU] Background update: Updated ${updatedOnus.length} ONUs via SNMP GET`)
+            } else {
+              console.warn(`[All-ONU] Background update: SNMP GET failed, keeping database data`)
+            }
+          }).catch((error) => {
+            console.error(`[All-ONU] Background update error:`, error)
+            // Tetap tampilkan data database jika SNMP GET gagal
+          })
+        }
+      }
       
       // Jika data dari cache, pastikan loading sudah di-clear
       // Ini untuk memastikan tidak ada loading indicator yang tersisa
@@ -292,7 +439,6 @@ export default function AllOnuPage() {
         setLoading(false)
         loadingCleared = true
       }
-      setSummaryData(data.summary || INITIAL_SUMMARY)
       setPagination(data.pagination || { ...INITIAL_PAGINATION, limit })
       // Update nextCursor untuk tracking, tapi untuk pagination kita gunakan page-based
       setNextCursor(data.nextCursor ?? null)
@@ -339,7 +485,7 @@ export default function AllOnuPage() {
         }, 500)
       }
     }
-  }, [limit, page, selectedCard, selectedOlt, selectedPort, selectedType, onus.length])
+  }, [limit, page, selectedCard, selectedOlt, selectedPort, selectedType, onus.length, updateDisplayedOnus])
 
   const calculateSummary = (onus: OnuData[]): SummaryData => {
     const total = onus.length
@@ -607,16 +753,17 @@ export default function AllOnuPage() {
   }, [pollingEnabled, olts.length, startPolling])
 
   const handleRefresh = async () => {
-    // Tidak perlu pilih OLT - refresh semua data
+    // Refresh manual: akan melakukan SNMP GET untuk semua ONU yang ditampilkan
+    // Ini akan mengambil data terbaru langsung dari OLT via SNMP GET
     setNextCursor(0)
     setPage(1)
     try {
-      // Kirim forceRefresh hanya saat refresh manual
+      // Kirim forceRefresh untuk clear cache dan ambil data fresh dari database
       const params = new URLSearchParams({
         page: '1',
         limit: limit.toString(),
         cursor: '0',
-        forceRefresh: 'true', // Force refresh untuk refresh manual
+        forceRefresh: 'true', // Force refresh untuk clear cache
       })
       if (searchRef.current?.trim()) params.append('search', searchRef.current.trim())
       if (selectedOlt) params.append('oltId', selectedOlt)
@@ -640,8 +787,49 @@ export default function AllOnuPage() {
       }
 
       const incomingOnus: OnuData[] = data.onus || []
-      setOnus(incomingOnus)
-      setSummaryData(data.summary || INITIAL_SUMMARY)
+      
+      // Refresh: Clear cache dan langsung lakukan SNMP GET untuk mendapatkan data live
+      // Tampilkan data live langsung, bukan data dari database
+      if (incomingOnus.length > 0) {
+        // Clear cache untuk ONU yang akan di-refresh
+        for (const onu of incomingOnus) {
+          liveDataCacheRef.current.delete(onu.gponOnu)
+        }
+        
+        console.log(`[All-ONU] Refresh: Fetching live data for ${incomingOnus.length} ONUs via SNMP GET...`)
+        
+        // Set loading state
+        setLoading(true)
+        
+        // Lakukan SNMP GET terlebih dahulu untuk mendapatkan data live
+        const updatedOnus = await updateDisplayedOnus(incomingOnus)
+        
+        if (updatedOnus && updatedOnus.length > 0) {
+          // Update cache dengan data live baru
+          const now = Date.now()
+          for (const onu of updatedOnus) {
+            liveDataCacheRef.current.set(onu.gponOnu, {
+              data: onu,
+              timestamp: now
+            })
+          }
+          
+          // Tampilkan data live langsung
+          setOnus(updatedOnus)
+          const newSummary = calculateSummary(updatedOnus)
+          setSummaryData(newSummary)
+          console.log(`[All-ONU] Refresh: Displaying live data from SNMP GET for ${updatedOnus.length} ONUs`)
+        } else {
+          // Fallback ke data database jika SNMP GET gagal
+          console.warn(`[All-ONU] Refresh: SNMP GET failed, using database data as fallback`)
+          setOnus(incomingOnus)
+          setSummaryData(data.summary || INITIAL_SUMMARY)
+        }
+      } else {
+        setOnus(incomingOnus)
+        setSummaryData(data.summary || INITIAL_SUMMARY)
+      }
+      
       setPagination(data.pagination || { ...INITIAL_PAGINATION, limit })
       setNextCursor(data.nextCursor ?? null)
 
@@ -1515,7 +1703,7 @@ export default function AllOnuPage() {
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : 'bg-green-600 hover:bg-green-700'
             }`}
-            title="Refresh manual (tidak terpengaruh polling)"
+            title="Refresh manual: Lakukan SNMP GET untuk update data ONU yang ditampilkan"
           >
             <HiArrowPath className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -1615,6 +1803,9 @@ export default function AllOnuPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
                   Actual Type
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
+                  Status OID
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                   Action
                 </th>
@@ -1623,7 +1814,7 @@ export default function AllOnuPage() {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
               {loading ? (
                 <tr key="loading">
-                  <td colSpan={12} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <td colSpan={13} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
                     <div className="flex items-center justify-center gap-2">
                       <HiArrowPath className="w-5 h-5 animate-spin" />
                       Memuat data ONU...
@@ -1632,7 +1823,7 @@ export default function AllOnuPage() {
                 </tr>
               ) : onus.length === 0 ? (
                 <tr key="empty">
-                  <td colSpan={12} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <td colSpan={13} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
                     Tidak ada data ONU di database. Data akan tersedia setelah background scheduler sync (runs every 5 minutes). Klik &quot;Refresh&quot; untuk force fetch dari SNMP.
                   </td>
                 </tr>
@@ -1677,6 +1868,32 @@ export default function AllOnuPage() {
                       {onu.serialNumber || '-'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.actualType || '-'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        {onu.statusOid ? (
+                          <div className="group relative">
+                            <span className="text-xs font-mono text-gray-600 dark:text-gray-400 cursor-help" title={`Status: ${onu.statusOid}\nRX OLT: ${onu.rxOltOid || 'N/A'}\nRX ONU: ${onu.rxOnuOid || 'N/A'}\nName: ${onu.nameOid || 'N/A'}\nDesc: ${onu.descOid || 'N/A'}`}>
+                              {onu.statusOid.length > 25 ? `${onu.statusOid.substring(0, 25)}...` : onu.statusOid}
+                            </span>
+                            <div className="absolute left-0 top-full mt-1 w-96 p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible z-50 transition-all">
+                              <div className="font-semibold mb-1">SNMP OIDs:</div>
+                              <div className="space-y-1 font-mono">
+                                <div><span className="text-blue-300">Status:</span> {onu.statusOid || 'N/A'}</div>
+                                <div><span className="text-blue-300">RX OLT:</span> {onu.rxOltOid || 'N/A'}</div>
+                                <div><span className="text-blue-300">RX ONU:</span> {onu.rxOnuOid || 'N/A'}</div>
+                                <div><span className="text-blue-300">Name:</span> {onu.nameOid || 'N/A'}</div>
+                                <div><span className="text-blue-300">Desc:</span> {onu.descOid || 'N/A'}</div>
+                                {onu.compositeIndex && <div><span className="text-blue-300">Composite Index:</span> {onu.compositeIndex}</div>}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400 dark:text-gray-500" title="OID akan terisi setelah sync ONU dijalankan">
+                            Belum sync
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <button className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors">
                         <HiCog6Tooth className="w-4 h-4" />

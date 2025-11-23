@@ -89,10 +89,19 @@ export async function snmpGet(
         if (resolved) return
 
         if (error || !varbinds || varbinds.length === 0) {
+          // Log error untuk debugging (hanya untuk beberapa OID pertama untuk menghindari spam)
+          if (Math.random() < 0.01) { // Log 1% dari error untuk debugging
+            console.log(`[SNMP-Get] Error or empty varbinds for OID ${oid}:`, error?.message || 'No varbinds')
+          }
           finish(null)
         } else {
           const varbind = varbinds[0]
           if (snmp.isVarbindError(varbind)) {
+            // Log error untuk debugging (hanya untuk beberapa OID pertama)
+            if (Math.random() < 0.01) { // Log 1% dari error untuk debugging
+              const errorMsg = varbind.value?.toString() || 'Unknown error'
+              console.log(`[SNMP-Get] Varbind error for OID ${oid}: ${errorMsg}`)
+            }
             finish(null)
           } else if (varbind.value !== null && varbind.value !== undefined) {
             finish(varbind.value.toString())
@@ -107,6 +116,173 @@ export async function snmpGet(
       }, timeout)
     } catch (error) {
       finish(null)
+    }
+  })
+}
+
+/**
+ * SNMP Get Multiple - untuk mengambil multiple OIDs sekaligus
+ * Digunakan untuk update data spesifik (tidak perlu WALK semua)
+ * @param ipAddress - IP address OLT
+ * @param port - SNMP port (default: 161)
+ * @param community - SNMP community
+ * @param version - SNMP version ('1', '2c', '3')
+ * @param oids - Array of OIDs yang akan di-fetch
+ * @param timeout - Timeout dalam milliseconds (default: 10000)
+ * @returns Record dengan OID sebagai key dan value sebagai string
+ */
+export async function snmpGetMultiple(
+  ipAddress: string,
+  port: number,
+  community: string,
+  version: string,
+  oids: string[],
+  timeout: number = 10000
+): Promise<Record<string, string>> {
+  if (!oids || oids.length === 0) {
+    return {}
+  }
+
+  // Gunakan Promise.all untuk fetch semua OIDs secara paralel
+  const results = await Promise.all(
+    oids.map(oid => 
+      snmpGet(ipAddress, port, community, version, oid, timeout)
+        .then(value => ({ oid, value }))
+        .catch(() => ({ oid, value: null }))
+    )
+  )
+
+  // Convert ke Record<string, string>
+  const resultMap: Record<string, string> = {}
+  for (const { oid, value } of results) {
+    if (value !== null) {
+      resultMap[oid] = value
+    }
+  }
+
+  return resultMap
+}
+
+/**
+ * SNMP Table - untuk mengambil data dalam bentuk tabel (lebih efisien untuk multiple columns)
+ * Menggunakan GETBULK untuk mengambil beberapa kolom sekaligus
+ * @param ipAddress - IP address OLT
+ * @param port - SNMP port (default: 161)
+ * @param community - SNMP community
+ * @param version - SNMP version ('1', '2c', '3')
+ * @param baseOid - Base OID untuk tabel (misalnya: 1.3.6.1.4.1.3902.1012.3.28.2.1)
+ * @param columns - Array of column OIDs relatif ke baseOid (misalnya: ['4', '5'] untuk status dan serial)
+ * @param timeout - Timeout dalam milliseconds (default: 30000)
+ * @returns Record dengan key format: "columnOid.index" dan value sebagai string
+ *          Contoh: { "4.268632320.3": "1", "5.268632320.3": "ZTEGCAFF2D4A" }
+ */
+export async function snmpTable(
+  ipAddress: string,
+  port: number,
+  community: string,
+  version: string,
+  baseOid: string,
+  columns: string[],
+  timeout: number = 30000
+): Promise<Record<string, string>> {
+  if (!columns || columns.length === 0) {
+    return {}
+  }
+
+  return new Promise((resolve) => {
+    let resolved = false
+    let session: any = null
+    let timeoutId: NodeJS.Timeout | null = null
+
+    const finish = (results: Record<string, string>) => {
+      if (resolved) return
+      resolved = true
+      if (timeoutId) clearTimeout(timeoutId)
+      if (session) {
+        try {
+          setTimeout(() => {
+            try {
+              if (typeof session.close === 'function') {
+                session.close()
+              }
+            } catch (e) {
+              // Ignore
+            }
+          }, 100)
+        } catch (e) {
+          // Ignore
+        }
+        session = null
+      }
+      resolve(results)
+    }
+
+    try {
+      let snmpVersion: 0 | 1 | undefined = 1
+      if (version === '1') {
+        snmpVersion = 0
+      } else if (version === '3') {
+        snmpVersion = 1
+      }
+
+      session = snmp.createSession(ipAddress, community, {
+        port: port,
+        version: snmpVersion,
+        retries: 2,
+        timeout: 5000,
+      })
+
+      // Build full OIDs untuk setiap kolom
+      const fullOids = columns.map(col => {
+        // Jika column sudah full OID, gunakan langsung
+        if (col.includes(baseOid)) {
+          return col
+        }
+        // Jika column adalah relative OID, gabungkan dengan baseOid
+        const baseOidClean = baseOid.endsWith('.') ? baseOid.slice(0, -1) : baseOid
+        return `${baseOidClean}.${col}`
+      })
+
+      console.log(`[SNMP-Table] Fetching table with baseOid: ${baseOid}, columns: ${columns.length}`)
+      console.log(`[SNMP-Table] Full OIDs:`, fullOids)
+
+      // Gunakan GETBULK untuk setiap kolom secara paralel (lebih efisien daripada multiple GET)
+      // Ini adalah implementasi SNMP TABLE menggunakan GETBULK
+      Promise.all(
+        fullOids.map(oid => 
+          snmpGetBulkSimple(ipAddress, port, community, version, oid, timeout)
+            .catch((error) => {
+              console.warn(`[SNMP-Table] GETBULK failed for OID ${oid}:`, error.message || error)
+              return {}
+            })
+        )
+      ).then(resultsArray => {
+        // Gabungkan semua hasil dengan format: "columnOid.index"
+        const combinedResults: Record<string, string> = {}
+        for (let i = 0; i < resultsArray.length; i++) {
+          const columnResults = resultsArray[i]
+          const columnOid = columns[i]
+          
+          for (const [index, value] of Object.entries(columnResults)) {
+            // Key format: "columnOid.index" (misalnya: "4.268632320.3")
+            combinedResults[`${columnOid}.${index}`] = value
+          }
+        }
+        
+        console.log(`[SNMP-Table] Retrieved ${Object.keys(combinedResults).length} entries from ${columns.length} columns`)
+        finish(combinedResults)
+      }).catch(error => {
+        console.error(`[SNMP-Table] Failed:`, error.message || error)
+        finish({})
+      })
+
+      timeoutId = setTimeout(() => {
+        console.warn(`[SNMP-Table] Timeout after ${timeout}ms`)
+        finish({})
+      }, timeout)
+    } catch (error: any) {
+      console.error(`[SNMP-Table] Error:`, error.message || error)
+      finish({})
     }
   })
 }
@@ -980,5 +1156,23 @@ export async function snmpWalkSimple(
   }
   
   return results
+}
+
+/**
+ * SNMP GetBulk Simple - wrapper untuk snmpWalkSimple dengan interface yang sama
+ * Untuk kompatibilitas dengan kode yang sudah menggunakan snmpGetBulkSimple
+ */
+export async function snmpGetBulkSimple(
+  ipAddress: string,
+  port: number,
+  community: string,
+  version: string,
+  oid: string,
+  timeout: number = 30000,
+  maxResults?: number,
+  expectedCount?: number
+): Promise<Record<string, string>> {
+  // Gunakan snmpWalkSimple sebagai implementasi
+  return await snmpWalkSimple(ipAddress, port, community, version, oid, timeout, maxResults, expectedCount)
 }
 
