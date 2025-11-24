@@ -20,6 +20,9 @@
     "prisma:setup": "prisma generate && prisma migrate deploy && npm run prisma:seed",
     "prisma:reset": "prisma migrate reset --force",
     "prisma:reset-seed": "prisma migrate reset --force && npm run prisma:seed",
+    "prisma:baseline": "prisma migrate resolve --applied 20251105130408_init",
+    "prisma:sync": "prisma db push && prisma migrate resolve --applied 20251105130408_init",
+    "prisma:fix-drift": "prisma migrate resolve --rolled-back 20251105130408_init && prisma migrate dev --name complete_schema",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
@@ -43,7 +46,7 @@
     "ioredis": "^5.8.2",
     "isomorphic-dompurify": "^2.31.0",
     "net-snmp": "^3.26.0",
-    "next": "^16.0.1",
+    "next": "^16.0.3",
     "next-auth": "^4.24.13",
     "node-cron": "^4.2.1",
     "node-routeros-v2": "^1.6.12",
@@ -82,5 +85,18 @@
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^4.0.8"
+  },
+  "overrides": {
+    "react-copy-to-clipboard": {
+      "react": "^19.2.0"
+    },
+    "react-debounce-input": {
+      "react": "^19.2.0"
+    },
+    "react-inspector": {
+      "react": "^19.2.0"
+    },
+    "cookie": "^0.7.2",
+    "js-yaml": "^4.1.1"
   }
 }

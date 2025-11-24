@@ -24,22 +24,90 @@ export default function ProfilPage() {
   const [pelanggan, setPelanggan] = useState<any>(null)
 
   useEffect(() => {
-    const token = localStorage.getItem('pelanggan_token')
-    const pelangganData = localStorage.getItem('pelanggan_data')
+    const loadPelangganData = async () => {
+      const token = localStorage.getItem('pelanggan_token')
+      const pelangganData = localStorage.getItem('pelanggan_data')
 
-    if (!token || !pelangganData) {
-      router.push('/pelanggan/login')
-      return
+      if (!token || !pelangganData) {
+        router.push('/pelanggan/login')
+        return
+      }
+
+      try {
+        // Parse data dari localStorage sebagai fallback
+        const cachedData = JSON.parse(pelangganData)
+        
+        // Fetch data terbaru dari API untuk mendapatkan data yang sudah di-update
+        try {
+          const response = await fetch(`/api/pelanggan-ppp/${cachedData.id}`, {
+            headers: {
+              'x-pelanggan-token': token,
+              'Cache-Control': 'no-cache',
+            },
+            cache: 'no-store',
+          })
+          
+          if (response.ok) {
+            const freshData = await response.json()
+            
+            // Debug: Log data yang diterima
+            console.log('[Profil] Data pelanggan dari API:', {
+              id: freshData.id,
+              idPelanggan: freshData.idPelanggan,
+              nama: freshData.nama,
+              jatuhTempo: freshData.jatuhTempo,
+              jatuhTempoType: typeof freshData.jatuhTempo,
+            })
+            
+            // Update localStorage dengan data terbaru
+            localStorage.setItem('pelanggan_data', JSON.stringify(freshData))
+            setPelanggan(freshData)
+          } else {
+            // Jika API gagal, gunakan data dari cache
+            console.warn('Failed to fetch fresh data, using cached data')
+            setPelanggan(cachedData)
+          }
+        } catch (apiError) {
+          // Jika API error, gunakan data dari cache
+          console.warn('API error, using cached data:', apiError)
+          setPelanggan(cachedData)
+        }
+      } catch (error) {
+        console.error('Error parsing pelanggan data:', error)
+        router.push('/pelanggan/login')
+      } finally {
+        setLoading(false)
+      }
     }
-
-    try {
-      const data = JSON.parse(pelangganData)
-      setPelanggan(data)
-    } catch (error) {
-      console.error('Error parsing pelanggan data:', error)
-      router.push('/pelanggan/login')
-    } finally {
-      setLoading(false)
+    
+    loadPelangganData()
+    
+    // Auto-refresh setiap 30 detik
+    const intervalId = setInterval(() => {
+      console.log('[Profil] Auto-refresh data pelanggan...')
+      loadPelangganData()
+    }, 30000) // 30 detik
+    
+    // Refresh data saat halaman di-focus
+    const handleFocus = () => {
+      console.log('[Profil] Tab focused, refresh data...')
+      loadPelangganData()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    // Auto-refresh ketika visibility berubah
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('[Profil] Tab visible, refresh data...')
+        loadPelangganData()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [router])
 
@@ -50,7 +118,18 @@ export default function ProfilPage() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
+    // Parse tanggal dengan benar untuk menghindari timezone issue
+    let date: Date
+    if (dateString.includes('T')) {
+      // ISO format dengan time
+      date = new Date(dateString)
+    } else {
+      // Format YYYY-MM-DD, parse sebagai local date
+      const [year, month, day] = dateString.split('-').map(Number)
+      date = new Date(year, month - 1, day)
+    }
+    
+    return date.toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -212,6 +291,17 @@ export default function ProfilPage() {
                 <p className="text-xs text-gray-500 mb-1">Tanggal Aktif</p>
                 <p className="text-sm font-medium text-gray-900">
                   {formatDate(pelanggan.tanggalAktif)}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <HiOutlineCalendar className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-gray-500 mb-1">Jatuh Tempo</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {formatDate(pelanggan.jatuhTempo)}
                 </p>
               </div>
             </div>

@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
     // App Router is default; ensure serverActions available when needed
+    // Suppress middleware deprecation warning (middleware.ts is still supported)
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
   },
   // CORS Configuration
   async headers() {

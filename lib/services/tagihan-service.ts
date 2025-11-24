@@ -258,12 +258,16 @@ export async function generateTagihan(
   const paket = pelanggan.hargaPaket
 
   if (paket.durasiUnit === 'BULAN' || paket.durasiUnit === 'TAHUN') {
-    // Untuk paket bulanan/tahunan, jatuh tempo = tanggal jatuh tempo pelanggan di bulan periode
+    // Untuk paket bulanan/tahunan, jatuh tempo = tanggal jatuh tempo pelanggan di bulan PERIODE TAGIHAN
+    // Contoh: Tagihan November 2025 (periodeBulan=11), jatuh tempo pelanggan tanggal 25 -> jatuh tempo tagihan = 25 November 2025
+    // Contoh: Tagihan Desember 2025 (periodeBulan=12), jatuh tempo pelanggan tanggal 25 -> jatuh tempo tagihan = 25 Desember 2025
     if (pelanggan.jatuhTempo) {
-      jatuhTempo = new Date(periodeTahun, periodeBulan - 1, pelanggan.jatuhTempo.getDate())
+      const tanggalJatuhTempoPelanggan = pelanggan.jatuhTempo.getDate()
+      // Gunakan tanggal jatuh tempo pelanggan di bulan periode tagihan
+      jatuhTempo = new Date(periodeTahun, periodeBulan - 1, tanggalJatuhTempoPelanggan)
     } else {
-      // Default: tanggal 1 bulan berikutnya
-      jatuhTempo = new Date(periodeTahun, periodeBulan, 1)
+      // Default: tanggal 1 di bulan periode tagihan
+      jatuhTempo = new Date(periodeTahun, periodeBulan - 1, 1)
     }
   } else {
     // Untuk paket harian/jam-jaman, hitung jatuh tempo dari tanggal aktif pelanggan + durasi paket

@@ -43,6 +43,84 @@ type PelangganData = {
   email?: string | null
 }
 
+// Komponen untuk menampilkan saldo tagihan
+function SaldoTagihan({ pelangganId, isOverdue }: { pelangganId: string; isOverdue: boolean }) {
+  const [saldo, setSaldo] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchSaldo = async () => {
+      try {
+        const token = localStorage.getItem('pelanggan_token')
+        const response = await fetch(`/api/tagihan/pelanggan/${pelangganId}`, {
+          cache: 'no-store',
+          headers: {
+            'x-pelanggan-token': token || '',
+            'Cache-Control': 'no-cache',
+          },
+        })
+        if (response.ok) {
+          const tagihans = await response.json()
+          // Hitung total tagihan yang belum dibayar
+          const totalBelumBayar = tagihans
+            .filter((t: any) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT')
+            .reduce((sum: number, t: any) => sum + t.total, 0)
+          setSaldo(totalBelumBayar)
+        }
+      } catch (error) {
+        console.error('Error fetching saldo:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchSaldo()
+    
+    // Auto-refresh setiap 30 detik
+    const intervalId = setInterval(() => {
+      fetchSaldo()
+    }, 30000) // 30 detik
+    
+    // Auto-refresh ketika tab/window di-focus
+    const handleFocus = () => {
+      fetchSaldo()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    // Auto-refresh ketika visibility berubah
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchSaldo()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [pelangganId])
+
+  const formatRupiah = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  if (loading) {
+    return <p className="text-lg font-bold text-sky-500">...</p>
+  }
+
+  return (
+    <p className="text-lg font-bold text-sky-500">
+      {isOverdue ? formatRupiah(0) : formatRupiah(saldo || 0)}
+    </p>
+  )
+}
+
 export default function PelangganDashboardPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -93,6 +171,34 @@ export default function PelangganDashboardPage() {
 
   useEffect(() => {
     loadPelangganData()
+    
+    // Auto-refresh setiap 30 detik untuk mendapatkan data terbaru
+    const intervalId = setInterval(() => {
+      console.log('[Dashboard] Auto-refresh data pelanggan...')
+      loadPelangganData()
+    }, 30000) // 30 detik
+    
+    // Refresh data saat halaman di-focus (untuk mendapatkan update terbaru)
+    const handleFocus = () => {
+      console.log('[Dashboard] Tab focused, refresh data...')
+      loadPelangganData()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    // Auto-refresh ketika visibility berubah (user kembali ke tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('[Dashboard] Tab visible, refresh data...')
+        loadPelangganData()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   const loadPelangganData = async () => {
@@ -105,8 +211,44 @@ export default function PelangganDashboardPage() {
     }
 
     try {
-      const data = JSON.parse(pelangganData)
-      setPelanggan(data)
+      // Parse data dari localStorage sebagai fallback
+      const cachedData = JSON.parse(pelangganData)
+      
+      // Fetch data terbaru dari API untuk mendapatkan data yang sudah di-update
+      try {
+        const response = await fetch(`/api/pelanggan-ppp/${cachedData.id}`, {
+          headers: {
+            'x-pelanggan-token': token,
+            'Cache-Control': 'no-cache',
+          },
+          cache: 'no-store',
+        })
+        
+        if (response.ok) {
+          const freshData = await response.json()
+          
+          // Debug: Log data yang diterima
+          console.log('[Dashboard] Data pelanggan dari API:', {
+            id: freshData.id,
+            idPelanggan: freshData.idPelanggan,
+            nama: freshData.nama,
+            jatuhTempo: freshData.jatuhTempo,
+            jatuhTempoType: typeof freshData.jatuhTempo,
+          })
+          
+          // Update localStorage dengan data terbaru
+          localStorage.setItem('pelanggan_data', JSON.stringify(freshData))
+          setPelanggan(freshData)
+        } else {
+          // Jika API gagal, gunakan data dari cache
+          console.warn('Failed to fetch fresh data, using cached data')
+          setPelanggan(cachedData)
+        }
+      } catch (apiError) {
+        // Jika API error, gunakan data dari cache
+        console.warn('API error, using cached data:', apiError)
+        setPelanggan(cachedData)
+      }
     } catch (error) {
       console.error('Error parsing pelanggan data:', error)
       router.push('/pelanggan/login')
@@ -141,7 +283,18 @@ export default function PelangganDashboardPage() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
+    // Parse tanggal dengan benar untuk menghindari timezone issue
+    let date: Date
+    if (dateString.includes('T')) {
+      // ISO format dengan time
+      date = new Date(dateString)
+    } else {
+      // Format YYYY-MM-DD, parse sebagai local date
+      const [year, month, day] = dateString.split('-').map(Number)
+      date = new Date(year, month - 1, day)
+    }
+    
+    return date.toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -149,7 +302,18 @@ export default function PelangganDashboardPage() {
   }
 
   const formatDateShort = (dateString: string) => {
-    const date = new Date(dateString)
+    // Parse tanggal dengan benar untuk menghindari timezone issue
+    // Jika format ISO (YYYY-MM-DD), parse sebagai local date
+    let date: Date
+    if (dateString.includes('T')) {
+      // ISO format dengan time
+      date = new Date(dateString)
+    } else {
+      // Format YYYY-MM-DD, parse sebagai local date
+      const [year, month, day] = dateString.split('-').map(Number)
+      date = new Date(year, month - 1, day)
+    }
+    
     const month = date.toLocaleDateString('id-ID', { month: 'short' })
     const day = date.getDate()
     const year = date.getFullYear()
@@ -159,7 +323,15 @@ export default function PelangganDashboardPage() {
   const isJatuhTempo = (jatuhTempo: string) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const jatuhTempoDate = new Date(jatuhTempo)
+    
+    // Parse tanggal dengan benar
+    let jatuhTempoDate: Date
+    if (jatuhTempo.includes('T')) {
+      jatuhTempoDate = new Date(jatuhTempo)
+    } else {
+      const [year, month, day] = jatuhTempo.split('-').map(Number)
+      jatuhTempoDate = new Date(year, month - 1, day)
+    }
     jatuhTempoDate.setHours(0, 0, 0, 0)
     return jatuhTempoDate < today
   }
@@ -167,7 +339,15 @@ export default function PelangganDashboardPage() {
   const getDaysUntilJatuhTempo = (jatuhTempo: string) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const jatuhTempoDate = new Date(jatuhTempo)
+    
+    // Parse tanggal dengan benar
+    let jatuhTempoDate: Date
+    if (jatuhTempo.includes('T')) {
+      jatuhTempoDate = new Date(jatuhTempo)
+    } else {
+      const [year, month, day] = jatuhTempo.split('-').map(Number)
+      jatuhTempoDate = new Date(year, month - 1, day)
+    }
     jatuhTempoDate.setHours(0, 0, 0, 0)
     const diffTime = jatuhTempoDate.getTime() - today.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
@@ -277,9 +457,7 @@ export default function PelangganDashboardPage() {
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500">Saldo Tagihan</p>
-              <p className="text-lg font-bold text-sky-500">
-                {isOverdue ? formatRupiah(0) : formatRupiah(pelanggan.hargaPaket?.harga || 0)}
-              </p>
+              <SaldoTagihan pelangganId={pelanggan.id} isOverdue={isOverdue} />
             </div>
           </div>
 

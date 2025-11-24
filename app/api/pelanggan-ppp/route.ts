@@ -74,7 +74,13 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return NextResponse.json(pelanggans)
+    return NextResponse.json(pelanggans, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   } catch (error: any) {
     console.error('Error fetching pelanggans:', error)
     return NextResponse.json(
@@ -259,8 +265,18 @@ export async function POST(req: NextRequest) {
         passwordLogin: passwordLogin.trim(), // Password Login Portal
         hargaPaketId,
         tipe: tipeValue,
-        tanggalAktif: new Date(tanggalAktif),
-        jatuhTempo: new Date(jatuhTempo),
+        tanggalAktif: (() => {
+          // Parse tanggal sebagai local date untuk menghindari timezone issue
+          // Format: YYYY-MM-DD
+          const [year, month, day] = tanggalAktif.split('-').map(Number)
+          return new Date(year, month - 1, day)
+        })(),
+        jatuhTempo: (() => {
+          // Parse tanggal sebagai local date untuk menghindari timezone issue
+          // Format: YYYY-MM-DD
+          const [year, month, day] = jatuhTempo.split('-').map(Number)
+          return new Date(year, month - 1, day)
+        })(),
         status: statusValue,
         alamat: alamat?.trim() || null,
         provinsi: provinsi?.trim() || null,
@@ -306,7 +322,19 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return NextResponse.json(pelanggan, { status: 201 })
+    // Revalidate cache untuk halaman yang terkait
+    const { revalidatePath } = await import('next/cache')
+    revalidatePath('/admin/pelanggan/ppp')
+    revalidatePath('/api/pelanggan-ppp')
+
+    return NextResponse.json(pelanggan, { 
+      status: 201,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   } catch (error: any) {
     console.error('Error creating pelanggan:', error)
     

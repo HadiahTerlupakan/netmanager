@@ -5,7 +5,9 @@ import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import { promises as fs } from 'fs'
 import path from 'path'
-import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
+import { DiscountType, DurasiUnit, Status, TipePelanggan, TagihanStatus } from '@prisma/client'
+import { revalidatePath } from 'next/cache'
+import { getTagihanRepository } from '@/lib/repositories'
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
 
@@ -41,21 +43,56 @@ const parseEnumValue = <T extends string>(
 }
 
 /**
+ * Helper untuk verifikasi token pelanggan
+ */
+async function verifyPelangganToken(token: string): Promise<string | null> {
+  try {
+    const tokenData = Buffer.from(token, 'base64').toString('utf-8')
+    const [pelangganId] = tokenData.split(':')
+    
+    // Verifikasi token dengan secret
+    const pelanggan = await prisma.pelanggan.findUnique({
+      where: { id: pelangganId },
+      select: { id: true },
+    })
+    
+    return pelanggan ? pelanggan.id : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * GET /api/pelanggan-ppp/[id]
  * Mendapatkan detail pelanggan PPP berdasarkan ID
+ * - Admin bisa akses semua pelanggan
+ * - Pelanggan hanya bisa akses data mereka sendiri dengan token
  */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { id } = await params
+    
+    // Cek apakah ini request dari admin
+    const session: any = await getServerSession(authConfig as any)
+    const isAdmin = session && session.user?.role === 'ADMIN'
+    
+    // Jika bukan admin, cek token pelanggan
+    if (!isAdmin) {
+      const token = req.headers.get('authorization')?.replace('Bearer ', '') ||
+                   req.headers.get('x-pelanggan-token')
+      
+      if (!token) {
+        return NextResponse.json({ error: 'Token pelanggan diperlukan' }, { status: 401 })
+      }
+      
+      const pelangganId = await verifyPelangganToken(token)
+      if (!pelangganId || pelangganId !== id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      }
+    }
 
     const pelanggan = await prisma.pelanggan.findUnique({
       where: { id },
@@ -77,7 +114,16 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(pelanggan)
+    // Hapus password dari response
+    const { password, passwordLogin, ...pelangganData } = pelanggan
+
+    return NextResponse.json(pelangganData, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   } catch (error: any) {
     console.error('Error fetching pelanggan:', error)
     return NextResponse.json(
@@ -354,6 +400,28 @@ export async function PUT(
       // Continue without files if there's an error
     }
 
+    // Parse tanggal dengan benar
+    const parsedTanggalAktif = (() => {
+      // Parse tanggal sebagai local date untuk menghindari timezone issue
+      // Format: YYYY-MM-DD
+      const [year, month, day] = tanggalAktif.split('-').map(Number)
+      return new Date(year, month - 1, day)
+    })()
+    
+    const parsedJatuhTempo = (() => {
+      // Parse tanggal sebagai local date untuk menghindari timezone issue
+      // Format: YYYY-MM-DD
+      const [year, month, day] = jatuhTempo.split('-').map(Number)
+      return new Date(year, month - 1, day)
+    })()
+    
+    // Debug: Log tanggal yang akan disimpan
+    console.log('[PUT Pelanggan] Jatuh Tempo yang akan disimpan:', {
+      input: jatuhTempo,
+      parsed: parsedJatuhTempo.toISOString(),
+      localDate: `${parsedJatuhTempo.getFullYear()}-${String(parsedJatuhTempo.getMonth() + 1).padStart(2, '0')}-${String(parsedJatuhTempo.getDate()).padStart(2, '0')}`,
+    })
+
     // Update pelanggan
     const pelanggan = await prisma.pelanggan.update({
       where: { id },
@@ -365,8 +433,8 @@ export async function PUT(
         passwordLogin: passwordLogin.trim(),
         hargaPaketId,
         tipe: tipeValue,
-        tanggalAktif: new Date(tanggalAktif),
-        jatuhTempo: new Date(jatuhTempo),
+        tanggalAktif: parsedTanggalAktif,
+        jatuhTempo: parsedJatuhTempo,
         status: statusValue,
         alamat: alamat?.trim() || null,
         provinsi: provinsi?.trim() || null,
@@ -412,7 +480,102 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(pelanggan)
+    // Debug: Log data yang dikembalikan
+    console.log('[PUT Pelanggan] Data yang dikembalikan:', {
+      id: pelanggan.id,
+      idPelanggan: pelanggan.idPelanggan,
+      nama: pelanggan.nama,
+      jatuhTempo: pelanggan.jatuhTempo.toISOString(),
+      jatuhTempoLocal: `${pelanggan.jatuhTempo.getFullYear()}-${String(pelanggan.jatuhTempo.getMonth() + 1).padStart(2, '0')}-${String(pelanggan.jatuhTempo.getDate()).padStart(2, '0')}`,
+    })
+
+    // Update tagihan yang belum lunas jika jatuh tempo berubah
+    const jatuhTempoLama = existingPelanggan.jatuhTempo
+    const jatuhTempoBaru = parsedJatuhTempo
+    
+    // Cek apakah jatuh tempo berubah (bandingkan tanggal tanpa waktu)
+    const isJatuhTempoChanged = 
+      jatuhTempoLama.getFullYear() !== jatuhTempoBaru.getFullYear() ||
+      jatuhTempoLama.getMonth() !== jatuhTempoBaru.getMonth() ||
+      jatuhTempoLama.getDate() !== jatuhTempoBaru.getDate()
+
+    if (isJatuhTempoChanged && pelanggan.hargaPaket) {
+      console.log('[PUT Pelanggan] Jatuh tempo berubah, update tagihan yang belum lunas...')
+      
+      try {
+        const tagihanRepo = getTagihanRepository()
+        
+        // Ambil semua tagihan pelanggan yang belum lunas
+        const tagihanBelumLunas = await tagihanRepo.findByPelangganId(id)
+        const tagihanToUpdate = tagihanBelumLunas.filter(
+          (t) => t.status === TagihanStatus.BELUM_LUNAS || t.status === TagihanStatus.TERLAMBAT
+        )
+
+        console.log(`[PUT Pelanggan] Ditemukan ${tagihanToUpdate.length} tagihan yang perlu diupdate`)
+
+        // Update setiap tagihan
+        for (const tagihan of tagihanToUpdate) {
+          const paket = pelanggan.hargaPaket
+          let jatuhTempoTagihanBaru: Date
+
+          if (paket.durasiUnit === 'BULAN' || paket.durasiUnit === 'TAHUN') {
+            // Untuk paket bulanan/tahunan, jatuh tempo tagihan = tanggal jatuh tempo pelanggan di bulan periode tagihan
+            const tanggalJatuhTempoPelanggan = jatuhTempoBaru.getDate()
+            jatuhTempoTagihanBaru = new Date(
+              tagihan.periodeTahun,
+              tagihan.periodeBulan - 1,
+              tanggalJatuhTempoPelanggan
+            )
+          } else {
+            // Untuk paket harian/jam-jaman, hitung dari tanggal aktif pelanggan + durasi paket
+            const tanggalMulai = pelanggan.tanggalAktif || new Date()
+            jatuhTempoTagihanBaru = new Date(tanggalMulai)
+
+            switch (paket.durasiUnit) {
+              case 'JAM':
+                jatuhTempoTagihanBaru.setHours(jatuhTempoTagihanBaru.getHours() + paket.durasi)
+                break
+              case 'HARI':
+                jatuhTempoTagihanBaru.setDate(jatuhTempoTagihanBaru.getDate() + paket.durasi)
+                break
+            }
+          }
+
+          // Update jatuh tempo tagihan
+          await tagihanRepo.update(tagihan.id, {
+            jatuhTempo: jatuhTempoTagihanBaru,
+          })
+
+          console.log(
+            `[PUT Pelanggan] Tagihan ${tagihan.noTagihan} diupdate: jatuh tempo baru = ${jatuhTempoTagihanBaru.toISOString()}`
+          )
+        }
+
+        // Revalidate cache untuk halaman tagihan
+        revalidatePath(`/api/tagihan/pelanggan/${id}`)
+        revalidatePath('/api/tagihan')
+        
+        console.log(`[PUT Pelanggan] Berhasil update ${tagihanToUpdate.length} tagihan`)
+      } catch (tagihanError: any) {
+        // Log error tapi jangan gagalkan update pelanggan
+        console.error('[PUT Pelanggan] Error updating tagihan:', tagihanError)
+      }
+    }
+
+    // Revalidate cache untuk halaman yang terkait
+    revalidatePath('/admin/pelanggan/ppp')
+    revalidatePath(`/admin/pelanggan/ppp/${id}`)
+    revalidatePath(`/admin/pelanggan/ppp/${id}/edit`)
+    revalidatePath('/api/pelanggan-ppp')
+    revalidatePath(`/api/pelanggan-ppp/${id}`)
+
+    return NextResponse.json(pelanggan, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   } catch (error: any) {
     console.error('Error updating pelanggan:', error)
 
@@ -579,7 +742,19 @@ export async function DELETE(
       where: { id },
     })
 
-    return NextResponse.json({ message: 'Pelanggan berhasil dihapus' })
+    // Revalidate cache untuk halaman yang terkait
+    revalidatePath('/admin/pelanggan/ppp')
+    revalidatePath(`/admin/pelanggan/ppp/${id}`)
+    revalidatePath('/api/pelanggan-ppp')
+    revalidatePath(`/api/pelanggan-ppp/${id}`)
+
+    return NextResponse.json({ message: 'Pelanggan berhasil dihapus' }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   } catch (error: any) {
     console.error('Error deleting pelanggan:', error)
 

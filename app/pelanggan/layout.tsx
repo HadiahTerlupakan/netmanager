@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import type { Metadata, Viewport } from 'next'
 import PWAScript from './pwa-script'
-import PelangganSidebar from '@/components/pelanggan/PelangganSidebar'
+import PelangganLayoutClient from './layout-client'
 
 export const metadata: Metadata = {
   title: 'Portal Pelanggan - NetManager',
@@ -50,12 +50,7 @@ export default function PelangganLayout({ children }: { children: React.ReactNod
   return (
     <>
       <PWAScript />
-      <div className="min-h-screen bg-gray-50">
-        <PelangganSidebar />
-        <div className="md:ml-64">
-          {children}
-        </div>
-      </div>
+      <PelangganLayoutClient>{children}</PelangganLayoutClient>
     </>
   )
 }

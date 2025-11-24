@@ -94,7 +94,6 @@ export default function Sidebar() {
         { href: '/admin/pelanggan/ppp', label: 'Pelanggan PPP', icon: <HiOutlineUserCircle className="w-4 h-4" /> },
       ],
     },
-    { href: '/admin/tagihan', label: 'Tagihan', icon: <HiOutlineDocumentText className="w-5 h-5" /> },
     { href: '/admin/users', label: 'Users', icon: <HiOutlineUsers className="w-5 h-5" /> },
     {
       href: '/admin/pengaturan',

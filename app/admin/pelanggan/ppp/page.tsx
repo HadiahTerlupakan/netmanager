@@ -39,7 +39,13 @@ export default function PelangganPPPPage() {
     try {
       setLoading(true)
       setError(null)
-      const res = await fetch('/api/pelanggan-ppp')
+      // Tambahkan cache busting dengan timestamp
+      const res = await fetch('/api/pelanggan-ppp', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
       if (!res.ok) {
         throw new Error('Gagal memuat data pelanggan PPP')
       }

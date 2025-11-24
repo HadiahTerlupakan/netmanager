@@ -19,6 +19,10 @@ import {
   HiTrash
 } from 'react-icons/hi2'
 
+// Force dynamic rendering untuk menghindari cache
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function PelangganPPPDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const pelanggan = await prisma.pelanggan.findUnique({

@@ -152,6 +152,9 @@ npm start
 | `npm run prisma:generate` | Generate Prisma Client |
 | `npm run prisma:migrate` | Menjalankan database migrations |
 | `npm run prisma:seed` | Menjalankan database seeding |
+| `npm run prisma:baseline` | Baseline migration (fix drift) |
+| `npm run prisma:sync` | Sync schema dan baseline migration |
+| `npm run prisma:fix-drift` | Fix drift dengan membuat migration baru yang lengkap |
 | `npm test` | Menjalankan tests (watch mode) |
 | `npm run test:run` | Menjalankan tests sekali |
 | `npm run test:ui` | Menjalankan tests dengan UI |
@@ -303,6 +306,49 @@ npm run db:up
 ```bash
 npm run prisma:generate
 ```
+
+### Prisma Migration Drift (Database tidak sinkron dengan migration history)
+
+Jika Anda melihat error "Drift detected" saat menjalankan `prisma migrate dev`, ini berarti database schema tidak sinkron dengan migration history. Ini biasanya terjadi karena menggunakan `prisma db push` yang tidak membuat migration file.
+
+**Solusi 1: Baseline migration (jika database sudah memiliki data penting)**
+
+```bash
+# Sync schema tanpa membuat migration baru
+npx prisma db push
+
+# Mark migration sebagai sudah di-apply
+npm run prisma:baseline
+```
+
+**Solusi 2: Reset database (jika data bisa dihapus)**
+
+```bash
+# Reset database dan jalankan migration dari awal
+npm run prisma:reset-seed
+```
+
+**Solusi 3: Sync dan baseline otomatis**
+
+```bash
+# Sync schema dan baseline migration sekaligus
+npm run prisma:sync
+```
+
+**Solusi 4: Fix drift dengan membuat migration baru (jika migration file tidak lengkap)**
+
+Jika migration file tidak lengkap (hanya berisi beberapa tabel, tapi database sudah punya semua tabel):
+
+```bash
+# Mark migration lama sebagai rolled back, lalu buat migration baru yang lengkap
+npm run prisma:fix-drift
+```
+
+**Catatan:** 
+- Gunakan `prisma migrate dev` untuk development (membuat migration file)
+- Gunakan `prisma db push` hanya untuk prototyping cepat
+- Jangan gunakan `prisma db push` di production!
+- Jika migration file tidak lengkap, gunakan `prisma:fix-drift` untuk membuat migration baru yang lengkap
 
 ### Port sudah digunakan
 

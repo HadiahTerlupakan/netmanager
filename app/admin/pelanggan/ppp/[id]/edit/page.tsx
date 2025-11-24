@@ -64,6 +64,7 @@ export default function PelangganPPPEditPage() {
   const [ktpScanError, setKtpScanError] = useState<string | null>(null)
   const [ktpScanSuccess, setKtpScanSuccess] = useState(false)
   const [showMapPicker, setShowMapPicker] = useState(false)
+  const [jatuhTempoManuallyEdited, setJatuhTempoManuallyEdited] = useState(false)
 
   const [formData, setFormData] = useState({
     idPelanggan: '',
@@ -119,7 +120,12 @@ export default function PelangganPPPEditPage() {
     
     try {
       setLoadingData(true)
-      const res = await fetch(`/api/pelanggan-ppp/${id}`)
+      const res = await fetch(`/api/pelanggan-ppp/${id}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
       if (!res.ok) {
         throw new Error('Gagal memuat data pelanggan')
       }
@@ -177,6 +183,8 @@ export default function PelangganPPPEditPage() {
       setExistingFileRumahSekitar(data.fileRumahSekitar || null)
       setExistingFileBAST(data.fileBAST || null)
       setOriginalIdPelanggan(data.idPelanggan || null)
+      // Reset flag manual edit saat data dimuat
+      setJatuhTempoManuallyEdited(false)
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan saat memuat data')
     } finally {
@@ -298,6 +306,10 @@ export default function PelangganPPPEditPage() {
       const res = await fetch(`/api/pelanggan-ppp/${id}`, {
         method: 'PUT',
         body: formDataToSend,
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
       })
 
       console.log('[Frontend PUT] Response status:', res.status, res.statusText)
@@ -321,8 +333,9 @@ export default function PelangganPPPEditPage() {
         throw new Error(errorData.error || 'Gagal menyimpan pelanggan PPP')
       }
 
-      // Berhasil, redirect ke halaman list
+      // Berhasil, redirect ke halaman list dengan refresh
       router.push('/admin/pelanggan/ppp')
+      router.refresh() // Force refresh untuk memastikan data terbaru dimuat
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan saat menyimpan data')
     } finally {
@@ -393,8 +406,15 @@ export default function PelangganPPPEditPage() {
     setFormData((prev) => {
       const updated = { ...prev, [name]: type === 'checkbox' ? checked : value }
       
-      // Jika yang berubah adalah tanggal aktif atau harga paket, hitung ulang jatuh tempo
+      // Jika yang berubah adalah jatuh tempo secara manual, tandai sebagai manual edit
+      if (name === 'jatuhTempo') {
+        setJatuhTempoManuallyEdited(true)
+      }
+      
+      // Jika yang berubah adalah tanggal aktif atau harga paket, reset flag manual edit
+      // dan hitung ulang jatuh tempo (karena perubahan ini mempengaruhi jatuh tempo)
       if (name === 'tanggalAktif' || name === 'hargaPaketId') {
+        setJatuhTempoManuallyEdited(false)
         updated.jatuhTempo = calculateJatuhTempo(
           name === 'tanggalAktif' ? value : updated.tanggalAktif,
           name === 'hargaPaketId' ? value : updated.hargaPaketId
@@ -450,14 +470,15 @@ export default function PelangganPPPEditPage() {
   }, [formData.idPelanggan, originalIdPelanggan])
 
   // Update jatuh tempo saat harga paket atau tanggal aktif berubah
+  // TAPI hanya jika user belum mengubah jatuh tempo secara manual
   useEffect(() => {
-    if (formData.tanggalAktif && formData.hargaPaketId && hargaPakets.length > 0) {
+    if (!jatuhTempoManuallyEdited && formData.tanggalAktif && formData.hargaPaketId && hargaPakets.length > 0) {
       const jatuhTempo = calculateJatuhTempo(formData.tanggalAktif, formData.hargaPaketId)
       if (jatuhTempo) {
         setFormData((prev) => ({ ...prev, jatuhTempo }))
       }
     }
-  }, [formData.hargaPaketId, formData.tanggalAktif, calculateJatuhTempo])
+  }, [formData.hargaPaketId, formData.tanggalAktif, calculateJatuhTempo, jatuhTempoManuallyEdited])
 
   // Fungsi untuk menghitung total tagihan menggunakan useMemo untuk menghindari hydration mismatch
   const totalInfo = useMemo(() => {
@@ -473,36 +494,44 @@ export default function PelangganPPPEditPage() {
     if (formData.useProrate && formData.tanggalAktif && formData.jatuhTempo) {
       const tanggalAktif = new Date(formData.tanggalAktif)
       const jatuhTempo = new Date(formData.jatuhTempo)
-      const selisihHari = Math.ceil((jatuhTempo.getTime() - tanggalAktif.getTime()) / (1000 * 60 * 60 * 24))
       
-      // Hitung durasi paket dalam hari
-      let durasiPaketHari = 0
-      switch (selectedPaket.durasiUnit) {
-        case 'JAM':
-          durasiPaketHari = selectedPaket.durasi / 24
-          break
-        case 'HARI':
-          durasiPaketHari = selectedPaket.durasi
-          break
-        case 'BULAN':
-          durasiPaketHari = selectedPaket.durasi * 30 // Approximasi 30 hari per bulan
-          break
-        case 'TAHUN':
-          durasiPaketHari = selectedPaket.durasi * 365 // Approximasi 365 hari per tahun
-          break
-      }
+      // Validasi: pastikan tanggal valid
+      if (isNaN(tanggalAktif.getTime()) || isNaN(jatuhTempo.getTime())) {
+        // Jika tanggal tidak valid, skip prorate
+      } else {
+        const selisihHari = Math.ceil((jatuhTempo.getTime() - tanggalAktif.getTime()) / (1000 * 60 * 60 * 24))
+        
+        // Hitung durasi paket dalam hari
+        let durasiPaketHari = 0
+        switch (selectedPaket.durasiUnit) {
+          case 'JAM':
+            durasiPaketHari = selectedPaket.durasi / 24
+            break
+          case 'HARI':
+            durasiPaketHari = selectedPaket.durasi
+            break
+          case 'BULAN':
+            durasiPaketHari = selectedPaket.durasi * 30 // Approximasi 30 hari per bulan
+            break
+          case 'TAHUN':
+            durasiPaketHari = selectedPaket.durasi * 365 // Approximasi 365 hari per tahun
+            break
+        }
 
-      if (durasiPaketHari > 0 && selisihHari > 0) {
-        // Hitung prorate ratio (bisa lebih dari 1 jika periode melebihi durasi paket)
-        const prorateRatio = selisihHari / durasiPaketHari
-        const hargaSebelumProrate = subtotal
-        subtotal = Math.round(subtotal * prorateRatio)
-        prorateInfo = {
-          selisihHari,
-          durasiPaketHari,
-          ratio: prorateRatio,
-          hargaSebelumProrate,
-          hargaSetelahProrate: subtotal,
+        // Hitung prorate jika durasi paket valid dan selisih hari valid (bisa positif atau negatif)
+        if (durasiPaketHari > 0) {
+          // Hitung prorate ratio (bisa lebih dari 1 jika periode melebihi durasi paket, atau negatif jika jatuh tempo sebelum tanggal aktif)
+          const prorateRatio = selisihHari / durasiPaketHari
+          const hargaSebelumProrate = subtotal
+          // Jika selisih hari negatif atau 0, tetap hitung tapi ratio akan negatif atau 0
+          subtotal = Math.round(subtotal * prorateRatio)
+          prorateInfo = {
+            selisihHari,
+            durasiPaketHari,
+            ratio: prorateRatio,
+            hargaSebelumProrate,
+            hargaSetelahProrate: subtotal,
+          }
         }
       }
     }
