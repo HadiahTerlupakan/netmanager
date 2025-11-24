@@ -69,15 +69,19 @@ export default function BantuanPage() {
   ]
 
   useEffect(() => {
-    const token = localStorage.getItem('pelanggan_token')
-    const pelangganData = localStorage.getItem('pelanggan_data')
+    const checkAuth = () => {
+      const token = localStorage.getItem('pelanggan_token')
+      const pelangganData = localStorage.getItem('pelanggan_data')
 
-    if (!token || !pelangganData) {
-      router.push('/pelanggan/login')
-      return
+      if (!token || !pelangganData) {
+        router.push('/pelanggan/login')
+        return
+      }
+
+      setLoading(false)
     }
 
-    setLoading(false)
+    checkAuth()
   }, [router])
 
   if (loading) {
@@ -160,9 +164,8 @@ export default function BantuanPage() {
                 >
                   <span className="flex-1 font-medium text-gray-900 pr-4 text-sm">{faq.question}</span>
                   <HiChevronRight
-                    className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform ${
-                      expandedFAQ === faq.id ? 'rotate-90' : ''
-                    }`}
+                    className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform ${expandedFAQ === faq.id ? 'rotate-90' : ''
+                      }`}
                   />
                 </button>
                 {expandedFAQ === faq.id && (

@@ -188,7 +188,7 @@ export default function BandwidthPage() {
 
   const handleEdit = (bandwidth: Bandwidth) => {
     setEditingBandwidth(bandwidth)
-    
+
     // Parse format MikroTik menjadi value dan unit
     const maxLimitD = parseMikrotikFormat(bandwidth.maxLimitDownload || '')
     const maxLimitU = parseMikrotikFormat(bandwidth.maxLimitUpload || '')
@@ -198,7 +198,7 @@ export default function BandwidthPage() {
     const minLimitU = parseMikrotikFormat(bandwidth.minLimitUpload || '')
     const burstThresholdD = parseMikrotikFormat(bandwidth.burstThresholdDownload || '')
     const burstThresholdU = parseMikrotikFormat(bandwidth.burstThresholdUpload || '')
-    
+
     setFormData({
       name: bandwidth.name,
       maxLimitDownloadValue: maxLimitD.value,
@@ -337,7 +337,7 @@ export default function BandwidthPage() {
               {bandwidths.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Tidak ada data bandwidth. Klik "Tambah Bandwidth" untuk menambahkan.
+                    Tidak ada data bandwidth. Klik &quot;Tambah Bandwidth&quot; untuk menambahkan.
                   </td>
                 </tr>
               ) : (

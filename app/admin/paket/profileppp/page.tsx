@@ -92,7 +92,7 @@ export default function ProfilePPPPage() {
       const profilePPPsData = await profilePPPsRes.json()
       const routersData = routersRes.ok ? await routersRes.json() : { routers: [] }
       const bandwidthsData = bandwidthsRes.ok ? await bandwidthsRes.json() : []
-      
+
       setProfilePPPs(profilePPPsData)
       setMikroTikRouters(routersData.routers || [])
       setBandwidths(bandwidthsData || [])
@@ -175,11 +175,11 @@ export default function ProfilePPPPage() {
 
   const handleEdit = async (profile: ProfilePPP) => {
     setEditingProfile(profile)
-    
+
     // Fetch detail profile untuk mendapatkan ipRange dari MikroTik
     let ipRangeStart = ''
     let ipRangeEnd = ''
-    
+
     try {
       const detailRes = await fetch(`/api/profileppps/${profile.id}`)
       if (detailRes.ok) {
@@ -198,7 +198,7 @@ export default function ProfilePPPPage() {
       console.error('Error fetching profile detail:', error)
       // Jika gagal, tetap lanjutkan dengan data yang ada
     }
-    
+
     setFormData({
       name: profile.name,
       localAddress: profile.localAddress,
@@ -322,7 +322,7 @@ export default function ProfilePPPPage() {
               {profilePPPs.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Tidak ada data profile PPP. Klik "Tambah Profile PPP" untuk menambahkan.
+                    Tidak ada data profile PPP. Klik &quot;Tambah Profile PPP&quot; untuk menambahkan.
                   </td>
                 </tr>
               ) : (
@@ -409,8 +409,8 @@ export default function ProfilePPPPage() {
               value={formData.name}
               onChange={(e) => {
                 const newName = e.target.value
-                setFormData({ 
-                  ...formData, 
+                setFormData({
+                  ...formData,
                   name: newName,
                   // Remote Address otomatis sama dengan Nama Profile
                   remoteAddress: newName

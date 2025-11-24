@@ -231,7 +231,7 @@ export default function GeneralSettingsPage() {
 
               {settings.rekeningBank.length === 0 ? (
                 <div className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-                  Belum ada rekening bank. Klik "Tambah Rekening" untuk menambahkan.
+                  Belum ada rekening bank. Klik &quot;Tambah Rekening&quot; untuk menambahkan.
                 </div>
               ) : (
                 <div className="space-y-4">

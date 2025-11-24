@@ -211,7 +211,7 @@ export default function PelangganPPPPage() {
                         Belum ada data pelanggan PPP
                       </p>
                       <p className="text-xs text-gray-400 dark:text-gray-500">
-                        Klik "Tambah Pelanggan" untuk menambahkan pelanggan baru
+                        Klik &quot;Tambah Pelanggan&quot; untuk menambahkan pelanggan baru
                       </p>
                     </div>
                   </td>
@@ -247,11 +247,10 @@ export default function PelangganPPPPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          pelanggan.tipe === 'REGULER'
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${pelanggan.tipe === 'REGULER'
                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                             : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                        }`}
+                          }`}
                       >
                         {pelanggan.tipe === 'REGULER' ? '📅 Reguler' : '🔄 Non Reguler'}
                       </span>

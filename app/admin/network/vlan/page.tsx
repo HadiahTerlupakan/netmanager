@@ -29,7 +29,7 @@ export default function VlanPage() {
 
   // Load OLTs
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       try {
         const res = await fetch('/api/olts')
         if (!res.ok) throw new Error('Gagal memuat data OLT')
@@ -216,7 +216,7 @@ export default function VlanPage() {
                   <ol className="list-decimal list-inside space-y-1 mt-1">
                     <li>Kembali ke halaman OLT Management</li>
                     <li>Klik tombol Edit pada OLT yang baru ditambahkan</li>
-                    <li>Klik tombol "Test Connection" untuk menguji koneksi SNMP</li>
+                    <li>Klik tombol &quot;Test Connection&quot; untuk menguji koneksi SNMP</li>
                     <li>Setelah test berhasil, kembali ke halaman ini dan refresh</li>
                   </ol>
                 </div>
@@ -316,7 +316,7 @@ export default function VlanPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="p-6">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Edit VLAN {editingVlan.vlanId}</h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -329,7 +329,7 @@ export default function VlanPage() {
                     className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Description

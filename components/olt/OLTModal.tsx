@@ -125,7 +125,7 @@ export default function OLTModal({ isOpen, onClose, onSubmit, olt, mode, onTestS
           snmp: result.snmp,
           telnet: result.telnet,
         })
-        
+
         // Refresh list jika test berhasil dan status di-update (untuk edit mode)
         if (mode === 'edit' && olt?.id && (result.snmp.success || result.telnet.success)) {
           // Call callback untuk refresh list
@@ -339,28 +339,25 @@ export default function OLTModal({ isOpen, onClose, onSubmit, olt, mode, onTestS
           {testResults && (
             <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Test Connection Results</h3>
-              
+
               {/* SNMP Result */}
               {testResults.snmp && (
-                <div className={`p-3 rounded-md border ${
-                  testResults.snmp.success
+                <div className={`p-3 rounded-md border ${testResults.snmp.success
                     ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                     : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                }`}>
+                  }`}>
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${
-                      testResults.snmp.success
+                    <span className={`text-sm font-medium ${testResults.snmp.success
                         ? 'text-green-700 dark:text-green-400'
                         : 'text-red-700 dark:text-red-400'
-                    }`}>
+                      }`}>
                       {testResults.snmp.success ? <HiCheck className="w-4 h-4 inline" /> : <HiXMark className="w-4 h-4 inline" />} SNMP
                     </span>
                   </div>
-                  <p className={`text-xs mt-1 ${
-                    testResults.snmp.success
+                  <p className={`text-xs mt-1 ${testResults.snmp.success
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-red-600 dark:text-red-400'
-                  }`}>
+                    }`}>
                     {testResults.snmp.message}
                   </p>
                   {!testResults.snmp.success && (
@@ -368,7 +365,7 @@ export default function OLTModal({ isOpen, onClose, onSubmit, olt, mode, onTestS
                       <p className="font-semibold mb-1">Tips Troubleshooting SNMP:</p>
                       <ul className="list-disc list-inside space-y-0.5">
                         <li>Pastikan SNMP aktif di device OLT</li>
-                        <li>Cek community string (biasanya "public" untuk read-only)</li>
+                        <li>Cek community string (biasanya &quot;public&quot; untuk read-only)</li>
                         <li>Verifikasi port SNMP (default 161, atau custom port)</li>
                         <li>Coba ganti SNMP version (v1, v2c, atau v3)</li>
                         <li>Pastikan firewall tidak memblokir port SNMP</li>
@@ -380,25 +377,22 @@ export default function OLTModal({ isOpen, onClose, onSubmit, olt, mode, onTestS
 
               {/* Telnet Result */}
               {testResults.telnet && (
-                <div className={`p-3 rounded-md border ${
-                  testResults.telnet.success
+                <div className={`p-3 rounded-md border ${testResults.telnet.success
                     ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                     : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                }`}>
+                  }`}>
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${
-                      testResults.telnet.success
+                    <span className={`text-sm font-medium ${testResults.telnet.success
                         ? 'text-green-700 dark:text-green-400'
                         : 'text-red-700 dark:text-red-400'
-                    }`}>
+                      }`}>
                       {testResults.telnet.success ? <HiCheck className="w-4 h-4 inline" /> : <HiXMark className="w-4 h-4 inline" />} Telnet
                     </span>
                   </div>
-                  <p className={`text-xs mt-1 ${
-                    testResults.telnet.success
+                  <p className={`text-xs mt-1 ${testResults.telnet.success
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-red-600 dark:text-red-400'
-                  }`}>
+                    }`}>
                     {testResults.telnet.message}
                   </p>
                 </div>

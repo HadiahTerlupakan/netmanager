@@ -3,20 +3,19 @@
 import { useEffect, useState } from 'react'
 
 export default function TestPage() {
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<any>(() => {
+    if (typeof window === 'undefined') return null
 
-  useEffect(() => {
-    // Load all localStorage data
     const token = localStorage.getItem('pelanggan_token')
     const pelangganData = localStorage.getItem('pelanggan_data')
 
-    setData({
+    return {
       token: token,
       pelangganData: pelangganData ? JSON.parse(pelangganData) : null,
       hasToken: !!token,
       hasData: !!pelangganData
-    })
-  }, [])
+    }
+  })
 
   return (
     <div className="p-8">
