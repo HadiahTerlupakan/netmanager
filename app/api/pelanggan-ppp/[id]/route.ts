@@ -104,12 +104,57 @@ export async function PUT(
 
     const { id } = await params
 
+    // Debug: Log ID yang diterima
+    console.log('[PUT Pelanggan] ID diterima:', id, 'Type:', typeof id)
+
+    // Cek apakah ID valid (tidak kosong dan tidak undefined)
+    if (!id || id.trim() === '') {
+      console.log('[PUT Pelanggan] ID tidak valid atau kosong')
+      return NextResponse.json(
+        { error: 'ID pelanggan tidak valid' },
+        { status: 400 }
+      )
+    }
+
     // Cek apakah pelanggan ada
     const existingPelanggan = await prisma.pelanggan.findUnique({
       where: { id },
     })
 
-    if (!existingPelanggan) {
+    // Debug: Log hasil query
+    console.log('[PUT Pelanggan] Pelanggan ditemukan:', existingPelanggan ? 'Ya' : 'Tidak')
+    if (existingPelanggan) {
+      console.log('[PUT Pelanggan] ID Pelanggan:', existingPelanggan.idPelanggan, 'Nama:', existingPelanggan.nama)
+    } else {
+      // Cek apakah ada pelanggan dengan ID yang mirip (untuk debugging)
+      const similarPelanggans = await prisma.pelanggan.findMany({
+        where: {
+          OR: [
+            { id: { contains: id.slice(0, 5) } },
+            { idPelanggan: { contains: id } },
+          ],
+        },
+        select: { id: true, idPelanggan: true, nama: true },
+        take: 3,
+      })
+      console.log('[PUT Pelanggan] Pelanggan dengan ID mirip:', similarPelanggans)
+      
+      // Cek juga dengan idPelanggan jika ID yang dikirim adalah idPelanggan
+      const pelangganByIdPelanggan = await prisma.pelanggan.findUnique({
+        where: { idPelanggan: id },
+        select: { id: true, idPelanggan: true, nama: true },
+      })
+      if (pelangganByIdPelanggan) {
+        console.log('[PUT Pelanggan] Ditemukan dengan idPelanggan:', pelangganByIdPelanggan)
+        return NextResponse.json(
+          { 
+            error: 'Pelanggan tidak ditemukan dengan ID tersebut. Gunakan ID database, bukan ID Pelanggan.',
+            hint: `ID database yang benar: ${pelangganByIdPelanggan.id}`
+          },
+          { status: 404 }
+        )
+      }
+      
       return NextResponse.json(
         { error: 'Pelanggan tidak ditemukan' },
         { status: 404 }
@@ -410,16 +455,114 @@ export async function DELETE(
 
     const { id } = await params
 
+    // Debug: Log ID yang diterima
+    console.log('[DELETE Pelanggan] ID diterima:', id, 'Type:', typeof id)
+
+    // Cek apakah ID valid (tidak kosong dan tidak undefined)
+    if (!id || id.trim() === '') {
+      return NextResponse.json(
+        { error: 'ID pelanggan tidak valid' },
+        { status: 400 }
+      )
+    }
+
     // Ambil data pelanggan sebelum dihapus
-    const pelanggan = await prisma.pelanggan.findUnique({
+    let pelanggan = await prisma.pelanggan.findUnique({
       where: { id },
     })
 
+    // Debug: Log hasil query
+    console.log('[DELETE Pelanggan] Query dengan id:', id)
+    console.log('[DELETE Pelanggan] Pelanggan ditemukan:', pelanggan ? 'Ya' : 'Tidak')
+    
     if (!pelanggan) {
+      // Cek apakah ada pelanggan dengan ID yang mirip (untuk debugging)
+      const similarPelanggans = await prisma.pelanggan.findMany({
+        where: {
+          OR: [
+            { id: { contains: id.slice(0, 5) } },
+            { idPelanggan: { contains: id } },
+          ],
+        },
+        select: { id: true, idPelanggan: true, nama: true },
+        take: 3,
+      })
+      console.log('[DELETE Pelanggan] Pelanggan dengan ID mirip:', similarPelanggans)
+      
+      // Cek juga dengan idPelanggan jika ID yang dikirim adalah idPelanggan
+      const pelangganByIdPelanggan = await prisma.pelanggan.findUnique({
+        where: { idPelanggan: id },
+        select: { id: true, idPelanggan: true, nama: true },
+      })
+      if (pelangganByIdPelanggan) {
+        console.log('[DELETE Pelanggan] Ditemukan dengan idPelanggan:', pelangganByIdPelanggan)
+        // Gunakan ID database yang benar
+        pelanggan = await prisma.pelanggan.findUnique({
+          where: { id: pelangganByIdPelanggan.id },
+        })
+        if (pelanggan) {
+          console.log('[DELETE Pelanggan] Pelanggan ditemukan setelah menggunakan ID database yang benar')
+        }
+      }
+      
+      // Cek semua pelanggan untuk debugging (hanya ambil beberapa)
+      const allPelanggans = await prisma.pelanggan.findMany({
+        select: { id: true, idPelanggan: true, nama: true },
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+      })
+      console.log('[DELETE Pelanggan] Sample pelanggan di database:', allPelanggans)
+      
+      // Cek apakah ID yang dicari ada di sample
+      const foundInSample = allPelanggans.find(p => p.id === id)
+      if (foundInSample) {
+        console.log('[DELETE Pelanggan] ID ditemukan di sample, tapi query findUnique gagal. Mungkin ada masalah dengan database connection.')
+      }
+    }
+    
+    if (pelanggan) {
+      console.log('[DELETE Pelanggan] ID Pelanggan:', pelanggan.idPelanggan, 'Nama:', pelanggan.nama)
+    }
+
+    if (!pelanggan) {
+      // Coba query sekali lagi dengan logging lebih detail
+      try {
+        const retryPelanggan = await prisma.pelanggan.findUnique({
+          where: { id },
+          select: { id: true, idPelanggan: true, nama: true },
+        })
+        console.log('[DELETE Pelanggan] Retry query result:', retryPelanggan)
+        
+        if (!retryPelanggan) {
+          // Cek apakah ada di database dengan query langsung
+          const count = await prisma.pelanggan.count({ where: { id } })
+          console.log('[DELETE Pelanggan] Count dengan ID:', count)
+          
+          // Cek semua ID yang ada
+          const allIds = await prisma.pelanggan.findMany({
+            select: { id: true, idPelanggan: true },
+            take: 10,
+          })
+          console.log('[DELETE Pelanggan] Semua ID di database:', allIds)
+        }
+      } catch (dbError: any) {
+        console.error('[DELETE Pelanggan] Error saat retry query:', dbError)
+      }
+      
       return NextResponse.json(
         { error: 'Pelanggan tidak ditemukan' },
         { status: 404 }
       )
+    }
+
+    // Hapus semua tagihan terkait terlebih dahulu (meskipun sudah ada cascade, lebih aman hapus manual)
+    try {
+      await prisma.tagihan.deleteMany({
+        where: { pelangganId: id },
+      })
+    } catch (error) {
+      console.error(`Error deleting tagihan for pelanggan ${id}:`, error)
+      // Lanjutkan meskipun ada error, karena cascade akan menangani
     }
 
     // Hapus file uploads jika ada

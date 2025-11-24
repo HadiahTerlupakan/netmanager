@@ -22,6 +22,8 @@ import { SpeedProfileRepository } from './SpeedProfileRepository'
 import type { ISpeedProfileRepository } from './ISpeedProfileRepository'
 import { MikroTikRouterRepository } from './MikroTikRouterRepository'
 import type { IMikroTikRouterRepository } from './IMikroTikRouterRepository'
+import { TagihanRepository } from './TagihanRepository'
+import type { ITagihanRepository } from './ITagihanRepository'
 
 let userRepositoryInstance: IUserRepository | null = null
 let oltRepositoryInstance: IOLTRepository | null = null
@@ -35,6 +37,7 @@ let onuRepositoryInstance: IOnuRepository | null = null
 let onuTypeRepositoryInstance: IOnuTypeRepository | null = null
 let speedProfileRepositoryInstance: ISpeedProfileRepository | null = null
 let mikroTikRouterRepositoryInstance: IMikroTikRouterRepository | null = null
+let tagihanRepositoryInstance: ITagihanRepository | null = null
 
 export function getUserRepository(): IUserRepository {
   if (!userRepositoryInstance) {
@@ -120,6 +123,13 @@ export function getMikroTikRouterRepository(): IMikroTikRouterRepository {
   return mikroTikRouterRepositoryInstance
 }
 
+export function getTagihanRepository(): ITagihanRepository {
+  if (!tagihanRepositoryInstance) {
+    tagihanRepositoryInstance = new TagihanRepository()
+  }
+  return tagihanRepositoryInstance
+}
+
 export { UserRepository } from './UserRepository'
 export type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
 export { OLTRepository } from './OLTRepository'
@@ -144,4 +154,6 @@ export { SpeedProfileRepository } from './SpeedProfileRepository'
 export type { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from './ISpeedProfileRepository'
 export { MikroTikRouterRepository } from './MikroTikRouterRepository'
 export type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from './IMikroTikRouterRepository'
+export { TagihanRepository } from './TagihanRepository'
+export type { ITagihanRepository, TagihanCreateData, TagihanUpdateData, TagihanPublic, TagihanWithPelanggan } from './ITagihanRepository'
 

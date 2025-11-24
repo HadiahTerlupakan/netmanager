@@ -30,7 +30,9 @@ import {
   HiOutlineCurrencyDollar,
   HiOutlineUserGroup,
   HiOutlineCog6Tooth,
-  HiOutlineKey
+  HiOutlineKey,
+  HiOutlineDocumentText,
+  HiOutlineAdjustmentsHorizontal
 } from 'react-icons/hi2'
 
 type NavItem = {
@@ -92,12 +94,14 @@ export default function Sidebar() {
         { href: '/admin/pelanggan/ppp', label: 'Pelanggan PPP', icon: <HiOutlineUserCircle className="w-4 h-4" /> },
       ],
     },
+    { href: '/admin/tagihan', label: 'Tagihan', icon: <HiOutlineDocumentText className="w-5 h-5" /> },
     { href: '/admin/users', label: 'Users', icon: <HiOutlineUsers className="w-5 h-5" /> },
     {
       href: '/admin/pengaturan',
       label: 'Pengaturan',
       icon: <HiOutlineCog6Tooth className="w-5 h-5" />,
       children: [
+        { href: '/admin/pengaturan/umum', label: 'Pengaturan Umum', icon: <HiOutlineAdjustmentsHorizontal className="w-4 h-4" /> },
         { href: '/admin/pengaturan/api', label: 'API', icon: <HiOutlineKey className="w-4 h-4" /> },
       ],
     },

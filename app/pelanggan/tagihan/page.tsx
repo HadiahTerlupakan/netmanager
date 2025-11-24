@@ -14,6 +14,7 @@ import {
   HiOutlineUser,
   HiOutlineInformationCircle,
   HiBell,
+  HiArrowPath,
 } from 'react-icons/hi2'
 import Link from 'next/link'
 
@@ -33,45 +34,28 @@ export default function TagihanPage() {
   const activeTab = searchParams.get('tab') || 'tagihan'
   const [loading, setLoading] = useState(true)
   const [pelanggan, setPelanggan] = useState<any>(null)
+  const [tagihanList, setTagihanList] = useState<TagihanItem[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [renewing, setRenewing] = useState(false)
+  const [renewDisabled, setRenewDisabled] = useState(false)
+  const [renewDisabledMessage, setRenewDisabledMessage] = useState<string | null>(null)
+  const [checkingRenewStatus, setCheckingRenewStatus] = useState(false)
 
-  // Dummy data tagihan
-  const [tagihanList] = useState<TagihanItem[]>([
-    {
-      id: '1',
-      bulan: 'November',
-      tahun: 2025,
-      jumlah: 150000,
-      jatuhTempo: '2025-11-30',
-      status: 'BELUM_LUNAS',
-    },
-    {
-      id: '2',
-      bulan: 'Oktober',
-      tahun: 2025,
-      jumlah: 150000,
-      jatuhTempo: '2025-10-30',
-      status: 'LUNAS',
-      tanggalBayar: '2025-10-28',
-    },
-    {
-      id: '3',
-      bulan: 'September',
-      tahun: 2025,
-      jumlah: 150000,
-      jatuhTempo: '2025-09-30',
-      status: 'LUNAS',
-      tanggalBayar: '2025-09-29',
-    },
-    {
-      id: '4',
-      bulan: 'Agustus',
-      tahun: 2025,
-      jumlah: 150000,
-      jatuhTempo: '2025-08-30',
-      status: 'LUNAS',
-      tanggalBayar: '2025-08-28',
-    },
-  ])
+  // Mapping nama bulan
+  const namaBulan = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+  ]
 
   useEffect(() => {
     const token = localStorage.getItem('pelanggan_token')
@@ -85,11 +69,67 @@ export default function TagihanPage() {
     try {
       const data = JSON.parse(pelangganData)
       setPelanggan(data)
+
+      // Fetch tagihan dari API
+      const fetchTagihan = async () => {
+        try {
+          const response = await fetch(`/api/tagihan/pelanggan/${data.id}`)
+          if (!response.ok) {
+            throw new Error('Gagal mengambil data tagihan')
+          }
+          const tagihans = await response.json()
+
+          // Transform data dari API ke format TagihanItem
+          const transformedTagihans: TagihanItem[] = tagihans.map((tagihan: any) => ({
+            id: tagihan.id,
+            bulan: namaBulan[tagihan.periodeBulan - 1],
+            tahun: tagihan.periodeTahun,
+            jumlah: tagihan.total,
+            jatuhTempo: tagihan.jatuhTempo,
+            status: tagihan.status,
+            tanggalBayar: tagihan.tanggalBayar || undefined,
+          }))
+
+          setTagihanList(transformedTagihans)
+
+          // Cek status disable perpanjangan jika semua tagihan sudah lunas
+          const tagihanAktifCount = transformedTagihans.filter(
+            (t: TagihanItem) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT'
+          ).length
+          const riwayatCount = transformedTagihans.filter((t: TagihanItem) => t.status === 'LUNAS').length
+          const semuaLunas = tagihanAktifCount === 0 && riwayatCount > 0
+
+          if (semuaLunas && data.jatuhTempo) {
+            setCheckingRenewStatus(true)
+            try {
+              const renewStatusRes = await fetch(`/api/pelanggan-ppp/${data.id}/check-renew`, {
+                headers: {
+                  'x-pelanggan-token': token || '',
+                },
+              })
+              if (renewStatusRes.ok) {
+                const renewStatusData = await renewStatusRes.json()
+                setRenewDisabled(renewStatusData.disabled)
+                setRenewDisabledMessage(renewStatusData.message)
+              }
+            } catch (err) {
+              console.error('Error checking renew status:', err)
+            } finally {
+              setCheckingRenewStatus(false)
+            }
+          }
+        } catch (err: any) {
+          console.error('Error fetching tagihan:', err)
+          setError(err.message || 'Gagal mengambil data tagihan')
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      fetchTagihan()
     } catch (error) {
       console.error('Error parsing pelanggan data:', error)
       router.push('/pelanggan/login')
-    } finally {
-      setLoading(false)
     }
   }, [router])
 
@@ -143,8 +183,77 @@ export default function TagihanPage() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600"
+          >
+            Coba Lagi
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const tagihanAktif = tagihanList.filter((t) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT')
   const riwayatBayar = tagihanList.filter((t) => t.status === 'LUNAS')
+  const semuaTagihanLunas = tagihanAktif.length === 0 && riwayatBayar.length > 0
+
+  const handleRenew = async () => {
+    if (!pelanggan) return
+
+    if (!confirm('Apakah Anda yakin ingin memperpanjang layanan? Tagihan baru akan dibuat untuk periode berikutnya.')) {
+      return
+    }
+
+    try {
+      setRenewing(true)
+      const token = localStorage.getItem('pelanggan_token')
+      const res = await fetch(`/api/pelanggan-ppp/${pelanggan.id}/renew`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-pelanggan-token': token || '',
+        },
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Gagal memperpanjang layanan')
+      }
+
+      const data = await res.json()
+      alert(`Layanan berhasil diperpanjang!\nJatuh Tempo Baru: ${new Date(data.jatuhTempoBaru).toLocaleDateString('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })}`)
+
+      // Reload tagihan
+      const tagihanRes = await fetch(`/api/tagihan/pelanggan/${pelanggan.id}`)
+      if (tagihanRes.ok) {
+        const tagihans = await tagihanRes.json()
+        const transformedTagihans: TagihanItem[] = tagihans.map((tagihan: any) => ({
+          id: tagihan.id,
+          bulan: namaBulan[tagihan.periodeBulan - 1],
+          tahun: tagihan.periodeTahun,
+          jumlah: tagihan.total,
+          jatuhTempo: tagihan.jatuhTempo,
+          status: tagihan.status,
+          tanggalBayar: tagihan.tanggalBayar || undefined,
+        }))
+        setTagihanList(transformedTagihans)
+      }
+    } catch (err: any) {
+      alert(err.message || 'Terjadi kesalahan saat memperpanjang layanan')
+    } finally {
+      setRenewing(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-8">
@@ -197,12 +306,45 @@ export default function TagihanPage() {
         {/* Content */}
         {activeTab === 'tagihan' ? (
           <div className="space-y-3">
-            {tagihanAktif.length === 0 ? (
+            {/* Tombol Renew jika semua tagihan sudah lunas */}
+            {semuaTagihanLunas && (
+              <div className="bg-white rounded-xl shadow-sm p-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Perpanjang Layanan
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Semua tagihan sudah lunas. Perpanjang layanan untuk periode berikutnya?
+                    </p>
+                    {renewDisabled && renewDisabledMessage && (
+                      <p className="text-xs text-red-500 mt-2">
+                        {renewDisabledMessage}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleRenew}
+                    disabled={renewing || renewDisabled || checkingRenewStatus}
+                    className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors touch-manipulation active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {checkingRenewStatus
+                      ? 'Memeriksa...'
+                      : renewing
+                      ? 'Memproses...'
+                      : renewDisabled
+                      ? 'Dinonaktifkan'
+                      : 'Perpanjang Layanan'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {tagihanAktif.length === 0 && !semuaTagihanLunas ? (
               <div className="bg-white rounded-xl shadow-sm p-8 text-center">
                 <HiOutlineCheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
                 <p className="text-gray-600">Tidak ada tagihan yang belum dibayar</p>
               </div>
-            ) : (
+            ) : tagihanAktif.length > 0 ? (
               tagihanAktif.map((tagihan) => (
                 <div
                   key={tagihan.id}
@@ -226,13 +368,15 @@ export default function TagihanPage() {
                         {formatRupiah(tagihan.jumlah)}
                       </p>
                     </div>
-                    <button className="px-4 py-2 bg-sky-500 text-white text-sm font-medium rounded-lg hover:bg-sky-600 transition-colors touch-manipulation active:scale-95">
-                      Bayar Sekarang
-                    </button>
+                    <div className="flex gap-2">
+                      <button className="px-4 py-2 bg-sky-500 text-white text-sm font-medium rounded-lg hover:bg-sky-600 transition-colors touch-manipulation active:scale-95">
+                        Bayar Sekarang
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
-            )}
+            ) : null}
           </div>
         ) : (
           <div className="space-y-3">

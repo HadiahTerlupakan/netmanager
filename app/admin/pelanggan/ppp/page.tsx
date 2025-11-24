@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath } from 'react-icons/hi2'
+import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath, HiPrinter, HiArrowPathRoundedSquare } from 'react-icons/hi2'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/common/StatusBadge'
 
@@ -44,6 +44,15 @@ export default function PelangganPPPPage() {
         throw new Error('Gagal memuat data pelanggan PPP')
       }
       const data = await res.json()
+      // Debug: Log data yang diterima
+      console.log('[Frontend] Data pelanggan diterima:', data.length, 'pelanggan')
+      if (data.length > 0) {
+        console.log('[Frontend] Sample pelanggan:', {
+          id: data[0].id,
+          idPelanggan: data[0].idPelanggan,
+          nama: data[0].nama
+        })
+      }
       setPelanggans(data || [])
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan saat memuat data')
@@ -58,15 +67,32 @@ export default function PelangganPPPPage() {
     }
 
     try {
+      // Debug: Log ID yang akan dikirim
+      console.log('[Frontend] Menghapus pelanggan dengan ID:', id, 'Type:', typeof id)
+
       const res = await fetch(`/api/pelanggan-ppp/${id}`, { method: 'DELETE' })
       if (!res.ok) {
         const errorData = await res.json()
+        console.error('[Frontend] Error response:', errorData)
         throw new Error(errorData.error || 'Gagal menghapus pelanggan')
       }
+      const result = await res.json()
+      console.log('[Frontend] Delete berhasil:', result)
       await loadData()
     } catch (err: any) {
+      console.error('[Frontend] Error saat menghapus:', err)
       alert(err.message || 'Terjadi kesalahan saat menghapus data')
     }
+  }
+
+  const handleRenewal = (id: string) => {
+    // Redirect ke halaman renewal admin
+    window.location.href = `/admin/pelanggan/ppp/${id}/renew`
+  }
+
+  const handlePrint = (id: string) => {
+    // Buka halaman print tagihan di tab baru
+    window.open(`/admin/pelanggan/ppp/${id}/print`, '_blank')
   }
 
   const formatRupiah = (amount: number) => {
@@ -162,7 +188,10 @@ export default function PelangganPPPPage() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                  Renew | Print
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                   Aksi
                 </th>
               </tr>
@@ -170,7 +199,7 @@ export default function PelangganPPPPage() {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
               {pelanggans.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center">
+                  <td colSpan={11} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         Belum ada data pelanggan PPP
@@ -247,27 +276,39 @@ export default function PelangganPPPPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <StatusBadge status={pelanggan.status} />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <div className="flex items-center justify-end gap-3">
-                        <Link
-                          href={`/admin/pelanggan/ppp/${pelanggan.id}`}
-                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium inline-flex items-center gap-1"
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleRenewal(pelanggan.id)}
+                          className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                          title="Perpanjang Layanan"
                         >
-                          Lihat
-                        </Link>
+                          <HiArrowPathRoundedSquare className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handlePrint(pelanggan.id)}
+                          className="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                          title="Print Tagihan"
+                        >
+                          <HiPrinter className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="flex items-center justify-center gap-2">
                         <Link
                           href={`/admin/pelanggan/ppp/${pelanggan.id}/edit`}
-                          className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center gap-1"
+                          className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                          title="Edit"
                         >
-                          <HiPencil className="w-4 h-4" />
-                          Edit
+                          <HiPencil className="w-5 h-5" />
                         </Link>
                         <button
                           onClick={() => handleDelete(pelanggan.id)}
-                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium inline-flex items-center gap-1"
+                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          title="Hapus"
                         >
-                          <HiTrash className="w-4 h-4" />
-                          Hapus
+                          <HiTrash className="w-5 h-5" />
                         </button>
                       </div>
                     </td>

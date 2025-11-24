@@ -35,6 +35,12 @@ enum TipePelanggan {
   NON_REGULER
 }
 
+enum TagihanStatus {
+  BELUM_LUNAS
+  LUNAS
+  TERLAMBAT
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String?
@@ -574,6 +580,8 @@ model Pelanggan {
   createdAt                     DateTime      @default(now())
   updatedAt                     DateTime      @updatedAt
 
+  tagihans Tagihan[] // Relasi ke Tagihan
+
   @@index([idPelanggan])
   @@index([hargaPaketId])
   @@index([status])
@@ -581,6 +589,39 @@ model Pelanggan {
   @@index([tanggalAktif])
   @@index([jatuhTempo])
   @@index([email])
+}
+
+// Tagihan - Data tagihan pelanggan
+model Tagihan {
+  id                String         @id @default(cuid())
+  pelangganId       String
+  pelanggan         Pelanggan      @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  noTagihan         String         @unique // Nomor tagihan (format: TAG-YYYYMM-XXXX)
+  periodeBulan      Int // 1-12
+  periodeTahun      Int // 2024, 2025, dll
+  // Rincian tagihan
+  subtotal          Int // Subtotal sebelum PPN dan diskon
+  diskon            Int @default(0) // Jumlah diskon
+  ppn               Int @default(0) // Jumlah PPN
+  biayaInstalasi    Int @default(0) // Biaya instalasi (jika recurring)
+  biayaSewaPerangkat Int @default(0) // Biaya sewa perangkat (jika recurring)
+  biayaLainnya      Int @default(0) // Biaya lain-lain (jika recurring)
+  total             Int // Total tagihan (subtotal - diskon + ppn + biaya tambahan)
+  // Status dan tanggal
+  status            TagihanStatus  @default(BELUM_LUNAS)
+  jatuhTempo        DateTime // Tanggal jatuh tempo pembayaran
+  tanggalBayar      DateTime? // Tanggal pembayaran (jika sudah dibayar)
+  metodePembayaran  String? // Metode pembayaran (e.g., "TRANSFER", "CASH", "OVO", dll)
+  catatan           String? // Catatan tambahan
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@unique([pelangganId, periodeBulan, periodeTahun]) // Satu tagihan per pelanggan per periode
+  @@index([pelangganId])
+  @@index([status])
+  @@index([jatuhTempo])
+  @@index([noTagihan])
+  @@index([periodeBulan, periodeTahun])
 }
 
 // Settings - Konfigurasi aplikasi

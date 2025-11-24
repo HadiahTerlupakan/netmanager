@@ -291,13 +291,26 @@ export default function PelangganPPPEditPage() {
         formDataToSend.append('fileBAST', fileBAST)
       }
       
+      // Debug: Log ID yang akan dikirim
+      console.log('[Frontend PUT] ID pelanggan:', id, 'Type:', typeof id)
+      console.log('[Frontend PUT] URL:', `/api/pelanggan-ppp/${id}`)
+
       const res = await fetch(`/api/pelanggan-ppp/${id}`, {
         method: 'PUT',
         body: formDataToSend,
       })
 
+      console.log('[Frontend PUT] Response status:', res.status, res.statusText)
+
       if (!res.ok) {
-        const errorData = await res.json()
+        let errorData
+        try {
+          errorData = await res.json()
+        } catch (e) {
+          errorData = { error: `HTTP ${res.status}: ${res.statusText}` }
+        }
+        console.error('[Frontend PUT] Error response:', errorData)
+        
         // Jika error karena ID duplikat, generate ID baru dan retry
         if (errorData.error?.includes('sudah digunakan') || errorData.error?.includes('unique') || res.status === 409) {
           const newId = await generateIdPelanggan()
@@ -532,12 +545,6 @@ export default function PelangganPPPEditPage() {
     }
     subtotal = Math.max(0, subtotal - diskon)
 
-    // Hitung PPN (jika pelanggan menggunakan PPN DAN paket memiliki PPN)
-    let ppn = 0
-    if (formData.usePPN && selectedPaket.usePPN && selectedPaket.ppnPercentage) {
-      ppn = (subtotal * selectedPaket.ppnPercentage) / 100
-    }
-
     // Hitung biaya lain-lain
     const biayaInstalasiSebelumDiskon = formData.biayaInstalasi || 0
     let biayaInstalasi = biayaInstalasiSebelumDiskon
@@ -568,7 +575,15 @@ export default function PelangganPPPEditPage() {
     
     const totalBiayaLainnya = biayaInstalasi + biayaSewaPerangkat + biayaLainnya
 
-    const total = subtotal + ppn + totalBiayaLainnya
+    // Hitung PPN dari subtotal keseluruhan (paket setelah diskon + semua biaya tambahan)
+    // PPN dihitung dari DPP (Dasar Pengenaan Pajak) = subtotal paket + biaya tambahan
+    let ppn = 0
+    if (formData.usePPN && selectedPaket.usePPN && selectedPaket.ppnPercentage) {
+      const subtotalKeseluruhan = subtotal + totalBiayaLainnya
+      ppn = (subtotalKeseluruhan * selectedPaket.ppnPercentage) / 100
+    }
+
+    const total = subtotal + totalBiayaLainnya + ppn
 
     return {
       hargaPaket: selectedPaket.harga,
@@ -2057,6 +2072,11 @@ export default function PelangganPPPEditPage() {
                             <div className="flex justify-between items-center text-green-600 dark:text-green-400">
                               <span>
                                 Diskon {totalInfo.diskonInfo?.isCustom ? '(Custom)' : '(Paket)'}
+                                {totalInfo.diskonInfo?.isCustom && totalInfo.diskonInfo?.type && totalInfo.diskonInfo?.value !== null && (
+                                  <span className="text-xs ml-1">
+                                    - {totalInfo.diskonInfo.type === 'FIXED' ? formatRupiah(totalInfo.diskonInfo.value) : `${totalInfo.diskonInfo.value}%`}
+                                  </span>
+                                )}
                               </span>
                               <span className="font-medium">- {formatRupiah(totalInfo.diskon)}</span>
                             </div>
@@ -2067,17 +2087,6 @@ export default function PelangganPPPEditPage() {
                             )}
                           </>
                         )}
-
-                    {totalInfo.ppn > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600 dark:text-gray-400">
-                          PPN ({totalInfo.paket.ppnPercentage}%)
-                        </span>
-                        <span className="text-gray-900 dark:text-white font-medium">
-                          + {formatRupiah(totalInfo.ppn)}
-                        </span>
-                      </div>
-                    )}
 
                     {(totalInfo.totalBiayaLainnya > 0 || (formData.biayaInstalasi && formData.biayaInstalasi > 0) || (formData.biayaSewaPerangkat && formData.biayaSewaPerangkat > 0) || (formData.biayaLainnya && formData.biayaLainnya > 0)) && (
                       <>
@@ -2138,16 +2147,62 @@ export default function PelangganPPPEditPage() {
                         )}
                       </>
                     )}
+                  </div>
+                </div>
 
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-base font-semibold text-gray-900 dark:text-white">
-                          Total Tagihan
+                {/* Garis Pemisah */}
+                <div className="border-t border-gray-300 dark:border-gray-600 my-3"></div>
+
+                {/* Summary - Format seperti di invoice */}
+                <div className="space-y-2">
+                  {/* Sub Total */}
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Sub Total</span>
+                    <span className="text-gray-900 dark:text-white font-medium">
+                      {(() => {
+                        // Hitung subtotal = harga paket setelah diskon + semua biaya tambahan
+                        const hargaPaket = totalInfo.hargaPaket
+                        let subtotalPaket = hargaPaket
+                        
+                        // Kurangi diskon paket
+                        if (totalInfo.diskon > 0) {
+                          subtotalPaket -= totalInfo.diskon
+                        }
+                        subtotalPaket = Math.max(0, subtotalPaket)
+                        
+                        // Tambahkan semua biaya tambahan
+                        const subtotal = subtotalPaket + totalInfo.totalBiayaLainnya
+                        return formatRupiah(Math.round(subtotal))
+                      })()}
+                    </span>
+                  </div>
+
+                  {/* PPN */}
+                  {totalInfo.ppn > 0 && (
+                    <div className="flex justify-between items-center text-sm">
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">
+                          PPN (VAT)
                         </span>
-                        <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                          {formatRupiah(totalInfo.total)}
-                        </span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          based on company & country regulation
+                        </p>
                       </div>
+                      <span className="text-gray-900 dark:text-white font-medium">
+                        {formatRupiah(Math.round(totalInfo.ppn))}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Total Tagihan */}
+                  <div className="border-t-2 border-gray-300 dark:border-gray-600 pt-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-base font-bold text-gray-900 dark:text-white">
+                        Total
+                      </span>
+                      <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                        {formatRupiah(totalInfo.total)}
+                      </span>
                     </div>
                   </div>
                 </div>
