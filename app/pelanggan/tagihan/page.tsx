@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   HiOutlineCreditCard,
@@ -28,7 +28,7 @@ type TagihanItem = {
   tanggalBayar?: string
 }
 
-export default function TagihanPage() {
+function TagihanContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab') || 'tagihan'
@@ -79,16 +79,16 @@ export default function TagihanPage() {
     try {
       const data = JSON.parse(pelangganData)
       if (showLoading) setLoading(true)
-      
+
       // Set lock untuk mencegah multiple refresh
       setIsRefreshing(true)
 
       // Tambahkan timestamp untuk cache busting jika forceRefresh true
       // Gunakan format yang tidak mengganggu routing Next.js
       const cacheBuster = forceRefresh ? `?_t=${Date.now()}` : ''
-      
+
       console.log(`[Portal Tagihan] Fetching tagihan with forceRefresh=${forceRefresh}`)
-      
+
       const response = await fetch(`/api/tagihan/pelanggan/${data.id}${cacheBuster}`, {
         cache: 'no-store',
         headers: {
@@ -117,7 +117,7 @@ export default function TagihanPage() {
         }
       }
       const tagihans = await response.json()
-      
+
       // Debug: Log tagihan yang diterima
       console.log('[Portal Tagihan] Tagihan diterima:', tagihans.length, 'tagihan')
       if (tagihans.length > 0) {
@@ -140,13 +140,13 @@ export default function TagihanPage() {
         status: tagihan.status,
         tanggalBayar: tagihan.tanggalBayar || undefined,
       }))
-      
+
       console.log('[Portal Tagihan] Tagihan setelah transform:', transformedTagihans.length, 'tagihan')
-      
+
       // Cek duplikasi periode dan gunakan yang terbaru
       const periodeMap = new Map<string, TagihanItem>()
       let duplicateCount = 0
-      
+
       transformedTagihans.forEach(tagihan => {
         const key = `${tagihan.bulan}-${tagihan.tahun}`
         if (periodeMap.has(key)) {
@@ -156,11 +156,11 @@ export default function TagihanPage() {
           periodeMap.set(key, tagihan)
         }
       })
-      
+
       if (duplicateCount > 0) {
         console.warn(`[Portal Tagihan] Ditemukan ${duplicateCount} duplikasi periode, menggunakan yang terbaru`)
       }
-      
+
       // Gunakan data unik berdasarkan periode
       const uniqueTagihans = Array.from(periodeMap.values())
       setTagihanList(uniqueTagihans)
@@ -381,19 +381,19 @@ export default function TagihanPage() {
   const handleRefresh = async () => {
     console.log('[Portal Tagihan] Manual refresh triggered by user')
     setRefreshing(true)
-    
+
     // Tambahkan timestamp unik untuk memaksa refresh dari server
     await fetchTagihan(true, true) // Gunakan forceRefresh untuk cache busting
-    
+
     setLastRefreshTime(new Date())
     setRefreshing(false)
-    
+
     // Tampilkan notifikasi singkat
     const notification = document.createElement('div')
     notification.className = 'fixed top-20 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse'
     notification.textContent = 'Data berhasil diperbarui dari server'
     document.body.appendChild(notification)
-    
+
     // Hapus notifikasi setelah 2 detik
     setTimeout(() => {
       if (document.body.contains(notification)) {
@@ -513,21 +513,19 @@ export default function TagihanPage() {
         <div className="flex gap-2 mb-4 bg-white rounded-xl p-1 shadow-sm">
           <Link
             href="/pelanggan/tagihan"
-            className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors touch-manipulation text-center ${
-              activeTab === 'tagihan'
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors touch-manipulation text-center ${activeTab === 'tagihan'
                 ? 'bg-sky-500 text-white'
                 : 'text-gray-600 hover:bg-gray-50'
-            }`}
+              }`}
           >
             Tagihan Aktif
           </Link>
           <Link
             href="/pelanggan/tagihan?tab=riwayat"
-            className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors touch-manipulation text-center ${
-              activeTab === 'riwayat'
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors touch-manipulation text-center ${activeTab === 'riwayat'
                 ? 'bg-sky-500 text-white'
                 : 'text-gray-600 hover:bg-gray-50'
-            }`}
+              }`}
           >
             Riwayat
           </Link>
@@ -568,10 +566,10 @@ export default function TagihanPage() {
                     {checkingRenewStatus
                       ? 'Memeriksa...'
                       : renewing
-                      ? 'Memproses...'
-                      : renewDisabled
-                      ? 'Dinonaktifkan'
-                      : 'Perpanjang Layanan'}
+                        ? 'Memproses...'
+                        : renewDisabled
+                          ? 'Dinonaktifkan'
+                          : 'Perpanjang Layanan'}
                   </button>
                 </div>
               </div>
@@ -706,5 +704,17 @@ export default function TagihanPage() {
         </div>
       </nav>
     </div>
+  )
+}
+
+export default function TagihanPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-500">Memuat data...</div>
+      </div>
+    }>
+      <TagihanContent />
+    </Suspense>
   )
 }

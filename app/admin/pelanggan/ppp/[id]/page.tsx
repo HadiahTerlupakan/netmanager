@@ -5,9 +5,9 @@ import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import RenewButton from '@/components/pelanggan/RenewButton'
-import { 
-  HiOutlineUser, 
-  HiOutlineMapPin, 
+import {
+  HiOutlineUser,
+  HiOutlineMapPin,
   HiOutlineDocumentText,
   HiOutlineClock,
   HiOutlinePhone,
@@ -97,15 +97,15 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link 
-            href="/admin/pelanggan/ppp" 
+          <Link
+            href="/admin/pelanggan/ppp"
             className="text-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
             Kembali
           </Link>
           <RenewButton pelangganId={pelanggan.id} />
-          <Link 
-            href={`/admin/pelanggan/ppp/${pelanggan.id}/edit`} 
+          <Link
+            href={`/admin/pelanggan/ppp/${pelanggan.id}/edit`}
             className="text-sm px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors inline-flex items-center gap-2"
           >
             <HiPencil className="w-4 h-4" />
@@ -119,7 +119,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
         <StatCard
           label="Paket Langganan"
           value={pelanggan.hargaPaket?.name || '-'}
-          color="indigo"
+          color="blue"
           icon={<HiOutlineCreditCard className="w-5 h-5" />}
         />
         <StatCard
@@ -164,11 +164,10 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
               <InfoItem
                 label="Tipe Pelanggan"
                 value={
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    pelanggan.tipe === 'REGULER'
-                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                      : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                  }`}>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${pelanggan.tipe === 'REGULER'
+                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                    : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                    }`}>
                     {pelanggan.tipe === 'REGULER' ? '📅 Reguler' : '🔄 Non Reguler'}
                   </span>
                 }
@@ -217,7 +216,6 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                   label="Alamat"
                   value={pelanggan.alamat}
                   icon={<HiOutlineMapPin className="w-3 h-3" />}
-                  className="sm:col-span-2"
                 />
               )}
               {pelanggan.kecamatan && (
@@ -402,9 +400,9 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
               icon={<HiOutlineMapPin className="w-4 h-4" />}
             >
               <MapPreview
-                latitude={pelanggan.latitude}
-                longitude={pelanggan.longitude}
-                height="200px"
+                lat={pelanggan.latitude}
+                lon={pelanggan.longitude}
+                height={200}
               />
             </InfoCard>
           )}
@@ -438,7 +436,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
               {/* Rincian Tagihan */}
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Rincian Tagihan</h4>
-                
+
                 {/* Harga Paket */}
                 {pelanggan.hargaPaket && (
                   <div className="flex justify-between items-center">
@@ -449,101 +447,101 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                   </div>
                 )}
 
-              {/* Biaya Instalasi */}
-              {pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0 && (
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Biaya Instalasi {pelanggan.biayaInstalasiIsRecurring ? '(Berulang)' : '(1x)'}
-                      {pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                          - Diskon {pelanggan.biayaInstalasiDiskon}%
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {formatRupiah(
-                        pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0
-                          ? pelanggan.biayaInstalasi - (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon / 100)
-                          : pelanggan.biayaInstalasi
-                      )}
-                    </span>
-                  </div>
-                  {pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0 && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 text-right">
-                      (Sebelum diskon: {formatRupiah(pelanggan.biayaInstalasi)})
+                {/* Biaya Instalasi */}
+                {pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        Biaya Instalasi {pelanggan.biayaInstalasiIsRecurring ? '(Berulang)' : '(1x)'}
+                        {pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0 && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                            - Diskon {pelanggan.biayaInstalasiDiskon}%
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {formatRupiah(
+                          pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0
+                            ? pelanggan.biayaInstalasi - (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon / 100)
+                            : pelanggan.biayaInstalasi
+                        )}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
+                    {pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0 && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 text-right">
+                        (Sebelum diskon: {formatRupiah(pelanggan.biayaInstalasi)})
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {/* Biaya Sewa Perangkat */}
-              {pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0 && (
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Biaya Sewa Perangkat {pelanggan.biayaSewaPerangkatIsRecurring ? '(Berulang)' : '(1x)'}
-                      {pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                          - Diskon {pelanggan.biayaSewaPerangkatDiskon}%
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {formatRupiah(
-                        pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0
-                          ? pelanggan.biayaSewaPerangkat - (pelanggan.biayaSewaPerangkat * pelanggan.biayaSewaPerangkatDiskon / 100)
-                          : pelanggan.biayaSewaPerangkat
-                      )}
-                    </span>
-                  </div>
-                  {pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0 && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 text-right">
-                      (Sebelum diskon: {formatRupiah(pelanggan.biayaSewaPerangkat)})
+                {/* Biaya Sewa Perangkat */}
+                {pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        Biaya Sewa Perangkat {pelanggan.biayaSewaPerangkatIsRecurring ? '(Berulang)' : '(1x)'}
+                        {pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0 && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                            - Diskon {pelanggan.biayaSewaPerangkatDiskon}%
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {formatRupiah(
+                          pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0
+                            ? pelanggan.biayaSewaPerangkat - (pelanggan.biayaSewaPerangkat * pelanggan.biayaSewaPerangkatDiskon / 100)
+                            : pelanggan.biayaSewaPerangkat
+                        )}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
+                    {pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0 && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 text-right">
+                        (Sebelum diskon: {formatRupiah(pelanggan.biayaSewaPerangkat)})
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {/* Biaya Lainnya */}
-              {pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0 && (
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Biaya Lainnya {pelanggan.biayaLainnyaIsRecurring ? '(Berulang)' : '(1x)'}
-                      {pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                          - Diskon {pelanggan.biayaLainnyaDiskon}%
-                        </span>
-                      )}
-                      {pelanggan.keteranganBiayaLainnya && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                          ({pelanggan.keteranganBiayaLainnya})
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {formatRupiah(
-                        pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0
-                          ? pelanggan.biayaLainnya - (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon / 100)
-                          : pelanggan.biayaLainnya
-                      )}
-                    </span>
-                  </div>
-                  {pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0 && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 text-right">
-                      (Sebelum diskon: {formatRupiah(pelanggan.biayaLainnya)})
+                {/* Biaya Lainnya */}
+                {pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        Biaya Lainnya {pelanggan.biayaLainnyaIsRecurring ? '(Berulang)' : '(1x)'}
+                        {pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0 && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                            - Diskon {pelanggan.biayaLainnyaDiskon}%
+                          </span>
+                        )}
+                        {pelanggan.keteranganBiayaLainnya && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                            ({pelanggan.keteranganBiayaLainnya})
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {formatRupiah(
+                          pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0
+                            ? pelanggan.biayaLainnya - (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon / 100)
+                            : pelanggan.biayaLainnya
+                        )}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
+                    {pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0 && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 text-right">
+                        (Sebelum diskon: {formatRupiah(pelanggan.biayaLainnya)})
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Diskon - Prioritas: custom diskon pelanggan > diskon paket */}
                 {pelanggan.useDiscount && (() => {
                   const hargaPaket = pelanggan.hargaPaket?.harga || 0
                   let diskon = 0
                   let diskonInfo = null
-                  
+
                   // Gunakan custom diskon pelanggan jika ada
                   if (pelanggan.discountType && pelanggan.discountValue !== null) {
                     if (pelanggan.discountType === 'FIXED') {
@@ -574,7 +572,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                       isCustom: false,
                     }
                   }
-                  
+
                   if (diskon > 0 && diskonInfo) {
                     return (
                       <div className="space-y-1">
@@ -601,7 +599,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                 {pelanggan.usePPN && pelanggan.hargaPaket?.usePPN && pelanggan.hargaPaket?.ppnPercentage && (() => {
                   const hargaPaket = pelanggan.hargaPaket?.harga || 0
                   let subtotal = hargaPaket
-                  
+
                   // Kurangi diskon jika ada
                   if (pelanggan.useDiscount) {
                     if (pelanggan.discountType && pelanggan.discountValue !== null) {
@@ -618,9 +616,9 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                       }
                     }
                   }
-                  
+
                   const ppn = (subtotal * pelanggan.hargaPaket.ppnPercentage) / 100
-                  
+
                   return (
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -645,7 +643,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                     {(() => {
                       const hargaPaket = pelanggan.hargaPaket?.harga || 0
                       let subtotal = hargaPaket
-                      
+
                       // Kurangi diskon jika ada (prioritas: custom > paket)
                       if (pelanggan.useDiscount) {
                         if (pelanggan.discountType && pelanggan.discountValue !== null) {
@@ -663,13 +661,13 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                         }
                       }
                       subtotal = Math.max(0, subtotal)
-                      
+
                       // Tambahkan PPN jika ada (dari subtotal setelah diskon)
                       let ppn = 0
                       if (pelanggan.usePPN && pelanggan.hargaPaket?.usePPN && pelanggan.hargaPaket?.ppnPercentage) {
                         ppn = (subtotal * pelanggan.hargaPaket.ppnPercentage) / 100
                       }
-                      
+
                       // Tambahkan biaya instalasi
                       let biayaInstalasi = 0
                       if (pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0) {
@@ -677,7 +675,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                           ? pelanggan.biayaInstalasi - (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon / 100)
                           : pelanggan.biayaInstalasi
                       }
-                      
+
                       // Tambahkan biaya sewa perangkat
                       let biayaSewa = 0
                       if (pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0) {
@@ -685,7 +683,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                           ? pelanggan.biayaSewaPerangkat - (pelanggan.biayaSewaPerangkat * pelanggan.biayaSewaPerangkatDiskon / 100)
                           : pelanggan.biayaSewaPerangkat
                       }
-                      
+
                       // Tambahkan biaya lainnya
                       let biayaLainnya = 0
                       if (pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0) {
@@ -693,7 +691,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                           ? pelanggan.biayaLainnya - (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon / 100)
                           : pelanggan.biayaLainnya
                       }
-                      
+
                       const total = subtotal + ppn + biayaInstalasi + biayaSewa + biayaLainnya
                       return formatRupiah(Math.max(0, total))
                     })()}
@@ -725,7 +723,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                   {pelanggan.useDiscount && (() => {
                     const hargaPaket = pelanggan.hargaPaket?.harga || 0
                     let diskonInfo = null
-                    
+
                     if (pelanggan.discountType && pelanggan.discountValue !== null) {
                       diskonInfo = {
                         type: pelanggan.discountType,
@@ -743,7 +741,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                         isCustom: false,
                       }
                     }
-                    
+
                     if (diskonInfo) {
                       return (
                         <div className="text-gray-500 dark:text-gray-400">

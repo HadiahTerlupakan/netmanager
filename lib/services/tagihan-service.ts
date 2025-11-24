@@ -396,7 +396,7 @@ export async function generateTagihanBulanan(periodeBulan: number, periodeTahun:
 
       if (perluGenerate) {
         const tagihanRepo = getTagihanRepository()
-        
+
         // Cek apakah tagihan untuk periode ini sudah ada
         const existingTagihan = await tagihanRepo.findByPelangganAndPeriode(
           pelanggan.id,
@@ -411,7 +411,7 @@ export async function generateTagihanBulanan(periodeBulan: number, periodeTahun:
             periodeBulanTagihan,
             periodeTahunTagihan,
           )
-          
+
           if (!doubleCheckTagihan) {
             await generateTagihan(pelanggan.id, periodeBulanTagihan, periodeTahunTagihan)
             console.log(`[GenerateTagihanBulanan] Tagihan berhasil di-generate untuk ${pelanggan.nama} periode ${periodeBulanTagihan}/${periodeTahunTagihan}`)
@@ -447,8 +447,8 @@ export async function generateTagihanOtomatis(): Promise<{
     where: { key: 'GENERAL_INVOICE_OTOMATIS' },
   })
 
-  const hariSebelumJatuhTempo = invoiceOtomatisSetting?.value 
-    ? parseInt(invoiceOtomatisSetting.value, 10) 
+  const hariSebelumJatuhTempo = invoiceOtomatisSetting?.value
+    ? parseInt(invoiceOtomatisSetting.value, 10)
     : 5 // Default 5 hari
 
   if (isNaN(hariSebelumJatuhTempo) || hariSebelumJatuhTempo < 0) {
@@ -465,7 +465,7 @@ export async function generateTagihanOtomatis(): Promise<{
       tagihans: {
         where: {
           status: {
-            in: ['BELUM_BAYAR', 'TERLAMBAT'],
+            in: ['BELUM_LUNAS', 'TERLAMBAT'],
           },
         },
         orderBy: {
@@ -495,21 +495,21 @@ export async function generateTagihanOtomatis(): Promise<{
 
       const paket = pelanggan.hargaPaket
       const jatuhTempo = new Date(pelanggan.jatuhTempo)
-      
+
       // Tentukan periode tagihan berdasarkan jatuh tempo
       let periodeBulan = jatuhTempo.getMonth() + 1
       let periodeTahun = jatuhTempo.getFullYear()
-      
+
       // Untuk paket harian/jam-jaman, gunakan periode saat ini
       if (paket.durasiUnit === 'HARI' || paket.durasiUnit === 'JAM') {
         periodeBulan = sekarang.getMonth() + 1
         periodeTahun = sekarang.getFullYear()
       }
-      
+
       // Cek apakah jatuh tempo akan datang dalam X hari
       if (jatuhTempo <= targetDate) {
         const tagihanRepo = getTagihanRepository()
-        
+
         // Cek apakah tagihan untuk periode ini sudah ada
         const existingTagihan = await tagihanRepo.findByPelangganAndPeriode(
           pelanggan.id,
@@ -524,7 +524,7 @@ export async function generateTagihanOtomatis(): Promise<{
             periodeBulan,
             periodeTahun,
           )
-          
+
           if (!doubleCheckTagihan) {
             await generateTagihan(pelanggan.id, periodeBulan, periodeTahun)
             console.log(`[GenerateTagihanOtomatis] Tagihan berhasil di-generate untuk ${pelanggan.nama} periode ${periodeBulan}/${periodeTahun}`)
@@ -560,8 +560,8 @@ export async function shouldDisablePerpanjanganPaket(jatuhTempo: Date): Promise<
     where: { key: 'GENERAL_DISABLE_PERPANJANGAN_PAKET' },
   })
 
-  const hariSebelumJatuhTempo = disablePerpanjanganSetting?.value 
-    ? parseInt(disablePerpanjanganSetting.value, 10) 
+  const hariSebelumJatuhTempo = disablePerpanjanganSetting?.value
+    ? parseInt(disablePerpanjanganSetting.value, 10)
     : 5 // Default 5 hari
 
   if (isNaN(hariSebelumJatuhTempo) || hariSebelumJatuhTempo < 0) {
@@ -871,25 +871,25 @@ export async function renewPelanggan(
       if (tagihanDetail) {
         // Hitung subtotal keseluruhan (paket + biaya tambahan)
         const subtotalKeseluruhanLama = tagihanDetail.subtotal + tagihanDetail.biayaInstalasi + tagihanDetail.biayaSewaPerangkat + tagihanDetail.biayaLainnya
-        
+
         // Apply diskon ke subtotal paket
         const diskonAmount = Math.min(options.diskon, tagihanDetail.subtotal)
         const subtotalPaketBaru = tagihanDetail.subtotal - diskonAmount
-        
+
         // Hitung subtotal keseluruhan baru (paket setelah diskon + biaya tambahan)
         const subtotalKeseluruhanBaru = subtotalPaketBaru + tagihanDetail.biayaInstalasi + tagihanDetail.biayaSewaPerangkat + tagihanDetail.biayaLainnya
-        
+
         // Hitung PPN dari subtotal keseluruhan baru
         const pelanggan = await prisma.pelanggan.findUnique({
           where: { id: pelangganId },
           include: { hargaPaket: true },
         })
-        
+
         let ppnBaru = 0
         if (pelanggan?.usePPN && pelanggan.hargaPaket?.usePPN && pelanggan.hargaPaket.ppnPercentage) {
           ppnBaru = Math.round((subtotalKeseluruhanBaru * pelanggan.hargaPaket.ppnPercentage) / 100)
         }
-        
+
         // Total = subtotal keseluruhan + ppn
         const totalBaru = subtotalKeseluruhanBaru + ppnBaru
 
@@ -959,7 +959,7 @@ export async function recalculateAllUnpaidTagihan(): Promise<{
   errors: string[]
 }> {
   const tagihanRepo = getTagihanRepository()
-  
+
   // Ambil semua tagihan yang belum lunas
   const tagihanBelumLunas = await tagihanRepo.findByStatus(TagihanStatus.BELUM_LUNAS)
   const tagihanTerlambat = await tagihanRepo.findByStatus(TagihanStatus.TERLAMBAT)

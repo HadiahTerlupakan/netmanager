@@ -349,6 +349,8 @@ model Onu {
   updatedAt  DateTime @updatedAt
 
   @@unique([oltId, gponOnu]) // Satu ONU unik per OLT berdasarkan gponOnu
+  
+  // Single-column indexes for basic queries
   @@index([oltId])
   @@index([status])
   @@index([lastUpdate])
@@ -356,6 +358,12 @@ model Onu {
   @@index([lastSeen])
   @@index([serialNumber])
   @@index([macAddress])
+  
+  // Composite indexes for optimized filtering & sorting (Phase 5)
+  @@index([oltId, status]) // Filter by OLT + status (very common query)
+  @@index([oltId, lastUpdate]) // OLT list sorted by update time
+  @@index([status, lastUpdate]) // Status filter sorted by update
+  @@index([oltId, gponOnu]) // Fast lookup by OLT + gponOnu (alternative to unique)
 }
 
 // ONU Type - Tipe ONU yang didukung per OLT

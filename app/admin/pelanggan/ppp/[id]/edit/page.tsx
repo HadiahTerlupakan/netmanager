@@ -117,7 +117,7 @@ export default function PelangganPPPEditPage() {
   // Load data existing pelanggan
   const loadPelangganData = async () => {
     if (!id) return
-    
+
     try {
       setLoadingData(true)
       const res = await fetch(`/api/pelanggan-ppp/${id}`, {
@@ -130,7 +130,7 @@ export default function PelangganPPPEditPage() {
         throw new Error('Gagal memuat data pelanggan')
       }
       const data = await res.json()
-      
+
       // Pre-fill form dengan data existing
       setFormData({
         idPelanggan: data.idPelanggan || '',
@@ -177,7 +177,7 @@ export default function PelangganPPPEditPage() {
         keteranganBiayaLainnya: data.keteranganBiayaLainnya || '',
         odpId: data.odpId || '',
       })
-      
+
       // Set existing file paths
       setExistingFileKTP(data.fileKTP || null)
       setExistingFileRumahSekitar(data.fileRumahSekitar || null)
@@ -269,10 +269,10 @@ export default function PelangganPPPEditPage() {
 
     try {
       setSubmitting(true)
-      
+
       // Buat FormData untuk mengirim file
       const formDataToSend = new FormData()
-      
+
       // Tambahkan semua field formData
       Object.entries(formData).forEach(([key, value]) => {
         if (value !== null && value !== undefined) {
@@ -280,14 +280,14 @@ export default function PelangganPPPEditPage() {
             formDataToSend.append(key, value.toString())
           } else if (typeof value === 'boolean') {
             formDataToSend.append(key, value ? 'true' : 'false')
-          } else if (typeof value === 'object' && !(value instanceof File)) {
+          } else if (typeof value === 'object' && !((value as unknown) instanceof File)) {
             formDataToSend.append(key, JSON.stringify(value))
           } else {
             formDataToSend.append(key, value as string | Blob)
           }
         }
       })
-      
+
       // Tambahkan file jika ada
       if (fileKTP) {
         formDataToSend.append('fileKTP', fileKTP)
@@ -298,7 +298,7 @@ export default function PelangganPPPEditPage() {
       if (fileBAST) {
         formDataToSend.append('fileBAST', fileBAST)
       }
-      
+
       // Debug: Log ID yang akan dikirim
       console.log('[Frontend PUT] ID pelanggan:', id, 'Type:', typeof id)
       console.log('[Frontend PUT] URL:', `/api/pelanggan-ppp/${id}`)
@@ -322,14 +322,16 @@ export default function PelangganPPPEditPage() {
           errorData = { error: `HTTP ${res.status}: ${res.statusText}` }
         }
         console.error('[Frontend PUT] Error response:', errorData)
-        
+
+
         // Jika error karena ID duplikat, generate ID baru dan retry
-        if (errorData.error?.includes('sudah digunakan') || errorData.error?.includes('unique') || res.status === 409) {
-          const newId = await generateIdPelanggan()
-          setFormData(prev => ({ ...prev, idPelanggan: newId }))
-          setError('ID Pelanggan sudah digunakan. ID baru telah di-generate. Silakan submit ulang.')
-          return
-        }
+        // Commented out: generateIdPelanggan function not defined
+        // if (errorData.error?.includes('sudah digunakan') || errorData.error?.includes('unique') || res.status === 409) {
+        //   const newId = await generateIdPelanggan()
+        //   setFormData(prev => ({ ...prev, idPelanggan: newId }))
+        //   setError('ID Pelanggan sudah digunakan. ID baru telah di-generate. Silakan submit ulang.')
+        //   return
+        // }
         throw new Error(errorData.error || 'Gagal menyimpan pelanggan PPP')
       }
 
@@ -405,12 +407,12 @@ export default function PelangganPPPEditPage() {
     const checked = (e.target as HTMLInputElement).checked
     setFormData((prev) => {
       const updated = { ...prev, [name]: type === 'checkbox' ? checked : value }
-      
+
       // Jika yang berubah adalah jatuh tempo secara manual, tandai sebagai manual edit
       if (name === 'jatuhTempo') {
         setJatuhTempoManuallyEdited(true)
       }
-      
+
       // Jika yang berubah adalah tanggal aktif atau harga paket, reset flag manual edit
       // dan hitung ulang jatuh tempo (karena perubahan ini mempengaruhi jatuh tempo)
       if (name === 'tanggalAktif' || name === 'hargaPaketId') {
@@ -420,7 +422,7 @@ export default function PelangganPPPEditPage() {
           name === 'hargaPaketId' ? value : updated.hargaPaketId
         )
       }
-      
+
       // Jika ID Pelanggan berubah, update username juga jika masih sama dengan ID lama
       if (name === 'idPelanggan') {
         if (prev.username === prev.idPelanggan) {
@@ -429,7 +431,7 @@ export default function PelangganPPPEditPage() {
         // Reset error saat user mengetik
         setIdPelangganError(null)
       }
-      
+
       return updated
     })
   }
@@ -437,7 +439,7 @@ export default function PelangganPPPEditPage() {
   // Validasi ID Pelanggan dengan debounce (hanya jika ID berubah)
   useEffect(() => {
     const idValue = formData.idPelanggan.trim()
-    
+
     // Validasi format (harus 8 digit angka)
     if (idValue && !/^\d{8}$/.test(idValue)) {
       setIdPelangganError('ID Pelanggan harus 8 digit angka')
@@ -494,13 +496,13 @@ export default function PelangganPPPEditPage() {
     if (formData.useProrate && formData.tanggalAktif && formData.jatuhTempo) {
       const tanggalAktif = new Date(formData.tanggalAktif)
       const jatuhTempo = new Date(formData.jatuhTempo)
-      
+
       // Validasi: pastikan tanggal valid
       if (isNaN(tanggalAktif.getTime()) || isNaN(jatuhTempo.getTime())) {
         // Jika tanggal tidak valid, skip prorate
       } else {
         const selisihHari = Math.ceil((jatuhTempo.getTime() - tanggalAktif.getTime()) / (1000 * 60 * 60 * 24))
-        
+
         // Hitung durasi paket dalam hari
         let durasiPaketHari = 0
         switch (selectedPaket.durasiUnit) {
@@ -539,7 +541,7 @@ export default function PelangganPPPEditPage() {
     // Hitung diskon (prioritas: custom diskon pelanggan > diskon paket)
     let diskon = 0
     let diskonInfo = null
-    
+
     if (formData.useDiscount) {
       // Gunakan custom diskon pelanggan jika ada
       if (formData.discountType && formData.discountValue !== null) {
@@ -577,31 +579,31 @@ export default function PelangganPPPEditPage() {
     // Hitung biaya lain-lain
     const biayaInstalasiSebelumDiskon = formData.biayaInstalasi || 0
     let biayaInstalasi = biayaInstalasiSebelumDiskon
-    
+
     // Hitung diskon biaya instalasi jika checkbox dicentang dan ada diskon
     if (biayaInstalasi > 0 && formData.useDiskonBiayaInstalasi && formData.biayaInstalasiDiskon && formData.biayaInstalasiDiskon > 0) {
       const diskonInstalasi = (biayaInstalasi * formData.biayaInstalasiDiskon) / 100
       biayaInstalasi = Math.max(0, biayaInstalasi - diskonInstalasi)
     }
-    
+
     const biayaSewaPerangkatSebelumDiskon = formData.biayaSewaPerangkat || 0
     let biayaSewaPerangkat = biayaSewaPerangkatSebelumDiskon
-    
+
     // Hitung diskon sewa perangkat jika checkbox dicentang dan ada diskon
     if (biayaSewaPerangkat > 0 && formData.useDiskonSewaPerangkat && formData.biayaSewaPerangkatDiskon && formData.biayaSewaPerangkatDiskon > 0) {
       const diskonSewa = (biayaSewaPerangkat * formData.biayaSewaPerangkatDiskon) / 100
       biayaSewaPerangkat = Math.max(0, biayaSewaPerangkat - diskonSewa)
     }
-    
+
     const biayaLainnyaSebelumDiskon = formData.biayaLainnya || 0
     let biayaLainnya = biayaLainnyaSebelumDiskon
-    
+
     // Hitung diskon biaya lain-lain jika checkbox dicentang dan ada diskon
     if (biayaLainnya > 0 && formData.useDiskonBiayaLainnya && formData.biayaLainnyaDiskon && formData.biayaLainnyaDiskon > 0) {
       const diskonLainnya = (biayaLainnya * formData.biayaLainnyaDiskon) / 100
       biayaLainnya = Math.max(0, biayaLainnya - diskonLainnya)
     }
-    
+
     const totalBiayaLainnya = biayaInstalasi + biayaSewaPerangkat + biayaLainnya
 
     // Hitung PPN dari subtotal keseluruhan (paket setelah diskon + semua biaya tambahan)
@@ -648,7 +650,7 @@ export default function PelangganPPPEditPage() {
   // Fungsi untuk scan KTP dan auto-fill form
   const handleScanKTP = async (file?: File) => {
     const fileToScan = file || fileKTP
-    
+
     if (!fileToScan) {
       setKtpScanError('Silakan pilih file KTP terlebih dahulu')
       return
@@ -679,7 +681,7 @@ export default function PelangganPPPEditPage() {
       if (!res.ok) {
         let errorData: any = {}
         let errorMessage = `HTTP ${res.status}: ${res.statusText}`
-        
+
         try {
           const text = await res.text()
           if (text) {
@@ -690,23 +692,25 @@ export default function PelangganPPPEditPage() {
           console.error('Failed to parse error response:', e)
           errorData = { error: errorMessage }
         }
-        
+
         console.error('API Error:', {
           status: res.status,
           statusText: res.statusText,
           errorData,
         })
-        
-        const finalErrorMessage = typeof errorMessage === 'string' 
-          ? errorMessage 
-          : errorMessage?.message || 'Gagal memproses KTP'
-        
+
+
+
+        const finalErrorMessage = typeof errorMessage === 'string'
+          ? errorMessage
+          : (errorMessage as any)?.message || 'Gagal memproses KTP'
+
         throw new Error(finalErrorMessage)
       }
 
       const result = await res.json()
       console.log('API Response:', result)
-      
+
       const ktpData = result.data
       console.log('KTP Data received:', ktpData)
 
@@ -744,7 +748,7 @@ export default function PelangganPPPEditPage() {
         if (ktpData.kecamatan && ktpData.kecamatan.trim()) {
           alamatParts.push(`Kec. ${ktpData.kecamatan.trim()}`)
         }
-        
+
         if (alamatParts.length > 0) {
           updated.alamat = alamatParts.join(', ')
           console.log('Set alamat:', updated.alamat)
@@ -799,7 +803,7 @@ export default function PelangganPPPEditPage() {
       setKtpScanError(null)
       setKtpScanSuccess(true)
       console.log('Scan KTP berhasil, form telah diisi')
-      
+
       // Auto-hide success message setelah 3 detik
       setTimeout(() => {
         setKtpScanSuccess(false)
@@ -839,1485 +843,1481 @@ export default function PelangganPPPEditPage() {
         <div className="lg:col-span-2">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
             <form className="space-y-5" onSubmit={handleSubmit}>
-          {/* Tab Navigation */}
-          <div className="border-b border-gray-200 dark:border-gray-700">
-            <nav className="flex space-x-8" aria-label="Tabs">
-              <button
-                type="button"
-                onClick={() => setActiveTab('paket')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'paket'
-                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-              >
-                Paket Langganan
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('info')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'info'
-                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-              >
-                Info Pelanggan
-              </button>
-            </nav>
-          </div>
-
-          {/* Tab Content */}
-          {activeTab === 'paket' && (
-            <div className="space-y-5">
-          {/* Status dan Tipe Pelanggan */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Status Registrasi */}
-            <div className="space-y-4">
-              <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                Status Registrasi
-              </h3>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Status Registrasi <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center gap-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="status"
-                      value="AKTIF"
-                      checked={formData.status === 'AKTIF'}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }))}
-                      className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                      required
-                    />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Aktif sekarang
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="status"
-                      value="NONAKTIF"
-                      checked={formData.status === 'NONAKTIF'}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }))}
-                      className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                      required
-                    />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Menunggu
-                    </span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Tipe Pelanggan */}
-            <div className="space-y-4">
-              <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                Tipe Pelanggan
-              </h3>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Tipe Pelanggan <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center gap-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="tipe"
-                      value="REGULER"
-                      checked={formData.tipe === 'REGULER'}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, tipe: e.target.value as 'REGULER' | 'NON_REGULER' }))}
-                      className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                      required
-                    />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Reguler
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="tipe"
-                      value="NON_REGULER"
-                      checked={formData.tipe === 'NON_REGULER'}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, tipe: e.target.value as 'REGULER' | 'NON_REGULER' }))}
-                      className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                      required
-                    />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Non Reguler
-                    </span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Paket & Tanggal */}
-          <div className="space-y-4">
-            <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-              Paket & Tanggal
-            </h3>
-
-            <div className="space-y-2">
-              <label htmlFor="hargaPaketId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Harga Paket <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="hargaPaketId"
-                name="hargaPaketId"
-                required
-                value={formData.hargaPaketId}
-                onChange={handleChange}
-                disabled={loading}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="">-- Pilih Harga Paket --</option>
-                {hargaPakets.map((paket) => {
-                  const hargaFormatted = new Intl.NumberFormat('id-ID', {
-                    style: 'currency',
-                    currency: 'IDR',
-                    minimumFractionDigits: 0,
-                  }).format(paket.harga)
-                  const durasiText = `${paket.durasi} ${paket.durasiUnit.toLowerCase()}`
-                  return (
-                    <option key={paket.id} value={paket.id}>
-                      {paket.name} - {hargaFormatted} / {durasiText}
-                    </option>
-                  )
-                })}
-              </select>
-              {formData.hargaPaketId && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {(() => {
-                    const selectedPaket = hargaPakets.find((p) => p.id === formData.hargaPaketId)
-                    if (selectedPaket) {
-                      return `Profile PPP: ${selectedPaket.profilePPP?.name || 'Tidak ada'} | Bandwidth: ${selectedPaket.bandwidth?.name || 'Tidak ada'}`
-                    }
-                    return ''
-                  })()}
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="tanggalAktif" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Tanggal Aktif <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="tanggalAktif"
-                  name="tanggalAktif"
-                  type="date"
-                  required
-                  value={formData.tanggalAktif}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="jatuhTempo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Jatuh Tempo <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="jatuhTempo"
-                  name="jatuhTempo"
-                  type="date"
-                  required
-                  value={formData.jatuhTempo}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-500">
-                  Jatuh tempo dihitung otomatis, namun bisa diubah manual jika diperlukan
-                </p>
-              </div>
-            </div>
-
-            {/* PPN & Diskon */}
-            <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                Pengaturan Pajak & Diskon
-              </h4>
-              
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="usePPN"
-                    checked={formData.usePPN}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, usePPN: e.target.checked }))}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Gunakan PPN
-                  </span>
-                </label>
-                <p className="text-xs text-gray-500 dark:text-gray-400 ml-7">
-                  Centang jika pelanggan ini dikenakan PPN (Pajak Pertambahan Nilai)
-                </p>
-
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="useProrate"
-                    checked={formData.useProrate}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, useProrate: e.target.checked }))}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Gunakan Prorate
-                  </span>
-                </label>
-                <p className="text-xs text-gray-500 dark:text-gray-400 ml-7">
-                  Centang untuk menghitung tagihan berdasarkan proporsi waktu (jika pelanggan aktif tidak sesuai durasi paket penuh)
-                </p>
-
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="useDiscount"
-                    checked={formData.useDiscount}
-                    onChange={(e) => setFormData((prev) => ({ 
-                      ...prev, 
-                      useDiscount: e.target.checked,
-                      // Reset custom diskon jika diskon dinonaktifkan
-                      ...(e.target.checked ? {} : {
-                        discountType: null,
-                        discountValue: null,
-                        discountDuration: null,
-                        discountDurationUnit: null,
-                      })
-                    }))}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Gunakan Diskon
-                  </span>
-                </label>
-                <p className="text-xs text-gray-500 dark:text-gray-400 ml-7">
-                  Centang jika pelanggan ini mendapatkan diskon. Jika tidak diisi custom diskon, akan menggunakan diskon dari paket.
-                </p>
-              </div>
-
-              {/* Custom Diskon */}
-              {formData.useDiscount && (
-                <div className="space-y-3 mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Custom Diskon (Opsional)
-                  </h4>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                    Jika diisi, akan override diskon dari paket. Kosongkan untuk menggunakan diskon dari paket.
-                  </p>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Jenis Diskon
-                    </label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="customDiscountType"
-                          value="FIXED"
-                          checked={formData.discountType === 'FIXED'}
-                          onChange={(e) => setFormData((prev) => ({ 
-                            ...prev, 
-                            discountType: e.target.value as 'FIXED' | 'PERCENT',
-                            discountValue: null // Reset value saat ganti jenis
-                          }))}
-                          className="border-gray-300 dark:border-gray-700"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Fixed (Nominal Tetap)</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="customDiscountType"
-                          value="PERCENT"
-                          checked={formData.discountType === 'PERCENT'}
-                          onChange={(e) => setFormData((prev) => ({ 
-                            ...prev, 
-                            discountType: e.target.value as 'FIXED' | 'PERCENT',
-                            discountValue: null // Reset value saat ganti jenis
-                          }))}
-                          className="border-gray-300 dark:border-gray-700"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Persen (%)</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {formData.discountType && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Nilai Diskon {formData.discountType === 'FIXED' ? '(Rp)' : '(%)'}
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max={formData.discountType === 'PERCENT' ? 100 : undefined}
-                        step={formData.discountType === 'PERCENT' ? '0.01' : '1'}
-                        value={formData.discountValue || ''}
-                        onChange={(e) => setFormData((prev) => ({ 
-                          ...prev, 
-                          discountValue: e.target.value ? parseFloat(e.target.value) : null 
-                        }))}
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                        placeholder={formData.discountType === 'FIXED' ? '50000' : '10'}
-                      />
-                    </div>
-                  )}
-
-                  {formData.discountType && formData.discountValue && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Durasi Diskon
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          min="1"
-                          value={formData.discountDuration || ''}
-                          onChange={(e) => setFormData((prev) => ({ 
-                            ...prev, 
-                            discountDuration: e.target.value ? parseInt(e.target.value) : null 
-                          }))}
-                          className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                          placeholder="30"
-                        />
-                        <select
-                          value={formData.discountDurationUnit || ''}
-                          onChange={(e) => setFormData((prev) => ({ 
-                            ...prev, 
-                            discountDurationUnit: e.target.value as 'JAM' | 'HARI' | 'BULAN' | 'TAHUN' | null
-                          }))}
-                          className="w-32 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                        >
-                          <option value="">Pilih Unit</option>
-                          <option value="JAM">Jam</option>
-                          <option value="HARI">Hari</option>
-                          <option value="BULAN">Bulan</option>
-                          <option value="TAHUN">Tahun</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Biaya Lain-lain */}
-              <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Biaya Lain-lain
-                </h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Tambahkan biaya tambahan jika diperlukan (opsional)
-                </p>
-
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label htmlFor="biayaInstalasi" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Biaya Instalasi (Rp)
-                      </label>
-                      <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.biayaInstalasiIsRecurring}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, biayaInstalasiIsRecurring: e.target.checked }))}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
-                          />
-                          <span className="text-xs text-gray-600 dark:text-gray-400">Berulang</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.useDiskonBiayaInstalasi}
-                            onChange={(e) => setFormData((prev) => ({ 
-                              ...prev, 
-                              useDiskonBiayaInstalasi: e.target.checked,
-                              // Reset diskon jika checkbox dinonaktifkan
-                              ...(e.target.checked ? {} : { biayaInstalasiDiskon: null })
-                            }))}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
-                          />
-                          <span className="text-xs text-gray-600 dark:text-gray-400">Diskon</span>
-                        </label>
-                      </div>
-                    </div>
-                    <input
-                      id="biayaInstalasi"
-                      name="biayaInstalasi"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={formData.biayaInstalasi || ''}
-                      onChange={(e) => setFormData((prev) => ({ 
-                        ...prev, 
-                        biayaInstalasi: e.target.value ? parseInt(e.target.value) : null 
-                      }))}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                      placeholder="0"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {formData.biayaInstalasiIsRecurring ? 'Biaya akan ditagih setiap periode' : 'Biaya hanya ditagih 1x'}
-                    </p>
-                    
-                    {formData.biayaInstalasi && formData.biayaInstalasi > 0 && formData.useDiskonBiayaInstalasi && (
-                      <div className="mt-2">
-                        <label htmlFor="biayaInstalasiDiskon" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Diskon Biaya Instalasi (%)
-                        </label>
-                        <input
-                          id="biayaInstalasiDiskon"
-                          name="biayaInstalasiDiskon"
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={formData.biayaInstalasiDiskon || ''}
-                          onChange={(e) => setFormData((prev) => ({ 
-                            ...prev, 
-                            biayaInstalasiDiskon: e.target.value ? parseFloat(e.target.value) : null 
-                          }))}
-                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                          placeholder="0"
-                        />
-                        {formData.useDiskonBiayaInstalasi && formData.biayaInstalasiDiskon && formData.biayaInstalasiDiskon > 0 && formData.biayaInstalasi && formData.biayaInstalasi > 0 && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Diskon: {formData.biayaInstalasiDiskon}% = {formatRupiah(Math.round((formData.biayaInstalasi * formData.biayaInstalasiDiskon) / 100))}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label htmlFor="biayaSewaPerangkat" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Biaya Sewa Perangkat (Rp)
-                      </label>
-                      <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.biayaSewaPerangkatIsRecurring}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, biayaSewaPerangkatIsRecurring: e.target.checked }))}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
-                          />
-                          <span className="text-xs text-gray-600 dark:text-gray-400">Berulang</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.useDiskonSewaPerangkat}
-                            onChange={(e) => setFormData((prev) => ({ 
-                              ...prev, 
-                              useDiskonSewaPerangkat: e.target.checked,
-                              // Reset diskon jika checkbox dinonaktifkan
-                              ...(e.target.checked ? {} : { biayaSewaPerangkatDiskon: null })
-                            }))}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
-                          />
-                          <span className="text-xs text-gray-600 dark:text-gray-400">Diskon</span>
-                        </label>
-                      </div>
-                    </div>
-                    <input
-                      id="biayaSewaPerangkat"
-                      name="biayaSewaPerangkat"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={formData.biayaSewaPerangkat || ''}
-                      onChange={(e) => setFormData((prev) => ({ 
-                        ...prev, 
-                        biayaSewaPerangkat: e.target.value ? parseInt(e.target.value) : null 
-                      }))}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                      placeholder="0"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {formData.biayaSewaPerangkatIsRecurring ? 'Biaya akan ditagih setiap periode' : 'Biaya hanya ditagih 1x'}
-                    </p>
-                    
-                    {formData.biayaSewaPerangkat && formData.biayaSewaPerangkat > 0 && formData.useDiskonSewaPerangkat && (
-                      <div className="mt-2">
-                        <label htmlFor="biayaSewaPerangkatDiskon" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Diskon Sewa Perangkat (%)
-                        </label>
-                        <input
-                          id="biayaSewaPerangkatDiskon"
-                          name="biayaSewaPerangkatDiskon"
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={formData.biayaSewaPerangkatDiskon || ''}
-                          onChange={(e) => setFormData((prev) => ({ 
-                            ...prev, 
-                            biayaSewaPerangkatDiskon: e.target.value ? parseFloat(e.target.value) : null 
-                          }))}
-                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                          placeholder="0"
-                        />
-                        {formData.useDiskonSewaPerangkat && formData.biayaSewaPerangkatDiskon && formData.biayaSewaPerangkatDiskon > 0 && formData.biayaSewaPerangkat && formData.biayaSewaPerangkat > 0 && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Diskon: {formData.biayaSewaPerangkatDiskon}% = {formatRupiah(Math.round((formData.biayaSewaPerangkat * formData.biayaSewaPerangkatDiskon) / 100))}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label htmlFor="biayaLainnya" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Biaya Lainnya (Rp)
-                      </label>
-                      <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.biayaLainnyaIsRecurring}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, biayaLainnyaIsRecurring: e.target.checked }))}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
-                          />
-                          <span className="text-xs text-gray-600 dark:text-gray-400">Berulang</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.useDiskonBiayaLainnya}
-                            onChange={(e) => setFormData((prev) => ({ 
-                              ...prev, 
-                              useDiskonBiayaLainnya: e.target.checked,
-                              // Reset diskon jika checkbox dinonaktifkan
-                              ...(e.target.checked ? {} : { biayaLainnyaDiskon: null })
-                            }))}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
-                          />
-                          <span className="text-xs text-gray-600 dark:text-gray-400">Diskon</span>
-                        </label>
-                      </div>
-                    </div>
-                    <input
-                      id="biayaLainnya"
-                      name="biayaLainnya"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={formData.biayaLainnya || ''}
-                      onChange={(e) => setFormData((prev) => ({ 
-                        ...prev, 
-                        biayaLainnya: e.target.value ? parseInt(e.target.value) : null 
-                      }))}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                      placeholder="0"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {formData.biayaLainnyaIsRecurring ? 'Biaya akan ditagih setiap periode' : 'Biaya hanya ditagih 1x'}
-                    </p>
-                    
-                    {formData.biayaLainnya && formData.biayaLainnya > 0 && formData.useDiskonBiayaLainnya && (
-                      <div className="mt-2">
-                        <label htmlFor="biayaLainnyaDiskon" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Diskon Biaya Lainnya (%)
-                        </label>
-                        <input
-                          id="biayaLainnyaDiskon"
-                          name="biayaLainnyaDiskon"
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={formData.biayaLainnyaDiskon || ''}
-                          onChange={(e) => setFormData((prev) => ({ 
-                            ...prev, 
-                            biayaLainnyaDiskon: e.target.value ? parseFloat(e.target.value) : null 
-                          }))}
-                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                          placeholder="0"
-                        />
-                        {formData.useDiskonBiayaLainnya && formData.biayaLainnyaDiskon && formData.biayaLainnyaDiskon > 0 && formData.biayaLainnya && formData.biayaLainnya > 0 && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Diskon: {formData.biayaLainnyaDiskon}% = {formatRupiah(Math.round((formData.biayaLainnya * formData.biayaLainnyaDiskon) / 100))}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {formData.biayaLainnya && formData.biayaLainnya > 0 && (
-                    <div>
-                      <label htmlFor="keteranganBiayaLainnya" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Keterangan Biaya Lainnya
-                      </label>
-                      <input
-                        id="keteranganBiayaLainnya"
-                        name="keteranganBiayaLainnya"
-                        type="text"
-                        value={formData.keteranganBiayaLainnya}
-                        onChange={handleChange}
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                        placeholder="Keterangan biaya lainnya"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-            </div>
-          )}
-
-          {activeTab === 'info' && (
-            <div className="space-y-5">
-          {/* Data Dasar */}
-          <div className="space-y-4">
-            <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-              Data Dasar
-            </h3>
-
-            <div className="space-y-2">
-              <label htmlFor="idPelanggan" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                ID Pelanggan <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="idPelanggan"
-                  name="idPelanggan"
-                  type="text"
-                  required
-                  value={formData.idPelanggan}
-                  onChange={handleChange}
-                  maxLength={8}
-                  pattern="[0-9]{8}"
-                  className={`w-full rounded-lg border ${
-                    idPelangganError
-                      ? 'border-red-300 dark:border-red-600'
-                      : 'border-gray-300 dark:border-gray-600'
-                  } bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 ${
-                    idPelangganError
-                      ? 'focus:ring-red-500'
-                      : 'focus:ring-indigo-500'
-                  } focus:border-transparent transition-colors`}
-                  placeholder="8 digit angka (otomatis atau manual)"
-                />
-                {checkingId && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <HiArrowPath className="w-4 h-4 animate-spin text-gray-400" />
-                  </div>
-                )}
-              </div>
-              {idPelangganError ? (
-                <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                  {idPelangganError}
-                </p>
-              ) : (
-                <p className="text-xs text-gray-500 dark:text-gray-500">
-                  ID pelanggan otomatis di-generate (8 digit), bisa diubah manual. Pastikan ID unik dan tidak duplikat.
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="nama" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Nama Pelanggan <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="nama"
-                name="nama"
-                type="text"
-                required
-                value={formData.nama}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                placeholder="Nama lengkap pelanggan"
-              />
-            </div>
-          </div>
-
-          {/* Informasi Kontak */}
-          <div className="space-y-4">
-            <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-              Informasi Kontak
-            </h3>
-
-            <div className="space-y-2">
-              <label htmlFor="alamat" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Alamat
-              </label>
-              <textarea
-                id="alamat"
-                name="alamat"
-                rows={3}
-                value={formData.alamat}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                placeholder="Alamat lengkap pelanggan"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="noTelp" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  No. Telepon
-                </label>
-                <input
-                  id="noTelp"
-                  name="noTelp"
-                  type="text"
-                  value={formData.noTelp}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                  placeholder="081234567890"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                  placeholder="email@example.com"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="noDokumen" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                No. Dokumen (NIK/Nomor SIM/Nomor Paspor)
-              </label>
-              <input
-                id="noDokumen"
-                name="noDokumen"
-                type="text"
-                value={formData.noDokumen}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                placeholder="Masukkan nomor dokumen"
-              />
-            </div>
-
-            {/* Informasi Wilayah */}
-            <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                Informasi Wilayah
-              </h4>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="provinsi" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Provinsi
-                  </label>
-                  <input
-                    id="provinsi"
-                    name="provinsi"
-                    type="text"
-                    value={formData.provinsi}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                    placeholder="Masukkan provinsi"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="kabupatenKota" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Kabupaten/Kota
-                  </label>
-                  <input
-                    id="kabupatenKota"
-                    name="kabupatenKota"
-                    type="text"
-                    value={formData.kabupatenKota}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                    placeholder="Masukkan kabupaten/kota"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="kecamatan" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Kecamatan
-                  </label>
-                  <input
-                    id="kecamatan"
-                    name="kecamatan"
-                    type="text"
-                    value={formData.kecamatan}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                    placeholder="Masukkan kecamatan"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="kelurahanDesa" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Kelurahan/Desa
-                  </label>
-                  <input
-                    id="kelurahanDesa"
-                    name="kelurahanDesa"
-                    type="text"
-                    value={formData.kelurahanDesa}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                    placeholder="Masukkan kelurahan/desa"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* ODP Selection */}
-            <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                ODP (Optical Distribution Point)
-              </h4>
-              <div className="space-y-2">
-                <label htmlFor="odpId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Pilih ODP
-                </label>
-                <select
-                  id="odpId"
-                  name="odpId"
-                  value={formData.odpId}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                >
-                  <option value="">-- Pilih ODP --</option>
-                  {odps.map((odp) => (
-                    <option key={odp.id} value={odp.id}>
-                      {odp.name} {odp.location ? `- ${odp.location}` : ''} ({odp.status})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Pilih ODP yang digunakan oleh pelanggan (opsional)
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Titik Koordinat (Tikor)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowMapPicker(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
-                >
-                  <HiMapPin className="w-3.5 h-3.5" />
-                  Pilih dari Peta
-                </button>
-              </div>
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label htmlFor="latitude" className="block text-xs font-medium text-gray-600 dark:text-gray-400">
-                      Latitude
-                    </label>
-                    <input
-                      id="latitude"
-                      name="latitude"
-                      type="number"
-                      step="any"
-                      value={formData.latitude || ''}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, latitude: e.target.value ? parseFloat(e.target.value) : null }))}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                      placeholder="-6.200000"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor="longitude" className="block text-xs font-medium text-gray-600 dark:text-gray-400">
-                      Longitude
-                    </label>
-                    <input
-                      id="longitude"
-                      name="longitude"
-                      type="number"
-                      step="any"
-                      value={formData.longitude || ''}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, longitude: e.target.value ? parseFloat(e.target.value) : null }))}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                      placeholder="106.816666"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Kredensial PPPoE */}
-          <div className="space-y-4">
-            <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-              Kredensial PPPoE
-            </h3>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Username PPPoE <span className="text-red-500">*</span>
-                </label>
-                {formData.username !== formData.idPelanggan && (
+              {/* Tab Navigation */}
+              <div className="border-b border-gray-200 dark:border-gray-700">
+                <nav className="flex space-x-8" aria-label="Tabs">
                   <button
                     type="button"
-                    onClick={() => setFormData((prev) => ({ ...prev, username: prev.idPelanggan }))}
-                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
+                    onClick={() => setActiveTab('paket')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'paket'
+                      ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                      }`}
                   >
-                    Gunakan ID Pelanggan
+                    Paket Langganan
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('info')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'info'
+                      ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                      }`}
+                  >
+                    Info Pelanggan
+                  </button>
+                </nav>
               </div>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                required
-                value={formData.username}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                placeholder="username@domain atau sama dengan ID Pelanggan"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-500">
-                Default: sama dengan ID Pelanggan ({formData.idPelanggan}), bisa diubah manual jika diperlukan
-              </p>
-            </div>
 
-            <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password PPPoE <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="text"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                placeholder="Password untuk koneksi PPPoE"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-500">
-                Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk koneksi PPPoE.
-              </p>
-            </div>
+              {/* Tab Content */}
+              {activeTab === 'paket' && (
+                <div className="space-y-5">
+                  {/* Status dan Tipe Pelanggan */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Status Registrasi */}
+                    <div className="space-y-4">
+                      <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                        Status Registrasi
+                      </h3>
 
-            <div className="space-y-2">
-              <label htmlFor="passwordLogin" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password Login Portal <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="passwordLogin"
-                  name="passwordLogin"
-                  type={showPasswordLogin ? 'text' : 'password'}
-                  required
-                  value={formData.passwordLogin}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                  placeholder="Password untuk login portal pelanggan"
-                />
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Status Registrasi <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-center gap-6">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="status"
+                              value="AKTIF"
+                              checked={formData.status === 'AKTIF'}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }))}
+                              className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              required
+                            />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Aktif sekarang
+                            </span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="status"
+                              value="NONAKTIF"
+                              checked={formData.status === 'NONAKTIF'}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }))}
+                              className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              required
+                            />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Menunggu
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tipe Pelanggan */}
+                    <div className="space-y-4">
+                      <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                        Tipe Pelanggan
+                      </h3>
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Tipe Pelanggan <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-center gap-6">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="tipe"
+                              value="REGULER"
+                              checked={formData.tipe === 'REGULER'}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, tipe: e.target.value as 'REGULER' | 'NON_REGULER' }))}
+                              className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              required
+                            />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Reguler
+                            </span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="tipe"
+                              value="NON_REGULER"
+                              checked={formData.tipe === 'NON_REGULER'}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, tipe: e.target.value as 'REGULER' | 'NON_REGULER' }))}
+                              className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              required
+                            />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Non Reguler
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Paket & Tanggal */}
+                  <div className="space-y-4">
+                    <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                      Paket & Tanggal
+                    </h3>
+
+                    <div className="space-y-2">
+                      <label htmlFor="hargaPaketId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Harga Paket <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="hargaPaketId"
+                        name="hargaPaketId"
+                        required
+                        value={formData.hargaPaketId}
+                        onChange={handleChange}
+                        disabled={loading}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">-- Pilih Harga Paket --</option>
+                        {hargaPakets.map((paket) => {
+                          const hargaFormatted = new Intl.NumberFormat('id-ID', {
+                            style: 'currency',
+                            currency: 'IDR',
+                            minimumFractionDigits: 0,
+                          }).format(paket.harga)
+                          const durasiText = `${paket.durasi} ${paket.durasiUnit.toLowerCase()}`
+                          return (
+                            <option key={paket.id} value={paket.id}>
+                              {paket.name} - {hargaFormatted} / {durasiText}
+                            </option>
+                          )
+                        })}
+                      </select>
+                      {formData.hargaPaketId && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {(() => {
+                            const selectedPaket = hargaPakets.find((p) => p.id === formData.hargaPaketId)
+                            if (selectedPaket) {
+                              return `Profile PPP: ${selectedPaket.profilePPP?.name || 'Tidak ada'} | Bandwidth: ${selectedPaket.bandwidth?.name || 'Tidak ada'}`
+                            }
+                            return ''
+                          })()}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label htmlFor="tanggalAktif" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Tanggal Aktif <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          id="tanggalAktif"
+                          name="tanggalAktif"
+                          type="date"
+                          required
+                          value={formData.tanggalAktif}
+                          onChange={handleChange}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label htmlFor="jatuhTempo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Jatuh Tempo <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          id="jatuhTempo"
+                          name="jatuhTempo"
+                          type="date"
+                          required
+                          value={formData.jatuhTempo}
+                          onChange={handleChange}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-500">
+                          Jatuh tempo dihitung otomatis, namun bisa diubah manual jika diperlukan
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* PPN & Diskon */}
+                    <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                        Pengaturan Pajak & Diskon
+                      </h4>
+
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="usePPN"
+                            checked={formData.usePPN}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, usePPN: e.target.checked }))}
+                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
+                          />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Gunakan PPN
+                          </span>
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 ml-7">
+                          Centang jika pelanggan ini dikenakan PPN (Pajak Pertambahan Nilai)
+                        </p>
+
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="useProrate"
+                            checked={formData.useProrate}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, useProrate: e.target.checked }))}
+                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
+                          />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Gunakan Prorate
+                          </span>
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 ml-7">
+                          Centang untuk menghitung tagihan berdasarkan proporsi waktu (jika pelanggan aktif tidak sesuai durasi paket penuh)
+                        </p>
+
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="useDiscount"
+                            checked={formData.useDiscount}
+                            onChange={(e) => setFormData((prev) => ({
+                              ...prev,
+                              useDiscount: e.target.checked,
+                              // Reset custom diskon jika diskon dinonaktifkan
+                              ...(e.target.checked ? {} : {
+                                discountType: null,
+                                discountValue: null,
+                                discountDuration: null,
+                                discountDurationUnit: null,
+                              })
+                            }))}
+                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
+                          />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Gunakan Diskon
+                          </span>
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 ml-7">
+                          Centang jika pelanggan ini mendapatkan diskon. Jika tidak diisi custom diskon, akan menggunakan diskon dari paket.
+                        </p>
+                      </div>
+
+                      {/* Custom Diskon */}
+                      {formData.useDiscount && (
+                        <div className="space-y-3 mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                          <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                            Custom Diskon (Opsional)
+                          </h4>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                            Jika diisi, akan override diskon dari paket. Kosongkan untuk menggunakan diskon dari paket.
+                          </p>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Jenis Diskon
+                            </label>
+                            <div className="flex gap-4">
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="customDiscountType"
+                                  value="FIXED"
+                                  checked={formData.discountType === 'FIXED'}
+                                  onChange={(e) => setFormData((prev) => ({
+                                    ...prev,
+                                    discountType: e.target.value as 'FIXED' | 'PERCENT',
+                                    discountValue: null // Reset value saat ganti jenis
+                                  }))}
+                                  className="border-gray-300 dark:border-gray-700"
+                                />
+                                <span className="text-sm text-gray-700 dark:text-gray-300">Fixed (Nominal Tetap)</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="customDiscountType"
+                                  value="PERCENT"
+                                  checked={formData.discountType === 'PERCENT'}
+                                  onChange={(e) => setFormData((prev) => ({
+                                    ...prev,
+                                    discountType: e.target.value as 'FIXED' | 'PERCENT',
+                                    discountValue: null // Reset value saat ganti jenis
+                                  }))}
+                                  className="border-gray-300 dark:border-gray-700"
+                                />
+                                <span className="text-sm text-gray-700 dark:text-gray-300">Persen (%)</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          {formData.discountType && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Nilai Diskon {formData.discountType === 'FIXED' ? '(Rp)' : '(%)'}
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={formData.discountType === 'PERCENT' ? 100 : undefined}
+                                step={formData.discountType === 'PERCENT' ? '0.01' : '1'}
+                                value={formData.discountValue || ''}
+                                onChange={(e) => setFormData((prev) => ({
+                                  ...prev,
+                                  discountValue: e.target.value ? parseFloat(e.target.value) : null
+                                }))}
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                                placeholder={formData.discountType === 'FIXED' ? '50000' : '10'}
+                              />
+                            </div>
+                          )}
+
+                          {formData.discountType && formData.discountValue && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Durasi Diskon
+                              </label>
+                              <div className="flex gap-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={formData.discountDuration || ''}
+                                  onChange={(e) => setFormData((prev) => ({
+                                    ...prev,
+                                    discountDuration: e.target.value ? parseInt(e.target.value) : null
+                                  }))}
+                                  className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                                  placeholder="30"
+                                />
+                                <select
+                                  value={formData.discountDurationUnit || ''}
+                                  onChange={(e) => setFormData((prev) => ({
+                                    ...prev,
+                                    discountDurationUnit: e.target.value as 'JAM' | 'HARI' | 'BULAN' | 'TAHUN' | null
+                                  }))}
+                                  className="w-32 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                                >
+                                  <option value="">Pilih Unit</option>
+                                  <option value="JAM">Jam</option>
+                                  <option value="HARI">Hari</option>
+                                  <option value="BULAN">Bulan</option>
+                                  <option value="TAHUN">Tahun</option>
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Biaya Lain-lain */}
+                      <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                          Biaya Lain-lain
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Tambahkan biaya tambahan jika diperlukan (opsional)
+                        </p>
+
+                        <div className="space-y-3">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label htmlFor="biayaInstalasi" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Biaya Instalasi (Rp)
+                              </label>
+                              <div className="flex items-center gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.biayaInstalasiIsRecurring}
+                                    onChange={(e) => setFormData((prev) => ({ ...prev, biayaInstalasiIsRecurring: e.target.checked }))}
+                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
+                                  />
+                                  <span className="text-xs text-gray-600 dark:text-gray-400">Berulang</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.useDiskonBiayaInstalasi}
+                                    onChange={(e) => setFormData((prev) => ({
+                                      ...prev,
+                                      useDiskonBiayaInstalasi: e.target.checked,
+                                      // Reset diskon jika checkbox dinonaktifkan
+                                      ...(e.target.checked ? {} : { biayaInstalasiDiskon: null })
+                                    }))}
+                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
+                                  />
+                                  <span className="text-xs text-gray-600 dark:text-gray-400">Diskon</span>
+                                </label>
+                              </div>
+                            </div>
+                            <input
+                              id="biayaInstalasi"
+                              name="biayaInstalasi"
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={formData.biayaInstalasi || ''}
+                              onChange={(e) => setFormData((prev) => ({
+                                ...prev,
+                                biayaInstalasi: e.target.value ? parseInt(e.target.value) : null
+                              }))}
+                              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                              placeholder="0"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {formData.biayaInstalasiIsRecurring ? 'Biaya akan ditagih setiap periode' : 'Biaya hanya ditagih 1x'}
+                            </p>
+
+                            {formData.biayaInstalasi && formData.biayaInstalasi > 0 && formData.useDiskonBiayaInstalasi && (
+                              <div className="mt-2">
+                                <label htmlFor="biayaInstalasiDiskon" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                  Diskon Biaya Instalasi (%)
+                                </label>
+                                <input
+                                  id="biayaInstalasiDiskon"
+                                  name="biayaInstalasiDiskon"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  value={formData.biayaInstalasiDiskon || ''}
+                                  onChange={(e) => setFormData((prev) => ({
+                                    ...prev,
+                                    biayaInstalasiDiskon: e.target.value ? parseFloat(e.target.value) : null
+                                  }))}
+                                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                                  placeholder="0"
+                                />
+                                {formData.useDiskonBiayaInstalasi && formData.biayaInstalasiDiskon && formData.biayaInstalasiDiskon > 0 && formData.biayaInstalasi && formData.biayaInstalasi > 0 && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    Diskon: {formData.biayaInstalasiDiskon}% = {formatRupiah(Math.round((formData.biayaInstalasi * formData.biayaInstalasiDiskon) / 100))}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label htmlFor="biayaSewaPerangkat" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Biaya Sewa Perangkat (Rp)
+                              </label>
+                              <div className="flex items-center gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.biayaSewaPerangkatIsRecurring}
+                                    onChange={(e) => setFormData((prev) => ({ ...prev, biayaSewaPerangkatIsRecurring: e.target.checked }))}
+                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
+                                  />
+                                  <span className="text-xs text-gray-600 dark:text-gray-400">Berulang</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.useDiskonSewaPerangkat}
+                                    onChange={(e) => setFormData((prev) => ({
+                                      ...prev,
+                                      useDiskonSewaPerangkat: e.target.checked,
+                                      // Reset diskon jika checkbox dinonaktifkan
+                                      ...(e.target.checked ? {} : { biayaSewaPerangkatDiskon: null })
+                                    }))}
+                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
+                                  />
+                                  <span className="text-xs text-gray-600 dark:text-gray-400">Diskon</span>
+                                </label>
+                              </div>
+                            </div>
+                            <input
+                              id="biayaSewaPerangkat"
+                              name="biayaSewaPerangkat"
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={formData.biayaSewaPerangkat || ''}
+                              onChange={(e) => setFormData((prev) => ({
+                                ...prev,
+                                biayaSewaPerangkat: e.target.value ? parseInt(e.target.value) : null
+                              }))}
+                              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                              placeholder="0"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {formData.biayaSewaPerangkatIsRecurring ? 'Biaya akan ditagih setiap periode' : 'Biaya hanya ditagih 1x'}
+                            </p>
+
+                            {formData.biayaSewaPerangkat && formData.biayaSewaPerangkat > 0 && formData.useDiskonSewaPerangkat && (
+                              <div className="mt-2">
+                                <label htmlFor="biayaSewaPerangkatDiskon" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                  Diskon Sewa Perangkat (%)
+                                </label>
+                                <input
+                                  id="biayaSewaPerangkatDiskon"
+                                  name="biayaSewaPerangkatDiskon"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  value={formData.biayaSewaPerangkatDiskon || ''}
+                                  onChange={(e) => setFormData((prev) => ({
+                                    ...prev,
+                                    biayaSewaPerangkatDiskon: e.target.value ? parseFloat(e.target.value) : null
+                                  }))}
+                                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                                  placeholder="0"
+                                />
+                                {formData.useDiskonSewaPerangkat && formData.biayaSewaPerangkatDiskon && formData.biayaSewaPerangkatDiskon > 0 && formData.biayaSewaPerangkat && formData.biayaSewaPerangkat > 0 && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    Diskon: {formData.biayaSewaPerangkatDiskon}% = {formatRupiah(Math.round((formData.biayaSewaPerangkat * formData.biayaSewaPerangkatDiskon) / 100))}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label htmlFor="biayaLainnya" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Biaya Lainnya (Rp)
+                              </label>
+                              <div className="flex items-center gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.biayaLainnyaIsRecurring}
+                                    onChange={(e) => setFormData((prev) => ({ ...prev, biayaLainnyaIsRecurring: e.target.checked }))}
+                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
+                                  />
+                                  <span className="text-xs text-gray-600 dark:text-gray-400">Berulang</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.useDiskonBiayaLainnya}
+                                    onChange={(e) => setFormData((prev) => ({
+                                      ...prev,
+                                      useDiskonBiayaLainnya: e.target.checked,
+                                      // Reset diskon jika checkbox dinonaktifkan
+                                      ...(e.target.checked ? {} : { biayaLainnyaDiskon: null })
+                                    }))}
+                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-indigo-600"
+                                  />
+                                  <span className="text-xs text-gray-600 dark:text-gray-400">Diskon</span>
+                                </label>
+                              </div>
+                            </div>
+                            <input
+                              id="biayaLainnya"
+                              name="biayaLainnya"
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={formData.biayaLainnya || ''}
+                              onChange={(e) => setFormData((prev) => ({
+                                ...prev,
+                                biayaLainnya: e.target.value ? parseInt(e.target.value) : null
+                              }))}
+                              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                              placeholder="0"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {formData.biayaLainnyaIsRecurring ? 'Biaya akan ditagih setiap periode' : 'Biaya hanya ditagih 1x'}
+                            </p>
+
+                            {formData.biayaLainnya && formData.biayaLainnya > 0 && formData.useDiskonBiayaLainnya && (
+                              <div className="mt-2">
+                                <label htmlFor="biayaLainnyaDiskon" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                  Diskon Biaya Lainnya (%)
+                                </label>
+                                <input
+                                  id="biayaLainnyaDiskon"
+                                  name="biayaLainnyaDiskon"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  value={formData.biayaLainnyaDiskon || ''}
+                                  onChange={(e) => setFormData((prev) => ({
+                                    ...prev,
+                                    biayaLainnyaDiskon: e.target.value ? parseFloat(e.target.value) : null
+                                  }))}
+                                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                                  placeholder="0"
+                                />
+                                {formData.useDiskonBiayaLainnya && formData.biayaLainnyaDiskon && formData.biayaLainnyaDiskon > 0 && formData.biayaLainnya && formData.biayaLainnya > 0 && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    Diskon: {formData.biayaLainnyaDiskon}% = {formatRupiah(Math.round((formData.biayaLainnya * formData.biayaLainnyaDiskon) / 100))}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {formData.biayaLainnya && formData.biayaLainnya > 0 && (
+                            <div>
+                              <label htmlFor="keteranganBiayaLainnya" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Keterangan Biaya Lainnya
+                              </label>
+                              <input
+                                id="keteranganBiayaLainnya"
+                                name="keteranganBiayaLainnya"
+                                type="text"
+                                value={formData.keteranganBiayaLainnya}
+                                onChange={handleChange}
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                                placeholder="Keterangan biaya lainnya"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'info' && (
+                <div className="space-y-5">
+                  {/* Data Dasar */}
+                  <div className="space-y-4">
+                    <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                      Data Dasar
+                    </h3>
+
+                    <div className="space-y-2">
+                      <label htmlFor="idPelanggan" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        ID Pelanggan <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="idPelanggan"
+                          name="idPelanggan"
+                          type="text"
+                          required
+                          value={formData.idPelanggan}
+                          onChange={handleChange}
+                          maxLength={8}
+                          pattern="[0-9]{8}"
+                          className={`w-full rounded-lg border ${idPelangganError
+                            ? 'border-red-300 dark:border-red-600'
+                            : 'border-gray-300 dark:border-gray-600'
+                            } bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 ${idPelangganError
+                              ? 'focus:ring-red-500'
+                              : 'focus:ring-indigo-500'
+                            } focus:border-transparent transition-colors`}
+                          placeholder="8 digit angka (otomatis atau manual)"
+                        />
+                        {checkingId && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <HiArrowPath className="w-4 h-4 animate-spin text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                      {idPelangganError ? (
+                        <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                          {idPelangganError}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-500 dark:text-gray-500">
+                          ID pelanggan otomatis di-generate (8 digit), bisa diubah manual. Pastikan ID unik dan tidak duplikat.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="nama" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Nama Pelanggan <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="nama"
+                        name="nama"
+                        type="text"
+                        required
+                        value={formData.nama}
+                        onChange={handleChange}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                        placeholder="Nama lengkap pelanggan"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Informasi Kontak */}
+                  <div className="space-y-4">
+                    <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                      Informasi Kontak
+                    </h3>
+
+                    <div className="space-y-2">
+                      <label htmlFor="alamat" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Alamat
+                      </label>
+                      <textarea
+                        id="alamat"
+                        name="alamat"
+                        rows={3}
+                        value={formData.alamat}
+                        onChange={handleChange}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                        placeholder="Alamat lengkap pelanggan"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label htmlFor="noTelp" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          No. Telepon
+                        </label>
+                        <input
+                          id="noTelp"
+                          name="noTelp"
+                          type="text"
+                          value={formData.noTelp}
+                          onChange={handleChange}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                          placeholder="081234567890"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Email
+                        </label>
+                        <input
+                          id="email"
+                          name="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                          placeholder="email@example.com"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="noDokumen" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        No. Dokumen (NIK/Nomor SIM/Nomor Paspor)
+                      </label>
+                      <input
+                        id="noDokumen"
+                        name="noDokumen"
+                        type="text"
+                        value={formData.noDokumen}
+                        onChange={handleChange}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                        placeholder="Masukkan nomor dokumen"
+                      />
+                    </div>
+
+                    {/* Informasi Wilayah */}
+                    <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                        Informasi Wilayah
+                      </h4>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label htmlFor="provinsi" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Provinsi
+                          </label>
+                          <input
+                            id="provinsi"
+                            name="provinsi"
+                            type="text"
+                            value={formData.provinsi}
+                            onChange={handleChange}
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                            placeholder="Masukkan provinsi"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label htmlFor="kabupatenKota" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Kabupaten/Kota
+                          </label>
+                          <input
+                            id="kabupatenKota"
+                            name="kabupatenKota"
+                            type="text"
+                            value={formData.kabupatenKota}
+                            onChange={handleChange}
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                            placeholder="Masukkan kabupaten/kota"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label htmlFor="kecamatan" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Kecamatan
+                          </label>
+                          <input
+                            id="kecamatan"
+                            name="kecamatan"
+                            type="text"
+                            value={formData.kecamatan}
+                            onChange={handleChange}
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                            placeholder="Masukkan kecamatan"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label htmlFor="kelurahanDesa" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Kelurahan/Desa
+                          </label>
+                          <input
+                            id="kelurahanDesa"
+                            name="kelurahanDesa"
+                            type="text"
+                            value={formData.kelurahanDesa}
+                            onChange={handleChange}
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                            placeholder="Masukkan kelurahan/desa"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ODP Selection */}
+                    <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                        ODP (Optical Distribution Point)
+                      </h4>
+                      <div className="space-y-2">
+                        <label htmlFor="odpId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Pilih ODP
+                        </label>
+                        <select
+                          id="odpId"
+                          name="odpId"
+                          value={formData.odpId}
+                          onChange={handleChange}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                        >
+                          <option value="">-- Pilih ODP --</option>
+                          {odps.map((odp) => (
+                            <option key={odp.id} value={odp.id}>
+                              {odp.name} {odp.location ? `- ${odp.location}` : ''} ({odp.status})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Pilih ODP yang digunakan oleh pelanggan (opsional)
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Titik Koordinat (Tikor)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowMapPicker(true)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
+                        >
+                          <HiMapPin className="w-3.5 h-3.5" />
+                          Pilih dari Peta
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label htmlFor="latitude" className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                              Latitude
+                            </label>
+                            <input
+                              id="latitude"
+                              name="latitude"
+                              type="number"
+                              step="any"
+                              value={formData.latitude || ''}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, latitude: e.target.value ? parseFloat(e.target.value) : null }))}
+                              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                              placeholder="-6.200000"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label htmlFor="longitude" className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                              Longitude
+                            </label>
+                            <input
+                              id="longitude"
+                              name="longitude"
+                              type="number"
+                              step="any"
+                              value={formData.longitude || ''}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, longitude: e.target.value ? parseFloat(e.target.value) : null }))}
+                              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                              placeholder="106.816666"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Kredensial PPPoE */}
+                  <div className="space-y-4">
+                    <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                      Kredensial PPPoE
+                    </h3>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Username PPPoE <span className="text-red-500">*</span>
+                        </label>
+                        {formData.username !== formData.idPelanggan && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, username: prev.idPelanggan }))}
+                            className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
+                          >
+                            Gunakan ID Pelanggan
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        id="username"
+                        name="username"
+                        type="text"
+                        required
+                        value={formData.username}
+                        onChange={handleChange}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                        placeholder="username@domain atau sama dengan ID Pelanggan"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                        Default: sama dengan ID Pelanggan ({formData.idPelanggan}), bisa diubah manual jika diperlukan
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Password PPPoE <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="password"
+                        name="password"
+                        type="text"
+                        required
+                        value={formData.password}
+                        onChange={handleChange}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                        placeholder="Password untuk koneksi PPPoE"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                        Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk koneksi PPPoE.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="passwordLogin" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Password Login Portal <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="passwordLogin"
+                          name="passwordLogin"
+                          type={showPasswordLogin ? 'text' : 'password'}
+                          required
+                          value={formData.passwordLogin}
+                          onChange={handleChange}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                          placeholder="Password untuk login portal pelanggan"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswordLogin(!showPasswordLogin)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                          aria-label={showPasswordLogin ? 'Sembunyikan password' : 'Tampilkan password'}
+                        >
+                          {showPasswordLogin ? (
+                            <HiEyeSlash className="w-5 h-5" />
+                          ) : (
+                            <HiEye className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                        Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk login di portal pelanggan (/pelanggan/login).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Catatan */}
+                  <div className="space-y-4">
+                    <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                      Catatan
+                    </h3>
+
+                    <div className="space-y-2">
+                      <label htmlFor="catatan" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Catatan Tambahan
+                      </label>
+                      <textarea
+                        id="catatan"
+                        name="catatan"
+                        rows={4}
+                        value={formData.catatan}
+                        onChange={handleChange}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                        placeholder="Catatan atau keterangan tambahan tentang pelanggan"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
-                  type="button"
-                  onClick={() => setShowPasswordLogin(!showPasswordLogin)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  aria-label={showPasswordLogin ? 'Sembunyikan password' : 'Tampilkan password'}
+                  type="submit"
+                  disabled={submitting || loading}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                 >
-                  {showPasswordLogin ? (
-                    <HiEyeSlash className="w-5 h-5" />
+                  {submitting ? (
+                    <>
+                      <HiArrowPath className="w-4 h-4 animate-spin" />
+                      Menyimpan...
+                    </>
                   ) : (
-                    <HiEye className="w-5 h-5" />
+                    <>
+                      <HiArrowDownTray className="w-4 h-4" />
+                      Simpan
+                    </>
                   )}
                 </button>
+                <Link
+                  href="/admin/pelanggan/ppp"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Batal
+                </Link>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-500">
-                Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk login di portal pelanggan (/pelanggan/login).
-              </p>
-            </div>
-          </div>
-
-          {/* Catatan */}
-          <div className="space-y-4">
-            <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-              Catatan
-            </h3>
-
-            <div className="space-y-2">
-              <label htmlFor="catatan" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Catatan Tambahan
-              </label>
-              <textarea
-                id="catatan"
-                name="catatan"
-                rows={4}
-                value={formData.catatan}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                placeholder="Catatan atau keterangan tambahan tentang pelanggan"
-              />
-            </div>
-          </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-              <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
-            </div>
-          )}
-
-          <div className="flex items-center gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="submit"
-              disabled={submitting || loading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-            >
-              {submitting ? (
-                <>
-                  <HiArrowPath className="w-4 h-4 animate-spin" />
-                  Menyimpan...
-                </>
-              ) : (
-                <>
-                  <HiArrowDownTray className="w-4 h-4" />
-                  Simpan
-                </>
-              )}
-            </button>
-            <Link
-              href="/admin/pelanggan/ppp"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Batal
-            </Link>
-          </div>
             </form>
           </div>
         </div>
 
         {/* Panel Informasi - 1 kolom */}
         {mounted && (
-        <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5 sticky top-5">
-            {activeTab === 'info' ? (
-              <>
-                <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
-                  Upload Dokumen
-                </h3>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label htmlFor="fileKTP-sidebar" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Upload KTP
-                    </label>
-                    <input
-                      id="fileKTP-sidebar"
-                      name="fileKTP"
-                      type="file"
-                      accept="image/png,image/jpeg,image/jpg"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0] || null
-                        setFileKTP(file)
-                        setKtpScanError(null) // Reset error saat file berubah
-                        setKtpScanSuccess(false) // Reset success saat file berubah
-                        
-                        // Auto-scan saat file di-upload
-                        if (file && file.type.startsWith('image/')) {
-                          // Switch ke tab info untuk melihat form yang terisi
-                          setActiveTab('info')
-                          // Delay sedikit untuk memastikan tab sudah switch
-                          setTimeout(async () => {
-                            try {
-                              await handleScanKTP(file)
-                            } catch (error) {
-                              console.error('Error in onChange handler:', error)
-                              setKtpScanError('Terjadi kesalahan saat memproses KTP')
-                              setScanningKTP(false)
-                            }
-                          }, 100)
-                        } else if (file) {
-                          setKtpScanError('File harus berupa gambar (PNG, JPG, JPEG)')
-                        }
-                      }}
-                      disabled={scanningKTP}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/20 dark:file:text-indigo-400 dark:hover:file:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                    {fileKTP && (
-                      <div className="space-y-2">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {fileKTP.name} ({(fileKTP.size / 1024).toFixed(2)} KB)
-                        </p>
-                        {scanningKTP && (
-                          <div className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400">
-                            <HiArrowPath className="w-4 h-4 animate-spin" />
-                            <span>Memproses KTP dan mengisi form otomatis...</span>
-                          </div>
-                        )}
-                        {ktpScanSuccess && (
-                          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-2">
-                            <p className="text-xs text-green-800 dark:text-green-400">
-                              ✓ Data KTP berhasil diekstrak dan form telah diisi otomatis
-                            </p>
-                          </div>
-                        )}
-                        {ktpScanError && (
-                          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2">
-                            <p className="text-xs text-red-800 dark:text-red-400">{ktpScanError}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+          <div className="lg:col-span-1">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5 sticky top-5">
+              {activeTab === 'info' ? (
+                <>
+                  <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
+                    Upload Dokumen
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label htmlFor="fileKTP-sidebar" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Upload KTP
+                      </label>
+                      <input
+                        id="fileKTP-sidebar"
+                        name="fileKTP"
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0] || null
+                          setFileKTP(file)
+                          setKtpScanError(null) // Reset error saat file berubah
+                          setKtpScanSuccess(false) // Reset success saat file berubah
 
-                  <div className="space-y-2">
-                    <label htmlFor="fileRumahSekitar-sidebar" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Upload Rumah Sekitar
-                    </label>
-                    <input
-                      id="fileRumahSekitar-sidebar"
-                      name="fileRumahSekitar"
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={(e) => setFileRumahSekitar(e.target.files?.[0] || null)}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/20 dark:file:text-indigo-400 dark:hover:file:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                    />
-                    {fileRumahSekitar && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {fileRumahSekitar.name} ({(fileRumahSekitar.size / 1024).toFixed(2)} KB)
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label htmlFor="fileBAST-sidebar" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Upload BAST
-                    </label>
-                    <input
-                      id="fileBAST-sidebar"
-                      name="fileBAST"
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={(e) => setFileBAST(e.target.files?.[0] || null)}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/20 dark:file:text-indigo-400 dark:hover:file:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                    />
-                    {fileBAST && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {fileBAST.name} ({(fileBAST.size / 1024).toFixed(2)} KB)
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
-                  Informasi Tagihan
-                </h3>
-
-            {!formData.hargaPaketId || hargaPakets.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {hargaPakets.length === 0 ? 'Memuat data paket...' : 'Pilih paket untuk melihat detail tagihan'}
-                </p>
-              </div>
-            ) : totalInfo ? (
-              <div className="space-y-4">
-                {/* Info Paket */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Paket Terpilih
-                  </h4>
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 space-y-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {totalInfo.paket.name}
-                    </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Durasi: {totalInfo.paket.durasi} {totalInfo.paket.durasiUnit === 'JAM' ? 'jam' : totalInfo.paket.durasiUnit === 'HARI' ? 'hari' : totalInfo.paket.durasiUnit === 'BULAN' ? 'bulan' : 'tahun'}
-                    </p>
-                    {totalInfo.paket.profilePPP && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Profile: {totalInfo.paket.profilePPP.name}
-                      </p>
-                    )}
-                    {totalInfo.paket.bandwidth && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Bandwidth: {totalInfo.paket.bandwidth.name}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Rincian Tagihan */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Rincian Tagihan
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-400">Harga Paket</span>
-                      <span className="text-gray-900 dark:text-white font-medium">
-                        {formatRupiah(totalInfo.prorateInfo ? totalInfo.prorateInfo.hargaSebelumProrate : totalInfo.hargaPaket)}
-                      </span>
+                          // Auto-scan saat file di-upload
+                          if (file && file.type.startsWith('image/')) {
+                            // Switch ke tab info untuk melihat form yang terisi
+                            setActiveTab('info')
+                            // Delay sedikit untuk memastikan tab sudah switch
+                            setTimeout(async () => {
+                              try {
+                                await handleScanKTP(file)
+                              } catch (error) {
+                                console.error('Error in onChange handler:', error)
+                                setKtpScanError('Terjadi kesalahan saat memproses KTP')
+                                setScanningKTP(false)
+                              }
+                            }, 100)
+                          } else if (file) {
+                            setKtpScanError('File harus berupa gambar (PNG, JPG, JPEG)')
+                          }
+                        }}
+                        disabled={scanningKTP}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/20 dark:file:text-indigo-400 dark:hover:file:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      {fileKTP && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {fileKTP.name} ({(fileKTP.size / 1024).toFixed(2)} KB)
+                          </p>
+                          {scanningKTP && (
+                            <div className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400">
+                              <HiArrowPath className="w-4 h-4 animate-spin" />
+                              <span>Memproses KTP dan mengisi form otomatis...</span>
+                            </div>
+                          )}
+                          {ktpScanSuccess && (
+                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-2">
+                              <p className="text-xs text-green-800 dark:text-green-400">
+                                ✓ Data KTP berhasil diekstrak dan form telah diisi otomatis
+                              </p>
+                            </div>
+                          )}
+                          {ktpScanError && (
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2">
+                              <p className="text-xs text-red-800 dark:text-red-400">{ktpScanError}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {totalInfo.prorateInfo && (
-                      <>
-                        <div className="flex justify-between items-center text-blue-600 dark:text-blue-400">
-                          <span>Prorate ({Math.round(totalInfo.prorateInfo.ratio * 100)}%)</span>
-                          <span className="font-medium">
-                            {totalInfo.prorateInfo.ratio <= 1 ? (
-                              <>- {formatRupiah(totalInfo.prorateInfo.hargaSebelumProrate - totalInfo.prorateInfo.hargaSetelahProrate)}</>
-                            ) : (
-                              <>+ {formatRupiah(totalInfo.prorateInfo.hargaSetelahProrate - totalInfo.prorateInfo.hargaSebelumProrate)}</>
-                            )}
+                    <div className="space-y-2">
+                      <label htmlFor="fileRumahSekitar-sidebar" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Upload Rumah Sekitar
+                      </label>
+                      <input
+                        id="fileRumahSekitar-sidebar"
+                        name="fileRumahSekitar"
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => setFileRumahSekitar(e.target.files?.[0] || null)}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/20 dark:file:text-indigo-400 dark:hover:file:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                      />
+                      {fileRumahSekitar && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {fileRumahSekitar.name} ({(fileRumahSekitar.size / 1024).toFixed(2)} KB)
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="fileBAST-sidebar" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Upload BAST
+                      </label>
+                      <input
+                        id="fileBAST-sidebar"
+                        name="fileBAST"
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => setFileBAST(e.target.files?.[0] || null)}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/20 dark:file:text-indigo-400 dark:hover:file:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                      />
+                      {fileBAST && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {fileBAST.name} ({(fileBAST.size / 1024).toFixed(2)} KB)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-md font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
+                    Informasi Tagihan
+                  </h3>
+
+                  {!formData.hargaPaketId || hargaPakets.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {hargaPakets.length === 0 ? 'Memuat data paket...' : 'Pilih paket untuk melihat detail tagihan'}
+                      </p>
+                    </div>
+                  ) : totalInfo ? (
+                    <div className="space-y-4">
+                      {/* Info Paket */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                          Paket Terpilih
+                        </h4>
+                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 space-y-1">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {totalInfo.paket.name}
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            Durasi: {totalInfo.paket.durasi} {totalInfo.paket.durasiUnit === 'JAM' ? 'jam' : totalInfo.paket.durasiUnit === 'HARI' ? 'hari' : totalInfo.paket.durasiUnit === 'BULAN' ? 'bulan' : 'tahun'}
+                          </p>
+                          {totalInfo.paket.profilePPP && (
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              Profile: {totalInfo.paket.profilePPP.name}
+                            </p>
+                          )}
+                          {totalInfo.paket.bandwidth && (
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              Bandwidth: {totalInfo.paket.bandwidth.name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Rincian Tagihan */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                          Rincian Tagihan
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600 dark:text-gray-400">Harga Paket</span>
+                            <span className="text-gray-900 dark:text-white font-medium">
+                              {formatRupiah(totalInfo.prorateInfo ? totalInfo.prorateInfo.hargaSebelumProrate : totalInfo.hargaPaket)}
+                            </span>
+                          </div>
+
+                          {totalInfo.prorateInfo && (
+                            <>
+                              <div className="flex justify-between items-center text-blue-600 dark:text-blue-400">
+                                <span>Prorate ({Math.round(totalInfo.prorateInfo.ratio * 100)}%)</span>
+                                <span className="font-medium">
+                                  {totalInfo.prorateInfo.ratio <= 1 ? (
+                                    <>- {formatRupiah(totalInfo.prorateInfo.hargaSebelumProrate - totalInfo.prorateInfo.hargaSetelahProrate)}</>
+                                  ) : (
+                                    <>+ {formatRupiah(totalInfo.prorateInfo.hargaSetelahProrate - totalInfo.prorateInfo.hargaSebelumProrate)}</>
+                                  )}
+                                </span>
+                              </div>
+                              <div className="text-xs text-blue-600 dark:text-blue-400 ml-2">
+                                (Periode: {totalInfo.prorateInfo.selisihHari} hari dari {totalInfo.prorateInfo.durasiPaketHari} hari)
+                              </div>
+                            </>
+                          )}
+
+                          {totalInfo.diskon > 0 && (
+                            <>
+                              <div className="flex justify-between items-center text-green-600 dark:text-green-400">
+                                <span>
+                                  Diskon {totalInfo.diskonInfo?.isCustom ? '(Custom)' : '(Paket)'}
+                                  {totalInfo.diskonInfo?.isCustom && totalInfo.diskonInfo?.type && totalInfo.diskonInfo?.value !== null && (
+                                    <span className="text-xs ml-1">
+                                      - {totalInfo.diskonInfo.type === 'FIXED' ? formatRupiah(totalInfo.diskonInfo.value) : `${totalInfo.diskonInfo.value}%`}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="font-medium">- {formatRupiah(totalInfo.diskon)}</span>
+                              </div>
+                              {totalInfo.diskonInfo?.duration && totalInfo.diskonInfo?.durationUnit && (
+                                <div className="text-xs text-green-600 dark:text-green-400 ml-2">
+                                  (Berlaku selama {totalInfo.diskonInfo.duration} {totalInfo.diskonInfo.durationUnit === 'JAM' ? 'jam' : totalInfo.diskonInfo.durationUnit === 'HARI' ? 'hari' : totalInfo.diskonInfo.durationUnit === 'BULAN' ? 'bulan' : 'tahun'})
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {(totalInfo.totalBiayaLainnya > 0 || (formData.biayaInstalasi && formData.biayaInstalasi > 0) || (formData.biayaSewaPerangkat && formData.biayaSewaPerangkat > 0) || (formData.biayaLainnya && formData.biayaLainnya > 0)) && (
+                            <>
+                              {formData.biayaInstalasi && formData.biayaInstalasi > 0 && (
+                                <>
+                                  <div className="flex justify-between items-center text-purple-600 dark:text-purple-400">
+                                    <span>
+                                      Biaya Instalasi {formData.biayaInstalasiIsRecurring ? '(Berulang)' : '(1x)'}
+                                      {formData.useDiskonBiayaInstalasi && totalInfo.biayaInstalasiDiskon && totalInfo.biayaInstalasiDiskon > 0 && (
+                                        <> - Diskon {totalInfo.biayaInstalasiDiskon}%</>
+                                      )}
+                                    </span>
+                                    <span className="font-medium">+ {formatRupiah(totalInfo.biayaInstalasi || 0)}</span>
+                                  </div>
+                                  {formData.useDiskonBiayaInstalasi && totalInfo.biayaInstalasiDiskon && totalInfo.biayaInstalasiDiskon > 0 && totalInfo.biayaInstalasiSebelumDiskon > 0 && (
+                                    <div className="text-xs text-purple-600 dark:text-purple-400 ml-2">
+                                      (Sebelum diskon: {formatRupiah(totalInfo.biayaInstalasiSebelumDiskon)})
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              {formData.biayaSewaPerangkat && formData.biayaSewaPerangkat > 0 && (
+                                <>
+                                  <div className="flex justify-between items-center text-purple-600 dark:text-purple-400">
+                                    <span>
+                                      Biaya Sewa Perangkat {formData.biayaSewaPerangkatIsRecurring ? '(Berulang)' : '(1x)'}
+                                      {formData.useDiskonSewaPerangkat && totalInfo.biayaSewaPerangkatDiskon && totalInfo.biayaSewaPerangkatDiskon > 0 && (
+                                        <> - Diskon {totalInfo.biayaSewaPerangkatDiskon}%</>
+                                      )}
+                                    </span>
+                                    <span className="font-medium">+ {formatRupiah(totalInfo.biayaSewaPerangkat || 0)}</span>
+                                  </div>
+                                  {formData.useDiskonSewaPerangkat && totalInfo.biayaSewaPerangkatDiskon && totalInfo.biayaSewaPerangkatDiskon > 0 && totalInfo.biayaSewaPerangkatSebelumDiskon > 0 && (
+                                    <div className="text-xs text-purple-600 dark:text-purple-400 ml-2">
+                                      (Sebelum diskon: {formatRupiah(totalInfo.biayaSewaPerangkatSebelumDiskon)})
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              {formData.biayaLainnya && formData.biayaLainnya > 0 && (
+                                <>
+                                  <div className="flex justify-between items-center text-purple-600 dark:text-purple-400">
+                                    <span>
+                                      Biaya Lainnya {formData.biayaLainnyaIsRecurring ? '(Berulang)' : '(1x)'}
+                                      {formData.useDiskonBiayaLainnya && totalInfo.biayaLainnyaDiskon && totalInfo.biayaLainnyaDiskon > 0 && (
+                                        <> - Diskon {totalInfo.biayaLainnyaDiskon}%</>
+                                      )}
+                                      {formData.keteranganBiayaLainnya ? ` (${formData.keteranganBiayaLainnya})` : ''}
+                                    </span>
+                                    <span className="font-medium">+ {formatRupiah(totalInfo.biayaLainnya || 0)}</span>
+                                  </div>
+                                  {formData.useDiskonBiayaLainnya && totalInfo.biayaLainnyaDiskon && totalInfo.biayaLainnyaDiskon > 0 && totalInfo.biayaLainnyaSebelumDiskon > 0 && (
+                                    <div className="text-xs text-purple-600 dark:text-purple-400 ml-2">
+                                      (Sebelum diskon: {formatRupiah(totalInfo.biayaLainnyaSebelumDiskon)})
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Garis Pemisah */}
+                      <div className="border-t border-gray-300 dark:border-gray-600 my-3"></div>
+
+                      {/* Summary - Format seperti di invoice */}
+                      <div className="space-y-2">
+                        {/* Sub Total */}
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">Sub Total</span>
+                          <span className="text-gray-900 dark:text-white font-medium">
+                            {(() => {
+                              // Hitung subtotal = harga paket setelah diskon + semua biaya tambahan
+                              const hargaPaket = totalInfo.hargaPaket
+                              let subtotalPaket = hargaPaket
+
+                              // Kurangi diskon paket
+                              if (totalInfo.diskon > 0) {
+                                subtotalPaket -= totalInfo.diskon
+                              }
+                              subtotalPaket = Math.max(0, subtotalPaket)
+
+                              // Tambahkan semua biaya tambahan
+                              const subtotal = subtotalPaket + totalInfo.totalBiayaLainnya
+                              return formatRupiah(Math.round(subtotal))
+                            })()}
                           </span>
                         </div>
-                        <div className="text-xs text-blue-600 dark:text-blue-400 ml-2">
-                          (Periode: {totalInfo.prorateInfo.selisihHari} hari dari {totalInfo.prorateInfo.durasiPaketHari} hari)
+
+                        {/* PPN */}
+                        {totalInfo.ppn > 0 && (
+                          <div className="flex justify-between items-center text-sm">
+                            <div>
+                              <span className="text-gray-600 dark:text-gray-400">
+                                PPN (VAT)
+                              </span>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                based on company & country regulation
+                              </p>
+                            </div>
+                            <span className="text-gray-900 dark:text-white font-medium">
+                              {formatRupiah(Math.round(totalInfo.ppn))}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Total Tagihan */}
+                        <div className="border-t-2 border-gray-300 dark:border-gray-600 pt-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-base font-bold text-gray-900 dark:text-white">
+                              Total
+                            </span>
+                            <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                              {formatRupiah(totalInfo.total)}
+                            </span>
+                          </div>
                         </div>
-                      </>
-                    )}
-
-                        {totalInfo.diskon > 0 && (
-                          <>
-                            <div className="flex justify-between items-center text-green-600 dark:text-green-400">
-                              <span>
-                                Diskon {totalInfo.diskonInfo?.isCustom ? '(Custom)' : '(Paket)'}
-                                {totalInfo.diskonInfo?.isCustom && totalInfo.diskonInfo?.type && totalInfo.diskonInfo?.value !== null && (
-                                  <span className="text-xs ml-1">
-                                    - {totalInfo.diskonInfo.type === 'FIXED' ? formatRupiah(totalInfo.diskonInfo.value) : `${totalInfo.diskonInfo.value}%`}
-                                  </span>
-                                )}
-                              </span>
-                              <span className="font-medium">- {formatRupiah(totalInfo.diskon)}</span>
-                            </div>
-                            {totalInfo.diskonInfo?.duration && totalInfo.diskonInfo?.durationUnit && (
-                              <div className="text-xs text-green-600 dark:text-green-400 ml-2">
-                                (Berlaku selama {totalInfo.diskonInfo.duration} {totalInfo.diskonInfo.durationUnit === 'JAM' ? 'jam' : totalInfo.diskonInfo.durationUnit === 'HARI' ? 'hari' : totalInfo.diskonInfo.durationUnit === 'BULAN' ? 'bulan' : 'tahun'})
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                    {(totalInfo.totalBiayaLainnya > 0 || (formData.biayaInstalasi && formData.biayaInstalasi > 0) || (formData.biayaSewaPerangkat && formData.biayaSewaPerangkat > 0) || (formData.biayaLainnya && formData.biayaLainnya > 0)) && (
-                      <>
-                        {formData.biayaInstalasi && formData.biayaInstalasi > 0 && (
-                          <>
-                            <div className="flex justify-between items-center text-purple-600 dark:text-purple-400">
-                              <span>
-                                Biaya Instalasi {formData.biayaInstalasiIsRecurring ? '(Berulang)' : '(1x)'}
-                                {formData.useDiskonBiayaInstalasi && totalInfo.biayaInstalasiDiskon && totalInfo.biayaInstalasiDiskon > 0 && (
-                                  <> - Diskon {totalInfo.biayaInstalasiDiskon}%</>
-                                )}
-                              </span>
-                              <span className="font-medium">+ {formatRupiah(totalInfo.biayaInstalasi || 0)}</span>
-                            </div>
-                            {formData.useDiskonBiayaInstalasi && totalInfo.biayaInstalasiDiskon && totalInfo.biayaInstalasiDiskon > 0 && totalInfo.biayaInstalasiSebelumDiskon > 0 && (
-                              <div className="text-xs text-purple-600 dark:text-purple-400 ml-2">
-                                (Sebelum diskon: {formatRupiah(totalInfo.biayaInstalasiSebelumDiskon)})
-                              </div>
-                            )}
-                          </>
-                        )}
-                        {formData.biayaSewaPerangkat && formData.biayaSewaPerangkat > 0 && (
-                          <>
-                            <div className="flex justify-between items-center text-purple-600 dark:text-purple-400">
-                              <span>
-                                Biaya Sewa Perangkat {formData.biayaSewaPerangkatIsRecurring ? '(Berulang)' : '(1x)'}
-                                {formData.useDiskonSewaPerangkat && totalInfo.biayaSewaPerangkatDiskon && totalInfo.biayaSewaPerangkatDiskon > 0 && (
-                                  <> - Diskon {totalInfo.biayaSewaPerangkatDiskon}%</>
-                                )}
-                              </span>
-                              <span className="font-medium">+ {formatRupiah(totalInfo.biayaSewaPerangkat || 0)}</span>
-                            </div>
-                            {formData.useDiskonSewaPerangkat && totalInfo.biayaSewaPerangkatDiskon && totalInfo.biayaSewaPerangkatDiskon > 0 && totalInfo.biayaSewaPerangkatSebelumDiskon > 0 && (
-                              <div className="text-xs text-purple-600 dark:text-purple-400 ml-2">
-                                (Sebelum diskon: {formatRupiah(totalInfo.biayaSewaPerangkatSebelumDiskon)})
-                              </div>
-                            )}
-                          </>
-                        )}
-                        {formData.biayaLainnya && formData.biayaLainnya > 0 && (
-                          <>
-                            <div className="flex justify-between items-center text-purple-600 dark:text-purple-400">
-                              <span>
-                                Biaya Lainnya {formData.biayaLainnyaIsRecurring ? '(Berulang)' : '(1x)'}
-                                {formData.useDiskonBiayaLainnya && totalInfo.biayaLainnyaDiskon && totalInfo.biayaLainnyaDiskon > 0 && (
-                                  <> - Diskon {totalInfo.biayaLainnyaDiskon}%</>
-                                )}
-                                {formData.keteranganBiayaLainnya ? ` (${formData.keteranganBiayaLainnya})` : ''}
-                              </span>
-                              <span className="font-medium">+ {formatRupiah(totalInfo.biayaLainnya || 0)}</span>
-                            </div>
-                            {formData.useDiskonBiayaLainnya && totalInfo.biayaLainnyaDiskon && totalInfo.biayaLainnyaDiskon > 0 && totalInfo.biayaLainnyaSebelumDiskon > 0 && (
-                              <div className="text-xs text-purple-600 dark:text-purple-400 ml-2">
-                                (Sebelum diskon: {formatRupiah(totalInfo.biayaLainnyaSebelumDiskon)})
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Garis Pemisah */}
-                <div className="border-t border-gray-300 dark:border-gray-600 my-3"></div>
-
-                {/* Summary - Format seperti di invoice */}
-                <div className="space-y-2">
-                  {/* Sub Total */}
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Sub Total</span>
-                    <span className="text-gray-900 dark:text-white font-medium">
-                      {(() => {
-                        // Hitung subtotal = harga paket setelah diskon + semua biaya tambahan
-                        const hargaPaket = totalInfo.hargaPaket
-                        let subtotalPaket = hargaPaket
-                        
-                        // Kurangi diskon paket
-                        if (totalInfo.diskon > 0) {
-                          subtotalPaket -= totalInfo.diskon
-                        }
-                        subtotalPaket = Math.max(0, subtotalPaket)
-                        
-                        // Tambahkan semua biaya tambahan
-                        const subtotal = subtotalPaket + totalInfo.totalBiayaLainnya
-                        return formatRupiah(Math.round(subtotal))
-                      })()}
-                    </span>
-                  </div>
-
-                  {/* PPN */}
-                  {totalInfo.ppn > 0 && (
-                    <div className="flex justify-between items-center text-sm">
-                      <div>
-                        <span className="text-gray-600 dark:text-gray-400">
-                          PPN (VAT)
-                        </span>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          based on company & country regulation
-                        </p>
                       </div>
-                      <span className="text-gray-900 dark:text-white font-medium">
-                        {formatRupiah(Math.round(totalInfo.ppn))}
-                      </span>
+
+                      {/* Status PPN, Prorate & Diskon */}
+                      <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600 dark:text-gray-400">PPN</span>
+                          <span className={`font-medium ${formData.usePPN ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
+                            {formData.usePPN ? 'Aktif' : 'Tidak Aktif'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600 dark:text-gray-400">Prorate</span>
+                          <span className={`font-medium ${formData.useProrate ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>
+                            {formData.useProrate ? 'Aktif' : 'Tidak Aktif'}
+                          </span>
+                        </div>
+                        {formData.useProrate && totalInfo.prorateInfo && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 ml-0">
+                            Periode: {totalInfo.prorateInfo.selisihHari} hari / {totalInfo.prorateInfo.durasiPaketHari} hari ({Math.round(totalInfo.prorateInfo.ratio * 100)}%)
+                          </div>
+                        )}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-600 dark:text-gray-400">Diskon</span>
+                            <span className={`font-medium ${formData.useDiscount ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
+                              {formData.useDiscount ? 'Aktif' : 'Tidak Aktif'}
+                            </span>
+                          </div>
+                          {formData.useDiscount && totalInfo.diskonInfo && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400 ml-0">
+                              {totalInfo.diskonInfo.isCustom ? (
+                                <>
+                                  Custom: {totalInfo.diskonInfo.type === 'FIXED' ? formatRupiah(totalInfo.diskonInfo.value) : `${totalInfo.diskonInfo.value}%`}
+                                  {totalInfo.diskonInfo.duration && totalInfo.diskonInfo.durationUnit && (
+                                    <> - Durasi: {totalInfo.diskonInfo.duration} {totalInfo.diskonInfo.durationUnit === 'JAM' ? 'jam' : totalInfo.diskonInfo.durationUnit === 'HARI' ? 'hari' : totalInfo.diskonInfo.durationUnit === 'BULAN' ? 'bulan' : 'tahun'}</>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  Paket: {totalInfo.diskonInfo.type === 'FIXED' ? formatRupiah(totalInfo.diskonInfo.value) : `${totalInfo.diskonInfo.value}%`}
+                                  {totalInfo.diskonInfo.duration && totalInfo.diskonInfo.durationUnit && (
+                                    <> - Durasi: {totalInfo.diskonInfo.duration} {totalInfo.diskonInfo.durationUnit === 'JAM' ? 'jam' : totalInfo.diskonInfo.durationUnit === 'HARI' ? 'hari' : totalInfo.diskonInfo.durationUnit === 'BULAN' ? 'bulan' : 'tahun'}</>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Info Tambahan */}
+                      {formData.tanggalAktif && formData.jatuhTempo && (
+                        <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                            Periode Layanan
+                          </h4>
+                          <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
+                            <div className="flex justify-between">
+                              <span>Aktif:</span>
+                              <span className="font-medium">
+                                {new Date(formData.tanggalAktif).toLocaleDateString('id-ID')}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Jatuh Tempo:</span>
+                              <span className="font-medium">
+                                {new Date(formData.jatuhTempo).toLocaleDateString('id-ID')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Memuat informasi paket...
+                      </p>
                     </div>
                   )}
-
-                  {/* Total Tagihan */}
-                  <div className="border-t-2 border-gray-300 dark:border-gray-600 pt-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-base font-bold text-gray-900 dark:text-white">
-                        Total
-                      </span>
-                      <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-                        {formatRupiah(totalInfo.total)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Status PPN, Prorate & Diskon */}
-                <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600 dark:text-gray-400">PPN</span>
-                    <span className={`font-medium ${formData.usePPN ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
-                      {formData.usePPN ? 'Aktif' : 'Tidak Aktif'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600 dark:text-gray-400">Prorate</span>
-                    <span className={`font-medium ${formData.useProrate ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>
-                      {formData.useProrate ? 'Aktif' : 'Tidak Aktif'}
-                    </span>
-                  </div>
-                  {formData.useProrate && totalInfo.prorateInfo && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 ml-0">
-                      Periode: {totalInfo.prorateInfo.selisihHari} hari / {totalInfo.prorateInfo.durasiPaketHari} hari ({Math.round(totalInfo.prorateInfo.ratio * 100)}%)
-                    </div>
-                  )}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-600 dark:text-gray-400">Diskon</span>
-                      <span className={`font-medium ${formData.useDiscount ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
-                        {formData.useDiscount ? 'Aktif' : 'Tidak Aktif'}
-                      </span>
-                    </div>
-                    {formData.useDiscount && totalInfo.diskonInfo && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400 ml-0">
-                        {totalInfo.diskonInfo.isCustom ? (
-                          <>
-                            Custom: {totalInfo.diskonInfo.type === 'FIXED' ? formatRupiah(totalInfo.diskonInfo.value) : `${totalInfo.diskonInfo.value}%`}
-                            {totalInfo.diskonInfo.duration && totalInfo.diskonInfo.durationUnit && (
-                              <> - Durasi: {totalInfo.diskonInfo.duration} {totalInfo.diskonInfo.durationUnit === 'JAM' ? 'jam' : totalInfo.diskonInfo.durationUnit === 'HARI' ? 'hari' : totalInfo.diskonInfo.durationUnit === 'BULAN' ? 'bulan' : 'tahun'}</>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            Paket: {totalInfo.diskonInfo.type === 'FIXED' ? formatRupiah(totalInfo.diskonInfo.value) : `${totalInfo.diskonInfo.value}%`}
-                            {totalInfo.diskonInfo.duration && totalInfo.diskonInfo.durationUnit && (
-                              <> - Durasi: {totalInfo.diskonInfo.duration} {totalInfo.diskonInfo.durationUnit === 'JAM' ? 'jam' : totalInfo.diskonInfo.durationUnit === 'HARI' ? 'hari' : totalInfo.diskonInfo.durationUnit === 'BULAN' ? 'bulan' : 'tahun'}</>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Info Tambahan */}
-                {formData.tanggalAktif && formData.jatuhTempo && (
-                  <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      Periode Layanan
-                    </h4>
-                    <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-                      <div className="flex justify-between">
-                        <span>Aktif:</span>
-                        <span className="font-medium">
-                          {new Date(formData.tanggalAktif).toLocaleDateString('id-ID')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Jatuh Tempo:</span>
-                        <span className="font-medium">
-                          {new Date(formData.jatuhTempo).toLocaleDateString('id-ID')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Memuat informasi paket...
-                </p>
-              </div>
-            )}
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
         )}
       </div>
 

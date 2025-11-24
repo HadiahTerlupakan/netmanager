@@ -320,13 +320,11 @@ export default function RenewPelangganPage() {
               className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
             >
               <option value="">- Pilih paket atau biarkan kosong -</option>
-              {hargaPakets
-                .filter((p) => p.status === 'AKTIF')
-                .map((paket) => (
-                  <option key={paket.id} value={paket.id}>
-                    {paket.name} - {formatRupiah(paket.harga)}
-                  </option>
-                ))}
+              {hargaPakets.map((paket) => (
+                <option key={paket.id} value={paket.id}>
+                  {paket.name} - {formatRupiah(paket.harga)}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -376,11 +374,10 @@ export default function RenewPelangganPage() {
           </h3>
           <div className="mb-2">
             <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                pelanggan.tipe === 'REGULER'
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${pelanggan.tipe === 'REGULER'
                   ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                   : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-              }`}
+                }`}
             >
               {pelanggan.tipe}
             </span>

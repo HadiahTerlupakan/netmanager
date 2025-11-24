@@ -29,10 +29,10 @@ export class ONUDataParser {
   async parseONUData(request: ParseONUDataRequest): Promise<OnuSyncData[]> {
     const { rawData, gponPortMap, oltId, maxResults } = request
 
-    console.log(`[ONU-DataParser] Parsing ${this.getTotalDataEntries(rawData)} data entries...`)
+    console.log(`[ONU-DataParser] Parsing ${this.getTotalDataEntries(rawData as unknown as ParsedSNMPData)} data entries...`)
 
     // Step 1: Extract and validate indexes
-    const onuIndexes = this.extractOnuIndexes(rawData)
+    const onuIndexes = this.extractOnuIndexes(rawData as unknown as ParsedSNMPData)
     if (onuIndexes.length === 0) {
       console.log(`[ONU-DataParser] No ONU indexes found`)
       return []
@@ -47,7 +47,7 @@ export class ONUDataParser {
     const onus: OnuSyncData[] = []
     for (const [key, onuList] of onuGroups) {
       console.log(`[ONU-DataParser] Processing group ${key}: ${onuList.length} ONUs`)
-      const groupOnus = await this.parseOnuGroup(onuList, rawData, oltId)
+      const groupOnus = await this.parseOnuGroup(onuList, rawData as unknown as ParsedSNMPData, oltId)
       onus.push(...groupOnus)
     }
 
@@ -140,7 +140,7 @@ export class ONUDataParser {
     // Try to match using base index map first
     const matchedPort = baseIndexToPortMap.get(baseIndex)
     if (matchedPort) {
-      const portMatch = matchedPort.match(/^gpon_(\\d+)\\/(\\d+)\\/(\\d+)$/i)
+      const portMatch = matchedPort.match(/^gpon_(\d+)\/(\d+)\/(\d+)$/i)
       if (portMatch) {
         return {
           card: parseInt(portMatch[2], 10),
@@ -220,6 +220,7 @@ export class ONUDataParser {
       const rxOlt = this.parseRxOlt(rxOltData.primary || rxOltData.fallback, txData.primary || txData.fallback)
       const rxOnu = this.parseRxOnu(rxOnuData.primary || rxOnuData.fallback)
       const txOlt = this.parseTxOlt(txData.primary || txData.fallback)
+      const txOnu = "N/A" // Not available in standard SNMP fetch
       const description = this.parseDescription(descData.primary || descData.fallback)
       const registerTime = this.parseRegisterTime(regData.primary || regData.fallback)
       const pppoe = this.parsePPPoE(pppoeData.primary || pppoeData.fallback)

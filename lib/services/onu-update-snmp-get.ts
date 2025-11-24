@@ -6,8 +6,7 @@
 import { snmpGet, snmpGetMultiple, snmpGetBulkSimple, snmpTable } from '@/lib/utils/snmp-helpers'
 import type { OnuSyncData } from '@/lib/types/onu-sync'
 import { ONU_OIDS } from '@/lib/utils/onu-oids'
-import type { OnuSyncData } from '@/lib/types/onu-sync'
-import { buildCompositeIndex } from '@/lib/services/onu-sync-helpers'
+import { buildCompositeIndex } from '@/lib/services/onu-sync/onu-sync-helpers'
 import {
   parseStatus,
   parseRxOlt,
@@ -27,7 +26,7 @@ function parseGponOnuString(gponOnu: string): { frame: number; slot: number; por
   // Support format: frame/slot/port:onu atau frame/slot/port
   const match = gponOnu.match(/^(\d+)\/(\d+)\/(\d+)(?::(\d+))?$/)
   if (!match) return null
-  
+
   return {
     frame: parseInt(match[1], 10),
     slot: parseInt(match[2], 10),
@@ -70,13 +69,13 @@ export async function updateOnuDataViaGet(
       // Gunakan buildCompositeIndex untuk menghitung composite index
       compositeIndex = buildCompositeIndex(parsed.frame, parsed.slot, parsed.port)
     }
-    
+
     const onuId = parsed.onu || 0
-    
+
     // Format index sama seperti saat sync: compositeIndex.onuId
     // Contoh: 268566528.3 (untuk 1/3/1:3)
     const idx = `${compositeIndex}.${onuId}`
-    
+
     // Build OIDs untuk field yang perlu di-update
     // Format OID: baseOid.compositeIndex.onuId (sama seperti saat sync)
     const oids = [
@@ -107,7 +106,7 @@ export async function updateOnuDataViaGet(
     console.log(`[ONU-Update-Get]   RX ONU OID: ${rxOnuOid} = ${results[rxOnuOid] || 'null'}`)
     console.log(`[ONU-Update-Get]   Name OID: ${nameOid} = ${results[nameOid] || 'null'}`)
     console.log(`[ONU-Update-Get]   Desc OID: ${descOid} = ${results[descOid] || 'null'}`)
-    
+
     // Debug: log semua hasil untuk melihat format yang diterima
     if (Object.keys(results).length > 0) {
       console.log(`[ONU-Update-Get] All received OIDs:`, Object.keys(results))
@@ -115,7 +114,7 @@ export async function updateOnuDataViaGet(
 
     // Cek apakah ada data yang berhasil diambil (gunakan statusOid, rxOltOid, dll yang sudah didefinisikan)
     const hasAnyDataAfterFallback = results[statusOid] || results[rxOltOid] || results[rxOnuOid] || results[nameOid] || results[descOid]
-    
+
     if (!hasAnyDataAfterFallback) {
       console.warn(`[ONU-Update-Get] WARNING: No data retrieved from SNMP GET for ${gponOnu} (idx: ${idx})`)
       console.warn(`[ONU-Update-Get] Tried OIDs:`)
@@ -219,26 +218,26 @@ export async function updateMultipleOnusViaGet(
   // Untuk banyak ONU (> 10), bisa pertimbangkan GETBULK batch
   if (onuList.length <= 10) {
     console.log(`[ONU-Update-Get] Updating ${onuList.length} ONUs via parallel SNMP GET (fast mode)...`)
-    
+
     // Process dalam parallel dengan limit concurrency
     const results: Array<Partial<OnuSyncData>> = []
     const batchSize = 5 // Process 5 ONUs at a time untuk menghindari overload
     for (let i = 0; i < onuList.length; i += batchSize) {
       const batch = onuList.slice(i, i + batchSize)
-      const batchPromises = batch.map(onu => 
+      const batchPromises = batch.map(onu =>
         updateOnuDataViaGet(ipAddress, port, community, version, onu.gponOnu, onu.compositeIndex)
       )
       const batchResults = await Promise.all(batchPromises)
       results.push(...batchResults.filter(r => r !== null) as Partial<OnuSyncData>[])
     }
-    
+
     console.log(`[ONU-Update-Get] Successfully updated ${results.length}/${onuList.length} ONUs via parallel GET`)
     return results
   }
 
   // Untuk banyak ONU, gunakan GETBULK (tapi ini jarang terjadi karena biasanya hanya update ONU yang ditampilkan)
   console.log(`[ONU-Update-Get] Updating ${onuList.length} ONUs via GETBULK (batch mode)...`)
-  
+
   try {
     // Parse semua ONU untuk mendapatkan index
     const onuIndexes = new Map<string, { gponOnu: string; idx: string }>()
@@ -326,7 +325,7 @@ export async function updateMultipleOnusViaGetWithOids(
   port: number,
   community: string,
   version: string,
-  onuList: Array<{ 
+  onuList: Array<{
     gponOnu: string
     statusOid: string | null
     rxOltOid: string | null
@@ -463,28 +462,28 @@ export async function updateMultipleOnusViaTable(
   try {
     // Gunakan SNMP TABLE untuk mengambil semua kolom sekaligus menggunakan GETBULK
     // Ini lebih efisien daripada multiple GET karena mengambil semua data dalam satu operasi
-    
+
     // Base OIDs untuk setiap kolom
     const statusBaseOid = "1.3.6.1.4.1.3902.1012.3.28.2.1"
     const rxOltBaseOid = "1.3.6.1.4.1.3902.1015.1010.11.2.1"
     const rxOnuBaseOid = "1.3.6.1.4.1.3902.1012.3.50.12.1.1"
     const nameBaseOid = "1.3.6.1.4.1.3902.1012.3.28.1.1"
     const descBaseOid = "1.3.6.1.4.1.3902.1082.500.10.2.3.3.1"
-    
+
     // Fetch semua kolom secara paralel menggunakan SNMP TABLE (GETBULK)
     const [statusTable, rxOltTable, rxOnuTable, nameTable, descTable] = await Promise.all([
-      snmpTable(ipAddress, port, community, version, statusBaseOid, ['4'], 30000).catch(() => ({})),
-      snmpTable(ipAddress, port, community, version, rxOltBaseOid, ['2'], 30000).catch(() => ({})),
-      snmpTable(ipAddress, port, community, version, rxOnuBaseOid, ['10'], 30000).catch(() => ({})),
-      snmpTable(ipAddress, port, community, version, nameBaseOid, ['2'], 30000).catch(() => ({})),
-      snmpTable(ipAddress, port, community, version, descBaseOid, ['3'], 30000).catch(() => ({})),
+      snmpTable(ipAddress, port, community, version, statusBaseOid, ['4'], 30000).catch(() => ({} as Record<string, string>)),
+      snmpTable(ipAddress, port, community, version, rxOltBaseOid, ['2'], 30000).catch(() => ({} as Record<string, string>)),
+      snmpTable(ipAddress, port, community, version, rxOnuBaseOid, ['10'], 30000).catch(() => ({} as Record<string, string>)),
+      snmpTable(ipAddress, port, community, version, nameBaseOid, ['2'], 30000).catch(() => ({} as Record<string, string>)),
+      snmpTable(ipAddress, port, community, version, descBaseOid, ['3'], 30000).catch(() => ({} as Record<string, string>)),
     ])
 
     console.log(`[ONU-Update-Table] Retrieved tables: Status=${Object.keys(statusTable).length}, RX_OLT=${Object.keys(rxOltTable).length}, RX_ONU=${Object.keys(rxOnuTable).length}, Name=${Object.keys(nameTable).length}, Desc=${Object.keys(descTable).length}`)
 
     // Process hasil untuk setiap ONU
     const updatedOnus: Array<Partial<OnuSyncData>> = []
-    
+
     for (const onu of onuList) {
       const parsed = parseGponOnuString(onu.gponOnu)
       if (!parsed) {

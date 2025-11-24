@@ -1,17 +1,18 @@
 import { PrismaClient, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { onuCacheService } from '@/lib/services/onu-cache-service'
 import type {
   IOnuRepository,
-  OnuCreateData, 
-  OnuUpdateData, 
-  OnuPublic, 
-  OnuFilters, 
-  PaginationOptions, 
-  PaginatedOnuResult 
+  OnuCreateData,
+  OnuUpdateData,
+  OnuPublic,
+  OnuFilters,
+  PaginationOptions,
+  PaginatedOnuResult
 } from './IOnuRepository'
 
 export class OnuRepository implements IOnuRepository {
-  constructor(private client: PrismaClient = prisma) {}
+  constructor(private client: PrismaClient = prisma) { }
 
   async findAll(): Promise<OnuPublic[]> {
     // Gunakan sorting yang stabil berdasarkan gponOnu dan oltId untuk konsistensi
@@ -116,10 +117,10 @@ export class OnuRepository implements IOnuRepository {
     }
 
     // Combine all where conditions
-    const whereClause: Prisma.OnuWhereInput = whereConditions.length > 0 
-      ? { AND: whereConditions } 
+    const whereClause: Prisma.OnuWhereInput = whereConditions.length > 0
+      ? { AND: whereConditions }
       : {}
-    
+
     // Debug logging untuk troubleshooting
     if (filters.oltId) {
       console.log(`[OnuRepository] findWithFilters: oltId=${filters.oltId}, whereClause:`, JSON.stringify(whereClause))
@@ -145,12 +146,12 @@ export class OnuRepository implements IOnuRepository {
       // Filter by signal quality
       allOnus = allOnus.filter((onu) => {
         const rxOlt = onu.rxOlt ? parseFloat(onu.rxOlt.replace(/[^\d.-]/g, '')) : null
-        
+
         if (filters.signal === 'good' && rxOlt !== null && rxOlt >= -26.0) return true
         if (filters.signal === 'warning' && rxOlt !== null && rxOlt >= -28.0 && rxOlt < -26.0) return true
         if (filters.signal === 'critical' && rxOlt !== null && rxOlt < -28.0) return true
         if (filters.signal === 'other' && (rxOlt === null || onu.status === 'LOS' || onu.status === 'DyingGasp')) return true
-        
+
         return false
       })
 
@@ -210,7 +211,7 @@ export class OnuRepository implements IOnuRepository {
         totalPages,
       }
     }
-    
+
     // For card filtering (Frame/Slot), we need to do additional filtering in memory
     if (filters.card && !filters.signal && !filters.port) {
       allOnus = await this.client.onu.findMany({
@@ -362,11 +363,11 @@ export class OnuRepository implements IOnuRepository {
       for (const field of fieldsToCheck) {
         const newValue = data[field]
         const oldValue = existing[field as keyof typeof existing]
-        
+
         // Compare values (handle null/undefined)
         if (newValue !== undefined) {
           let isDifferent = false
-          
+
           // Handle null comparison
           if (newValue === null && oldValue === null) {
             isDifferent = false
@@ -385,7 +386,7 @@ export class OnuRepository implements IOnuRepository {
           else {
             isDifferent = newValue !== oldValue
           }
-          
+
           if (isDifferent) {
             updateData[field] = newValue
             hasChanges = true
@@ -461,6 +462,159 @@ export class OnuRepository implements IOnuRepository {
     return await this.client.onu.count({
       where: { status },
     })
+  }
+
+  /**
+   * Find ONUs with pagination and caching support
+   * Optimized for large-scale ONU data with selective field projection
+   */
+  async findPaginatedOptimized(params: {
+    oltId?: string
+    page: number
+    limit: number
+    status?: string
+    search?: string
+    useCache?: boolean
+  }): Promise<PaginatedOnuResult> {
+    const { oltId, page, limit, status, search, useCache = true } = params
+
+    // Try cache first if enabled and oltId is provided (no search/filter)
+    if (useCache && oltId && !search && !status) {
+      const cached = await onuCacheService.getCachedOltOnus(oltId)
+      if (cached) {
+        // Apply pagination to cached data
+        const skip = (page - 1) * limit
+        const total = cached.length
+        const totalPages = Math.ceil(total / limit)
+        const paginatedData = cached.slice(skip, skip + limit)
+
+        return {
+          onus: paginatedData,
+          total,
+          page,
+          limit,
+          totalPages,
+        }
+      }
+    }
+
+    // Build where clause
+    const whereConditions: Prisma.OnuWhereInput[] = []
+
+    if (oltId) {
+      whereConditions.push({ oltId })
+    }
+
+    if (status) {
+      whereConditions.push({ status })
+    }
+
+    if (search) {
+      whereConditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          { pppoe: { contains: search, mode: 'insensitive' } },
+          { serialNumber: { contains: search, mode: 'insensitive' } },
+          { macAddress: { contains: search, mode: 'insensitive' } },
+        ],
+      })
+    }
+
+    const whereClause: Prisma.OnuWhereInput =
+      whereConditions.length > 0 ? { AND: whereConditions } : {}
+
+    const skip = (page - 1) * limit
+
+    // Optimized query with selective field projection
+    // Don't select heavy fields like rxBytes, txBytes, etc. for list view
+    const [onus, total] = await Promise.all([
+      this.client.onu.findMany({
+        where: whereClause,
+        skip,
+        take: limit,
+        orderBy: [{ oltId: 'asc' }, { gponOnu: 'asc' }],
+        select: {
+          id: true,
+          oltId: true,
+          name: true,
+          description: true,
+          pppoe: true,
+          gponOnu: true,
+          status: true,
+          rxOlt: true,
+          rxOnu: true,
+          txOlt: true,
+          txOnu: true,
+          serialNumber: true,
+          actualType: true,
+          registerTime: true,
+          distance: true,
+          lastSeen: true,
+          macAddress: true,
+          temperature: true,
+          lastUpdate: true,
+          olt: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      }),
+      this.client.onu.count({ where: whereClause }),
+    ])
+
+    const totalPages = Math.ceil(total / limit)
+    const result = {
+      onus: onus as OnuPublic[],
+      total,
+      page,
+      limit,
+      totalPages,
+    }
+
+    // Cache if no filters (just oltId pagination)
+    if (useCache && oltId && !search && !status && page === 1) {
+      // Only cache first page of unfiltered data
+      await onuCacheService.cacheOltOnus(oltId, onus as any[])
+    }
+
+    return result
+  }
+
+  /**
+   * Get ONUs by OLT ID with caching
+   */
+  async findByOltIdCached(oltId: string, useCache: boolean = true): Promise<OnuPublic[]> {
+    // Try cache first
+    if (useCache) {
+      const cached = await onuCacheService.getCachedOltOnus(oltId)
+      if (cached) {
+        return cached
+      }
+    }
+
+    // Fetch from database
+    const onus = await this.findByOltId(oltId)
+
+    // Cache result
+    if (useCache) {
+      await onuCacheService.cacheOltOnus(oltId, onus)
+    }
+
+    return onus
+  }
+
+  /**
+   * Invalidate cache after sync
+   */
+  async invalidateCache(oltId?: string): Promise<void> {
+    if (oltId) {
+      await onuCacheService.invalidateOltCache(oltId)
+    } else {
+      await onuCacheService.invalidateAllCaches()
+    }
   }
 }
 

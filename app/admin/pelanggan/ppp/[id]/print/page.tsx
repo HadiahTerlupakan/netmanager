@@ -312,9 +312,8 @@ export default function PrintTagihanPage() {
               <div className="w-px h-12 bg-gray-300"></div>
               <div>
                 <p
-                  className={`text-2xl font-bold ${
-                    tagihan.status === 'LUNAS' ? 'text-green-600' : 'text-red-600'
-                  }`}
+                  className={`text-2xl font-bold ${tagihan.status === 'LUNAS' ? 'text-green-600' : 'text-red-600'
+                    }`}
                 >
                   {tagihan.status === 'LUNAS' ? 'LUNAS' : 'BELUM BAYAR'}
                 </p>
@@ -405,9 +404,11 @@ export default function PrintTagihanPage() {
                   let diskonInfo: any = null
 
                   if (pelanggan.useDiscount) {
+                    // Use custom discount if set
                     if (
                       pelanggan.discountType &&
                       pelanggan.discountValue !== null &&
+                      pelanggan.discountValue !== undefined &&
                       pelanggan.discountDuration &&
                       pelanggan.discountDurationUnit
                     ) {
@@ -502,7 +503,7 @@ export default function PrintTagihanPage() {
                       {formatRupiah(
                         pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0
                           ? pelanggan.biayaInstalasi -
-                              (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon) / 100
+                          (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon) / 100
                           : pelanggan.biayaInstalasi,
                       )}
                     </td>
@@ -539,9 +540,9 @@ export default function PrintTagihanPage() {
                         pelanggan.biayaSewaPerangkatDiskon &&
                           pelanggan.biayaSewaPerangkatDiskon > 0
                           ? pelanggan.biayaSewaPerangkat -
-                              (pelanggan.biayaSewaPerangkat *
-                                pelanggan.biayaSewaPerangkatDiskon) /
-                                100
+                          (pelanggan.biayaSewaPerangkat *
+                            pelanggan.biayaSewaPerangkatDiskon) /
+                          100
                           : pelanggan.biayaSewaPerangkat,
                       )}
                     </td>
@@ -580,7 +581,7 @@ export default function PrintTagihanPage() {
                       {formatRupiah(
                         pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0
                           ? pelanggan.biayaLainnya -
-                              (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon) / 100
+                          (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon) / 100
                           : pelanggan.biayaLainnya,
                       )}
                     </td>
@@ -602,10 +603,10 @@ export default function PrintTagihanPage() {
                     // Hitung subtotal = harga paket setelah diskon + semua biaya tambahan
                     const hargaPaket = pelanggan.hargaPaket?.harga || 0
                     let subtotalPaket = hargaPaket
-                    
+
                     // Kurangi diskon paket
                     if (pelanggan.useDiscount) {
-                      if (pelanggan.discountType && pelanggan.discountValue !== null) {
+                      if (pelanggan.discountType && pelanggan.discountValue !== null && pelanggan.discountValue !== undefined) {
                         if (pelanggan.discountType === 'FIXED') {
                           subtotalPaket -= pelanggan.discountValue
                         } else if (pelanggan.discountType === 'PERCENT') {
@@ -620,7 +621,7 @@ export default function PrintTagihanPage() {
                       }
                     }
                     subtotalPaket = Math.max(0, subtotalPaket)
-                    
+
                     // Tambahkan semua biaya tambahan
                     let biayaInstalasi = 0
                     if (pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0) {
@@ -628,21 +629,21 @@ export default function PrintTagihanPage() {
                         ? pelanggan.biayaInstalasi - (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon / 100)
                         : pelanggan.biayaInstalasi
                     }
-                    
+
                     let biayaSewa = 0
                     if (pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0) {
                       biayaSewa = pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0
                         ? pelanggan.biayaSewaPerangkat - (pelanggan.biayaSewaPerangkat * pelanggan.biayaSewaPerangkatDiskon / 100)
                         : pelanggan.biayaSewaPerangkat
                     }
-                    
+
                     let biayaLainnya = 0
                     if (pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0) {
                       biayaLainnya = pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0
                         ? pelanggan.biayaLainnya - (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon / 100)
                         : pelanggan.biayaLainnya
                     }
-                    
+
                     // Subtotal = paket setelah diskon + semua biaya tambahan
                     const subtotal = subtotalPaket + biayaInstalasi + biayaSewa + biayaLainnya
                     return formatRupiah(Math.round(subtotal))
@@ -653,9 +654,9 @@ export default function PrintTagihanPage() {
                 // Hitung PPN dari subtotal keseluruhan (paket + biaya tambahan)
                 const hargaPaket = pelanggan.hargaPaket?.harga || 0
                 let subtotalPaket = hargaPaket
-                
+
                 if (pelanggan.useDiscount) {
-                  if (pelanggan.discountType && pelanggan.discountValue !== null) {
+                  if (pelanggan.discountType && pelanggan.discountValue !== null && pelanggan.discountValue !== undefined) {
                     if (pelanggan.discountType === 'FIXED') {
                       subtotalPaket -= pelanggan.discountValue
                     } else if (pelanggan.discountType === 'PERCENT') {
@@ -670,7 +671,7 @@ export default function PrintTagihanPage() {
                   }
                 }
                 subtotalPaket = Math.max(0, subtotalPaket)
-                
+
                 // Tambahkan semua biaya tambahan
                 let biayaInstalasi = 0
                 if (pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0) {
@@ -678,30 +679,30 @@ export default function PrintTagihanPage() {
                     ? pelanggan.biayaInstalasi - (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon / 100)
                     : pelanggan.biayaInstalasi
                 }
-                
+
                 let biayaSewa = 0
                 if (pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0) {
                   biayaSewa = pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0
                     ? pelanggan.biayaSewaPerangkat - (pelanggan.biayaSewaPerangkat * pelanggan.biayaSewaPerangkatDiskon / 100)
                     : pelanggan.biayaSewaPerangkat
                 }
-                
+
                 let biayaLainnya = 0
                 if (pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0) {
                   biayaLainnya = pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0
                     ? pelanggan.biayaLainnya - (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon / 100)
                     : pelanggan.biayaLainnya
                 }
-                
+
                 // Subtotal keseluruhan = paket setelah diskon + semua biaya tambahan
                 const subtotalKeseluruhan = subtotalPaket + biayaInstalasi + biayaSewa + biayaLainnya
-                
+
                 // PPN dihitung dari subtotal keseluruhan
                 let ppn = 0
                 if (pelanggan.usePPN && pelanggan.hargaPaket?.usePPN && pelanggan.hargaPaket?.ppnPercentage) {
                   ppn = (subtotalKeseluruhan * pelanggan.hargaPaket.ppnPercentage) / 100
                 }
-                
+
                 if (ppn > 0) {
                   return (
                     <div className="flex justify-between text-sm">
@@ -724,9 +725,9 @@ export default function PrintTagihanPage() {
                     // Hitung total = subtotal keseluruhan + PPN
                     const hargaPaket = pelanggan.hargaPaket?.harga || 0
                     let subtotalPaket = hargaPaket
-                    
+
                     if (pelanggan.useDiscount) {
-                      if (pelanggan.discountType && pelanggan.discountValue !== null) {
+                      if (pelanggan.discountType && pelanggan.discountValue !== null && pelanggan.discountValue !== undefined) {
                         if (pelanggan.discountType === 'FIXED') {
                           subtotalPaket -= pelanggan.discountValue
                         } else if (pelanggan.discountType === 'PERCENT') {
@@ -741,7 +742,7 @@ export default function PrintTagihanPage() {
                       }
                     }
                     subtotalPaket = Math.max(0, subtotalPaket)
-                    
+
                     // Tambahkan semua biaya tambahan
                     let biayaInstalasi = 0
                     if (pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0) {
@@ -749,30 +750,30 @@ export default function PrintTagihanPage() {
                         ? pelanggan.biayaInstalasi - (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon / 100)
                         : pelanggan.biayaInstalasi
                     }
-                    
+
                     let biayaSewa = 0
                     if (pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0) {
                       biayaSewa = pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0
                         ? pelanggan.biayaSewaPerangkat - (pelanggan.biayaSewaPerangkat * pelanggan.biayaSewaPerangkatDiskon / 100)
                         : pelanggan.biayaSewaPerangkat
                     }
-                    
+
                     let biayaLainnya = 0
                     if (pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0) {
                       biayaLainnya = pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0
                         ? pelanggan.biayaLainnya - (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon / 100)
                         : pelanggan.biayaLainnya
                     }
-                    
+
                     // Subtotal keseluruhan = paket setelah diskon + semua biaya tambahan
                     const subtotalKeseluruhan = subtotalPaket + biayaInstalasi + biayaSewa + biayaLainnya
-                    
+
                     // PPN dihitung dari subtotal keseluruhan
                     let ppn = 0
                     if (pelanggan.usePPN && pelanggan.hargaPaket?.usePPN && pelanggan.hargaPaket?.ppnPercentage) {
                       ppn = (subtotalKeseluruhan * pelanggan.hargaPaket.ppnPercentage) / 100
                     }
-                    
+
                     // Total = subtotal keseluruhan + PPN
                     const total = subtotalKeseluruhan + ppn
                     return formatRupiah(Math.round(total))

@@ -2,15 +2,29 @@
  * Scheduler untuk auto-sync data ONU dari SNMP ke database
  * Menggunakan node-cron untuk menjalankan sync secara berkala
  * 
- * CATATAN: Scheduler ini menggunakan service yang sama dengan sync manual dari menu OLT
- * Data disimpan ke database yang sama, sehingga tidak ada duplikasi
+ * OPTIMIZED VERSION:
+ * - Uses bulk sync service (Phase 3) for faster SNMP operations
+ * - Uses incremental sync (Phase 4) for reduced DB operations
+ * - Automatically invalidates Redis cache (Phase 1)
  */
 
 import cron from 'node-cron'
-import { getOLTRepository } from '@/lib/repositories'
+import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
 import { syncOnuDataByOltId } from '@/lib/services/onu-sync'
+import { onuIncrementalSyncService } from '@/lib/services/onu-sync-incremental'
+import { getC300GponOnuDataViaSNMP } from '@/app/api/onus/sync/route'
+import { logger } from '@/lib/logger'
 
 let syncJob: ReturnType<typeof cron.schedule> | null = null
+let useOptimizedSync = true // Toggle to enable/disable optimizations
+
+/**
+ * Set whether to use optimized sync (for testing/rollback)
+ */
+export function setOptimizedSyncMode(enabled: boolean): void {
+  useOptimizedSync = enabled
+  logger.info(`Optimized sync mode ${enabled ? 'enabled' : 'disabled'}`)
+}
 
 /**
  * Start scheduler untuk auto-sync ONU data
@@ -19,19 +33,21 @@ let syncJob: ReturnType<typeof cron.schedule> | null = null
  */
 export function startOnuSyncScheduler(cronExpression: string = '*/5 * * * *'): void {
   if (syncJob) {
-    console.log('[ONU-Sync-Scheduler] Scheduler already running, stopping previous one...')
+    logger.info('Scheduler already running, stopping previous one...')
     stopOnuSyncScheduler()
   }
 
-  console.log(`[ONU-Sync-Scheduler] Starting ONU sync scheduler with cron: ${cronExpression}`)
-  console.log(`[ONU-Sync-Scheduler] Using same service as manual sync from OLT menu (syncOnuDataByOltId)`)
+  logger.info(`Starting ONU sync scheduler with cron: ${cronExpression}`)
+  logger.info(`Mode: ${useOptimizedSync ? 'OPTIMIZED (Phase 3+4)' : 'LEGACY'}`)
 
   syncJob = cron.schedule(
     cronExpression,
     async () => {
+      const startTime = Date.now()
+
       try {
-        console.log(`[ONU-Sync-Scheduler] [${new Date().toISOString()}] Running scheduled ONU sync...`)
-        
+        logger.info(`[${new Date().toISOString()}] Running scheduled ONU sync...`)
+
         const oltRepo = getOLTRepository()
         const olts = await oltRepo.findAll()
         const connectedOlts = olts.filter(
@@ -39,32 +55,89 @@ export function startOnuSyncScheduler(cronExpression: string = '*/5 * * * *'): v
             olt.snmpConnected &&
             olt.snmpCommunityWrite &&
             olt.type?.toLowerCase().includes('c300') &&
-            olt.onuSyncEnabled !== false // Default true, hanya skip jika explicitly false
+            olt.onuSyncEnabled !== false
         )
 
         if (connectedOlts.length === 0) {
-          console.log(`[ONU-Sync-Scheduler] No C300 OLTs with SNMP connected and sync enabled`)
+          logger.info('No C300 OLTs with SNMP connected and sync enabled')
           return
         }
 
-        console.log(`[ONU-Sync-Scheduler] Found ${connectedOlts.length} OLTs to sync`)
-        
+        logger.info(`Found ${connectedOlts.length} OLTs to sync`)
+
         let totalSynced = 0
+        let totalSkipped = 0
+
         for (const olt of connectedOlts) {
           try {
-            // Gunakan service yang sama dengan sync manual dari menu OLT
-            // Tidak ada progress callback karena ini background job
-            const count = await syncOnuDataByOltId(olt.id)
-            totalSynced += count
-            console.log(`[ONU-Sync-Scheduler] Synced ${count} ONUs for OLT ${olt.name}`)
+            if (useOptimizedSync) {
+              // OPTIMIZED PATH: Incremental sync with delta detection
+              logger.info(`Syncing OLT ${olt.name} using OPTIMIZED mode (incremental)`)
+
+              // 1. Fetch ONU data from SNMP
+              const onuData = await getC300GponOnuDataViaSNMP(
+                olt.ipAddress,
+                olt.snmpPort,
+                olt.snmpCommunityWrite,
+                olt.snmpVersion,
+                olt.id
+              )
+
+              if (onuData.length === 0) {
+                logger.info(`No ONU data found for OLT ${olt.name}`)
+                continue
+              }
+
+              // 2. Use incremental sync (only update changed ONUs)
+              const result = await onuIncrementalSyncService.syncIncremental(
+                olt.id,
+                onuData,
+                {
+                  deleteRemovedOnus: false, // Safety: don't auto-delete in scheduled sync
+                  maxDeletePercent: 5, // Max 5% deletions for scheduled sync
+                }
+              )
+
+              const efficiency = onuIncrementalSyncService.calculateEfficiency(result.delta)
+              totalSynced += result.delta.new + result.delta.updated
+              totalSkipped += result.delta.unchanged
+
+              // 3. Update OLT timestamp
+              await oltRepo.update(olt.id, {
+                onuLastSync: new Date(),
+              })
+
+              logger.info(
+                `Synced OLT ${olt.name}: ` +
+                `${result.delta.new} new, ${result.delta.updated} updated, ` +
+                `${result.delta.unchanged} unchanged (${efficiency.efficiencyPercent}% efficiency)`
+              )
+            } else {
+              // LEGACY PATH: Full sync (fallback)
+              logger.info(`Syncing OLT ${olt.name} using LEGACY mode (full sync)`)
+              const count = await syncOnuDataByOltId(olt.id)
+              totalSynced += count
+              logger.info(`Synced ${count} ONUs for OLT ${olt.name}`)
+            }
           } catch (error: any) {
-            console.error(`[ONU-Sync-Scheduler] Error syncing OLT ${olt.name}:`, error?.message || error)
+            logger.error(
+              `Error syncing OLT ${olt.name}`,
+              error instanceof Error ? error : new Error(String(error))
+            )
           }
         }
-        
-        console.log(`[ONU-Sync-Scheduler] [${new Date().toISOString()}] Scheduled sync completed. Synced ${totalSynced} ONUs from ${connectedOlts.length} OLTs`)
+
+        const duration = Date.now() - startTime
+        logger.info(
+          `[${new Date().toISOString()}] Scheduled sync completed. ` +
+          `${totalSynced} ONUs synced, ${totalSkipped} skipped, ` +
+          `${connectedOlts.length} OLTs processed in ${(duration / 1000).toFixed(2)}s`
+        )
       } catch (error: any) {
-        console.error(`[ONU-Sync-Scheduler] Error in scheduled sync:`, error?.message || error)
+        logger.error(
+          'Error in scheduled sync',
+          error instanceof Error ? error : new Error(String(error))
+        )
       }
     },
     {
@@ -73,7 +146,7 @@ export function startOnuSyncScheduler(cronExpression: string = '*/5 * * * *'): v
     } as any
   )
 
-  console.log('[ONU-Sync-Scheduler] ONU sync scheduler started successfully')
+  logger.info('ONU sync scheduler started successfully')
 }
 
 /**
@@ -83,7 +156,7 @@ export function stopOnuSyncScheduler(): void {
   if (syncJob) {
     syncJob.stop()
     syncJob = null
-    console.log('[ONU-Sync-Scheduler] ONU sync scheduler stopped')
+    logger.info('ONU sync scheduler stopped')
   }
 }
 
@@ -94,3 +167,9 @@ export function isOnuSyncSchedulerRunning(): boolean {
   return syncJob !== null
 }
 
+/**
+ * Get current sync mode
+ */
+export function getOptimizedSyncMode(): boolean {
+  return useOptimizedSync
+}

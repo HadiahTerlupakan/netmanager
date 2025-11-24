@@ -1,134 +1,85 @@
 /**
- * Optimized ONU API endpoint dengan pagination dan caching
- * Untuk mengatasi performance issues saat data SNMP banyak
- * Support single OLT atau semua OLT
+ * Optimized ONU API endpoint dengan Redis caching dan pagination
+ * Endpoint ini menggunakan:
+ * - Redis caching untuk reduce DB load
+ * - Pagination untuk reduce payload size
+ * - Selective field projection untuk faster queries
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchOnuDataPaginated } from '@/lib/services/snmp-optimized'
-import { getOLTRepository } from '@/lib/repositories'
+import { getOnuRepository } from '@/lib/repositories'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const ipAddress = searchParams.get('ip')
-    const port = parseInt(searchParams.get('port') || '161')
-    const community = searchParams.get('community') || 'public'
-    const version = searchParams.get('version') || '2c'
-    const oltId = searchParams.get('oltId') || ''
-    const page = parseInt(searchParams.get('page') || '1')
-    const pageSize = parseInt(searchParams.get('pageSize') || '50')
 
-    // Jika tidak ada IP address, fetch dari semua connected OLTs
-    if (!ipAddress) {
-      console.log(`[ONU-Optimized] Fetching ONU data from all connected OLTs (page ${page}, pageSize ${pageSize})`)
-      
-      const oltRepo = getOLTRepository()
-      const olts = await oltRepo.findAll()
-      const connectedOlts = olts.filter(
-        (olt) => olt.snmpConnected && olt.snmpCommunityWrite && olt.type?.toLowerCase().includes('c300')
-      )
+    // Pagination parameters
+    const page = Math.max(parseInt(searchParams.get('page') || '1'), 1)
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50'), 1), 100) // Max 100 per page
 
-      if (connectedOlts.length === 0) {
-        return NextResponse.json({
-          success: true,
-          data: [],
-          pagination: {
-            page: 1,
-            pageSize,
-            total: 0,
-            totalPages: 0
-          },
-          message: 'No connected OLTs found'
-        })
-      }
+    // Filter parameters
+    const oltId = searchParams.get('oltId') || undefined
+    const status = searchParams.get('status') || undefined
+    const search = searchParams.get('search') || undefined
+    const useCache = searchParams.get('cache') !== 'false' // Cache enabled by default
 
-      // Fetch data dari semua OLTs dan combine
-      const allData: Array<{
-        oltId: string
-        name: string
-        description: string | null
-        pppoe: string | null
-        gponOnu: string
-        status: string
-        rxOlt: string | null
-        rxOnu: string | null
-        serialNumber: string | null
-        actualType: string | null
-      }> = []
+    logger.info(`Optimized ONU list request`, {
+      page,
+      limit,
+      oltId: oltId || 'all',
+      status: status || 'all',
+      search: search || 'none',
+      useCache,
+    })
 
-      for (const olt of connectedOlts) {
-        try {
-          const result = await fetchOnuDataPaginated(
-            olt.ipAddress,
-            olt.snmpPort,
-            olt.snmpCommunityWrite,
-            olt.snmpVersion || '2c',
-            olt.id,
-            1, // Fetch all pages untuk combine
-            10000 // Large page size untuk get all
-          )
-          
-          // Add OLT name to each ONU
-          const onusWithOltName = result.data.map(onu => ({
-            ...onu,
-            oltName: olt.name
-          }))
-          
-          allData.push(...onusWithOltName)
-        } catch (error: any) {
-          console.error(`[ONU-Optimized] Error fetching from OLT ${olt.name}:`, error)
-          // Continue dengan OLT berikutnya
-        }
-      }
+    const onuRepo = getOnuRepository()
 
-      // Apply pagination setelah combine semua data
-      const total = allData.length
-      const totalPages = Math.ceil(total / pageSize)
-      const startIndex = (page - 1) * pageSize
-      const endIndex = Math.min(startIndex + pageSize, total)
-      const paginatedData = allData.slice(startIndex, endIndex)
-
-      return NextResponse.json({
-        success: true,
-        data: paginatedData,
-        pagination: {
-          page,
-          pageSize,
-          total,
-          totalPages
-        },
-        message: `Successfully fetched ${paginatedData.length} ONUs from ${connectedOlts.length} OLT(s) (page ${page} of ${totalPages})`
-      })
-    }
-
-    // Single OLT mode (existing behavior)
-    console.log(`[ONU-Optimized] Fetching ONU data from ${ipAddress}:${port} (page ${page}, pageSize ${pageSize})`)
-
-    const result = await fetchOnuDataPaginated(
-      ipAddress,
-      port,
-      community,
-      version,
+    // Use the new optimized paginated method with caching
+    const result = await onuRepo.findPaginatedOptimized({
       oltId,
       page,
-      pageSize
-    )
+      limit,
+      status,
+      search,
+      useCache,
+    })
+
+    logger.info(`Optimized ONU list response`, {
+      page: result.page,
+      total: result.total,
+      returned: result.onus.length,
+      totalPages: result.totalPages,
+    })
 
     return NextResponse.json({
       success: true,
-      ...result,
-      message: `Successfully fetched ${result.data.length} ONUs (page ${page} of ${result.pagination.totalPages})`
+      data: result.onus,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
     })
 
   } catch (error: any) {
-    console.error('[ONU-Optimized] Error:', error)
+    logger.error('Optimized ONU list error', error instanceof Error ? error : new Error(String(error)))
+
     return NextResponse.json({
       success: false,
-      error: error.message || 'Failed to fetch ONU data'
+      error: error.message || 'Failed to fetch ONU data',
+      data: [],
+      pagination: {
+        page: 1,
+        limit: 50,
+        total: 0,
+        totalPages: 0,
+      },
     }, { status: 500 })
   }
 }
+
 
 // POST untuk clear cache
 export async function POST(req: NextRequest) {

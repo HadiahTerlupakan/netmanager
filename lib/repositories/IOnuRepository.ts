@@ -215,5 +215,18 @@ export interface IOnuRepository {
   count(): Promise<number>
   countByOltId(oltId: string): Promise<number>
   countByStatus(status: string): Promise<number>
+
+  // New optimized methods with caching
+  findPaginatedOptimized(params: {
+    oltId?: string
+    page: number
+    limit: number
+    status?: string
+    search?: string
+    useCache?: boolean
+  }): Promise<PaginatedOnuResult>
+
+  findByOltIdCached(oltId: string, useCache?: boolean): Promise<OnuPublic[]>
+  invalidateCache(oltId?: string): Promise<void>
 }
 
