@@ -43,6 +43,103 @@ type PelangganData = {
   email?: string | null
 }
 
+// Helper function untuk format tanggal pendek
+const formatDateShort = (dateString: string) => {
+  console.log('[formatDateShort] Input date string:', dateString)
+  const date = new Date(dateString)
+  const day = date.getDate()
+  const month = date.toLocaleDateString('id-ID', { month: 'short' })
+  const year = date.getFullYear()
+  const result = `${day} ${month} ${year}`
+  console.log('[formatDateShort] Formatted date:', result)
+  return result
+}
+
+// Komponen untuk menampilkan jatuh tempo dengan keterangan tagihan berikutnya
+function JatuhTempoDenganInfo({ pelangganId, pelangganJatuhTempo }: {
+  pelangganId: string;
+  pelangganJatuhTempo: string
+}) {
+  const [nextJatuhTempo, setNextJatuhTempo] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchNextJatuhTempo = async () => {
+      try {
+        const token = localStorage.getItem('pelanggan_token')
+        console.log('[JatuhTempoDenganInfo] Fetching next jatuh tempo for pelanggan:', pelangganId)
+
+        const response = await fetch(`/api/tagihan/pelanggan/${pelangganId}`, {
+          cache: 'no-store',
+          headers: {
+            'x-pelanggan-token': token || '',
+            'Cache-Control': 'no-cache',
+          },
+        })
+
+        if (response.ok) {
+          const tagihans = await response.json()
+          console.log('[JatuhTempoDenganInfo] Tagihans received:', tagihans.length)
+
+          // Cari tagihan yang belum lunas dengan jatuh tempo terdekat
+          const tagihanTerdekat = tagihans
+            .filter((t: any) => t.status === 'BELUM_LUNAS')
+            .sort((a: any, b: any) => new Date(a.jatuhTempo).getTime() - new Date(b.jatuhTempo).getTime())[0]
+
+          if (tagihanTerdekat) {
+            console.log('[JatuhTempoDenganInfo] Next jatuh tempo:', tagihanTerdekat.jatuhTempo)
+            setNextJatuhTempo(tagihanTerdekat.jatuhTempo)
+          } else {
+            console.log('[JatuhTempoDenganInfo] No unpaid tagihan found')
+          }
+        } else {
+          console.error('[JatuhTempoDenganInfo] Failed to fetch tagihans, status:', response.status)
+        }
+      } catch (error) {
+        console.error('[JatuhTempoDenganInfo] Error fetching next jatuh tempo:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchNextJatuhTempo()
+
+    // Auto-refresh setiap 30 detik
+    const intervalId = setInterval(fetchNextJatuhTempo, 30000)
+
+    return () => clearInterval(intervalId)
+  }, [pelangganId])
+
+  const isOverdue = () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const jatuhTempoDate = new Date(pelangganJatuhTempo)
+    return jatuhTempoDate < today
+  }
+
+  return (
+    <div>
+      <p className="text-sm font-semibold">
+        {formatDateShort(pelangganJatuhTempo)}
+      </p>
+      {loading ? (
+        <p className="text-xs text-white/70">Memuat info pembayaran...</p>
+      ) : (
+        nextJatuhTempo && (
+          <p className="text-xs text-white/70 mt-1">
+            Pembayaran berikutnya: {formatDateShort(nextJatuhTempo)}
+          </p>
+        )
+      )}
+      {isOverdue() && (
+        <p className="text-xs text-yellow-300 mt-1">
+          ⚠️ Jatuh tempo terlewat
+        </p>
+      )}
+    </div>
+  )
+}
+
 // Komponen untuk menampilkan saldo tagihan
 function SaldoTagihan({ pelangganId, isOverdue }: { pelangganId: string; isOverdue: boolean }) {
   const [saldo, setSaldo] = useState<number | null>(null)
@@ -52,6 +149,8 @@ function SaldoTagihan({ pelangganId, isOverdue }: { pelangganId: string; isOverd
     const fetchSaldo = async () => {
       try {
         const token = localStorage.getItem('pelanggan_token')
+        console.log('[SaldoTagihan] Fetching saldo for pelanggan:', pelangganId)
+
         const response = await fetch(`/api/tagihan/pelanggan/${pelangganId}`, {
           cache: 'no-store',
           headers: {
@@ -59,16 +158,25 @@ function SaldoTagihan({ pelangganId, isOverdue }: { pelangganId: string; isOverd
             'Cache-Control': 'no-cache',
           },
         })
+
+        console.log('[SaldoTagihan] Response status:', response.status)
+
         if (response.ok) {
           const tagihans = await response.json()
+          console.log('[SaldoTagihan] Tagihans received:', tagihans.length)
+
           // Hitung total tagihan yang belum dibayar
           const totalBelumBayar = tagihans
             .filter((t: any) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT')
             .reduce((sum: number, t: any) => sum + t.total, 0)
+
+          console.log('[SaldoTagihan] Total belum bayar:', totalBelumBayar)
           setSaldo(totalBelumBayar)
+        } else {
+          console.error('[SaldoTagihan] Failed to fetch tagihans, status:', response.status)
         }
       } catch (error) {
-        console.error('Error fetching saldo:', error)
+        console.error('[SaldoTagihan] Error fetching saldo:', error)
       } finally {
         setLoading(false)
       }
@@ -114,9 +222,11 @@ function SaldoTagihan({ pelangganId, isOverdue }: { pelangganId: string; isOverd
     return <p className="text-lg font-bold text-sky-500">...</p>
   }
 
+  console.log('[SaldoTagihan] isOverdue:', isOverdue, 'saldo:', saldo)
+
   return (
     <p className="text-lg font-bold text-sky-500">
-      {isOverdue ? formatRupiah(0) : formatRupiah(saldo || 0)}
+      {isOverdue ? formatRupiah(saldo || 0) : formatRupiah(saldo || 0)}
     </p>
   )
 }
@@ -125,138 +235,171 @@ export default function PelangganDashboardPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [pelanggan, setPelanggan] = useState<PelangganData | null>(null)
-  const [isOnline, setIsOnline] = useState(true)
-  const [showInstallPrompt, setShowInstallPrompt] = useState(false)
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
-  // Dummy data untuk penggunaan data (akan diganti dengan data real nanti)
-  const [dataUsage] = useState({
-    upload: { used: 572.1, total: 1000, unit: 'MB' },
-    download: { used: 11.4, total: 100, unit: 'GB' },
-  })
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false) // Tambahkan lock untuk mencegah multiple refresh
 
-  useEffect(() => {
-    // Check online status
-    setIsOnline(navigator.onLine)
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
+  // Fungsi untuk mengambil data pelanggan
+  const loadPelangganData = async (force = false, silent = false) => {
+    if (!force && (isRefreshing || loading)) return
 
-    // Check if already installed or dismissed
-    const isInstalled = window.matchMedia('(display-mode: standalone)').matches
-    const wasDismissed = localStorage.getItem('pwa-install-dismissed') === 'true'
-    const wasInstalled = localStorage.getItem('pwa-installed') === 'true'
-
-    if (isInstalled || wasInstalled || wasDismissed) {
-      setShowInstallPrompt(false)
+    if (!silent) {
+      setLoading(true)
     }
-
-    // Handle PWA install prompt
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault()
-      setDeferredPrompt(e)
-      // Show install prompt after 3 seconds if not installed/dismissed
-      if (!isInstalled && !wasDismissed && !wasInstalled) {
-        setTimeout(() => setShowInstallPrompt(true), 3000)
-      }
-    }
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadPelangganData()
-    
-    // Auto-refresh setiap 30 detik untuk mendapatkan data terbaru
-    const intervalId = setInterval(() => {
-      console.log('[Dashboard] Auto-refresh data pelanggan...')
-      loadPelangganData()
-    }, 30000) // 30 detik
-    
-    // Refresh data saat halaman di-focus (untuk mendapatkan update terbaru)
-    const handleFocus = () => {
-      console.log('[Dashboard] Tab focused, refresh data...')
-      loadPelangganData()
-    }
-    window.addEventListener('focus', handleFocus)
-    
-    // Auto-refresh ketika visibility berubah (user kembali ke tab)
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('[Dashboard] Tab visible, refresh data...')
-        loadPelangganData()
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    
-    return () => {
-      clearInterval(intervalId)
-      window.removeEventListener('focus', handleFocus)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [])
-
-  const loadPelangganData = async () => {
-    const token = localStorage.getItem('pelanggan_token')
-    const pelangganData = localStorage.getItem('pelanggan_data')
-
-    if (!token || !pelangganData) {
-      router.push('/pelanggan/login')
-      return
-    }
+    setRefreshing(true)
+    setIsRefreshing(true)
 
     try {
-      // Parse data dari localStorage sebagai fallback
-      const cachedData = JSON.parse(pelangganData)
-      
-      // Fetch data terbaru dari API untuk mendapatkan data yang sudah di-update
-      try {
-        const response = await fetch(`/api/pelanggan-ppp/${cachedData.id}`, {
-          headers: {
-            'x-pelanggan-token': token,
-            'Cache-Control': 'no-cache',
-          },
-          cache: 'no-store',
-        })
-        
-        if (response.ok) {
-          const freshData = await response.json()
-          
-          // Debug: Log data yang diterima
-          console.log('[Dashboard] Data pelanggan dari API:', {
-            id: freshData.id,
-            idPelanggan: freshData.idPelanggan,
-            nama: freshData.nama,
-            jatuhTempo: freshData.jatuhTempo,
-            jatuhTempoType: typeof freshData.jatuhTempo,
-          })
-          
-          // Update localStorage dengan data terbaru
-          localStorage.setItem('pelanggan_data', JSON.stringify(freshData))
-          setPelanggan(freshData)
-        } else {
-          // Jika API gagal, gunakan data dari cache
-          console.warn('Failed to fetch fresh data, using cached data')
-          setPelanggan(cachedData)
-        }
-      } catch (apiError) {
-        // Jika API error, gunakan data dari cache
-        console.warn('API error, using cached data:', apiError)
-        setPelanggan(cachedData)
+      const token = localStorage.getItem('pelanggan_token')
+      const pelangganData = localStorage.getItem('pelanggan_data')
+
+      console.log('DEBUG: Token exists:', !!token)
+      console.log('DEBUG: Pelanggan data exists:', !!pelangganData)
+
+      if (!token || !pelangganData) {
+        console.log('DEBUG: Redirecting to login - missing token or data')
+        router.push('/pelanggan/login')
+        return
       }
+
+      // Parse stored pelanggan data
+      const parsedPelanggan = JSON.parse(pelangganData)
+
+      // Refresh data dari server untuk memastikan data terkini
+      console.log('DEBUG: Fetching from /api/pelanggan/me')
+      const response = await fetch('/api/pelanggan/me', {
+        headers: {
+          'x-pelanggan-token': token,
+        },
+      })
+
+      console.log('DEBUG: API response status:', response.status)
+
+      if (response.ok) {
+        const freshData = await response.json()
+        console.log('DEBUG: Fresh data received:', freshData)
+        setPelanggan(freshData)
+        // Update stored data
+        localStorage.setItem('pelanggan_data', JSON.stringify(freshData))
+      } else if (response.status === 401) {
+        console.log('DEBUG: Token expired, redirecting to login')
+        // Token expired atau tidak valid
+        localStorage.removeItem('pelanggan_token')
+        localStorage.removeItem('pelanggan_data')
+        router.push('/pelanggan/login')
+      } else {
+        console.log('DEBUG: Using fallback to stored data')
+        // Fallback ke stored data
+        setPelanggan(parsedPelanggan)
+      }
+
+      setLastRefreshTime(new Date())
     } catch (error) {
-      console.error('Error parsing pelanggan data:', error)
-      router.push('/pelanggan/login')
+      console.error('DEBUG: Error loading pelanggan data:', error)
+      // Fallback ke stored data jika ada error
+      try {
+        const pelangganData = localStorage.getItem('pelanggan_data')
+        console.log('DEBUG: Attempting fallback with stored data')
+        if (pelangganData) {
+          const parsedPelanggan = JSON.parse(pelangganData)
+          console.log('DEBUG: Fallback data loaded:', parsedPelanggan)
+          setPelanggan(parsedPelanggan)
+        }
+      } catch (parseError) {
+        console.error('DEBUG: Error parsing stored pelanggan data:', parseError)
+        localStorage.removeItem('pelanggan_token')
+        localStorage.removeItem('pelanggan_data')
+        router.push('/pelanggan/login')
+      }
     } finally {
+      console.log('DEBUG: Setting loading to false')
       setLoading(false)
+      setRefreshing(false)
+      setIsRefreshing(false)
     }
   }
 
+  // Load data pelanggan saat komponen mount
+  useEffect(() => {
+    // Load from localStorage immediately - this should work
+    const pelangganData = localStorage.getItem('pelanggan_data')
+    const token = localStorage.getItem('pelanggan_token')
+
+    console.log('DEBUG: Token exists:', !!token)
+    console.log('DEBUG: Pelanggan data exists:', !!pelangganData)
+
+    if (pelangganData) {
+      try {
+        const parsedData = JSON.parse(pelangganData)
+        console.log('DEBUG: Successfully loaded pelanggan data:', parsedData)
+        setPelanggan(parsedData)
+        setLoading(false)
+
+        // Also try to refresh from server in background (but don't wait for it)
+        loadPelangganData(true, true) // force=true, silent=true
+      } catch (error) {
+        console.error('DEBUG: Error parsing localStorage data:', error)
+        setLoading(false)
+      }
+    } else {
+      console.log('DEBUG: No pelanggan data found, redirecting to login')
+      router.push('/pelanggan/login')
+      setLoading(false)
+    }
+  }, [])
+  
+  // State untuk deteksi online/offline
+  const [isOnline, setIsOnline] = useState(true)
+  
+  // State untuk PWA install prompt
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false)
+  
+  // Data usage untuk monitoring bandwidth
+  const [dataUsage, setDataUsage] = useState({
+    upload: { used: 2.5, total: 10, unit: 'GB' },
+    download: { used: 8.7, total: 50, unit: 'GB' }
+  })
+
+  // Deteksi status online/offline
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    
+    // Set status awal
+    setIsOnline(navigator.onLine)
+    
+    // Tambahkan event listener
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+  
+  // PWA install prompt handler
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault()
+      // Stash the event so it can be triggered later
+      setDeferredPrompt(e)
+      // Show the install banner
+      const dismissed = localStorage.getItem('pwa-install-dismissed')
+      if (!dismissed) {
+        setShowInstallPrompt(true)
+      }
+    }
+    
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    }
+  }, [])
 
   const handleInstall = async () => {
     if (!deferredPrompt) return
@@ -283,6 +426,8 @@ export default function PelangganDashboardPage() {
   }
 
   const formatDate = (dateString: string) => {
+    console.log('[formatDate] Input date string:', dateString)
+
     // Parse tanggal dengan benar untuk menghindari timezone issue
     let date: Date
     if (dateString.includes('T')) {
@@ -293,33 +438,18 @@ export default function PelangganDashboardPage() {
       const [year, month, day] = dateString.split('-').map(Number)
       date = new Date(year, month - 1, day)
     }
-    
-    return date.toLocaleDateString('id-ID', {
+
+    const result = date.toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     })
+
+    console.log('[formatDate] Formatted date:', result)
+    return result
   }
 
-  const formatDateShort = (dateString: string) => {
-    // Parse tanggal dengan benar untuk menghindari timezone issue
-    // Jika format ISO (YYYY-MM-DD), parse sebagai local date
-    let date: Date
-    if (dateString.includes('T')) {
-      // ISO format dengan time
-      date = new Date(dateString)
-    } else {
-      // Format YYYY-MM-DD, parse sebagai local date
-      const [year, month, day] = dateString.split('-').map(Number)
-      date = new Date(year, month - 1, day)
-    }
-    
-    const month = date.toLocaleDateString('id-ID', { month: 'short' })
-    const day = date.getDate()
-    const year = date.getFullYear()
-    return `${month.charAt(0).toUpperCase() + month.slice(1)}, ${day.toString().padStart(2, '0')} ${year} 00:00`
-  }
-
+  
   const isJatuhTempo = (jatuhTempo: string) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -434,15 +564,36 @@ export default function PelangganDashboardPage() {
               </div>
               <h1 className="text-xl font-bold">NetManager</h1>
             </div>
-            <button className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation">
-              <HiBell className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => loadPelangganData(true, true)}
+                disabled={loading || refreshing}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation disabled:opacity-50 relative"
+                title="Refresh"
+              >
+                <HiArrowPath className={`w-6 h-6 ${loading || refreshing ? 'animate-spin' : ''}`} />
+                {refreshing && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                )}
+              </button>
+              <button className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation">
+                <HiBell className="w-6 h-6" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="px-4 py-4">
+      <main className="px-4 py-4 md:px-6 lg:px-8">
+        {lastRefreshTime && (
+          <div className="mb-2 text-center">
+            <span className="text-xs text-gray-500">
+              Terakhir diperbarui: {lastRefreshTime.toLocaleTimeString('id-ID')}
+            </span>
+          </div>
+        )}
+        {/* Welcome Card */}
         {/* Client Info Card - Mobile App Style */}
         <div className="bg-white rounded-2xl shadow-md mb-4 p-4">
           <div className="flex items-center justify-between mb-4">
@@ -585,9 +736,10 @@ export default function PelangganDashboardPage() {
             </button>
             <div className="text-right">
               <p className="text-xs text-white/80">Kadaluarsa</p>
-              <p className="text-sm font-semibold">
-                {formatDateShort(pelanggan.jatuhTempo)}
-              </p>
+              <JatuhTempoDenganInfo
+                pelangganId={pelanggan.id}
+                pelangganJatuhTempo={pelanggan.jatuhTempo}
+              />
             </div>
           </div>
         </div>

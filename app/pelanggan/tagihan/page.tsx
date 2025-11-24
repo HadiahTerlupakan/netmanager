@@ -40,6 +40,9 @@ export default function TagihanPage() {
   const [renewDisabled, setRenewDisabled] = useState(false)
   const [renewDisabledMessage, setRenewDisabledMessage] = useState<string | null>(null)
   const [checkingRenewStatus, setCheckingRenewStatus] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false) // Tambahkan lock untuk mencegah multiple refresh
 
   // Mapping nama bulan
   const namaBulan = [
@@ -57,8 +60,14 @@ export default function TagihanPage() {
     'Desember',
   ]
 
-  // Fungsi untuk fetch tagihan
-  const fetchTagihan = async (showLoading = true) => {
+  // Fungsi untuk fetch tagihan dengan cache busting dan locking
+  const fetchTagihan = async (showLoading = true, forceRefresh = false) => {
+    // Cegah multiple refresh simultan
+    if (isRefreshing && !forceRefresh) {
+      console.log('[Portal Tagihan] Refresh already in progress, skipping...')
+      return
+    }
+
     const token = localStorage.getItem('pelanggan_token')
     const pelangganData = localStorage.getItem('pelanggan_data')
 
@@ -70,16 +79,42 @@ export default function TagihanPage() {
     try {
       const data = JSON.parse(pelangganData)
       if (showLoading) setLoading(true)
+      
+      // Set lock untuk mencegah multiple refresh
+      setIsRefreshing(true)
 
-      const response = await fetch(`/api/tagihan/pelanggan/${data.id}`, {
+      // Tambahkan timestamp untuk cache busting jika forceRefresh true
+      // Gunakan format yang tidak mengganggu routing Next.js
+      const cacheBuster = forceRefresh ? `?_t=${Date.now()}` : ''
+      
+      console.log(`[Portal Tagihan] Fetching tagihan with forceRefresh=${forceRefresh}`)
+      
+      const response = await fetch(`/api/tagihan/pelanggan/${data.id}${cacheBuster}`, {
         cache: 'no-store',
         headers: {
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
           'x-pelanggan-token': token,
         },
       })
+
+      console.log('[Portal Tagihan] Response status:', response.status)
+      console.log('[Portal Tagihan] Response ok:', response.ok)
+
       if (!response.ok) {
-        throw new Error('Gagal mengambil data tagihan')
+        const errorText = await response.text()
+        console.error('[Portal Tagihan] Error response:', errorText)
+
+        if (response.status === 404) {
+          throw new Error('Endpoint tidak ditemukan. Silakan refresh halaman.')
+        } else if (response.status === 401) {
+          throw new Error('Sesi Anda telah berakhir. Silakan login kembali.')
+        } else if (response.status === 500) {
+          throw new Error('Terjadi kesalahan server. Silakan coba lagi nanti.')
+        } else {
+          throw new Error(`Gagal mengambil data tagihan (${response.status})`)
+        }
       }
       const tagihans = await response.json()
       
@@ -107,13 +142,34 @@ export default function TagihanPage() {
       }))
       
       console.log('[Portal Tagihan] Tagihan setelah transform:', transformedTagihans.length, 'tagihan')
-      setTagihanList(transformedTagihans)
+      
+      // Cek duplikasi periode dan gunakan yang terbaru
+      const periodeMap = new Map<string, TagihanItem>()
+      let duplicateCount = 0
+      
+      transformedTagihans.forEach(tagihan => {
+        const key = `${tagihan.bulan}-${tagihan.tahun}`
+        if (periodeMap.has(key)) {
+          duplicateCount++
+          console.warn(`[Portal Tagihan] Duplikasi periode ditemukan: ${key}`)
+        } else {
+          periodeMap.set(key, tagihan)
+        }
+      })
+      
+      if (duplicateCount > 0) {
+        console.warn(`[Portal Tagihan] Ditemukan ${duplicateCount} duplikasi periode, menggunakan yang terbaru`)
+      }
+      
+      // Gunakan data unik berdasarkan periode
+      const uniqueTagihans = Array.from(periodeMap.values())
+      setTagihanList(uniqueTagihans)
 
       // Cek status disable perpanjangan jika semua tagihan sudah lunas
-      const tagihanAktifCount = transformedTagihans.filter(
+      const tagihanAktifCount = uniqueTagihans.filter(
         (t: TagihanItem) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT'
       ).length
-      const riwayatCount = transformedTagihans.filter((t: TagihanItem) => t.status === 'LUNAS').length
+      const riwayatCount = uniqueTagihans.filter((t: TagihanItem) => t.status === 'LUNAS').length
       const semuaLunas = tagihanAktifCount === 0 && riwayatCount > 0
 
       if (semuaLunas && data.jatuhTempo) {
@@ -140,6 +196,8 @@ export default function TagihanPage() {
       setError(err.message || 'Gagal mengambil data tagihan')
     } finally {
       if (showLoading) setLoading(false)
+      // Release lock setelah selesai
+      setIsRefreshing(false)
     }
   }
 
@@ -159,24 +217,39 @@ export default function TagihanPage() {
       // Fetch tagihan pertama kali
       fetchTagihan()
 
-      // Auto-refresh setiap 30 detik
+      // Auto-refresh setiap 15 detik (dari 10 detik untuk mengurangi beban server)
+      let refreshCount = 0
       const intervalId = setInterval(() => {
-        console.log('[Portal Tagihan] Auto-refresh tagihan...')
-        fetchTagihan(false) // Tidak show loading indicator untuk auto-refresh
-      }, 30000) // 30 detik
+        refreshCount++
+        console.log(`[Portal Tagihan] Auto-refresh tagihan... (${refreshCount})`)
+        // Gunakan forceRefresh setiap 4 kali refresh untuk memastikan data terbaru
+        fetchTagihan(false, refreshCount % 4 === 0)
+      }, 15000) // 15 detik
+
+      // Event listener untuk refresh saat tab di-focus atau visible
+      const handlePageInteraction = () => {
+        console.log('[Portal Tagihan] Page interaction detected, checking if refresh needed...')
+        // Hanya refresh jika sudah 5 detik sejak refresh terakhir
+        if (!lastRefreshTime || (new Date().getTime() - lastRefreshTime.getTime()) > 5000) {
+          console.log('[Portal Tagihan] Refreshing due to page interaction...')
+          fetchTagihan(false, true) // Gunakan forceRefresh saat ada interaksi
+        } else {
+          console.log('[Portal Tagihan] Skipping refresh, too soon since last refresh')
+        }
+      }
 
       // Auto-refresh ketika tab/window di-focus
       const handleFocus = () => {
-        console.log('[Portal Tagihan] Tab focused, refresh tagihan...')
-        fetchTagihan(false)
+        console.log('[Portal Tagihan] Tab focused')
+        handlePageInteraction()
       }
       window.addEventListener('focus', handleFocus)
 
       // Auto-refresh ketika visibility berubah (user kembali ke tab)
       const handleVisibilityChange = () => {
         if (!document.hidden) {
-          console.log('[Portal Tagihan] Tab visible, refresh tagihan...')
-          fetchTagihan(false)
+          console.log('[Portal Tagihan] Tab visible')
+          handlePageInteraction()
         }
       }
       document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -193,53 +266,6 @@ export default function TagihanPage() {
     }
   }, [router])
 
-  // Refresh data saat halaman di-focus
-  useEffect(() => {
-    const handleFocus = () => {
-      const token = localStorage.getItem('pelanggan_token')
-      const pelangganData = localStorage.getItem('pelanggan_data')
-      if (token && pelangganData) {
-        try {
-          const data = JSON.parse(pelangganData)
-          // Refresh tagihan saat halaman di-focus
-          const fetchTagihan = async () => {
-            try {
-              const response = await fetch(`/api/tagihan/pelanggan/${data.id}`, {
-                cache: 'no-store',
-                headers: {
-                  'Cache-Control': 'no-cache',
-                },
-              })
-              if (response.ok) {
-                const tagihans = await response.json()
-                const transformedTagihans: TagihanItem[] = tagihans.map((tagihan: any) => ({
-                  id: tagihan.id,
-                  bulan: namaBulan[tagihan.periodeBulan - 1],
-                  tahun: tagihan.periodeTahun,
-                  jumlah: tagihan.total,
-                  jatuhTempo: tagihan.jatuhTempo,
-                  status: tagihan.status,
-                  tanggalBayar: tagihan.tanggalBayar || undefined,
-                }))
-                setTagihanList(transformedTagihans)
-              }
-            } catch (err) {
-              console.error('Error refreshing tagihan:', err)
-            }
-          }
-          fetchTagihan()
-        } catch (err) {
-          console.error('Error refreshing data:', err)
-        }
-      }
-    }
-    window.addEventListener('focus', handleFocus)
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -249,6 +275,8 @@ export default function TagihanPage() {
   }
 
   const formatDate = (dateString: string) => {
+    console.log('[Tagihan formatDate] Input date string:', dateString)
+
     // Parse tanggal dengan benar untuk menghindari timezone issue
     let date: Date
     if (dateString.includes('T')) {
@@ -259,12 +287,41 @@ export default function TagihanPage() {
       const [year, month, day] = dateString.split('-').map(Number)
       date = new Date(year, month - 1, day)
     }
-    
-    return date.toLocaleDateString('id-ID', {
+
+    const result = date.toLocaleDateString('id-ID', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
     })
+
+    console.log('[Tagihan formatDate] Formatted date:', result)
+    return result
+  }
+
+  const formatDateShort = (dateString: string) => {
+    console.log('[Tagihan formatDateShort] Input date string:', dateString)
+    const date = new Date(dateString)
+    const day = date.getDate()
+    const month = date.toLocaleDateString('id-ID', { month: 'short' })
+    const year = date.getFullYear()
+    const result = `${day} ${month} ${year}`
+    console.log('[Tagihan formatDateShort] Formatted date:', result)
+    return result
+  }
+
+  // Check if date is overdue
+  const isDateOverdue = (dateString: string) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const date = new Date(dateString)
+    return date < today
+  }
+
+  // Helper untuk membandingkan dua tanggal tanpa waktu
+  const areDatesSame = (date1: string, date2: string) => {
+    const d1 = new Date(date1)
+    const d2 = new Date(date2)
+    return d1.toDateString() === d2.toDateString()
   }
 
   const getStatusBadge = (status: string) => {
@@ -322,7 +379,27 @@ export default function TagihanPage() {
   const semuaTagihanLunas = tagihanAktif.length === 0 && riwayatBayar.length > 0
 
   const handleRefresh = async () => {
-    await fetchTagihan(true)
+    console.log('[Portal Tagihan] Manual refresh triggered by user')
+    setRefreshing(true)
+    
+    // Tambahkan timestamp unik untuk memaksa refresh dari server
+    await fetchTagihan(true, true) // Gunakan forceRefresh untuk cache busting
+    
+    setLastRefreshTime(new Date())
+    setRefreshing(false)
+    
+    // Tampilkan notifikasi singkat
+    const notification = document.createElement('div')
+    notification.className = 'fixed top-20 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse'
+    notification.textContent = 'Data berhasil diperbarui dari server'
+    document.body.appendChild(notification)
+    
+    // Hapus notifikasi setelah 2 detik
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification)
+      }
+    }, 2000)
   }
 
   const handleRenew = async () => {
@@ -351,25 +428,12 @@ export default function TagihanPage() {
       const data = await res.json()
       alert(`Layanan berhasil diperpanjang!\nJatuh Tempo Baru: ${new Date(data.jatuhTempoBaru).toLocaleDateString('id-ID', {
         year: 'numeric',
-        month: 'long',
+        month: 'short',
         day: 'numeric',
       })}`)
 
-      // Reload tagihan
-      const tagihanRes = await fetch(`/api/tagihan/pelanggan/${pelanggan.id}`)
-      if (tagihanRes.ok) {
-        const tagihans = await tagihanRes.json()
-        const transformedTagihans: TagihanItem[] = tagihans.map((tagihan: any) => ({
-          id: tagihan.id,
-          bulan: namaBulan[tagihan.periodeBulan - 1],
-          tahun: tagihan.periodeTahun,
-          jumlah: tagihan.total,
-          jatuhTempo: tagihan.jatuhTempo,
-          status: tagihan.status,
-          tanggalBayar: tagihan.tanggalBayar || undefined,
-        }))
-        setTagihanList(transformedTagihans)
-      }
+      // Gunakan fetchTagihan yang sudah diperbaiki untuk reload data
+      await fetchTagihan(false, true) // Gunakan forceRefresh untuk memastikan data terbaru
     } catch (err: any) {
       alert(err.message || 'Terjadi kesalahan saat memperpanjang layanan')
     } finally {
@@ -395,11 +459,14 @@ export default function TagihanPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleRefresh}
-                disabled={loading}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation disabled:opacity-50"
-                title="Refresh"
+                disabled={loading || refreshing}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation disabled:opacity-50 relative"
+                title="Refresh Data"
               >
-                <HiArrowPath className={`w-6 h-6 ${loading ? 'animate-spin' : ''}`} />
+                <HiArrowPath className={`w-6 h-6 ${loading || refreshing ? 'animate-spin' : ''}`} />
+                {refreshing && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                )}
               </button>
               <button className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation">
                 <HiBell className="w-6 h-6" />
@@ -408,6 +475,37 @@ export default function TagihanPage() {
           </div>
         </div>
       </header>
+
+      {/* Client Info - Matching Dashboard Style */}
+      {pelanggan && (
+        <div className="bg-white rounded-2xl shadow-sm mb-4 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                <HiOutlineUser className="w-6 h-6 text-gray-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Client</p>
+                <p className="text-sm font-semibold text-gray-900">{pelanggan.noTelp || pelanggan.idPelanggan}</p>
+                <p className="text-xs text-gray-500">Status: {pelanggan.status}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Jatuh Tempo</p>
+              <div>
+                <p className="text-sm font-semibold">
+                  {formatDateShort(pelanggan.jatuhTempo)}
+                </p>
+                {isDateOverdue(pelanggan.jatuhTempo) && (
+                  <p className="text-xs text-yellow-600">
+                    ⚠️ Jatuh tempo terlewat
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="px-4 py-4">
@@ -436,6 +534,13 @@ export default function TagihanPage() {
         </div>
 
         {/* Content */}
+        {lastRefreshTime && (
+          <div className="mb-2 text-center">
+            <span className="text-xs text-gray-500">
+              Terakhir diperbarui: {lastRefreshTime.toLocaleTimeString('id-ID')}
+            </span>
+          </div>
+        )}
         {activeTab === 'tagihan' ? (
           <div className="space-y-3">
             {/* Tombol Renew jika semua tagihan sudah lunas */}
@@ -493,9 +598,19 @@ export default function TagihanPage() {
                       <h3 className="text-lg font-semibold text-gray-900 mb-1">
                         {tagihan.bulan} {tagihan.tahun}
                       </h3>
-                      <p className="text-sm text-gray-500">
-                        Jatuh Tempo: {formatDate(tagihan.jatuhTempo)}
-                      </p>
+                      <div className="text-sm text-gray-500">
+                        <p>Jatuh Tempo: {pelanggan?.jatuhTempo ? formatDate(pelanggan.jatuhTempo) : formatDate(tagihan.jatuhTempo)}</p>
+                        {pelanggan?.jatuhTempo && isDateOverdue(pelanggan.jatuhTempo) && tagihan.status === 'BELUM_LUNAS' && (
+                          <p className="text-xs text-yellow-600 mt-1">
+                            ⚠️ Jatuh tempo terlewat
+                          </p>
+                        )}
+                        {pelanggan?.jatuhTempo && !areDatesSame(pelanggan.jatuhTempo, tagihan.jatuhTempo) && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            📅 Periode tagihan: {formatDate(tagihan.jatuhTempo)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     {getStatusBadge(tagihan.status)}
                   </div>

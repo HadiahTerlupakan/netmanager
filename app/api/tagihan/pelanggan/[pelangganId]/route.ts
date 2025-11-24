@@ -17,87 +17,84 @@ export async function GET(
   try {
     const { pelangganId } = await params
     const tagihanRepo = getTagihanRepository()
+    
+    // Ambil data pelanggan terlebih dahulu untuk cek kondisi generate tagihan
+    const pelanggan = await prisma.pelanggan.findUnique({
+      where: { id: pelangganId },
+      include: { hargaPaket: true },
+    })
+    
+    if (!pelanggan) {
+      return NextResponse.json({ error: 'Pelanggan tidak ditemukan' }, { status: 404 })
+    }
+    
     let tagihans = await tagihanRepo.findByPelangganId(pelangganId)
     const sekarang = new Date()
     
     // Debug: Log jumlah tagihan yang ditemukan
     console.log(`[GET Tagihan Pelanggan] Pelanggan ID: ${pelangganId}, Jumlah tagihan awal: ${tagihans.length}`)
     
-    // Ambil data pelanggan untuk cek kondisi generate tagihan
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id: pelangganId },
-      include: { hargaPaket: true },
-    })
-    
-    if (pelanggan && pelanggan.hargaPaket) {
-      const jatuhTempo = new Date(pelanggan.jatuhTempo)
+    if (pelanggan.hargaPaket) {
+      const jatuhTempoPelanggan = new Date(pelanggan.jatuhTempo)
       const periodeBulan = sekarang.getMonth() + 1
       const periodeTahun = sekarang.getFullYear()
-      
+
       console.log(`[GET Tagihan Pelanggan] Pelanggan: ${pelanggan.nama} (${pelanggan.idPelanggan})`)
-      console.log(`[GET Tagihan Pelanggan] Jatuh Tempo: ${jatuhTempo.toISOString()}, Sekarang: ${sekarang.toISOString()}`)
+      console.log(`[GET Tagihan Pelanggan] Jatuh Tempo Pelanggan: ${jatuhTempoPelanggan.toISOString()}, Sekarang: ${sekarang.toISOString()}`)
       console.log(`[GET Tagihan Pelanggan] Periode saat ini: ${periodeBulan}/${periodeTahun}`)
-      
-      // Cek apakah tagihan untuk periode saat ini sudah ada
-      const existingTagihan = await tagihanRepo.findByPelangganAndPeriode(
-        pelangganId,
-        periodeBulan,
-        periodeTahun
-      )
-      
-      console.log(`[GET Tagihan Pelanggan] Tagihan untuk periode ${periodeBulan}/${periodeTahun} sudah ada: ${existingTagihan ? 'Ya' : 'Tidak'}`)
-      
-      // Jika tidak ada tagihan untuk periode saat ini, cek apakah perlu generate
-      if (!existingTagihan) {
-        const paket = pelanggan.hargaPaket
-        let perluGenerate = false
-        
-        if (paket.durasiUnit === 'BULAN' || paket.durasiUnit === 'TAHUN') {
-          const jatuhTempoBulan = jatuhTempo.getMonth() + 1
-          const jatuhTempoTahun = jatuhTempo.getFullYear()
-          
-          console.log(`[GET Tagihan Pelanggan] Jatuh tempo pelanggan: ${jatuhTempoBulan}/${jatuhTempoTahun}`)
-          
-          // Generate jika:
-          // 1. Jatuh tempo sudah lewat, ATAU
-          // 2. Jatuh tempo di bulan periode ini, ATAU
-          // 3. Tidak ada tagihan sama sekali (untuk memastikan tagihan muncul)
-          if (jatuhTempo <= sekarang || 
-              (jatuhTempoBulan === periodeBulan && jatuhTempoTahun === periodeTahun) ||
-              tagihans.length === 0) {
-            perluGenerate = true
-            console.log(`[GET Tagihan Pelanggan] Kondisi generate terpenuhi: jatuh tempo lewat atau di bulan periode atau tidak ada tagihan`)
-          }
+
+      // Cek apakah ada tagihan yang belum lunas (prioritaskan tagihan existing)
+      const adaTagihanBelumLunas = tagihans.some(t => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT')
+
+      console.log(`[GET Tagihan Pelanggan] Ada tagihan belum lunas: ${adaTagihanBelumLunas}`)
+
+      // HANYA generate tagihan untuk periode saat ini jika:
+      // 1. Tidak ada tagihan sama sekali, ATAU
+      // 2. Tidak ada tagihan yang belum lunas DAN jatuh tempo pelanggan sudah lewat
+      let perluGenerate = false
+
+      if (tagihans.length === 0) {
+        perluGenerate = true
+        console.log(`[GET Tagihan Pelanggan] Perlu generate: tidak ada tagihan sama sekali`)
+      } else if (!adaTagihanBelumLunas && jatuhTempoPelanggan <= sekarang) {
+        // Cek apakah tagihan untuk periode saat ini sudah ada
+        const existingTagihan = await tagihanRepo.findByPelangganAndPeriode(
+          pelangganId,
+          periodeBulan,
+          periodeTahun
+        )
+
+        if (!existingTagihan) {
+          perluGenerate = true
+          console.log(`[GET Tagihan Pelanggan] Perlu generate: tidak ada tagihan belum lunas dan jatuh tempo pelanggan sudah lewat, belum ada tagihan periode ${periodeBulan}/${periodeTahun}`)
         } else {
-          // Untuk paket harian/jam-jaman, generate jika jatuh tempo sudah lewat
-          if (jatuhTempo <= sekarang) {
-            perluGenerate = true
-          }
+          console.log(`[GET Tagihan Pelanggan] Tidak perlu generate: tagihan periode ${periodeBulan}/${periodeTahun} sudah ada`)
         }
-        
-        if (perluGenerate) {
-          console.log(`[GET Tagihan Pelanggan] Generate tagihan untuk periode ${periodeBulan}/${periodeTahun}...`)
-          try {
-            const { generateTagihan } = await import('@/lib/services/tagihan-service')
-            await generateTagihan(pelangganId, periodeBulan, periodeTahun)
-            console.log(`[GET Tagihan Pelanggan] Tagihan berhasil di-generate untuk periode ${periodeBulan}/${periodeTahun}`)
-            
-            // Fetch ulang tagihan setelah generate
-            tagihans = await tagihanRepo.findByPelangganId(pelangganId)
-            console.log(`[GET Tagihan Pelanggan] Jumlah tagihan setelah generate: ${tagihans.length}`)
-          } catch (error: any) {
-            console.error(`[GET Tagihan Pelanggan] Error generate tagihan:`, error.message)
-            console.error(`[GET Tagihan Pelanggan] Error stack:`, error.stack)
-            // Fetch ulang tagihan meskipun error (mungkin tagihan sudah ada)
-            tagihans = await tagihanRepo.findByPelangganId(pelangganId)
-          }
-        } else {
-          console.log(`[GET Tagihan Pelanggan] Tidak perlu generate tagihan (kondisi tidak terpenuhi)`)
+      } else {
+        console.log(`[GET Tagihan Pelanggan] Tidak perlu generate: ada tagihan belum lunas atau jatuh tempo belum lewat`)
+      }
+
+      if (perluGenerate) {
+        console.log(`[GET Tagihan Pelanggan] Generate tagihan untuk periode ${periodeBulan}/${periodeTahun}...`)
+        try {
+          const { generateTagihan } = await import('@/lib/services/tagihan-service')
+          await generateTagihan(pelangganId, periodeBulan, periodeTahun)
+          console.log(`[GET Tagihan Pelanggan] Tagihan berhasil di-generate untuk periode ${periodeBulan}/${periodeTahun}`)
+
+          // Fetch ulang tagihan setelah generate
+          tagihans = await tagihanRepo.findByPelangganId(pelangganId)
+          console.log(`[GET Tagihan Pelanggan] Jumlah tagihan setelah generate: ${tagihans.length}`)
+        } catch (error: any) {
+          console.error(`[GET Tagihan Pelanggan] Error generate tagihan:`, error.message)
+          console.error(`[GET Tagihan Pelanggan] Error stack:`, error.stack)
+          // Fetch ulang tagihan meskipun error (mungkin tagihan sudah ada)
+          tagihans = await tagihanRepo.findByPelangganId(pelangganId)
         }
       }
     }
 
     // Update status tagihan yang sudah jatuh tempo menjadi TERLAMBAT
+    // Lakukan ini sebelum recalculate untuk memastikan status yang benar
     for (const tagihan of tagihans) {
       if (tagihan.status === TagihanStatus.BELUM_LUNAS) {
         const jatuhTempo = new Date(tagihan.jatuhTempo)
@@ -106,15 +103,18 @@ export async function GET(
           await tagihanRepo.update(tagihan.id, {
             status: TagihanStatus.TERLAMBAT,
           })
+          console.log(`[GET Tagihan Pelanggan] Tagihan ${tagihan.id} status updated to TERLAMBAT`)
         }
       }
     }
 
     // Recalculate tagihan yang belum lunas untuk memastikan perhitungan sesuai
+    // Lakukan ini setelah update status untuk memastikan perhitungan yang benar
     for (const tagihan of tagihans) {
       if (tagihan.status !== TagihanStatus.LUNAS) {
         try {
           await recalculateTagihan(tagihan.id)
+          console.log(`[GET Tagihan Pelanggan] Tagihan ${tagihan.id} recalculated`)
         } catch (error: any) {
           // Jika recalculate gagal, lanjutkan ke tagihan berikutnya
           console.error(`Error recalculating tagihan ${tagihan.id}:`, error)
@@ -124,6 +124,7 @@ export async function GET(
 
     // Fetch ulang tagihan setelah update dan recalculate
     const updatedTagihans = await tagihanRepo.findByPelangganId(pelangganId)
+    console.log(`[GET Tagihan Pelanggan] Final tagihan count: ${updatedTagihans.length}`)
 
     return NextResponse.json(updatedTagihans, {
       headers: {

@@ -326,8 +326,7 @@ export async function generateTagihan(
 }
 
 /**
- * Generate tagihan bulanan untuk semua pelanggan aktif
- * Sistem akan generate tagihan berdasarkan durasi paket dan tipe pelanggan:
+ * Generate tagihan bulanan untuk semua pelanggan REGULER
  * - REGULER: Auto-generate tagihan bulanan
  * - NON_REGULER: Tidak auto-generate (hanya manual atau saat renewal)
  * - Paket bulanan/tahunan: generate untuk periode bulan/tahun yang sesuai
@@ -389,15 +388,40 @@ export async function generateTagihanBulanan(periodeBulan: number, periodeTahun:
         // Untuk paket harian/jam-jaman, generate jika jatuh tempo sudah lewat
         if (jatuhTempo <= sekarang) {
           perluGenerate = true
-          // Gunakan periode bulan/tahun dari jatuh tempo
-          periodeBulanTagihan = jatuhTempo.getMonth() + 1
-          periodeTahunTagihan = jatuhTempo.getFullYear()
+          // Untuk paket harian/jam-jaman, gunakan periode saat ini
+          periodeBulanTagihan = sekarang.getMonth() + 1
+          periodeTahunTagihan = sekarang.getFullYear()
         }
       }
 
       if (perluGenerate) {
-        await generateTagihan(pelanggan.id, periodeBulanTagihan, periodeTahunTagihan)
-        success++
+        const tagihanRepo = getTagihanRepository()
+        
+        // Cek apakah tagihan untuk periode ini sudah ada
+        const existingTagihan = await tagihanRepo.findByPelangganAndPeriode(
+          pelanggan.id,
+          periodeBulanTagihan,
+          periodeTahunTagihan,
+        )
+
+        if (!existingTagihan) {
+          // Cek ulang untuk mencegah race condition
+          const doubleCheckTagihan = await tagihanRepo.findByPelangganAndPeriode(
+            pelanggan.id,
+            periodeBulanTagihan,
+            periodeTahunTagihan,
+          )
+          
+          if (!doubleCheckTagihan) {
+            await generateTagihan(pelanggan.id, periodeBulanTagihan, periodeTahunTagihan)
+            console.log(`[GenerateTagihanBulanan] Tagihan berhasil di-generate untuk ${pelanggan.nama} periode ${periodeBulanTagihan}/${periodeTahunTagihan}`)
+            success++
+          } else {
+            console.log(`[GenerateTagihanBulanan] Tagihan untuk ${pelanggan.nama} periode ${periodeBulanTagihan}/${periodeTahunTagihan} sudah ada (double check)`)
+          }
+        } else {
+          console.log(`[GenerateTagihanBulanan] Tagihan untuk ${pelanggan.nama} periode ${periodeBulanTagihan}/${periodeTahunTagihan} sudah ada`)
+        }
       }
     } catch (error: any) {
       failed++
@@ -469,37 +493,47 @@ export async function generateTagihanOtomatis(): Promise<{
         continue
       }
 
-      // Cek apakah ada tagihan belum bayar
-      // Sesuai dengan keterangan: "INVOICE BELUM BAYAR PADA DATA PELANGGAN (HOTSPOT / PPP) HARUS SUDAH TERBAYARKAN SEBELUM PERIODE YANG DIPILIH"
-      if (pelanggan.tagihans && pelanggan.tagihans.length > 0) {
-        // Ada tagihan belum bayar, skip generate invoice baru
-        continue
-      }
-
+      const paket = pelanggan.hargaPaket
       const jatuhTempo = new Date(pelanggan.jatuhTempo)
       
+      // Tentukan periode tagihan berdasarkan jatuh tempo
+      let periodeBulan = jatuhTempo.getMonth() + 1
+      let periodeTahun = jatuhTempo.getFullYear()
+      
+      // Untuk paket harian/jam-jaman, gunakan periode saat ini
+      if (paket.durasiUnit === 'HARI' || paket.durasiUnit === 'JAM') {
+        periodeBulan = sekarang.getMonth() + 1
+        periodeTahun = sekarang.getFullYear()
+      }
+      
       // Cek apakah jatuh tempo akan datang dalam X hari
-      // Hitung selisih hari antara sekarang dan jatuh tempo
-      const selisihHari = Math.ceil(
-        (jatuhTempo.getTime() - sekarang.getTime()) / (1000 * 60 * 60 * 24)
-      )
-
-      // Generate invoice jika jatuh tempo akan datang dalam X hari (atau sudah lewat)
-      if (selisihHari <= hariSebelumJatuhTempo && selisihHari >= 0) {
-        // Tentukan periode untuk tagihan
-        const periodeBulan = jatuhTempo.getMonth() + 1
-        const periodeTahun = jatuhTempo.getFullYear()
-
+      if (jatuhTempo <= targetDate) {
+        const tagihanRepo = getTagihanRepository()
+        
         // Cek apakah tagihan untuk periode ini sudah ada
-        const existingTagihan = await getTagihanRepository().findByPelangganAndPeriode(
+        const existingTagihan = await tagihanRepo.findByPelangganAndPeriode(
           pelanggan.id,
           periodeBulan,
           periodeTahun,
         )
 
         if (!existingTagihan) {
-          await generateTagihan(pelanggan.id, periodeBulan, periodeTahun)
-          success++
+          // Cek ulang untuk mencegah race condition
+          const doubleCheckTagihan = await getTagihanRepository().findByPelangganAndPeriode(
+            pelanggan.id,
+            periodeBulan,
+            periodeTahun,
+          )
+          
+          if (!doubleCheckTagihan) {
+            await generateTagihan(pelanggan.id, periodeBulan, periodeTahun)
+            console.log(`[GenerateTagihanOtomatis] Tagihan berhasil di-generate untuk ${pelanggan.nama} periode ${periodeBulan}/${periodeTahun}`)
+            success++
+          } else {
+            console.log(`[GenerateTagihanOtomatis] Tagihan untuk ${pelanggan.nama} periode ${periodeBulan}/${periodeTahun} sudah ada (double check)`)
+          }
+        } else {
+          console.log(`[GenerateTagihanOtomatis] Tagihan untuk ${pelanggan.nama} periode ${periodeBulan}/${periodeTahun} sudah ada`)
         }
       }
     } catch (error: any) {

@@ -554,6 +554,8 @@ export async function PUT(
         // Revalidate cache untuk halaman tagihan
         revalidatePath(`/api/tagihan/pelanggan/${id}`)
         revalidatePath('/api/tagihan')
+        revalidatePath(`/pelanggan/tagihan`)
+        revalidatePath(`/pelanggan`)
         
         console.log(`[PUT Pelanggan] Berhasil update ${tagihanToUpdate.length} tagihan`)
       } catch (tagihanError: any) {
@@ -568,6 +570,9 @@ export async function PUT(
     revalidatePath(`/admin/pelanggan/ppp/${id}/edit`)
     revalidatePath('/api/pelanggan-ppp')
     revalidatePath(`/api/pelanggan-ppp/${id}`)
+    revalidatePath('/pelanggan')
+    revalidatePath('/pelanggan/profil')
+    revalidatePath(`/api/pelanggan/${id}`)
 
     return NextResponse.json(pelanggan, {
       headers: {

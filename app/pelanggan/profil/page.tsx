@@ -15,6 +15,7 @@ import {
   HiOutlineInformationCircle,
   HiBell,
   HiOutlineDocumentText,
+  HiArrowPath,
 } from 'react-icons/hi2'
 import Link from 'next/link'
 
@@ -22,88 +23,137 @@ export default function ProfilPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [pelanggan, setPelanggan] = useState<any>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false) // Tambahkan lock untuk mencegah multiple refresh
+
+  const loadPelangganData = async (forceRefresh = false, showRefreshing = false) => {
+    // Cegah multiple refresh simultan
+    if (isRefreshing && !forceRefresh) {
+      console.log('[Portal Profil] Refresh already in progress, skipping...')
+      return
+    }
+
+    const token = localStorage.getItem('pelanggan_token')
+    const pelangganData = localStorage.getItem('pelanggan_data')
+
+    if (!token || !pelangganData) {
+      router.push('/pelanggan/login')
+      return
+    }
+
+    if (showRefreshing) setRefreshing(true)
+    
+    // Set lock untuk mencegah multiple refresh
+    setIsRefreshing(true)
+
+    try {
+      // Parse data dari localStorage sebagai fallback
+      const cachedData = JSON.parse(pelangganData)
+      
+      // Fetch data terbaru dari API untuk mendapatkan data yang sudah di-update
+      try {
+        // Tambahkan timestamp untuk cache busting jika forceRefresh true
+        const cacheBuster = forceRefresh ? `&_t=${Date.now()}` : ''
+        const response = await fetch(`/api/pelanggan-ppp/${cachedData.id}${cacheBuster}`, {
+          headers: {
+            'Cache-Control': 'no-cache, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'x-pelanggan-token': token,
+          },
+        })
+        
+        if (!response.ok) {
+          throw new Error('Gagal memuat data pelanggan')
+        }
+        
+        const data = await response.json()
+        setPelanggan(data)
+        
+        // Update localStorage dengan data terbaru
+        localStorage.setItem('pelanggan_data', JSON.stringify(data))
+        
+        if (showRefreshing) {
+          setLastRefreshTime(new Date())
+          const notification = document.createElement('div')
+          notification.className = 'fixed top-20 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse'
+          notification.textContent = 'Data profil berhasil diperbarui dari server'
+          document.body.appendChild(notification)
+          
+          // Hapus notifikasi setelah 2 detik
+          setTimeout(() => {
+            if (document.body.contains(notification)) {
+              document.body.removeChild(notification)
+            }
+          }, 2000)
+        }
+      } catch (fetchError) {
+        console.error('Error fetching pelanggan data:', fetchError)
+        // Gunakan data dari localStorage sebagai fallback
+        setPelanggan(cachedData)
+      }
+    } catch (error) {
+      console.error('Error loading pelanggan data:', error)
+      router.push('/pelanggan/login')
+    } finally {
+      setLoading(false)
+      if (showRefreshing) setRefreshing(false)
+      // Release lock setelah selesai
+      setIsRefreshing(false)
+    }
+  }
 
   useEffect(() => {
-    const loadPelangganData = async () => {
-      const token = localStorage.getItem('pelanggan_token')
-      const pelangganData = localStorage.getItem('pelanggan_data')
+    const token = localStorage.getItem('pelanggan_token')
+    const pelangganData = localStorage.getItem('pelanggan_data')
 
-      if (!token || !pelangganData) {
-        router.push('/pelanggan/login')
-        return
-      }
+    if (!token || !pelangganData) {
+      router.push('/pelanggan/login')
+      return
+    }
 
-      try {
-        // Parse data dari localStorage sebagai fallback
-        const cachedData = JSON.parse(pelangganData)
-        
-        // Fetch data terbaru dari API untuk mendapatkan data yang sudah di-update
-        try {
-          const response = await fetch(`/api/pelanggan-ppp/${cachedData.id}`, {
-            headers: {
-              'x-pelanggan-token': token,
-              'Cache-Control': 'no-cache',
-            },
-            cache: 'no-store',
-          })
-          
-          if (response.ok) {
-            const freshData = await response.json()
-            
-            // Debug: Log data yang diterima
-            console.log('[Profil] Data pelanggan dari API:', {
-              id: freshData.id,
-              idPelanggan: freshData.idPelanggan,
-              nama: freshData.nama,
-              jatuhTempo: freshData.jatuhTempo,
-              jatuhTempoType: typeof freshData.jatuhTempo,
-            })
-            
-            // Update localStorage dengan data terbaru
-            localStorage.setItem('pelanggan_data', JSON.stringify(freshData))
-            setPelanggan(freshData)
-          } else {
-            // Jika API gagal, gunakan data dari cache
-            console.warn('Failed to fetch fresh data, using cached data')
-            setPelanggan(cachedData)
-          }
-        } catch (apiError) {
-          // Jika API error, gunakan data dari cache
-          console.warn('API error, using cached data:', apiError)
-          setPelanggan(cachedData)
-        }
-      } catch (error) {
-        console.error('Error parsing pelanggan data:', error)
-        router.push('/pelanggan/login')
-      } finally {
-        setLoading(false)
+    // Load data pertama kali
+    loadPelangganData()
+
+    // Auto-refresh setiap 15 detik (dari 10 detik untuk mengurangi beban server)
+    let refreshCount = 0
+    const intervalId = setInterval(() => {
+      refreshCount++
+      console.log(`[Portal Profil] Auto-refresh data... (${refreshCount})`)
+      // Gunakan forceRefresh setiap 4 kali refresh untuk memastikan data terbaru
+      loadPelangganData(refreshCount % 4 === 0, false)
+    }, 15000) // 15 detik
+
+    // Event listener untuk refresh saat tab di-focus atau visible
+    const handlePageInteraction = () => {
+      console.log('[Portal Profil] Page interaction detected, checking if refresh needed...')
+      // Hanya refresh jika sudah 5 detik sejak refresh terakhir
+      if (!lastRefreshTime || (new Date().getTime() - lastRefreshTime.getTime()) > 5000) {
+        console.log('[Portal Profil] Refreshing due to page interaction...')
+        loadPelangganData(true, false) // Gunakan forceRefresh saat ada interaksi
+      } else {
+        console.log('[Portal Profil] Skipping refresh, too soon since last refresh')
       }
     }
-    
-    loadPelangganData()
-    
-    // Auto-refresh setiap 30 detik
-    const intervalId = setInterval(() => {
-      console.log('[Profil] Auto-refresh data pelanggan...')
-      loadPelangganData()
-    }, 30000) // 30 detik
-    
-    // Refresh data saat halaman di-focus
+
+    // Auto-refresh ketika tab/window di-focus
     const handleFocus = () => {
-      console.log('[Profil] Tab focused, refresh data...')
-      loadPelangganData()
+      console.log('[Portal Profil] Tab focused')
+      handlePageInteraction()
     }
     window.addEventListener('focus', handleFocus)
-    
-    // Auto-refresh ketika visibility berubah
+
+    // Auto-refresh ketika visibility berubah (user kembali ke tab)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('[Profil] Tab visible, refresh data...')
-        loadPelangganData()
+        console.log('[Portal Profil] Tab visible')
+        handlePageInteraction()
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    
+
+    // Cleanup
     return () => {
       clearInterval(intervalId)
       window.removeEventListener('focus', handleFocus)
@@ -171,15 +221,35 @@ export default function ProfilPage() {
               </Link>
               <h1 className="text-xl font-bold">Profil Saya</h1>
             </div>
-            <button className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation">
-              <HiBell className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => loadPelangganData(true, true)}
+                disabled={loading || refreshing}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation disabled:opacity-50 relative"
+                title="Refresh"
+              >
+                <HiArrowPath className={`w-6 h-6 ${loading || refreshing ? 'animate-spin' : ''}`} />
+                {refreshing && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                )}
+              </button>
+              <button className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation">
+                <HiBell className="w-6 h-6" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="px-4 py-4">
+        {lastRefreshTime && (
+          <div className="mb-2 text-center">
+            <span className="text-xs text-gray-500">
+              Terakhir diperbarui: {lastRefreshTime.toLocaleTimeString('id-ID')}
+            </span>
+          </div>
+        )}
         {/* Profile Header Card */}
         <div className="bg-white rounded-2xl shadow-md p-6 mb-4">
           <div className="flex items-center gap-4">
