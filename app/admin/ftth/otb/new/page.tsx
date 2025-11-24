@@ -68,7 +68,7 @@ export default function OtbNewPage() {
   }, [latitude, longitude])
 
   // Sinkronkan jumlah baris cores dengan coreCount
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+   
   useEffect(() => {
     setCores((prev) => {
       if (coreCount <= 0) return []
