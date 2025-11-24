@@ -419,7 +419,7 @@ export default function PelangganPPPNewPage() {
         setFormData((prev) => ({ ...prev, jatuhTempo }))
       }
     }
-  }, [formData.hargaPaketId, formData.tanggalAktif, calculateJatuhTempo])
+  }, [formData.hargaPaketId, formData.tanggalAktif, calculateJatuhTempo, hargaPakets.length])
 
   // Fungsi untuk menghitung total tagihan menggunakan useMemo untuk menghindari hydration mismatch
   const totalInfo = useMemo(() => {

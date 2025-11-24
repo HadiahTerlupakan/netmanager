@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   HiArrowRightOnRectangle,
@@ -27,7 +27,7 @@ export default function ProfilPage() {
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false) // Tambahkan lock untuk mencegah multiple refresh
 
-  const loadPelangganData = async (forceRefresh = false, showRefreshing = false) => {
+  const loadPelangganData = useCallback(async (forceRefresh = false, showRefreshing = false) => {
     // Cegah multiple refresh simultan
     if (isRefreshing && !forceRefresh) {
       console.log('[Portal Profil] Refresh already in progress, skipping...')
@@ -43,14 +43,14 @@ export default function ProfilPage() {
     }
 
     if (showRefreshing) setRefreshing(true)
-    
+
     // Set lock untuk mencegah multiple refresh
     setIsRefreshing(true)
 
     try {
       // Parse data dari localStorage sebagai fallback
       const cachedData = JSON.parse(pelangganData)
-      
+
       // Fetch data terbaru dari API untuk mendapatkan data yang sudah di-update
       try {
         // Tambahkan timestamp untuk cache busting jika forceRefresh true
@@ -63,24 +63,24 @@ export default function ProfilPage() {
             'x-pelanggan-token': token,
           },
         })
-        
+
         if (!response.ok) {
           throw new Error('Gagal memuat data pelanggan')
         }
-        
+
         const data = await response.json()
         setPelanggan(data)
-        
+
         // Update localStorage dengan data terbaru
         localStorage.setItem('pelanggan_data', JSON.stringify(data))
-        
+
         if (showRefreshing) {
           setLastRefreshTime(new Date())
           const notification = document.createElement('div')
           notification.className = 'fixed top-20 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse'
           notification.textContent = 'Data profil berhasil diperbarui dari server'
           document.body.appendChild(notification)
-          
+
           // Hapus notifikasi setelah 2 detik
           setTimeout(() => {
             if (document.body.contains(notification)) {
@@ -102,7 +102,7 @@ export default function ProfilPage() {
       // Release lock setelah selesai
       setIsRefreshing(false)
     }
-  }
+  }, [router, isRefreshing])
 
   useEffect(() => {
     const token = localStorage.getItem('pelanggan_token')
@@ -159,7 +159,7 @@ export default function ProfilPage() {
       window.removeEventListener('focus', handleFocus)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [router])
+  }, [router, loadPelangganData, lastRefreshTime])
 
   const handleLogout = () => {
     localStorage.removeItem('pelanggan_token')
@@ -178,7 +178,7 @@ export default function ProfilPage() {
       const [year, month, day] = dateString.split('-').map(Number)
       date = new Date(year, month - 1, day)
     }
-    
+
     return date.toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'long',
@@ -222,7 +222,7 @@ export default function ProfilPage() {
               <h1 className="text-xl font-bold">Profil Saya</h1>
             </div>
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={() => loadPelangganData(true, true)}
                 disabled={loading || refreshing}
                 className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation disabled:opacity-50 relative"

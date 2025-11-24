@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   HiOutlineCreditCard,
@@ -28,6 +28,22 @@ type TagihanItem = {
   tanggalBayar?: string
 }
 
+// Module-level constants
+const NAMA_BULAN = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+] as const
+
 function TagihanContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -44,24 +60,8 @@ function TagihanContent() {
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false) // Tambahkan lock untuk mencegah multiple refresh
 
-  // Mapping nama bulan
-  const namaBulan = [
-    'Januari',
-    'Februari',
-    'Maret',
-    'April',
-    'Mei',
-    'Juni',
-    'Juli',
-    'Agustus',
-    'September',
-    'Oktober',
-    'November',
-    'Desember',
-  ]
-
   // Fungsi untuk fetch tagihan dengan cache busting dan locking
-  const fetchTagihan = async (showLoading = true, forceRefresh = false) => {
+  const fetchTagihan = useCallback(async (showLoading = true, forceRefresh = false) => {
     // Cegah multiple refresh simultan
     if (isRefreshing && !forceRefresh) {
       console.log('[Portal Tagihan] Refresh already in progress, skipping...')
@@ -133,7 +133,7 @@ function TagihanContent() {
       // Transform data dari API ke format TagihanItem
       const transformedTagihans: TagihanItem[] = tagihans.map((tagihan: any) => ({
         id: tagihan.id,
-        bulan: namaBulan[tagihan.periodeBulan - 1],
+        bulan: NAMA_BULAN[tagihan.periodeBulan - 1],
         tahun: tagihan.periodeTahun,
         jumlah: tagihan.total,
         jatuhTempo: tagihan.jatuhTempo,
@@ -199,7 +199,7 @@ function TagihanContent() {
       // Release lock setelah selesai
       setIsRefreshing(false)
     }
-  }
+  }, [router, isRefreshing])
 
   useEffect(() => {
     const token = localStorage.getItem('pelanggan_token')
@@ -264,7 +264,7 @@ function TagihanContent() {
       console.error('Error parsing pelanggan data:', error)
       router.push('/pelanggan/login')
     }
-  }, [router])
+  }, [router, fetchTagihan, lastRefreshTime])
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -514,8 +514,8 @@ function TagihanContent() {
           <Link
             href="/pelanggan/tagihan"
             className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors touch-manipulation text-center ${activeTab === 'tagihan'
-                ? 'bg-sky-500 text-white'
-                : 'text-gray-600 hover:bg-gray-50'
+              ? 'bg-sky-500 text-white'
+              : 'text-gray-600 hover:bg-gray-50'
               }`}
           >
             Tagihan Aktif
@@ -523,8 +523,8 @@ function TagihanContent() {
           <Link
             href="/pelanggan/tagihan?tab=riwayat"
             className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors touch-manipulation text-center ${activeTab === 'riwayat'
-                ? 'bg-sky-500 text-white'
-                : 'text-gray-600 hover:bg-gray-50'
+              ? 'bg-sky-500 text-white'
+              : 'text-gray-600 hover:bg-gray-50'
               }`}
           >
             Riwayat

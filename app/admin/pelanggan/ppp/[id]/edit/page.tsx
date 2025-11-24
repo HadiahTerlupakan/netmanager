@@ -115,7 +115,7 @@ export default function PelangganPPPEditPage() {
   })
 
   // Load data existing pelanggan
-  const loadPelangganData = async () => {
+  const loadPelangganData = useCallback(async () => {
     if (!id) return
 
     try {
@@ -190,7 +190,7 @@ export default function PelangganPPPEditPage() {
     } finally {
       setLoadingData(false)
     }
-  }
+  }, [id])
 
   useEffect(() => {
     setMounted(true)
@@ -199,7 +199,7 @@ export default function PelangganPPPEditPage() {
     }
     loadHargaPakets()
     loadOdps()
-  }, [id])
+  }, [id, loadPelangganData])
 
   const loadHargaPakets = async () => {
     try {
@@ -468,7 +468,7 @@ export default function PelangganPPPEditPage() {
     }, 500) // Debounce 500ms
 
     return () => clearTimeout(timeoutId)
-     
+
   }, [formData.idPelanggan, originalIdPelanggan])
 
   // Update jatuh tempo saat harga paket atau tanggal aktif berubah
@@ -480,7 +480,7 @@ export default function PelangganPPPEditPage() {
         setFormData((prev) => ({ ...prev, jatuhTempo }))
       }
     }
-  }, [formData.hargaPaketId, formData.tanggalAktif, calculateJatuhTempo, jatuhTempoManuallyEdited])
+  }, [formData.hargaPaketId, formData.tanggalAktif, calculateJatuhTempo, jatuhTempoManuallyEdited, hargaPakets.length])
 
   // Fungsi untuk menghitung total tagihan menggunakan useMemo untuk menghindari hydration mismatch
   const totalInfo = useMemo(() => {

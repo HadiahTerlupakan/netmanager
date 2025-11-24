@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   HiArrowRightOnRectangle,
@@ -181,20 +181,20 @@ function SaldoTagihan({ pelangganId, isOverdue }: { pelangganId: string; isOverd
         setLoading(false)
       }
     }
-    
+
     fetchSaldo()
-    
+
     // Auto-refresh setiap 30 detik
     const intervalId = setInterval(() => {
       fetchSaldo()
     }, 30000) // 30 detik
-    
+
     // Auto-refresh ketika tab/window di-focus
     const handleFocus = () => {
       fetchSaldo()
     }
     window.addEventListener('focus', handleFocus)
-    
+
     // Auto-refresh ketika visibility berubah
     const handleVisibilityChange = () => {
       if (!document.hidden) {
@@ -202,7 +202,7 @@ function SaldoTagihan({ pelangganId, isOverdue }: { pelangganId: string; isOverd
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    
+
     return () => {
       clearInterval(intervalId)
       window.removeEventListener('focus', handleFocus)
@@ -240,7 +240,7 @@ export default function PelangganDashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false) // Tambahkan lock untuk mencegah multiple refresh
 
   // Fungsi untuk mengambil data pelanggan
-  const loadPelangganData = async (force = false, silent = false) => {
+  const loadPelangganData = useCallback(async (force = false, silent = false) => {
     if (!force && (isRefreshing || loading)) return
 
     if (!silent) {
@@ -317,7 +317,7 @@ export default function PelangganDashboardPage() {
       setRefreshing(false)
       setIsRefreshing(false)
     }
-  }
+  }, [router, isRefreshing, loading])
 
   // Load data pelanggan saat komponen mount
   useEffect(() => {
@@ -346,15 +346,15 @@ export default function PelangganDashboardPage() {
       router.push('/pelanggan/login')
       setLoading(false)
     }
-  }, [])
-  
+  }, [loadPelangganData, router])
+
   // State untuk deteksi online/offline
   const [isOnline, setIsOnline] = useState(true)
-  
+
   // State untuk PWA install prompt
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showInstallPrompt, setShowInstallPrompt] = useState(false)
-  
+
   // Data usage untuk monitoring bandwidth
   const [dataUsage, setDataUsage] = useState({
     upload: { used: 2.5, total: 10, unit: 'GB' },
@@ -365,21 +365,21 @@ export default function PelangganDashboardPage() {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true)
     const handleOffline = () => setIsOnline(false)
-    
+
     // Set status awal
     setIsOnline(navigator.onLine)
-    
+
     // Tambahkan event listener
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
-    
+
     // Cleanup
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
   }, [])
-  
+
   // PWA install prompt handler
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -393,9 +393,9 @@ export default function PelangganDashboardPage() {
         setShowInstallPrompt(true)
       }
     }
-    
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     }
@@ -449,11 +449,11 @@ export default function PelangganDashboardPage() {
     return result
   }
 
-  
+
   const isJatuhTempo = (jatuhTempo: string) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    
+
     // Parse tanggal dengan benar
     let jatuhTempoDate: Date
     if (jatuhTempo.includes('T')) {
@@ -469,7 +469,7 @@ export default function PelangganDashboardPage() {
   const getDaysUntilJatuhTempo = (jatuhTempo: string) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    
+
     // Parse tanggal dengan benar
     let jatuhTempoDate: Date
     if (jatuhTempo.includes('T')) {
@@ -551,7 +551,7 @@ export default function PelangganDashboardPage() {
               <button
                 onClick={() => {
                   if ((window as any).togglePelangganSidebar) {
-                    ;(window as any).togglePelangganSidebar()
+                    ; (window as any).togglePelangganSidebar()
                   }
                 }}
                 className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation md:hidden"
@@ -565,7 +565,7 @@ export default function PelangganDashboardPage() {
               <h1 className="text-xl font-bold">NetManager</h1>
             </div>
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={() => loadPelangganData(true, true)}
                 disabled={loading || refreshing}
                 className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation disabled:opacity-50 relative"
