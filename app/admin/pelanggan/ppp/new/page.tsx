@@ -140,7 +140,7 @@ export default function PelangganPPPNewPage() {
   }
 
   // Load atau generate ID pelanggan yang terjamin unik dari API
-  const loadOrGenerateIdPelanggan = async () => {
+  const loadOrGenerateIdPelanggan = useCallback(async () => {
     try {
       // Panggil API untuk generate ID yang terjamin unik
       const res = await fetch('/api/pelanggan-ppp/generate-id')
@@ -159,7 +159,7 @@ export default function PelangganPPPNewPage() {
       console.warn('Error memanggil API generate-id:', error)
       return generateIdPelangganSync()
     }
-  }
+  }, [])
 
   useEffect(() => {
     setMounted(true)
@@ -173,7 +173,7 @@ export default function PelangganPPPNewPage() {
     })
     loadHargaPakets()
     loadOdps()
-  }, [])
+  }, [loadOrGenerateIdPelanggan])
 
   const loadHargaPakets = async () => {
     try {
@@ -408,7 +408,7 @@ export default function PelangganPPPNewPage() {
     }, 500) // Debounce 500ms
 
     return () => clearTimeout(timeoutId)
-     
+
   }, [formData.idPelanggan])
 
   // Update jatuh tempo saat harga paket atau tanggal aktif berubah

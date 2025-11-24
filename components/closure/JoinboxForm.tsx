@@ -94,41 +94,41 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
   const [outputPortOptions, setOutputPortOptions] = useState<Record<number, string[]>>({})
 
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       const options: UnitOption[] = []
       try {
         // OTB
         const otbRes = await fetch('/api/otbs')
         if (otbRes.ok) {
           const j = await otbRes.json()
-          ;(j?.otbs || []).forEach((o: any) => { if (o?.id && o?.name) options.push({ value: `otb:${o.id}`, label: `OTB — ${o.name}` }) })
+            ; (j?.otbs || []).forEach((o: any) => { if (o?.id && o?.name) options.push({ value: `otb:${o.id}`, label: `OTB — ${o.name}` }) })
         }
-      } catch {}
+      } catch { }
       try {
         // ODC
         const odcRes = await fetch('/api/odcs')
         if (odcRes.ok) {
           const j = await odcRes.json()
-          ;(j?.odcs || []).forEach((o: any) => { if (o?.id && o?.name) options.push({ value: `odc:${o.id}`, label: `ODC — ${o.name}` }) })
+            ; (j?.odcs || []).forEach((o: any) => { if (o?.id && o?.name) options.push({ value: `odc:${o.id}`, label: `ODC — ${o.name}` }) })
         }
-      } catch {}
+      } catch { }
       try {
         // JOINbox
         const jbRes = await fetch('/api/joinboxes')
         if (jbRes.ok) {
           const j = await jbRes.json()
-          ;(j?.items || []).forEach((o: any) => { if (o?.id && o?.name) options.push({ value: `jb:${o.id}`, label: `JB — ${o.name}` }) })
+            ; (j?.items || []).forEach((o: any) => { if (o?.id && o?.name) options.push({ value: `jb:${o.id}`, label: `JB — ${o.name}` }) })
         }
-      } catch {}
+      } catch { }
       // Sertakan nilai existing sebagai custom option agar tetap terlihat
       const addCustom = (val?: string) => {
         if (val && !options.some((o) => o.label === val)) options.push({ value: `custom:${val}`, label: val })
       }
-      ;(initial?.inputs || []).forEach((r) => { addCustom(r?.inputUnit); addCustom(r?.portUnit) })
-      ;(initial?.outputs || []).forEach((r) => { addCustom(r?.inputUnit); addCustom(r?.portUnit) })
+        ; (initial?.inputs || []).forEach((r) => { addCustom(r?.inputUnit); addCustom(r?.portUnit) })
+        ; (initial?.outputs || []).forEach((r) => { addCustom(r?.inputUnit); addCustom(r?.portUnit) })
       setUnitOptions(options)
     })()
-  }, [])
+  }, [initial?.inputs, initial?.outputs])
 
   // Normalisasi nilai awal pada mode edit: map label -> option.value dan muat daftar port
   useEffect(() => {
@@ -214,26 +214,26 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
       } else if (prefix === 'custom') {
         return [idOrLabel]
       }
-    } catch {}
+    } catch { }
     return []
   }
 
   function addRow(which: 'inputs' | 'outputs') {
     const list = which === 'inputs' ? inputs : outputs
     const next: IORow = { idx: list.length, inputUnit: '', portUnit: '', tubeColor: 'Non-tube', coreColor: 'Biru' }
-    ;(which === 'inputs' ? setInputs : setOutputs)([...list, next])
+      ; (which === 'inputs' ? setInputs : setOutputs)([...list, next])
   }
 
   function removeRow(which: 'inputs' | 'outputs', idx: number) {
     const list = (which === 'inputs' ? inputs : outputs).filter((_, i) => i !== idx)
     const relabeled = list.map((r, i) => ({ ...r, idx: i }))
-    ;(which === 'inputs' ? setInputs : setOutputs)(relabeled)
+      ; (which === 'inputs' ? setInputs : setOutputs)(relabeled)
   }
 
   async function updateRow(which: 'inputs' | 'outputs', i: number, field: keyof IORow, value: string) {
     const list = [...(which === 'inputs' ? inputs : outputs)]
-    ;(list[i] as any)[field] = field === 'idx' ? Number(value) : value
-    ;(which === 'inputs' ? setInputs : setOutputs)(list)
+      ; (list[i] as any)[field] = field === 'idx' ? Number(value) : value
+      ; (which === 'inputs' ? setInputs : setOutputs)(list)
 
     if (field === 'inputUnit') {
       const ports = await loadPortsFor(value)
@@ -305,7 +305,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
       router.refresh()
     } else {
       let msg = 'Gagal menyimpan data.'
-      try { const j = await res.json(); if (j?.error) msg = String(j.error) } catch {}
+      try { const j = await res.json(); if (j?.error) msg = String(j.error) } catch { }
       setError(msg)
     }
   }
@@ -451,7 +451,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
                     try {
                       const res = await fetch(`/api/geocode/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`)
                       if (res.ok) { const j = await res.json(); if (j?.displayName) setLocation(j.displayName) }
-                    } catch {}
+                    } catch { }
                   } finally { setLocLoading(false) }
                 }, (err) => { setError(err.message || 'Gagal mendapatkan lokasi'); setLocLoading(false) }, { enableHighAccuracy: true, timeout: 10000 })
               }}
@@ -472,7 +472,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
                 try {
                   const res = await fetch(`/api/geocode/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`)
                   if (res.ok) { const j = await res.json(); if (j?.displayName) setLocation(j.displayName) }
-                } catch {}
+                } catch { }
               }}
             />
           </Modal>

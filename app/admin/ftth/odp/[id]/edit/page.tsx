@@ -20,6 +20,10 @@ async function fetchDetail(id: string) {
   return j.odp
 }
 
+// Module-level constants to avoid re-creating on every render
+const STANDARD_12_COLORS = ['Biru', 'Oranye', 'Hijau', 'Coklat', 'Slate', 'Putih', 'Merah', 'Hitam', 'Kuning', 'Ungu', 'Rose', 'Aqua'] as const
+const TUBE_COLOR_OPTIONS = ['Non-tube', ...STANDARD_12_COLORS] as const
+
 export default function OdpEditPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
@@ -42,8 +46,6 @@ export default function OdpEditPage() {
   const [mapOpen, setMapOpen] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [hasLoadedData, setHasLoadedData] = useState(false)
-  const standard12Colors = ['Biru', 'Oranye', 'Hijau', 'Coklat', 'Slate', 'Putih', 'Merah', 'Hitam', 'Kuning', 'Ungu', 'Rose', 'Aqua']
-  const tubeColorOptions = ['Non-tube', ...standard12Colors]
   const [jumlahCore, setJumlahCore] = useState<number>(0)
   const [outputCores, setOutputCores] = useState<OutputCore[]>([])
 
@@ -85,66 +87,66 @@ export default function OdpEditPage() {
   }, [latitude, longitude, hasLoadedData])
 
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       try {
         const res = await fetch('/api/odcs')
         if (res.ok) {
           const j = await res.json()
           setOdcs((j?.odcs || []).map((o: any) => ({ id: o.id, name: o.name })))
         }
-      } catch {}
+      } catch { }
     })()
   }, [])
 
   useEffect(() => {
     if (!params?.id) return
-    ;(async () => {
-      try {
-        const d = await fetchDetail(params.id as string)
-        setName(d.name || '')
-        setLocation(d.location || '')
-        setNotes(d.notes || '')
-        setLatitude(d.latitude != null ? String(d.latitude) : '')
-        setLongitude(d.longitude != null ? String(d.longitude) : '')
-        setStatus(d.status || 'AKTIF')
-        // Relasi input: odcOutput -> odc
-        if (d.odcOutputId && d.odcOutput?.odc?.id) {
-          setSelectedOdcId(d.odcOutput.odc.id)
-          setSelectedOutputId(d.odcOutputId)
+      ; (async () => {
+        try {
+          const d = await fetchDetail(params.id as string)
+          setName(d.name || '')
+          setLocation(d.location || '')
+          setNotes(d.notes || '')
+          setLatitude(d.latitude != null ? String(d.latitude) : '')
+          setLongitude(d.longitude != null ? String(d.longitude) : '')
+          setStatus(d.status || 'AKTIF')
+          // Relasi input: odcOutput -> odc
+          if (d.odcOutputId && d.odcOutput?.odc?.id) {
+            setSelectedOdcId(d.odcOutput.odc.id)
+            setSelectedOutputId(d.odcOutputId)
+          }
+          if (d.outputs && Array.isArray(d.outputs)) {
+            const outs = d.outputs.map((o: any) => ({
+              idx: o.idx,
+              slotName: o.slotName || '',
+              redaman: o.redaman != null ? String(o.redaman) : '',
+              tubeColor: o.tubeColor || 'Non-tube',
+              coreColor: o.coreColor || STANDARD_12_COLORS[0],
+            }))
+            setOutputCores(outs)
+            setJumlahCore(outs.length)
+          }
+          setHasLoadedData(true)
+          setIsInitialLoad(false)
+        } catch (e: any) {
+          setError(e.message)
+          setHasLoadedData(true)
+          setIsInitialLoad(false)
+        } finally {
+          setLoading(false)
         }
-        if (d.outputs && Array.isArray(d.outputs)) {
-          const outs = d.outputs.map((o: any) => ({
-            idx: o.idx,
-            slotName: o.slotName || '',
-            redaman: o.redaman != null ? String(o.redaman) : '',
-            tubeColor: o.tubeColor || 'Non-tube',
-            coreColor: o.coreColor || standard12Colors[0],
-          }))
-          setOutputCores(outs)
-          setJumlahCore(outs.length)
-        }
-        setHasLoadedData(true)
-        setIsInitialLoad(false)
-      } catch (e: any) {
-        setError(e.message)
-        setHasLoadedData(true)
-        setIsInitialLoad(false)
-      } finally {
-        setLoading(false)
-      }
-    })()
+      })()
   }, [params])
 
   useEffect(() => {
     if (!selectedOdcId) { setOutputs([]); return }
-    ;(async () => {
+    ; (async () => {
       try {
         const res = await fetch(`/api/odcs/${selectedOdcId}`)
         if (!res.ok) throw new Error('Gagal memuat slot')
         const j = await res.json()
         const outs = (j?.odc?.outputs || []) as any[]
         setOutputs(outs.map((o: any) => ({ id: o.id, idx: o.idx, slotName: o.slotName })))
-      } catch {}
+      } catch { }
     })()
   }, [selectedOdcId])
 
@@ -155,7 +157,7 @@ export default function OdpEditPage() {
       const next = [...prev]
       if (jumlahCore > next.length) {
         for (let i = next.length; i < jumlahCore; i++) {
-          next.push({ idx: i, slotName: `SLOT-${i + 1}`, redaman: '', tubeColor: 'Non-tube', coreColor: standard12Colors[0] })
+          next.push({ idx: i, slotName: `SLOT-${i + 1}`, redaman: '', tubeColor: 'Non-tube', coreColor: STANDARD_12_COLORS[0] })
         }
       } else if (jumlahCore < next.length) {
         next.length = jumlahCore
@@ -307,7 +309,7 @@ export default function OdpEditPage() {
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Pilih Slot</label>
               <select value={selectedOutputId} onChange={(e) => setSelectedOutputId(e.target.value)} disabled={!selectedOdcId} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
                 <option value="">-- Pilih Slot --</option>
-                {outputs.sort((a,b)=>a.idx-b.idx).map((s)=> (
+                {outputs.sort((a, b) => a.idx - b.idx).map((s) => (
                   <option key={s.id} value={s.id}>{`SLOT-${s.idx + 1}: ${s.slotName}`}</option>
                 ))}
               </select>
@@ -352,12 +354,12 @@ export default function OdpEditPage() {
                     </div>
                     <div className="col-span-3">
                       <select value={row.tubeColor} onChange={(e) => setOutputCores((prev) => prev.map((r, idx) => idx === i ? { ...r, tubeColor: e.target.value } : r))} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm">
-                        {tubeColorOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
+                        {TUBE_COLOR_OPTIONS.map((c) => (<option key={c} value={c}>{c}</option>))}
                       </select>
                     </div>
                     <div className="col-span-2">
                       <select value={row.coreColor} onChange={(e) => setOutputCores((prev) => prev.map((r, idx) => idx === i ? { ...r, coreColor: e.target.value } : r))} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm">
-                        {standard12Colors.map((c) => (<option key={c} value={c}>{c}</option>))}
+                        {STANDARD_12_COLORS.map((c) => (<option key={c} value={c}>{c}</option>))}
                       </select>
                     </div>
                     <div className="col-span-1 flex justify-end">

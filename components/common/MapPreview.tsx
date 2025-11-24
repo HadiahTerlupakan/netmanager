@@ -15,73 +15,73 @@ export default function MapPreview({ lat, lon, height = 240 }: MapPreviewProps) 
   const markerLayerRef = useRef<any>(null)
 
   useEffect(() => {
-    let cleanup = () => {}
-    ;(async () => {
-      if (!mapEl.current) return
-      
-      const { Map, View } = await import('ol')
-      const { default: OSM } = await import('ol/source/OSM')
-      const { default: TileLayer } = await import('ol/layer/Tile')
-      const { default: VectorLayer } = await import('ol/layer/Vector')
-      const { default: VectorSource } = await import('ol/source/Vector')
-      const { fromLonLat } = await import('ol/proj')
-      const { default: Feature } = await import('ol/Feature')
-      const { default: Point } = await import('ol/geom/Point')
-      const { Style, Fill, Stroke } = await import('ol/style')
-      const { default: CircleStyle } = await import('ol/style/Circle')
-      const { defaults: defaultControls, Zoom, Attribution } = await import('ol/control')
+    let cleanup = () => { }
+      ; (async () => {
+        if (!mapEl.current) return
 
-      const centerLonLat: [number, number] = [
-        typeof lon === 'number' ? lon : 106.816666,
-        typeof lat === 'number' ? lat : -6.2,
-      ]
-      const center3857 = fromLonLat(centerLonLat)
+        const { Map, View } = await import('ol')
+        const { default: OSM } = await import('ol/source/OSM')
+        const { default: TileLayer } = await import('ol/layer/Tile')
+        const { default: VectorLayer } = await import('ol/layer/Vector')
+        const { default: VectorSource } = await import('ol/source/Vector')
+        const { fromLonLat } = await import('ol/proj')
+        const { default: Feature } = await import('ol/Feature')
+        const { default: Point } = await import('ol/geom/Point')
+        const { Style, Fill, Stroke } = await import('ol/style')
+        const { default: CircleStyle } = await import('ol/style/Circle')
+        const { defaults: defaultControls, Zoom, Attribution } = await import('ol/control')
 
-      const tile = new TileLayer({ source: new OSM() })
-      const markerSource = new VectorSource()
-      const marker = new VectorLayer({ source: markerSource })
-      markerLayerRef.current = marker
+        const centerLonLat: [number, number] = [
+          typeof lon === 'number' ? lon : 106.816666,
+          typeof lat === 'number' ? lat : -6.2,
+        ]
+        const center3857 = fromLonLat(centerLonLat)
 
-      const map = new Map({
-        target: mapEl.current,
-        layers: [tile, marker],
-        view: new View({ 
-          center: center3857, 
-          zoom: typeof lat === 'number' && typeof lon === 'number' ? 17 : 14 
-        }),
-        controls: defaultControls({ zoom: false, rotate: false, attribution: false }).extend([
-          new Zoom(),
-          new Attribution({ collapsible: true, collapsed: true }),
-        ]),
-      })
-      mapRef.current = map
+        const tile = new TileLayer({ source: new OSM() })
+        const markerSource = new VectorSource()
+        const marker = new VectorLayer({ source: markerSource })
+        markerLayerRef.current = marker
 
-      if (typeof lat === 'number' && typeof lon === 'number') {
-        const f = new Feature({ geometry: new Point(fromLonLat([lon, lat])) })
-        f.setStyle(new Style({ 
-          image: new CircleStyle({ 
-            radius: 8, 
-            fill: new Fill({ color: '#2563eb' }), 
-            stroke: new Stroke({ color: '#ffffff', width: 3 }) 
-          }) 
-        }))
-        markerSource.clear()
-        markerSource.addFeature(f)
-      }
+        const map = new Map({
+          target: mapEl.current,
+          layers: [tile, marker],
+          view: new View({
+            center: center3857,
+            zoom: typeof lat === 'number' && typeof lon === 'number' ? 17 : 14
+          }),
+          controls: defaultControls({ zoom: false, rotate: false, attribution: false }).extend([
+            new Zoom(),
+            new Attribution({ collapsible: true, collapsed: true }),
+          ]),
+        })
+        mapRef.current = map
 
-      cleanup = () => { 
-        try { 
-          map.setTarget(undefined) 
-        } catch {} 
-      }
-    })()
+        if (typeof lat === 'number' && typeof lon === 'number') {
+          const f = new Feature({ geometry: new Point(fromLonLat([lon, lat])) })
+          f.setStyle(new Style({
+            image: new CircleStyle({
+              radius: 8,
+              fill: new Fill({ color: '#2563eb' }),
+              stroke: new Stroke({ color: '#ffffff', width: 3 })
+            })
+          }))
+          markerSource.clear()
+          markerSource.addFeature(f)
+        }
+
+        cleanup = () => {
+          try {
+            map.setTarget(undefined)
+          } catch { }
+        }
+      })()
 
     return () => cleanup()
-  }, [])
+  }, [lat, lon])
 
   // Update marker jika lat/lon berubah
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       if (!markerLayerRef.current || !mapRef.current) return
       const { default: VectorSource } = await import('ol/source/Vector')
       const { default: Feature } = await import('ol/Feature')
@@ -90,25 +90,25 @@ export default function MapPreview({ lat, lon, height = 240 }: MapPreviewProps) 
       const { Style, Fill, Stroke } = await import('ol/style')
       const { default: CircleStyle } = await import('ol/style/Circle')
       const source: any = markerLayerRef.current.getSource() as typeof VectorSource
-      
+
       if (typeof lat === 'number' && typeof lon === 'number') {
         const f = new Feature({ geometry: new Point(fromLonLat([lon, lat])) })
-        f.setStyle(new Style({ 
-          image: new CircleStyle({ 
-            radius: 8, 
-            fill: new Fill({ color: '#2563eb' }), 
-            stroke: new Stroke({ color: '#ffffff', width: 3 }) 
-          }) 
+        f.setStyle(new Style({
+          image: new CircleStyle({
+            radius: 8,
+            fill: new Fill({ color: '#2563eb' }),
+            stroke: new Stroke({ color: '#ffffff', width: 3 })
+          })
         }))
         source.clear()
         source.addFeature(f)
-        
+
         try {
           const view = mapRef.current.getView()
           const center = fromLonLat([lon, lat])
           view.setCenter(center)
           view.setZoom(17)
-        } catch {}
+        } catch { }
       } else {
         source.clear()
       }
@@ -124,9 +124,9 @@ export default function MapPreview({ lat, lon, height = 240 }: MapPreviewProps) 
   }
 
   return (
-    <div 
-      ref={mapEl} 
-      style={{ height, width: '100%', borderRadius: 8, overflow: 'hidden' }} 
+    <div
+      ref={mapEl}
+      style={{ height, width: '100%', borderRadius: 8, overflow: 'hidden' }}
       className="border border-gray-200 dark:border-gray-800"
     />
   )

@@ -13,6 +13,10 @@ type Odc = { id: string; name: string }
 type OdcOutput = { id: string; idx: number; slotName: string }
 type OutputCore = { idx: number; slotName: string; redaman: string; tubeColor: string; coreColor: string }
 
+// Module-level constants
+const STANDARD_12_COLORS = ['Biru', 'Oranye', 'Hijau', 'Coklat', 'Slate', 'Putih', 'Merah', 'Hitam', 'Kuning', 'Ungu', 'Rose', 'Aqua'] as const
+const TUBE_COLOR_OPTIONS = ['Non-tube', ...STANDARD_12_COLORS] as const
+
 export default function OdpNewPage() {
   const router = useRouter()
   const [name, setName] = useState('')
@@ -35,8 +39,6 @@ export default function OdpNewPage() {
   const [isInitialLoad, setIsInitialLoad] = useState(true)
 
   // OUTPUT section (mirip sketsa)
-  const standard12Colors = ['Biru', 'Oranye', 'Hijau', 'Coklat', 'Slate', 'Putih', 'Merah', 'Hitam', 'Kuning', 'Ungu', 'Rose', 'Aqua']
-  const tubeColorOptions = ['Non-tube', ...standard12Colors]
   const [jumlahCore, setJumlahCore] = useState<number>(0)
   const [outputCores, setOutputCores] = useState<OutputCore[]>([])
 
@@ -81,7 +83,7 @@ export default function OdpNewPage() {
   }, [latitude, longitude])
 
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       try {
         const res = await fetch('/api/odcs')
         if (!res.ok) throw new Error('Gagal memuat ODC')
@@ -96,7 +98,7 @@ export default function OdpNewPage() {
 
   useEffect(() => {
     if (!selectedOdcId) { setOutputs([]); setSelectedOutputId(''); return }
-    ;(async () => {
+    ; (async () => {
       try {
         const res = await fetch(`/api/odcs/${selectedOdcId}`)
         if (!res.ok) throw new Error('Gagal memuat slot')
@@ -116,7 +118,7 @@ export default function OdpNewPage() {
       const next = [...prev]
       if (jumlahCore > next.length) {
         for (let i = next.length; i < jumlahCore; i++) {
-          next.push({ idx: i, slotName: `SLOT-${i + 1}`, redaman: '', tubeColor: 'Non-tube', coreColor: standard12Colors[0] })
+          next.push({ idx: i, slotName: `SLOT-${i + 1}`, redaman: '', tubeColor: 'Non-tube', coreColor: STANDARD_12_COLORS[0] })
         }
       } else if (jumlahCore < next.length) {
         next.length = jumlahCore
@@ -279,7 +281,7 @@ export default function OdpNewPage() {
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Pilih Slot</label>
               <select value={selectedOutputId} onChange={(e) => setSelectedOutputId(e.target.value)} disabled={!selectedOdcId} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
                 <option value="">-- Pilih Slot --</option>
-                {outputs.sort((a,b)=>a.idx-b.idx).map((s)=> (
+                {outputs.sort((a, b) => a.idx - b.idx).map((s) => (
                   <option key={s.id} value={s.id}>{`SLOT-${s.idx + 1}: ${s.slotName}`}</option>
                 ))}
               </select>
@@ -341,7 +343,7 @@ export default function OdpNewPage() {
                         onChange={(e) => setOutputCores((prev) => prev.map((r, idx) => idx === i ? { ...r, tubeColor: e.target.value } : r))}
                         className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm"
                       >
-                        {tubeColorOptions.map((c) => (
+                        {TUBE_COLOR_OPTIONS.map((c) => (
                           <option key={c} value={c}>{c}</option>
                         ))}
                       </select>
@@ -352,7 +354,7 @@ export default function OdpNewPage() {
                         onChange={(e) => setOutputCores((prev) => prev.map((r, idx) => idx === i ? { ...r, coreColor: e.target.value } : r))}
                         className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm"
                       >
-                        {standard12Colors.map((c) => (
+                        {STANDARD_12_COLORS.map((c) => (
                           <option key={c} value={c}>{c}</option>
                         ))}
                       </select>

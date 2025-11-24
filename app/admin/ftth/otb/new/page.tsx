@@ -8,6 +8,10 @@ const MapPicker = dynamic(() => import('@/components/common/MapPicker').then(m =
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
 import Modal from '@/components/common/Modal'
 
+// Module-level constants
+const STANDARD_12_COLORS = ['Biru', 'Oranye', 'Hijau', 'Coklat', 'Slate', 'Putih', 'Merah', 'Hitam', 'Kuning', 'Ungu', 'Rose', 'Aqua'] as const
+const TUBE_COLOR_OPTIONS = ['Non-tube', ...STANDARD_12_COLORS] as const
+
 export default function OtbNewPage() {
   const router = useRouter()
   const [name, setName] = useState('')
@@ -23,9 +27,6 @@ export default function OtbNewPage() {
   const [cores, setCores] = useState<Array<{ idx: number; slotName: string; tubeColor: string; coreColor: string }>>([])
   const [mapOpen, setMapOpen] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
-
-  const standard12Colors = ['Biru','Oranye','Hijau','Coklat','Slate','Putih','Merah','Hitam','Kuning','Ungu','Rose','Aqua']
-  const tubeColorOptions = ['Non-tube', ...standard12Colors]
 
   // Reverse geocoding otomatis ketika koordinat diisi
   useEffect(() => {
@@ -68,14 +69,13 @@ export default function OtbNewPage() {
   }, [latitude, longitude])
 
   // Sinkronkan jumlah baris cores dengan coreCount
-   
   useEffect(() => {
     setCores((prev) => {
       if (coreCount <= 0) return []
       const next = [...prev]
       if (coreCount > next.length) {
         for (let i = next.length; i < coreCount; i++) {
-          next.push({ idx: i, slotName: `SLOT-${i + 1}`, tubeColor: 'Non-tube', coreColor: standard12Colors[0] })
+          next.push({ idx: i, slotName: `SLOT-${i + 1}`, tubeColor: 'Non-tube', coreColor: STANDARD_12_COLORS[0] })
         }
       } else if (coreCount < next.length) {
         next.length = coreCount
@@ -291,52 +291,52 @@ export default function OtbNewPage() {
           </div>
 
           {coreCount > 0 && (
-          <div className="rounded-md border border-gray-200 dark:border-gray-800">
-			<div className="grid grid-cols-12 items-center border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
-			  <div className="col-span-4 px-3 py-2 text-xs font-semibold">NAMA SLOT</div>
-			  <div className="col-span-4 px-3 py-2 text-xs font-semibold">Tube Color</div>
-			  <div className="col-span-4 px-3 py-2 text-xs font-semibold">Core Color</div>
-			</div>
-			<div className="divide-y divide-gray-200 dark:divide-gray-800">
-			  {cores.map((row, i) => (
-				<div key={i} className="grid grid-cols-12 items-center px-3 py-2 gap-2">
-				  <div className="col-span-4">
-					<input
-					  value={row.slotName}
-					  onChange={(e) => setCores((prev) => prev.map((r, idx) => idx === i ? { ...r, slotName: e.target.value } : r))}
-					  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm"
-					  placeholder={`SLOT-${i + 1}`}
-					/>
-				  </div>
-				  <div className="col-span-4">
-                  <select
-					  value={row.tubeColor}
-					  onChange={(e) => setCores((prev) => prev.map((r, idx) => idx === i ? { ...r, tubeColor: e.target.value } : r))}
-					  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm"
-					>
-                    {tubeColorOptions.map((c) => (
-						<option key={c} value={c}>{c}</option>
-					  ))}
-					</select>
-				  </div>
-				  <div className="col-span-4">
-					<select
-					  value={row.coreColor}
-					  onChange={(e) => setCores((prev) => prev.map((r, idx) => idx === i ? { ...r, coreColor: e.target.value } : r))}
-					  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm"
-					>
-					  <option value="">Pilih warna</option>
-					  {standard12Colors.map((c) => (
-						<option key={c} value={c}>{c}</option>
-					  ))}
-					</select>
-				  </div>
-				</div>
-			  ))}
-			</div>
-          </div>
+            <div className="rounded-md border border-gray-200 dark:border-gray-800">
+              <div className="grid grid-cols-12 items-center border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
+                <div className="col-span-4 px-3 py-2 text-xs font-semibold">NAMA SLOT</div>
+                <div className="col-span-4 px-3 py-2 text-xs font-semibold">Tube Color</div>
+                <div className="col-span-4 px-3 py-2 text-xs font-semibold">Core Color</div>
+              </div>
+              <div className="divide-y divide-gray-200 dark:divide-gray-800">
+                {cores.map((row, i) => (
+                  <div key={i} className="grid grid-cols-12 items-center px-3 py-2 gap-2">
+                    <div className="col-span-4">
+                      <input
+                        value={row.slotName}
+                        onChange={(e) => setCores((prev) => prev.map((r, idx) => idx === i ? { ...r, slotName: e.target.value } : r))}
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm"
+                        placeholder={`SLOT-${i + 1}`}
+                      />
+                    </div>
+                    <div className="col-span-4">
+                      <select
+                        value={row.tubeColor}
+                        onChange={(e) => setCores((prev) => prev.map((r, idx) => idx === i ? { ...r, tubeColor: e.target.value } : r))}
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm"
+                      >
+                        {TUBE_COLOR_OPTIONS.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-span-4">
+                      <select
+                        value={row.coreColor}
+                        onChange={(e) => setCores((prev) => prev.map((r, idx) => idx === i ? { ...r, coreColor: e.target.value } : r))}
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm"
+                      >
+                        <option value="">Pilih warna</option>
+                        {STANDARD_12_COLORS.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
-		</div>
+        </div>
 
         {error && (
           <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
