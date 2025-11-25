@@ -3,8 +3,14 @@
 import { useState, useEffect, createContext, useContext } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { SIDEBAR_LINKS } from './sidebarLinks'
-import { HiXMark, HiArrowRightOnRectangle } from 'react-icons/hi2'
+import {
+  HiOutlineHome,
+  HiOutlineDocumentText,
+  HiOutlineUser,
+  HiOutlineInformationCircle,
+  HiXMark,
+  HiArrowRightOnRectangle,
+} from 'react-icons/hi2'
 
 // Context for sidebar state
 const SidebarContext = createContext<{
@@ -40,7 +46,28 @@ export default function PelangganSidebar() {
     router.push('/pelanggan/login')
   }
 
-  const menuItems = SIDEBAR_LINKS;
+  const menuItems = [
+    {
+      href: '/pelanggan',
+      label: 'Beranda',
+      icon: HiOutlineHome,
+    },
+    {
+      href: '/pelanggan/tagihan',
+      label: 'Tagihan',
+      icon: HiOutlineDocumentText,
+    },
+    {
+      href: '/pelanggan/profil',
+      label: 'Profil',
+      icon: HiOutlineUser,
+    },
+    {
+      href: '/pelanggan/bantuan',
+      label: 'Bantuan',
+      icon: HiOutlineInformationCircle,
+    },
+  ]
 
   const isActive = (href: string) => {
     if (href === '/pelanggan') {

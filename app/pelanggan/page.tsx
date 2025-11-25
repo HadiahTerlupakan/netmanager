@@ -488,7 +488,7 @@ export default function PelangganDashboardPage() {
           </div>
 
           {/* Quick Action Buttons */}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <Link
               href="/pelanggan/tagihan"
               className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-50 active:scale-95 transition-transform touch-manipulation"
@@ -496,7 +496,7 @@ export default function PelangganDashboardPage() {
               <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center">
                 <HiOutlineCreditCard className="w-5 h-5 text-sky-600" />
               </div>
-              <span className="text-xs font-medium text-gray-700">Isi Ulang</span>
+              <span className="text-xs font-medium text-gray-700">Bayar Tagihan</span>
             </Link>
             <Link
               href="/pelanggan/tagihan?tab=riwayat"
@@ -507,12 +507,6 @@ export default function PelangganDashboardPage() {
               </div>
               <span className="text-xs font-medium text-gray-700">Riwayat</span>
             </Link>
-            <button className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-50 active:scale-95 transition-transform touch-manipulation">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <HiArrowDownTray className="w-5 h-5 text-green-600" />
-              </div>
-              <span className="text-xs font-medium text-gray-700">Unduh</span>
-            </button>
             <Link
               href="/pelanggan/bantuan"
               className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-50 active:scale-95 transition-transform touch-manipulation"
@@ -527,15 +521,13 @@ export default function PelangganDashboardPage() {
 
         {/* Data Usage Section - Mobile App Style */}
         <div className="bg-gradient-to-br from-sky-400 to-cyan-500 rounded-2xl shadow-lg mb-4 p-5 text-white">
-          {/* Tabs */}
-          <div className="flex gap-2 mb-4">
-            <button className="px-4 py-2 bg-white/20 rounded-lg text-sm font-medium">
-              TAHUNAN
-            </button>
-            <button className="px-4 py-2 bg-transparent rounded-lg text-sm font-medium text-white/70">
-              HOTSPOT
-            </button>
+          {/* Tabs - Removed HOTSPOT tab as it's not implemented */}
+          <div className="flex gap-2 mb-2">
+            <div className="px-4 py-2 bg-white/20 rounded-lg text-sm font-medium">
+              PAKET INTERNET
+            </div>
           </div>
+          <p className="text-xs text-white/60 mb-4">* Data usage merupakan data demo. Integrasi dengan sistem monitoring sedang dalam pengembangan.</p>
 
           {/* Progress Indicators */}
           <div className="grid grid-cols-2 gap-4 mb-4">
@@ -619,36 +611,6 @@ export default function PelangganDashboardPage() {
           </div>
         </div>
 
-        {/* Main Navigation Icons */}
-        <div className="grid grid-cols-4 gap-3 mb-4">
-          <Link
-            href="/pelanggan"
-            className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl shadow-sm active:scale-95 transition-transform touch-manipulation"
-          >
-            <div className="w-12 h-12 bg-sky-100 rounded-full flex items-center justify-center">
-              <HiWifi className="w-6 h-6 text-sky-600" />
-            </div>
-            <span className="text-xs font-medium text-gray-700">Langganan</span>
-          </Link>
-          <button className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl shadow-sm active:scale-95 transition-transform touch-manipulation">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <HiPlus className="w-6 h-6 text-blue-600" />
-            </div>
-            <span className="text-xs font-medium text-gray-700">Pembelian</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl shadow-sm active:scale-95 transition-transform touch-manipulation">
-            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-              <HiTicket className="w-6 h-6 text-orange-600" />
-            </div>
-            <span className="text-xs font-medium text-gray-700">Vouchers</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl shadow-sm active:scale-95 transition-transform touch-manipulation">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <HiUserGroup className="w-6 h-6 text-green-600" />
-            </div>
-            <span className="text-xs font-medium text-gray-700">Keagenan</span>
-          </button>
-        </div>
 
         {/* Alert Jatuh Tempo */}
         {isOverdue && (
@@ -667,32 +629,7 @@ export default function PelangganDashboardPage() {
           </div>
         )}
 
-        {/* Penawaran Terbaik Section (Optional) */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-bold text-gray-900">Penawaran Terbaik</h3>
-            <Link href="/pelanggan/tagihan" className="text-sm text-sky-500 font-medium">
-              Lainnya &gt;
-            </Link>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
-            {/* Voucher Cards */}
-            {[20, 10, 30].map((amount, idx) => (
-              <div
-                key={idx}
-                className="flex-shrink-0 w-48 bg-gradient-to-br from-sky-400 to-cyan-500 rounded-xl p-4 text-white shadow-md"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs bg-white/20 px-2 py-1 rounded">1</span>
-                </div>
-                <p className="text-2xl font-bold mb-1">Rp {amount}</p>
-                <p className="text-xs text-white/80 mb-1">{(amount * 100).toLocaleString('id-ID')} pts</p>
-                <p className="text-xs text-white/70">Voucher Pulsa {amount}rb</p>
-                <p className="text-xs text-white/70">Voucher Hadiah Pulsa</p>
-              </div>
-            ))}
-          </div>
-        </div>
+
       </main>
 
       {/* Bottom Navigation - Mobile App Style */}

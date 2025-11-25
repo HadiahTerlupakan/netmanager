@@ -144,6 +144,13 @@ export default function BantuanPage() {
           </div>
         </div>
 
+        {/* Note about contact info */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+          <p className="text-sm text-blue-800">
+            <strong>Catatan:</strong> Untuk informasi kontak customer service yang aktual, silakan hubungi administrator Anda.
+          </p>
+        </div>
+
         {/* FAQ Section */}
         <div className="bg-white rounded-xl shadow-sm p-5">
           <div className="flex items-center gap-2 mb-4">
