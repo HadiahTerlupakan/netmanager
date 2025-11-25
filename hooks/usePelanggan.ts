@@ -11,7 +11,7 @@ export function usePelanggan() {
     const isRefreshingRef = useRef(false)
 
     const loadData = useCallback(async (force = false, silent = false) => {
-        if (!force && (isRefreshingRef.current || loading)) return
+        if (!force && isRefreshingRef.current) return
 
         if (!silent) setLoading(true)
         setRefreshing(true)
@@ -26,9 +26,9 @@ export function usePelanggan() {
                 return
             }
 
-            // Load from storage first
+            // Load from storage first untuk immediate display
             const parsedData = JSON.parse(storedData)
-            if (!data) setData(parsedData) // Set initial data if empty
+            setData(prevData => prevData || parsedData)
 
             // Fetch fresh data
             const response = await fetch('/api/pelanggan/me', {
@@ -54,23 +54,27 @@ export function usePelanggan() {
             setRefreshing(false)
             isRefreshingRef.current = false
         }
-    }, [router, data, loading])
+    }, [router])
 
     // Initial load
     useEffect(() => {
         const storedData = localStorage.getItem('pelanggan_data')
         if (storedData) {
             try {
-                setData(JSON.parse(storedData))
+                const parsedData = JSON.parse(storedData)
+                setData(parsedData)
                 setLoading(false)
-                loadData(true, true) // Background refresh
+                // Background refresh setelah initial load
+                loadData(true, true)
             } catch (e) {
                 console.error('Error parsing stored data', e)
+                router.push('/pelanggan/login')
             }
         } else {
             router.push('/pelanggan/login')
         }
-    }, [router]) // Run once on mount (loadData is stable enough or handled inside)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []) // Run once on mount
 
     // Auto-refresh interval
     useEffect(() => {

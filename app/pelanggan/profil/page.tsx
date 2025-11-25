@@ -31,7 +31,6 @@ export default function ProfilPage() {
   const loadPelangganData = useCallback(async (forceRefresh = false, showRefreshing = false) => {
     // Cegah multiple refresh simultan
     if (isRefreshingRef.current && !forceRefresh) {
-      console.log('[Portal Profil] Refresh already in progress, skipping...')
       return
     }
 
@@ -54,9 +53,9 @@ export default function ProfilPage() {
 
       // Fetch data terbaru dari API untuk mendapatkan data yang sudah di-update
       try {
-        // Tambahkan timestamp untuk cache busting jika forceRefresh true
-        const cacheBuster = forceRefresh ? `&_t=${Date.now()}` : ''
-        const response = await fetch(`/api/pelanggan-ppp/${cachedData.id}${cacheBuster}`, {
+        // Gunakan endpoint /api/pelanggan/me untuk konsistensi dengan hook usePelanggan
+        const cacheBuster = forceRefresh ? `?_t=${Date.now()}` : ''
+        const response = await fetch(`/api/pelanggan/me${cacheBuster}`, {
           headers: {
             'Cache-Control': 'no-cache, must-revalidate',
             'Pragma': 'no-cache',
@@ -123,7 +122,6 @@ export default function ProfilPage() {
 
     const intervalId = setInterval(() => {
       refreshCount++
-      console.log(`[Portal Profil] Auto-refresh data... (${refreshCount})`)
       // Gunakan forceRefresh setiap 4 kali refresh untuk memastikan data terbaru
       loadPelangganData(refreshCount % 4 === 0, false)
     }, 30000) // 30 detik
@@ -133,17 +131,13 @@ export default function ProfilPage() {
       const now = Date.now()
       // Hanya refresh jika sudah 10 detik sejak refresh terakhir
       if (now - lastInteractionRefresh > 10000) {
-        console.log('[Portal Profil] Refreshing due to page interaction...')
         lastInteractionRefresh = now
         loadPelangganData(true, false) // Gunakan forceRefresh saat ada interaksi
-      } else {
-        console.log('[Portal Profil] Skipping refresh, too soon since last refresh')
       }
     }
 
     // Auto-refresh ketika tab/window di-focus
     const handleFocus = () => {
-      console.log('[Portal Profil] Tab focused')
       handlePageInteraction()
     }
     window.addEventListener('focus', handleFocus)
@@ -151,7 +145,6 @@ export default function ProfilPage() {
     // Auto-refresh ketika visibility berubah (user kembali ke tab)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('[Portal Profil] Tab visible')
         handlePageInteraction()
       }
     }

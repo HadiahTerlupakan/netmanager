@@ -30,14 +30,11 @@ import { usePelanggan } from '@/hooks/usePelanggan'
 
 // Helper function untuk format tanggal pendek
 const formatDateShort = (dateString: string) => {
-  console.log('[formatDateShort] Input date string:', dateString)
   const date = new Date(dateString)
   const day = date.getDate()
   const month = date.toLocaleDateString('id-ID', { month: 'short' })
   const year = date.getFullYear()
-  const result = `${day} ${month} ${year}`
-  console.log('[formatDateShort] Formatted date:', result)
-  return result
+  return `${day} ${month} ${year}`
 }
 
 // Komponen untuk menampilkan jatuh tempo dengan keterangan tagihan berikutnya
@@ -52,7 +49,6 @@ function JatuhTempoDenganInfo({ pelangganId, pelangganJatuhTempo }: {
     const fetchNextJatuhTempo = async () => {
       try {
         const token = localStorage.getItem('pelanggan_token')
-        console.log('[JatuhTempoDenganInfo] Fetching next jatuh tempo for pelanggan:', pelangganId)
 
         const response = await fetch(`/api/tagihan/pelanggan/${pelangganId}`, {
           cache: 'no-store',
@@ -64,7 +60,6 @@ function JatuhTempoDenganInfo({ pelangganId, pelangganJatuhTempo }: {
 
         if (response.ok) {
           const tagihans = await response.json()
-          console.log('[JatuhTempoDenganInfo] Tagihans received:', tagihans.length)
 
           // Cari tagihan yang belum lunas dengan jatuh tempo terdekat
           const tagihanTerdekat = tagihans
@@ -72,13 +67,8 @@ function JatuhTempoDenganInfo({ pelangganId, pelangganJatuhTempo }: {
             .sort((a: any, b: any) => new Date(a.jatuhTempo).getTime() - new Date(b.jatuhTempo).getTime())[0]
 
           if (tagihanTerdekat) {
-            console.log('[JatuhTempoDenganInfo] Next jatuh tempo:', tagihanTerdekat.jatuhTempo)
             setNextJatuhTempo(tagihanTerdekat.jatuhTempo)
-          } else {
-            console.log('[JatuhTempoDenganInfo] No unpaid tagihan found')
           }
-        } else {
-          console.error('[JatuhTempoDenganInfo] Failed to fetch tagihans, status:', response.status)
         }
       } catch (error) {
         console.error('[JatuhTempoDenganInfo] Error fetching next jatuh tempo:', error)
@@ -134,7 +124,6 @@ function SaldoTagihan({ pelangganId, isOverdue }: { pelangganId: string; isOverd
     const fetchSaldo = async () => {
       try {
         const token = localStorage.getItem('pelanggan_token')
-        console.log('[SaldoTagihan] Fetching saldo for pelanggan:', pelangganId)
 
         const response = await fetch(`/api/tagihan/pelanggan/${pelangganId}`, {
           cache: 'no-store',
@@ -144,21 +133,15 @@ function SaldoTagihan({ pelangganId, isOverdue }: { pelangganId: string; isOverd
           },
         })
 
-        console.log('[SaldoTagihan] Response status:', response.status)
-
         if (response.ok) {
           const tagihans = await response.json()
-          console.log('[SaldoTagihan] Tagihans received:', tagihans.length)
 
           // Hitung total tagihan yang belum dibayar
           const totalBelumBayar = tagihans
             .filter((t: any) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT')
             .reduce((sum: number, t: any) => sum + t.total, 0)
 
-          console.log('[SaldoTagihan] Total belum bayar:', totalBelumBayar)
           setSaldo(totalBelumBayar)
-        } else {
-          console.error('[SaldoTagihan] Failed to fetch tagihans, status:', response.status)
         }
       } catch (error) {
         console.error('[SaldoTagihan] Error fetching saldo:', error)
@@ -207,11 +190,9 @@ function SaldoTagihan({ pelangganId, isOverdue }: { pelangganId: string; isOverd
     return <p className="text-lg font-bold text-sky-500">...</p>
   }
 
-  console.log('[SaldoTagihan] isOverdue:', isOverdue, 'saldo:', saldo)
-
   return (
     <p className="text-lg font-bold text-sky-500">
-      {isOverdue ? formatRupiah(saldo || 0) : formatRupiah(saldo || 0)}
+      {formatRupiah(saldo || 0)}
     </p>
   )
 }
@@ -280,8 +261,7 @@ export default function PelangganDashboardPage() {
     if (!deferredPrompt) return
 
     deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    console.log(`User response to install prompt: ${outcome}`)
+    await deferredPrompt.userChoice
     setDeferredPrompt(null)
     setShowInstallPrompt(false)
   }
@@ -301,8 +281,6 @@ export default function PelangganDashboardPage() {
   }
 
   const formatDate = (dateString: string) => {
-    console.log('[formatDate] Input date string:', dateString)
-
     // Parse tanggal dengan benar untuk menghindari timezone issue
     let date: Date
     if (dateString.includes('T')) {
@@ -314,14 +292,11 @@ export default function PelangganDashboardPage() {
       date = new Date(year, month - 1, day)
     }
 
-    const result = date.toLocaleDateString('id-ID', {
+    return date.toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     })
-
-    console.log('[formatDate] Formatted date:', result)
-    return result
   }
 
 

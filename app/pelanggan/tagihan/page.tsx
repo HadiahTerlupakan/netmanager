@@ -65,7 +65,6 @@ function TagihanContent() {
   const fetchTagihan = useCallback(async (showLoading = true, forceRefresh = false) => {
     // Cegah multiple refresh simultan
     if (isRefreshingRef.current && !forceRefresh) {
-      console.log('[Portal Tagihan] Refresh already in progress, skipping...')
       return
     }
 
@@ -88,8 +87,6 @@ function TagihanContent() {
       // Gunakan format yang tidak mengganggu routing Next.js
       const cacheBuster = forceRefresh ? `?_t=${Date.now()}` : ''
 
-      console.log(`[Portal Tagihan] Fetching tagihan with forceRefresh=${forceRefresh}`)
-
       const response = await fetch(`/api/tagihan/pelanggan/${data.id}${cacheBuster}`, {
         cache: 'no-store',
         headers: {
@@ -99,9 +96,6 @@ function TagihanContent() {
           'x-pelanggan-token': token,
         },
       })
-
-      console.log('[Portal Tagihan] Response status:', response.status)
-      console.log('[Portal Tagihan] Response ok:', response.ok)
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -119,18 +113,6 @@ function TagihanContent() {
       }
       const tagihans = await response.json()
 
-      // Debug: Log tagihan yang diterima
-      console.log('[Portal Tagihan] Tagihan diterima:', tagihans.length, 'tagihan')
-      if (tagihans.length > 0) {
-        console.log('[Portal Tagihan] Sample tagihan:', {
-          id: tagihans[0].id,
-          noTagihan: tagihans[0].noTagihan,
-          periode: `${tagihans[0].periodeBulan}/${tagihans[0].periodeTahun}`,
-          status: tagihans[0].status,
-          total: tagihans[0].total,
-        })
-      }
-
       // Transform data dari API ke format TagihanItem
       const transformedTagihans: TagihanItem[] = tagihans.map((tagihan: any) => ({
         id: tagihan.id,
@@ -142,25 +124,15 @@ function TagihanContent() {
         tanggalBayar: tagihan.tanggalBayar || undefined,
       }))
 
-      console.log('[Portal Tagihan] Tagihan setelah transform:', transformedTagihans.length, 'tagihan')
-
       // Cek duplikasi periode dan gunakan yang terbaru
       const periodeMap = new Map<string, TagihanItem>()
-      let duplicateCount = 0
 
       transformedTagihans.forEach(tagihan => {
         const key = `${tagihan.bulan}-${tagihan.tahun}`
-        if (periodeMap.has(key)) {
-          duplicateCount++
-          console.warn(`[Portal Tagihan] Duplikasi periode ditemukan: ${key}`)
-        } else {
+        if (!periodeMap.has(key)) {
           periodeMap.set(key, tagihan)
         }
       })
-
-      if (duplicateCount > 0) {
-        console.warn(`[Portal Tagihan] Ditemukan ${duplicateCount} duplikasi periode, menggunakan yang terbaru`)
-      }
 
       // Gunakan data unik berdasarkan periode
       const uniqueTagihans = Array.from(periodeMap.values())
@@ -227,7 +199,6 @@ function TagihanContent() {
 
       const intervalId = setInterval(() => {
         refreshCount++
-        console.log(`[Portal Tagihan] Auto-refresh tagihan... (${refreshCount})`)
         // Gunakan forceRefresh setiap 4 kali refresh untuk memastikan data terbaru
         fetchTagihan(false, refreshCount % 4 === 0)
       }, 30000) // 30 detik
@@ -237,17 +208,13 @@ function TagihanContent() {
         const now = Date.now()
         // Hanya refresh jika sudah 10 detik sejak refresh terakhir
         if (now - lastInteractionRefresh > 10000) {
-          console.log('[Portal Tagihan] Refreshing due to page interaction...')
           lastInteractionRefresh = now
           fetchTagihan(false, true) // Gunakan forceRefresh saat ada interaksi
-        } else {
-          console.log('[Portal Tagihan] Skipping refresh, too soon since last refresh')
         }
       }
 
       // Auto-refresh ketika tab/window di-focus
       const handleFocus = () => {
-        console.log('[Portal Tagihan] Tab focused')
         handlePageInteraction()
       }
       window.addEventListener('focus', handleFocus)
@@ -255,7 +222,6 @@ function TagihanContent() {
       // Auto-refresh ketika visibility berubah (user kembali ke tab)
       const handleVisibilityChange = () => {
         if (!document.hidden) {
-          console.log('[Portal Tagihan] Tab visible')
           handlePageInteraction()
         }
       }
@@ -282,8 +248,6 @@ function TagihanContent() {
   }
 
   const formatDate = (dateString: string) => {
-    console.log('[Tagihan formatDate] Input date string:', dateString)
-
     // Parse tanggal dengan benar untuk menghindari timezone issue
     let date: Date
     if (dateString.includes('T')) {
@@ -295,25 +259,19 @@ function TagihanContent() {
       date = new Date(year, month - 1, day)
     }
 
-    const result = date.toLocaleDateString('id-ID', {
+    return date.toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
     })
-
-    console.log('[Tagihan formatDate] Formatted date:', result)
-    return result
   }
 
   const formatDateShort = (dateString: string) => {
-    console.log('[Tagihan formatDateShort] Input date string:', dateString)
     const date = new Date(dateString)
     const day = date.getDate()
     const month = date.toLocaleDateString('id-ID', { month: 'short' })
     const year = date.getFullYear()
-    const result = `${day} ${month} ${year}`
-    console.log('[Tagihan formatDateShort] Formatted date:', result)
-    return result
+    return `${day} ${month} ${year}`
   }
 
   // Check if date is overdue
@@ -386,7 +344,6 @@ function TagihanContent() {
   const semuaTagihanLunas = tagihanAktif.length === 0 && riwayatBayar.length > 0
 
   const handleRefresh = async () => {
-    console.log('[Portal Tagihan] Manual refresh triggered by user')
     setRefreshing(true)
 
     // Tambahkan timestamp unik untuk memaksa refresh dari server

@@ -39,10 +39,7 @@ export async function GET(req: NextRequest) {
   try {
     const token = req.headers.get('x-pelanggan-token')
 
-    console.log('DEBUG API: Token received:', !!token)
-
     if (!token) {
-      console.log('DEBUG API: No token found')
       return NextResponse.json(
         { error: 'Token tidak ditemukan' },
         { status: 401 }
@@ -53,9 +50,7 @@ export async function GET(req: NextRequest) {
     // Token format: base64(id:timestamp:secret)
     try {
       const tokenData = Buffer.from(token, 'base64').toString('utf8')
-      console.log('DEBUG API: Token data after decode:', tokenData)
       const [pelangganId, timestamp] = tokenData.split(':')
-      console.log('DEBUG API: Parsed ID:', pelangganId, 'Timestamp:', timestamp)
 
       if (!pelangganId || !timestamp) {
         return NextResponse.json(
@@ -69,12 +64,6 @@ export async function GET(req: NextRequest) {
       const now = Date.now()
       const tokenAge = now - tokenTime
       const maxAge = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
-
-      console.log('DEBUG API: Token time:', tokenTime)
-      console.log('DEBUG API: Current time:', now)
-      console.log('DEBUG API: Token age:', tokenAge)
-      console.log('DEBUG API: Max age:', maxAge)
-      console.log('DEBUG API: Is expired:', tokenAge > maxAge)
 
       if (tokenAge > maxAge) {
         return NextResponse.json(
@@ -114,7 +103,6 @@ export async function GET(req: NextRequest) {
       // Return data pelanggan (tanpa password)
       const { password: _, passwordLogin: __, ...pelangganData } = pelanggan
 
-      console.log('DEBUG API: Returning pelanggan data:', pelangganData)
       return NextResponse.json(pelangganData)
     } catch (parseError) {
       console.error('Error parsing token:', parseError)
