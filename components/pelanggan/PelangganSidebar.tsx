@@ -3,15 +3,8 @@
 import { useState, useEffect, createContext, useContext } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import {
-  HiOutlineHome,
-  HiOutlineDocumentText,
-  HiOutlineUser,
-  HiOutlineInformationCircle,
-  HiBars3,
-  HiXMark,
-  HiArrowRightOnRectangle,
-} from 'react-icons/hi2'
+import { SIDEBAR_LINKS } from './sidebarLinks'
+import { HiXMark, HiArrowRightOnRectangle } from 'react-icons/hi2'
 
 // Context for sidebar state
 const SidebarContext = createContext<{
@@ -28,19 +21,18 @@ export default function PelangganSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
-  const [pelanggan, setPelanggan] = useState<any>(() => {
-    if (typeof window === 'undefined') return null
+  const [pelanggan, setPelanggan] = useState<any>(null)
+
+  useEffect(() => {
     const pelangganData = localStorage.getItem('pelanggan_data')
     if (pelangganData) {
       try {
-        return JSON.parse(pelangganData)
+        setPelanggan(JSON.parse(pelangganData))
       } catch (error) {
         console.error('Error parsing pelanggan data:', error)
-        return null
       }
     }
-    return null
-  })
+  }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('pelanggan_token')
@@ -48,28 +40,7 @@ export default function PelangganSidebar() {
     router.push('/pelanggan/login')
   }
 
-  const menuItems = [
-    {
-      href: '/pelanggan',
-      label: 'Beranda',
-      icon: HiOutlineHome,
-    },
-    {
-      href: '/pelanggan/tagihan',
-      label: 'Tagihan',
-      icon: HiOutlineDocumentText,
-    },
-    {
-      href: '/pelanggan/profil',
-      label: 'Profil',
-      icon: HiOutlineUser,
-    },
-    {
-      href: '/pelanggan/bantuan',
-      label: 'Bantuan',
-      icon: HiOutlineInformationCircle,
-    },
-  ]
+  const menuItems = SIDEBAR_LINKS;
 
   const isActive = (href: string) => {
     if (href === '/pelanggan') {

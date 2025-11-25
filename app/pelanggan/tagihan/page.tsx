@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, Suspense, useCallback } from 'react'
+import { useEffect, useState, Suspense, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   HiOutlineCreditCard,
@@ -58,12 +58,13 @@ function TagihanContent() {
   const [checkingRenewStatus, setCheckingRenewStatus] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false) // Tambahkan lock untuk mencegah multiple refresh
+  const [isRefreshing, setIsRefreshing] = useState(false) // Deprecated: causing re-renders
+  const isRefreshingRef = useRef(false) // Use ref for lock to prevent re-renders
 
   // Fungsi untuk fetch tagihan dengan cache busting dan locking
   const fetchTagihan = useCallback(async (showLoading = true, forceRefresh = false) => {
     // Cegah multiple refresh simultan
-    if (isRefreshing && !forceRefresh) {
+    if (isRefreshingRef.current && !forceRefresh) {
       console.log('[Portal Tagihan] Refresh already in progress, skipping...')
       return
     }
@@ -81,7 +82,7 @@ function TagihanContent() {
       if (showLoading) setLoading(true)
 
       // Set lock untuk mencegah multiple refresh
-      setIsRefreshing(true)
+      isRefreshingRef.current = true
 
       // Tambahkan timestamp untuk cache busting jika forceRefresh true
       // Gunakan format yang tidak mengganggu routing Next.js
@@ -191,15 +192,18 @@ function TagihanContent() {
           setCheckingRenewStatus(false)
         }
       }
+
+      // Update last refresh time after successful fetch
+      setLastRefreshTime(new Date())
     } catch (err: any) {
       console.error('Error fetching tagihan:', err)
       setError(err.message || 'Gagal mengambil data tagihan')
     } finally {
       if (showLoading) setLoading(false)
       // Release lock setelah selesai
-      setIsRefreshing(false)
+      isRefreshingRef.current = false
     }
-  }, [router, isRefreshing])
+  }, [router])
 
   useEffect(() => {
     const token = localStorage.getItem('pelanggan_token')
@@ -217,21 +221,24 @@ function TagihanContent() {
       // Fetch tagihan pertama kali
       fetchTagihan()
 
-      // Auto-refresh setiap 15 detik (dari 10 detik untuk mengurangi beban server)
+      // Auto-refresh setiap 30 detik (increased from 15 to reduce load)
       let refreshCount = 0
+      let lastInteractionRefresh = 0
+
       const intervalId = setInterval(() => {
         refreshCount++
         console.log(`[Portal Tagihan] Auto-refresh tagihan... (${refreshCount})`)
         // Gunakan forceRefresh setiap 4 kali refresh untuk memastikan data terbaru
         fetchTagihan(false, refreshCount % 4 === 0)
-      }, 15000) // 15 detik
+      }, 30000) // 30 detik
 
       // Event listener untuk refresh saat tab di-focus atau visible
       const handlePageInteraction = () => {
-        console.log('[Portal Tagihan] Page interaction detected, checking if refresh needed...')
-        // Hanya refresh jika sudah 5 detik sejak refresh terakhir
-        if (!lastRefreshTime || (new Date().getTime() - lastRefreshTime.getTime()) > 5000) {
+        const now = Date.now()
+        // Hanya refresh jika sudah 10 detik sejak refresh terakhir
+        if (now - lastInteractionRefresh > 10000) {
           console.log('[Portal Tagihan] Refreshing due to page interaction...')
+          lastInteractionRefresh = now
           fetchTagihan(false, true) // Gunakan forceRefresh saat ada interaksi
         } else {
           console.log('[Portal Tagihan] Skipping refresh, too soon since last refresh')
@@ -264,7 +271,7 @@ function TagihanContent() {
       console.error('Error parsing pelanggan data:', error)
       router.push('/pelanggan/login')
     }
-  }, [router, fetchTagihan, lastRefreshTime])
+  }, [router, fetchTagihan])
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {

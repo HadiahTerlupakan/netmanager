@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   HiArrowRightOnRectangle,
@@ -25,11 +25,12 @@ export default function ProfilPage() {
   const [pelanggan, setPelanggan] = useState<any>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false) // Tambahkan lock untuk mencegah multiple refresh
+  const [isRefreshing, setIsRefreshing] = useState(false) // Deprecated
+  const isRefreshingRef = useRef(false) // Use ref for lock
 
   const loadPelangganData = useCallback(async (forceRefresh = false, showRefreshing = false) => {
     // Cegah multiple refresh simultan
-    if (isRefreshing && !forceRefresh) {
+    if (isRefreshingRef.current && !forceRefresh) {
       console.log('[Portal Profil] Refresh already in progress, skipping...')
       return
     }
@@ -45,7 +46,7 @@ export default function ProfilPage() {
     if (showRefreshing) setRefreshing(true)
 
     // Set lock untuk mencegah multiple refresh
-    setIsRefreshing(true)
+    isRefreshingRef.current = true
 
     try {
       // Parse data dari localStorage sebagai fallback
@@ -100,9 +101,9 @@ export default function ProfilPage() {
       setLoading(false)
       if (showRefreshing) setRefreshing(false)
       // Release lock setelah selesai
-      setIsRefreshing(false)
+      isRefreshingRef.current = false
     }
-  }, [router, isRefreshing])
+  }, [router])
 
   useEffect(() => {
     const token = localStorage.getItem('pelanggan_token')
@@ -116,21 +117,24 @@ export default function ProfilPage() {
     // Load data pertama kali
     loadPelangganData()
 
-    // Auto-refresh setiap 15 detik (dari 10 detik untuk mengurangi beban server)
+    // Auto-refresh setiap 30 detik
     let refreshCount = 0
+    let lastInteractionRefresh = 0
+
     const intervalId = setInterval(() => {
       refreshCount++
       console.log(`[Portal Profil] Auto-refresh data... (${refreshCount})`)
       // Gunakan forceRefresh setiap 4 kali refresh untuk memastikan data terbaru
       loadPelangganData(refreshCount % 4 === 0, false)
-    }, 15000) // 15 detik
+    }, 30000) // 30 detik
 
     // Event listener untuk refresh saat tab di-focus atau visible
     const handlePageInteraction = () => {
-      console.log('[Portal Profil] Page interaction detected, checking if refresh needed...')
-      // Hanya refresh jika sudah 5 detik sejak refresh terakhir
-      if (!lastRefreshTime || (new Date().getTime() - lastRefreshTime.getTime()) > 5000) {
+      const now = Date.now()
+      // Hanya refresh jika sudah 10 detik sejak refresh terakhir
+      if (now - lastInteractionRefresh > 10000) {
         console.log('[Portal Profil] Refreshing due to page interaction...')
+        lastInteractionRefresh = now
         loadPelangganData(true, false) // Gunakan forceRefresh saat ada interaksi
       } else {
         console.log('[Portal Profil] Skipping refresh, too soon since last refresh')
@@ -159,7 +163,7 @@ export default function ProfilPage() {
       window.removeEventListener('focus', handleFocus)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [router, loadPelangganData, lastRefreshTime])
+  }, [router, loadPelangganData])
 
   const handleLogout = () => {
     localStorage.removeItem('pelanggan_token')

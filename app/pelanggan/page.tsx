@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   HiArrowRightOnRectangle,
@@ -24,24 +24,9 @@ import {
   HiBars3,
 } from 'react-icons/hi2'
 import Link from 'next/link'
+import { usePelanggan } from '@/hooks/usePelanggan'
 
-type PelangganData = {
-  id: string
-  idPelanggan: string
-  nama: string
-  username: string
-  tipe: 'REGULER' | 'NON_REGULER'
-  hargaPaket?: {
-    name: string
-    harga: number
-  } | null
-  tanggalAktif: string
-  jatuhTempo: string
-  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
-  alamat?: string | null
-  noTelp?: string | null
-  email?: string | null
-}
+
 
 // Helper function untuk format tanggal pendek
 const formatDateShort = (dateString: string) => {
@@ -231,122 +216,12 @@ function SaldoTagihan({ pelangganId, isOverdue }: { pelangganId: string; isOverd
   )
 }
 
+
+
 export default function PelangganDashboardPage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [pelanggan, setPelanggan] = useState<PelangganData | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false) // Tambahkan lock untuk mencegah multiple refresh
+  const { data: pelanggan, loading, refreshing, lastRefreshTime, refresh } = usePelanggan()
 
-  // Fungsi untuk mengambil data pelanggan
-  const loadPelangganData = useCallback(async (force = false, silent = false) => {
-    if (!force && (isRefreshing || loading)) return
-
-    if (!silent) {
-      setLoading(true)
-    }
-    setRefreshing(true)
-    setIsRefreshing(true)
-
-    try {
-      const token = localStorage.getItem('pelanggan_token')
-      const pelangganData = localStorage.getItem('pelanggan_data')
-
-      console.log('DEBUG: Token exists:', !!token)
-      console.log('DEBUG: Pelanggan data exists:', !!pelangganData)
-
-      if (!token || !pelangganData) {
-        console.log('DEBUG: Redirecting to login - missing token or data')
-        router.push('/pelanggan/login')
-        return
-      }
-
-      // Parse stored pelanggan data
-      const parsedPelanggan = JSON.parse(pelangganData)
-
-      // Refresh data dari server untuk memastikan data terkini
-      console.log('DEBUG: Fetching from /api/pelanggan/me')
-      const response = await fetch('/api/pelanggan/me', {
-        headers: {
-          'x-pelanggan-token': token,
-        },
-      })
-
-      console.log('DEBUG: API response status:', response.status)
-
-      if (response.ok) {
-        const freshData = await response.json()
-        console.log('DEBUG: Fresh data received:', freshData)
-        setPelanggan(freshData)
-        // Update stored data
-        localStorage.setItem('pelanggan_data', JSON.stringify(freshData))
-      } else if (response.status === 401) {
-        console.log('DEBUG: Token expired, redirecting to login')
-        // Token expired atau tidak valid
-        localStorage.removeItem('pelanggan_token')
-        localStorage.removeItem('pelanggan_data')
-        router.push('/pelanggan/login')
-      } else {
-        console.log('DEBUG: Using fallback to stored data')
-        // Fallback ke stored data
-        setPelanggan(parsedPelanggan)
-      }
-
-      setLastRefreshTime(new Date())
-    } catch (error) {
-      console.error('DEBUG: Error loading pelanggan data:', error)
-      // Fallback ke stored data jika ada error
-      try {
-        const pelangganData = localStorage.getItem('pelanggan_data')
-        console.log('DEBUG: Attempting fallback with stored data')
-        if (pelangganData) {
-          const parsedPelanggan = JSON.parse(pelangganData)
-          console.log('DEBUG: Fallback data loaded:', parsedPelanggan)
-          setPelanggan(parsedPelanggan)
-        }
-      } catch (parseError) {
-        console.error('DEBUG: Error parsing stored pelanggan data:', parseError)
-        localStorage.removeItem('pelanggan_token')
-        localStorage.removeItem('pelanggan_data')
-        router.push('/pelanggan/login')
-      }
-    } finally {
-      console.log('DEBUG: Setting loading to false')
-      setLoading(false)
-      setRefreshing(false)
-      setIsRefreshing(false)
-    }
-  }, [router, isRefreshing, loading])
-
-  // Load data pelanggan saat komponen mount
-  useEffect(() => {
-    // Load from localStorage immediately - this should work
-    const pelangganData = localStorage.getItem('pelanggan_data')
-    const token = localStorage.getItem('pelanggan_token')
-
-    console.log('DEBUG: Token exists:', !!token)
-    console.log('DEBUG: Pelanggan data exists:', !!pelangganData)
-
-    if (pelangganData) {
-      try {
-        const parsedData = JSON.parse(pelangganData)
-        console.log('DEBUG: Successfully loaded pelanggan data:', parsedData)
-        setPelanggan(parsedData)
-        setLoading(false)
-
-        // Also try to refresh from server in background (but don't wait for it)
-        loadPelangganData(true, true) // force=true, silent=true
-      } catch (error) {
-        console.error('DEBUG: Error parsing localStorage data:', error)
-        setLoading(false)
-      }
-    } else {
-      console.log('DEBUG: No pelanggan data found, redirecting to login')
-      router.push('/pelanggan/login')
-      setLoading(false)
-    }
-  }, [loadPelangganData, router])
 
   // State untuk deteksi online/offline
   const [isOnline, setIsOnline] = useState(true)
@@ -566,7 +441,7 @@ export default function PelangganDashboardPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => loadPelangganData(true, true)}
+                onClick={() => refresh()}
                 disabled={loading || refreshing}
                 className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation disabled:opacity-50 relative"
                 title="Refresh"
