@@ -28,6 +28,7 @@ export default function OdcNewPage() {
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
+  const [keteranganJumlahKabelFeeder, setKeteranganJumlahKabelFeeder] = useState('')
   const [latitude, setLatitude] = useState<string>('')
   const [longitude, setLongitude] = useState<string>('')
   const [status, setStatus] = useState<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'>('AKTIF')
@@ -152,6 +153,7 @@ export default function OdcNewPage() {
           name,
           location: location || null,
           notes: notes || null,
+          keteranganJumlahKabelFeeder: keteranganJumlahKabelFeeder || null,
           latitude: latitude ? Number(latitude) : null,
           longitude: longitude ? Number(longitude) : null,
           status,
@@ -204,6 +206,10 @@ export default function OdcNewPage() {
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Catatan (opsional)</label>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Keterangan tambahan" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Keterangan Jumlah Kabel Feeder (opsional)</label>
+              <input value={keteranganJumlahKabelFeeder} onChange={(e) => setKeteranganJumlahKabelFeeder(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 12 Core, 24 Core, dll" />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>

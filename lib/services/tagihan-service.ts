@@ -202,15 +202,88 @@ export async function hitungTagihan(
 }
 
 /**
- * Generate nomor tagihan (format: TAG-YYYYMM-XXXX)
+ * Encode angka ke base36 (0-9, A-Z) untuk format yang lebih kreatif
  */
-function generateNoTagihan(periodeBulan: number, periodeTahun: number): string {
-  const bulanStr = periodeBulan.toString().padStart(2, '0')
-  const tahunStr = periodeTahun.toString()
-  const randomStr = Math.floor(Math.random() * 10000)
-    .toString()
-    .padStart(4, '0')
-  return `TAG-${tahunStr}${bulanStr}-${randomStr}`
+function encodeBase36(num: number, length: number = 4): string {
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  let result = ''
+  let n = num
+  
+  while (n > 0 || result.length < length) {
+    result = chars[n % 36] + result
+    n = Math.floor(n / 36)
+  }
+  
+  return result.padStart(length, '0').slice(-length)
+}
+
+/**
+ * Generate nomor tagihan dengan format kreatif dan tidak mudah ditebak
+ * Format: INVXXXXYYYYZZZZ (tanpa separator, dengan prefix INV)
+ * - INV: Prefix invoice
+ * - XXXX: Encoded date (base36) - tidak langsung menunjukkan tanggal
+ * - YYYY: Sequential number (base36) - kombinasi huruf dan angka
+ * - ZZZZ: Deterministic checksum berdasarkan dateCode dan sequentialNumber (BUKAN random)
+ * 
+ * Format ini membuat nomor tagihan tidak mudah ditebak namun DIJAMIN UNIK karena:
+ * 1. Sequential number selalu unik per periode/tanggal
+ * 2. Checksum deterministic (bukan random) sehingga tidak menyebabkan collision
+ * 3. Database unique constraint sebagai safety net
+ */
+async function generateNoTagihan(
+  periodeBulan: number,
+  periodeTahun: number,
+  tagihanRepo: ReturnType<typeof getTagihanRepository>,
+  durasiUnit?: string,
+  tanggalTagihan?: Date
+): Promise<string> {
+  const tanggal = tanggalTagihan || new Date()
+  
+  // Encode tanggal menjadi format yang tidak langsung terlihat
+  // Menggunakan kombinasi tahun, bulan, dan hari dengan operasi matematika
+  let dateCode: number
+  
+  if (durasiUnit === 'HARI' || durasiUnit === 'JAM') {
+    // Untuk paket harian: encode YYYYMMDD dengan operasi
+    const tahun = tanggal.getFullYear()
+    const bulan = tanggal.getMonth() + 1
+    const hari = tanggal.getDate()
+    // Formula: (tahun * 10000) + (bulan * 100) + hari
+    dateCode = ((tahun % 100) * 10000) + (bulan * 100) + hari
+  } else {
+    // Untuk paket bulanan: encode YYYYMM
+    const tahun = periodeTahun
+    const bulan = periodeBulan
+    dateCode = ((tahun % 100) * 1000) + (bulan * 10)
+  }
+  
+  // Hitung sequential number - DIJAMIN UNIK karena dihitung dari count yang sudah ada
+  let sequentialNumber: number
+  if (durasiUnit === 'HARI' || durasiUnit === 'JAM') {
+    const tagihanCount = await tagihanRepo.countByPeriodeAndTanggal(
+      periodeBulan,
+      periodeTahun,
+      tanggal
+    )
+    sequentialNumber = tagihanCount + 1
+  } else {
+    const tagihanCount = await tagihanRepo.countByPeriode(periodeBulan, periodeTahun)
+    sequentialNumber = tagihanCount + 1
+  }
+  
+  // Generate checksum DETERMINISTIC (bukan random) dari kombinasi dateCode dan sequentialNumber
+  // Ini membuat nomor tagihan lebih tidak mudah ditebak TANPA menyebabkan collision
+  // Formula: (dateCode * prime1) + (sequentialNumber * prime2) mod 36^3
+  // Menggunakan prime number untuk distribusi yang lebih baik
+  const checksum = ((dateCode * 37) + (sequentialNumber * 17)) % 46656 // 36^3 = 46656
+  
+  // Encode semua komponen ke base36 (huruf + angka)
+  const encodedDate = encodeBase36(dateCode, 4)
+  const encodedSeq = encodeBase36(sequentialNumber, 4)
+  const encodedChecksum = encodeBase36(checksum, 3)
+  
+  // Format: INVXXXXYYYYZZZZ (tanpa separator)
+  return `INV${encodedDate}${encodedSeq}${encodedChecksum}`
 }
 
 /**
@@ -299,11 +372,70 @@ export async function generateTagihan(
     }
   }
 
-  // Generate nomor tagihan
-  let noTagihan = generateNoTagihan(periodeBulan, periodeTahun)
-  // Pastikan nomor tagihan unik
-  while (await tagihanRepo.findByNoTagihan(noTagihan)) {
-    noTagihan = generateNoTagihan(periodeBulan, periodeTahun)
+  // Generate nomor tagihan menggunakan sequential number per periode
+  // Untuk paket harian/jam, gunakan tanggal saat ini untuk format yang lebih spesifik
+  const tanggalSekarang = new Date()
+  
+  // DIJAMIN TIDAK ADA DUPLIKASI karena:
+  // 1. Sequential number dihitung dari count yang sudah ada + 1
+  // 2. Checksum deterministic (bukan random) berdasarkan dateCode + sequentialNumber
+  // 3. Retry mechanism jika terjadi race condition
+  // 4. Database unique constraint sebagai safety net terakhir
+  let noTagihan = await generateNoTagihan(
+    periodeBulan,
+    periodeTahun,
+    tagihanRepo,
+    paket.durasiUnit,
+    tanggalSekarang
+  )
+  let retryCount = 0
+  const maxRetries = 20 // Maksimal 20 retry untuk handle race condition yang ekstrem
+  
+  // Retry mechanism: jika nomor sudah ada (race condition), generate dengan sequential number yang lebih tinggi
+  while (await tagihanRepo.findByNoTagihan(noTagihan) && retryCount < maxRetries) {
+    // Jika nomor sudah ada (race condition), regenerate dengan format baru (base36)
+    const tanggal = tanggalSekarang
+    
+    let dateCode: number
+    if (paket.durasiUnit === 'HARI' || paket.durasiUnit === 'JAM') {
+      const tahun = tanggal.getFullYear()
+      const bulan = tanggal.getMonth() + 1
+      const hari = tanggal.getDate()
+      dateCode = ((tahun % 100) * 10000) + (bulan * 100) + hari
+    } else {
+      const tahun = periodeTahun
+      const bulan = periodeBulan
+      dateCode = ((tahun % 100) * 1000) + (bulan * 10)
+    }
+    
+    let sequentialNumber: number
+    if (paket.durasiUnit === 'HARI' || paket.durasiUnit === 'JAM') {
+      const tagihanCount = await tagihanRepo.countByPeriodeAndTanggal(
+        periodeBulan,
+        periodeTahun,
+        tanggal
+      )
+      sequentialNumber = tagihanCount + retryCount + 2
+    } else {
+      const tagihanCount = await tagihanRepo.countByPeriode(periodeBulan, periodeTahun)
+      sequentialNumber = tagihanCount + retryCount + 2
+    }
+    
+    // Generate checksum deterministic berdasarkan sequential number baru
+    // Tidak menggunakan random untuk menghindari collision
+    const checksum = ((dateCode * 37) + (sequentialNumber * 17)) % 46656
+    
+    const encodedDate = encodeBase36(dateCode, 4)
+    const encodedSeq = encodeBase36(sequentialNumber, 4)
+    const encodedChecksum = encodeBase36(checksum, 3)
+    
+    // Format: INVXXXXYYYYZZZZ (tanpa separator)
+    noTagihan = `INV${encodedDate}${encodedSeq}${encodedChecksum}`
+    retryCount++
+  }
+  
+  if (retryCount >= maxRetries) {
+    throw new Error('Gagal generate nomor tagihan unik setelah beberapa kali percobaan')
   }
 
   // Buat tagihan

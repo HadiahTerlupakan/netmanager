@@ -3,6 +3,7 @@ export interface OtbCreateData {
   location?: string | null
   coreCount: number
   notes?: string | null
+  keteranganJumlahKabelFeeder?: string | null
   latitude?: number | null
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
@@ -19,6 +20,7 @@ export interface OtbUpdateData {
   location?: string | null
   coreCount?: number
   notes?: string | null
+  keteranganJumlahKabelFeeder?: string | null
   latitude?: number | null
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
@@ -36,6 +38,7 @@ export interface OtbPublic {
   location: string | null
   coreCount: number
   notes: string | null
+  keteranganJumlahKabelFeeder: string | null
   latitude: number | null
   longitude: number | null
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'

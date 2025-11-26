@@ -99,6 +99,8 @@ export interface ITagihanRepository {
   count(): Promise<number>
   countByStatus(status: TagihanStatus): Promise<number>
   countByPelangganId(pelangganId: string): Promise<number>
+  countByPeriode(periodeBulan: number, periodeTahun: number): Promise<number>
+  countByPeriodeAndTanggal(periodeBulan: number, periodeTahun: number, tanggal: Date): Promise<number>
   findTerlambat(): Promise<TagihanPublic[]>
 }
 

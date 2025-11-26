@@ -2,19 +2,86 @@ import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getRateLimitConfig, rateLimit } from '@/lib/middleware/rate-limit'
+import { getSubdomain, isAdminSubdomain, isPelangganSubdomain, isFinanceSubdomain } from '@/lib/utils/subdomain'
 
-// Create auth middleware
+// Create auth middleware dengan callback URL yang menjaga subdomain
 const authMiddleware = withAuth({
   pages: {
     signIn: '/login',
+  },
+  callbacks: {
+    authorized({ token, req }) {
+      // Middleware sudah handle auth check, jadi return true jika token ada
+      return !!token
+    },
   },
 })
 
 // Combine auth middleware dengan rate limiting
 export default async function middleware(request: NextRequest) {
   try {
-    // Rate limiting untuk API routes
     const pathname = request.nextUrl?.pathname || ''
+    const subdomain = getSubdomain(request)
+
+    // Subdomain-based routing
+    // Jika request dari admin subdomain, redirect ke /admin
+    if (isAdminSubdomain(request)) {
+      // Jika pathname tidak dimulai dengan /admin, redirect ke /admin
+      if (!pathname.startsWith('/admin') && !pathname.startsWith('/api') && !pathname.startsWith('/login')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/admin'
+        return NextResponse.redirect(url)
+      }
+    }
+
+    // Jika request dari pelanggan subdomain, redirect ke /pelanggan
+    if (isPelangganSubdomain(request)) {
+      // Jika pathname tidak dimulai dengan /pelanggan, redirect ke /pelanggan
+      if (!pathname.startsWith('/pelanggan') && !pathname.startsWith('/api') && !pathname.startsWith('/login')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/pelanggan'
+        return NextResponse.redirect(url)
+      }
+    }
+
+    // Jika request dari finance subdomain, redirect ke /finance
+    if (isFinanceSubdomain(request)) {
+      // Jika pathname tidak dimulai dengan /finance, redirect ke /finance
+      if (!pathname.startsWith('/finance') && !pathname.startsWith('/api') && !pathname.startsWith('/login')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/finance'
+        return NextResponse.redirect(url)
+      }
+    }
+
+    // Jika tidak ada subdomain tapi mengakses /admin atau /pelanggan
+    // Redirect ke subdomain yang sesuai (untuk production)
+    // Di development, kita biarkan tetap bisa akses langsung
+    if (!subdomain) {
+      if (pathname.startsWith('/admin')) {
+        // Di development, biarkan tetap bisa akses
+        // Di production, bisa redirect ke admin subdomain jika diperlukan
+        // const url = request.nextUrl.clone()
+        // url.hostname = `admin.${url.hostname}`
+        // return NextResponse.redirect(url)
+      }
+      if (pathname.startsWith('/pelanggan')) {
+        // Di development, biarkan tetap bisa akses
+        // Di production, bisa redirect ke pelanggan subdomain jika diperlukan
+        // const url = request.nextUrl.clone()
+        // url.hostname = `pelanggan.${url.hostname}`
+        // return NextResponse.redirect(url)
+      }
+      if (pathname.startsWith('/finance')) {
+        // Di development, biarkan tetap bisa akses
+        // Di production, bisa redirect ke finance subdomain jika diperlukan
+        // const url = request.nextUrl.clone()
+        // url.hostname = `finance.${url.hostname}`
+        // return NextResponse.redirect(url)
+      }
+    }
+
+    // Rate limiting untuk API routes
     if (pathname.startsWith('/api/')) {
       const config = getRateLimitConfig(pathname)
       const rateLimitResponse = await rateLimit(request, {
@@ -42,9 +109,25 @@ export default async function middleware(request: NextRequest) {
       }
     }
 
-    // Auth middleware untuk admin routes
-    if (pathname.startsWith('/admin')) {
-      return authMiddleware(request as any, {} as any)
+    // Auth middleware untuk admin routes (baik dari subdomain atau path)
+    if (pathname.startsWith('/admin') || isAdminSubdomain(request)) {
+      const response = await authMiddleware(request as any, {} as any)
+      
+      // Jika redirect ke login, pastikan redirect URL menjaga subdomain
+      if (response && response.status === 307) {
+        const loginUrl = response.headers.get('location')
+        if (loginUrl && isAdminSubdomain(request)) {
+          // Jika sudah di admin subdomain, pastikan login URL juga di admin subdomain
+          const url = request.nextUrl.clone()
+          url.pathname = '/login'
+          if (pathname !== '/admin') {
+            url.searchParams.set('callbackUrl', pathname)
+          }
+          return NextResponse.redirect(url)
+        }
+      }
+      
+      return response
     }
 
     return NextResponse.next({ request })
@@ -57,8 +140,14 @@ export default async function middleware(request: NextRequest) {
 
 export const config = { 
   matcher: [
-    '/admin/:path*',
-    '/api/:path*',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
   // Gunakan Node.js runtime untuk kompatibilitas dengan ioredis
   runtime: 'nodejs',

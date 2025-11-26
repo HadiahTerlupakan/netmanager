@@ -126,6 +126,17 @@ npm run dev
 
 Aplikasi akan berjalan di `http://localhost:3000`
 
+#### Akses dengan Subdomain (Development)
+
+Aplikasi mendukung routing berbasis subdomain untuk memisahkan admin dan pelanggan:
+
+- **Admin**: `http://admin.localhost:3000` atau `http://admin.netmanager.local:3000`
+- **Pelanggan**: `http://pelanggan.localhost:3000` atau `http://pelanggan.netmanager.local:3000`
+
+**Catatan:** 
+- Next.js mendukung `*.localhost` secara native, jadi `admin.localhost:3000` langsung bekerja tanpa konfigurasi tambahan
+- Jika `*.localhost` tidak bekerja, gunakan custom domain dengan mengedit hosts file (lihat dokumentasi lengkap di [`docs/SUBDOMAIN_SETUP.md`](docs/SUBDOMAIN_SETUP.md))
+
 ### Production Build
 
 ```bash
@@ -368,6 +379,7 @@ Jika port `3000`, `5433`, atau `6380` sudah digunakan:
 ## 📚 Dokumentasi
 
 - [`docs/API_DOCUMENTATION.md`](docs/API_DOCUMENTATION.md) - API Documentation (Swagger/OpenAPI)
+- [`docs/SUBDOMAIN_SETUP.md`](docs/SUBDOMAIN_SETUP.md) - Setup Subdomain untuk Development dan Production
 - [`docs/CI_CD_PIPELINE.md`](docs/CI_CD_PIPELINE.md) - CI/CD Pipeline Documentation
 - [`docs/INTEGRATION_TESTS.md`](docs/INTEGRATION_TESTS.md) - Integration Tests Documentation
 - [`docs/BACKUP_STRATEGY.md`](docs/BACKUP_STRATEGY.md) - Database Backup Strategy

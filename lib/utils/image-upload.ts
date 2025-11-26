@@ -32,8 +32,23 @@ export async function convertAndSaveImage(
       .toFile(outputPath)
 
     // Return path relatif untuk URL
-    const relativePath = outputPath.replace(path.join(process.cwd(), 'public'), '')
-    return relativePath.replace(/\\/g, '/') // Normalize path separator untuk URL
+    const publicPath = path.join(process.cwd(), 'public')
+    let relativePath = outputPath.replace(publicPath, '')
+    relativePath = relativePath.replace(/\\/g, '/') // Normalize path separator untuk URL
+    
+    // Pastikan path dimulai dengan /
+    if (!relativePath.startsWith('/')) {
+      relativePath = '/' + relativePath
+    }
+    
+    console.log('Image saved:', {
+      outputPath,
+      publicPath,
+      relativePath,
+      fileName: `${fileName}.webp`
+    })
+    
+    return relativePath
   } catch (error: any) {
     console.error('Error converting image to WebP:', error)
     throw new Error(`Gagal mengkonversi gambar: ${error.message}`)

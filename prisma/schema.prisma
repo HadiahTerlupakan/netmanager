@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   USER
   ADMIN
+  FINANCE
 }
 
 enum Status {
@@ -104,16 +105,17 @@ model Olt {
 }
 
 model Otb {
-  id        String   @id @default(cuid())
-  name      String
-  location  String?
-  coreCount Int
-  notes     String?
-  latitude  Float?
-  longitude Float?
-  status    Status   @default(AKTIF)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                        String   @id @default(cuid())
+  name                      String
+  location                  String?
+  coreCount                 Int
+  notes                     String?
+  keteranganJumlahKabelFeeder String?
+  latitude                  Float?
+  longitude                 Float?
+  status                    Status   @default(AKTIF)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   cores OtbCore[]
 }
@@ -134,15 +136,16 @@ model OtbCore {
 }
 
 model Odc {
-  id        String   @id @default(cuid())
-  name      String
-  location  String?
-  notes     String?
-  latitude  Float?
-  longitude Float?
-  status    Status   @default(AKTIF)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                        String   @id @default(cuid())
+  name                      String
+  location                  String?
+  notes                     String?
+  keteranganJumlahKabelFeeder String?
+  latitude                  Float?
+  longitude                 Float?
+  status                    Status   @default(AKTIF)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   // Relasi ke slot OTB (OtbCore). Satu ODC menempati satu slot OTB sebagai INPUT.
   otbCoreId String  @unique
@@ -169,15 +172,16 @@ model OdcOutput {
 }
 
 model Odp {
-  id        String   @id @default(cuid())
-  name      String
-  location  String?
-  notes     String?
-  latitude  Float?
-  longitude Float?
-  status    Status   @default(AKTIF)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                        String   @id @default(cuid())
+  name                      String
+  location                  String?
+  notes                     String?
+  keteranganJumlahKabelFeeder String?
+  latitude                  Float?
+  longitude                 Float?
+  status                    Status   @default(AKTIF)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   // Relasi INPUT: ODP mengambil input dari salah satu output core ODC
   odcOutputId String    @unique
@@ -205,15 +209,16 @@ model OdpOutput {
 
 // JOINbox (Bridge/Closure) models
 model Joinbox {
-  id        String   @id @default(cuid())
-  name      String
-  location  String?
-  notes     String?
-  latitude  Float?
-  longitude Float?
-  status    Status   @default(AKTIF)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                        String   @id @default(cuid())
+  name                      String
+  location                  String?
+  notes                     String?
+  keteranganJumlahKabelFeeder String?
+  latitude                  Float?
+  longitude                 Float?
+  status                    Status   @default(AKTIF)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   inputs  JoinboxInput[]
   outputs JoinboxOutput[]
@@ -630,6 +635,24 @@ model Tagihan {
   @@index([jatuhTempo])
   @@index([noTagihan])
   @@index([periodeBulan, periodeTahun])
+}
+
+// Pengeluaran - Data pengeluaran untuk cashflow
+model Pengeluaran {
+  id          String   @id @default(cuid())
+  tanggal     DateTime // Tanggal pengeluaran
+  kategori    String   // Kategori pengeluaran (e.g., "OPERASIONAL", "PEMELIHARAAN", "GAJI", dll)
+  deskripsi   String   // Deskripsi pengeluaran
+  jumlah     Int      // Jumlah pengeluaran (dalam rupiah)
+  metodeBayar String? // Metode pembayaran (e.g., "TRANSFER", "CASH", dll)
+  catatan     String? // Catatan tambahan
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?  // User ID yang membuat (optional)
+  updatedBy   String?  // User ID yang update terakhir (optional)
+
+  @@index([tanggal])
+  @@index([kategori])
 }
 
 // Settings - Konfigurasi aplikasi

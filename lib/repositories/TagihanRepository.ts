@@ -313,6 +313,34 @@ export class TagihanRepository implements ITagihanRepository {
     })
   }
 
+  async countByPeriode(periodeBulan: number, periodeTahun: number): Promise<number> {
+    return await this.client.tagihan.count({
+      where: {
+        periodeBulan,
+        periodeTahun,
+      },
+    })
+  }
+
+  async countByPeriodeAndTanggal(periodeBulan: number, periodeTahun: number, tanggal: Date): Promise<number> {
+    // Hitung tagihan yang dibuat pada tanggal yang sama (untuk tagihan harian)
+    const startOfDay = new Date(tanggal)
+    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(tanggal)
+    endOfDay.setHours(23, 59, 59, 999)
+    
+    return await this.client.tagihan.count({
+      where: {
+        periodeBulan,
+        periodeTahun,
+        createdAt: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+    })
+  }
+
   async findTerlambat(): Promise<TagihanPublic[]> {
     const now = new Date()
     const tagihans = await this.client.tagihan.findMany({

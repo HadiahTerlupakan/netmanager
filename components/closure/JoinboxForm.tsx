@@ -18,6 +18,7 @@ export type JoinboxFormInitial = {
   name?: string
   location?: string | null
   notes?: string | null
+  keteranganJumlahKabelFeeder?: string | null
   latitude?: number | null
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
@@ -31,6 +32,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
   const [name, setName] = useState(initial?.name ?? '')
   const [location, setLocation] = useState(initial?.location ?? '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
+  const [keteranganJumlahKabelFeeder, setKeteranganJumlahKabelFeeder] = useState(initial?.keteranganJumlahKabelFeeder ?? '')
   const [latitude, setLatitude] = useState<string>(initial?.latitude != null ? String(initial.latitude) : '')
   const [longitude, setLongitude] = useState<string>(initial?.longitude != null ? String(initial.longitude) : '')
   const [status, setStatus] = useState<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'>(initial?.status ?? 'AKTIF')
@@ -268,6 +270,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
       name,
       location: location || null,
       notes: notes || null,
+      keteranganJumlahKabelFeeder: keteranganJumlahKabelFeeder || null,
       latitude: latitude === '' ? null : Number(latitude),
       longitude: longitude === '' ? null : Number(longitude),
       status,
@@ -419,6 +422,10 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Catatan (opsional)</label>
             <textarea value={notes ?? ''} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Keterangan tambahan" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Keterangan Jumlah Kabel Feeder (opsional)</label>
+            <input value={keteranganJumlahKabelFeeder ?? ''} onChange={(e) => setKeteranganJumlahKabelFeeder(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 12 Core, 24 Core, dll" />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>

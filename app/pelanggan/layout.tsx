@@ -38,7 +38,17 @@ export const viewport: Viewport = {
   themeColor: '#0ea5e9', // Sky blue theme color (fresh)
 }
 
-export default function PelangganLayout({ children }: { children: React.ReactNode }) {
+export default async function PelangganLayout({ children }: { children: React.ReactNode }) {
+  // Catatan: Subdomain routing di-handle oleh middleware
+  // Di development, tetap bisa akses langsung dari localhost
+  // Di production, bisa enforce subdomain dengan meng-uncomment kode di bawah
+  // const headersList = await headers()
+  // const host = headersList.get('host') || ''
+  // if (host && !host.includes('localhost') && !host.startsWith('pelanggan.')) {
+  //   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+  //   redirect(`${protocol}://pelanggan.${host.split(':')[0]}${host.includes(':') ? ':' + host.split(':')[1] : ''}`)
+  // }
+
   // TODO: Cek apakah user sudah login sebagai pelanggan
   // Jika belum login dan bukan di halaman login, redirect ke login
   // const token = cookies().get('pelanggan_token')

@@ -37,6 +37,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     ...(parsed.data.name !== undefined && { name: parsed.data.name }),
     ...(parsed.data.location !== undefined && { location: parsed.data.location }),
     ...(parsed.data.notes !== undefined && { notes: parsed.data.notes }),
+    ...(parsed.data.keteranganJumlahKabelFeeder !== undefined && { keteranganJumlahKabelFeeder: parsed.data.keteranganJumlahKabelFeeder }),
     ...(parsed.data.latitude !== undefined && { latitude: parsed.data.latitude }),
     ...(parsed.data.longitude !== undefined && { longitude: parsed.data.longitude }),
     ...(parsed.data.status !== undefined && { status: parsed.data.status }),

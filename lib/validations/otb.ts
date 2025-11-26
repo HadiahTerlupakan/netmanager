@@ -5,6 +5,7 @@ export const otbCreateSchema = z.object({
   location: z.string().max(512).optional().nullable(),
   coreCount: z.number().int().positive('Jumlah core harus lebih dari 0'),
   notes: z.string().max(1000).optional().nullable(),
+  keteranganJumlahKabelFeeder: z.string().max(500).optional().nullable(),
   latitude: z
     .number()
     .gte(-90, 'Latitude minimal -90')

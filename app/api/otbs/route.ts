@@ -35,6 +35,7 @@ export async function POST(req: Request) {
     location: data.location ?? null,
     coreCount: data.coreCount,
     notes: data.notes ?? null,
+    keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder ?? null,
     latitude: data.latitude ?? null,
     longitude: data.longitude ?? null,
     cores: data.cores?.map((c: any) => ({

@@ -24,6 +24,8 @@ import { MikroTikRouterRepository } from './MikroTikRouterRepository'
 import type { IMikroTikRouterRepository } from './IMikroTikRouterRepository'
 import { TagihanRepository } from './TagihanRepository'
 import type { ITagihanRepository } from './ITagihanRepository'
+import { PengeluaranRepository } from './PengeluaranRepository'
+import type { IPengeluaranRepository } from './IPengeluaranRepository'
 
 let userRepositoryInstance: IUserRepository | null = null
 let oltRepositoryInstance: IOLTRepository | null = null
@@ -38,6 +40,7 @@ let onuTypeRepositoryInstance: IOnuTypeRepository | null = null
 let speedProfileRepositoryInstance: ISpeedProfileRepository | null = null
 let mikroTikRouterRepositoryInstance: IMikroTikRouterRepository | null = null
 let tagihanRepositoryInstance: ITagihanRepository | null = null
+let pengeluaranRepositoryInstance: IPengeluaranRepository | null = null
 
 export function getUserRepository(): IUserRepository {
   if (!userRepositoryInstance) {
@@ -130,6 +133,13 @@ export function getTagihanRepository(): ITagihanRepository {
   return tagihanRepositoryInstance
 }
 
+export function getPengeluaranRepository(): IPengeluaranRepository {
+  if (!pengeluaranRepositoryInstance) {
+    pengeluaranRepositoryInstance = new PengeluaranRepository()
+  }
+  return pengeluaranRepositoryInstance
+}
+
 export { UserRepository } from './UserRepository'
 export type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
 export { OLTRepository } from './OLTRepository'
@@ -156,4 +166,6 @@ export { MikroTikRouterRepository } from './MikroTikRouterRepository'
 export type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from './IMikroTikRouterRepository'
 export { TagihanRepository } from './TagihanRepository'
 export type { ITagihanRepository, TagihanCreateData, TagihanUpdateData, TagihanPublic, TagihanWithPelanggan } from './ITagihanRepository'
+export { PengeluaranRepository } from './PengeluaranRepository'
+export type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateData, PengeluaranPublic } from './IPengeluaranRepository'
 

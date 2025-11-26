@@ -206,7 +206,7 @@ export default function ProfilPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-8">
       {/* Sky Blue Header - Mobile App Style */}
-      <header className="bg-gradient-to-r from-sky-400 to-cyan-500 text-white shadow-lg">
+      <header className="bg-linear-to-r from-sky-400 to-cyan-500 text-white shadow-lg">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -250,7 +250,7 @@ export default function ProfilPage() {
         {/* Profile Header Card */}
         <div className="bg-white rounded-2xl shadow-md p-6 mb-4">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-gradient-to-br from-sky-400 to-cyan-500 rounded-full flex items-center justify-center">
+            <div className="w-20 h-20 bg-linear-to-br from-sky-400 to-cyan-500 rounded-full flex items-center justify-center">
               <HiOutlineUser className="w-10 h-10 text-white" />
             </div>
             <div className="flex-1">
@@ -269,7 +269,7 @@ export default function ProfilPage() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Informasi Akun</h3>
           <div className="space-y-4">
             <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
-              <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center shrink-0">
                 <HiOutlineUser className="w-5 h-5 text-sky-600" />
               </div>
               <div className="flex-1">
@@ -278,7 +278,7 @@ export default function ProfilPage() {
               </div>
             </div>
             <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
                 <HiOutlineCreditCard className="w-5 h-5 text-blue-600" />
               </div>
               <div className="flex-1">
@@ -290,7 +290,7 @@ export default function ProfilPage() {
             </div>
             {pelanggan.email && (
               <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
-                <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center shrink-0">
                   <HiOutlineEnvelope className="w-5 h-5 text-cyan-600" />
                 </div>
                 <div className="flex-1">
@@ -303,7 +303,7 @@ export default function ProfilPage() {
             )}
             {pelanggan.noTelp && (
               <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
-                <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center shrink-0">
                   <HiOutlinePhone className="w-5 h-5 text-teal-600" />
                 </div>
                 <div className="flex-1">
@@ -316,7 +316,7 @@ export default function ProfilPage() {
             )}
             {pelanggan.alamat && (
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center shrink-0">
                   <HiOutlineMapPin className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div className="flex-1">
@@ -335,7 +335,7 @@ export default function ProfilPage() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Informasi Paket</h3>
           <div className="space-y-4">
             <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
-              <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center shrink-0">
                 <HiOutlineCreditCard className="w-5 h-5 text-sky-600" />
               </div>
               <div className="flex-1">
@@ -351,7 +351,7 @@ export default function ProfilPage() {
               </div>
             </div>
             <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
-              <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center shrink-0">
                 <HiOutlineCalendar className="w-5 h-5 text-cyan-600" />
               </div>
               <div className="flex-1">
@@ -362,7 +362,7 @@ export default function ProfilPage() {
               </div>
             </div>
             <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
                 <HiOutlineCalendar className="w-5 h-5 text-purple-600" />
               </div>
               <div className="flex-1">
@@ -373,7 +373,7 @@ export default function ProfilPage() {
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center shrink-0">
                 <HiOutlineUser className="w-5 h-5 text-teal-600" />
               </div>
               <div className="flex-1">

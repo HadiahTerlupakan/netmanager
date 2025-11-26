@@ -32,7 +32,9 @@ import {
   HiOutlineCog6Tooth,
   HiOutlineKey,
   HiOutlineDocumentText,
-  HiOutlineAdjustmentsHorizontal
+  HiOutlineAdjustmentsHorizontal,
+  HiOutlinePhoto,
+  HiOutlineBanknotes
 } from 'react-icons/hi2'
 
 type NavItem = {
@@ -96,12 +98,22 @@ export default function Sidebar() {
     },
     { href: '/admin/users', label: 'Users', icon: <HiOutlineUsers className="w-5 h-5" /> },
     {
+      href: '/admin/finance',
+      label: 'Finance',
+      icon: <HiOutlineCurrencyDollar className="w-5 h-5" />,
+      children: [
+        { href: '/admin/finance/cashflow', label: 'Cashflow', icon: <HiOutlineBanknotes className="w-4 h-4" /> },
+        { href: '/admin/finance/pengeluaran', label: 'Pengeluaran', icon: <HiOutlineDocumentText className="w-4 h-4" /> },
+      ],
+    },
+    {
       href: '/admin/pengaturan',
       label: 'Pengaturan',
       icon: <HiOutlineCog6Tooth className="w-5 h-5" />,
       children: [
         { href: '/admin/pengaturan/umum', label: 'Pengaturan Umum', icon: <HiOutlineAdjustmentsHorizontal className="w-4 h-4" /> },
         { href: '/admin/pengaturan/api', label: 'API', icon: <HiOutlineKey className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/logo', label: 'Pengaturan Logo', icon: <HiOutlinePhoto className="w-4 h-4" /> },
       ],
     },
   ], [])

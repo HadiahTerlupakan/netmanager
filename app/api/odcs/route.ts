@@ -34,6 +34,7 @@ export async function POST(req: Request) {
     name: data.name,
     location: data.location ?? null,
     notes: data.notes ?? null,
+    keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder ?? null,
     latitude: data.latitude ?? null,
     longitude: data.longitude ?? null,
     otbCoreId: data.otbCoreId,

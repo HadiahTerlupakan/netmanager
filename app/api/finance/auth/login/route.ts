@@ -1,0 +1,119 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { checkRateLimit } from '@/lib/redis'
+import { compare } from 'bcryptjs'
+
+/**
+ * Login finance menggunakan email dan password
+ * User dengan role FINANCE atau ADMIN bisa login
+ * 
+ * @swagger
+ * /api/finance/auth/login:
+ *   post:
+ *     tags: [FinanceAuth]
+ *     summary: Login finance
+ *     description: Login menggunakan email dan password untuk user dengan role FINANCE atau ADMIN
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "finance@example.com"
+ *               password:
+ *                 type: string
+ *                 example: "password123"
+ *     responses:
+ *       200:
+ *         description: Login berhasil
+ *       401:
+ *         description: Email atau password salah
+ *       403:
+ *         description: User tidak memiliki akses finance
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { email, password } = body
+
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: 'Email dan password wajib diisi' },
+        { status: 400 }
+      )
+    }
+
+    // Rate limit percobaan login per email
+    const allowed = await checkRateLimit(`finance-login:${email.toLowerCase()}`, 5, 300)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Terlalu banyak percobaan. Coba lagi nanti.' },
+        { status: 429 }
+      )
+    }
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { email: email.toLowerCase().trim() },
+      })
+
+      if (!user) {
+        return NextResponse.json(
+          { error: 'Email atau password salah' },
+          { status: 401 }
+        )
+      }
+
+      // Verifikasi password
+      const passwordMatch = await compare(password, user.passwordHash)
+      if (!passwordMatch) {
+        return NextResponse.json(
+          { error: 'Email atau password salah' },
+          { status: 401 }
+        )
+      }
+
+      // Cek role - FINANCE atau ADMIN bisa login
+      const allowedRoles = ['FINANCE', 'ADMIN'] as const
+      if (!allowedRoles.includes(user.role as any)) {
+        return NextResponse.json(
+          { error: 'Anda tidak memiliki akses ke portal finance' },
+          { status: 403 }
+        )
+      }
+
+      // Generate simple token (mirip dengan pelanggan)
+      const timestamp = Date.now()
+      const tokenData = `${user.id}:${timestamp}:${process.env.NEXTAUTH_SECRET || 'secret'}`
+      const token = Buffer.from(tokenData).toString('base64')
+
+      // Return data user (tanpa passwordHash)
+      const { passwordHash: _, ...userData } = user
+
+      return NextResponse.json({
+        token,
+        user: userData,
+      })
+    } catch (error: any) {
+      console.error('[Finance Login] Error:', error)
+      return NextResponse.json(
+        { error: 'Terjadi kesalahan saat login' },
+        { status: 500 }
+      )
+    }
+  } catch (error: any) {
+    console.error('[Finance Login] Error:', error)
+    return NextResponse.json(
+      { error: 'Terjadi kesalahan saat memproses request' },
+      { status: 500 }
+    )
+  }
+}
+

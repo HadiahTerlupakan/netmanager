@@ -2,6 +2,7 @@ export interface OdpCreateData {
   name: string
   location?: string | null
   notes?: string | null
+  keteranganJumlahKabelFeeder?: string | null
   latitude?: number | null
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
@@ -13,6 +14,7 @@ export interface OdpUpdateData {
   name?: string
   location?: string | null
   notes?: string | null
+  keteranganJumlahKabelFeeder?: string | null
   latitude?: number | null
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
@@ -25,6 +27,7 @@ export interface OdpPublic {
   name: string
   location: string | null
   notes: string | null
+  keteranganJumlahKabelFeeder: string | null
   latitude: number | null
   longitude: number | null
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'

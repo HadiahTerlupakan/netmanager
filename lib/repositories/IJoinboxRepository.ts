@@ -10,6 +10,7 @@ export interface JoinboxCreateData {
   name: string
   location?: string | null
   notes?: string | null
+  keteranganJumlahKabelFeeder?: string | null
   latitude?: number | null
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
@@ -21,6 +22,7 @@ export interface JoinboxUpdateData {
   name?: string
   location?: string | null
   notes?: string | null
+  keteranganJumlahKabelFeeder?: string | null
   latitude?: number | null
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
@@ -33,6 +35,7 @@ export interface JoinboxPublic {
   name: string
   location: string | null
   notes: string | null
+  keteranganJumlahKabelFeeder: string | null
   latitude: number | null
   longitude: number | null
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'

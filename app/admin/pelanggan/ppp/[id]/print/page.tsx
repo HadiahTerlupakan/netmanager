@@ -99,6 +99,11 @@ type GeneralSettings = {
   deskripsiInvoice: string
 }
 
+type LogoSettings = {
+  logoInvoice: string | null
+  logoAplikasi: string | null
+}
+
 export default function PrintTagihanPage() {
   const params = useParams()
   const router = useRouter()
@@ -108,17 +113,54 @@ export default function PrintTagihanPage() {
   const [tagihan, setTagihan] = useState<Tagihan | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings | null>(null)
+  const [logoSettings, setLogoSettings] = useState<LogoSettings | null>(null)
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const id = params.id as string
 
-        // Load pengaturan umum (public endpoint untuk invoice)
-        const settingsRes = await fetch('/api/settings/general/public')
+        // Load pengaturan umum dan logo secara parallel
+        const [settingsRes, logoRes] = await Promise.all([
+          fetch('/api/settings/general/public'),
+          fetch('/api/settings/logo/public')
+        ])
+
         if (settingsRes.ok) {
           const settingsData = await settingsRes.json()
           setGeneralSettings(settingsData)
+        }
+
+        if (logoRes.ok) {
+          const logoData = await logoRes.json()
+          console.log('Logo settings loaded from API:', logoData)
+          
+          // Pastikan path logo valid (harus dimulai dengan /)
+          if (logoData.logoInvoice) {
+            // Normalize path - pastikan dimulai dengan /
+            let normalizedPath = logoData.logoInvoice.trim()
+            if (!normalizedPath.startsWith('/')) {
+              normalizedPath = '/' + normalizedPath.replace(/^\//, '')
+            }
+            logoData.logoInvoice = normalizedPath
+            
+            // Test apakah logo bisa diakses (silent check, tidak perlu log error)
+            const testImg = new Image()
+            testImg.onload = () => {
+              console.log('Logo image loaded successfully:', normalizedPath)
+            }
+            testImg.onerror = () => {
+              // Logo tidak ditemukan, akan menggunakan fallback SVG di komponen
+              console.warn('Logo tidak dapat diakses, akan menggunakan fallback:', normalizedPath)
+            }
+            testImg.src = normalizedPath
+          }
+          
+          setLogoSettings(logoData)
+        } else {
+          const errorText = await logoRes.text()
+          console.error('Failed to load logo settings:', errorText)
+          setLogoSettings({ logoInvoice: null, logoAplikasi: null })
         }
 
         // Load pelanggan dengan paket
@@ -241,9 +283,17 @@ export default function PrintTagihanPage() {
     )
   }
 
-  // Konversi nomor tagihan ke format INV-XXXXX
-  // Gunakan ID tagihan yang di-hash atau nomor tagihan
-  const invoiceNumber = `INV-${tagihan.id.replace(/-/g, '').substring(0, 12)}`
+  // Format nomor invoice untuk konfirmasi pelanggan ke admin
+  // Support format lama (TAG-YYYYMM-XXXX) dan format baru (INVXXXXYYYYZZZZ)
+  // Menampilkan nomor tagihan tanpa prefix TAG- atau INV
+  let invoiceNumber = tagihan.noTagihan
+  if (invoiceNumber.startsWith('INV')) {
+    // Format baru: INVXXXXYYYYZZZZ -> XXXXYYYYZZZZ
+    invoiceNumber = invoiceNumber.replace(/^INV/, '')
+  } else if (invoiceNumber.startsWith('TAG-')) {
+    // Format lama: TAG-YYYYMM-XXXX -> YYYYMM-XXXX (tanpa prefix TAG-)
+    invoiceNumber = invoiceNumber.replace(/^TAG-/, '')
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -279,30 +329,51 @@ export default function PrintTagihanPage() {
         {/* Header Invoice */}
         <div className="flex justify-between items-start mb-8 border-b-2 border-gray-300 pb-6">
           {/* Logo & Company Info */}
-          <div className="flex items-start gap-4">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <svg
-                className="w-12 h-12 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
-                />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-blue-600 mb-1">
-                {generalSettings?.perusahaan || 'Perusahaan'}
-              </h1>
-              {generalSettings?.perusahaan && (
-                <p className="text-sm text-green-600 font-medium">{generalSettings.perusahaan}</p>
-              )}
-            </div>
+          <div className="h-16 flex items-center shrink-0" style={{ width: '100%', maxWidth: '500px' }}>
+            {logoSettings?.logoInvoice ? (
+              <img
+                key={`logo-${logoSettings.logoInvoice}`}
+                src={logoSettings.logoInvoice}
+                alt="Logo Perusahaan"
+                className="h-full w-full object-contain object-left"
+                style={{ display: 'block' }}
+                crossOrigin="anonymous"
+                onError={(e) => {
+                  // Logo tidak ditemukan, akan menggunakan fallback SVG
+                  // Tidak perlu log sebagai error karena ini adalah expected behavior
+                  const target = e.target as HTMLImageElement
+                  const parent = target.parentElement
+                  if (parent) {
+                    parent.innerHTML = `
+                      <div class="h-16 bg-green-100 rounded flex items-center justify-center shrink-0" style="width: 100%; max-width: 500px;">
+                        <svg class="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                        </svg>
+                      </div>
+                    `
+                  }
+                }}
+                onLoad={() => {
+                  console.log('Logo loaded successfully:', logoSettings.logoInvoice)
+                }}
+              />
+            ) : (
+              <div className="h-16 bg-green-100 rounded flex items-center justify-center shrink-0" style={{ width: '100%', maxWidth: '500px' }}>
+                <svg
+                  className="w-12 h-12 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
+                  />
+                </svg>
+              </div>
+            )}
           </div>
 
           {/* Invoice Title & Status */}
