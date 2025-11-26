@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPengeluaranRepository } from '@/lib/repositories'
+import { getPemasukanRepository } from '@/lib/repositories'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
 /**
- * GET /api/pengeluaran
- * List semua pengeluaran (admin only)
+ * GET /api/pemasukan
+ * List semua pemasukan (admin only)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -20,21 +20,21 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
-    const pengeluaranRepo = getPengeluaranRepository()
+    const pemasukanRepo = getPemasukanRepository()
 
-    let pengeluarans
+    let pemasukans
     if (kategori) {
-      pengeluarans = await pengeluaranRepo.findByKategori(kategori)
+      pemasukans = await pemasukanRepo.findByKategori(kategori)
     } else if (startDate && endDate) {
-      pengeluarans = await pengeluaranRepo.findByDateRange(
+      pemasukans = await pemasukanRepo.findByDateRange(
         new Date(startDate),
         new Date(endDate),
       )
     } else {
-      pengeluarans = await pengeluaranRepo.findAll()
+      pemasukans = await pemasukanRepo.findAll()
     }
 
-    return NextResponse.json(pengeluarans, {
+    return NextResponse.json(pemasukans, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Pragma': 'no-cache',
@@ -42,14 +42,14 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error('Error fetching pengeluaran:', error)
+    console.error('Error fetching pemasukan:', error)
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
   }
 }
 
 /**
- * POST /api/pengeluaran
- * Create pengeluaran baru (admin only)
+ * POST /api/pemasukan
+ * Create pemasukan baru (admin only)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -59,26 +59,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tanggal, tipePengeluaran, kategori, deskripsi, jumlah, metodeBayar, catatan } = body
+    const { tanggal, kategori, deskripsi, jumlah, metodeBayar, catatan } = body
 
-    if (!tanggal || !tipePengeluaran || !kategori || !deskripsi || jumlah === undefined) {
+    if (!tanggal || !kategori || !deskripsi || jumlah === undefined) {
       return NextResponse.json(
-        { error: 'Tanggal, tipe pengeluaran, kategori, deskripsi, dan jumlah wajib diisi' },
+        { error: 'Tanggal, kategori, deskripsi, dan jumlah wajib diisi' },
         { status: 400 }
       )
     }
 
-    if (tipePengeluaran !== 'CAPEX' && tipePengeluaran !== 'OPEX') {
-      return NextResponse.json(
-        { error: 'Tipe pengeluaran harus CAPEX atau OPEX' },
-        { status: 400 }
-      )
-    }
-
-    const pengeluaranRepo = getPengeluaranRepository()
-    const result = await pengeluaranRepo.create({
+    const pemasukanRepo = getPemasukanRepository()
+    const result = await pemasukanRepo.create({
       tanggal,
-      tipePengeluaran,
       kategori,
       deskripsi,
       jumlah: parseInt(jumlah),
@@ -89,10 +81,10 @@ export async function POST(request: NextRequest) {
 
     // Revalidate cache
     revalidatePath('/admin/finance/cashflow')
-    revalidatePath('/api/pengeluaran')
+    revalidatePath('/api/pemasukan')
     revalidatePath('/api/finance/cashflow')
 
-    return NextResponse.json({ id: result.id, message: 'Pengeluaran berhasil dibuat' }, {
+    return NextResponse.json({ id: result.id, message: 'Pemasukan berhasil dibuat' }, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Pragma': 'no-cache',
@@ -100,7 +92,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error('Error creating pengeluaran:', error)
+    console.error('Error creating pemasukan:', error)
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
   }
 }

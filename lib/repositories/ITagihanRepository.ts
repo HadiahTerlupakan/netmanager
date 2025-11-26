@@ -102,5 +102,7 @@ export interface ITagihanRepository {
   countByPeriode(periodeBulan: number, periodeTahun: number): Promise<number>
   countByPeriodeAndTanggal(periodeBulan: number, periodeTahun: number, tanggal: Date): Promise<number>
   findTerlambat(): Promise<TagihanPublic[]>
+  aggregateTotalByStatus(status: TagihanStatus): Promise<number>
+  groupByPeriode(): Promise<any[]>
 }
 

@@ -98,12 +98,11 @@ export default function Sidebar() {
     },
     { href: '/admin/users', label: 'Users', icon: <HiOutlineUsers className="w-5 h-5" /> },
     {
-      href: '/admin/finance',
+      href: '/admin/finance/cashflow',
       label: 'Finance',
       icon: <HiOutlineCurrencyDollar className="w-5 h-5" />,
       children: [
-        { href: '/admin/finance/cashflow', label: 'Cashflow', icon: <HiOutlineBanknotes className="w-4 h-4" /> },
-        { href: '/admin/finance/pengeluaran', label: 'Pengeluaran', icon: <HiOutlineDocumentText className="w-4 h-4" /> },
+        { href: '/admin/finance/cashflow', label: 'Cashflow & Pengeluaran', icon: <HiOutlineBanknotes className="w-4 h-4" /> },
       ],
     },
     {

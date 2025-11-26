@@ -55,7 +55,14 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const { tanggal, kategori, deskripsi, jumlah, metodeBayar, catatan } = body
+    const { tanggal, tipePengeluaran, kategori, deskripsi, jumlah, metodeBayar, catatan } = body
+
+    if (tipePengeluaran && tipePengeluaran !== 'CAPEX' && tipePengeluaran !== 'OPEX') {
+      return NextResponse.json(
+        { error: 'Tipe pengeluaran harus CAPEX atau OPEX' },
+        { status: 400 }
+      )
+    }
 
     const pengeluaranRepo = getPengeluaranRepository()
     
@@ -67,6 +74,7 @@ export async function PUT(
 
     await pengeluaranRepo.update(id, {
       tanggal,
+      tipePengeluaran,
       kategori,
       deskripsi,
       jumlah: jumlah !== undefined ? parseInt(jumlah) : undefined,

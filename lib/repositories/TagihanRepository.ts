@@ -9,7 +9,7 @@ import type {
 import { prisma } from '@/lib/prisma'
 
 export class TagihanRepository implements ITagihanRepository {
-  constructor(private client: PrismaClient = prisma) {}
+  constructor(private client: PrismaClient = prisma) { }
 
   async findAll(): Promise<TagihanPublic[]> {
     const tagihans = await this.client.tagihan.findMany({
@@ -328,7 +328,7 @@ export class TagihanRepository implements ITagihanRepository {
     startOfDay.setHours(0, 0, 0, 0)
     const endOfDay = new Date(tanggal)
     endOfDay.setHours(23, 59, 59, 999)
-    
+
     return await this.client.tagihan.count({
       where: {
         periodeBulan,
@@ -376,6 +376,29 @@ export class TagihanRepository implements ITagihanRepository {
       },
     })
     return tagihans
+  }
+
+  async aggregateTotalByStatus(status: TagihanStatus): Promise<number> {
+    const result = await this.client.tagihan.aggregate({
+      where: { status },
+      _sum: {
+        total: true,
+      },
+    })
+    return result._sum.total || 0
+  }
+
+  async groupByPeriode(): Promise<any[]> {
+    const result = await this.client.tagihan.groupBy({
+      by: ['periodeBulan', 'periodeTahun', 'status'],
+      _sum: {
+        total: true,
+      },
+      _count: {
+        id: true,
+      },
+    })
+    return result
   }
 }
 

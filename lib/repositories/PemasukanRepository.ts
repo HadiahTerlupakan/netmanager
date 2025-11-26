@@ -1,18 +1,17 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateData, PengeluaranPublic } from './IPengeluaranRepository'
+import type { IPemasukanRepository, PemasukanCreateData, PemasukanUpdateData, PemasukanPublic } from './IPemasukanRepository'
 
-export class PengeluaranRepository implements IPengeluaranRepository {
+export class PemasukanRepository implements IPemasukanRepository {
   constructor(private client: PrismaClient = prisma) { }
 
-  async findAll(): Promise<PengeluaranPublic[]> {
+  async findAll(): Promise<PemasukanPublic[]> {
     try {
-      // Check if pengeluaran model exists in Prisma Client
-      if (!('pengeluaran' in this.client)) {
-        console.warn('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
+      if (!('pemasukan' in this.client)) {
+        console.warn('Model Pemasukan belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
         return []
       }
-      const items = await (this.client as any).pengeluaran.findMany({
+      const items = await (this.client as any).pemasukan.findMany({
         orderBy: { tanggal: 'desc' },
         include: {
           createdByUser: {
@@ -27,23 +26,22 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       return items.map((item: any) => ({
         ...item,
         jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : item.jumlah
-      })) as unknown as PengeluaranPublic[]
+      })) as unknown as PemasukanPublic[]
     } catch (error: any) {
-      // Jika model belum ada, return empty array
       if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
-        console.warn('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate dan restart dev server')
+        console.warn('Model Pemasukan belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate dan restart dev server')
         return []
       }
       throw error
     }
   }
 
-  async findById(id: string): Promise<PengeluaranPublic | null> {
+  async findById(id: string): Promise<PemasukanPublic | null> {
     try {
-      if (!('pengeluaran' in this.client)) {
+      if (!('pemasukan' in this.client)) {
         return null
       }
-      const item = await (this.client as any).pengeluaran.findUnique({
+      const item = await (this.client as any).pemasukan.findUnique({
         where: { id },
         include: {
           createdByUser: {
@@ -59,7 +57,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       return {
         ...item,
         jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : item.jumlah
-      } as unknown as PengeluaranPublic
+      } as unknown as PemasukanPublic
     } catch (error: any) {
       if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
         return null
@@ -68,9 +66,9 @@ export class PengeluaranRepository implements IPengeluaranRepository {
     }
   }
 
-  async create(data: PengeluaranCreateData): Promise<{ id: string }> {
-    if (!('pengeluaran' in this.client)) {
-      throw new Error('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
+  async create(data: PemasukanCreateData): Promise<{ id: string }> {
+    if (!('pemasukan' in this.client)) {
+      throw new Error('Model Pemasukan belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
     }
     // Convert jumlah to BigInt
     let jumlahBigInt: bigint
@@ -82,10 +80,9 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       jumlahBigInt = BigInt(data.jumlah)
     }
 
-    const created = await (this.client as any).pengeluaran.create({
+    const created = await (this.client as any).pemasukan.create({
       data: {
         tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal,
-        tipePengeluaran: data.tipePengeluaran,
         kategori: data.kategori,
         deskripsi: data.deskripsi,
         jumlah: jumlahBigInt,
@@ -98,16 +95,15 @@ export class PengeluaranRepository implements IPengeluaranRepository {
     return created
   }
 
-  async update(id: string, data: PengeluaranUpdateData): Promise<void> {
-    if (!('pengeluaran' in this.client)) {
-      throw new Error('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
+  async update(id: string, data: PemasukanUpdateData): Promise<void> {
+    if (!('pemasukan' in this.client)) {
+      throw new Error('Model Pemasukan belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
     }
 
     const updateData: any = {
       ...(data.tanggal !== undefined && {
         tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal
       }),
-      ...(data.tipePengeluaran !== undefined && { tipePengeluaran: data.tipePengeluaran }),
       ...(data.kategori !== undefined && { kategori: data.kategori }),
       ...(data.deskripsi !== undefined && { deskripsi: data.deskripsi }),
       ...(data.metodeBayar !== undefined && { metodeBayar: data.metodeBayar }),
@@ -126,25 +122,25 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       }
     }
 
-    await (this.client as any).pengeluaran.update({
+    await (this.client as any).pemasukan.update({
       where: { id },
       data: updateData,
     })
   }
 
   async delete(id: string): Promise<void> {
-    if (!('pengeluaran' in this.client)) {
-      throw new Error('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
+    if (!('pemasukan' in this.client)) {
+      throw new Error('Model Pemasukan belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
     }
-    await (this.client as any).pengeluaran.delete({ where: { id } })
+    await (this.client as any).pemasukan.delete({ where: { id } })
   }
 
   async count(): Promise<number> {
     try {
-      if (!('pengeluaran' in this.client)) {
+      if (!('pemasukan' in this.client)) {
         return 0
       }
-      return await (this.client as any).pengeluaran.count()
+      return await (this.client as any).pemasukan.count()
     } catch (error: any) {
       if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
         return 0
@@ -153,12 +149,12 @@ export class PengeluaranRepository implements IPengeluaranRepository {
     }
   }
 
-  async findByDateRange(startDate: Date, endDate: Date): Promise<PengeluaranPublic[]> {
+  async findByDateRange(startDate: Date, endDate: Date): Promise<PemasukanPublic[]> {
     try {
-      if (!('pengeluaran' in this.client)) {
+      if (!('pemasukan' in this.client)) {
         return []
       }
-      const items = await (this.client as any).pengeluaran.findMany({
+      const items = await (this.client as any).pemasukan.findMany({
         where: {
           tanggal: {
             gte: startDate,
@@ -179,7 +175,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       return items.map((item: any) => ({
         ...item,
         jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : item.jumlah
-      })) as unknown as PengeluaranPublic[]
+      })) as unknown as PemasukanPublic[]
     } catch (error: any) {
       if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
         return []
@@ -188,12 +184,12 @@ export class PengeluaranRepository implements IPengeluaranRepository {
     }
   }
 
-  async findByKategori(kategori: string): Promise<PengeluaranPublic[]> {
+  async findByKategori(kategori: string): Promise<PemasukanPublic[]> {
     try {
-      if (!('pengeluaran' in this.client)) {
+      if (!('pemasukan' in this.client)) {
         return []
       }
-      const items = await (this.client as any).pengeluaran.findMany({
+      const items = await (this.client as any).pemasukan.findMany({
         where: { kategori },
         orderBy: { tanggal: 'desc' },
         include: {
@@ -209,7 +205,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       return items.map((item: any) => ({
         ...item,
         jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : item.jumlah
-      })) as unknown as PengeluaranPublic[]
+      })) as unknown as PemasukanPublic[]
     } catch (error: any) {
       if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
         return []
@@ -220,30 +216,10 @@ export class PengeluaranRepository implements IPengeluaranRepository {
 
   async aggregateTotal(): Promise<bigint> {
     try {
-      if (!('pengeluaran' in this.client)) {
+      if (!('pemasukan' in this.client)) {
         return BigInt(0)
       }
-      const result = await (this.client as any).pengeluaran.aggregate({
-        _sum: {
-          jumlah: true,
-        },
-      })
-      return result._sum.jumlah || BigInt(0)
-    } catch (error: any) {
-      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
-        return BigInt(0)
-      }
-      throw error
-    }
-  }
-
-  async aggregateTotalByTipe(tipePengeluaran: 'CAPEX' | 'OPEX'): Promise<bigint> {
-    try {
-      if (!('pengeluaran' in this.client)) {
-        return BigInt(0)
-      }
-      const result = await (this.client as any).pengeluaran.aggregate({
-        where: { tipePengeluaran },
+      const result = await (this.client as any).pemasukan.aggregate({
         _sum: {
           jumlah: true,
         },
@@ -259,14 +235,12 @@ export class PengeluaranRepository implements IPengeluaranRepository {
 
   async groupByPeriode(): Promise<any[]> {
     try {
-      if (!('pengeluaran' in this.client)) {
+      if (!('pemasukan' in this.client)) {
         return []
       }
       // Prisma doesn't support grouping by date parts directly in groupBy
-      // So we fetch all dates and amounts and group in memory (still better than fetching full objects)
-      // OR we can use raw query if needed, but let's stick to simple approach for now
-      // Actually, for now let's fetch minimal data needed for grouping
-      const items = await (this.client as any).pengeluaran.findMany({
+      // So we fetch minimal data needed for grouping
+      const items = await (this.client as any).pemasukan.findMany({
         select: {
           tanggal: true,
           jumlah: true,
@@ -287,7 +261,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
 
   async findIdsAndDates(startDate?: Date, endDate?: Date): Promise<{ id: string, tanggal: Date }[]> {
     try {
-      if (!('pengeluaran' in this.client)) {
+      if (!('pemasukan' in this.client)) {
         return []
       }
       const where: any = {}
@@ -298,7 +272,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         }
       }
 
-      const items = await (this.client as any).pengeluaran.findMany({
+      const items = await (this.client as any).pemasukan.findMany({
         where,
         select: {
           id: true,

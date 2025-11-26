@@ -42,6 +42,11 @@ enum TagihanStatus {
   TERLAMBAT
 }
 
+enum TipePengeluaran {
+  CAPEX
+  OPEX
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String?
@@ -51,6 +56,11 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   sessions     Session[]
+  
+  pengeluaransCreated Pengeluaran[] @relation("PengeluaranCreatedBy")
+  pengeluaransUpdated Pengeluaran[] @relation("PengeluaranUpdatedBy")
+  pemasukansCreated  Pemasukan[] @relation("PemasukanCreatedBy")
+  pemasukansUpdated  Pemasukan[] @relation("PemasukanUpdatedBy")
 }
 
 model Session {
@@ -639,17 +649,43 @@ model Tagihan {
 
 // Pengeluaran - Data pengeluaran untuk cashflow
 model Pengeluaran {
+  id            String          @id @default(cuid())
+  tanggal       DateTime        // Tanggal pengeluaran
+  tipePengeluaran TipePengeluaran @default(OPEX) // CAPEX atau OPEX
+  kategori      String          // Kategori pengeluaran (e.g., "OPERASIONAL", "PEMELIHARAAN", "GAJI", dll)
+  deskripsi     String          // Deskripsi pengeluaran
+  jumlah        BigInt          // Jumlah pengeluaran (dalam rupiah)
+  metodeBayar   String?         // Metode pembayaran (e.g., "TRANSFER", "CASH", dll)
+  catatan       String?         // Catatan tambahan
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  createdBy     String?         // User ID yang membuat (optional)
+  updatedBy     String?         // User ID yang update terakhir (optional)
+  
+  createdByUser User? @relation("PengeluaranCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedByUser User? @relation("PengeluaranUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@index([tanggal])
+  @@index([kategori])
+  @@index([tipePengeluaran])
+}
+
+// Pemasukan - Data pemasukan manual untuk cashflow
+model Pemasukan {
   id          String   @id @default(cuid())
-  tanggal     DateTime // Tanggal pengeluaran
-  kategori    String   // Kategori pengeluaran (e.g., "OPERASIONAL", "PEMELIHARAAN", "GAJI", dll)
-  deskripsi   String   // Deskripsi pengeluaran
-  jumlah     Int      // Jumlah pengeluaran (dalam rupiah)
+  tanggal     DateTime // Tanggal pemasukan
+  kategori    String   // Kategori pemasukan (e.g., "PENJUALAN", "INVESTASI", "BONUS", "LAINNYA", dll)
+  deskripsi   String   // Deskripsi pemasukan
+  jumlah     BigInt   // Jumlah pemasukan (dalam rupiah)
   metodeBayar String? // Metode pembayaran (e.g., "TRANSFER", "CASH", dll)
   catatan     String? // Catatan tambahan
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdBy   String?  // User ID yang membuat (optional)
   updatedBy   String?  // User ID yang update terakhir (optional)
+  
+  createdByUser User? @relation("PemasukanCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedByUser User? @relation("PemasukanUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
 
   @@index([tanggal])
   @@index([kategori])

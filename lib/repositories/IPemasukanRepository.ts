@@ -1,7 +1,6 @@
-export interface PengeluaranPublic {
+export interface PemasukanPublic {
   id: string
   tanggal: Date
-  tipePengeluaran: 'CAPEX' | 'OPEX'
   kategori: string
   deskripsi: string
   jumlah: bigint | string // BigInt dari Prisma, string untuk JSON serialization
@@ -13,9 +12,8 @@ export interface PengeluaranPublic {
   updatedBy: string | null
 }
 
-export interface PengeluaranCreateData {
+export interface PemasukanCreateData {
   tanggal: Date | string
-  tipePengeluaran: 'CAPEX' | 'OPEX'
   kategori: string
   deskripsi: string
   jumlah: number | bigint | string // Accept number, bigint, or string
@@ -24,9 +22,8 @@ export interface PengeluaranCreateData {
   createdBy?: string | null
 }
 
-export interface PengeluaranUpdateData {
+export interface PemasukanUpdateData {
   tanggal?: Date | string
-  tipePengeluaran?: 'CAPEX' | 'OPEX'
   kategori?: string
   deskripsi?: string
   jumlah?: number | bigint | string
@@ -35,17 +32,16 @@ export interface PengeluaranUpdateData {
   updatedBy?: string | null
 }
 
-export interface IPengeluaranRepository {
-  findAll(): Promise<PengeluaranPublic[]>
-  findById(id: string): Promise<PengeluaranPublic | null>
-  create(data: PengeluaranCreateData): Promise<{ id: string }>
-  update(id: string, data: PengeluaranUpdateData): Promise<void>
+export interface IPemasukanRepository {
+  findAll(): Promise<PemasukanPublic[]>
+  findById(id: string): Promise<PemasukanPublic | null>
+  create(data: PemasukanCreateData): Promise<{ id: string }>
+  update(id: string, data: PemasukanUpdateData): Promise<void>
   delete(id: string): Promise<void>
   count(): Promise<number>
-  findByDateRange(startDate: Date, endDate: Date): Promise<PengeluaranPublic[]>
-  findByKategori(kategori: string): Promise<PengeluaranPublic[]>
+  findByDateRange(startDate: Date, endDate: Date): Promise<PemasukanPublic[]>
+  findByKategori(kategori: string): Promise<PemasukanPublic[]>
   aggregateTotal(): Promise<bigint>
-  aggregateTotalByTipe(tipePengeluaran: 'CAPEX' | 'OPEX'): Promise<bigint>
   groupByPeriode(): Promise<any[]>
   findIdsAndDates(startDate?: Date, endDate?: Date): Promise<{ id: string, tanggal: Date }[]>
 }

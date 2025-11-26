@@ -26,6 +26,8 @@ import { TagihanRepository } from './TagihanRepository'
 import type { ITagihanRepository } from './ITagihanRepository'
 import { PengeluaranRepository } from './PengeluaranRepository'
 import type { IPengeluaranRepository } from './IPengeluaranRepository'
+import { PemasukanRepository } from './PemasukanRepository'
+import type { IPemasukanRepository } from './IPemasukanRepository'
 
 let userRepositoryInstance: IUserRepository | null = null
 let oltRepositoryInstance: IOLTRepository | null = null
@@ -41,6 +43,7 @@ let speedProfileRepositoryInstance: ISpeedProfileRepository | null = null
 let mikroTikRouterRepositoryInstance: IMikroTikRouterRepository | null = null
 let tagihanRepositoryInstance: ITagihanRepository | null = null
 let pengeluaranRepositoryInstance: IPengeluaranRepository | null = null
+let pemasukanRepositoryInstance: IPemasukanRepository | null = null
 
 export function getUserRepository(): IUserRepository {
   if (!userRepositoryInstance) {
@@ -140,6 +143,13 @@ export function getPengeluaranRepository(): IPengeluaranRepository {
   return pengeluaranRepositoryInstance
 }
 
+export function getPemasukanRepository(): IPemasukanRepository {
+  if (!pemasukanRepositoryInstance) {
+    pemasukanRepositoryInstance = new PemasukanRepository()
+  }
+  return pemasukanRepositoryInstance
+}
+
 export { UserRepository } from './UserRepository'
 export type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
 export { OLTRepository } from './OLTRepository'
@@ -168,4 +178,6 @@ export { TagihanRepository } from './TagihanRepository'
 export type { ITagihanRepository, TagihanCreateData, TagihanUpdateData, TagihanPublic, TagihanWithPelanggan } from './ITagihanRepository'
 export { PengeluaranRepository } from './PengeluaranRepository'
 export type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateData, PengeluaranPublic } from './IPengeluaranRepository'
+export { PemasukanRepository } from './PemasukanRepository'
+export type { IPemasukanRepository, PemasukanCreateData, PemasukanUpdateData, PemasukanPublic } from './IPemasukanRepository'
 

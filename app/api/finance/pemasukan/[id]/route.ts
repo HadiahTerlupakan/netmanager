@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPengeluaranRepository } from '@/lib/repositories'
+import { getPemasukanRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
 
 /**
- * GET /api/finance/pengeluaran/[id]
- * Get detail pengeluaran (FINANCE atau ADMIN)
+ * GET /api/finance/pemasukan/[id]
+ * Get pemasukan by ID (FINANCE atau ADMIN)
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.headers.get('x-finance-token')
@@ -51,33 +51,27 @@ export async function GET(
     }
 
     const { id } = await params
-    const pengeluaranRepo = getPengeluaranRepository()
-    const pengeluaran = await pengeluaranRepo.findById(id)
+    const pemasukanRepo = getPemasukanRepository()
+    const pemasukan = await pemasukanRepo.findById(id)
 
-    if (!pengeluaran) {
-      return NextResponse.json({ error: 'Pengeluaran tidak ditemukan' }, { status: 404 })
+    if (!pemasukan) {
+      return NextResponse.json({ error: 'Pemasukan tidak ditemukan' }, { status: 404 })
     }
 
-    return NextResponse.json(pengeluaran, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      },
-    })
+    return NextResponse.json(pemasukan)
   } catch (error: any) {
-    console.error('Error fetching pengeluaran:', error)
+    console.error('Error fetching pemasukan:', error)
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
   }
 }
 
 /**
- * PUT /api/finance/pengeluaran/[id]
- * Update pengeluaran (FINANCE atau ADMIN)
+ * PUT /api/finance/pemasukan/[id]
+ * Update pemasukan (FINANCE atau ADMIN)
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.headers.get('x-finance-token')
@@ -122,54 +116,40 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const { tanggal, tipePengeluaran, kategori, deskripsi, jumlah, metodeBayar, catatan } = body
+    const { tanggal, kategori, deskripsi, jumlah, metodeBayar, catatan } = body
 
-    if (tipePengeluaran && tipePengeluaran !== 'CAPEX' && tipePengeluaran !== 'OPEX') {
-      return NextResponse.json(
-        { error: 'Tipe pengeluaran harus CAPEX atau OPEX' },
-        { status: 400 }
-      )
-    }
-
-    const pengeluaranRepo = getPengeluaranRepository()
+    const pemasukanRepo = getPemasukanRepository()
     
-    // Cek apakah pengeluaran ada
-    const pengeluaran = await pengeluaranRepo.findById(id)
-    if (!pengeluaran) {
-      return NextResponse.json({ error: 'Pengeluaran tidak ditemukan' }, { status: 404 })
+    // Check if exists
+    const existing = await pemasukanRepo.findById(id)
+    if (!existing) {
+      return NextResponse.json({ error: 'Pemasukan tidak ditemukan' }, { status: 404 })
     }
 
-    await pengeluaranRepo.update(id, {
+    await pemasukanRepo.update(id, {
       tanggal,
-      tipePengeluaran,
       kategori,
       deskripsi,
       jumlah: jumlah !== undefined ? (typeof jumlah === 'number' ? jumlah.toString() : jumlah) : undefined,
-      metodeBayar,
-      catatan,
+      metodeBayar: metodeBayar !== undefined ? metodeBayar : undefined,
+      catatan: catatan !== undefined ? catatan : undefined,
       updatedBy: userId,
     })
 
-    return NextResponse.json({ message: 'Pengeluaran berhasil diupdate' }, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      },
-    })
+    return NextResponse.json({ message: 'Pemasukan berhasil diupdate' })
   } catch (error: any) {
-    console.error('Error updating pengeluaran:', error)
+    console.error('Error updating pemasukan:', error)
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
   }
 }
 
 /**
- * DELETE /api/finance/pengeluaran/[id]
- * Hapus pengeluaran (FINANCE atau ADMIN)
+ * DELETE /api/finance/pemasukan/[id]
+ * Delete pemasukan (FINANCE atau ADMIN)
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.headers.get('x-finance-token')
@@ -212,26 +192,19 @@ export async function DELETE(
     }
 
     const { id } = await params
-    const pengeluaranRepo = getPengeluaranRepository()
+    const pemasukanRepo = getPemasukanRepository()
     
-    // Cek apakah pengeluaran ada
-    const pengeluaran = await pengeluaranRepo.findById(id)
-    if (!pengeluaran) {
-      return NextResponse.json({ error: 'Pengeluaran tidak ditemukan' }, { status: 404 })
+    // Check if exists
+    const existing = await pemasukanRepo.findById(id)
+    if (!existing) {
+      return NextResponse.json({ error: 'Pemasukan tidak ditemukan' }, { status: 404 })
     }
 
-    // Hapus pengeluaran
-    await pengeluaranRepo.delete(id)
+    await pemasukanRepo.delete(id)
 
-    return NextResponse.json({ message: 'Pengeluaran berhasil dihapus' }, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      },
-    })
+    return NextResponse.json({ message: 'Pemasukan berhasil dihapus' })
   } catch (error: any) {
-    console.error('Error deleting pengeluaran:', error)
+    console.error('Error deleting pemasukan:', error)
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
   }
 }

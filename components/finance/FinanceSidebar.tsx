@@ -62,13 +62,8 @@ export default function FinanceSidebar() {
     },
     {
       href: '/finance/cashflow',
-      label: 'Cashflow',
+      label: 'Cashflow & Pengeluaran',
       icon: HiOutlineBanknotes,
-    },
-    {
-      href: '/finance/pengeluaran',
-      label: 'Pengeluaran',
-      icon: HiOutlineDocumentText,
     },
     {
       href: '/finance/laporan',

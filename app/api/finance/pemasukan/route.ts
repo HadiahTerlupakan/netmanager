@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPengeluaranRepository } from '@/lib/repositories'
+import { getPemasukanRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
 
 /**
- * GET /api/finance/pengeluaran
- * List semua pengeluaran untuk finance (FINANCE atau ADMIN)
+ * GET /api/finance/pemasukan
+ * List semua pemasukan untuk finance (FINANCE atau ADMIN)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -52,21 +52,21 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
-    const pengeluaranRepo = getPengeluaranRepository()
+    const pemasukanRepo = getPemasukanRepository()
 
-    let pengeluarans
+    let pemasukans
     if (kategori) {
-      pengeluarans = await pengeluaranRepo.findByKategori(kategori)
+      pemasukans = await pemasukanRepo.findByKategori(kategori)
     } else if (startDate && endDate) {
-      pengeluarans = await pengeluaranRepo.findByDateRange(
+      pemasukans = await pemasukanRepo.findByDateRange(
         new Date(startDate),
         new Date(endDate),
       )
     } else {
-      pengeluarans = await pengeluaranRepo.findAll()
+      pemasukans = await pemasukanRepo.findAll()
     }
 
-    return NextResponse.json(pengeluarans, {
+    return NextResponse.json(pemasukans, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Pragma': 'no-cache',
@@ -74,14 +74,14 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error('Error fetching pengeluaran:', error)
+    console.error('Error fetching pemasukan:', error)
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
   }
 }
 
 /**
- * POST /api/finance/pengeluaran
- * Create pengeluaran baru (FINANCE atau ADMIN)
+ * POST /api/finance/pemasukan
+ * Create pemasukan baru (FINANCE atau ADMIN)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -126,28 +126,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tanggal, tipePengeluaran, kategori, deskripsi, jumlah, metodeBayar, catatan } = body
+    const { tanggal, kategori, deskripsi, jumlah, metodeBayar, catatan } = body
 
-    if (!tanggal || !tipePengeluaran || !kategori || !deskripsi || jumlah === undefined) {
+    if (!tanggal || !kategori || !deskripsi || jumlah === undefined) {
       return NextResponse.json(
-        { error: 'Tanggal, tipe pengeluaran, kategori, deskripsi, dan jumlah wajib diisi' },
+        { error: 'Tanggal, kategori, deskripsi, dan jumlah wajib diisi' },
         { status: 400 }
       )
     }
 
-    if (tipePengeluaran !== 'CAPEX' && tipePengeluaran !== 'OPEX') {
-      return NextResponse.json(
-        { error: 'Tipe pengeluaran harus CAPEX atau OPEX' },
-        { status: 400 }
-      )
-    }
-
-    const pengeluaranRepo = getPengeluaranRepository()
+    const pemasukanRepo = getPemasukanRepository()
     // Convert jumlah to string for BigInt conversion in repository
     const jumlahStr = typeof jumlah === 'number' ? jumlah.toString() : jumlah
-    const result = await pengeluaranRepo.create({
+    const result = await pemasukanRepo.create({
       tanggal,
-      tipePengeluaran,
       kategori,
       deskripsi,
       jumlah: jumlahStr,
@@ -156,7 +148,7 @@ export async function POST(request: NextRequest) {
       createdBy: userId,
     })
 
-    return NextResponse.json({ id: result.id, message: 'Pengeluaran berhasil dibuat' }, {
+    return NextResponse.json({ id: result.id, message: 'Pemasukan berhasil dibuat' }, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Pragma': 'no-cache',
@@ -164,7 +156,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error('Error creating pengeluaran:', error)
+    console.error('Error creating pemasukan:', error)
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
   }
 }
