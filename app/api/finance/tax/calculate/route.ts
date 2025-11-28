@@ -1,0 +1,37 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { TaxRepository } from '@/lib/repositories/TaxRepository';
+
+const prisma = new PrismaClient();
+const taxRepo = new TaxRepository(prisma);
+
+// POST /api/finance/tax/calculate - Calculate tax amount
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+
+        if (!body.taxType || !body.taxableAmount) {
+            return NextResponse.json(
+                { error: 'Missing required fields: taxType and taxableAmount' },
+                { status: 400 }
+            );
+        }
+
+        const result = await taxRepo.calculateTax(body.taxType, BigInt(body.taxableAmount));
+
+        // Serialize BigInt
+        const serialized = {
+            ...result,
+            taxableAmount: result.taxableAmount.toString(),
+            taxAmount: result.taxAmount.toString(),
+        };
+
+        return NextResponse.json(serialized);
+    } catch (error: any) {
+        console.error('Error calculating tax:', error);
+        return NextResponse.json(
+            { error: 'Failed to calculate tax', details: error.message },
+            { status: 500 }
+        );
+    }
+}

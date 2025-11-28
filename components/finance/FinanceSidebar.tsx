@@ -82,6 +82,54 @@ export default function FinanceSidebar() {
       icon: HiOutlineChartBar,
     },
     {
+      label: 'Tax Management',
+      icon: HiOutlineDocumentChartBar,
+      submenu: [
+        {
+          href: '/finance/tax',
+          label: 'Dashboard',
+        },
+        {
+          href: '/finance/tax/reports/ppn',
+          label: 'Laporan PPN',
+        },
+        {
+          href: '/finance/tax/reports/pph',
+          label: 'Laporan PPh',
+        },
+        {
+          href: '/finance/tax/deadlines',
+          label: 'Filing Deadlines',
+        },
+        {
+          href: '/finance/uso',
+          label: 'BHP & USO',
+        },
+      ],
+    },
+    {
+      label: 'Budget Management',
+      icon: HiOutlineChartBar,
+      submenu: [
+        {
+          href: '/finance/budget',
+          label: 'Dashboard',
+        },
+        {
+          href: '/finance/budget/planning',
+          label: 'Budget Planning',
+        },
+        {
+          href: '/finance/deferred',
+          label: 'Deferred Revenue',
+        },
+        {
+          href: '/finance/budget/analysis',
+          label: 'Budget Analysis',
+        },
+      ],
+    },
+    {
       href: '/finance/reports',
       label: 'Reports',
       icon: HiOutlineDocumentChartBar,
@@ -174,22 +222,51 @@ export default function FinanceSidebar() {
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto p-4">
             <div className="space-y-1">
-              {menuItems.map((item) => {
-                const Icon = item.icon
-                const active = isActive(item.href)
+              {menuItems.map((item, index) => {
+                const isActive = item.href ? pathname === item.href : false
+                const hasActiveSubmenu = item.submenu?.some(sub => pathname === sub.href)
+
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${active
-                      ? 'bg-emerald-50 text-emerald-600 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
-                  </Link>
+                  <div key={index}>
+                    {item.href ? (
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsOpen(false)}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
+                          ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 font-medium'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                          }`}
+                      >
+                        <item.icon className="h-5 w-5" />
+                        <span>{item.label}</span>
+                      </Link>
+                    ) : (
+                      <div>
+                        <div className={`flex items-center gap-3 px-4 py-3 rounded-lg ${hasActiveSubmenu ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-gray-700 dark:text-gray-300'
+                          }`}>
+                          <item.icon className="h-5 w-5" />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.submenu && (
+                          <div className="ml-8 mt-1 space-y-1">
+                            {item.submenu.map((subItem, subIndex) => (
+                              <Link
+                                key={subIndex}
+                                href={subItem.href}
+                                onClick={() => setIsOpen(false)}
+                                className={`block px-4 py-2 text-sm rounded-lg transition-all ${pathname === subItem.href
+                                  ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 font-medium'
+                                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                  }`}
+                              >
+                                {subItem.label}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>

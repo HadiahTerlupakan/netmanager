@@ -36,7 +36,10 @@ export async function GET(req: NextRequest) {
       const tokenData = Buffer.from(token, 'base64').toString('utf8')
       const [userId, timestamp] = tokenData.split(':')
 
+      console.log('[Finance Me] Token data:', { userId, timestamp, fullTokenData: tokenData })
+
       if (!userId || !timestamp) {
+        console.log('[Finance Me] Invalid token - missing userId or timestamp')
         return NextResponse.json(
           { error: 'Token tidak valid' },
           { status: 401 }
@@ -50,11 +53,14 @@ export async function GET(req: NextRequest) {
       const maxAge = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
 
       if (tokenAge > maxAge) {
+        console.log('[Finance Me] Token expired:', { tokenAge, maxAge })
         return NextResponse.json(
           { error: 'Token expired' },
           { status: 401 }
         )
       }
+
+      console.log('[Finance Me] Looking up user with ID:', userId)
 
       // Ambil data user dari database
       const user = await prisma.user.findUnique({
@@ -62,11 +68,14 @@ export async function GET(req: NextRequest) {
       })
 
       if (!user) {
+        console.log('[Finance Me] User not found for ID:', userId)
         return NextResponse.json(
           { error: 'User tidak ditemukan' },
           { status: 404 }
         )
       }
+
+      console.log('[Finance Me] User found:', { id: user.id, email: user.email, role: user.role })
 
       // Cek role - FINANCE atau ADMIN bisa akses
       const allowedRoles = ['FINANCE', 'ADMIN'] as const

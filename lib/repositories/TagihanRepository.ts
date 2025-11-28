@@ -279,16 +279,99 @@ export class TagihanRepository implements ITagihanRepository {
   async create(data: TagihanCreateData): Promise<{ id: string }> {
     const tagihan = await this.client.tagihan.create({
       data,
-      select: { id: true },
+      select: { id: true, ppn: true, periodeBulan: true, periodeTahun: true, noTagihan: true, subtotal: true },
     })
-    return tagihan
+
+    // Auto-create tax record if PPN exists
+    if (tagihan.ppn > 0) {
+      try {
+        await this.client.taxRecord.create({
+          data: {
+            taxType: 'PPN_OUT',
+            taxPeriod: tagihan.periodeBulan,
+            taxYear: tagihan.periodeTahun,
+            taxableAmount: BigInt(tagihan.subtotal), // DPP adalah subtotal
+            taxAmount: BigInt(tagihan.ppn),
+            taxRate: 0.11, // 11% PPN
+            reference: tagihan.noTagihan,
+            relatedEntityType: 'TAGIHAN',
+            relatedEntityId: tagihan.id,
+            status: 'DRAFT',
+            notes: `Auto-created from Tagihan ${tagihan.noTagihan}`,
+          },
+        })
+        console.log(`[Tax Integration] Created PPN_OUT record for tagihan ${tagihan.noTagihan}`)
+      } catch (error) {
+        console.error('[Tax Integration] Failed to create tax record:', error)
+        // Don't fail the tagihan creation if tax record creation fails
+      }
+    }
+
+    return { id: tagihan.id }
   }
 
   async update(id: string, data: TagihanUpdateData): Promise<void> {
+    // Get current tagihan to check PPN changes
+    const currentTagihan = await this.client.tagihan.findUnique({
+      where: { id },
+      select: { ppn: true, periodeBulan: true, periodeTahun: true, noTagihan: true, subtotal: true },
+    })
+
     await this.client.tagihan.update({
       where: { id },
       data,
     })
+
+    // Update tax record if PPN changed
+    if (currentTagihan && data.ppn !== undefined && data.ppn !== currentTagihan.ppn) {
+      try {
+        // Find existing tax record
+        const existingTaxRecord = await this.client.taxRecord.findFirst({
+          where: {
+            relatedEntityType: 'TAGIHAN',
+            relatedEntityId: id,
+            taxType: 'PPN_OUT',
+          },
+        })
+
+        const newSubtotal = data.subtotal ?? currentTagihan.subtotal
+
+        if (existingTaxRecord) {
+          // Update existing tax record
+          await this.client.taxRecord.update({
+            where: { id: existingTaxRecord.id },
+            data: {
+              taxableAmount: BigInt(newSubtotal),
+              taxAmount: BigInt(data.ppn),
+              taxRate: 0.11,
+              notes: `Updated from Tagihan ${currentTagihan.noTagihan}`,
+            },
+          })
+          console.log(`[Tax Integration] Updated PPN_OUT record for tagihan ${currentTagihan.noTagihan}`)
+        } else if (data.ppn > 0) {
+          // Create new tax record if none exists
+          await this.client.taxRecord.create({
+            data: {
+              taxType: 'PPN_OUT',
+              taxPeriod: currentTagihan.periodeBulan,
+              taxYear: currentTagihan.periodeTahun,
+              taxableAmount: BigInt(newSubtotal),
+              taxAmount: BigInt(data.ppn),
+              taxRate: 0.11,
+              reference: currentTagihan.noTagihan,
+              relatedEntityType: 'TAGIHAN',
+              relatedEntityId: id,
+              status: 'DRAFT',
+              notes: `Auto-created from Tagihan ${currentTagihan.noTagihan}`,
+            },
+          })
+          console.log(`[Tax Integration] Created PPN_OUT record for tagihan ${currentTagihan.noTagihan}`)
+        }
+      } catch (error) {
+        console.error('[Tax Integration] Failed to update tax record:', error)
+        // Don't fail the tagihan update if tax record update fails
+      }
+    }
   }
 
   async delete(id: string): Promise<void> {

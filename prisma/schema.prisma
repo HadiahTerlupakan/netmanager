@@ -782,12 +782,22 @@ model Pengeluaran {
   createdBy     String?         // User ID yang membuat (optional)
   updatedBy     String?         // User ID yang update terakhir (optional)
   
+  // Budget tracking
+  budgetId      String?         // Link to budget for tracking
+  
+  // Approval workflow
+  isApproved    Boolean         @default(false)
+  approvedBy    String?         // User ID yang approve
+  approvedAt    DateTime?       // Waktu approval
+  
   createdByUser User? @relation("PengeluaranCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   updatedByUser User? @relation("PengeluaranUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
 
   @@index([tanggal])
   @@index([kategori])
   @@index([tipePengeluaran])
+  @@index([budgetId])
+  @@index([isApproved])
 }
 
 // Pemasukan - Data pemasukan manual untuk cashflow
@@ -804,11 +814,17 @@ model Pemasukan {
   createdBy   String?  // User ID yang membuat (optional)
   updatedBy   String?  // User ID yang update terakhir (optional)
   
+  // Verification workflow
+  isVerified  Boolean  @default(false)
+  verifiedBy  String?  // User ID yang verify
+  verifiedAt  DateTime? // Waktu verification
+  
   createdByUser User? @relation("PemasukanCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   updatedByUser User? @relation("PemasukanUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
 
   @@index([tanggal])
   @@index([kategori])
+  @@index([isVerified])
 }
 
 // Settings - Konfigurasi aplikasi
@@ -1074,4 +1090,241 @@ model CustomerCohort {
 
   @@unique([cohortYear, cohortMonth])
   @@index([cohortYear, cohortMonth])
+}
+
+// ============================================
+// TAX MANAGEMENT & BUDGETING SYSTEM
+// ============================================
+
+// TaxRecord - Track all tax transactions (PPN, PPh)
+model TaxRecord {
+  id                String   @id @default(cuid())
+  taxType           String   // "PPN_IN", "PPN_OUT", "PPH_21", "PPH_23", "PPH_4_2"
+  taxPeriod         Int      // Month (1-12)
+  taxYear           Int
+  taxableAmount     BigInt   // DPP (Dasar Pengenaan Pajak)
+  taxAmount         BigInt   // Jumlah pajak
+  taxRate           Float    // Tax rate (e.g., 0.11 for 11%)
+  reference         String?  // Invoice number, payment reference
+  relatedEntityType String?  // "TAGIHAN", "VENDOR_INVOICE", "PAYROLL"
+  relatedEntityId   String?  // ID of related entity
+  status            String   @default("DRAFT") // DRAFT, FILED, PAID
+  filedAt           DateTime?
+  paidAt            DateTime?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  
+  @@index([taxType, taxPeriod, taxYear])
+  @@index([relatedEntityType, relatedEntityId])
+  @@index([status])
+  @@index([taxPeriod, taxYear])
+}
+
+// TaxFilingDeadline - Track tax filing deadlines
+model TaxFilingDeadline {
+  id        String   @id @default(cuid())
+  taxType   String   // "PPN", "PPH_21", "PPH_23", "PPH_4_2", "PPH_ANNUAL"
+  period    Int      // Month (1-12)
+  year      Int
+  deadline  DateTime
+  status    String   @default("PENDING") // PENDING, FILED, LATE
+  filedAt   DateTime?
+  filedBy   String?  // User ID
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([taxType, period, year])
+  @@index([deadline])
+  @@index([status])
+  @@index([year, period])
+}
+
+// BudgetCategory - Hierarchical budget categories
+model BudgetCategory {
+  id          String           @id @default(cuid())
+  code        String           @unique // "OPEX_OPR", "CAPEX_NET", etc.
+  name        String           // "Operational Expense", "Network CAPEX"
+  type        String           // "OPEX", "CAPEX"
+  parentId    String?
+  parent      BudgetCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children    BudgetCategory[] @relation("CategoryHierarchy")
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  budgets Budget[]
+  
+  @@index([type])
+  @@index([parentId])
+  @@index([isActive])
+}
+
+// Budget - Monthly budget planning and tracking
+model Budget {
+  id              String          @id @default(cuid())
+  year            Int
+  month           Int
+  categoryId      String
+  category        BudgetCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  department      String?         // For larger organizations
+  budgetAmount    BigInt
+  actualAmount    BigInt          @default(0)
+  variance        BigInt          @default(0) // actualAmount - budgetAmount
+  variancePercent Float           @default(0) // (variance / budgetAmount) * 100
+  status          String          @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, ACTIVE, CLOSED
+  approvedBy      String?         // User ID
+  approvedAt      DateTime?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdBy       String?
+  updatedBy       String?
+  
+  alerts BudgetAlert[]
+  
+  @@unique([year, month, categoryId])
+  @@index([year, month])
+  @@index([status])
+  @@index([categoryId])
+}
+
+// CashFlowForecast - Cash flow projections
+model CashFlowForecast {
+  id                String   @id @default(cuid())
+  forecastDate      DateTime // Date being forecasted
+  scenarioType      String   // "BEST_CASE", "WORST_CASE", "MOST_LIKELY"
+  projectedRevenue  BigInt
+  projectedExpenses BigInt
+  projectedCashFlow BigInt   // revenue - expenses
+  projectedBalance  BigInt   // cumulative balance
+  confidence        Float    @default(0.7) // 0.0-1.0
+  assumptions       String?  // JSON: assumptions used
+  notes             String?
+  createdAt         DateTime @default(now())
+  createdBy         String?
+  
+  @@index([forecastDate])
+  @@index([scenarioType])
+  @@index([forecastDate, scenarioType])
+}
+
+// BudgetAlert - Budget monitoring alerts
+model BudgetAlert {
+  id        String   @id @default(cuid())
+  budgetId  String
+  budget    Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  alertType String   // "APPROACHING_LIMIT", "EXCEEDED", "VARIANCE_HIGH"
+  threshold Float    // Percentage threshold (e.g., 80, 100, 120)
+  message   String
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  readBy    String?
+  createdAt DateTime @default(now())
+  
+  @@index([budgetId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// USO (Universal Service Obligation) - ISP Compliance
+model USOContribution {
+  id              String    @id @default(cuid())
+  quarter         Int       // 1-4
+  year            Int
+  
+  // Financial data
+  totalRevenue    BigInt    // Gross revenue for quarter
+  usoRate         Float     @default(0.0125) // 1.25%
+  usoAmount       BigInt    // Calculated: revenue * rate
+  
+  // Status tracking
+  status          String    @default("DRAFT") // DRAFT, CALCULATED, FILED, PAID
+  calculatedAt    DateTime?
+  filedAt         DateTime?
+  filedBy         String?
+  paidAt          DateTime?
+  paidBy          String?
+  
+  // Reference
+  paymentReference String?  // Reference to Pengeluaran ID
+  notes           String?   @db.Text
+  
+  // Audit
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdBy       String?
+  
+  @@unique([quarter, year])
+  @@index([status])
+  @@index([year, quarter])
+  @@map("uso_contributions")
+}
+
+// Deferred Revenue - Subscription revenue recognition
+model DeferredRevenue {
+  id                String   @id @default(cuid())
+  
+  // Source
+  tagihanId         String?  // Reference to original invoice
+  customerId        String?  // Customer reference
+  
+  // Financial
+  totalAmount       BigInt   // Total deferred amount
+  recognizedAmount  BigInt   @default(0) // Already recognized
+  remainingAmount   BigInt   // Still deferred
+  
+  // Schedule
+  startDate         DateTime // When to start recognizing
+  endDate           DateTime // When to stop
+  periodMonths      Int      // Number of months (e.g., 12)
+  monthlyAmount     BigInt   // Amount per month
+  
+  // Status
+  status            String   @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  
+  // Metadata
+  description       String?
+  notes             String?  @db.Text
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdBy         String?
+  
+  // Relations
+  recognitions      RevenueRecognition[]
+  
+  @@index([status])
+  @@index([tagihanId])
+  @@index([startDate, endDate])
+  @@map("deferred_revenues")
+}
+
+// Revenue Recognition - Monthly recognition tracking
+model RevenueRecognition {
+  id                  String   @id @default(cuid())
+  deferredRevenueId   String
+  deferredRevenue     DeferredRevenue @relation(fields: [deferredRevenueId], references: [id], onDelete: Cascade)
+  
+  // Recognition details
+  recognitionDate     DateTime // Month being recognized (start of month)
+  amount              BigInt   // Amount recognized
+  notes               String?
+  
+  // Link to Pemasukan (auto-created recognized revenue)
+  pemasukanId         String?  // Auto-created Pemasukan
+  
+  // Audit
+  createdAt           DateTime @default(now())
+  recognizedBy        String?
+  
+  @@index([deferredRevenueId])
+  @@index([recognitionDate])
+  @@unique([deferredRevenueId, recognitionDate])
+  @@map("revenue_recognitions")
 }

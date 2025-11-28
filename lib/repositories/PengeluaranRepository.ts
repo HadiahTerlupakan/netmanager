@@ -82,6 +82,94 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       jumlahBigInt = BigInt(data.jumlah)
     }
 
+    // Auto-link to budget if possible
+    let budgetId: string | null = null
+
+    if (data.kategori && 'budget' in this.client) {
+      try {
+        const { getBudgetCategory } = await import('@/lib/services/budget-integration')
+        const budgetCategory = getBudgetCategory(data.kategori)
+
+        if (budgetCategory) {
+          // Find active budget for current period
+          const expenseDate = typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal
+          const month = expenseDate.getMonth() + 1
+          const year = expenseDate.getFullYear()
+
+          const budget = await (this.client as any).budget.findFirst({
+            where: {
+              category: budgetCategory,
+              month,
+              year,
+              status: { in: ['APPROVED', 'ACTIVE'] },
+            },
+          })
+
+          if (budget) {
+            budgetId = budget.id
+
+            // Update budget actual amount
+            const newActualAmount = budget.actualAmount + jumlahBigInt
+            const newVariance = newActualAmount - budget.budgetAmount
+            const newVariancePercent = Number(newVariance) / Number(budget.budgetAmount) * 100
+
+            await (this.client as any).budget.update({
+              where: { id: budget.id },
+              data: {
+                actualAmount: newActualAmount,
+                variance: newVariance,
+                variancePercent: newVariancePercent,
+              },
+            })
+
+            // Check if we need to create alerts
+            const utilizationPercent = Number(newActualAmount) / Number(budget.budgetAmount) * 100
+
+            // Create alert if crossing thresholds (80%, 100%, 120%)
+            if (utilizationPercent >= 80 && 'budgetAlert' in this.client) {
+              const thresholds = [
+                { threshold: 120, type: 'EXCEEDED_SIGNIFICANTLY', message: `Budget exceeded by ${(utilizationPercent - 100).toFixed(1)}%` },
+                { threshold: 100, type: 'EXCEEDED', message: 'Budget limit reached or exceeded' },
+                { threshold: 80, type: 'APPROACHING_LIMIT', message: 'Budget utilization at 80%' },
+              ]
+
+              for (const { threshold, type, message } of thresholds) {
+                if (utilizationPercent >= threshold) {
+                  // Check if alert already exists
+                  const existingAlert = await (this.client as any).budgetAlert.findFirst({
+                    where: {
+                      budgetId: budget.id,
+                      alertType: type,
+                      isRead: false,
+                    },
+                  })
+
+                  if (!existingAlert) {
+                    await (this.client as any).budgetAlert.create({
+                      data: {
+                        budgetId: budget.id,
+                        alertType: type,
+                        threshold,
+                        message: `${budgetCategory}: ${message}`,
+                      },
+                    })
+                    console.log(`[Budget Alert] Created ${type} alert for budget ${budget.id}`)
+                  }
+                  break // Only create the highest severity alert
+                }
+              }
+            }
+
+            console.log(`[Budget Integration] Linked expense to budget ${budget.id}, updated actual amount`)
+          }
+        }
+      } catch (error) {
+        console.error('[Budget Integration] Failed to link expense to budget:', error)
+        // Don't fail expense creation if budget link fails
+      }
+    }
+
+    // Create the expense record first
     const created = await (this.client as any).pengeluaran.create({
       data: {
         tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal,
@@ -92,9 +180,62 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         metodeBayar: data.metodeBayar ?? null,
         catatan: data.catatan ?? null,
         createdBy: data.createdBy ?? null,
+        budgetId: budgetId, // Link to budget if found
       },
       select: { id: true },
     })
+
+    // Auto-create PPN IN for vendor purchases with PPN
+    // ISP typically pays PPN for: Equipment, Bandwidth, Infrastructure, Services
+    const PPN_CATEGORIES = [
+      'EQUIPMENT',
+      'BANDWIDTH',
+      'VENDOR',
+      'INFRASTRUKTUR',
+      'TEKNOLOGI',
+      'PERALATAN',
+      'FIBER',
+      'EQUIPMENT_CORE',
+      'INFRASTRUKTUR_PASIF',
+    ]
+
+    if (data.kategori && PPN_CATEGORIES.includes(data.kategori) && 'taxRecord' in this.client) {
+      try {
+        // Assumption: jumlah includes PPN (total amount)
+        // Formula: DPP = Total / 1.11, PPN = Total - DPP
+        const totalAmount = Number(jumlahBigInt)
+        const dpp = Math.round(totalAmount / 1.11)
+        const ppnAmount = totalAmount - dpp
+
+        // Only create if PPN amount is significant (> Rp 1000)
+        if (ppnAmount > 1000) {
+          const expenseDate = typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal
+          const month = expenseDate.getMonth() + 1
+          const year = expenseDate.getFullYear()
+
+          await (this.client as any).taxRecord.create({
+            data: {
+              taxType: 'PPN_IN',
+              taxPeriod: month,
+              taxYear: year,
+              taxableAmount: BigInt(dpp),
+              taxAmount: BigInt(ppnAmount),
+              taxRate: 0.11,
+              reference: `Expense: ${data.kategori}`,
+              relatedEntityType: 'PENGELUARAN',
+              relatedEntityId: created.id,
+              status: 'DRAFT',
+              notes: `Auto-created PPN IN from ${data.kategori} vendor purchase - ${data.deskripsi || ''}`.trim(),
+            },
+          })
+          console.log(`[PPN IN Integration] Created PPN IN record for expense ${created.id} - DPP: ${dpp}, PPN: ${ppnAmount}`)
+        }
+      } catch (error) {
+        console.error('[PPN IN Integration] Failed to create tax record:', error)
+        // Don't fail expense creation if tax record creation fails
+      }
+    }
+
     return created
   }
 
