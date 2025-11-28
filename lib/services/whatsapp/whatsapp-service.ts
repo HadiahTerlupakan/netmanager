@@ -1,0 +1,129 @@
+// WhatsApp Service - Main service for sending WhatsApp messages
+
+import { PrismaClient } from '@prisma/client'
+import { decryptApiKey } from '@/lib/utils/encryption'
+import { WhatsAppFactory } from './whatsapp-factory'
+import type { WhatsAppConfig, SendMessageParams, SendFileParams, SendResult } from './whatsapp-provider-interface'
+
+export class WhatsAppService {
+    private prisma: PrismaClient
+
+    constructor(prisma: PrismaClient) {
+        this.prisma = prisma
+    }
+
+    /**
+     * Load WhatsApp configuration from database
+     */
+    private async loadConfig(): Promise<WhatsAppConfig> {
+        const settings = await this.prisma.settings.findMany({
+            where: {
+                key: {
+                    in: ['WHATSAPP_PROVIDER', 'WHATSAPP_API_KEY', 'WABLAS_DOMAIN', 'WABLAS_DEVICE_ID']
+                }
+            }
+        })
+
+        const settingsMap: Record<string, string> = {}
+        for (const setting of settings) {
+            if (setting.key === 'WHATSAPP_API_KEY' && setting.value) {
+                try {
+                    settingsMap[setting.key] = decryptApiKey(setting.value)
+                } catch (error) {
+                    console.error('[WhatsApp] Failed to decrypt API key:', error)
+                    settingsMap[setting.key] = ''
+                }
+            } else {
+                settingsMap[setting.key] = setting.value || ''
+            }
+        }
+
+        const provider = (settingsMap['WHATSAPP_PROVIDER'] as 'WABLAS' | 'FONNTE' | 'OFFICIAL') ||
+            (process.env.WHATSAPP_PROVIDER as 'WABLAS' | 'FONNTE' | 'OFFICIAL') ||
+            'WABLAS'
+
+        const apiKey = settingsMap['WHATSAPP_API_KEY'] || process.env.FONNTE_API_KEY || ''
+
+        if (!apiKey) {
+            throw new Error('WhatsApp API key not configured')
+        }
+
+        return {
+            provider,
+            apiKey,
+            domain: settingsMap['WABLAS_DOMAIN'] || process.env.WABLAS_DOMAIN,
+            deviceId: settingsMap['WABLAS_DEVICE_ID'] || process.env.WABLAS_DEVICE_ID
+        }
+    }
+
+    /**
+     * Send text message
+     */
+    async sendMessage(params: SendMessageParams): Promise<SendResult> {
+        try {
+            const config = await this.loadConfig()
+            const provider = WhatsAppFactory.createProvider(config)
+
+            console.log(`[WhatsApp] Sending via ${config.provider} to ${params.phone}`)
+
+            const result = await provider.sendMessage(params)
+
+            if (result.success) {
+                console.log(`[WhatsApp] Message sent successfully, ID: ${result.messageId}`)
+            } else {
+                console.error(`[WhatsApp] Failed to send:`, result.error)
+            }
+
+            return result
+        } catch (error: any) {
+            console.error('[WhatsApp] Error:', error)
+            return {
+                success: false,
+                error: error.message
+            }
+        }
+    }
+
+    /**
+     * Send file with optional caption
+     */
+    async sendFile(params: SendFileParams): Promise<SendResult> {
+        try {
+            const config = await this.loadConfig()
+            const provider = WhatsAppFactory.createProvider(config)
+
+            // Check if provider supports file sending
+            if (!provider.sendFile) {
+                throw new Error(`Provider ${config.provider} does not support file sending`)
+            }
+
+            console.log(`[WhatsApp] Sending file via ${config.provider} to ${params.phone}`)
+
+            const result = await provider.sendFile(params)
+
+            if (result.success) {
+                console.log(`[WhatsApp] File sent successfully, ID: ${result.messageId}`)
+            } else {
+                console.error(`[WhatsApp] Failed to send file:`, result.error)
+            }
+
+            return result
+        } catch (error: any) {
+            console.error('[WhatsApp] Error:', error)
+            return {
+                success: false,
+                error: error.message
+            }
+        }
+    }
+
+    /**
+     * Test connection with current configuration
+     */
+    async testConnection(testPhone: string): Promise<SendResult> {
+        return this.sendMessage({
+            phone: testPhone,
+            message: `✅ *Test Message from NetManager*\n\nYour WhatsApp API is configured correctly!\n\nTimestamp: ${new Date().toLocaleString('id-ID')}`
+        })
+    }
+}

@@ -3,10 +3,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
-import { 
-  HiOutlineChartBar, 
-  HiOutlineGlobeAlt, 
-  HiOutlineServer, 
+import {
+  HiOutlineChartBar,
+  HiOutlineGlobeAlt,
+  HiOutlineServer,
   HiOutlineSignal,
   HiOutlineDevicePhoneMobile,
   HiOutlinePlus,
@@ -28,13 +28,18 @@ import {
   HiOutlineCircleStack,
   HiOutlineUserCircle,
   HiOutlineCurrencyDollar,
-  HiOutlineUserGroup,
-  HiOutlineCog6Tooth,
-  HiOutlineKey,
-  HiOutlineDocumentText,
+  HiOutlineBanknotes,
+  HiOutlineReceiptPercent,
+  HiOutlineCreditCard,
+  HiOutlineChartPie,
   HiOutlineAdjustmentsHorizontal,
+  HiOutlineKey,
+  HiOutlineCog6Tooth,
   HiOutlinePhoto,
-  HiOutlineBanknotes
+  HiOutlineEnvelope,
+  HiEnvelope,
+  HiChatBubbleLeftRight,
+  HiOutlineCodeBracket
 } from 'react-icons/hi2'
 
 type NavItem = {
@@ -91,7 +96,7 @@ export default function Sidebar() {
     {
       href: '/admin/pelanggan',
       label: 'Pelanggan',
-      icon: <HiOutlineUserGroup className="w-5 h-5" />,
+      icon: <HiOutlineUsers className="w-5 h-5" />,
       children: [
         { href: '/admin/pelanggan/ppp', label: 'Pelanggan PPP', icon: <HiOutlineUserCircle className="w-4 h-4" /> },
       ],
@@ -103,6 +108,7 @@ export default function Sidebar() {
       icon: <HiOutlineCurrencyDollar className="w-5 h-5" />,
       children: [
         { href: '/admin/finance/cashflow', label: 'Cashflow & Pengeluaran', icon: <HiOutlineBanknotes className="w-4 h-4" /> },
+        { href: '/admin/finance/bank-accounts', label: 'Bank Accounts', icon: <HiOutlineCircleStack className="w-4 h-4" /> },
       ],
     },
     {
@@ -110,10 +116,13 @@ export default function Sidebar() {
       label: 'Pengaturan',
       icon: <HiOutlineCog6Tooth className="w-5 h-5" />,
       children: [
-        { href: '/admin/pengaturan/umum', label: 'Pengaturan Umum', icon: <HiOutlineAdjustmentsHorizontal className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/api', label: 'API', icon: <HiOutlineKey className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/logo', label: 'Pengaturan Logo', icon: <HiOutlinePhoto className="w-4 h-4" /> },
-      ],
+        { href: '/admin/pengaturan/umum', label: 'Umum', icon: <HiOutlineCog6Tooth className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/logo', label: 'Logo Perusahaan', icon: <HiOutlinePhoto className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/email', label: 'Email', icon: <HiEnvelope className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/whatsapp', label: 'WhatsApp', icon: <HiChatBubbleLeftRight className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/payment-gateway', label: 'Payment Gateway', icon: <HiOutlineCreditCard className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/api', label: 'API', icon: <HiOutlineCodeBracket className="w-4 h-4" /> },
+      ]
     },
   ], [])
 
@@ -165,11 +174,10 @@ export default function Sidebar() {
               <div key={item.href}>
                 <button
                   onClick={() => toggleMenu(item.href)}
-                  className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-150 ${
-                    isActive || hasActiveChild
-                      ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                  }`}
+                  className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-150 ${isActive || hasActiveChild
+                    ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     {item.icon}
@@ -186,11 +194,10 @@ export default function Sidebar() {
                         <Link
                           key={child.href}
                           href={child.href}
-                          className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-all duration-150 ${
-                            isChildActive
-                              ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
-                              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                          }`}
+                          className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-all duration-150 ${isChildActive
+                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                            }`}
                         >
                           {child.icon}
                           <span>{child.label}</span>
@@ -207,11 +214,10 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-150 ${
-                isActive
-                  ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-              }`}
+              className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-150 ${isActive
+                ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                }`}
             >
               {item.icon}
               <span>{item.label}</span>

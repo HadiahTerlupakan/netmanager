@@ -639,12 +639,132 @@ model Tagihan {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
+  paymentTransactions PaymentGatewayTransaction[]
+  paymentLink         PaymentLink?
+
   @@unique([pelangganId, periodeBulan, periodeTahun]) // Satu tagihan per pelanggan per periode
   @@index([pelangganId])
   @@index([status])
   @@index([jatuhTempo])
   @@index([noTagihan])
   @@index([periodeBulan, periodeTahun])
+  @@index([createdAt])
+}
+
+// ============================================
+// PAYMENT GATEWAY TABLES
+// ============================================
+
+// Payment Gateway Configuration (Multi-provider support)
+model PaymentGatewayConfig {
+  id              String   @id @default(cuid())
+  
+  // Provider identification
+  provider        String   @unique // "XENDIT", "MIDTRANS", "DUITKU", "BCA_API", "DANA_API"
+  providerName    String   // Display name: "Xendit", "Midtrans", etc.
+  
+  // Configuration
+  isEnabled       Boolean  @default(false)
+  isProduction    Boolean  @default(false) // Sandbox vs Production
+  priority        Int      @default(0) // Higher = preferred (for auto-routing)
+  
+  // API Credentials (ENCRYPTED!)
+  apiKey          String?  // Main API key/Server key (encrypted)
+  apiSecret       String?  // Secret key (encrypted, if applicable)
+  clientKey       String?  // Client key (for frontend, if applicable)
+  merchantId      String?  // Merchant/Account ID
+  
+  // Additional settings
+  webhookUrl      String?  // Auto-generated webhook URL
+  callbackUrl     String?  // Payment callback URL
+  
+  // Provider-specific settings (JSON)
+  settings        Json?    // { "enabledMethods": ["bank_transfer", "ewallet"], "fees": {...} }
+  
+  // Metadata
+  lastTestedAt    DateTime? // Last successful test
+  testStatus      String?   // "SUCCESS", "FAILED", error message
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String?  // Admin user ID
+  
+  // Relations
+  transactions    PaymentGatewayTransaction[]
+  
+  @@index([provider])
+  @@index([isEnabled])
+  @@index([priority])
+}
+
+// Payment Gateway Transactions
+model PaymentGatewayTransaction {
+  id                String    @id @default(cuid())
+  
+  // Gateway details
+  provider          String    // "XENDIT", "MIDTRANS", etc.
+  providerConfig    PaymentGatewayConfig @relation(fields: [provider], references: [provider])
+  orderId           String    @unique // Our internal order ID (TAG-XXX-YYY)
+  transactionId     String?   @unique // Gateway's transaction ID
+  
+  // Payment details
+  tagihanId         String    // Link to invoice
+  tagihan           Tagihan   @relation(fields: [tagihanId], references: [id], onDelete: Cascade)
+  amount            BigInt    // Amount in rupiah
+  paymentMethod     String?   // "bank_transfer", "gopay", "credit_card", etc.
+  bankCode          String?   // "bca", "mandiri", "bni", etc.
+  
+  // Status tracking
+  status            String    @default("PENDING") // PENDING, PAID, EXPIRED, CANCELLED, FAILED
+  paidAt            DateTime? // When payment completed
+  expiredAt         DateTime? // Payment link expiry
+  
+  // Gateway response
+  paymentUrl        String?   // Payment page URL
+  qrCodeUrl         String?   // For QRIS/e-wallet
+  vaNumber          String?   // Virtual account number (for bank transfer)
+  
+  // Webhook data
+  webhookReceived   Boolean   @default(false)
+  webhookData       Json?     // Store raw webhook payload
+  
+  // Metadata
+  customerEmail     String?
+  customerPhone     String?
+  notes             String?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([tagihanId])
+  @@index([status])
+  @@index([orderId])
+  @@index([transactionId])
+  @@index([createdAt])
+}
+
+// Payment Links (Persistent links for customer portal)
+model PaymentLink {
+  id            String   @id @default(cuid())
+  
+  tagihanId     String   @unique // One link per invoice
+  tagihan       Tagihan  @relation(fields: [tagihanId], references: [id], onDelete: Cascade)
+  
+  linkToken     String   @unique // URL-safe token for public link
+  paymentUrl    String   // Full payment URL
+  
+  isActive      Boolean  @default(true)
+  expiresAt     DateTime? // Optional expiry
+  
+  // Track usage
+  viewCount     Int      @default(0) // How many times opened
+  lastViewedAt  DateTime?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([linkToken])
+  @@index([tagihanId])
 }
 
 // Pengeluaran - Data pengeluaran untuk cashflow
@@ -702,4 +822,256 @@ model Settings {
   updatedAt   DateTime @updatedAt
 
   @@index([key])
+}
+
+// ============================================
+// FINANCE MODULES - AR, Bank Reconciliation, MRR/ARR
+// ============================================
+
+// BankAccount - Support multiple bank accounts
+model BankAccount {
+  id              String   @id @default(cuid())
+  accountName     String   // e.g., "BCA Operasional", "Mandiri Payroll"
+  bankName        String   // e.g., "BCA", "Mandiri", "BRI"
+  accountNumber   String   @unique
+  accountType     String   @default("CHECKING") // CHECKING, SAVINGS, E_WALLET
+  balance         BigInt   @default(0) // Current balance in system
+  currency        String   @default("IDR")
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  statements      BankStatement[]
+  reconciliations Reconciliation[]
+
+  @@index([bankName])
+  @@index([isActive])
+}
+
+// BankStatement - Imported from bank
+model BankStatement {
+  id                String    @id @default(cuid())
+  bankAccountId     String
+  bankAccount       BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  transactionDate   DateTime
+  description       String
+  reference         String?   // Bank reference number
+  debit             BigInt    @default(0) // Money out
+  credit            BigInt    @default(0) // Money in
+  balance           BigInt    // Balance after this transaction
+  isReconciled      Boolean   @default(false)
+  reconciledAt      DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  reconciliationMatch ReconciliationMatch[]
+
+  @@index([bankAccountId])
+  @@index([transactionDate])
+  @@index([isReconciled])
+  @@index([bankAccountId, transactionDate])
+}
+
+// Reconciliation - Monthly reconciliation records
+model Reconciliation {
+  id                String      @id @default(cuid())
+  bankAccountId     String
+  bankAccount       BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  month             Int         // 1-12
+  year              Int         // 2024, 2025
+  openingBalance    BigInt
+  closingBalance    BigInt
+  totalDeposits     BigInt      // Total in dari bank statement
+  totalWithdrawals  BigInt      // Total out dari bank statement
+  systemDeposits    BigInt      // Total in dari system (Invoice payments)
+  systemWithdrawals BigInt      // Total out dari system (Expenses)
+  difference        BigInt      // Should be 0 when reconciled
+  isCompleted       Boolean     @default(false)
+  completedAt       DateTime?
+  completedBy       String?     // User ID
+  notes             String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@unique([bankAccountId, month, year])
+  @@index([bankAccountId])
+  @@index([year, month])
+}
+
+// ReconciliationMatch - Mapping between bank statements and system records
+model ReconciliationMatch {
+  id                String         @id @default(cuid())
+  bankStatementId   String
+  bankStatement     BankStatement  @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
+  matchType         String         // "PAYMENT_IN", "PAYMENT_OUT", "INTERNAL_TRANSFER"
+  matchedEntityType String         // "TAGIHAN", "PENGELUARAN", "PEMASUKAN"
+  matchedEntityId   String         // ID of Tagihan/Pengeluaran/Pemasukan
+  confidence        Float          @default(1.0) // 0.0-1.0, for auto-matching
+  notes             String?
+  matchedBy         String?        // User ID (null for auto-match)
+  createdAt         DateTime       @default(now())
+
+  @@index([bankStatementId])
+  @@index([matchedEntityType, matchedEntityId])
+}
+
+// CollectionTask - Tasks untuk follow-up piutang
+model CollectionTask {
+  id              String   @id @default(cuid())
+  pelangganId     String
+  tagihanId       String?  // Optional, bisa untuk specific tagihan
+  assignedTo      String?  // User ID
+  priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status          String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  dueDate         DateTime
+  notes           String?
+  resolution      String?  // Notes ketika task completed
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  followUps       CollectionFollowUp[]
+
+  @@index([pelangganId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([dueDate])
+}
+
+// CollectionFollowUp - Log komunikasi dengan pelanggan
+model CollectionFollowUp {
+  id                String          @id @default(cuid())
+  collectionTaskId  String
+  collectionTask    CollectionTask  @relation(fields: [collectionTaskId], references: [id], onDelete: Cascade)
+  method            String          // "PHONE", "WHATSAPP", "EMAIL", "SMS", "VISIT"
+  notes             String          // Isi komunikasi
+  response          String?         // Response dari pelanggan
+  followUpBy        String?         // User ID
+  followUpAt        DateTime        @default(now())
+
+  @@index([collectionTaskId])
+  @@index([followUpAt])
+}
+
+// Payment - Track payment details (enhancement to existing flow)
+model Payment {
+  id              String    @id @default(cuid())
+  tagihanId       String?   // Optional, payment could be for multiple tagihan
+  pelangganId     String
+  amount          BigInt
+  paymentDate     DateTime
+  paymentMethod   String    // "TRANSFER", "CASH", "OVO", "GOPAY", etc.
+  bankAccountId   String?   // Which bank account received this payment
+  reference       String?   // Payment reference number
+  notes           String?
+  verifiedBy      String?   // User ID who verified
+  verifiedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tagihanId])
+  @@index([pelangganId])
+  @@index([paymentDate])
+  @@index([bankAccountId])
+}
+
+// ARAgingSnapshot - Historical aging data for trending
+model ARAgingSnapshot {
+  id              String   @id @default(cuid())
+  snapshotDate    DateTime @default(now())
+  current         BigInt   @default(0) // 0-30 days
+  overdue30       BigInt   @default(0) // 31-60 days
+  overdue60       BigInt   @default(0) // 61-90 days
+  overdue90       BigInt   @default(0) // 90+ days
+  totalOutstanding BigInt  @default(0)
+  totalCustomers  Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  @@index([snapshotDate])
+}
+
+// MRRMovement - Track MRR changes
+model MRRMovement {
+  id              String   @id @default(cuid())
+  month           Int      // 1-12
+  year            Int
+  movementType    String   // "NEW", "EXPANSION", "CONTRACTION", "CHURN", "REACTIVATION"
+  pelangganId     String?  // Optional, for tracking specific customer
+  amount          BigInt   // Amount of MRR change
+  description     String?
+  createdAt       DateTime @default(now())
+
+  @@index([year, month])
+  @@index([movementType])
+  @@index([pelangganId])
+}
+
+// RevenueSnapshot - Daily/Monthly revenue aggregates
+model RevenueSnapshot {
+  id                    String   @id @default(cuid())
+  snapshotDate          DateTime
+  snapshotType          String   @default("DAILY") // DAILY, MONTHLY
+  totalMRR              BigInt   @default(0)
+  totalARR              BigInt   @default(0)
+  newMRR                BigInt   @default(0)
+  expansionMRR          BigInt   @default(0)
+  contractionMRR        BigInt   @default(0)
+  churnMRR              BigInt   @default(0)
+  reactivationMRR       BigInt   @default(0)
+  activeCustomers       Int      @default(0)
+  newCustomers          Int      @default(0)
+  churnedCustomers      Int      @default(0)
+  arpu                  Int      @default(0) // Average Revenue Per User
+  createdAt             DateTime @default(now())
+
+  @@unique([snapshotDate, snapshotType])
+  @@index([snapshotDate])
+  @@index([snapshotType])
+}
+
+// ReminderLog - Track semua reminder yang dikirim
+model ReminderLog {
+  id              String   @id @default(cuid())
+  pelangganId     String
+  tagihanId       String?  // Optional
+  reminderType    String   // "PRE_DUE", "DUE_DATE", "OVERDUE_7", "OVERDUE_14", "OVERDUE_30"
+  channel         String   // "EMAIL", "WHATSAPP", "SMS"
+  recipient       String   // Email or phone number
+  subject         String?  // For email
+  message         String
+  status          String   @default("PENDING") // PENDING, SENT, FAILED, DELIVERED
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  failureReason   String?
+  createdAt       DateTime @default(now())
+
+  @@index([pelangganId])
+  @@index([tagihanId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// CustomerCohort - Customer cohort tracking
+model CustomerCohort {
+  id                String   @id @default(cuid())
+  cohortMonth       Int      // Month of first customer registration (1-12)
+  cohortYear        Int      // Year of first customer registration
+  initialCustomers  Int      // Number of customers in this cohort initially
+  month0Revenue     BigInt   @default(0) // Revenue in month 0 (registration month)
+  month1Revenue     BigInt   @default(0) // Revenue in month 1
+  month2Revenue     BigInt   @default(0) // Revenue in month 2
+  month3Revenue     BigInt   @default(0) // Revenue in month 3
+  month6Revenue     BigInt   @default(0) // Revenue in month 6
+  month12Revenue    BigInt   @default(0) // Revenue in month 12
+  activeMonth0      Int      @default(0) // Active customers in month 0
+  activeMonth1      Int      @default(0) // Active customers in month 1
+  activeMonth3      Int      @default(0) // Active customers in month 3
+  activeMonth6      Int      @default(0) // Active customers in month 6
+  activeMonth12     Int      @default(0) // Active customers in month 12
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([cohortYear, cohortMonth])
+  @@index([cohortYear, cohortMonth])
 }

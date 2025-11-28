@@ -13,6 +13,7 @@ import {
   HiOutlineCurrencyDollar,
   HiOutlineChartBar,
   HiOutlineBanknotes,
+  HiOutlineDocumentChartBar,
 } from 'react-icons/hi2'
 
 // Context for sidebar state
@@ -64,6 +65,26 @@ export default function FinanceSidebar() {
       href: '/finance/cashflow',
       label: 'Cashflow & Pengeluaran',
       icon: HiOutlineBanknotes,
+    },
+    {
+      href: '/finance/ar',
+      label: 'Accounts Receivable',
+      icon: HiOutlineCurrencyDollar,
+    },
+    {
+      href: '/finance/bank-reconciliation',
+      label: 'Bank Reconciliation',
+      icon: HiOutlineBanknotes,
+    },
+    {
+      href: '/finance/mrr-dashboard',
+      label: 'MRR/ARR Dashboard',
+      icon: HiOutlineChartBar,
+    },
+    {
+      href: '/finance/reports',
+      label: 'Reports',
+      icon: HiOutlineDocumentChartBar,
     },
     {
       href: '/finance/laporan',
