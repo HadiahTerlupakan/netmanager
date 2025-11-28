@@ -14,6 +14,8 @@ import {
   HiOutlineChartBar,
   HiOutlineBanknotes,
   HiOutlineDocumentChartBar,
+  HiChevronDown,
+  HiChevronRight,
 } from 'react-icons/hi2'
 
 // Context for sidebar state
@@ -32,6 +34,21 @@ export default function FinanceSidebar() {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [financeUser, setFinanceUser] = useState<any>(null)
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({})
+
+  // Auto-expand menu based on active route
+  useEffect(() => {
+    const newOpenMenus: Record<string, boolean> = {}
+
+    menuItems.forEach(item => {
+      if (item.submenu) {
+        const hasActiveSubmenu = item.submenu.some(sub => pathname?.startsWith(sub.href))
+        newOpenMenus[item.label] = hasActiveSubmenu
+      }
+    })
+
+    setOpenMenus(newOpenMenus)
+  }, [pathname])
 
   useEffect(() => {
     const financeData = localStorage.getItem('finance_data')
@@ -158,6 +175,19 @@ export default function FinanceSidebar() {
     return pathname?.startsWith(href)
   }
 
+  const toggleMenu = (label: string) => {
+    setOpenMenus(prev => {
+      const newState: Record<string, boolean> = {}
+      // Close all menus
+      Object.keys(prev).forEach(key => {
+        newState[key] = false
+      })
+      // Toggle the clicked menu
+      newState[label] = !prev[label]
+      return newState
+    })
+  }
+
   // Expose toggle function globally for header button
   useEffect(() => {
     ; (window as any).toggleFinanceSidebar = () => setIsOpen(!isOpen)
@@ -242,13 +272,29 @@ export default function FinanceSidebar() {
                       </Link>
                     ) : (
                       <div>
-                        <div className={`flex items-center gap-3 px-4 py-3 rounded-lg ${hasActiveSubmenu ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-gray-700 dark:text-gray-300'
-                          }`}>
-                          <item.icon className="h-5 w-5" />
-                          <span>{item.label}</span>
-                        </div>
-                        {item.submenu && (
-                          <div className="ml-8 mt-1 space-y-1">
+                        {/* Dropdown Header - Clickable */}
+                        <button
+                          onClick={() => toggleMenu(item.label)}
+                          className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-all ${hasActiveSubmenu
+                            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 font-medium'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                            }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <item.icon className="h-5 w-5" />
+                            <span>{item.label}</span>
+                          </div>
+                          {/* Chevron Icon */}
+                          {openMenus[item.label] ? (
+                            <HiChevronDown className="h-4 w-4" />
+                          ) : (
+                            <HiChevronRight className="h-4 w-4" />
+                          )}
+                        </button>
+
+                        {/* Submenu - Collapsible */}
+                        {item.submenu && openMenus[item.label] && (
+                          <div className="ml-8 mt-1 space-y-1 animate-in slide-in-from-top-2 duration-200">
                             {item.submenu.map((subItem, subIndex) => (
                               <Link
                                 key={subIndex}
