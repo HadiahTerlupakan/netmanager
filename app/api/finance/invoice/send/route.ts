@@ -10,6 +10,8 @@ export async function POST(request: NextRequest) {
         const body = await request.json()
         const { tagihanId, channel, recipient } = body
 
+        console.log('[Invoice Send] Request params:', { tagihanId, channel, recipient })
+
         if (!tagihanId || !channel) {
             return NextResponse.json(
                 { error: 'Missing required fields: tagihanId, channel' },
@@ -23,6 +25,8 @@ export async function POST(request: NextRequest) {
             channel,
             recipient
         })
+
+        console.log('[Invoice Send] Results:', JSON.stringify(results, null, 2))
 
         // Check if any succeeded
         const hasSuccess = results.some(r => r.success)
@@ -41,8 +45,9 @@ export async function POST(request: NextRequest) {
         })
     } catch (error: any) {
         console.error('Error sending invoice:', error)
+        console.error('Error stack:', error.stack)
         return NextResponse.json(
-            { error: 'Failed to send invoice', details: error.message },
+            { error: 'Failed to send invoice', details: error.message, stack: error.stack },
             { status: 500 }
         )
     }

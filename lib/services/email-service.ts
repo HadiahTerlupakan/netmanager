@@ -1,0 +1,130 @@
+// Email Service using Nodemailer
+import nodemailer from 'nodemailer'
+import { PrismaClient } from '@prisma/client'
+import { decryptApiKey } from '@/lib/utils/encryption'
+
+export interface EmailConfig {
+    smtpHost: string
+    smtpPort: number
+    smtpUser: string
+    smtpPass: string
+    fromName: string
+    fromEmail: string
+}
+
+export interface SendEmailParams {
+    to: string
+    subject: string
+    html: string
+    attachments?: Array<{
+        filename: string
+        content: Buffer
+        contentType?: string
+    }>
+}
+
+export interface SendEmailResult {
+    success: boolean
+    messageId?: string
+    error?: string
+}
+
+export class EmailService {
+    constructor(private prisma: PrismaClient) { }
+
+    /**
+     * Load email configuration from database
+     */
+    private async loadConfig(): Promise<EmailConfig> {
+        const settings = await this.prisma.settings.findMany({
+            where: {
+                key: { in: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'FROM_NAME', 'FROM_EMAIL'] }
+            }
+        })
+
+        const settingsMap: Record<string, string> = {}
+        for (const setting of settings) {
+            settingsMap[setting.key] = setting.value || ''
+        }
+
+        // Decrypt password
+        const encryptedPass = settingsMap['SMTP_PASS']
+        if (!encryptedPass) {
+            throw new Error('SMTP password not configured')
+        }
+
+        const smtpPass = decryptApiKey(encryptedPass)
+
+        return {
+            smtpHost: settingsMap['SMTP_HOST'] || '',
+            smtpPort: parseInt(settingsMap['SMTP_PORT'] || '587'),
+            smtpUser: settingsMap['SMTP_USER'] || '',
+            smtpPass,
+            fromName: settingsMap['FROM_NAME'] || 'NetManager ISP',
+            fromEmail: settingsMap['FROM_EMAIL'] || settingsMap['SMTP_USER']
+        }
+    }
+
+    /**
+     * Send email
+     */
+    async sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
+        try {
+            const config = await this.loadConfig()
+
+            console.log(`[Email] Sending to ${params.to} via ${config.smtpHost}`)
+
+            // Create transporter
+            const transporter = nodemailer.createTransport({
+                host: config.smtpHost,
+                port: config.smtpPort,
+                secure: config.smtpPort === 465, // true for 465, false for other ports
+                auth: {
+                    user: config.smtpUser,
+                    pass: config.smtpPass
+                }
+            })
+
+            // Send email
+            const info = await transporter.sendMail({
+                from: `"${config.fromName}" <${config.fromEmail}>`,
+                to: params.to,
+                subject: params.subject,
+                html: params.html,
+                attachments: params.attachments
+            })
+
+            console.log(`[Email] Message sent successfully, ID: ${info.messageId}`)
+
+            return {
+                success: true,
+                messageId: info.messageId
+            }
+        } catch (error: any) {
+            console.error('[Email] Error:', error)
+            return {
+                success: false,
+                error: error.message
+            }
+        }
+    }
+
+    /**
+     * Test email connection
+     */
+    async testConnection(testEmail: string): Promise<SendEmailResult> {
+        return this.sendEmail({
+            to: testEmail,
+            subject: 'Test Email from NetManager',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2 style="color: #10b981;">✅ Email Configuration Test</h2>
+                    <p>This is a test email to verify your email configuration.</p>
+                    <p style="margin-top: 20px; color: #10b981; font-weight: bold;">
+                        If you received this email, your configuration is working correctly!
+                    </p>
+                </div>
+            `
+        })
+    }
+}

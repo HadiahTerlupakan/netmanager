@@ -4,70 +4,70 @@ import puppeteer from 'puppeteer'
 import { PrismaClient } from '@prisma/client'
 
 export interface InvoiceData {
-    tagihanId: string
-    noTagihan: string
-    periodeBulan: number
-    periodeTahun: number
-    tanggalJatuhTempo: Date
-    total: bigint
-    status: string
+  tagihanId: string
+  noTagihan: string
+  periodeBulan: number
+  periodeTahun: number
+  tanggalJatuhTempo: Date
+  total: bigint
+  status: string
 
-    // Customer info
-    pelanggan: {
-        nama: string
-        alamat: string
-        kecamatan: string
-        kabupaten: string
-        noTelp: string | null
-        email: string | null
-    }
+  // Customer info
+  pelanggan: {
+    nama: string
+    alamat: string
+    kecamatan: string
+    kabupaten: string
+    noTelp: string | null
+    email: string | null
+  }
 
-    // Package info
-    hargaPaket: {
-        name: string
-        harga: bigint
-    }
+  // Package info
+  hargaPaket: {
+    name: string
+    harga: bigint
+  }
 
-    // Company info (from settings)
-    company: {
-        name: string
-        address: string
-        phone: string
-        email: string
-        logo?: string
-    }
+  // Company info (from settings)
+  company: {
+    name: string
+    address: string
+    phone: string
+    email: string
+    logo?: string
+  }
 }
 
 export class InvoicePDFService {
-    constructor(private prisma: PrismaClient) { }
+  constructor(private prisma: PrismaClient) { }
 
-    /**
-     * Generate HTML template for invoice
-     */
-    private generateInvoiceHTML(data: InvoiceData): string {
-        const months = [
-            'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-        ]
+  /**
+   * Generate HTML template for invoice
+   */
+  private generateInvoiceHTML(data: InvoiceData): string {
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ]
 
-        const formatRupiah = (amount: bigint | number) => {
-            const numAmount = typeof amount === 'bigint' ? Number(amount) : amount
-            return new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0,
-            }).format(numAmount)
-        }
+    const formatRupiah = (amount: bigint | number) => {
+      const numAmount = typeof amount === 'bigint' ? Number(amount) : amount
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+      }).format(numAmount)
+    }
 
-        const formatDate = (date: Date) => {
-            return new Intl.DateTimeFormat('id-ID', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            }).format(date)
-        }
+    const formatDate = (date: Date) => {
+      return new Intl.DateTimeFormat('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }).format(date)
+    }
 
-        return `
+    return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -430,88 +430,101 @@ export class InvoicePDFService {
 </body>
 </html>
     `
+  }
+
+  /**
+   * Generate PDF from Tagihan
+   */
+  async generatePDF(tagihanId: string): Promise<Buffer> {
+    // Get tagihan data
+    const tagihan = await this.prisma.tagihan.findUnique({
+      where: { id: tagihanId },
+      include: {
+        pelanggan: {
+          include: {
+            hargaPaket: true
+          }
+        }
+      }
+    })
+
+    if (!tagihan) {
+      throw new Error('Tagihan not found')
     }
 
-    /**
-     * Generate PDF from Tagihan
-     */
-    async generatePDF(tagihanId: string): Promise<Buffer> {
-        // Get tagihan data
-        const tagihan = await this.prisma.tagihan.findUnique({
-            where: { id: tagihanId },
-            include: {
-                pelanggan: true,
-                hargaPaket: true
-            }
-        })
-
-        if (!tagihan) {
-            throw new Error('Tagihan not found')
-        }
-
-        // Get company settings (you should have this in your settings/config)
-        const companyInfo = {
-            name: 'NetManager ISP',
-            address: 'Jl. Example No. 123, Jakarta',
-            phone: '021-12345678',
-            email: 'billing@netmanager.com',
-            logo: '/logo.png' // Optional
-        }
-
-        // Prepare invoice data
-        const invoiceData: InvoiceData = {
-            tagihanId: tagihan.id,
-            noTagihan: tagihan.noTagihan,
-            periodeBulan: tagihan.periodeBulan,
-            periodeTahun: tagihan.periodeTahun,
-            tanggalJatuhTempo: tagihan.tanggalJatuhTempo,
-            total: tagihan.total,
-            status: tagihan.status,
-            pelanggan: tagihan.pelanggan,
-            hargaPaket: tagihan.hargaPaket,
-            company: companyInfo
-        }
-
-        // Generate HTML
-        const html = this.generateInvoiceHTML(invoiceData)
-
-        // Launch Puppeteer browser
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        })
-
-        try {
-            const page = await browser.newPage()
-
-            // Set content
-            await page.setContent(html, { waitUntil: 'networkidle0' })
-
-            // Generate PDF
-            const pdfBuffer = await page.pdf({
-                format: 'A4',
-                printBackground: true,
-                margin: {
-                    top: '0mm',
-                    right: '0mm',
-                    bottom: '0mm',
-                    left: '0mm'
-                }
-            })
-
-            return Buffer.from(pdfBuffer)
-        } finally {
-            await browser.close()
-        }
+    // Get company settings (you should have this in your settings/config)
+    const companyInfo = {
+      name: 'NetManager ISP',
+      address: 'Jl. Example No. 123, Jakarta',
+      phone: '021-12345678',
+      email: 'billing@netmanager.com',
+      logo: '/logo.png' // Optional
     }
 
-    /**
-     * Generate PDF and save to file system (optional)
-     */
-    async generateAndSavePDF(tagihanId: string, outputPath: string): Promise<string> {
-        const pdfBuffer = await this.generatePDF(tagihanId)
-        const fs = require('fs').promises
-        await fs.writeFile(outputPath, pdfBuffer)
-        return outputPath
+    // Prepare invoice data
+    const invoiceData: InvoiceData = {
+      tagihanId: tagihan.id,
+      noTagihan: tagihan.noTagihan,
+      periodeBulan: tagihan.periodeBulan,
+      periodeTahun: tagihan.periodeTahun,
+      tanggalJatuhTempo: tagihan.jatuhTempo, // Fixed: jatuhTempo in DB
+      total: BigInt(tagihan.total), // Convert to bigint
+      status: tagihan.status,
+      pelanggan: {
+        nama: tagihan.pelanggan.nama,
+        alamat: tagihan.pelanggan.alamat || '',
+        kecamatan: tagihan.pelanggan.kecamatan || '',
+        kabupaten: tagihan.pelanggan.kabupatenKota || '', // Fixed: kabupatenKota in DB
+        noTelp: tagihan.pelanggan.noTelp,
+        email: tagihan.pelanggan.email
+      },
+      hargaPaket: {
+        name: tagihan.pelanggan.hargaPaket.name,
+        harga: BigInt(tagihan.pelanggan.hargaPaket.harga) // Convert to bigint
+      },
+      company: companyInfo
     }
+
+    // Generate HTML
+    const html = this.generateInvoiceHTML(invoiceData)
+
+    // Launch Puppeteer browser
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    })
+
+    try {
+      const page = await browser.newPage()
+
+      // Set content
+      await page.setContent(html, { waitUntil: 'networkidle0' })
+
+      // Generate PDF
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '0mm',
+          right: '0mm',
+          bottom: '0mm',
+          left: '0mm'
+        }
+      })
+
+      return Buffer.from(pdfBuffer)
+    } finally {
+      await browser.close()
+    }
+  }
+
+  /**
+   * Generate PDF and save to file system (optional)
+   */
+  async generateAndSavePDF(tagihanId: string, outputPath: string): Promise<string> {
+    const pdfBuffer = await this.generatePDF(tagihanId)
+    const fs = require('fs').promises
+    await fs.writeFile(outputPath, pdfBuffer)
+    return outputPath
+  }
 }
