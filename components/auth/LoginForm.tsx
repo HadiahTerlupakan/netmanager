@@ -49,6 +49,13 @@ export default function LoginForm() {
     })
     if (!res) return
     if (res.error) {
+      // Jika error terkait rate limiting, redirect ke halaman error
+      if (res.error.includes('Terlalu banyak percobaan') || res.error.includes('rate limit')) {
+        const errorUrl = `/error?error=${encodeURIComponent(res.error)}`
+        router.push(errorUrl)
+        return
+      }
+      // Error lainnya (email/password salah)
       setError('password', { message: 'Email atau password salah' })
       return
     }

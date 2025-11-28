@@ -11,6 +11,10 @@ export const authConfig = {
   session: {
     strategy: 'jwt' as const,
   },
+  pages: {
+    signIn: '/login',
+    error: '/error', // Halaman error khusus untuk NextAuth (akan di-handle oleh app/(auth)/error/page.tsx)
+  },
   providers: [
     Credentials({
       name: 'Email & Password',
