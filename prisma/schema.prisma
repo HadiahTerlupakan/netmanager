@@ -11,6 +11,7 @@ enum Role {
   USER
   ADMIN
   FINANCE
+  HR
 }
 
 enum Status {
@@ -47,6 +48,69 @@ enum TipePengeluaran {
   OPEX
 }
 
+// ============================================
+// HRIS ENUMS
+// ============================================
+
+enum EmploymentStatus {
+  PROBATION // Masa percobaan
+  PERMANENT // Karyawan tetap
+  CONTRACT // Kontrak
+  INTERNSHIP // Magang
+  TERMINATED // Keluar/diberhentikan
+}
+
+enum AttendanceStatus {
+  PRESENT // Hadir
+  LATE // Terlambat
+  ABSENT // Tidak hadir
+  LEAVE // Cuti
+  SICK_LEAVE // Sakit
+  PERMISSION // Izin
+  REMOTE // WFH/Remote
+}
+
+enum LeaveType {
+  ANNUAL // Cuti tahunan
+  SICK // Sakit
+  PERMISSION // Izin
+  MATERNITY // Melahirkan
+  PATERNITY // Ayah
+  UNPAID // Tanpa gaji
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum PayrollStatus {
+  DRAFT
+  CALCULATED
+  APPROVED
+  PAID
+}
+
+enum SalaryComponentType {
+  BASIC_SALARY // Gaji pokok
+  ALLOWANCE // Tunjangan
+  BONUS // Bonus
+  DEDUCTION // Potongan
+  TAX // Pajak
+  INSURANCE // Asuransi
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFERED
+  ACCEPTED
+  REJECTED
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String?
@@ -56,11 +120,11 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   sessions     Session[]
-  
+
   pengeluaransCreated Pengeluaran[] @relation("PengeluaranCreatedBy")
   pengeluaransUpdated Pengeluaran[] @relation("PengeluaranUpdatedBy")
-  pemasukansCreated  Pemasukan[] @relation("PemasukanCreatedBy")
-  pemasukansUpdated  Pemasukan[] @relation("PemasukanUpdatedBy")
+  pemasukansCreated   Pemasukan[]   @relation("PemasukanCreatedBy")
+  pemasukansUpdated   Pemasukan[]   @relation("PemasukanUpdatedBy")
 }
 
 model Session {
@@ -115,17 +179,17 @@ model Olt {
 }
 
 model Otb {
-  id                        String   @id @default(cuid())
-  name                      String
-  location                  String?
-  coreCount                 Int
-  notes                     String?
+  id                          String   @id @default(cuid())
+  name                        String
+  location                    String?
+  coreCount                   Int
+  notes                       String?
   keteranganJumlahKabelFeeder String?
-  latitude                  Float?
-  longitude                 Float?
-  status                    Status   @default(AKTIF)
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  latitude                    Float?
+  longitude                   Float?
+  status                      Status   @default(AKTIF)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 
   cores OtbCore[]
 }
@@ -146,16 +210,16 @@ model OtbCore {
 }
 
 model Odc {
-  id                        String   @id @default(cuid())
-  name                      String
-  location                  String?
-  notes                     String?
+  id                          String   @id @default(cuid())
+  name                        String
+  location                    String?
+  notes                       String?
   keteranganJumlahKabelFeeder String?
-  latitude                  Float?
-  longitude                 Float?
-  status                    Status   @default(AKTIF)
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  latitude                    Float?
+  longitude                   Float?
+  status                      Status   @default(AKTIF)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 
   // Relasi ke slot OTB (OtbCore). Satu ODC menempati satu slot OTB sebagai INPUT.
   otbCoreId String  @unique
@@ -182,16 +246,16 @@ model OdcOutput {
 }
 
 model Odp {
-  id                        String   @id @default(cuid())
-  name                      String
-  location                  String?
-  notes                     String?
+  id                          String   @id @default(cuid())
+  name                        String
+  location                    String?
+  notes                       String?
   keteranganJumlahKabelFeeder String?
-  latitude                  Float?
-  longitude                 Float?
-  status                    Status   @default(AKTIF)
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  latitude                    Float?
+  longitude                   Float?
+  status                      Status   @default(AKTIF)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 
   // Relasi INPUT: ODP mengambil input dari salah satu output core ODC
   odcOutputId String    @unique
@@ -219,16 +283,16 @@ model OdpOutput {
 
 // JOINbox (Bridge/Closure) models
 model Joinbox {
-  id                        String   @id @default(cuid())
-  name                      String
-  location                  String?
-  notes                     String?
+  id                          String   @id @default(cuid())
+  name                        String
+  location                    String?
+  notes                       String?
   keteranganJumlahKabelFeeder String?
-  latitude                  Float?
-  longitude                 Float?
-  status                    Status   @default(AKTIF)
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  latitude                    Float?
+  longitude                   Float?
+  status                      Status   @default(AKTIF)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 
   inputs  JoinboxInput[]
   outputs JoinboxOutput[]
@@ -364,7 +428,6 @@ model Onu {
   updatedAt  DateTime @updatedAt
 
   @@unique([oltId, gponOnu]) // Satu ONU unik per OLT berdasarkan gponOnu
-  
   // Single-column indexes for basic queries
   @@index([oltId])
   @@index([status])
@@ -373,7 +436,6 @@ model Onu {
   @@index([lastSeen])
   @@index([serialNumber])
   @@index([macAddress])
-  
   // Composite indexes for optimized filtering & sorting (Phase 5)
   @@index([oltId, status]) // Filter by OLT + status (very common query)
   @@index([oltId, lastUpdate]) // OLT list sorted by update time
@@ -604,6 +666,10 @@ model Pelanggan {
   updatedAt                     DateTime      @updatedAt
 
   tagihans Tagihan[] // Relasi ke Tagihan
+  
+  // Relasi ke Ticket Helpdesk & Work Orders
+  tickets     Ticket[]
+  workOrders  WorkOrder[] // Relasi ke Ticket Helpdesk
 
   @@index([idPelanggan])
   @@index([hargaPaketId])
@@ -616,28 +682,28 @@ model Pelanggan {
 
 // Tagihan - Data tagihan pelanggan
 model Tagihan {
-  id                String         @id @default(cuid())
-  pelangganId       String
-  pelanggan         Pelanggan      @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  noTagihan         String         @unique // Nomor tagihan (format: TAG-YYYYMM-XXXX)
-  periodeBulan      Int // 1-12
-  periodeTahun      Int // 2024, 2025, dll
+  id                 String        @id @default(cuid())
+  pelangganId        String
+  pelanggan          Pelanggan     @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  noTagihan          String        @unique // Nomor tagihan (format: TAG-YYYYMM-XXXX)
+  periodeBulan       Int // 1-12
+  periodeTahun       Int // 2024, 2025, dll
   // Rincian tagihan
-  subtotal          Int // Subtotal sebelum PPN dan diskon
-  diskon            Int @default(0) // Jumlah diskon
-  ppn               Int @default(0) // Jumlah PPN
-  biayaInstalasi    Int @default(0) // Biaya instalasi (jika recurring)
-  biayaSewaPerangkat Int @default(0) // Biaya sewa perangkat (jika recurring)
-  biayaLainnya      Int @default(0) // Biaya lain-lain (jika recurring)
-  total             Int // Total tagihan (subtotal - diskon + ppn + biaya tambahan)
+  subtotal           Int // Subtotal sebelum PPN dan diskon
+  diskon             Int           @default(0) // Jumlah diskon
+  ppn                Int           @default(0) // Jumlah PPN
+  biayaInstalasi     Int           @default(0) // Biaya instalasi (jika recurring)
+  biayaSewaPerangkat Int           @default(0) // Biaya sewa perangkat (jika recurring)
+  biayaLainnya       Int           @default(0) // Biaya lain-lain (jika recurring)
+  total              Int // Total tagihan (subtotal - diskon + ppn + biaya tambahan)
   // Status dan tanggal
-  status            TagihanStatus  @default(BELUM_LUNAS)
-  jatuhTempo        DateTime // Tanggal jatuh tempo pembayaran
-  tanggalBayar      DateTime? // Tanggal pembayaran (jika sudah dibayar)
-  metodePembayaran  String? // Metode pembayaran (e.g., "TRANSFER", "CASH", "OVO", dll)
-  catatan           String? // Catatan tambahan
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  status             TagihanStatus @default(BELUM_LUNAS)
+  jatuhTempo         DateTime // Tanggal jatuh tempo pembayaran
+  tanggalBayar       DateTime? // Tanggal pembayaran (jika sudah dibayar)
+  metodePembayaran   String? // Metode pembayaran (e.g., "TRANSFER", "CASH", "OVO", dll)
+  catatan            String? // Catatan tambahan
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   paymentTransactions PaymentGatewayTransaction[]
   paymentLink         PaymentLink?
@@ -657,41 +723,41 @@ model Tagihan {
 
 // Payment Gateway Configuration (Multi-provider support)
 model PaymentGatewayConfig {
-  id              String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Provider identification
-  provider        String   @unique // "XENDIT", "MIDTRANS", "DUITKU", "BCA_API", "DANA_API"
-  providerName    String   // Display name: "Xendit", "Midtrans", etc.
-  
+  provider     String @unique // "XENDIT", "MIDTRANS", "DUITKU", "BCA_API", "DANA_API"
+  providerName String // Display name: "Xendit", "Midtrans", etc.
+
   // Configuration
-  isEnabled       Boolean  @default(false)
-  isProduction    Boolean  @default(false) // Sandbox vs Production
-  priority        Int      @default(0) // Higher = preferred (for auto-routing)
-  
+  isEnabled    Boolean @default(false)
+  isProduction Boolean @default(false) // Sandbox vs Production
+  priority     Int     @default(0) // Higher = preferred (for auto-routing)
+
   // API Credentials (ENCRYPTED!)
-  apiKey          String?  // Main API key/Server key (encrypted)
-  apiSecret       String?  // Secret key (encrypted, if applicable)
-  clientKey       String?  // Client key (for frontend, if applicable)
-  merchantId      String?  // Merchant/Account ID
-  
+  apiKey     String? // Main API key/Server key (encrypted)
+  apiSecret  String? // Secret key (encrypted, if applicable)
+  clientKey  String? // Client key (for frontend, if applicable)
+  merchantId String? // Merchant/Account ID
+
   // Additional settings
-  webhookUrl      String?  // Auto-generated webhook URL
-  callbackUrl     String?  // Payment callback URL
-  
+  webhookUrl  String? // Auto-generated webhook URL
+  callbackUrl String? // Payment callback URL
+
   // Provider-specific settings (JSON)
-  settings        Json?    // { "enabledMethods": ["bank_transfer", "ewallet"], "fees": {...} }
-  
+  settings Json? // { "enabledMethods": ["bank_transfer", "ewallet"], "fees": {...} }
+
   // Metadata
-  lastTestedAt    DateTime? // Last successful test
-  testStatus      String?   // "SUCCESS", "FAILED", error message
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdBy       String?  // Admin user ID
-  
+  lastTestedAt DateTime? // Last successful test
+  testStatus   String? // "SUCCESS", "FAILED", error message
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String? // Admin user ID
+
   // Relations
-  transactions    PaymentGatewayTransaction[]
-  
+  transactions PaymentGatewayTransaction[]
+
   @@index([provider])
   @@index([isEnabled])
   @@index([priority])
@@ -699,42 +765,42 @@ model PaymentGatewayConfig {
 
 // Payment Gateway Transactions
 model PaymentGatewayTransaction {
-  id                String    @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Gateway details
-  provider          String    // "XENDIT", "MIDTRANS", etc.
-  providerConfig    PaymentGatewayConfig @relation(fields: [provider], references: [provider])
-  orderId           String    @unique // Our internal order ID (TAG-XXX-YYY)
-  transactionId     String?   @unique // Gateway's transaction ID
-  
+  provider       String // "XENDIT", "MIDTRANS", etc.
+  providerConfig PaymentGatewayConfig @relation(fields: [provider], references: [provider])
+  orderId        String               @unique // Our internal order ID (TAG-XXX-YYY)
+  transactionId  String?              @unique // Gateway's transaction ID
+
   // Payment details
-  tagihanId         String    // Link to invoice
-  tagihan           Tagihan   @relation(fields: [tagihanId], references: [id], onDelete: Cascade)
-  amount            BigInt    // Amount in rupiah
-  paymentMethod     String?   // "bank_transfer", "gopay", "credit_card", etc.
-  bankCode          String?   // "bca", "mandiri", "bni", etc.
-  
+  tagihanId     String // Link to invoice
+  tagihan       Tagihan @relation(fields: [tagihanId], references: [id], onDelete: Cascade)
+  amount        BigInt // Amount in rupiah
+  paymentMethod String? // "bank_transfer", "gopay", "credit_card", etc.
+  bankCode      String? // "bca", "mandiri", "bni", etc.
+
   // Status tracking
-  status            String    @default("PENDING") // PENDING, PAID, EXPIRED, CANCELLED, FAILED
-  paidAt            DateTime? // When payment completed
-  expiredAt         DateTime? // Payment link expiry
-  
+  status    String    @default("PENDING") // PENDING, PAID, EXPIRED, CANCELLED, FAILED
+  paidAt    DateTime? // When payment completed
+  expiredAt DateTime? // Payment link expiry
+
   // Gateway response
-  paymentUrl        String?   // Payment page URL
-  qrCodeUrl         String?   // For QRIS/e-wallet
-  vaNumber          String?   // Virtual account number (for bank transfer)
-  
+  paymentUrl String? // Payment page URL
+  qrCodeUrl  String? // For QRIS/e-wallet
+  vaNumber   String? // Virtual account number (for bank transfer)
+
   // Webhook data
-  webhookReceived   Boolean   @default(false)
-  webhookData       Json?     // Store raw webhook payload
-  
+  webhookReceived Boolean @default(false)
+  webhookData     Json? // Store raw webhook payload
+
   // Metadata
-  customerEmail     String?
-  customerPhone     String?
-  notes             String?
-  
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  customerEmail String?
+  customerPhone String?
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tagihanId])
   @@index([status])
@@ -745,23 +811,23 @@ model PaymentGatewayTransaction {
 
 // Payment Links (Persistent links for customer portal)
 model PaymentLink {
-  id            String   @id @default(cuid())
-  
-  tagihanId     String   @unique // One link per invoice
-  tagihan       Tagihan  @relation(fields: [tagihanId], references: [id], onDelete: Cascade)
-  
-  linkToken     String   @unique // URL-safe token for public link
-  paymentUrl    String   // Full payment URL
-  
-  isActive      Boolean  @default(true)
-  expiresAt     DateTime? // Optional expiry
-  
+  id String @id @default(cuid())
+
+  tagihanId String  @unique // One link per invoice
+  tagihan   Tagihan @relation(fields: [tagihanId], references: [id], onDelete: Cascade)
+
+  linkToken  String @unique // URL-safe token for public link
+  paymentUrl String // Full payment URL
+
+  isActive  Boolean   @default(true)
+  expiresAt DateTime? // Optional expiry
+
   // Track usage
-  viewCount     Int      @default(0) // How many times opened
-  lastViewedAt  DateTime?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  viewCount    Int       @default(0) // How many times opened
+  lastViewedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([linkToken])
   @@index([tagihanId])
@@ -769,27 +835,27 @@ model PaymentLink {
 
 // Pengeluaran - Data pengeluaran untuk cashflow
 model Pengeluaran {
-  id            String          @id @default(cuid())
-  tanggal       DateTime        // Tanggal pengeluaran
+  id              String          @id @default(cuid())
+  tanggal         DateTime // Tanggal pengeluaran
   tipePengeluaran TipePengeluaran @default(OPEX) // CAPEX atau OPEX
-  kategori      String          // Kategori pengeluaran (e.g., "OPERASIONAL", "PEMELIHARAAN", "GAJI", dll)
-  deskripsi     String          // Deskripsi pengeluaran
-  jumlah        BigInt          // Jumlah pengeluaran (dalam rupiah)
-  metodeBayar   String?         // Metode pembayaran (e.g., "TRANSFER", "CASH", dll)
-  catatan       String?         // Catatan tambahan
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  createdBy     String?         // User ID yang membuat (optional)
-  updatedBy     String?         // User ID yang update terakhir (optional)
-  
+  kategori        String // Kategori pengeluaran (e.g., "OPERASIONAL", "PEMELIHARAAN", "GAJI", dll)
+  deskripsi       String // Deskripsi pengeluaran
+  jumlah          BigInt // Jumlah pengeluaran (dalam rupiah)
+  metodeBayar     String? // Metode pembayaran (e.g., "TRANSFER", "CASH", dll)
+  catatan         String? // Catatan tambahan
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdBy       String? // User ID yang membuat (optional)
+  updatedBy       String? // User ID yang update terakhir (optional)
+
   // Budget tracking
-  budgetId      String?         // Link to budget for tracking
-  
+  budgetId String? // Link to budget for tracking
+
   // Approval workflow
-  isApproved    Boolean         @default(false)
-  approvedBy    String?         // User ID yang approve
-  approvedAt    DateTime?       // Waktu approval
-  
+  isApproved Boolean   @default(false)
+  approvedBy String? // User ID yang approve
+  approvedAt DateTime? // Waktu approval
+
   createdByUser User? @relation("PengeluaranCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   updatedByUser User? @relation("PengeluaranUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
 
@@ -804,21 +870,21 @@ model Pengeluaran {
 model Pemasukan {
   id          String   @id @default(cuid())
   tanggal     DateTime // Tanggal pemasukan
-  kategori    String   // Kategori pemasukan (e.g., "PENJUALAN", "INVESTASI", "BONUS", "LAINNYA", dll)
-  deskripsi   String   // Deskripsi pemasukan
-  jumlah     BigInt   // Jumlah pemasukan (dalam rupiah)
+  kategori    String // Kategori pemasukan (e.g., "PENJUALAN", "INVESTASI", "BONUS", "LAINNYA", dll)
+  deskripsi   String // Deskripsi pemasukan
+  jumlah      BigInt // Jumlah pemasukan (dalam rupiah)
   metodeBayar String? // Metode pembayaran (e.g., "TRANSFER", "CASH", dll)
   catatan     String? // Catatan tambahan
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  createdBy   String?  // User ID yang membuat (optional)
-  updatedBy   String?  // User ID yang update terakhir (optional)
-  
+  createdBy   String? // User ID yang membuat (optional)
+  updatedBy   String? // User ID yang update terakhir (optional)
+
   // Verification workflow
-  isVerified  Boolean  @default(false)
-  verifiedBy  String?  // User ID yang verify
-  verifiedAt  DateTime? // Waktu verification
-  
+  isVerified Boolean   @default(false)
+  verifiedBy String? // User ID yang verify
+  verifiedAt DateTime? // Waktu verification
+
   createdByUser User? @relation("PemasukanCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   updatedByUser User? @relation("PemasukanUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
 
@@ -846,17 +912,17 @@ model Settings {
 
 // BankAccount - Support multiple bank accounts
 model BankAccount {
-  id              String   @id @default(cuid())
-  accountName     String   // e.g., "BCA Operasional", "Mandiri Payroll"
-  bankName        String   // e.g., "BCA", "Mandiri", "BRI"
-  accountNumber   String   @unique
-  accountType     String   @default("CHECKING") // CHECKING, SAVINGS, E_WALLET
-  balance         BigInt   @default(0) // Current balance in system
-  currency        String   @default("IDR")
-  description     String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(cuid())
+  accountName   String // e.g., "BCA Operasional", "Mandiri Payroll"
+  bankName      String // e.g., "BCA", "Mandiri", "BRI"
+  accountNumber String   @unique
+  accountType   String   @default("CHECKING") // CHECKING, SAVINGS, E_WALLET
+  balance       BigInt   @default(0) // Current balance in system
+  currency      String   @default("IDR")
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   statements      BankStatement[]
   reconciliations Reconciliation[]
@@ -867,19 +933,19 @@ model BankAccount {
 
 // BankStatement - Imported from bank
 model BankStatement {
-  id                String    @id @default(cuid())
-  bankAccountId     String
-  bankAccount       BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  transactionDate   DateTime
-  description       String
-  reference         String?   // Bank reference number
-  debit             BigInt    @default(0) // Money out
-  credit            BigInt    @default(0) // Money in
-  balance           BigInt    // Balance after this transaction
-  isReconciled      Boolean   @default(false)
-  reconciledAt      DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id              String      @id @default(cuid())
+  bankAccountId   String
+  bankAccount     BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  transactionDate DateTime
+  description     String
+  reference       String? // Bank reference number
+  debit           BigInt      @default(0) // Money out
+  credit          BigInt      @default(0) // Money in
+  balance         BigInt // Balance after this transaction
+  isReconciled    Boolean     @default(false)
+  reconciledAt    DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   reconciliationMatch ReconciliationMatch[]
 
@@ -894,18 +960,18 @@ model Reconciliation {
   id                String      @id @default(cuid())
   bankAccountId     String
   bankAccount       BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  month             Int         // 1-12
-  year              Int         // 2024, 2025
+  month             Int // 1-12
+  year              Int // 2024, 2025
   openingBalance    BigInt
   closingBalance    BigInt
-  totalDeposits     BigInt      // Total in dari bank statement
-  totalWithdrawals  BigInt      // Total out dari bank statement
-  systemDeposits    BigInt      // Total in dari system (Invoice payments)
-  systemWithdrawals BigInt      // Total out dari system (Expenses)
-  difference        BigInt      // Should be 0 when reconciled
+  totalDeposits     BigInt // Total in dari bank statement
+  totalWithdrawals  BigInt // Total out dari bank statement
+  systemDeposits    BigInt // Total in dari system (Invoice payments)
+  systemWithdrawals BigInt // Total out dari system (Expenses)
+  difference        BigInt // Should be 0 when reconciled
   isCompleted       Boolean     @default(false)
   completedAt       DateTime?
-  completedBy       String?     // User ID
+  completedBy       String? // User ID
   notes             String?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
@@ -917,16 +983,16 @@ model Reconciliation {
 
 // ReconciliationMatch - Mapping between bank statements and system records
 model ReconciliationMatch {
-  id                String         @id @default(cuid())
+  id                String        @id @default(cuid())
   bankStatementId   String
-  bankStatement     BankStatement  @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
-  matchType         String         // "PAYMENT_IN", "PAYMENT_OUT", "INTERNAL_TRANSFER"
-  matchedEntityType String         // "TAGIHAN", "PENGELUARAN", "PEMASUKAN"
-  matchedEntityId   String         // ID of Tagihan/Pengeluaran/Pemasukan
-  confidence        Float          @default(1.0) // 0.0-1.0, for auto-matching
+  bankStatement     BankStatement @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
+  matchType         String // "PAYMENT_IN", "PAYMENT_OUT", "INTERNAL_TRANSFER"
+  matchedEntityType String // "TAGIHAN", "PENGELUARAN", "PEMASUKAN"
+  matchedEntityId   String // ID of Tagihan/Pengeluaran/Pemasukan
+  confidence        Float         @default(1.0) // 0.0-1.0, for auto-matching
   notes             String?
-  matchedBy         String?        // User ID (null for auto-match)
-  createdAt         DateTime       @default(now())
+  matchedBy         String? // User ID (null for auto-match)
+  createdAt         DateTime      @default(now())
 
   @@index([bankStatementId])
   @@index([matchedEntityType, matchedEntityId])
@@ -934,20 +1000,20 @@ model ReconciliationMatch {
 
 // CollectionTask - Tasks untuk follow-up piutang
 model CollectionTask {
-  id              String   @id @default(cuid())
-  pelangganId     String
-  tagihanId       String?  // Optional, bisa untuk specific tagihan
-  assignedTo      String?  // User ID
-  priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
-  status          String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-  dueDate         DateTime
-  notes           String?
-  resolution      String?  // Notes ketika task completed
-  completedAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          String    @id @default(cuid())
+  pelangganId String
+  tagihanId   String? // Optional, bisa untuk specific tagihan
+  assignedTo  String? // User ID
+  priority    String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  dueDate     DateTime
+  notes       String?
+  resolution  String? // Notes ketika task completed
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  followUps       CollectionFollowUp[]
+  followUps CollectionFollowUp[]
 
   @@index([pelangganId])
   @@index([assignedTo])
@@ -957,14 +1023,14 @@ model CollectionTask {
 
 // CollectionFollowUp - Log komunikasi dengan pelanggan
 model CollectionFollowUp {
-  id                String          @id @default(cuid())
-  collectionTaskId  String
-  collectionTask    CollectionTask  @relation(fields: [collectionTaskId], references: [id], onDelete: Cascade)
-  method            String          // "PHONE", "WHATSAPP", "EMAIL", "SMS", "VISIT"
-  notes             String          // Isi komunikasi
-  response          String?         // Response dari pelanggan
-  followUpBy        String?         // User ID
-  followUpAt        DateTime        @default(now())
+  id               String         @id @default(cuid())
+  collectionTaskId String
+  collectionTask   CollectionTask @relation(fields: [collectionTaskId], references: [id], onDelete: Cascade)
+  method           String // "PHONE", "WHATSAPP", "EMAIL", "SMS", "VISIT"
+  notes            String // Isi komunikasi
+  response         String? // Response dari pelanggan
+  followUpBy       String? // User ID
+  followUpAt       DateTime       @default(now())
 
   @@index([collectionTaskId])
   @@index([followUpAt])
@@ -972,19 +1038,19 @@ model CollectionFollowUp {
 
 // Payment - Track payment details (enhancement to existing flow)
 model Payment {
-  id              String    @id @default(cuid())
-  tagihanId       String?   // Optional, payment could be for multiple tagihan
-  pelangganId     String
-  amount          BigInt
-  paymentDate     DateTime
-  paymentMethod   String    // "TRANSFER", "CASH", "OVO", "GOPAY", etc.
-  bankAccountId   String?   // Which bank account received this payment
-  reference       String?   // Payment reference number
-  notes           String?
-  verifiedBy      String?   // User ID who verified
-  verifiedAt      DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  tagihanId     String? // Optional, payment could be for multiple tagihan
+  pelangganId   String
+  amount        BigInt
+  paymentDate   DateTime
+  paymentMethod String // "TRANSFER", "CASH", "OVO", "GOPAY", etc.
+  bankAccountId String? // Which bank account received this payment
+  reference     String? // Payment reference number
+  notes         String?
+  verifiedBy    String? // User ID who verified
+  verifiedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([tagihanId])
   @@index([pelangganId])
@@ -994,29 +1060,29 @@ model Payment {
 
 // ARAgingSnapshot - Historical aging data for trending
 model ARAgingSnapshot {
-  id              String   @id @default(cuid())
-  snapshotDate    DateTime @default(now())
-  current         BigInt   @default(0) // 0-30 days
-  overdue30       BigInt   @default(0) // 31-60 days
-  overdue60       BigInt   @default(0) // 61-90 days
-  overdue90       BigInt   @default(0) // 90+ days
-  totalOutstanding BigInt  @default(0)
-  totalCustomers  Int      @default(0)
-  createdAt       DateTime @default(now())
+  id               String   @id @default(cuid())
+  snapshotDate     DateTime @default(now())
+  current          BigInt   @default(0) // 0-30 days
+  overdue30        BigInt   @default(0) // 31-60 days
+  overdue60        BigInt   @default(0) // 61-90 days
+  overdue90        BigInt   @default(0) // 90+ days
+  totalOutstanding BigInt   @default(0)
+  totalCustomers   Int      @default(0)
+  createdAt        DateTime @default(now())
 
   @@index([snapshotDate])
 }
 
 // MRRMovement - Track MRR changes
 model MRRMovement {
-  id              String   @id @default(cuid())
-  month           Int      // 1-12
-  year            Int
-  movementType    String   // "NEW", "EXPANSION", "CONTRACTION", "CHURN", "REACTIVATION"
-  pelangganId     String?  // Optional, for tracking specific customer
-  amount          BigInt   // Amount of MRR change
-  description     String?
-  createdAt       DateTime @default(now())
+  id           String   @id @default(cuid())
+  month        Int // 1-12
+  year         Int
+  movementType String // "NEW", "EXPANSION", "CONTRACTION", "CHURN", "REACTIVATION"
+  pelangganId  String? // Optional, for tracking specific customer
+  amount       BigInt // Amount of MRR change
+  description  String?
+  createdAt    DateTime @default(now())
 
   @@index([year, month])
   @@index([movementType])
@@ -1025,21 +1091,21 @@ model MRRMovement {
 
 // RevenueSnapshot - Daily/Monthly revenue aggregates
 model RevenueSnapshot {
-  id                    String   @id @default(cuid())
-  snapshotDate          DateTime
-  snapshotType          String   @default("DAILY") // DAILY, MONTHLY
-  totalMRR              BigInt   @default(0)
-  totalARR              BigInt   @default(0)
-  newMRR                BigInt   @default(0)
-  expansionMRR          BigInt   @default(0)
-  contractionMRR        BigInt   @default(0)
-  churnMRR              BigInt   @default(0)
-  reactivationMRR       BigInt   @default(0)
-  activeCustomers       Int      @default(0)
-  newCustomers          Int      @default(0)
-  churnedCustomers      Int      @default(0)
-  arpu                  Int      @default(0) // Average Revenue Per User
-  createdAt             DateTime @default(now())
+  id               String   @id @default(cuid())
+  snapshotDate     DateTime
+  snapshotType     String   @default("DAILY") // DAILY, MONTHLY
+  totalMRR         BigInt   @default(0)
+  totalARR         BigInt   @default(0)
+  newMRR           BigInt   @default(0)
+  expansionMRR     BigInt   @default(0)
+  contractionMRR   BigInt   @default(0)
+  churnMRR         BigInt   @default(0)
+  reactivationMRR  BigInt   @default(0)
+  activeCustomers  Int      @default(0)
+  newCustomers     Int      @default(0)
+  churnedCustomers Int      @default(0)
+  arpu             Int      @default(0) // Average Revenue Per User
+  createdAt        DateTime @default(now())
 
   @@unique([snapshotDate, snapshotType])
   @@index([snapshotDate])
@@ -1048,19 +1114,19 @@ model RevenueSnapshot {
 
 // ReminderLog - Track semua reminder yang dikirim
 model ReminderLog {
-  id              String   @id @default(cuid())
-  pelangganId     String
-  tagihanId       String?  // Optional
-  reminderType    String   // "PRE_DUE", "DUE_DATE", "OVERDUE_7", "OVERDUE_14", "OVERDUE_30"
-  channel         String   // "EMAIL", "WHATSAPP", "SMS"
-  recipient       String   // Email or phone number
-  subject         String?  // For email
-  message         String
-  status          String   @default("PENDING") // PENDING, SENT, FAILED, DELIVERED
-  sentAt          DateTime?
-  deliveredAt     DateTime?
-  failureReason   String?
-  createdAt       DateTime @default(now())
+  id            String    @id @default(cuid())
+  pelangganId   String
+  tagihanId     String? // Optional
+  reminderType  String // "PRE_DUE", "DUE_DATE", "OVERDUE_7", "OVERDUE_14", "OVERDUE_30"
+  channel       String // "EMAIL", "WHATSAPP", "SMS"
+  recipient     String // Email or phone number
+  subject       String? // For email
+  message       String
+  status        String    @default("PENDING") // PENDING, SENT, FAILED, DELIVERED
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  failureReason String?
+  createdAt     DateTime  @default(now())
 
   @@index([pelangganId])
   @@index([tagihanId])
@@ -1070,23 +1136,23 @@ model ReminderLog {
 
 // CustomerCohort - Customer cohort tracking
 model CustomerCohort {
-  id                String   @id @default(cuid())
-  cohortMonth       Int      // Month of first customer registration (1-12)
-  cohortYear        Int      // Year of first customer registration
-  initialCustomers  Int      // Number of customers in this cohort initially
-  month0Revenue     BigInt   @default(0) // Revenue in month 0 (registration month)
-  month1Revenue     BigInt   @default(0) // Revenue in month 1
-  month2Revenue     BigInt   @default(0) // Revenue in month 2
-  month3Revenue     BigInt   @default(0) // Revenue in month 3
-  month6Revenue     BigInt   @default(0) // Revenue in month 6
-  month12Revenue    BigInt   @default(0) // Revenue in month 12
-  activeMonth0      Int      @default(0) // Active customers in month 0
-  activeMonth1      Int      @default(0) // Active customers in month 1
-  activeMonth3      Int      @default(0) // Active customers in month 3
-  activeMonth6      Int      @default(0) // Active customers in month 6
-  activeMonth12     Int      @default(0) // Active customers in month 12
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(cuid())
+  cohortMonth      Int // Month of first customer registration (1-12)
+  cohortYear       Int // Year of first customer registration
+  initialCustomers Int // Number of customers in this cohort initially
+  month0Revenue    BigInt   @default(0) // Revenue in month 0 (registration month)
+  month1Revenue    BigInt   @default(0) // Revenue in month 1
+  month2Revenue    BigInt   @default(0) // Revenue in month 2
+  month3Revenue    BigInt   @default(0) // Revenue in month 3
+  month6Revenue    BigInt   @default(0) // Revenue in month 6
+  month12Revenue   BigInt   @default(0) // Revenue in month 12
+  activeMonth0     Int      @default(0) // Active customers in month 0
+  activeMonth1     Int      @default(0) // Active customers in month 1
+  activeMonth3     Int      @default(0) // Active customers in month 3
+  activeMonth6     Int      @default(0) // Active customers in month 6
+  activeMonth12    Int      @default(0) // Active customers in month 12
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@unique([cohortYear, cohortMonth])
   @@index([cohortYear, cohortMonth])
@@ -1098,25 +1164,25 @@ model CustomerCohort {
 
 // TaxRecord - Track all tax transactions (PPN, PPh)
 model TaxRecord {
-  id                String   @id @default(cuid())
-  taxType           String   // "PPN_IN", "PPN_OUT", "PPH_21", "PPH_23", "PPH_4_2"
-  taxPeriod         Int      // Month (1-12)
+  id                String    @id @default(cuid())
+  taxType           String // "PPN_IN", "PPN_OUT", "PPH_21", "PPH_23", "PPH_4_2"
+  taxPeriod         Int // Month (1-12)
   taxYear           Int
-  taxableAmount     BigInt   // DPP (Dasar Pengenaan Pajak)
-  taxAmount         BigInt   // Jumlah pajak
-  taxRate           Float    // Tax rate (e.g., 0.11 for 11%)
-  reference         String?  // Invoice number, payment reference
-  relatedEntityType String?  // "TAGIHAN", "VENDOR_INVOICE", "PAYROLL"
-  relatedEntityId   String?  // ID of related entity
-  status            String   @default("DRAFT") // DRAFT, FILED, PAID
+  taxableAmount     BigInt // DPP (Dasar Pengenaan Pajak)
+  taxAmount         BigInt // Jumlah pajak
+  taxRate           Float // Tax rate (e.g., 0.11 for 11%)
+  reference         String? // Invoice number, payment reference
+  relatedEntityType String? // "TAGIHAN", "VENDOR_INVOICE", "PAYROLL"
+  relatedEntityId   String? // ID of related entity
+  status            String    @default("DRAFT") // DRAFT, FILED, PAID
   filedAt           DateTime?
   paidAt            DateTime?
   notes             String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
   createdBy         String?
   updatedBy         String?
-  
+
   @@index([taxType, taxPeriod, taxYear])
   @@index([relatedEntityType, relatedEntityId])
   @@index([status])
@@ -1125,18 +1191,18 @@ model TaxRecord {
 
 // TaxFilingDeadline - Track tax filing deadlines
 model TaxFilingDeadline {
-  id        String   @id @default(cuid())
-  taxType   String   // "PPN", "PPH_21", "PPH_23", "PPH_4_2", "PPH_ANNUAL"
-  period    Int      // Month (1-12)
+  id        String    @id @default(cuid())
+  taxType   String // "PPN", "PPH_21", "PPH_23", "PPH_4_2", "PPH_ANNUAL"
+  period    Int // Month (1-12)
   year      Int
   deadline  DateTime
-  status    String   @default("PENDING") // PENDING, FILED, LATE
+  status    String    @default("PENDING") // PENDING, FILED, LATE
   filedAt   DateTime?
-  filedBy   String?  // User ID
+  filedBy   String? // User ID
   notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
   @@unique([taxType, period, year])
   @@index([deadline])
   @@index([status])
@@ -1147,8 +1213,8 @@ model TaxFilingDeadline {
 model BudgetCategory {
   id          String           @id @default(cuid())
   code        String           @unique // "OPEX_OPR", "CAPEX_NET", etc.
-  name        String           // "Operational Expense", "Network CAPEX"
-  type        String           // "OPEX", "CAPEX"
+  name        String // "Operational Expense", "Network CAPEX"
+  type        String // "OPEX", "CAPEX"
   parentId    String?
   parent      BudgetCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
   children    BudgetCategory[] @relation("CategoryHierarchy")
@@ -1156,9 +1222,9 @@ model BudgetCategory {
   isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
-  
+
   budgets Budget[]
-  
+
   @@index([type])
   @@index([parentId])
   @@index([isActive])
@@ -1166,27 +1232,27 @@ model BudgetCategory {
 
 // Budget - Monthly budget planning and tracking
 model Budget {
-  id              String          @id @default(cuid())
+  id              String         @id @default(cuid())
   year            Int
   month           Int
   categoryId      String
-  category        BudgetCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  department      String?         // For larger organizations
+  category        BudgetCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  department      String? // For larger organizations
   budgetAmount    BigInt
-  actualAmount    BigInt          @default(0)
-  variance        BigInt          @default(0) // actualAmount - budgetAmount
-  variancePercent Float           @default(0) // (variance / budgetAmount) * 100
-  status          String          @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, ACTIVE, CLOSED
-  approvedBy      String?         // User ID
+  actualAmount    BigInt         @default(0)
+  variance        BigInt         @default(0) // actualAmount - budgetAmount
+  variancePercent Float          @default(0) // (variance / budgetAmount) * 100
+  status          String         @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, ACTIVE, CLOSED
+  approvedBy      String? // User ID
   approvedAt      DateTime?
   notes           String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   createdBy       String?
   updatedBy       String?
-  
+
   alerts BudgetAlert[]
-  
+
   @@unique([year, month, categoryId])
   @@index([year, month])
   @@index([status])
@@ -1197,17 +1263,17 @@ model Budget {
 model CashFlowForecast {
   id                String   @id @default(cuid())
   forecastDate      DateTime // Date being forecasted
-  scenarioType      String   // "BEST_CASE", "WORST_CASE", "MOST_LIKELY"
+  scenarioType      String // "BEST_CASE", "WORST_CASE", "MOST_LIKELY"
   projectedRevenue  BigInt
   projectedExpenses BigInt
-  projectedCashFlow BigInt   // revenue - expenses
-  projectedBalance  BigInt   // cumulative balance
+  projectedCashFlow BigInt // revenue - expenses
+  projectedBalance  BigInt // cumulative balance
   confidence        Float    @default(0.7) // 0.0-1.0
-  assumptions       String?  // JSON: assumptions used
+  assumptions       String? // JSON: assumptions used
   notes             String?
   createdAt         DateTime @default(now())
   createdBy         String?
-  
+
   @@index([forecastDate])
   @@index([scenarioType])
   @@index([forecastDate, scenarioType])
@@ -1215,17 +1281,17 @@ model CashFlowForecast {
 
 // BudgetAlert - Budget monitoring alerts
 model BudgetAlert {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   budgetId  String
-  budget    Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  alertType String   // "APPROACHING_LIMIT", "EXCEEDED", "VARIANCE_HIGH"
-  threshold Float    // Percentage threshold (e.g., 80, 100, 120)
+  budget    Budget    @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  alertType String // "APPROACHING_LIMIT", "EXCEEDED", "VARIANCE_HIGH"
+  threshold Float // Percentage threshold (e.g., 80, 100, 120)
   message   String
-  isRead    Boolean  @default(false)
+  isRead    Boolean   @default(false)
   readAt    DateTime?
   readBy    String?
-  createdAt DateTime @default(now())
-  
+  createdAt DateTime  @default(now())
+
   @@index([budgetId])
   @@index([isRead])
   @@index([createdAt])
@@ -1233,32 +1299,32 @@ model BudgetAlert {
 
 // USO (Universal Service Obligation) - ISP Compliance
 model USOContribution {
-  id              String    @id @default(cuid())
-  quarter         Int       // 1-4
-  year            Int
-  
+  id      String @id @default(cuid())
+  quarter Int // 1-4
+  year    Int
+
   // Financial data
-  totalRevenue    BigInt    // Gross revenue for quarter
-  usoRate         Float     @default(0.0125) // 1.25%
-  usoAmount       BigInt    // Calculated: revenue * rate
-  
+  totalRevenue BigInt // Gross revenue for quarter
+  usoRate      Float  @default(0.0125) // 1.25%
+  usoAmount    BigInt // Calculated: revenue * rate
+
   // Status tracking
-  status          String    @default("DRAFT") // DRAFT, CALCULATED, FILED, PAID
-  calculatedAt    DateTime?
-  filedAt         DateTime?
-  filedBy         String?
-  paidAt          DateTime?
-  paidBy          String?
-  
+  status       String    @default("DRAFT") // DRAFT, CALCULATED, FILED, PAID
+  calculatedAt DateTime?
+  filedAt      DateTime?
+  filedBy      String?
+  paidAt       DateTime?
+  paidBy       String?
+
   // Reference
-  paymentReference String?  // Reference to Pengeluaran ID
-  notes           String?   @db.Text
-  
+  paymentReference String? // Reference to Pengeluaran ID
+  notes            String? @db.Text
+
   // Audit
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  createdBy       String?
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
   @@unique([quarter, year])
   @@index([status])
   @@index([year, quarter])
@@ -1267,38 +1333,38 @@ model USOContribution {
 
 // Deferred Revenue - Subscription revenue recognition
 model DeferredRevenue {
-  id                String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Source
-  tagihanId         String?  // Reference to original invoice
-  customerId        String?  // Customer reference
-  
+  tagihanId  String? // Reference to original invoice
+  customerId String? // Customer reference
+
   // Financial
-  totalAmount       BigInt   // Total deferred amount
-  recognizedAmount  BigInt   @default(0) // Already recognized
-  remainingAmount   BigInt   // Still deferred
-  
+  totalAmount      BigInt // Total deferred amount
+  recognizedAmount BigInt @default(0) // Already recognized
+  remainingAmount  BigInt // Still deferred
+
   // Schedule
-  startDate         DateTime // When to start recognizing
-  endDate           DateTime // When to stop
-  periodMonths      Int      // Number of months (e.g., 12)
-  monthlyAmount     BigInt   // Amount per month
-  
+  startDate     DateTime // When to start recognizing
+  endDate       DateTime // When to stop
+  periodMonths  Int // Number of months (e.g., 12)
+  monthlyAmount BigInt // Amount per month
+
   // Status
-  status            String   @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
-  
+  status String @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+
   // Metadata
-  description       String?
-  notes             String?  @db.Text
-  
+  description String?
+  notes       String? @db.Text
+
   // Audit
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  createdBy         String?
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
   // Relations
-  recognitions      RevenueRecognition[]
-  
+  recognitions RevenueRecognition[]
+
   @@index([status])
   @@index([tagihanId])
   @@index([startDate, endDate])
@@ -1307,24 +1373,1005 @@ model DeferredRevenue {
 
 // Revenue Recognition - Monthly recognition tracking
 model RevenueRecognition {
-  id                  String   @id @default(cuid())
-  deferredRevenueId   String
-  deferredRevenue     DeferredRevenue @relation(fields: [deferredRevenueId], references: [id], onDelete: Cascade)
-  
+  id                String          @id @default(cuid())
+  deferredRevenueId String
+  deferredRevenue   DeferredRevenue @relation(fields: [deferredRevenueId], references: [id], onDelete: Cascade)
+
   // Recognition details
-  recognitionDate     DateTime // Month being recognized (start of month)
-  amount              BigInt   // Amount recognized
-  notes               String?
-  
+  recognitionDate DateTime // Month being recognized (start of month)
+  amount          BigInt // Amount recognized
+  notes           String?
+
   // Link to Pemasukan (auto-created recognized revenue)
-  pemasukanId         String?  // Auto-created Pemasukan
-  
+  pemasukanId String? // Auto-created Pemasukan
+
   // Audit
-  createdAt           DateTime @default(now())
-  recognizedBy        String?
-  
+  createdAt    DateTime @default(now())
+  recognizedBy String?
+
+  @@unique([deferredRevenueId, recognitionDate])
   @@index([deferredRevenueId])
   @@index([recognitionDate])
-  @@unique([deferredRevenueId, recognitionDate])
   @@map("revenue_recognitions")
+}
+
+// ============================================
+// HRIS MODELS
+// ============================================
+
+// Department - Departemen/divisi perusahaan
+model Department {
+  id              String   @id @default(cuid())
+  name            String   @unique // e.g., "IT", "Finance", "Operations"
+  description     String?
+  jobDescription  String?  @db.Text // Deskripsi pekerjaan/tugas department
+  allowedFeatures String?  @db.Text // JSON array of features yang bisa diakses (e.g., ["FINANCE", "HRIS", "PELANGGAN"])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  employees  Employee[]
+  positions Position[]
+  workOrders WorkOrder[]
+
+  @@map("departments")
+}
+
+// Position - Jabatan/posisi
+model Position {
+  id           String      @id @default(cuid())
+  title        String      @unique // e.g., "Software Engineer", "HR Manager"
+  code         String?     @unique // Position code
+  level        String? // e.g., "Junior", "Senior", "Manager", "Director"
+  description  String?
+  departmentId String? // Link to department
+  department   Department? @relation(fields: [departmentId], references: [id])
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  employees Employee[]
+
+  @@index([isActive])
+  @@index([departmentId])
+  @@map("positions")
+}
+
+// Employee - Data karyawan (master data)
+model Employee {
+  id         String  @id @default(cuid())
+  employeeId String  @unique // Employee ID (e.g., "EMP-001")
+  userId     String? @unique // Link to User account (optional)
+
+  // Personal Info
+  fullName     String
+  email        String?   @unique
+  phone        String?
+  dateOfBirth  DateTime?
+  gender       String? // "MALE", "FEMALE"
+  idCardNumber String?   @unique // KTP number
+  address      String?
+  city         String?
+  province     String?
+  postalCode   String?
+
+  // Employment Info
+  departmentId     String?
+  department       Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  positionId       String?
+  position         Position?        @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  employmentStatus EmploymentStatus @default(PROBATION)
+  joinDate         DateTime // Tanggal bergabung
+  endDate          DateTime? // Tanggal keluar (if terminated)
+  probationEndDate DateTime? // End of probation period
+
+  // Manager/Supervisor
+  managerId String? // Direct manager
+
+  // Emergency Contact
+  emergencyName     String?
+  emergencyPhone    String?
+  emergencyRelation String?
+
+  // Bank Info (for salary transfer)
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+
+  // Tax Info
+  npwp       String? // Nomor Pokok Wajib Pajak
+  ptkpStatus String? // Status PTKP (TK/0, K/0, K/1, etc.)
+
+  // Photo
+  photoUrl String?
+
+  // Status
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  // Relations
+  documents           EmployeeDocument[]
+  attendances         Attendance[]
+  leaveBalances       LeaveBalance[]
+  leaveRequests       LeaveRequest[]
+  overtimes           Overtime[]
+  employeeSalaries    EmployeeSalary[]
+  payrollDetails      PayrollDetail[]
+  performanceReviews  PerformanceReview[]
+  performanceGoals    PerformanceGoal[]
+  trainingEnrollments TrainingEnrollment[]
+  employeeSkills      EmployeeSkill[]
+  
+  // Work Order relations
+  workOrders           WorkOrder[]
+  workOrderAssignments WorkOrderAssignment[]
+  taskCompletions      WorkOrderTask[]
+  workOrderUpdates     WorkOrderUpdate[]
+  workOrderAttachments WorkOrderAttachment[]
+
+  @@index([departmentId])
+  @@index([positionId])
+  @@index([employmentStatus])
+  @@index([isActive])
+  @@index([email])
+  @@map("employees")
+}
+
+// Employee Documents - Dokumen karyawan
+model EmployeeDocument {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  documentType String // "KTP", "KK", "IJAZAH", "SERTIFIKAT", "CONTRACT", etc.
+  fileName     String
+  filePath     String // Path to uploaded file
+  fileSize     Int? // Size in bytes
+  description  String?
+  uploadedAt   DateTime @default(now())
+  uploadedBy   String? // User ID who uploaded
+
+  @@index([employeeId])
+  @@index([documentType])
+  @@map("employee_documents")
+}
+
+// Attendance - Record kehadiran dengan geolocation
+model Attendance {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  date DateTime // Tanggal kehadiran
+
+  // Check In
+  checkInTime DateTime?
+  checkInLat  Float? // Latitude check-in
+  checkInLng  Float? // Longitude check-in
+  checkInNote String?
+
+  // Check Out
+  checkOutTime DateTime?
+  checkOutLat  Float? // Latitude check-out
+  checkOutLng  Float? // Longitude check-out
+  checkOutNote String?
+
+  // Calculated
+  workingHours Float? // Total working hours
+  status       AttendanceStatus @default(ABSENT)
+
+  // Manual correction
+  isManual    Boolean   @default(false) // True if manually entered/corrected
+  correctedBy String? // User ID who corrected
+  correctedAt DateTime?
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, date]) // One attendance record per employee per day
+  @@index([employeeId])
+  @@index([date])
+  @@index([status])
+  @@index([employeeId, date])
+  @@map("attendances")
+}
+
+// Leave Balance - Saldo cuti karyawan
+model LeaveBalance {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  year          Int // Tahun
+  leaveType     LeaveType
+  totalDays     Int // Total days allocated
+  usedDays      Int       @default(0) // Days used
+  remainingDays Int // Days remaining
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, year, leaveType])
+  @@index([employeeId])
+  @@index([year])
+  @@map("leave_balances")
+}
+
+// Leave Request - Pengajuan cuti/izin
+model LeaveRequest {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  leaveType LeaveType
+  startDate DateTime
+  endDate   DateTime
+  totalDays Int // Number of days requested
+  reason    String
+
+  status          LeaveStatus @default(PENDING)
+  approvedBy      String? // User ID who approved/rejected
+  approvedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate])
+  @@index([employeeId, status])
+  @@map("leave_requests")
+}
+
+// Overtime - Record lembur
+model Overtime {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
+  hours       Float // Total overtime hours
+  description String?
+
+  isApproved Boolean   @default(false)
+  approvedBy String? // User ID who approved
+  approvedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([date])
+  @@index([isApproved])
+  @@map("overtimes")
+}
+
+// Salary Component - Master komponen gaji
+model SalaryComponent {
+  id          String              @id @default(cuid())
+  code        String              @unique // e.g., "BASIC", "TRANSPORT", "MEAL"
+  name        String // e.g., "Gaji Pokok", "Tunjangan Transport"
+  type        SalaryComponentType
+  description String?
+  isActive    Boolean             @default(true)
+  isTaxable   Boolean             @default(true) // Kena pajak atau tidak
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employeeSalaries EmployeeSalary[]
+
+  @@index([type])
+  @@index([isActive])
+  @@map("salary_components")
+}
+
+// Employee Salary - Salary structure per karyawan
+model EmployeeSalary {
+  id                String          @id @default(cuid())
+  employeeId        String
+  employee          Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  salaryComponentId String
+  salaryComponent   SalaryComponent @relation(fields: [salaryComponentId], references: [id], onDelete: Restrict)
+
+  amount        BigInt // Amount in rupiah
+  effectiveDate DateTime // When this salary becomes effective
+  endDate       DateTime? // When this salary ends (null if current)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([salaryComponentId])
+  @@index([effectiveDate])
+  @@map("employee_salaries")
+}
+
+// Payroll - Proses penggajian bulanan
+model Payroll {
+  id          String   @id @default(cuid())
+  month       Int // 1-12
+  year        Int
+  periodStart DateTime // Start of pay period
+  periodEnd   DateTime // End of pay period
+
+  totalGross     BigInt @default(0) // Total gross salary
+  totalDeduction BigInt @default(0) // Total deductions
+  totalNet       BigInt @default(0) // Total net salary (gross - deduction)
+  totalEmployees Int    @default(0) // Number of employees
+
+  status      PayrollStatus @default(DRAFT)
+  processedAt DateTime? // When payroll was calculated
+  approvedBy  String? // User ID who approved
+  approvedAt  DateTime?
+  paidAt      DateTime? // When marked as paid
+  paidBy      String? // User ID who marked as paid
+
+  // Link to Finance (Pengeluaran)
+  pengeluaranId String? @unique // Auto-created Pengeluaran when marked as paid
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  payrollDetails PayrollDetail[]
+
+  @@unique([month, year])
+  @@index([month, year])
+  @@index([status])
+  @@map("payrolls")
+}
+
+// Payroll Detail - Detail payroll per karyawan
+model PayrollDetail {
+  id         String   @id @default(cuid())
+  payrollId  String
+  payroll    Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  // Salary breakdown
+  basicSalary BigInt @default(0)
+  allowances  BigInt @default(0) // Total allowances
+  bonuses     BigInt @default(0) // Total bonuses
+  grossSalary BigInt // Basic + allowances + bonuses
+
+  // Deductions
+  deductions     BigInt @default(0) // Other deductions
+  tax            BigInt @default(0) // Income tax (PPh 21)
+  insurance      BigInt @default(0) // Insurance
+  totalDeduction BigInt // Sum of all deductions
+
+  netSalary BigInt // Gross - deductions
+
+  // Overtime
+  overtimeHours Float  @default(0)
+  overtimePay   BigInt @default(0)
+
+  // Attendance impact
+  daysWorked Int @default(0)
+  daysAbsent Int @default(0)
+  lateCount  Int @default(0)
+
+  // Component breakdown (JSON)
+  componentBreakdown Json? // Detailed breakdown of all components
+
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@unique([payrollId, employeeId])
+  @@index([payrollId])
+  @@index([employeeId])
+  @@map("payroll_details")
+}
+
+// Performance Review - Penilaian kinerja
+model PerformanceReview {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  reviewPeriod String // e.g., "Q1 2024", "2024"
+  reviewDate   DateTime
+  reviewerId   String? // User/Employee ID of reviewer
+
+  // Scores (1-5 scale typically)
+  scoreQuality      Float? // Quality of work
+  scoreProductivity Float? // Productivity
+  scoreAttendance   Float? // Attendance/punctuality
+  scoreTeamwork     Float? // Teamwork
+  scoreInitiative   Float? // Initiative
+  overallScore      Float? // Overall score
+
+  strengths  String? // Text feedback on strengths
+  weaknesses String? // Text feedback on areas for improvement
+  goals      String? // Goals for next period
+  comments   String? // Additional comments
+
+  status String @default("DRAFT") // DRAFT, COMPLETED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([reviewDate])
+  @@map("performance_reviews")
+}
+
+// Performance Goal - Target/KPI karyawan
+model PerformanceGoal {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String
+  targetValue Float? // Target numeric value (if applicable)
+  actualValue Float? // Actual achieved value
+  unit        String? // Unit of measurement
+
+  startDate   DateTime
+  endDate     DateTime
+  status      String   @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, CANCELLED
+  achievement Float? // Percentage achieved (0-100)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([endDate])
+  @@map("performance_goals")
+}
+
+// Training - Program pelatihan
+model Training {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  trainer     String? // Trainer name
+  location    String? // Training location or "ONLINE"
+
+  startDate       DateTime
+  endDate         DateTime
+  duration        Int? // Duration in hours
+  maxParticipants Int? // Maximum participants
+
+  cost BigInt? // Cost per participant (optional)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  enrollments TrainingEnrollment[]
+
+  @@index([startDate])
+  @@index([isActive])
+  @@map("trainings")
+}
+
+// Training Enrollment - Pendaftaran training
+model TrainingEnrollment {
+  id         String   @id @default(cuid())
+  trainingId String
+  training   Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  status      String  @default("REGISTERED") // REGISTERED, COMPLETED, CANCELLED
+  attended    Boolean @default(false)
+  score       Float? // Score/grade if applicable
+  certificate String? // Path to certificate (if issued)
+  feedback    String? // Employee feedback
+
+  enrolledAt  DateTime  @default(now())
+  completedAt DateTime?
+
+  @@unique([trainingId, employeeId])
+  @@index([trainingId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("training_enrollments")
+}
+
+// Skill - Master skill/kompetensi
+model Skill {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  category    String? // e.g., "Technical", "Soft Skill", "Language"
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employeeSkills EmployeeSkill[]
+
+  @@index([category])
+  @@index([isActive])
+  @@map("skills")
+}
+
+// Employee Skill - Skill yang dimiliki karyawan
+model EmployeeSkill {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  skillId    String
+  skill      Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  level      String    @default("BEGINNER") // BEGINNER, INTERMEDIATE, ADVANCED, EXPERT
+  yearsOfExp Int? // Years of experience
+  lastUsed   DateTime? // Last time skill was used
+  certified  Boolean   @default(false) // Has certification
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, skillId])
+  @@index([employeeId])
+  @@index([skillId])
+  @@map("employee_skills")
+}
+
+// Job Posting - Lowongan pekerjaan
+model JobPosting {
+  id           String  @id @default(cuid())
+  title        String
+  departmentId String?
+  positionId   String?
+
+  description      String // Job description
+  requirements     String // Requirements
+  responsibilities String // Responsibilities
+
+  employmentType String // "FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP"
+  location       String?
+  salaryMin      BigInt? // Minimum salary range
+  salaryMax      BigInt? // Maximum salary range
+
+  openings Int @default(1) // Number of positions
+
+  publishDate DateTime  @default(now())
+  closeDate   DateTime?
+  isActive    Boolean   @default(true)
+  isPublic    Boolean   @default(false) // Public job posting or internal only
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  applications JobApplication[]
+
+  @@index([isActive])
+  @@index([publishDate])
+  @@map("job_postings")
+}
+
+// Job Application - Lamaran pekerjaan
+model JobApplication {
+  id           String     @id @default(cuid())
+  jobPostingId String
+  jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  // Applicant info
+  fullName    String
+  email       String
+  phone       String
+  resumeUrl   String? // Path to uploaded resume
+  coverLetter String?
+
+  // Application status
+  status       ApplicationStatus @default(APPLIED)
+  currentStage String? // Current stage in pipeline
+
+  // Scores/ratings
+  screeningScore Float?
+  interviewScore Float?
+  finalScore     Float?
+
+  notes String? // Internal notes
+
+  appliedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  interviews Interview[]
+
+  @@index([jobPostingId])
+  @@index([status])
+  @@index([email])
+  @@map("job_applications")
+}
+
+// Interview - Jadwal wawancara
+model Interview {
+  id               String         @id @default(cuid())
+  jobApplicationId String
+  jobApplication   JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+
+  interviewType String // "PHONE", "VIDEO", "IN_PERSON", "TECHNICAL"
+  scheduledDate DateTime
+  duration      Int? // Duration in minutes
+  location      String? // Location or meeting link
+
+  interviewerIds String? // JSON array of User IDs
+  interviewers   String? // Names of interviewers
+
+  status         String  @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED, NO_SHOW
+  score          Float? // Interview score
+  feedback       String? // Interview feedback
+  recommendation String? // Hire/No hire recommendation
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([jobApplicationId])
+  @@index([scheduledDate])
+  @@index([status])
+  @@map("interviews")
+}
+
+// ============================================
+// HELPDESK SYSTEM MODELS
+// ============================================
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN // Baru dibuat, belum ditangani
+  IN_PROGRESS // Sedang ditangani
+  WAITING_CUSTOMER // Menunggu response dari customer
+  RESOLVED // Sudah diselesaikan
+  CLOSED // Ditutup (final)
+}
+
+// Ticket Category - Kategori untuk ticket helpdesk
+model TicketCategory {
+  id           String  @id @default(cuid())
+  name         String  @unique // e.g., "Koneksi Terputus", "Billing", "Permintaan Upgrade"
+  description  String?
+  color        String? @default("#3b82f6") // Hex color untuk UI
+  icon         String? // Icon name (optional)
+  displayOrder Int     @default(0) // Untuk sorting di UI
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets Ticket[]
+
+  @@index([isActive])
+  @@index([displayOrder])
+  @@map("ticket_categories")
+}
+
+// Ticket - Main ticket model
+model Ticket {
+  id           String @id @default(cuid())
+  ticketNumber String @unique // Format: TIK-YYYYMMDD-XXXX
+
+  // Customer Info
+  pelangganId String
+  pelanggan   Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+
+  // Ticket Details
+  categoryId  String?
+  category    TicketCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subject     String
+  description String          @db.Text
+
+  // Status & Priority
+  status   TicketStatus   @default(OPEN)
+  priority TicketPriority @default(NORMAL)
+
+  // Assignment
+  assignedToId String? // User ID (staff yang handle)
+  assignedAt   DateTime?
+
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  firstResponseAt DateTime? // First staff response time
+  resolvedAt      DateTime? // When marked as resolved
+  closedAt        DateTime? // When closed
+
+  // Customer feedback
+  rating   Int? // 1-5 rating (after resolved)
+  feedback String? // Customer feedback text
+
+  // Metadata
+  lastActivityAt DateTime @default(now()) // Last message/update time
+  tags           String? // JSON array of tags (optional)
+
+  // Relations
+  messages    TicketMessage[]
+  attachments TicketAttachment[]
+  workOrders  WorkOrder[]       // Link to work orders created from this ticket
+
+  @@index([pelangganId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([categoryId])
+  @@index([createdAt])
+  @@index([lastActivityAt])
+  @@index([ticketNumber])
+  @@index([pelangganId, status]) // Common query
+  @@map("tickets")
+}
+
+// Ticket Message - Messages/replies dalam ticket
+model TicketMessage {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  // Message Details
+  message    String  @db.Text
+  isInternal Boolean @default(false) // Internal note (hanya staff yang lihat)
+
+  // Sender Info
+  senderType String // "CUSTOMER" or "STAFF"
+  senderId   String? // User ID (jika staff), null jika customer
+  senderName String // Nama pengirim untuk display
+
+  // Metadata
+  isFirstResponse Boolean  @default(false) // First staff response marker
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  attachments TicketAttachment[]
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@index([senderType])
+  @@map("ticket_messages")
+}
+
+// Ticket Attachment - File attachments
+model TicketAttachment {
+  id String @id @default(cuid())
+
+  // Relations (attachment bisa untuk ticket atau message)
+  ticketId  String?
+  ticket    Ticket?        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  messageId String?
+  message   TicketMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  // File Details
+  fileName String // Original filename
+  filePath String // Stored file path
+  fileSize Int // Size in bytes
+  fileType String // MIME type
+
+  // Uploader Info
+  uploadedBy String? // User ID or customer ID
+  uploadedAt DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([messageId])
+  @@index([uploadedAt])
+  @@map("ticket_attachments")
+}
+
+// Add relation to Pelanggan model
+// NOTE: This relation should be manually added to the existing Pelanggan model:
+// tickets Ticket[]
+
+// ============================================
+// WORK ORDER SYSTEM MODELS
+// ============================================
+
+enum WorkOrderStatus {
+  PENDING       // Baru dibuat, belum assigned
+  ASSIGNED      // Sudah assigned ke technician
+  IN_PROGRESS   // Sedang dikerjakan
+  ON_HOLD       // Ditunda (waiting parts, dll)
+  COMPLETED     // Selesai dikerjakan
+  VERIFIED      // Sudah diverifikasi
+  CLOSED        // Ditutup
+  CANCELLED     // Dibatalkan
+}
+
+enum WorkOrderPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+  CRITICAL
+}
+
+enum WorkOrderType {
+  INSTALLATION    // Pemasangan baru
+  TROUBLESHOOT   // Troubleshooting masalah
+  MAINTENANCE    // Maintenance rutin
+  UPGRADE        // Upgrade perangkat/paket
+  RELOCATION     // Pindah lokasi
+  DISCONNECTION  // Pemutusan
+  OTHER          // Lainnya
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+// Work Order - Main work order entity
+model WorkOrder {
+  id                String            @id @default(cuid())
+  workOrderNumber   String            @unique // Format: WO-YYYYMMDD-XXXX
+  
+  // Relations
+  ticketId          String?
+  ticket            Ticket?           @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  pelangganId       String
+  pelanggan         Pelanggan         @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  
+  // Work Order Details
+  type              WorkOrderType
+  title             String
+  description       String            @db.Text
+  status            WorkOrderStatus   @default(PENDING)
+  priority          WorkOrderPriority @default(NORMAL)
+  
+  // Assignment
+  departmentId      String?
+  department        Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  assignedToId      String?
+  assignedTo        Employee?         @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  
+  // Location & Contact
+  locationAddress   String?           @db.Text
+  locationLat       Float?
+  locationLng       Float?
+  contactName       String?
+  contactPhone      String?
+  
+  // Scheduling
+  scheduledDate     DateTime?
+  scheduledTimeStart String?          // HH:mm format
+  scheduledTimeEnd   String?          // HH:mm format
+  
+  // Completion
+  startedAt         DateTime?
+  completedAt       DateTime?
+  verifiedAt        DateTime?
+  closedAt          DateTime?
+  
+  // Estimation
+  estimatedHours    Float?
+  actualHours       Float?
+  estimatedCost     Float?
+  actualCost        Float?
+  
+  // Materials/Parts (JSON)
+  requiredMaterials Json?            // [{name, quantity, unit}]
+  usedMaterials     Json?            // [{name, quantity, unit, cost}]
+  
+  // Notes
+  internalNotes     String?          @db.Text
+  resolutionNotes   String?          @db.Text
+  customerFeedback  String?          @db.Text
+  rating            Int?             // 1-5
+  
+  // Relations
+  tasks             WorkOrderTask[]
+  assignments       WorkOrderAssignment[]
+  updates           WorkOrderUpdate[]
+  attachments       WorkOrderAttachment[]
+  
+  // Timestamps
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  
+  @@index([ticketId])
+  @@index([pelangganId])
+  @@index([status])
+  @@index([assignedToId])
+  @@index([departmentId])
+  @@index([scheduledDate])
+  @@index([type])
+  @@index([priority])
+  @@index([workOrderNumber])
+  @@map("work_orders")
+}
+
+// Work Order Task - Checklist/subtasks
+model WorkOrderTask {
+  id              String       @id @default(cuid())
+  workOrderId     String
+  workOrder       WorkOrder    @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String?      @db.Text
+  status          TaskStatus   @default(PENDING)
+  order           Int          @default(0)
+  
+  completedById   String?
+  completedBy     Employee?    @relation(fields: [completedById], references: [id], onDelete: SetNull)
+  completedAt     DateTime?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  @@index([workOrderId])
+  @@index([status])
+  @@map("work_order_tasks")
+}
+
+// Work Order Assignment - Multi technician assignment
+model WorkOrderAssignment {
+  id              String       @id @default(cuid())
+  workOrderId     String
+  workOrder       WorkOrder    @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  
+  employeeId      String
+  employee        Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  role            String?      // Lead, Assistant, Supervisor
+  assignedAt      DateTime     @default(now())
+  assignedById    String?
+  
+  @@index([workOrderId])
+  @@index([employeeId])
+  @@map("work_order_assignments")
+}
+
+// Work Order Update - Activity log/timeline
+model WorkOrderUpdate {
+  id              String             @id @default(cuid())
+  workOrderId     String
+  workOrder       WorkOrder          @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  
+  updateType      String             // STATUS_CHANGE, PROGRESS_UPDATE, NOTE, PHOTO
+  message         String             @db.Text
+  oldStatus       WorkOrderStatus?
+  newStatus       WorkOrderStatus?
+  
+  createdById     String?
+  createdBy       Employee?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime           @default(now())
+  
+  @@index([workOrderId])
+  @@index([createdAt])
+  @@map("work_order_updates")
+}
+
+// Work Order Attachment - Photos/files from field
+model WorkOrderAttachment {
+  id              String       @id @default(cuid())
+  workOrderId     String
+  workOrder       WorkOrder    @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  
+  fileName        String
+  filePath        String
+  fileSize        Int
+  fileType        String
+  caption         String?
+  
+  uploadedById    String?
+  uploadedBy      Employee?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  uploadedAt      DateTime     @default(now())
+  
+  @@index([workOrderId])
+  @@index([uploadedAt])
+  @@map("work_order_attachments")
 }

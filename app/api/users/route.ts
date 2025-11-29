@@ -58,17 +58,76 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userRepository = getUserRepository()
-    const dbStart = Date.now()
-    const users = await userRepository.findAll()
-    logger.dbOperation('findAll', 'User', Date.now() - dbStart)
+    // Use Prisma client directly
+    const { PrismaClient } = await import('@prisma/client')
+    const prisma = new PrismaClient()
 
-    logger.apiRequest('GET', '/api/users', 200, Date.now() - startTime, {
-      userId: session.user.id,
-      userCount: users.length,
-    })
+    try {
+      const dbStart = Date.now()
 
-    return NextResponse.json({ users })
+      // Get all users
+      const users = await prisma.user.findMany({
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+
+      // Get all employees with their relations
+      const employees = await prisma.employee.findMany({
+        where: {
+          userId: {
+            not: null
+          }
+        },
+        include: {
+          department: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          position: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+        },
+      })
+
+      // Create a map of userId -> employee
+      const employeeMap = new Map()
+      employees.forEach(emp => {
+        if (emp.userId) {
+          employeeMap.set(emp.userId, {
+            id: emp.id,
+            employeeId: emp.employeeId,
+            department: emp.department,
+            position: emp.position,
+            employmentStatus: emp.employmentStatus,
+          })
+        }
+      })
+
+      // Merge users with their employee data
+      const usersWithEmployees = users.map(user => ({
+        ...user,
+        employee: employeeMap.get(user.id) || null
+      }))
+
+      logger.dbOperation('findMany', 'User+Employee', Date.now() - dbStart)
+
+      await prisma.$disconnect()
+
+      logger.apiRequest('GET', '/api/users', 200, Date.now() - startTime, {
+        userId: session.user.id,
+        userCount: users.length,
+      })
+
+      return NextResponse.json({ users: usersWithEmployees })
+    } finally {
+      await prisma.$disconnect()
+    }
   } catch (error: any) {
     logger.error('Error fetching users', error, {
       path: '/api/users',
@@ -163,53 +222,123 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const json = await req.json()
-    const parsed = userCreateSchema.safeParse(json)
-    if (!parsed.success) {
-      logger.warn('Validation error in POST /api/users', {
-        errors: parsed.error.flatten(),
-        userId: session.user.id,
-      })
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    const formData = await req.json()
+    const {
+      email, name, password, role,
+      employeeId, phone, dateOfBirth, gender, idCardNumber,
+      address, city, province, departmentId, positionId,
+      employmentStatus, joinDate, probationEndDate,
+      bankName, bankAccountNumber, bankAccountName, npwp,
+      emergencyName, emergencyPhone, emergencyRelation
+    } = formData
+
+    // Validate required fields
+    if (!email || !password || !role || !employeeId || !joinDate) {
+      return NextResponse.json(
+        { error: 'Missing required fields: email, password, role, employeeId, joinDate' },
+        { status: 400 }
+      )
     }
 
-    const { email, name, password, role } = parsed.data
-    logger.info('Creating new user', {
+    logger.info('Creating new user+employee', {
       email,
       role,
+      employeeId,
       createdBy: session.user.id,
     })
 
     const passwordHash = await hash(password, 10)
-    const dbStart = Date.now()
-    const userRepository = getUserRepository()
-    const user = await userRepository.create({ email, name: name || null, passwordHash, role })
-    logger.dbOperation('create', 'User', Date.now() - dbStart, {
-      userId: user.id,
-    })
 
-    logger.apiRequest('POST', '/api/users', 200, Date.now() - startTime, {
-      userId: session.user.id,
-      newUserId: user.id,
-    })
+    // Use Prisma client directly for transaction
+    const { PrismaClient } = await import('@prisma/client')
+    const prisma = new PrismaClient()
 
-    return NextResponse.json({ id: user.id })
+    try {
+      // Create User + Employee in single transaction (ALL users are employees)
+      const result = await prisma.$transaction(async (tx) => {
+        // 1. Create User
+        const user = await tx.user.create({
+          data: {
+            email,
+            name: name || null,
+            passwordHash,
+            role,
+          },
+        })
+
+        logger.dbOperation('create', 'User', Date.now() - startTime, {
+          userId: user.id,
+        })
+
+        // 2. Create Employee record linked to user (ALWAYS)
+        const employee = await tx.employee.create({
+          data: {
+            employeeId,
+            fullName: name || email.split('@')[0],
+            email,
+            phone: phone || null,
+            dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+            gender: gender || null,
+            idCardNumber: idCardNumber || null,
+            address: address || null,
+            city: city || null,
+            province: province || null,
+            departmentId: departmentId || null,
+            positionId: positionId || null,
+            employmentStatus: employmentStatus || 'PROBATION',
+            joinDate: new Date(joinDate),
+            probationEndDate: probationEndDate ? new Date(probationEndDate) : null,
+            bankName: bankName || null,
+            bankAccountNumber: bankAccountNumber || null,
+            bankAccountName: bankAccountName || null,
+            npwp: npwp || null,
+            emergencyName: emergencyName || null,
+            emergencyPhone: emergencyPhone || null,
+            emergencyRelation: emergencyRelation || null,
+            userId: user.id, // Link to User
+            createdBy: session.user.id,
+          },
+        })
+
+        logger.dbOperation('create', 'Employee', Date.now() - startTime, {
+          employeeId: employee.id,
+          userId: user.id,
+        })
+
+        return { user, employee }
+      })
+
+      await prisma.$disconnect()
+
+      logger.apiRequest('POST', '/api/users', 200, Date.now() - startTime, {
+        userId: session.user.id,
+        newUserId: result.user.id,
+        employeeId: result.employee.id,
+      })
+
+      return NextResponse.json({
+        id: result.user.id,
+        employeeId: result.employee.id,
+        message: 'User & Employee created successfully',
+      })
+    } finally {
+      await prisma.$disconnect()
+    }
   } catch (e: any) {
     logger.error('Error creating user', e, {
       path: '/api/users',
       method: 'POST',
     })
-    
+
     if (e.code === 'P2002') {
       // Prisma unique constraint error
-      return NextResponse.json({ error: 'Email sudah terpakai' }, { status: 409 })
+      return NextResponse.json({ error: 'Email or Employee ID already exists' }, { status: 409 })
     }
-    
+
     return NextResponse.json(
-      { error: 'Gagal membuat pengguna' },
+      { error: e.message || 'Gagal membuat pengguna' },
       { status: 500 }
     )
   }
 }
-
 

@@ -10,7 +10,7 @@ import type { NextRequest } from 'next/server'
  */
 export function getSubdomain(request: NextRequest): string | null {
   const hostname = request.headers.get('host') || request.nextUrl.hostname
-  
+
   if (!hostname) {
     return null
   }
@@ -29,7 +29,7 @@ export function getSubdomain(request: NextRequest): string | null {
   // Contoh: admin.example.com -> admin
   //         pelanggan.example.com -> pelanggan
   const parts = hostname.split('.')
-  
+
   // Jika hanya 2 bagian (example.com), tidak ada subdomain
   if (parts.length <= 2) {
     return null
@@ -40,7 +40,8 @@ export function getSubdomain(request: NextRequest): string | null {
 }
 
 /**
- * Cek apakah request berasal dari subdomain admin
+ * Check if request is from admin subdomain
+ * Examples: admin.localhost, admin.example.com
  */
 export function isAdminSubdomain(request: NextRequest): boolean {
   const subdomain = getSubdomain(request)
@@ -48,7 +49,8 @@ export function isAdminSubdomain(request: NextRequest): boolean {
 }
 
 /**
- * Cek apakah request berasal dari subdomain pelanggan
+ * Check if request is from pelanggan subdomain
+ * Examples: pelanggan.localhost, pelanggan.example.com
  */
 export function isPelangganSubdomain(request: NextRequest): boolean {
   const subdomain = getSubdomain(request)
@@ -56,7 +58,17 @@ export function isPelangganSubdomain(request: NextRequest): boolean {
 }
 
 /**
- * Cek apakah request berasal dari subdomain finance
+ * Check if request is from karyawan subdomain
+ * Examples: karyawan.localhost, karyawan.example.com
+ */
+export function isKaryawanSubdomain(request: NextRequest): boolean {
+  const subdomain = getSubdomain(request)
+  return subdomain === 'karyawan'
+}
+
+/**
+ * Check if request is from finance subdomain
+ * Examples: finance.localhost, finance.example.com
  */
 export function isFinanceSubdomain(request: NextRequest): boolean {
   const subdomain = getSubdomain(request)
@@ -69,7 +81,7 @@ export function isFinanceSubdomain(request: NextRequest): boolean {
 export function getBaseUrl(request: NextRequest): string {
   const protocol = request.nextUrl.protocol
   const hostname = request.headers.get('host') || request.nextUrl.hostname
-  
+
   return `${protocol}//${hostname}`
 }
 

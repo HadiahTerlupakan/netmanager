@@ -1,0 +1,106 @@
+'use client'
+
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { signOut, SessionProvider } from 'next-auth/react'
+import {
+    HiOutlineHome,
+    HiOutlineUser,
+    HiOutlineClock,
+    HiOutlineCalendar,
+    HiOutlineBanknotes,
+    HiOutlineArrowRightOnRectangle
+} from 'react-icons/hi2'
+import { PWAInstallBanner } from '@/components/pwa/PWAInstallBanner'
+import { ToastProvider } from '@/components/ui/Toast'
+
+const navigation = [
+    { name: 'Dashboard', href: '/employee', icon: HiOutlineHome },
+    { name: 'My Profile', href: '/employee/profile', icon: HiOutlineUser },
+    { name: 'Attendance', href: '/employee/attendance', icon: HiOutlineClock },
+    { name: 'Leaves', href: '/employee/leaves', icon: HiOutlineCalendar },
+    { name: 'Payslips', href: '/employee/payslips', icon: HiOutlineBanknotes },
+]
+
+export default function EmployeeLayout({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname()
+    const router = useRouter()
+
+    const handleSignOut = async () => {
+        await signOut({ redirect: false })
+        router.push('/employee/login')
+    }
+
+    // Don't render layout for login, offline, or install pages
+    if (pathname === '/employee/login' || pathname === '/employee/offline' || pathname === '/employee/install') {
+        return <>{children}</>
+    }
+
+    return (
+        <SessionProvider>
+            <ToastProvider>
+                <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+                    {/* PWA Install Banner */}
+                    <PWAInstallBanner />
+
+                    {/* Top Navigation Bar */}
+                    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex items-center justify-between h-16">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                                        <span className="text-white font-bold text-lg">E</span>
+                                    </div>
+                                    <div>
+                                        <h1 className="text-lg font-bold text-gray-900 dark:text-white">Employee Portal</h1>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">NetManager HR</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleSignOut}
+                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                                >
+                                    <HiOutlineArrowRightOnRectangle className="w-5 h-5" />
+                                    Sign Out
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <div className="flex flex-col lg:flex-row gap-8">
+                            {/* Sidebar Navigation */}
+                            <aside className="lg:w-64 flex-shrink-0">
+                                <nav className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-1 sticky top-24">
+                                    {navigation.map((item) => {
+                                        const isActive = pathname === item.href ||
+                                            (item.href !== '/employee' && pathname.startsWith(item.href))
+
+                                        return (
+                                            <Link
+                                                key={item.name}
+                                                href={item.href}
+                                                className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors ${isActive
+                                                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                    }`}
+                                            >
+                                                <item.icon className="w-5 h-5" />
+                                                {item.name}
+                                            </Link>
+                                        )
+                                    })}
+                                </nav>
+                            </aside>
+
+                            {/* Main Content */}
+                            <main className="flex-1 min-w-0">
+                                {children}
+                            </main>
+                        </div>
+                    </div>
+                </div>
+            </ToastProvider>
+        </SessionProvider>
+    )
+}

@@ -1,0 +1,44 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { WorkOrderRepository } from '@/lib/repositories/WorkOrderRepository';
+import { verifyAuth } from '@/lib/auth';
+
+const prisma = new PrismaClient();
+const workOrderRepo = new WorkOrderRepository(prisma);
+
+// POST /api/admin/workorders/[id]/assign - Assign work order
+export async function POST(
+    request: NextRequest,
+    { params }: { params: { id: string } }
+) {
+    try {
+        const user = await verifyAuth(request);
+        if (!user || user.role === 'USER') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const body = await request.json();
+
+        if (!body.employeeId) {
+            return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 });
+        }
+
+        const workOrder = await workOrderRepo.assign(params.id, body.employeeId, body.role);
+
+        await workOrderRepo.addUpdate({
+            workOrderId: params.id,
+            updateType: 'NOTE',
+            message: `Work order assigned to employee ${body.employeeId}`,
+            createdById: user.id,
+        });
+
+        return NextResponse.json({
+            success: true,
+            data: workOrder,
+            message: 'Work order assigned successfully',
+        });
+    } catch (error) {
+        console.error('Error assigning work order:', error);
+        return NextResponse.json({ error: 'Failed to assign work order' }, { status: 500 });
+    }
+}

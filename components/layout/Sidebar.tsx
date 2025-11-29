@@ -39,7 +39,13 @@ import {
   HiOutlineEnvelope,
   HiEnvelope,
   HiChatBubbleLeftRight,
-  HiOutlineCodeBracket
+  HiOutlineCodeBracket,
+  HiOutlineClock,
+  HiOutlineCalendar,
+  HiOutlineUserGroup,
+  HiTicket,
+  HiWrenchScrewdriver,
+  HiClipboardDocumentList
 } from 'react-icons/hi2'
 
 type NavItem = {
@@ -102,6 +108,37 @@ export default function Sidebar() {
       ],
     },
     { href: '/admin/users', label: 'Users', icon: <HiOutlineUsers className="w-5 h-5" /> },
+    {
+      href: '/admin/helpdesk',
+      label: 'Helpdesk',
+      icon: <HiTicket className="w-5 h-5" />,
+      children: [
+        { href: '/admin/helpdesk', label: 'Dashboard', icon: <HiOutlineChartBar className="w-4 h-4" /> },
+        { href: '/admin/helpdesk/tiket', label: 'Semua Tiket', icon: <HiTicket className="w-4 h-4" /> },
+      ],
+    },
+    {
+      href: '/admin/workorders',
+      label: 'Work Orders',
+      icon: <HiWrenchScrewdriver className="w-5 h-5" />,
+      children: [
+        { href: '/admin/workorders', label: 'Dashboard', icon: <HiOutlineChartBar className="w-4 h-4" /> },
+        { href: '/admin/workorders/list', label: 'All Work Orders', icon: <HiClipboardDocumentList className="w-4 h-4" /> },
+      ],
+    },
+    {
+      href: '/admin/hris',
+      label: 'HRIS',
+      icon: <HiOutlineUserGroup className="w-5 h-5" />,
+      children: [
+        { href: '/admin/hris', label: 'Dashboard', icon: <HiOutlineChartBar className="w-4 h-4" /> },
+        { href: '/admin/hris/departments', label: 'Departments', icon: <HiOutlineBuildingOffice className="w-4 h-4" /> },
+        { href: '/admin/hris/employees', label: 'Employees', icon: <HiOutlineUsers className="w-4 h-4" /> },
+        { href: '/admin/hris/attendance', label: 'Attendance', icon: <HiOutlineClock className="w-4 h-4" /> },
+        { href: '/admin/hris/leaves', label: 'Leave Management', icon: <HiOutlineCalendar className="w-4 h-4" /> },
+        { href: '/admin/hris/payroll', label: 'Payroll', icon: <HiOutlineBanknotes className="w-4 h-4" /> },
+      ],
+    },
     {
       href: '/admin/finance/cashflow',
       label: 'Finance',

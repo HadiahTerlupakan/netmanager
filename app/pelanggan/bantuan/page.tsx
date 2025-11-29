@@ -15,6 +15,8 @@ import {
   HiChevronRight,
   HiBell,
   HiOutlineDocumentText,
+  HiTicket,
+  HiPlus,
 } from 'react-icons/hi2'
 import Link from 'next/link'
 
@@ -116,6 +118,35 @@ export default function BantuanPage() {
 
       {/* Main Content */}
       <main className="px-4 py-4">
+        {/* Ticket System Section */}
+        <div className="bg-gradient-to-br from-sky-500 to-cyan-600 rounded-xl shadow-lg p-6 mb-4 text-white">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <HiTicket className="w-7 h-7" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Sistem Tiket Bantuan</h2>
+              <p className="text-sm text-sky-100">Ajukan dan lacak pertanyaan Anda</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            <Link
+              href="/pelanggan/bantuan/tiket/buat"
+              className="bg-white text-sky-600 rounded-lg p-4 flex flex-col items-center justify-center gap-2 hover:bg-sky-50 transition-colors active:scale-[0.98] touch-manipulation"
+            >
+              <HiPlus className="w-6 h-6" />
+              <span className="text-sm font-semibold">Buat Tiket</span>
+            </Link>
+            <Link
+              href="/pelanggan/bantuan/tiket"
+              className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4 flex flex-col items-center justify-center gap-2 hover:bg-white/20 transition-colors active:scale-[0.98] touch-manipulation"
+            >
+              <HiTicket className="w-6 h-6" />
+              <span className="text-sm font-semibold">Lihat Tiket</span>
+            </Link>
+          </div>
+        </div>
+
         {/* Contact Cards */}
         <div className="grid grid-cols-1 gap-3 mb-4">
           <div className="bg-white rounded-xl shadow-sm p-5 text-center active:scale-[0.98] transition-transform touch-manipulation">
