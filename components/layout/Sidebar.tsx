@@ -67,6 +67,7 @@ export default function Sidebar() {
       icon: <HiOutlineGlobeAlt className="w-5 h-5" />,
       children: [
         { href: '/admin/network/mikrotik', label: 'MikroTik', icon: <HiOutlineServer className="w-4 h-4" /> },
+        { href: '/admin/radius', label: 'RADIUS', icon: <HiOutlineKey className="w-4 h-4" /> },
         { href: '/admin/network/olt', label: 'OLT', icon: <HiOutlineSignal className="w-4 h-4" /> },
         { href: '/admin/network/onu', label: 'All ONU', icon: <HiOutlineDevicePhoneMobile className="w-4 h-4" /> },
         { href: '/admin/network/onu/new', label: 'Add ONU', icon: <HiOutlinePlus className="w-4 h-4" /> },

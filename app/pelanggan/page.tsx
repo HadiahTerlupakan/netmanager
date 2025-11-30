@@ -25,6 +25,9 @@ import {
 } from 'react-icons/hi2'
 import Link from 'next/link'
 import { usePelanggan } from '@/hooks/usePelanggan'
+import { ConnectionStatusCard } from '@/components/pelanggan/ConnectionStatusCard'
+import { UsageStatsCard } from '@/components/pelanggan/UsageStatsCard'
+import { SessionHistoryTable } from '@/components/pelanggan/SessionHistoryTable'
 
 
 
@@ -585,6 +588,15 @@ export default function PelangganDashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* RADIUS Session Status */}
+        <ConnectionStatusCard />
+
+        {/* RADIUS Usage Stats */}
+        <UsageStatsCard />
+
+        {/* RADIUS Session History */}
+        <SessionHistoryTable />
 
 
         {/* Alert Jatuh Tempo */}
