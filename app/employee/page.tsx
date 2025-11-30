@@ -114,11 +114,11 @@ export default function EmployeeDashboard() {
     return (
         <div className="space-y-6">
             {/* Welcome Header */}
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
-                <h1 className="text-3xl font-bold mb-2">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-6 md:p-8 text-white">
+                <h1 className="text-2xl md:text-3xl font-bold mb-2">
                     Welcome Back, {session?.user?.name || 'Employee'}!
                 </h1>
-                <p className="text-indigo-100">Here's your overview for today</p>
+                <p className="text-indigo-100 text-sm md:text-base">Here's your overview for today</p>
             </div>
 
             {stats && (
@@ -221,38 +221,38 @@ export default function EmployeeDashboard() {
                     </div>
 
                     {/* Quick Actions */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 md:p-6">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                             Quick Actions
                         </h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                             <Link
                                 href="/employee/attendance"
-                                className="group flex flex-col items-center gap-2 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
+                                className="group flex flex-col items-center gap-2 p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
                             >
-                                <HiOutlineClock className="w-8 h-8 text-indigo-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-sm font-medium text-gray-900 dark:text-white text-center">Check In/Out</span>
+                                <HiOutlineClock className="w-6 h-6 md:w-8 md:h-8 text-indigo-600 group-hover:scale-110 transition-transform" />
+                                <span className="text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">Check In/Out</span>
                             </Link>
                             <Link
                                 href="/employee/leaves"
-                                className="group flex flex-col items-center gap-2 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
+                                className="group flex flex-col items-center gap-2 p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
                             >
-                                <HiOutlineCalendar className="w-8 h-8 text-purple-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-sm font-medium text-gray-900 dark:text-white text-center">Request Leave</span>
+                                <HiOutlineCalendar className="w-6 h-6 md:w-8 md:h-8 text-purple-600 group-hover:scale-110 transition-transform" />
+                                <span className="text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">Request Leave</span>
                             </Link>
                             <Link
                                 href="/employee/payslips"
-                                className="group flex flex-col items-center gap-2 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all"
+                                className="group flex flex-col items-center gap-2 p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all"
                             >
-                                <HiOutlineBanknotes className="w-8 h-8 text-green-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-sm font-medium text-gray-900 dark:text-white text-center">View Payslips</span>
+                                <HiOutlineBanknotes className="w-6 h-6 md:w-8 md:h-8 text-green-600 group-hover:scale-110 transition-transform" />
+                                <span className="text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">View Payslips</span>
                             </Link>
                             <Link
                                 href="/employee/profile"
-                                className="group flex flex-col items-center gap-2 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                                className="group flex flex-col items-center gap-2 p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
                             >
-                                <HiOutlineCheckCircle className="w-8 h-8 text-blue-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-sm font-medium text-gray-900 dark:text-white text-center">My Profile</span>
+                                <HiOutlineCheckCircle className="w-6 h-6 md:w-8 md:h-8 text-blue-600 group-hover:scale-110 transition-transform" />
+                                <span className="text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">My Profile</span>
                             </Link>
                         </div>
                     </div>
