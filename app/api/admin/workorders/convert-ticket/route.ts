@@ -46,10 +46,23 @@ export async function POST(request: NextRequest) {
             priority: body.priority,
         });
 
+        // Update ticket status to IN_PROGRESS
+        await ticketRepo.updateStatus(body.ticketId, 'IN_PROGRESS');
+
+        // Add automatic message to ticket informing about work order
+        await ticketRepo.addMessage({
+            ticketId: body.ticketId,
+            message: `Tiket telah dikonversi menjadi Work Order dengan nomor: ${workOrder.workOrderNumber}. Tim teknis akan segera menangani permintaan Anda.`,
+            senderType: 'STAFF',
+            senderId: user.id,
+            senderName: user.name || user.email || 'System',
+            isInternal: false, // Public message so customer can see it
+        });
+
         return NextResponse.json({
             success: true,
             data: workOrder,
-            message: 'Work order created from ticket successfully',
+            message: `Work order ${workOrder.workOrderNumber} berhasil dibuat dan status tiket diubah menjadi sedang dikerjakan`,
         }, { status: 201 });
     } catch (error) {
         console.error('Error converting ticket to work order:', error);

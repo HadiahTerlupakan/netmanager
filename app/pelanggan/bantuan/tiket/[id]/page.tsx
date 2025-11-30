@@ -66,14 +66,27 @@ export default function TiketDetailPage() {
         try {
             const pelangganData = JSON.parse(localStorage.getItem('pelanggan_data') || '{}')
 
-            const response = await fetch(`/api/pelanggan/tickets/${ticketId}`, {
+            // Add timestamp to prevent caching
+            const response = await fetch(`/api/pelanggan/tickets/${ticketId}?t=${Date.now()}`, {
                 headers: {
                     'pelanggan-data': JSON.stringify(pelangganData),
                 },
+                cache: 'no-store',
             })
 
             if (response.ok) {
                 const result = await response.json()
+                console.log('[Pelanggan Ticket Detail] Fetched ticket:', {
+                    id: result.data?.id,
+                    messageCount: result.data?.messages?.length,
+                    messages: result.data?.messages?.map((m: any) => ({
+                        id: m.id,
+                        senderType: m.senderType,
+                        isInternal: m.isInternal,
+                        createdAt: m.createdAt,
+                        message: m.message?.substring(0, 50),
+                    })),
+                })
                 setTicket(result.data)
             } else if (response.status === 404) {
                 alert('Tiket tidak ditemukan')
@@ -111,8 +124,14 @@ export default function TiketDetailPage() {
             })
 
             if (response.ok) {
+                const result = await response.json()
                 setReply('')
-                fetchTicketDetail() // Refresh to show new message
+                
+                console.log('[Pelanggan Ticket Detail] Message sent, response:', result)
+                
+                // Force refresh immediately to get all messages
+                // Don't use optimistic update to avoid missing messages
+                await fetchTicketDetail()
             } else {
                 const error = await response.json()
                 alert(`Error: ${error.error || 'Gagal mengirim pesan'}`)
@@ -216,7 +235,13 @@ export default function TiketDetailPage() {
                 {/* Conversation Timeline */}
                 <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
                     <h3 className="font-semibold text-gray-900 mb-4">Percakapan</h3>
-                    <TicketTimeline messages={ticket.messages || []} />
+                    {ticket.messages && ticket.messages.length > 0 ? (
+                        <TicketTimeline messages={ticket.messages} />
+                    ) : (
+                        <div className="text-center py-8 text-gray-500 text-sm">
+                            Belum ada percakapan
+                        </div>
+                    )}
                 </div>
 
                 {/* Reply Form */}

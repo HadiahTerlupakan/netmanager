@@ -296,7 +296,7 @@ export async function generateTagihan(
 ): Promise<{ id: string }> {
   const tagihanRepo = getTagihanRepository()
 
-  // Cek apakah tagihan sudah ada
+  // Cek apakah tagihan sudah ada (double-check untuk mencegah race condition)
   const existingTagihan = await tagihanRepo.findByPelangganAndPeriode(
     pelangganId,
     periodeBulan,
@@ -304,7 +304,8 @@ export async function generateTagihan(
   )
 
   if (existingTagihan) {
-    throw new Error('Tagihan untuk periode ini sudah ada')
+    // Return existing tagihan instead of throwing error
+    return { id: existingTagihan.id }
   }
 
   // Ambil data pelanggan dengan paket untuk perhitungan
@@ -438,7 +439,7 @@ export async function generateTagihan(
     throw new Error('Gagal generate nomor tagihan unik setelah beberapa kali percobaan')
   }
 
-  // Buat tagihan
+  // Buat tagihan dengan try-catch untuk handle race condition
   const tagihanData: TagihanCreateData = {
     pelangganId,
     noTagihan,
@@ -454,7 +455,42 @@ export async function generateTagihan(
     jatuhTempo,
   }
 
-  return await tagihanRepo.create(tagihanData)
+  try {
+    return await tagihanRepo.create(tagihanData)
+  } catch (error: any) {
+    // Jika error karena unique constraint (race condition), cari tagihan yang sudah dibuat
+    if (error.code === 'P2002' || error.message?.includes('Unique constraint')) {
+      // Cek lagi apakah tagihan sudah dibuat oleh request lain
+      const existingTagihanAfterError = await tagihanRepo.findByPelangganAndPeriode(
+        pelangganId,
+        periodeBulan,
+        periodeTahun,
+      )
+      
+      if (existingTagihanAfterError) {
+        // Return existing tagihan yang dibuat oleh request lain
+        return { id: existingTagihanAfterError.id }
+      }
+      
+      // Jika masih tidak ada, mungkin error karena noTagihan duplicate
+      // Coba cari dengan noTagihan
+      const existingByNoTagihan = await tagihanRepo.findByNoTagihan(noTagihan)
+      if (existingByNoTagihan) {
+        // Tagihan dengan noTagihan sudah ada, cari tagihan untuk periode ini
+        const existingTagihanByPeriode = await tagihanRepo.findByPelangganAndPeriode(
+          pelangganId,
+          periodeBulan,
+          periodeTahun,
+        )
+        if (existingTagihanByPeriode) {
+          return { id: existingTagihanByPeriode.id }
+        }
+      }
+    }
+    
+    // Re-throw error jika bukan race condition
+    throw error
+  }
 }
 
 /**

@@ -77,16 +77,32 @@ export async function GET(
       if (perluGenerate) {
         console.log(`[GET Tagihan Pelanggan] Generate tagihan untuk periode ${periodeBulan}/${periodeTahun}...`)
         try {
-          const { generateTagihan } = await import('@/lib/services/tagihan-service')
-          await generateTagihan(pelangganId, periodeBulan, periodeTahun)
-          console.log(`[GET Tagihan Pelanggan] Tagihan berhasil di-generate untuk periode ${periodeBulan}/${periodeTahun}`)
+          // Double-check lagi sebelum generate untuk mencegah race condition
+          const doubleCheckTagihan = await tagihanRepo.findByPelangganAndPeriode(
+            pelangganId,
+            periodeBulan,
+            periodeTahun
+          )
+
+          if (!doubleCheckTagihan) {
+            const { generateTagihan } = await import('@/lib/services/tagihan-service')
+            await generateTagihan(pelangganId, periodeBulan, periodeTahun)
+            console.log(`[GET Tagihan Pelanggan] Tagihan berhasil di-generate untuk periode ${periodeBulan}/${periodeTahun}`)
+          } else {
+            console.log(`[GET Tagihan Pelanggan] Tagihan untuk periode ${periodeBulan}/${periodeTahun} sudah ada (double-check)`)
+          }
 
           // Fetch ulang tagihan setelah generate
           tagihans = await tagihanRepo.findByPelangganId(pelangganId)
           console.log(`[GET Tagihan Pelanggan] Jumlah tagihan setelah generate: ${tagihans.length}`)
         } catch (error: any) {
-          console.error(`[GET Tagihan Pelanggan] Error generate tagihan:`, error.message)
-          console.error(`[GET Tagihan Pelanggan] Error stack:`, error.stack)
+          // Jika error karena unique constraint, berarti tagihan sudah dibuat oleh request lain
+          if (error.message?.includes('Unique constraint') || error.message?.includes('already exists')) {
+            console.log(`[GET Tagihan Pelanggan] Tagihan sudah ada (race condition handled)`)
+          } else {
+            console.error(`[GET Tagihan Pelanggan] Error generate tagihan:`, error.message)
+            console.error(`[GET Tagihan Pelanggan] Error stack:`, error.stack)
+          }
           // Fetch ulang tagihan meskipun error (mungkin tagihan sudah ada)
           tagihans = await tagihanRepo.findByPelangganId(pelangganId)
         }

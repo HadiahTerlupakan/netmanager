@@ -123,10 +123,15 @@ export default function AdminTicketDetailPage() {
 
             if (response.ok) {
                 const result = await response.json()
-                alert('Work order created successfully!')
+                const workOrderNumber = result.data?.workOrderNumber || 'N/A'
+                alert(`Work Order ${workOrderNumber} berhasil dibuat!\n\nStatus tiket telah diubah menjadi "Sedang Dikerjakan" dan pesan otomatis telah ditambahkan ke tiket.`)
                 setShowConvertModal(false)
-                // Redirect to work order detail
-                router.push(`/admin/workorders/${result.data.id}`)
+                // Refresh ticket to show updated status and new message
+                await fetchTicketDetail()
+                // Small delay before redirect to let user see the update
+                setTimeout(() => {
+                    router.push(`/admin/workorders/${result.data.id}`)
+                }, 500)
             } else {
                 const error = await response.json()
                 alert(`Error: ${error.error || 'Failed to convert'}`)

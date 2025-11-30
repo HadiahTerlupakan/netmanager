@@ -9,7 +9,7 @@ const workOrderRepo = new WorkOrderRepository(prisma);
 // GET /api/admin/workorders/[id]/tasks - Get tasks
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const user = await verifyAuth(request);
@@ -17,7 +17,8 @@ export async function GET(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const workOrder = await workOrderRepo.findById(params.id);
+        const { id } = await params;
+        const workOrder = await workOrderRepo.findById(id);
         if (!workOrder) {
             return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
         }
@@ -35,7 +36,7 @@ export async function GET(
 // POST /api/admin/workorders/[id]/tasks - Add task
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const user = await verifyAuth(request);
@@ -43,6 +44,7 @@ export async function POST(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        const { id } = await params;
         const body = await request.json();
 
         if (!body.title) {
@@ -50,7 +52,7 @@ export async function POST(
         }
 
         const task = await workOrderRepo.addTask({
-            workOrderId: params.id,
+            workOrderId: id,
             title: body.title,
             description: body.description,
             order: body.order,

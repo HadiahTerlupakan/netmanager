@@ -9,7 +9,7 @@ const ticketRepo = new TicketRepository(prisma);
 // GET /api/admin/helpdesk/tickets/[id] - Get ticket detail
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const user = await verifyAuth(request);
@@ -20,7 +20,8 @@ export async function GET(
             );
         }
 
-        const ticket = await ticketRepo.findById(params.id);
+        const { id } = await params;
+        const ticket = await ticketRepo.findById(id);
 
         if (!ticket) {
             return NextResponse.json(
@@ -45,7 +46,7 @@ export async function GET(
 // PATCH /api/admin/helpdesk/tickets/[id] - Update ticket
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const user = await verifyAuth(request);
@@ -56,6 +57,7 @@ export async function PATCH(
             );
         }
 
+        const { id } = await params;
         const body = await request.json();
         const updateData: any = {};
 
@@ -69,13 +71,13 @@ export async function PATCH(
         // Handle assignment separately
         if (body.assignedToId !== undefined) {
             if (body.assignedToId === null) {
-                await ticketRepo.unassign(params.id);
+                await ticketRepo.unassign(id);
             } else {
-                await ticketRepo.assignToUser(params.id, body.assignedToId);
+                await ticketRepo.assignToUser(id, body.assignedToId);
             }
         }
 
-        const ticket = await ticketRepo.update(params.id, updateData);
+        const ticket = await ticketRepo.update(id, updateData);
 
         return NextResponse.json({
             success: true,
@@ -94,7 +96,7 @@ export async function PATCH(
 // POST /api/admin/helpdesk/tickets/[id] - Add message/reply
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const user = await verifyAuth(request);
@@ -105,6 +107,7 @@ export async function POST(
             );
         }
 
+        const { id } = await params;
         const body = await request.json();
 
         if (!body.message) {
@@ -115,7 +118,7 @@ export async function POST(
         }
 
         const message = await ticketRepo.addMessage({
-            ticketId: params.id,
+            ticketId: id,
             message: body.message,
             isInternal: body.isInternal || false,
             senderType: 'STAFF',

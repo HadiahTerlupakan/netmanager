@@ -63,9 +63,30 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Validate categoryId if provided
+        if (body.categoryId) {
+            const category = await prisma.ticketCategory.findUnique({
+                where: { id: body.categoryId },
+            });
+
+            if (!category) {
+                return NextResponse.json(
+                    { error: 'Category tidak ditemukan' },
+                    { status: 400 }
+                );
+            }
+
+            if (!category.isActive) {
+                return NextResponse.json(
+                    { error: 'Category tidak aktif' },
+                    { status: 400 }
+                );
+            }
+        }
+
         const ticket = await ticketRepo.create({
             pelangganId: pelanggan.id,
-            categoryId: body.categoryId,
+            categoryId: body.categoryId || null,
             subject: body.subject,
             description: body.description,
             priority: body.priority || 'NORMAL',
@@ -78,6 +99,7 @@ export async function POST(request: NextRequest) {
             message: body.description,
             senderType: 'CUSTOMER',
             senderName: pelanggan.nama,
+            isInternal: false, // Explicitly set to false for customer messages
         });
 
         return NextResponse.json({

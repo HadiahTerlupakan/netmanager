@@ -9,7 +9,7 @@ const workOrderRepo = new WorkOrderRepository(prisma);
 // POST /api/admin/workorders/[id]/assign - Assign work order
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const user = await verifyAuth(request);
@@ -17,16 +17,17 @@ export async function POST(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        const { id } = await params;
         const body = await request.json();
 
         if (!body.employeeId) {
             return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 });
         }
 
-        const workOrder = await workOrderRepo.assign(params.id, body.employeeId, body.role);
+        const workOrder = await workOrderRepo.assign(id, body.employeeId, body.role);
 
         await workOrderRepo.addUpdate({
-            workOrderId: params.id,
+            workOrderId: id,
             updateType: 'NOTE',
             message: `Work order assigned to employee ${body.employeeId}`,
             createdById: user.id,
