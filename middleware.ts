@@ -2,7 +2,7 @@ import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getRateLimitConfig, rateLimit } from '@/lib/middleware/rate-limit'
-import { getSubdomain, isAdminSubdomain, isPelangganSubdomain, isKaryawanSubdomain, isFinanceSubdomain } from '@/lib/utils/subdomain'
+import { getSubdomain, isAdminSubdomain, isPelangganSubdomain, isKaryawanSubdomain, isFinanceSubdomain, isHelpdeskSubdomain } from '@/lib/utils/subdomain'
 
 // Create auth middleware dengan callback URL yang menjaga subdomain
 const authMiddleware = withAuth({
@@ -60,6 +60,16 @@ export default async function middleware(request: NextRequest) {
       if (!pathname.startsWith('/finance') && !pathname.startsWith('/api') && !pathname.startsWith('/login')) {
         const url = request.nextUrl.clone()
         url.pathname = '/finance'
+        return NextResponse.redirect(url)
+      }
+    }
+
+    // Jika request dari helpdesk subdomain, redirect ke /helpdesk
+    if (isHelpdeskSubdomain(request)) {
+      // Jika pathname tidak dimulai dengan /helpdesk, redirect ke /helpdesk
+      if (!pathname.startsWith('/helpdesk') && !pathname.startsWith('/api') && !pathname.startsWith('/login')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/helpdesk'
         return NextResponse.redirect(url)
       }
     }
@@ -161,6 +171,28 @@ export default async function middleware(request: NextRequest) {
         const url = request.nextUrl.clone()
         url.pathname = '/employee/login'
         if (pathname !== '/employee') {
+          url.searchParams.set('callbackUrl', pathname)
+        }
+        return NextResponse.redirect(url)
+      }
+
+      return response
+    }
+
+    // Auth middleware untuk helpdesk routes (baik dari subdomain atau path)
+    if (pathname.startsWith('/helpdesk') || isHelpdeskSubdomain(request)) {
+      // Skip auth check untuk login page dan access-denied page
+      if (pathname === '/helpdesk/login' || pathname === '/helpdesk/access-denied' || pathname === '/login') {
+        return NextResponse.next({ request })
+      }
+
+      const response = await authMiddleware(request as any, {} as any)
+
+      // Jika redirect ke login, redirect ke helpdesk login page
+      if (response && response.status === 307) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/helpdesk/login'
+        if (pathname !== '/helpdesk') {
           url.searchParams.set('callbackUrl', pathname)
         }
         return NextResponse.redirect(url)

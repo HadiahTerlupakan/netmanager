@@ -76,6 +76,15 @@ export function isFinanceSubdomain(request: NextRequest): boolean {
 }
 
 /**
+ * Check if request is from helpdesk subdomain
+ * Examples: helpdesk.localhost, helpdesk.example.com
+ */
+export function isHelpdeskSubdomain(request: NextRequest): boolean {
+  const subdomain = getSubdomain(request)
+  return subdomain === 'helpdesk'
+}
+
+/**
  * Mendapatkan base URL berdasarkan subdomain
  */
 export function getBaseUrl(request: NextRequest): string {

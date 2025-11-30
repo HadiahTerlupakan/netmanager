@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 import { signOut, SessionProvider } from 'next-auth/react'
 import {
     HiOutlineHome,
@@ -9,10 +10,13 @@ import {
     HiOutlineClock,
     HiOutlineCalendar,
     HiOutlineBanknotes,
+    HiOutlineWrench,
+    HiOutlineBell,
     HiOutlineArrowRightOnRectangle
 } from 'react-icons/hi2'
 import { PWAInstallBanner } from '@/components/pwa/PWAInstallBanner'
 import { ToastProvider } from '@/components/ui/Toast'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 
 const navigation = [
     { name: 'Dashboard', href: '/employee', icon: HiOutlineHome },
@@ -20,11 +24,25 @@ const navigation = [
     { name: 'Attendance', href: '/employee/attendance', icon: HiOutlineClock },
     { name: 'Leaves', href: '/employee/leaves', icon: HiOutlineCalendar },
     { name: 'Payslips', href: '/employee/payslips', icon: HiOutlineBanknotes },
+    { name: 'Work Orders', href: '/employee/workorders', icon: HiOutlineWrench },
+    { name: 'Notifications', href: '/employee/notifications', icon: HiOutlineBell },
 ]
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
+
+    // Automatic Service Worker Cleanup (Fix for "Failed to fetch" / 404 errors in dev)
+    useEffect(() => {
+        if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then((registrations) => {
+                for (const registration of registrations) {
+                    console.log('Unregistering Service Worker:', registration)
+                    registration.unregister()
+                }
+            })
+        }
+    }, [])
 
     const handleSignOut = async () => {
         await signOut({ redirect: false })
@@ -51,12 +69,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                             </div>
                             <span className="font-bold text-gray-900 dark:text-white">Employee</span>
                         </div>
-                        <button
-                            onClick={handleSignOut}
-                            className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
-                        >
-                            <HiOutlineArrowRightOnRectangle className="w-6 h-6" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <NotificationBell />
+                            <button
+                                onClick={handleSignOut}
+                                className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+                            >
+                                <HiOutlineArrowRightOnRectangle className="w-6 h-6" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Desktop Header */}
@@ -72,13 +93,16 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                                         <p className="text-xs text-gray-500 dark:text-gray-400">NetManager HR</p>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={handleSignOut}
-                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-                                >
-                                    <HiOutlineArrowRightOnRectangle className="w-5 h-5" />
-                                    Sign Out
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <NotificationBell />
+                                    <button
+                                        onClick={handleSignOut}
+                                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                                    >
+                                        <HiOutlineArrowRightOnRectangle className="w-5 h-5" />
+                                        Sign Out
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
