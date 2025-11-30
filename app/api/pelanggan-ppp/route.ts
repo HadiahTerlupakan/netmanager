@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import path from 'path'
 import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
+import { afterCustomerCreate } from '@/lib/hooks/radius-sync-hooks'
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
 
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData()
-    
+
     // Extract form fields
     const idPelanggan = formData.get('idPelanggan') as string
     const nama = formData.get('nama') as string
@@ -161,19 +162,19 @@ export async function POST(req: NextRequest) {
     const statusValue = parseEnumValue(status, Status) ?? Status.AKTIF
     const discountTypeValue = parseEnumValue(discountType, DiscountType)
     const discountDurationUnitValue = parseEnumValue(discountDurationUnit, DurasiUnit)
-    
+
     // Handle file uploads dengan struktur folder yang rapi
     // Struktur: public/uploads/pelanggan/ID_PELANGGAN/ktp.webp, rumah.webp, bast.webp
     const fileKTP = formData.get('fileKTP') as File | null
     const fileRumahSekitar = formData.get('fileRumahSekitar') as File | null
     const fileBAST = formData.get('fileBAST') as File | null
-    
+
     // Direktori untuk pelanggan ini (berdasarkan ID)
     const pelangganUploadDir = path.join(process.cwd(), 'public', 'uploads', 'pelanggan', idPelanggan.trim())
     let fileKTPPath: string | null = null
     let fileRumahSekitarPath: string | null = null
     let fileBASTPath: string | null = null
-    
+
     try {
       // Simpan file KTP (selalu konversi ke WebP jika gambar)
       if (fileKTP && fileKTP.size > 0) {
@@ -186,7 +187,7 @@ export async function POST(req: NextRequest) {
           fileKTPPath = await saveFile(fileKTP, pelangganUploadDir, `ktp${ext}`)
         }
       }
-      
+
       // Simpan file Rumah Sekitar (selalu konversi ke WebP jika gambar)
       if (fileRumahSekitar && fileRumahSekitar.size > 0) {
         if (isImageFile(fileRumahSekitar)) {
@@ -198,7 +199,7 @@ export async function POST(req: NextRequest) {
           fileRumahSekitarPath = await saveFile(fileRumahSekitar, pelangganUploadDir, `rumah${ext}`)
         }
       }
-      
+
       // Simpan file BAST (selalu konversi ke WebP jika gambar)
       if (fileBAST && fileBAST.size > 0) {
         if (isImageFile(fileBAST)) {
@@ -322,12 +323,23 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // ✨ RADIUS Auto-Sync Hook: Sync new customer to RADIUS
+    try {
+      const syncResult = await afterCustomerCreate(prisma, pelanggan.id);
+      if (!syncResult.success) {
+        console.warn('[RADIUS] Auto-sync failed for customer:', pelanggan.username, syncResult.error);
+      }
+    } catch (syncError) {
+      // Don't fail the request if RADIUS sync fails
+      console.error('[RADIUS] Auto-sync error:', syncError);
+    }
+
     // Revalidate cache untuk halaman yang terkait
     const { revalidatePath } = await import('next/cache')
     revalidatePath('/admin/pelanggan/ppp')
     revalidatePath('/api/pelanggan-ppp')
 
-    return NextResponse.json(pelanggan, { 
+    return NextResponse.json(pelanggan, {
       status: 201,
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -337,7 +349,7 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     console.error('Error creating pelanggan:', error)
-    
+
     // Handle Prisma unique constraint error
     if (error.code === 'P2002') {
       return NextResponse.json(

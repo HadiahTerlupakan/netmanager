@@ -8,6 +8,7 @@ import path from 'path'
 import { DiscountType, DurasiUnit, Status, TipePelanggan, TagihanStatus } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { getTagihanRepository } from '@/lib/repositories'
+import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sync-hooks'
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
 
@@ -49,13 +50,13 @@ async function verifyPelangganToken(token: string): Promise<string | null> {
   try {
     const tokenData = Buffer.from(token, 'base64').toString('utf-8')
     const [pelangganId] = tokenData.split(':')
-    
+
     // Verifikasi token dengan secret
     const pelanggan = await prisma.pelanggan.findUnique({
       where: { id: pelangganId },
       select: { id: true },
     })
-    
+
     return pelanggan ? pelanggan.id : null
   } catch {
     return null
@@ -74,20 +75,20 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    
+
     // Cek apakah ini request dari admin
     const session: any = await getServerSession(authConfig as any)
     const isAdmin = session && session.user?.role === 'ADMIN'
-    
+
     // Jika bukan admin, cek token pelanggan
     if (!isAdmin) {
       const token = req.headers.get('authorization')?.replace('Bearer ', '') ||
-                   req.headers.get('x-pelanggan-token')
-      
+        req.headers.get('x-pelanggan-token')
+
       if (!token) {
         return NextResponse.json({ error: 'Token pelanggan diperlukan' }, { status: 401 })
       }
-      
+
       const pelangganId = await verifyPelangganToken(token)
       if (!pelangganId || pelangganId !== id) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
@@ -184,7 +185,7 @@ export async function PUT(
         take: 3,
       })
       console.log('[PUT Pelanggan] Pelanggan dengan ID mirip:', similarPelanggans)
-      
+
       // Cek juga dengan idPelanggan jika ID yang dikirim adalah idPelanggan
       const pelangganByIdPelanggan = await prisma.pelanggan.findUnique({
         where: { idPelanggan: id },
@@ -193,14 +194,14 @@ export async function PUT(
       if (pelangganByIdPelanggan) {
         console.log('[PUT Pelanggan] Ditemukan dengan idPelanggan:', pelangganByIdPelanggan)
         return NextResponse.json(
-          { 
+          {
             error: 'Pelanggan tidak ditemukan dengan ID tersebut. Gunakan ID database, bukan ID Pelanggan.',
             hint: `ID database yang benar: ${pelangganByIdPelanggan.id}`
           },
           { status: 404 }
         )
       }
-      
+
       return NextResponse.json(
         { error: 'Pelanggan tidak ditemukan' },
         { status: 404 }
@@ -407,14 +408,14 @@ export async function PUT(
       const [year, month, day] = tanggalAktif.split('-').map(Number)
       return new Date(year, month - 1, day)
     })()
-    
+
     const parsedJatuhTempo = (() => {
       // Parse tanggal sebagai local date untuk menghindari timezone issue
       // Format: YYYY-MM-DD
       const [year, month, day] = jatuhTempo.split('-').map(Number)
       return new Date(year, month - 1, day)
     })()
-    
+
     // Debug: Log tanggal yang akan disimpan
     console.log('[PUT Pelanggan] Jatuh Tempo yang akan disimpan:', {
       input: jatuhTempo,
@@ -492,19 +493,19 @@ export async function PUT(
     // Update tagihan yang belum lunas jika jatuh tempo berubah
     const jatuhTempoLama = existingPelanggan.jatuhTempo
     const jatuhTempoBaru = parsedJatuhTempo
-    
+
     // Cek apakah jatuh tempo berubah (bandingkan tanggal tanpa waktu)
-    const isJatuhTempoChanged = 
+    const isJatuhTempoChanged =
       jatuhTempoLama.getFullYear() !== jatuhTempoBaru.getFullYear() ||
       jatuhTempoLama.getMonth() !== jatuhTempoBaru.getMonth() ||
       jatuhTempoLama.getDate() !== jatuhTempoBaru.getDate()
 
     if (isJatuhTempoChanged && pelanggan.hargaPaket) {
       console.log('[PUT Pelanggan] Jatuh tempo berubah, update tagihan yang belum lunas...')
-      
+
       try {
         const tagihanRepo = getTagihanRepository()
-        
+
         // Ambil semua tagihan pelanggan yang belum lunas
         const tagihanBelumLunas = await tagihanRepo.findByPelangganId(id)
         const tagihanToUpdate = tagihanBelumLunas.filter(
@@ -556,12 +557,34 @@ export async function PUT(
         revalidatePath('/api/tagihan')
         revalidatePath(`/pelanggan/tagihan`)
         revalidatePath(`/pelanggan`)
-        
+
         console.log(`[PUT Pelanggan] Berhasil update ${tagihanToUpdate.length} tagihan`)
       } catch (tagihanError: any) {
         // Log error tapi jangan gagalkan update pelanggan
         console.error('[PUT Pelanggan] Error updating tagihan:', tagihanError)
       }
+    }
+
+    // ✨ RADIUS Auto-Sync Hook: Detect changes and sync accordingly
+    try {
+      const statusChanged = existingPelanggan.status !== statusValue;
+      const packageChanged = existingPelanggan.hargaPaketId !== hargaPaketId;
+      const passwordChanged = existingPelanggan.password !== password.trim();
+
+      const syncResult = await afterCustomerUpdate(prisma, id, {
+        statusChanged,
+        oldStatus: existingPelanggan.status,
+        newStatus: statusValue,
+        packageChanged,
+        passwordChanged,
+      });
+
+      if (!syncResult.success) {
+        console.warn('[RADIUS] Auto-sync failed for customer:', pelanggan.username, syncResult.error);
+      }
+    } catch (syncError) {
+      // Don't fail the request if RADIUS sync fails
+      console.error('[RADIUS] Auto-sync error:', syncError);
     }
 
     // Revalidate cache untuk halaman yang terkait
@@ -642,7 +665,7 @@ export async function DELETE(
     // Debug: Log hasil query
     console.log('[DELETE Pelanggan] Query dengan id:', id)
     console.log('[DELETE Pelanggan] Pelanggan ditemukan:', pelanggan ? 'Ya' : 'Tidak')
-    
+
     if (!pelanggan) {
       // Cek apakah ada pelanggan dengan ID yang mirip (untuk debugging)
       const similarPelanggans = await prisma.pelanggan.findMany({
@@ -656,7 +679,7 @@ export async function DELETE(
         take: 3,
       })
       console.log('[DELETE Pelanggan] Pelanggan dengan ID mirip:', similarPelanggans)
-      
+
       // Cek juga dengan idPelanggan jika ID yang dikirim adalah idPelanggan
       const pelangganByIdPelanggan = await prisma.pelanggan.findUnique({
         where: { idPelanggan: id },
@@ -672,7 +695,7 @@ export async function DELETE(
           console.log('[DELETE Pelanggan] Pelanggan ditemukan setelah menggunakan ID database yang benar')
         }
       }
-      
+
       // Cek semua pelanggan untuk debugging (hanya ambil beberapa)
       const allPelanggans = await prisma.pelanggan.findMany({
         select: { id: true, idPelanggan: true, nama: true },
@@ -680,14 +703,14 @@ export async function DELETE(
         orderBy: { createdAt: 'desc' },
       })
       console.log('[DELETE Pelanggan] Sample pelanggan di database:', allPelanggans)
-      
+
       // Cek apakah ID yang dicari ada di sample
       const foundInSample = allPelanggans.find(p => p.id === id)
       if (foundInSample) {
         console.log('[DELETE Pelanggan] ID ditemukan di sample, tapi query findUnique gagal. Mungkin ada masalah dengan database connection.')
       }
     }
-    
+
     if (pelanggan) {
       console.log('[DELETE Pelanggan] ID Pelanggan:', pelanggan.idPelanggan, 'Nama:', pelanggan.nama)
     }
@@ -700,12 +723,12 @@ export async function DELETE(
           select: { id: true, idPelanggan: true, nama: true },
         })
         console.log('[DELETE Pelanggan] Retry query result:', retryPelanggan)
-        
+
         if (!retryPelanggan) {
           // Cek apakah ada di database dengan query langsung
           const count = await prisma.pelanggan.count({ where: { id } })
           console.log('[DELETE Pelanggan] Count dengan ID:', count)
-          
+
           // Cek semua ID yang ada
           const allIds = await prisma.pelanggan.findMany({
             select: { id: true, idPelanggan: true },
@@ -716,7 +739,7 @@ export async function DELETE(
       } catch (dbError: any) {
         console.error('[DELETE Pelanggan] Error saat retry query:', dbError)
       }
-      
+
       return NextResponse.json(
         { error: 'Pelanggan tidak ditemukan' },
         { status: 404 }
@@ -740,6 +763,17 @@ export async function DELETE(
     } catch (error) {
       console.error(`Error deleting upload files for pelanggan ${pelanggan.idPelanggan}:`, error)
       // Jangan gagalkan request, hanya log error
+    }
+
+    // ✨ RADIUS Auto-Sync Hook: Remove from RADIUS before deleting
+    try {
+      const syncResult = await beforeCustomerDelete(prisma, pelanggan.username);
+      if (!syncResult.success) {
+        console.warn('[RADIUS] Failed to remove from RADIUS:', pelanggan.username, syncResult.error);
+      }
+    } catch (syncError) {
+      // Don't fail the request if RADIUS sync fails
+      console.error('[RADIUS] Auto-sync error:', syncError);
     }
 
     // Hapus dari database

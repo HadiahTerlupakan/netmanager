@@ -1580,6 +1580,147 @@ model Attendance {
   @@map("attendances")
 }
 
+// ============================================
+// RADIUS TABLES (FreeRADIUS Integration)
+// ============================================
+
+// RadCheck - User authentication attributes
+model RadCheck {
+  id        Int    @id @default(autoincrement())
+  username  String
+  attribute String
+  op        String @default("==") @db.VarChar(2)
+  value     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([username])
+  @@index([username, attribute])
+  @@map("radcheck")
+}
+
+// RadReply - Reply attributes sent after successful authentication
+model RadReply {
+  id        Int    @id @default(autoincrement())
+  username  String
+  attribute String
+  op        String @default("=") @db.VarChar(2)
+  value     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([username])
+  @@index([username, attribute])
+  @@map("radreply")
+}
+
+// RadAcct - Accounting records (session tracking and usage data)
+model RadAcct {
+  radAcctId           BigInt    @id @default(autoincrement())
+  acctSessionId       String
+  acctUniqueId        String    @unique
+  username            String?
+  groupname           String?
+  realm               String?
+  nasIpAddress        String
+  nasPortId           String?
+  nasPortType         String?
+  acctStartTime       DateTime?
+  acctUpdateTime      DateTime?
+  acctStopTime        DateTime?
+  acctInterval        BigInt?
+  acctSessionTime     BigInt?
+  acctAuthentic       String?
+  connectInfoStart    String?
+  connectInfoStop     String?
+  acctInputOctets     BigInt?
+  acctOutputOctets    BigInt?
+  calledStationId     String?
+  callingStationId    String?
+  acctTerminateCause  String?
+  serviceType         String?
+  framedProtocol      String?
+  framedIpAddress     String?
+  framedIpv6Address   String?
+  framedIpv6Prefix    String?
+  framedInterfaceId   String?
+  delegatedIpv6Prefix String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([username])
+  @@index([acctSessionId])
+  @@index([acctUniqueId])
+  @@index([nasIpAddress])
+  @@index([acctStartTime])
+  @@index([acctStopTime])
+  @@index([username, acctStartTime])
+  @@map("radacct")
+}
+
+// RadGroupCheck - Group-based authentication policies
+model RadGroupCheck {
+  id        Int    @id @default(autoincrement())
+  groupname String
+  attribute String
+  op        String @default("==") @db.VarChar(2)
+  value     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupname])
+  @@index([groupname, attribute])
+  @@map("radgroupcheck")
+}
+
+// RadGroupReply - Group-based reply attributes
+model RadGroupReply {
+  id        Int    @id @default(autoincrement())
+  groupname String
+  attribute String
+  op        String @default("=") @db.VarChar(2)
+  value     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupname])
+  @@index([groupname, attribute])
+  @@map("radgroupreply")
+}
+
+// RadUserGroup - User to group mapping
+model RadUserGroup {
+  username  String
+  groupname String
+  priority  Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([username, groupname])
+  @@index([username])
+  @@index([groupname])
+  @@map("radusergroup")
+}
+
+// RadPostAuth - Post-authentication logging (optional)
+model RadPostAuth {
+  id        BigInt   @id @default(autoincrement())
+  username  String
+  pass      String
+  reply     String
+  authDate  DateTime @default(now())
+
+  @@index([username])
+  @@index([authDate])
+  @@map("radpostauth")
+}
+
 // Leave Balance - Saldo cuti karyawan
 model LeaveBalance {
   id         String   @id @default(cuid())

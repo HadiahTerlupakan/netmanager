@@ -29,8 +29,31 @@ services:
     volumes:
       - redis_data:/data
 
+  freeradius:
+    image: freeradius/freeradius-server:latest-alpine
+    container_name: netmanager-freeradius
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "1812:1812/udp"  # Authentication
+      - "1813:1813/udp"  # Accounting
+    environment:
+      - DB_TYPE=postgresql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB:-netmanager}
+      - DB_USER=${POSTGRES_USER:-netmgr}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-netmgr}
+      - RADIUS_SECRET=${RADIUS_SECRET:-testing123}
+    volumes:
+      - ./config/radius/clients.conf:/etc/raddb/clients.conf:ro
+      - ./config/radius/sql.conf:/etc/raddb/mods-available/sql:ro
+      - radius_logs:/var/log/radius
+
 volumes:
   db_data:
   redis_data:
+  radius_logs:
 
 

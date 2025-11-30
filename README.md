@@ -188,6 +188,15 @@ Konfigurasi dapat diubah melalui environment variables di `docker-compose.yml` a
 - **Port:** `6380`
 - **URL:** `redis://localhost:6380`
 
+### FreeRADIUS
+
+- **Port Authentication:** `1812/udp`
+- **Port Accounting:** `1813/udp`
+- **Purpose:** PPPoE authentication and accounting for customer internet access
+- **Configuration:** `config/radius/`
+
+Lihat dokumentasi lengkap di [`docs/RADIUS_INTEGRATION.md`](docs/RADIUS_INTEGRATION.md)
+
 ## 🧪 Testing
 
 Aplikasi menggunakan Vitest untuk unit tests dan integration tests.
