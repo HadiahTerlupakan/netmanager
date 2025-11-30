@@ -10,6 +10,7 @@ import {
     HiCheckCircle,
     HiXCircle,
     HiWrenchScrewdriver,
+    HiChevronRight,
 } from 'react-icons/hi2'
 
 type Statistics = {
@@ -28,11 +29,56 @@ type Statistics = {
     totalWithRating: number
 }
 
+type WorkOrder = {
+    id: string
+    workOrderNumber: string
+    title: string
+    status: string
+    priority: string
+    type: string
+    pelanggan: {
+        nama: string
+    }
+    assignedTo: {
+        fullName: string
+    } | null
+    department: {
+        name: string
+    } | null
+    createdAt: string
+}
+
+type DepartmentWorkload = {
+    departmentName: string
+    total: number
+    pending: number
+    inProgress: number
+    completed: number
+}
+
+const STATUS_COLORS: Record<string, string> = {
+    PENDING: 'bg-orange-100 text-orange-800',
+    ASSIGNED: 'bg-yellow-100 text-yellow-800',
+    IN_PROGRESS: 'bg-blue-100 text-blue-800',
+    COMPLETED: 'bg-green-100 text-green-800',
+    VERIFIED: 'bg-green-100 text-green-800',
+}
+
+const PRIORITY_COLORS: Record<string, string> = {
+    LOW: 'bg-gray-100 text-gray-600',
+    NORMAL: 'bg-blue-100 text-blue-600',
+    HIGH: 'bg-orange-100 text-orange-600',
+    URGENT: 'bg-red-100 text-red-600',
+    CRITICAL: 'bg-red-200 text-red-800',
+}
+
 export default function WorkOrderDashboard() {
     const { data: session, status } = useSession()
     const router = useRouter()
     const [loading, setLoading] = useState(true)
     const [stats, setStats] = useState<Statistics | null>(null)
+    const [recentWorkOrders, setRecentWorkOrders] = useState<WorkOrder[]>([])
+    const [departmentWorkload, setDepartmentWorkload] = useState<DepartmentWorkload[]>([])
 
     useEffect(() => {
         if (status === 'unauthenticated') {
@@ -41,19 +87,34 @@ export default function WorkOrderDashboard() {
         }
 
         if (session?.user && status === 'authenticated') {
-            fetchStats()
+            fetchDashboardData()
         }
     }, [session, status, router])
 
-    const fetchStats = async () => {
+    const fetchDashboardData = async () => {
         try {
-            const response = await fetch('/api/admin/workorders/stats')
-            if (response.ok) {
-                const result = await response.json()
+            const [statsRes, recentRes, workloadRes] = await Promise.all([
+                fetch('/api/admin/workorders/stats'),
+                fetch('/api/admin/workorders/recent'),
+                fetch('/api/admin/workorders/department-workload'),
+            ])
+
+            if (statsRes.ok) {
+                const result = await statsRes.json()
                 setStats(result.data)
             }
+
+            if (recentRes.ok) {
+                const result = await recentRes.json()
+                setRecentWorkOrders(result.data)
+            }
+
+            if (workloadRes.ok) {
+                const result = await workloadRes.json()
+                setDepartmentWorkload(result.data)
+            }
         } catch (error) {
-            console.error('Error fetching statistics:', error)
+            console.error('Error fetching dashboard data:', error)
         } finally {
             setLoading(false)
         }
@@ -71,6 +132,15 @@ export default function WorkOrderDashboard() {
         if (hours < 1) return `${Math.round(hours * 60)} minutes`
         if (hours < 24) return `${hours.toFixed(1)} hours`
         return `${(hours / 24).toFixed(1)} days`
+    }
+
+    const formatDate = (dateStr: string) => {
+        return new Date(dateStr).toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+        })
     }
 
     return (
@@ -177,6 +247,82 @@ export default function WorkOrderDashboard() {
                             <p className="text-xs text-gray-500 mt-1">{stats.totalWithRating} ratings</p>
                         </div>
                     </div>
+
+                    {/* Recent Work Orders */}
+                    <div className="bg-white rounded-lg shadow">
+                        <div className="p-6 border-b border-gray-200">
+                            <h2 className="text-lg font-semibold text-gray-900">Recent Work Orders</h2>
+                        </div>
+                        <div className="divide-y divide-gray-200">
+                            {recentWorkOrders.length === 0 ? (
+                                <div className="p-6 text-center text-gray-500">
+                                    No recent work orders
+                                </div>
+                            ) : (
+                                recentWorkOrders.map((wo) => (
+                                    <Link
+                                        key={wo.id}
+                                        href={`/admin/workorders/${wo.id}`}
+                                        className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <p className="text-sm font-medium text-gray-900">
+                                                    {wo.workOrderNumber}
+                                                </p>
+                                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${STATUS_COLORS[wo.status] || 'bg-gray-100'}`}>
+                                                    {wo.status.replace('_', ' ')}
+                                                </span>
+                                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${PRIORITY_COLORS[wo.priority] || 'bg-gray-100'}`}>
+                                                    {wo.priority}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-gray-600 truncate">{wo.title}</p>
+                                            <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                                                <span>{wo.pelanggan.nama}</span>
+                                                {wo.assignedTo && <span>• {wo.assignedTo.fullName}</span>}
+                                                <span>• {formatDate(wo.createdAt)}</span>
+                                            </div>
+                                        </div>
+                                        <HiChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-4" />
+                                    </Link>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Department Workload */}
+                    {departmentWorkload.length > 0 && (
+                        <div className="bg-white rounded-lg shadow">
+                            <div className="p-6 border-b border-gray-200">
+                                <h2 className="text-lg font-semibold text-gray-900">Department Workload</h2>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                {departmentWorkload.map((dept) => (
+                                    <div key={dept.departmentName}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h3 className="font-medium text-gray-900">{dept.departmentName}</h3>
+                                            <span className="text-sm text-gray-500">{dept.total} total</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2 text-sm">
+                                            <div className="bg-orange-50 rounded p-2">
+                                                <p className="text-orange-600 font-medium">{dept.pending}</p>
+                                                <p className="text-gray-600 text-xs">Pending</p>
+                                            </div>
+                                            <div className="bg-blue-50 rounded p-2">
+                                                <p className="text-blue-600 font-medium">{dept.inProgress}</p>
+                                                <p className="text-gray-600 text-xs">In Progress</p>
+                                            </div>
+                                            <div className="bg-green-50 rounded p-2">
+                                                <p className="text-green-600 font-medium">{dept.completed}</p>
+                                                <p className="text-gray-600 text-xs">Completed</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Quick Actions */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

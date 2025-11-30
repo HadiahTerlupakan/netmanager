@@ -636,4 +636,234 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             totalWithRating: ratingData._count.rating || 0,
         };
     }
+
+    /**
+     * Get recent work orders for dashboard
+     */
+    async getRecentWorkOrders(limit: number = 5, filters?: WorkOrderFilters): Promise<WorkOrderWithRelations[]> {
+        const where: any = {};
+
+        if (filters?.departmentId) where.departmentId = filters.departmentId;
+        if (filters?.assignedToId !== undefined) where.assignedToId = filters.assignedToId;
+        if (filters?.status) {
+            where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
+        }
+
+        return this.prisma.workOrder.findMany({
+            where,
+            include: {
+                pelanggan: {
+                    select: {
+                        id: true,
+                        idPelanggan: true,
+                        nama: true,
+                    },
+                },
+                department: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+                assignedTo: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                    },
+                },
+                tasks: true,
+                assignments: true,
+                updates: true,
+                attachments: true,
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+            take: limit,
+        }) as Promise<WorkOrderWithRelations[]>;
+    }
+
+    /**
+     * Get department workload statistics
+     */
+    async getDepartmentWorkload(): Promise<Array<{
+        departmentId: string | null;
+        departmentName: string;
+        total: number;
+        pending: number;
+        inProgress: number;
+        completed: number;
+    }>> {
+        const departments = await this.prisma.department.findMany({
+            select: {
+                id: true,
+                name: true,
+            },
+        });
+
+        const workload = await Promise.all(
+            departments.map(async (dept) => {
+                const [total, pending, inProgress, completed] = await Promise.all([
+                    this.prisma.workOrder.count({
+                        where: { departmentId: dept.id },
+                    }),
+                    this.prisma.workOrder.count({
+                        where: { departmentId: dept.id, status: 'PENDING' },
+                    }),
+                    this.prisma.workOrder.count({
+                        where: {
+                            departmentId: dept.id,
+                            status: { in: ['ASSIGNED', 'IN_PROGRESS'] },
+                        },
+                    }),
+                    this.prisma.workOrder.count({
+                        where: {
+                            departmentId: dept.id,
+                            status: { in: ['COMPLETED', 'VERIFIED'] },
+                        },
+                    }),
+                ]);
+
+                return {
+                    departmentId: dept.id,
+                    departmentName: dept.name,
+                    total,
+                    pending,
+                    inProgress,
+                    completed,
+                };
+            })
+        );
+
+        // Filter out departments with no work orders
+        return workload.filter((dept) => dept.total > 0);
+    }
+
+    /**
+     * Get work orders for employee's department
+     */
+    async getEmployeeDepartmentWorkOrders(
+        departmentId: string,
+        employeeId: string,
+        filters?: WorkOrderFilters,
+        page: number = 1,
+        limit: number = 20
+    ): Promise<{
+        workOrders: WorkOrderWithRelations[];
+        total: number;
+        page: number;
+        totalPages: number;
+        stats: {
+            assigned: number;
+            inProgress: number;
+            completed: number;
+        };
+    }> {
+        const where: any = {
+            OR: [
+                { departmentId },
+                { assignedToId: employeeId },
+                {
+                    assignments: {
+                        some: {
+                            employeeId,
+                        },
+                    },
+                },
+            ],
+        };
+
+        if (filters?.status) {
+            where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
+        }
+
+        if (filters?.search) {
+            where.AND = [
+                {
+                    OR: [
+                        { workOrderNumber: { contains: filters.search, mode: 'insensitive' } },
+                        { title: { contains: filters.search, mode: 'insensitive' } },
+                        { description: { contains: filters.search, mode: 'insensitive' } },
+                    ],
+                },
+            ];
+        }
+
+        const [workOrders, total, assigned, inProgress, completed] = await Promise.all([
+            this.prisma.workOrder.findMany({
+                where,
+                include: {
+                    pelanggan: {
+                        select: {
+                            id: true,
+                            idPelanggan: true,
+                            nama: true,
+                            noTelp: true,
+                        },
+                    },
+                    department: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                    assignedTo: {
+                        select: {
+                            id: true,
+                            fullName: true,
+                        },
+                    },
+                    tasks: true,
+                    assignments: {
+                        include: {
+                            employee: {
+                                select: {
+                                    id: true,
+                                    fullName: true,
+                                },
+                            },
+                        },
+                    },
+                    updates: true,
+                    attachments: true,
+                },
+                orderBy: {
+                    createdAt: 'desc',
+                },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            this.prisma.workOrder.count({ where }),
+            this.prisma.workOrder.count({
+                where: {
+                    ...where,
+                    status: 'ASSIGNED',
+                },
+            }),
+            this.prisma.workOrder.count({
+                where: {
+                    ...where,
+                    status: 'IN_PROGRESS',
+                },
+            }),
+            this.prisma.workOrder.count({
+                where: {
+                    ...where,
+                    status: { in: ['COMPLETED', 'VERIFIED'] },
+                },
+            }),
+        ]);
+
+        return {
+            workOrders: workOrders as WorkOrderWithRelations[],
+            total,
+            page,
+            totalPages: Math.ceil(total / limit),
+            stats: {
+                assigned,
+                inProgress,
+                completed,
+            },
+        };
+    }
 }
