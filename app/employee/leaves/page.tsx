@@ -136,28 +136,28 @@ export default function EmployeeLeavePage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="text-center">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Leave Management</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">Check your leave balance and submit requests</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Leave Management</h1>
+                <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400 mt-2">Check your leave balance and submit requests</p>
             </div>
 
             {/* Leave Balances */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Leave Balance</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 sm:p-6">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-5 sm:mb-4">Leave Balance</h2>
                 {balances.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                         {balances.map((balance, index) => (
-                            <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-indigo-500 transition-colors">
-                                <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                            <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-5 sm:p-4 hover:border-indigo-500 transition-colors">
+                                <div className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 sm:mb-2">
                                     {balance.leaveType}
                                 </div>
                                 <div className="flex justify-between items-end">
                                     <div>
-                                        <div className="text-3xl font-bold text-gray-900 dark:text-white">
+                                        <div className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
                                             {balance.remainingDays}
                                         </div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400">days remaining</div>
+                                        <div className="text-sm sm:text-xs text-gray-500 dark:text-gray-400 mt-1">days remaining</div>
                                     </div>
-                                    <div className="text-right text-sm text-gray-600 dark:text-gray-400">
+                                    <div className="text-right text-base sm:text-sm text-gray-600 dark:text-gray-400">
                                         Used: {balance.usedDays} / {balance.totalDays}
                                     </div>
                                 </div>
@@ -165,7 +165,7 @@ export default function EmployeeLeavePage() {
                         ))}
                     </div>
                 ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                    <p className="text-base sm:text-sm text-gray-500 dark:text-gray-400 text-center py-6 sm:py-4">
                         No leave balance information available
                     </p>
                 )}
@@ -174,9 +174,9 @@ export default function EmployeeLeavePage() {
             {/* Request Leave Button */}
             <button
                 onClick={() => setShowRequestForm(true)}
-                className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl shadow-lg hover:from-indigo-600 hover:to-purple-700 transition-all transform hover:scale-[1.01] active:scale-[0.99]"
+                className="w-full flex items-center justify-center gap-3 min-h-[56px] py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl shadow-lg hover:from-indigo-600 hover:to-purple-700 transition-all transform hover:scale-[1.01] active:scale-[0.99] touch-manipulation text-base sm:text-sm font-semibold"
             >
-                <HiOutlinePlus className="w-5 h-5" />
+                <HiOutlinePlus className="w-6 h-6 sm:w-5 sm:h-5" />
                 Request Leave
             </button>
 
@@ -187,15 +187,15 @@ export default function EmployeeLeavePage() {
                 title="New Leave Request"
                 size="md"
             >
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-base sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:mb-1">
                             Leave Type *
                         </label>
                         <select
                             value={formData.leaveType}
                             onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            className="w-full px-4 py-3 sm:py-2 min-h-[48px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-base sm:text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent touch-manipulation"
                             required
                         >
                             <option value="ANNUAL">Annual Leave</option>
@@ -205,7 +205,7 @@ export default function EmployeeLeavePage() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-base sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:mb-1">
                             Start Date *
                         </label>
                         <input
@@ -214,11 +214,11 @@ export default function EmployeeLeavePage() {
                             value={formData.startDate}
                             onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                             min={new Date().toISOString().split('T')[0]}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            className="w-full px-4 py-3 sm:py-2 min-h-[48px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-base sm:text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent touch-manipulation"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-base sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:mb-1">
                             End Date *
                         </label>
                         <input
@@ -227,35 +227,35 @@ export default function EmployeeLeavePage() {
                             value={formData.endDate}
                             onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                             min={formData.startDate || new Date().toISOString().split('T')[0]}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            className="w-full px-4 py-3 sm:py-2 min-h-[48px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-base sm:text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent touch-manipulation"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-base sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:mb-1">
                             Reason *
                         </label>
                         <textarea
                             required
                             value={formData.reason}
                             onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                            rows={3}
+                            rows={4}
                             placeholder="Please provide a reason for your leave request"
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            className="w-full px-4 py-3 sm:py-2 min-h-[100px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-base sm:text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent touch-manipulation resize-none"
                         />
                     </div>
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
                         <button
                             type="button"
                             onClick={() => setShowRequestForm(false)}
                             disabled={submitting}
-                            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                            className="flex-1 px-4 py-3 sm:py-2 min-h-[48px] border border-gray-300 dark:border-gray-600 rounded-lg text-base sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 touch-manipulation font-medium"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                            className="flex-1 px-4 py-3 sm:py-2 min-h-[48px] bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 touch-manipulation font-medium text-base sm:text-sm"
                         >
                             {submitting ? 'Submitting...' : 'Submit Request'}
                         </button>
@@ -264,28 +264,30 @@ export default function EmployeeLeavePage() {
             </Modal>
 
             {/* Leave History */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Leave History</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 sm:p-6">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-5 sm:mb-4">Leave History</h2>
                 {requests.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="space-y-4 sm:space-y-3">
                         {requests.map((request) => (
                             <div
                                 key={request.id}
-                                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-indigo-500 transition-colors"
+                                className="border border-gray-200 dark:border-gray-700 rounded-lg p-5 sm:p-4 hover:border-indigo-500 transition-colors"
                             >
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <div className="font-medium text-gray-900 dark:text-white">
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-2 mb-3 sm:mb-2">
+                                    <div className="flex-1">
+                                        <div className="font-medium text-base sm:text-sm text-gray-900 dark:text-white mb-1">
                                             {request.leaveType}
                                         </div>
-                                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                                        <div className="text-base sm:text-sm text-gray-600 dark:text-gray-400">
                                             {new Date(request.startDate).toLocaleDateString('id-ID')} -{' '}
                                             {new Date(request.endDate).toLocaleDateString('id-ID')} ({request.totalDays} days)
                                         </div>
                                     </div>
-                                    {getStatusBadge(request.status)}
+                                    <div className="flex-shrink-0">
+                                        {getStatusBadge(request.status)}
+                                    </div>
                                 </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-400">{request.reason}</div>
+                                <div className="text-base sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{request.reason}</div>
                             </div>
                         ))}
                     </div>

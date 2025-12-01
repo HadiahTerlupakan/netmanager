@@ -8,7 +8,7 @@ export default function FinanceLayoutClient({ children }: { children: React.Reac
   const isLoginPage = pathname === '/finance/login'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {!isLoginPage && <FinanceSidebar />}
       <div className={isLoginPage ? '' : 'md:ml-64'}>
         {children}

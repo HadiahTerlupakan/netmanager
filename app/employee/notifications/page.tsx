@@ -140,19 +140,19 @@ export default function NotificationsPage() {
     return (
         <div className="space-y-6">
             {/* Page Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
                         Notifications
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400">
                         {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
                     </p>
                 </div>
                 {unreadCount > 0 && (
                     <button
                         onClick={markAllAsRead}
-                        className="px-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                        className="w-full sm:w-auto px-4 py-3 sm:py-2 min-h-[44px] text-base sm:text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 touch-manipulation rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
                     >
                         Mark all as read
                     </button>
@@ -163,7 +163,7 @@ export default function NotificationsPage() {
             <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
                 <button
                     onClick={() => setFilter('all')}
-                    className={`px-4 py-2 font-medium border-b-2 transition-colors ${filter === 'all'
+                    className={`px-4 py-3 sm:py-2 min-h-[44px] font-medium border-b-2 transition-colors touch-manipulation text-base sm:text-sm ${filter === 'all'
                             ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
                             : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                         }`}
@@ -172,7 +172,7 @@ export default function NotificationsPage() {
                 </button>
                 <button
                     onClick={() => setFilter('unread')}
-                    className={`px-4 py-2 font-medium border-b-2 transition-colors ${filter === 'unread'
+                    className={`px-4 py-3 sm:py-2 min-h-[44px] font-medium border-b-2 transition-colors touch-manipulation text-base sm:text-sm ${filter === 'unread'
                             ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
                             : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                         }`}
@@ -211,7 +211,7 @@ export default function NotificationsPage() {
                     filteredNotifications.map((notification) => (
                         <div
                             key={notification.id}
-                            className={`bg-white dark:bg-gray-800 rounded-xl shadow hover:shadow-md transition-shadow p-4 ${!notification.read ? 'border-l-4 border-indigo-600' : ''
+                            className={`bg-white dark:bg-gray-800 rounded-xl shadow hover:shadow-md transition-shadow p-5 sm:p-4 ${!notification.read ? 'border-l-4 border-indigo-600' : ''
                                 }`}
                         >
                             <div className="flex items-start gap-4">
@@ -222,28 +222,28 @@ export default function NotificationsPage() {
 
                                 {/* Content */}
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <h3 className={`font-semibold ${!notification.read
+                                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                                        <h3 className={`font-semibold text-base sm:text-sm ${!notification.read
                                                 ? 'text-gray-900 dark:text-white'
                                                 : 'text-gray-700 dark:text-gray-300'
                                             }`}>
                                             {notification.title}
                                         </h3>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap flex items-center gap-1">
-                                            <HiClock className="w-3 h-3" />
+                                        <span className="text-sm sm:text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap flex items-center gap-1">
+                                            <HiClock className="w-4 h-4 sm:w-3 sm:h-3" />
                                             {formatTime(notification.createdAt)}
                                         </span>
                                     </div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
                                         {notification.message}
                                     </p>
 
                                     {/* Actions */}
-                                    <div className="flex items-center gap-3 mt-3">
+                                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-4 sm:mt-3">
                                         {notification.link && (
                                             <Link
                                                 href={notification.link}
-                                                className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                                className="text-base sm:text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 touch-manipulation min-h-[44px] flex items-center"
                                             >
                                                 View →
                                             </Link>
@@ -251,14 +251,14 @@ export default function NotificationsPage() {
                                         {!notification.read && (
                                             <button
                                                 onClick={() => markAsRead(notification.id)}
-                                                className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
+                                                className="text-base sm:text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 touch-manipulation min-h-[44px] flex items-center"
                                             >
                                                 Mark as read
                                             </button>
                                         )}
                                         <button
                                             onClick={() => deleteNotification(notification.id)}
-                                            className="text-sm font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                            className="text-base sm:text-sm font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 touch-manipulation min-h-[44px] flex items-center"
                                         >
                                             Delete
                                         </button>

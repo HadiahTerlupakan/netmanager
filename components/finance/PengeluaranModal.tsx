@@ -162,7 +162,7 @@ export default function PengeluaranModal({
 
   return (
     <Modal open={isOpen} onClose={onClose} title={isEdit ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
             <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
@@ -186,7 +186,7 @@ export default function PengeluaranModal({
                   value={formData.tanggal}
                   onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
                   required
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
@@ -199,7 +199,7 @@ export default function PengeluaranModal({
                   value={formData.kategori}
                   onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
                   required
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">Pilih Kategori</option>
                   {KATEGORI_OPTIONS.map((kat) => (
@@ -222,7 +222,7 @@ export default function PengeluaranModal({
                 onChange={(e) => setFormData({ ...formData, deskripsi: e.target.value })}
                 required
                 placeholder="Contoh: Pembayaran listrik bulan Januari"
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -239,7 +239,7 @@ export default function PengeluaranModal({
                   required
                   min="0"
                   placeholder="0"
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
@@ -251,7 +251,7 @@ export default function PengeluaranModal({
                   id="metodeBayar"
                   value={formData.metodeBayar}
                   onChange={(e) => setFormData({ ...formData, metodeBayar: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">Pilih Metode</option>
                   {METODE_BAYAR_OPTIONS.map((metode) => (
@@ -273,15 +273,15 @@ export default function PengeluaranModal({
                 onChange={(e) => setFormData({ ...formData, catatan: e.target.value })}
                 rows={3}
                 placeholder="Catatan tambahan (opsional)"
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               />
             </div>
 
-            <div className="flex items-center gap-3 pt-4">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 pt-4">
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="touch-target flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white text-base md:text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? (
                   <>
@@ -295,7 +295,7 @@ export default function PengeluaranModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="touch-target px-4 py-3 text-base md:text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Batal
               </button>

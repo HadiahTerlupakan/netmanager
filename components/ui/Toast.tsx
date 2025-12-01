@@ -56,7 +56,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
     return (
-        <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm w-full">
+        <div className="fixed bottom-4 left-4 right-4 sm:bottom-auto sm:top-4 sm:left-auto sm:right-4 z-50 space-y-2 max-w-sm sm:max-w-sm w-full sm:w-auto mx-auto sm:mx-0 safe-area-inset-bottom">
             {toasts.map((toast) => (
                 <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
             ))}
@@ -92,15 +92,16 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
 
     return (
         <div
-            className={`flex items-start gap-3 p-4 rounded-lg border shadow-lg backdrop-blur-sm animate-in slide-in-from-right duration-300 ${className}`}
+            className={`flex items-start gap-3 sm:gap-3 p-5 sm:p-4 rounded-lg border shadow-lg backdrop-blur-sm animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 ${className}`}
         >
-            <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${iconColor}`} />
-            <p className="flex-1 text-sm font-medium">{toast.message}</p>
+            <Icon className={`w-6 h-6 sm:w-5 sm:h-5 mt-0.5 flex-shrink-0 ${iconColor}`} />
+            <p className="flex-1 text-base sm:text-sm font-medium leading-relaxed">{toast.message}</p>
             <button
                 onClick={() => onRemove(toast.id)}
-                className="flex-shrink-0 hover:opacity-70 transition-opacity"
+                className="flex-shrink-0 hover:opacity-70 transition-opacity touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Close notification"
             >
-                <HiXMark className="w-4 h-4" />
+                <HiXMark className="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
         </div>
     )

@@ -231,7 +231,7 @@ export default function TransaksiModal({
 
   return (
     <Modal open={isOpen} onClose={onClose} title={isEdit ? `Edit ${transaksiType === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'}` : 'Tambah Transaksi'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
             <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
@@ -250,7 +250,7 @@ export default function TransaksiModal({
                   Jenis Transaksi <span className="text-red-500">*</span>
                 </label>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer touch-target">
                     <input
                       type="radio"
                       name="transaksiType"
@@ -260,11 +260,11 @@ export default function TransaksiModal({
                         setTransaksiType('pemasukan')
                         setFormData({ ...formData, kategori: '' })
                       }}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500"
+                      className="w-5 h-5 text-green-600 focus:ring-green-500"
                     />
                     <span className="text-sm font-medium text-green-600 dark:text-green-400">Pemasukan</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer touch-target">
                     <input
                       type="radio"
                       name="transaksiType"
@@ -274,7 +274,7 @@ export default function TransaksiModal({
                         setTransaksiType('pengeluaran')
                         setFormData({ ...formData, kategori: '' })
                       }}
-                      className="w-4 h-4 text-red-600 focus:ring-red-500"
+                      className="w-5 h-5 text-red-600 focus:ring-red-500"
                     />
                     <span className="text-sm font-medium text-red-600 dark:text-red-400">Pengeluaran</span>
                   </label>
@@ -292,7 +292,7 @@ export default function TransaksiModal({
                   value={formData.tipePengeluaran}
                   onChange={(e) => setFormData({ ...formData, tipePengeluaran: e.target.value as 'CAPEX' | 'OPEX' })}
                   required
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">Pilih Tipe</option>
                   <option value="CAPEX">CAPEX</option>
@@ -312,7 +312,7 @@ export default function TransaksiModal({
                   value={formData.tanggal}
                   onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
                   required
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
@@ -325,7 +325,7 @@ export default function TransaksiModal({
                   value={formData.kategori}
                   onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
                   required
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">Pilih Kategori</option>
                   {kategoriOptions.map((kat) => (
@@ -348,7 +348,7 @@ export default function TransaksiModal({
                 onChange={(e) => setFormData({ ...formData, deskripsi: e.target.value })}
                 required
                 placeholder={transaksiType === 'pemasukan' ? 'Contoh: Penjualan paket internet bulan Januari' : 'Contoh: Pembayaran listrik bulan Januari'}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -365,7 +365,7 @@ export default function TransaksiModal({
                   required
                   min="0"
                   placeholder="0"
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
@@ -377,7 +377,7 @@ export default function TransaksiModal({
                   id="metodeBayar"
                   value={formData.metodeBayar}
                   onChange={(e) => setFormData({ ...formData, metodeBayar: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">Pilih Metode</option>
                   {METODE_BAYAR_OPTIONS.map((metode) => (
@@ -399,15 +399,15 @@ export default function TransaksiModal({
                 onChange={(e) => setFormData({ ...formData, catatan: e.target.value })}
                 rows={3}
                 placeholder="Catatan tambahan (opsional)"
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               />
             </div>
 
-            <div className="flex items-center gap-3 pt-4">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 pt-4">
               <button
                 type="submit"
                 disabled={loading}
-                className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${transaksiType === 'pemasukan' ? 'bg-green-600' : 'bg-red-600'
+                className={`touch-target flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-white text-base md:text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${transaksiType === 'pemasukan' ? 'bg-green-600' : 'bg-red-600'
                   }`}
               >
                 {loading ? (
@@ -422,7 +422,7 @@ export default function TransaksiModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="touch-target px-4 py-3 text-base md:text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Batal
               </button>

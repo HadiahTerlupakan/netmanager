@@ -114,21 +114,22 @@ export default function TaxRecordModal({ isOpen, onClose, onSuccess }: TaxRecord
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-0 md:p-4 safe-area-inset-top safe-area-inset-bottom">
+            <div className="bg-white dark:bg-gray-800 rounded-none md:rounded-xl shadow-xl max-w-lg w-full h-full md:h-auto md:max-h-[90vh] overflow-y-auto flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add Tax Record</h2>
+                <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                    <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white pr-4">Add Tax Record</h2>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        className="touch-target p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+                        aria-label="Tutup"
                     >
                         <HiX className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-4 md:space-y-5 flex-1 overflow-y-auto">
                     {/* Tax Type */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -140,7 +141,7 @@ export default function TaxRecordModal({ isOpen, onClose, onSuccess }: TaxRecord
                                 setFormData({ ...formData, taxType: e.target.value })
                                 setCalculatedTax(null)
                             }}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                            className="w-full px-3 md:px-4 py-3 text-base md:text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                             required
                         >
                             {TAX_TYPES.map((type) => (
@@ -152,7 +153,7 @@ export default function TaxRecordModal({ isOpen, onClose, onSuccess }: TaxRecord
                     </div>
 
                     {/* Period */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-3 md:gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Month
@@ -160,7 +161,7 @@ export default function TaxRecordModal({ isOpen, onClose, onSuccess }: TaxRecord
                             <select
                                 value={formData.taxPeriod}
                                 onChange={(e) => setFormData({ ...formData, taxPeriod: parseInt(e.target.value) })}
-                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                                className="w-full px-3 md:px-4 py-3 text-base md:text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                                 required
                             >
                                 {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
@@ -179,7 +180,7 @@ export default function TaxRecordModal({ isOpen, onClose, onSuccess }: TaxRecord
                                 type="number"
                                 value={formData.taxYear}
                                 onChange={(e) => setFormData({ ...formData, taxYear: parseInt(e.target.value) })}
-                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                                className="w-full px-3 md:px-4 py-3 text-base md:text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                                 required
                             />
                         </div>
@@ -198,7 +199,7 @@ export default function TaxRecordModal({ isOpen, onClose, onSuccess }: TaxRecord
                                 setCalculatedTax(null)
                             }}
                             placeholder="e.g., 10000000"
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                            className="w-full px-3 md:px-4 py-3 text-base md:text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                             required
                         />
                     </div>
@@ -207,7 +208,7 @@ export default function TaxRecordModal({ isOpen, onClose, onSuccess }: TaxRecord
                     <button
                         type="button"
                         onClick={handleCalculate}
-                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        className="touch-target w-full px-4 py-3 bg-blue-600 text-white text-base md:text-sm rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         Calculate Tax
                     </button>
@@ -248,24 +249,24 @@ export default function TaxRecordModal({ isOpen, onClose, onSuccess }: TaxRecord
                             value={formData.notes}
                             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                             rows={3}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                            className="w-full px-3 md:px-4 py-3 text-base md:text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
                             placeholder="Additional notes..."
                         />
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex flex-col md:flex-row gap-3 pt-4">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            className="touch-target flex-1 px-4 py-3 text-base md:text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="touch-target flex-1 px-4 py-3 text-base md:text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? 'Creating...' : 'Create Tax Record'}
                         </button>

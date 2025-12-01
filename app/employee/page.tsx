@@ -114,106 +114,106 @@ export default function EmployeeDashboard() {
     return (
         <div className="space-y-6">
             {/* Welcome Header */}
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-6 md:p-8 text-white">
-                <h1 className="text-2xl md:text-3xl font-bold mb-2">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-6 sm:p-8 text-white">
+                <h1 className="text-2xl sm:text-3xl font-bold mb-2 leading-tight">
                     Welcome Back, {session?.user?.name || 'Employee'}!
                 </h1>
-                <p className="text-indigo-100 text-sm md:text-base">Here's your overview for today</p>
+                <p className="text-indigo-100 text-base sm:text-lg">Here's your overview for today</p>
             </div>
 
             {stats && (
                 <>
                     {/* Quick Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                         {/* Attendance This Month */}
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 hover:shadow-lg transition-shadow">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6 hover:shadow-lg transition-shadow">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">
                                     Attendance This Month
                                 </h3>
-                                <HiOutlineClock className="w-8 h-8 text-indigo-600" />
+                                <HiOutlineClock className="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600 flex-shrink-0" />
                             </div>
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-sm">
+                            <div className="space-y-2.5 sm:space-y-2">
+                                <div className="flex justify-between text-base sm:text-sm">
                                     <span className="text-gray-600 dark:text-gray-400">Present:</span>
                                     <span className="font-semibold text-green-600">{stats.attendance.present}</span>
                                 </div>
-                                <div className="flex justify-between text-sm">
+                                <div className="flex justify-between text-base sm:text-sm">
                                     <span className="text-gray-600 dark:text-gray-400">Late:</span>
                                     <span className="font-semibold text-yellow-600">{stats.attendance.late}</span>
                                 </div>
-                                <div className="flex justify-between text-sm">
+                                <div className="flex justify-between text-base sm:text-sm">
                                     <span className="text-gray-600 dark:text-gray-400">Absent:</span>
                                     <span className="font-semibold text-red-600">{stats.attendance.absent}</span>
                                 </div>
                             </div>
                             <Link
                                 href="/employee/attendance"
-                                className="mt-4 block text-center text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                                className="mt-5 sm:mt-4 block text-center text-base sm:text-sm text-indigo-600 hover:text-indigo-700 font-medium touch-manipulation py-2"
                             >
                                 Check In/Out →
                             </Link>
                         </div>
 
                         {/* Leave Balance */}
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 hover:shadow-lg transition-shadow">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6 hover:shadow-lg transition-shadow">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">
                                     Leave Balance
                                 </h3>
-                                <HiOutlineCalendar className="w-8 h-8 text-purple-600" />
+                                <HiOutlineCalendar className="w-8 h-8 sm:w-10 sm:h-10 text-purple-600 flex-shrink-0" />
                             </div>
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-sm">
+                            <div className="space-y-2.5 sm:space-y-2">
+                                <div className="flex justify-between text-base sm:text-sm">
                                     <span className="text-gray-600 dark:text-gray-400">Annual:</span>
                                     <span className="font-semibold text-gray-900 dark:text-white">
                                         {stats.leave.annual.remaining}/{stats.leave.annual.total} days
                                     </span>
                                 </div>
-                                <div className="flex justify-between text-sm">
+                                <div className="flex justify-between text-base sm:text-sm">
                                     <span className="text-gray-600 dark:text-gray-400">Sick:</span>
                                     <span className="font-semibold text-gray-900 dark:text-white">
                                         {stats.leave.sick.remaining}/{stats.leave.sick.total} days
                                     </span>
                                 </div>
                                 {stats.leave.pendingRequests > 0 && (
-                                    <div className="mt-2 px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 rounded text-xs text-yellow-800 dark:text-yellow-400">
+                                    <div className="mt-2 px-3 py-1.5 bg-yellow-100 dark:bg-yellow-900/30 rounded text-sm sm:text-xs text-yellow-800 dark:text-yellow-400">
                                         {stats.leave.pendingRequests} pending request(s)
                                     </div>
                                 )}
                             </div>
                             <Link
                                 href="/employee/leaves"
-                                className="mt-4 block text-center text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                                className="mt-5 sm:mt-4 block text-center text-base sm:text-sm text-indigo-600 hover:text-indigo-700 font-medium touch-manipulation py-2"
                             >
                                 Request Leave →
                             </Link>
                         </div>
 
                         {/* Latest Payslip */}
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 hover:shadow-lg transition-shadow">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6 hover:shadow-lg transition-shadow">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">
                                     Latest Payslip
                                 </h3>
-                                <HiOutlineBanknotes className="w-8 h-8 text-green-600" />
+                                <HiOutlineBanknotes className="w-8 h-8 sm:w-10 sm:h-10 text-green-600 flex-shrink-0" />
                             </div>
                             {stats.latestPayslip ? (
                                 <div className="space-y-2">
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    <div className="text-sm sm:text-xs text-gray-500 dark:text-gray-400">
                                         {new Date(stats.latestPayslip.year, stats.latestPayslip.month - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
                                     </div>
-                                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                                         {formatCurrency(stats.latestPayslip.netSalary)}
                                     </div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">Net Salary</div>
+                                    <div className="text-sm sm:text-xs text-gray-500 dark:text-gray-400">Net Salary</div>
                                 </div>
                             ) : (
-                                <p className="text-sm text-gray-500 dark:text-gray-400">No payslip available</p>
+                                <p className="text-base sm:text-sm text-gray-500 dark:text-gray-400">No payslip available</p>
                             )}
                             <Link
                                 href="/employee/payslips"
-                                className="mt-4 block text-center text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                                className="mt-5 sm:mt-4 block text-center text-base sm:text-sm text-indigo-600 hover:text-indigo-700 font-medium touch-manipulation py-2"
                             >
                                 View All →
                             </Link>
@@ -221,48 +221,48 @@ export default function EmployeeDashboard() {
                     </div>
 
                     {/* Quick Actions */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 md:p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6">
+                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-5 sm:mb-4">
                             Quick Actions
                         </h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-3">
                             <Link
                                 href="/employee/attendance"
-                                className="group flex flex-col items-center gap-2 p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
+                                className="group flex flex-col items-center gap-3 p-4 sm:p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all touch-manipulation min-h-[100px] sm:min-h-0"
                             >
-                                <HiOutlineClock className="w-6 h-6 md:w-8 md:h-8 text-indigo-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">Check In/Out</span>
+                                <HiOutlineClock className="w-8 h-8 sm:w-6 md:w-8 md:h-8 text-indigo-600 group-hover:scale-110 transition-transform" />
+                                <span className="text-sm sm:text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">Check In/Out</span>
                             </Link>
                             <Link
                                 href="/employee/leaves"
-                                className="group flex flex-col items-center gap-2 p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
+                                className="group flex flex-col items-center gap-3 p-4 sm:p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all touch-manipulation min-h-[100px] sm:min-h-0"
                             >
-                                <HiOutlineCalendar className="w-6 h-6 md:w-8 md:h-8 text-purple-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">Request Leave</span>
+                                <HiOutlineCalendar className="w-8 h-8 sm:w-6 md:w-8 md:h-8 text-purple-600 group-hover:scale-110 transition-transform" />
+                                <span className="text-sm sm:text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">Request Leave</span>
                             </Link>
                             <Link
                                 href="/employee/payslips"
-                                className="group flex flex-col items-center gap-2 p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all"
+                                className="group flex flex-col items-center gap-3 p-4 sm:p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all touch-manipulation min-h-[100px] sm:min-h-0"
                             >
-                                <HiOutlineBanknotes className="w-6 h-6 md:w-8 md:h-8 text-green-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">View Payslips</span>
+                                <HiOutlineBanknotes className="w-8 h-8 sm:w-6 md:w-8 md:h-8 text-green-600 group-hover:scale-110 transition-transform" />
+                                <span className="text-sm sm:text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">View Payslips</span>
                             </Link>
                             <Link
                                 href="/employee/profile"
-                                className="group flex flex-col items-center gap-2 p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                                className="group flex flex-col items-center gap-3 p-4 sm:p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all touch-manipulation min-h-[100px] sm:min-h-0"
                             >
-                                <HiOutlineCheckCircle className="w-6 h-6 md:w-8 md:h-8 text-blue-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">My Profile</span>
+                                <HiOutlineCheckCircle className="w-8 h-8 sm:w-6 md:w-8 md:h-8 text-blue-600 group-hover:scale-110 transition-transform" />
+                                <span className="text-sm sm:text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">My Profile</span>
                             </Link>
                         </div>
                     </div>
 
                     {/* Info Notice */}
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                        <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-5 sm:p-4">
+                        <h4 className="text-base sm:text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3 sm:mb-2">
                             📢 Important Notes
                         </h4>
-                        <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 ml-4 list-disc">
+                        <ul className="text-base sm:text-sm text-blue-800 dark:text-blue-200 space-y-2 sm:space-y-1 ml-5 sm:ml-4 list-disc leading-relaxed">
                             <li>Remember to check in/out every day with geolocation enabled</li>
                             <li>Submit leave requests at least 3 days in advance</li>
                             <li>Payslips are available on the 5th of each month</li>

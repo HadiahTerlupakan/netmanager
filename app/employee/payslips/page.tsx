@@ -115,68 +115,69 @@ export default function PayslipsPage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="text-center">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Payslips</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Payslips</h1>
+                <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400 mt-2">
                     View and download your salary slips
                 </p>
             </div>
 
             {/* Payslips List */}
             {payslips.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                     {payslips.map((payslip) => (
-                        <div key={payslip.id} className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 hover:shadow-lg transition-all transform hover:scale-[1.02]">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                                    <HiOutlineDocumentText className="w-6 h-6 text-green-600 dark:text-green-400" />
+                        <div key={payslip.id} className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6 hover:shadow-lg transition-all transform hover:scale-[1.02]">
+                            <div className="flex items-center gap-3 sm:gap-4 mb-5 sm:mb-4">
+                                <div className="p-3 sm:p-2.5 bg-green-100 dark:bg-green-900/30 rounded-lg flex-shrink-0">
+                                    <HiOutlineDocumentText className="w-7 h-7 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
                                 </div>
-                                <div>
-                                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-semibold text-base sm:text-sm text-gray-900 dark:text-white mb-1">
                                         {getMonthName(payslip.month)} {payslip.year}
                                     </h3>
-                                    <span className="text-xs px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full">
+                                    <span className="text-xs sm:text-[10px] px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full">
                                         {payslip.status}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="space-y-2 mb-4">
-                                <div className="flex justify-between text-sm">
+                            <div className="space-y-3 sm:space-y-2 mb-5 sm:mb-4">
+                                <div className="flex justify-between text-base sm:text-sm">
                                     <span className="text-gray-600 dark:text-gray-400">Gross Salary:</span>
-                                    <span className="font-semibold text-gray-900 dark:text-white">
+                                    <span className="font-semibold text-gray-900 dark:text-white text-right">
                                         {formatCurrency(payslip.grossSalary)}
                                     </span>
                                 </div>
-                                <div className="flex justify-between text-sm">
+                                <div className="flex justify-between text-base sm:text-sm">
                                     <span className="text-gray-600 dark:text-gray-400">Deductions:</span>
-                                    <span className="font-semibold text-red-600">
+                                    <span className="font-semibold text-red-600 text-right">
                                         -{formatCurrency(String(Number(payslip.tax) + Number(payslip.insurance) + Number(payslip.deductions)))}
                                     </span>
                                 </div>
-                                <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                                <div className="pt-3 sm:pt-2 border-t border-gray-200 dark:border-gray-700">
                                     <div className="flex justify-between">
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Net Salary:</span>
-                                        <span className="font-bold text-green-600 dark:text-green-400">
+                                        <span className="text-base sm:text-sm font-medium text-gray-700 dark:text-gray-300">Net Salary:</span>
+                                        <span className="font-bold text-green-600 dark:text-green-400 text-right">
                                             {formatCurrency(payslip.netSalary)}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-3 sm:gap-2">
                                 <button
                                     onClick={() => setSelectedPayslip(payslip)}
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-2 min-h-[48px] bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-base sm:text-sm font-medium touch-manipulation"
                                 >
-                                    <HiOutlineEye className="w-4 h-4" />
+                                    <HiOutlineEye className="w-5 h-5 sm:w-4 sm:h-4" />
                                     View
                                 </button>
                                 <button
                                     onClick={() => handleDownload(payslip)}
-                                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                    className="min-w-[48px] min-h-[48px] px-4 py-3 sm:py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors touch-manipulation flex items-center justify-center"
                                     title="Download PDF"
+                                    aria-label="Download PDF"
                                 >
-                                    <HiOutlineArrowDownTray className="w-4 h-4" />
+                                    <HiOutlineArrowDownTray className="w-5 h-5 sm:w-4 sm:h-4" />
                                 </button>
                             </div>
                         </div>
@@ -279,16 +280,16 @@ export default function PayslipsPage() {
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex gap-3 pt-4">
+                        <div className="flex flex-col sm:flex-row gap-3 pt-4">
                             <button
                                 onClick={() => setSelectedPayslip(null)}
-                                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                className="flex-1 px-4 py-3 sm:py-2 min-h-[48px] border border-gray-300 dark:border-gray-600 rounded-lg text-base sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors touch-manipulation font-medium"
                             >
                                 Close
                             </button>
                             <button
                                 onClick={() => handleDownload(selectedPayslip)}
-                                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                                className="flex-1 px-4 py-3 sm:py-2 min-h-[48px] bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 touch-manipulation font-medium text-base sm:text-sm"
                             >
                                 <HiOutlineArrowDownTray className="w-5 h-5" />
                                 Download PDF

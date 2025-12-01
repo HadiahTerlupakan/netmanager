@@ -193,40 +193,40 @@ export default function EmployeeAttendancePage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="text-center">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Attendance</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">Check in/out with location tracking</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Attendance</h1>
+                <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400 mt-2">Check in/out with location tracking</p>
             </div>
 
             {/* Current Time */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
-                <div className="flex items-center justify-center gap-2 text-indigo-600 dark:text-indigo-400 mb-2">
-                    <HiOutlineClock className="w-6 h-6" />
-                    <span className="text-sm font-medium">Current Time</span>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 sm:p-8 text-center">
+                <div className="flex items-center justify-center gap-2 text-indigo-600 dark:text-indigo-400 mb-3 sm:mb-2">
+                    <HiOutlineClock className="w-6 h-6 sm:w-5 sm:h-5" />
+                    <span className="text-base sm:text-sm font-medium">Current Time</span>
                 </div>
-                <div className="text-5xl font-bold text-gray-900 dark:text-white mb-2 font-mono">
+                <div className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-2 font-mono">
                     {timeString}
                 </div>
-                <div className="text-gray-600 dark:text-gray-400">
+                <div className="text-base sm:text-sm text-gray-600 dark:text-gray-400">
                     {dateString}
                 </div>
             </div>
 
             {/* Todaysummary */}
             {todayAttendance && (
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-3">
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-xl p-5 sm:p-6">
+                    <h3 className="text-lg sm:text-xl font-semibold text-green-900 dark:text-green-100 mb-4 sm:mb-3">
                         📊 Today's Summary
                     </h3>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 sm:gap-6">
                         <div>
-                            <div className="text-sm text-green-700 dark:text-green-300">Check In</div>
-                            <div className="text-lg font-bold text-green-900 dark:text-green-100">
+                            <div className="text-base sm:text-sm text-green-700 dark:text-green-300 mb-1">Check In</div>
+                            <div className="text-xl sm:text-lg font-bold text-green-900 dark:text-green-100">
                                 {todayAttendance.checkInTime ? new Date(todayAttendance.checkInTime).toLocaleTimeString('id-ID') : '-'}
                             </div>
                         </div>
                         <div>
-                            <div className="text-sm text-green-700 dark:text-green-300">Check Out</div>
-                            <div className="text-lg font-bold text-green-900 dark:text-green-100">
+                            <div className="text-base sm:text-sm text-green-700 dark:text-green-300 mb-1">Check Out</div>
+                            <div className="text-xl sm:text-lg font-bold text-green-900 dark:text-green-100">
                                 {todayAttendance.checkOutTime ? new Date(todayAttendance.checkOutTime).toLocaleTimeString('id-ID') : '-'}
                             </div>
                         </div>
@@ -235,23 +235,23 @@ export default function EmployeeAttendancePage() {
             )}
 
             {/* Geolocation Status */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className={`p-3 rounded-full ${geolocation.latitude && geolocation.longitude
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                        <div className={`p-3 sm:p-2.5 rounded-full flex-shrink-0 ${geolocation.latitude && geolocation.longitude
                             ? 'bg-green-100 dark:bg-green-900/30'
                             : 'bg-red-100 dark:bg-red-900/30'
                             }`}>
-                            <HiOutlineMapPin className={`w-6 h-6 ${geolocation.latitude && geolocation.longitude
+                            <HiOutlineMapPin className={`w-7 h-7 sm:w-6 sm:h-6 ${geolocation.latitude && geolocation.longitude
                                 ? 'text-green-600 dark:text-green-400'
                                 : 'text-red-600 dark:text-red-400'
                                 }`} />
                         </div>
-                        <div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        <div className="flex-1 min-w-0">
+                            <p className="text-base sm:text-sm font-medium text-gray-900 dark:text-white">
                                 {geolocation.loading ? 'Getting location...' : 'Location Status'}
                             </p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                            <p className="text-sm sm:text-xs text-gray-600 dark:text-gray-400 break-words">
                                 {geolocation.error ? geolocation.error :
                                     geolocation.latitude && geolocation.longitude
                                         ? `${geolocation.latitude.toFixed(6)}, ${geolocation.longitude.toFixed(6)}`
@@ -262,7 +262,7 @@ export default function EmployeeAttendancePage() {
                     {geolocation.error && (
                         <button
                             onClick={requestGeolocation}
-                            className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                            className="text-base sm:text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium touch-manipulation min-w-[60px] min-h-[44px] px-3 flex items-center justify-center flex-shrink-0"
                         >
                             Retry
                         </button>
@@ -271,16 +271,16 @@ export default function EmployeeAttendancePage() {
             </div>
 
             {/* Check In/Out Buttons */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
                     onClick={handleCheckIn}
                     disabled={checkingIn || !geolocation.latitude || todayAttendance?.attendanceId}
-                    className="flex flex-col items-center gap-3 p-6 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-2xl shadow-lg hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
+                    className="flex flex-col items-center justify-center gap-4 min-h-[140px] sm:min-h-[160px] p-6 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-2xl shadow-lg hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] touch-manipulation"
                 >
-                    <HiOutlineCheckCircle className="w-12 h-12" />
-                    <div>
-                        <div className="font-semibold">Check In</div>
-                        <div className="text-xs opacity-90">
+                    <HiOutlineCheckCircle className="w-14 h-14 sm:w-12 sm:h-12" />
+                    <div className="text-center">
+                        <div className="font-semibold text-lg sm:text-base">Check In</div>
+                        <div className="text-sm sm:text-xs opacity-90 mt-1">
                             {checkingIn ? 'Processing...' : todayAttendance?.attendanceId ? 'Already checked in' : 'Start your day'}
                         </div>
                     </div>
@@ -289,12 +289,12 @@ export default function EmployeeAttendancePage() {
                 <button
                     onClick={handleCheckOut}
                     disabled={checkingOut || !geolocation.latitude || !todayAttendance?.attendanceId || todayAttendance?.checkedOut}
-                    className="flex flex-col items-center gap-3 p-6 bg-gradient-to-br from-red-500 to-red-600 text-white rounded-2xl shadow-lg hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
+                    className="flex flex-col items-center justify-center gap-4 min-h-[140px] sm:min-h-[160px] p-6 bg-gradient-to-br from-red-500 to-red-600 text-white rounded-2xl shadow-lg hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] touch-manipulation"
                 >
-                    <HiOutlineClock className="w-12 h-12" />
-                    <div>
-                        <div className="font-semibold">Check Out</div>
-                        <div className="text-xs opacity-90">
+                    <HiOutlineClock className="w-14 h-14 sm:w-12 sm:h-12" />
+                    <div className="text-center">
+                        <div className="font-semibold text-lg sm:text-base">Check Out</div>
+                        <div className="text-sm sm:text-xs opacity-90 mt-1">
                             {checkingOut ? 'Processing...' : !todayAttendance?.attendanceId ? 'Check in first' : todayAttendance?.checkedOut ? 'Already checked out' : 'End your day'}
                         </div>
                     </div>
@@ -302,11 +302,11 @@ export default function EmployeeAttendancePage() {
             </div>
 
             {/* Instructions */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-5 sm:p-4">
+                <h3 className="text-base sm:text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3 sm:mb-2">
                     📍 How it works
                 </h3>
-                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                <ul className="text-base sm:text-sm text-blue-800 dark:text-blue-200 space-y-2 sm:space-y-1 leading-relaxed">
                     <li>• Allow location access when prompted</li>
                     <li>• Click "Check In" when you arrive at work</li>
                     <li>• Click "Check Out" when you leave</li>

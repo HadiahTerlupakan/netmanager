@@ -95,28 +95,30 @@ export default function FinancialReportsPage() {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-20 md:pb-8">
             {/* Header */}
-            <header className="bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-lg">
+            <header className="bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-lg safe-area-inset-top">
                 <div className="px-4 py-3">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 md:gap-3 min-w-0">
                             <button
                                 onClick={() => {
                                     if ((window as any).toggleFinanceSidebar) {
                                         ; (window as any).toggleFinanceSidebar()
                                     }
                                 }}
-                                className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden"
+                                className="touch-target touch-manipulation p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition-colors md:hidden flex-shrink-0"
+                                aria-label="Open menu"
                             >
                                 <HiBars3 className="w-6 h-6" />
                             </button>
-                            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                <HiOutlineDocumentChartBar className="w-6 h-6" />
+                            <div className="w-9 h-9 md:w-10 md:h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <HiOutlineDocumentChartBar className="w-5 h-5 md:w-6 md:h-6" />
                             </div>
-                            <h1 className="text-xl font-bold">Financial Reports</h1>
+                            <h1 className="text-lg md:text-xl font-bold truncate">Financial Reports</h1>
                         </div>
                         <button
                             onClick={fetchReports}
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                            className="touch-target touch-manipulation p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition-colors flex-shrink-0"
+                            title="Refresh"
                         >
                             <HiOutlineArrowPath className="w-6 h-6" />
                         </button>

@@ -84,25 +84,25 @@ export default function FinanceTagihanPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-20 md:pb-8">
       {/* Header */}
-      <header className="bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-lg md:ml-0">
+      <header className="bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-lg md:ml-0 safe-area-inset-top">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0">
               <button
                 onClick={() => {
                   if ((window as any).toggleFinanceSidebar) {
                     ; (window as any).toggleFinanceSidebar()
                   }
                 }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation md:hidden"
+                className="touch-target touch-manipulation p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition-colors md:hidden flex-shrink-0"
                 aria-label="Open menu"
               >
                 <HiBars3 className="w-6 h-6" />
               </button>
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                <HiOutlineDocumentText className="w-6 h-6" />
+              <div className="w-9 h-9 md:w-10 md:h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <HiOutlineDocumentText className="w-5 h-5 md:w-6 md:h-6" />
               </div>
-              <h1 className="text-xl font-bold">Kelola Tagihan</h1>
+              <h1 className="text-lg md:text-xl font-bold truncate">Kelola Tagihan</h1>
             </div>
             <button
               onClick={() => {
@@ -128,7 +128,7 @@ export default function FinanceTagihanPage() {
                 }
               }}
               disabled={loading || refreshing || tagihanLoading}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation disabled:opacity-50"
+              className="touch-target touch-manipulation p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
               title="Refresh"
             >
               <HiArrowPath className={`w-6 h-6 ${loading || refreshing || tagihanLoading ? 'animate-spin' : ''}`} />
@@ -140,10 +140,10 @@ export default function FinanceTagihanPage() {
       {/* Main Content */}
       <main className="px-4 py-4 md:px-6 lg:px-8">
         {/* Filter */}
-        <div className="mb-4 flex gap-2 overflow-x-auto">
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
           <button
             onClick={() => setFilterStatus('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
+            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${
               filterStatus === 'all'
                 ? 'bg-emerald-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
@@ -153,7 +153,7 @@ export default function FinanceTagihanPage() {
           </button>
           <button
             onClick={() => setFilterStatus('BELUM_LUNAS')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
+            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${
               filterStatus === 'BELUM_LUNAS'
                 ? 'bg-emerald-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
@@ -163,7 +163,7 @@ export default function FinanceTagihanPage() {
           </button>
           <button
             onClick={() => setFilterStatus('TERLAMBAT')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
+            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${
               filterStatus === 'TERLAMBAT'
                 ? 'bg-emerald-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
@@ -173,7 +173,7 @@ export default function FinanceTagihanPage() {
           </button>
           <button
             onClick={() => setFilterStatus('LUNAS')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
+            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${
               filterStatus === 'LUNAS'
                 ? 'bg-emerald-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'

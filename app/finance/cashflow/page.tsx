@@ -157,34 +157,34 @@ export default function FinanceCashflowPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-20 md:pb-8">
       {/* Header */}
-      <header className="bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-lg md:ml-0">
+      <header className="bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-lg md:ml-0 safe-area-inset-top">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0">
               <button
                 onClick={() => {
                   if ((window as any).toggleFinanceSidebar) {
                     ; (window as any).toggleFinanceSidebar()
                   }
                 }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation md:hidden"
+                className="touch-target touch-manipulation p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition-colors md:hidden flex-shrink-0"
                 aria-label="Open menu"
               >
                 <HiBars3 className="w-6 h-6" />
               </button>
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                <HiOutlineBanknotes className="w-6 h-6" />
+              <div className="w-9 h-9 md:w-10 md:h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <HiOutlineBanknotes className="w-5 h-5 md:w-6 md:h-6" />
               </div>
-              <h1 className="text-xl font-bold">Cashflow</h1>
+              <h1 className="text-lg md:text-xl font-bold truncate">Cashflow</h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => {
                   setTransaksiEditId(null)
                   setTransaksiEditType(null)
                   setTransaksiModalOpen(true)
                 }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation"
+                className="touch-target touch-manipulation p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition-colors"
                 title="Tambah Transaksi"
               >
                 <HiOutlinePlus className="w-6 h-6" />
@@ -192,7 +192,7 @@ export default function FinanceCashflowPage() {
               <button
                 onClick={handleRefresh}
                 disabled={loading || refreshing || loadingData}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation disabled:opacity-50"
+                className="touch-target touch-manipulation p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
                 title="Refresh"
               >
                 <HiArrowPath className={`w-6 h-6 ${loading || refreshing || loadingData ? 'animate-spin' : ''}`} />
@@ -335,35 +335,113 @@ export default function FinanceCashflowPage() {
               Total: {pagination.total} data
             </div>
           </div>
-          <div className="overflow-x-auto">
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3 p-4">
+            {transactions.length === 0 ? (
+              <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
+                Belum ada data transaksi
+              </div>
+            ) : (
+              transactions.map((transaksi: any) => (
+                <div key={`${transaksi.type}-${transaksi.id}`} className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${transaksi.type === 'pemasukan'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                          }`}>
+                          {transaksi.type === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'}
+                        </span>
+                        {transaksi.type === 'pengeluaran' && transaksi.tipePengeluaran && (
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${transaksi.tipePengeluaran === 'CAPEX'
+                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
+                            : 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400'
+                            }`}>
+                            {transaksi.tipePengeluaran}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">{transaksi.deskripsi}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(transaksi.tanggal)}</p>
+                    </div>
+                    <div className={`text-right ${transaksi.type === 'pemasukan'
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                      }`}>
+                      <p className="text-sm font-semibold">{transaksi.type === 'pemasukan' ? '+' : '-'} {formatRupiah(transaksi.jumlah)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                        {transaksi.kategori}
+                      </span>
+                      {transaksi.metodeBayar && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {transaksi.metodeBayar}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setTransaksiEditId(transaksi.id)
+                          setTransaksiEditType(transaksi.type)
+                          setTransaksiModalOpen(true)
+                        }}
+                        className="touch-target p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                        title="Edit"
+                      >
+                        <HiOutlinePencil className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeleteId(transaksi.id)
+                          setDeleteType(transaksi.type)
+                        }}
+                        className="touch-target p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Hapus"
+                      >
+                        <HiOutlineTrash className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-900/50">
+              <thead className="bg-gray-50 dark:bg-gray-900/50 sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Tanggal
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Jenis
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Tipe (CAPEX/OPEX)
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Kategori
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Deskripsi
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Jumlah
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Metode Bayar
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Dibuat Oleh
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Aksi
                   </th>
                 </tr>
@@ -378,12 +456,12 @@ export default function FinanceCashflowPage() {
                 ) : (
                   transactions.map((transaksi: any) => (
                     <tr key={`${transaksi.type}-${transaksi.id}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
                           {formatDate(transaksi.tanggal)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${transaksi.type === 'pemasukan'
                           ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
                           : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
@@ -391,7 +469,7 @@ export default function FinanceCashflowPage() {
                           {transaksi.type === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
                         {transaksi.type === 'pengeluaran' && transaksi.tipePengeluaran ? (
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${transaksi.tipePengeluaran === 'CAPEX'
                             ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
@@ -403,17 +481,17 @@ export default function FinanceCashflowPage() {
                           <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
                         <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
                           {transaksi.kategori}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 md:px-6 py-2 md:py-4">
                         <div className="text-sm text-gray-900 dark:text-white max-w-md truncate">
                           {transaksi.deskripsi}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-right">
                         <div className={`text-sm font-medium ${transaksi.type === 'pemasukan'
                           ? 'text-green-600 dark:text-green-400'
                           : 'text-red-600 dark:text-red-400'
@@ -421,17 +499,17 @@ export default function FinanceCashflowPage() {
                           {transaksi.type === 'pemasukan' ? '+' : '-'} {formatRupiah(transaksi.jumlah)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500 dark:text-gray-400">
                           {transaksi.metodeBayar || '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500 dark:text-gray-400">
                           {transaksi.createdByUser?.name || transaksi.createdByUser?.email || '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => {
@@ -439,7 +517,7 @@ export default function FinanceCashflowPage() {
                               setTransaksiEditType(transaksi.type)
                               setTransaksiModalOpen(true)
                             }}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                            className="touch-target p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
                             title="Edit"
                           >
                             <HiOutlinePencil className="w-5 h-5" />
@@ -449,7 +527,7 @@ export default function FinanceCashflowPage() {
                               setDeleteId(transaksi.id)
                               setDeleteType(transaksi.type)
                             }}
-                            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            className="touch-target p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                             title="Hapus"
                           >
                             <HiOutlineTrash className="w-5 h-5" />
@@ -464,22 +542,22 @@ export default function FinanceCashflowPage() {
           </div>
 
           {/* Pagination Controls */}
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div className="px-4 md:px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-col md:flex-row items-center justify-between gap-3">
             <div className="text-sm text-gray-500 dark:text-gray-400">
               Halaman {pagination.page} dari {pagination.totalPages}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full md:w-auto">
               <button
                 onClick={() => fetchData(pagination.page - 1)}
                 disabled={pagination.page <= 1 || loadingData}
-                className="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="touch-target flex-1 md:flex-none px-4 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Sebelumnya
               </button>
               <button
                 onClick={() => fetchData(pagination.page + 1)}
                 disabled={pagination.page >= pagination.totalPages || loadingData}
-                className="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="touch-target flex-1 md:flex-none px-4 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Selanjutnya
               </button>

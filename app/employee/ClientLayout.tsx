@@ -62,18 +62,19 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     <PWAInstallBanner />
 
                     {/* Mobile Header */}
-                    <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20 px-4 py-3 flex items-center justify-between shadow-sm">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">E</span>
+                    <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20 px-4 py-3 safe-area-inset-top flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                                <span className="text-white font-bold text-base">E</span>
                             </div>
-                            <span className="font-bold text-gray-900 dark:text-white">Employee</span>
+                            <span className="font-bold text-base text-gray-900 dark:text-white">Employee</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <NotificationBell />
                             <button
                                 onClick={handleSignOut}
-                                className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+                                className="min-w-[44px] min-h-[44px] p-2.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full touch-manipulation flex items-center justify-center"
+                                aria-label="Sign out"
                             >
                                 <HiOutlineArrowRightOnRectangle className="w-6 h-6" />
                             </button>
@@ -107,8 +108,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                         </div>
                     </div>
 
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8 pb-24 lg:pb-8">
-                        <div className="flex flex-col lg:flex-row gap-8">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pb-28 sm:pb-24 lg:pb-8">
+                        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
                             {/* Sidebar Navigation (Desktop Only) */}
                             <aside className="hidden lg:block lg:w-64 flex-shrink-0">
                                 <nav className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-1 sticky top-24">
@@ -120,7 +121,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                                             <Link
                                                 key={item.name}
                                                 href={item.href}
-                                                className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors ${isActive
+                                                className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors touch-manipulation ${isActive
                                                     ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
                                                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                     }`}
@@ -141,8 +142,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     </div>
 
                     {/* Bottom Navigation Bar (Mobile Only) */}
-                    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 pb-safe z-30">
-                        <div className="flex justify-around items-center h-16">
+                    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 safe-area-inset-bottom z-30 shadow-lg">
+                        <div className="flex justify-around items-center h-20 px-2">
                             {navigation.map((item) => {
                                 const isActive = pathname === item.href ||
                                     (item.href !== '/employee' && pathname.startsWith(item.href))
@@ -151,13 +152,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                                     <Link
                                         key={item.name}
                                         href={item.href}
-                                        className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive
+                                        className={`flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-full h-full space-y-1 touch-manipulation transition-colors ${isActive
                                             ? 'text-indigo-600 dark:text-indigo-400'
-                                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                            : 'text-gray-500 dark:text-gray-400 active:text-gray-900 dark:active:text-gray-200'
                                             }`}
+                                        aria-label={item.name}
                                     >
-                                        <item.icon className={`w-6 h-6 ${isActive ? 'stroke-2' : ''}`} />
-                                        <span className="text-[10px] font-medium">{item.name}</span>
+                                        <item.icon className={`w-7 h-7 ${isActive ? 'stroke-2' : ''}`} />
+                                        <span className="text-[11px] font-medium leading-tight">{item.name}</span>
                                     </Link>
                                 )
                             })}

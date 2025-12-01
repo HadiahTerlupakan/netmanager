@@ -123,61 +123,61 @@ export default function WorkOrdersPage() {
         <div className="space-y-6">
             {/* Page Header */}
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
                     Work Orders
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400">
                     Work orders assigned to {departmentName}
                 </p>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Assigned</h3>
-                        <HiClock className="w-5 h-5 text-yellow-600" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6">
+                    <div className="flex items-center justify-between mb-3 sm:mb-2">
+                        <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">Assigned</h3>
+                        <HiClock className="w-6 h-6 sm:w-5 sm:h-5 text-yellow-600 flex-shrink-0" />
                     </div>
                     {loading ? (
-                        <div className="h-8 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        <div className="h-10 sm:h-8 w-16 sm:w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
                     ) : (
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.assigned}</p>
+                        <p className="text-3xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.assigned}</p>
                     )}
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">In Progress</h3>
-                        <HiMapPin className="w-5 h-5 text-blue-600" />
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6">
+                    <div className="flex items-center justify-between mb-3 sm:mb-2">
+                        <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">In Progress</h3>
+                        <HiMapPin className="w-6 h-6 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
                     </div>
                     {loading ? (
-                        <div className="h-8 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        <div className="h-10 sm:h-8 w-16 sm:w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
                     ) : (
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.inProgress}</p>
+                        <p className="text-3xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.inProgress}</p>
                     )}
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Completed</h3>
-                        <HiCheckCircle className="w-5 h-5 text-green-600" />
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6">
+                    <div className="flex items-center justify-between mb-3 sm:mb-2">
+                        <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">Completed</h3>
+                        <HiCheckCircle className="w-6 h-6 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
                     </div>
                     {loading ? (
-                        <div className="h-8 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        <div className="h-10 sm:h-8 w-16 sm:w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
                     ) : (
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.completed}</p>
+                        <p className="text-3xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.completed}</p>
                     )}
                 </div>
             </div>
 
             {/* Search & Filter */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
-                <div className="flex flex-col md:flex-row gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 sm:p-5">
+                <div className="flex flex-col gap-4">
                     {/* Search */}
-                    <div className="flex-1 flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
                         <div className="flex-1 relative">
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <HiMagnifyingGlass className="w-5 h-5" />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                                <HiMagnifyingGlass className="w-5 h-5 sm:w-4 sm:h-4" />
                             </div>
                             <input
                                 type="text"
@@ -185,12 +185,12 @@ export default function WorkOrdersPage() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 placeholder="Search work orders..."
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                className="w-full pl-12 sm:pl-10 pr-4 py-3 sm:py-2 min-h-[48px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-base sm:text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent touch-manipulation"
                             />
                         </div>
                         <button
                             onClick={handleSearch}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                            className="w-full sm:w-auto px-6 py-3 sm:py-2 min-h-[48px] bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors touch-manipulation font-medium text-base sm:text-sm"
                         >
                             Search
                         </button>
@@ -200,7 +200,7 @@ export default function WorkOrdersPage() {
                     <div className="flex gap-2 flex-wrap">
                         <button
                             onClick={() => setFilter('all')}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'all'
+                            className={`px-4 py-2.5 sm:py-2 min-h-[44px] rounded-lg font-medium transition-colors touch-manipulation text-base sm:text-sm ${filter === 'all'
                                     ? 'bg-indigo-600 text-white'
                                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                                 }`}
@@ -209,7 +209,7 @@ export default function WorkOrdersPage() {
                         </button>
                         <button
                             onClick={() => setFilter('assigned')}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'assigned'
+                            className={`px-4 py-2.5 sm:py-2 min-h-[44px] rounded-lg font-medium transition-colors touch-manipulation text-base sm:text-sm ${filter === 'assigned'
                                     ? 'bg-indigo-600 text-white'
                                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                                 }`}
@@ -218,7 +218,7 @@ export default function WorkOrdersPage() {
                         </button>
                         <button
                             onClick={() => setFilter('in_progress')}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'in_progress'
+                            className={`px-4 py-2.5 sm:py-2 min-h-[44px] rounded-lg font-medium transition-colors touch-manipulation text-base sm:text-sm ${filter === 'in_progress'
                                     ? 'bg-indigo-600 text-white'
                                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                                 }`}
@@ -227,7 +227,7 @@ export default function WorkOrdersPage() {
                         </button>
                         <button
                             onClick={() => setFilter('completed')}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'completed'
+                            className={`px-4 py-2.5 sm:py-2 min-h-[44px] rounded-lg font-medium transition-colors touch-manipulation text-base sm:text-sm ${filter === 'completed'
                                     ? 'bg-indigo-600 text-white'
                                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                                 }`}
@@ -270,42 +270,42 @@ export default function WorkOrdersPage() {
                         <Link
                             key={wo.id}
                             href={`/employee/workorders/${wo.id}`}
-                            className="block bg-white dark:bg-gray-800 rounded-xl shadow hover:shadow-md transition-shadow p-6"
+                            className="block bg-white dark:bg-gray-800 rounded-xl shadow hover:shadow-md transition-shadow p-5 sm:p-6 touch-manipulation"
                         >
-                            <div className="flex items-start justify-between mb-3">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            <div className="flex items-start justify-between mb-4 sm:mb-3 gap-3">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2 mb-2 sm:mb-2">
+                                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white break-words">
                                             {wo.workOrderNumber}
                                         </h3>
-                                        <span className={`px-2 py-1 text-xs font-medium rounded ${STATUS_COLORS[wo.status] || 'bg-gray-100 text-gray-800'}`}>
+                                        <span className={`px-2.5 py-1 sm:px-2 sm:py-0.5 text-xs sm:text-[10px] font-medium rounded ${STATUS_COLORS[wo.status] || 'bg-gray-100 text-gray-800'}`}>
                                             {wo.status.replace('_', ' ')}
                                         </span>
-                                        <span className={`px-2 py-1 text-xs font-medium rounded ${PRIORITY_COLORS[wo.priority] || 'bg-gray-100 text-gray-600'}`}>
+                                        <span className={`px-2.5 py-1 sm:px-2 sm:py-0.5 text-xs sm:text-[10px] font-medium rounded ${PRIORITY_COLORS[wo.priority] || 'bg-gray-100 text-gray-600'}`}>
                                             {wo.priority}
                                         </span>
                                     </div>
-                                    <p className="text-gray-900 dark:text-white font-medium mb-1">{wo.title}</p>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                                    <p className="text-base sm:text-sm text-gray-900 dark:text-white font-medium mb-2 sm:mb-1 break-words">{wo.title}</p>
+                                    <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed">
                                         {wo.description}
                                     </p>
                                 </div>
-                                <HiChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-4" />
+                                <HiChevronRight className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0 mt-1" />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-3 text-base sm:text-sm pt-4 border-t border-gray-200 dark:border-gray-700">
                                 <div>
-                                    <p className="text-gray-500 dark:text-gray-400">Customer</p>
-                                    <p className="text-gray-900 dark:text-white font-medium">{wo.pelanggan.nama}</p>
+                                    <p className="text-gray-500 dark:text-gray-400 mb-1">Customer</p>
+                                    <p className="text-gray-900 dark:text-white font-medium break-words">{wo.pelanggan.nama}</p>
                                 </div>
                                 {wo.assignedTo && (
                                     <div>
-                                        <p className="text-gray-500 dark:text-gray-400">Assigned To</p>
-                                        <p className="text-gray-900 dark:text-white font-medium">{wo.assignedTo.fullName}</p>
+                                        <p className="text-gray-500 dark:text-gray-400 mb-1">Assigned To</p>
+                                        <p className="text-gray-900 dark:text-white font-medium break-words">{wo.assignedTo.fullName}</p>
                                     </div>
                                 )}
                                 <div>
-                                    <p className="text-gray-500 dark:text-gray-400">Created</p>
+                                    <p className="text-gray-500 dark:text-gray-400 mb-1">Created</p>
                                     <p className="text-gray-900 dark:text-white font-medium">{formatDate(wo.createdAt)}</p>
                                 </div>
                             </div>

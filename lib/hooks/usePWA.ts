@@ -12,8 +12,8 @@ export function usePWA() {
             setIsInstalled(true)
         }
 
-        // Register service worker
-        if ('serviceWorker' in navigator) {
+        // Only register service worker in production (PWA is disabled in development)
+        if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
             navigator.serviceWorker
                 .register('/sw.js')
                 .then((registration) => {
@@ -24,10 +24,15 @@ export function usePWA() {
                 })
         }
 
-        // Listen for install prompt
+        // Listen for install prompt (only in production)
         const handleBeforeInstallPrompt = (e: Event) => {
-            e.preventDefault()
-            setDeferredPrompt(e)
+            // Only prevent default if we're going to use the prompt
+            // In development, let browser handle it naturally to avoid warnings
+            if (process.env.NODE_ENV === 'production') {
+                e.preventDefault()
+                setDeferredPrompt(e)
+            }
+            // In development, don't prevent default - let browser show native prompt
         }
 
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
