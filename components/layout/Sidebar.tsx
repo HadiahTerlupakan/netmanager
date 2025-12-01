@@ -13,9 +13,7 @@ import {
   HiOutlineClipboardDocumentList,
   HiOutlineBolt,
   HiOutlineLink,
-  HiOutlineCube,
   HiOutlineBuildingOffice,
-  HiOutlinePaperClip,
   HiOutlineMap,
   HiOutlineUsers,
   HiChevronRight,
@@ -29,14 +27,10 @@ import {
   HiOutlineUserCircle,
   HiOutlineCurrencyDollar,
   HiOutlineBanknotes,
-  HiOutlineReceiptPercent,
   HiOutlineCreditCard,
-  HiOutlineChartPie,
-  HiOutlineAdjustmentsHorizontal,
   HiOutlineKey,
   HiOutlineCog6Tooth,
   HiOutlinePhoto,
-  HiOutlineEnvelope,
   HiEnvelope,
   HiChatBubbleLeftRight,
   HiOutlineCodeBracket,
@@ -45,7 +39,8 @@ import {
   HiOutlineUserGroup,
   HiTicket,
   HiWrenchScrewdriver,
-  HiClipboardDocumentList
+  HiClipboardDocumentList,
+  HiOutlineDocumentText,
 } from 'react-icons/hi2'
 
 type NavItem = {
@@ -145,6 +140,7 @@ export default function Sidebar() {
       label: 'Finance',
       icon: <HiOutlineCurrencyDollar className="w-5 h-5" />,
       children: [
+        { href: '/admin/finance/tagihan', label: 'Tagihan', icon: <HiOutlineDocumentText className="w-4 h-4" /> },
         { href: '/admin/finance/cashflow', label: 'Cashflow & Pengeluaran', icon: <HiOutlineBanknotes className="w-4 h-4" /> },
         { href: '/admin/finance/bank-accounts', label: 'Bank Accounts', icon: <HiOutlineCircleStack className="w-4 h-4" /> },
       ],
@@ -266,5 +262,3 @@ export default function Sidebar() {
     </aside>
   )
 }
-
-

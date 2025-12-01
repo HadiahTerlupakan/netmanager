@@ -49,7 +49,20 @@ export default function PelangganPPPPage() {
       if (!res.ok) {
         throw new Error('Gagal memuat data pelanggan PPP')
       }
-      const data = await res.json()
+
+      let data = []
+      try {
+        const text = await res.text()
+        if (text) {
+          data = JSON.parse(text)
+        }
+      } catch (e) {
+        console.error('Error parsing JSON:', e)
+        // If parsing fails but response was OK, it might be empty body which is fine for empty list
+        data = []
+      }
+
+      // Debug: Log data yang diterima
       // Debug: Log data yang diterima
       console.log('[Frontend] Data pelanggan diterima:', data.length, 'pelanggan')
       if (data.length > 0) {
@@ -248,8 +261,8 @@ export default function PelangganPPPPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${pelanggan.tipe === 'REGULER'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                            : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                          : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
                           }`}
                       >
                         {pelanggan.tipe === 'REGULER' ? '📅 Reguler' : '🔄 Non Reguler'}

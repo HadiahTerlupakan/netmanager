@@ -47,7 +47,7 @@ export class TagihanRepository implements ITagihanRepository {
     return tagihans as any
   }
 
-  async findById(id: string): Promise<TagihanPublic | null> {
+  async findById(id: string): Promise<TagihanWithPelanggan | null> {
     const tagihan = await this.client.tagihan.findUnique({
       where: { id },
       select: {
@@ -70,9 +70,25 @@ export class TagihanRepository implements ITagihanRepository {
         catatan: true,
         createdAt: true,
         updatedAt: true,
+        pelanggan: {
+          select: {
+            id: true,
+            idPelanggan: true,
+            nama: true,
+            email: true,
+            alamat: true,
+            noTelp: true,
+            hargaPaket: {
+              select: {
+                name: true,
+                harga: true,
+              },
+            },
+          },
+        },
       },
     })
-    return tagihan
+    return tagihan as TagihanWithPelanggan | null
   }
 
   async findByNoTagihan(noTagihan: string): Promise<TagihanPublic | null> {

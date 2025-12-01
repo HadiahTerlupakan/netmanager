@@ -583,10 +583,65 @@ function TagihanContent() {
                         {formatRupiah(tagihan.jumlah)}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <button className="px-4 py-2 bg-sky-500 text-white text-sm font-medium rounded-lg hover:bg-sky-600 transition-colors touch-manipulation active:scale-95">
-                        Bayar Sekarang
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('pelanggan_token')
+                            const pelangganData = localStorage.getItem('pelanggan_data')
+
+                            if (!token || !pelangganData) {
+                              alert('Sesi Anda telah berakhir. Silakan login kembali.')
+                              router.push('/pelanggan/login')
+                              return
+                            }
+
+                            // Show loading state (optional: add loading UI)
+                            const btn = document.activeElement as HTMLButtonElement
+                            const originalText = btn.innerText
+                            btn.innerText = 'Downloading...'
+                            btn.disabled = true
+
+                            const response = await fetch(`/api/tagihan/${tagihan.id}/pdf`, {
+                              headers: {
+                                'x-pelanggan-token': token,
+                                'x-pelanggan-data': pelangganData,
+                              },
+                            })
+
+                            if (!response.ok) throw new Error('Gagal mengunduh PDF')
+
+                            const blob = await response.blob()
+                            const url = window.URL.createObjectURL(blob)
+                            const a = document.createElement('a')
+                            a.href = url
+                            a.download = `Invoice-${tagihan.bulan}-${tagihan.tahun}.pdf`
+                            document.body.appendChild(a)
+                            a.click()
+                            window.URL.revokeObjectURL(url)
+                            document.body.removeChild(a)
+                          } catch (error) {
+                            console.error('Download error:', error)
+                            alert('Gagal mengunduh invoice. Silakan coba lagi.')
+                          } finally {
+                            // Restore button state
+                            const btn = document.activeElement as HTMLButtonElement
+                            if (btn) {
+                              btn.innerText = 'Download PDF'
+                              btn.disabled = false
+                            }
+                          }
+                        }}
+                        className="px-3 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors touch-manipulation active:scale-95 text-center"
+                      >
+                        Download PDF
                       </button>
+                      <Link
+                        href={`/pelanggan/tagihan/${tagihan.id}/bayar`}
+                        className="px-4 py-2 bg-sky-500 text-white text-sm font-medium rounded-lg hover:bg-sky-600 transition-colors touch-manipulation active:scale-95 text-center"
+                      >
+                        Bayar Sekarang
+                      </Link>
                     </div>
                   </div>
                 </div>

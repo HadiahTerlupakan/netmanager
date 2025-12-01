@@ -8,6 +8,12 @@ export const prisma =
     log: ['error', 'warn'],
   })
 
+// Fix for BigInt serialization in JSON
+// @ts-ignore
+BigInt.prototype.toJSON = function () {
+  return this.toString()
+}
+
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma
 }
@@ -15,7 +21,7 @@ if (process.env.NODE_ENV !== 'production') {
 // Auto-start scheduler saat aplikasi start (hanya di server-side)
 // Skip scheduler untuk test environment
 if (
-  typeof window === 'undefined' && 
+  typeof window === 'undefined' &&
   !(globalThis as any).__schedulerStarted &&
   process.env.NODE_ENV !== 'test' &&
   !process.env.VITEST
@@ -23,7 +29,7 @@ if (
   // Import dan start scheduler
   import('@/lib/cron/start-scheduler').then(({ startAllSchedulers }) => {
     startAllSchedulers()
-    ;(globalThis as any).__schedulerStarted = true
+      ; (globalThis as any).__schedulerStarted = true
   }).catch((err) => {
     // Ignore error jika terjadi (misalnya saat build time)
     console.warn('[Prisma] Could not start scheduler:', err.message)

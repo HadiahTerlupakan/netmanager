@@ -81,12 +81,18 @@ export interface TagihanWithPelanggan extends TagihanPublic {
     idPelanggan: string
     nama: string
     email: string | null
+    alamat?: string | null
+    noTelp?: string | null
+    hargaPaket?: {
+      name: string
+      harga: number
+    } | null
   }
 }
 
 export interface ITagihanRepository {
   findAll(): Promise<TagihanPublic[]>
-  findById(id: string): Promise<TagihanPublic | null>
+  findById(id: string): Promise<TagihanWithPelanggan | null>
   findByNoTagihan(noTagihan: string): Promise<TagihanPublic | null>
   findByPelangganId(pelangganId: string): Promise<TagihanPublic[]>
   findByPelangganIdWithPelanggan(pelangganId: string): Promise<TagihanWithPelanggan[]>
