@@ -7,15 +7,16 @@ export default function PelangganLayoutClient({ children }: { children: React.Re
   const pathname = usePathname()
   const isLoginPage = pathname === '/pelanggan/login'
 
+  if (isLoginPage) {
+    return children
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {!isLoginPage && <PelangganSidebar />}
-      <div className={isLoginPage ? '' : 'md:ml-64'}>
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
+      <PelangganSidebar />
+      <div className="flex-1 flex flex-col min-w-0">
         {children}
       </div>
     </div>
   )
 }
-
-
-

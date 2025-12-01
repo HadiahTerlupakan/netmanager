@@ -8,6 +8,7 @@ import {
     HiOutlineCreditCard,
     HiOutlineCheckCircle,
     HiArrowDownTray,
+    HiOutlineBanknotes,
 } from 'react-icons/hi2'
 
 interface TagihanData {
@@ -31,6 +32,13 @@ interface PaymentLink {
     expiresAt: string
 }
 
+interface PaymentGateway {
+    id: string
+    name: string
+    provider: string
+    priority: number
+}
+
 export default function PaymentPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params)
     const router = useRouter()
@@ -38,11 +46,13 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
     const [loading, setLoading] = useState(true)
     const [generating, setGenerating] = useState(false)
     const [paymentLink, setPaymentLink] = useState<PaymentLink | null>(null)
-    const [selectedGateway, setSelectedGateway] = useState<'xendit' | 'midtrans'>('xendit')
+    const [availableGateways, setAvailableGateways] = useState<PaymentGateway[]>([])
+    const [selectedGateway, setSelectedGateway] = useState<string>('')
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         fetchTagihan()
+        fetchAvailableGateways()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resolvedParams.id])
 
@@ -68,8 +78,23 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
         }
     }
 
+    const fetchAvailableGateways = async () => {
+        try {
+            const response = await fetch('/api/payment/gateways')
+            if (response.ok) {
+                const gateways = await response.json()
+                setAvailableGateways(gateways)
+                if (gateways.length > 0 && !selectedGateway) {
+                    setSelectedGateway(gateways[0].id)
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching gateways:', error)
+        }
+    }
+
     const handleGeneratePaymentLink = async () => {
-        if (!tagihan) return
+        if (!tagihan || !selectedGateway) return
 
         try {
             setGenerating(true)
@@ -105,6 +130,32 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
         }
     }
 
+    const handleDownloadInvoice = async () => {
+        if (!tagihan) return
+        try {
+            const token = localStorage.getItem('pelanggan_token')
+            const response = await fetch(`/api/tagihan/${tagihan.id}/pdf`, {
+                headers: {
+                    'x-pelanggan-token': token || '',
+                },
+            })
+
+            if (response.ok) {
+                const blob = await response.blob()
+                const url = window.URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `invoice-${tagihan.noTagihan}.pdf`
+                document.body.appendChild(a)
+                a.click()
+                window.URL.revokeObjectURL(url)
+                document.body.removeChild(a)
+            }
+        } catch (err) {
+            console.error('Error downloading invoice:', err)
+        }
+    }
+
     const formatRupiah = (amount: number) => {
         return new Intl.NumberFormat('id-ID', {
             style: 'currency',
@@ -128,18 +179,18 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50">
-                <div className="text-gray-500">Memuat...</div>
+            <div className="flex-1 flex items-center justify-center">
+                <div className="text-gray-500 dark:text-gray-400">Memuat...</div>
             </div>
         )
     }
 
     if (error && !tagihan) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+            <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
-                    <p className="text-red-500 mb-4">{error}</p>
-                    <Link href="/pelanggan/tagihan" className="text-sky-600 hover:text-sky-700">
+                    <p className="text-red-500 dark:text-red-400 mb-4">{error}</p>
+                    <Link href="/pelanggan/tagihan" className="text-sky-600 dark:text-sky-400 hover:underline">
                         Kembali ke Tagihan
                     </Link>
                 </div>
@@ -148,208 +199,161 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
     }
 
     if (!tagihan) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50">
-                <div className="text-center">
-                    <p className="text-red-500 mb-4">Tagihan tidak ditemukan</p>
-                    <Link href="/pelanggan/tagihan" className="text-sky-600 hover:text-sky-700">
-                        Kembali ke Tagihan
-                    </Link>
-                </div>
-            </div>
-        )
+        return null
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4">
-            <div className="max-w-2xl mx-auto">
-                <div className="flex items-center gap-4 mb-6">
-                    <Link href="/pelanggan/tagihan" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                        <HiOutlineArrowLeft className="w-6 h-6 text-gray-600" />
-                    </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Pembayaran Tagihan</h1>
-                        <p className="text-sm text-gray-500">
-                            {tagihan.noTagihan} - {NAMA_BULAN[tagihan.periodeBulan - 1]} {tagihan.periodeTahun}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Ringkasan Tagihan</h2>
-                    <div className="space-y-3">
-                        <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Pelanggan</span>
-                            <span className="text-sm font-medium text-gray-900">{tagihan.pelanggan.nama}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Periode</span>
-                            <span className="text-sm font-medium text-gray-900">
-                                {NAMA_BULAN[tagihan.periodeBulan - 1]} {tagihan.periodeTahun}
-                            </span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Jatuh Tempo</span>
-                            <span className="text-sm font-medium text-gray-900">{formatDate(tagihan.jatuhTempo)}</span>
-                        </div>
-                        <div className="pt-3 border-t border-gray-200 flex justify-between">
-                            <span className="text-lg font-bold text-gray-900">Total Pembayaran</span>
-                            <span className="text-lg font-bold text-sky-600">{formatRupiah(tagihan.total)}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Pilih Metode Pembayaran</h2>
-                    <div className="space-y-3">
-                        <button
-                            onClick={() => setSelectedGateway('xendit')}
-                            className={`w-full p-4 rounded-lg border-2 transition-colors text-left ${selectedGateway === 'xendit' ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedGateway === 'xendit' ? 'border-sky-500' : 'border-gray-300'
-                                    }`}>
-                                    {selectedGateway === 'xendit' && <div className="w-3 h-3 bg-sky-500 rounded-full" />}
-                                </div>
-                                <div className="flex-1">
-                                    <p className="font-medium text-gray-900">Xendit</p>
-                                    <p className="text-sm text-gray-500">Transfer Bank, E-Wallet (OVO, GoPay, DANA), QRIS</p>
-                                </div>
+        <>
+            <div className="flex-1 overflow-auto">
+                {/* Header */}
+                <div className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+                    <div className="px-4 md:px-6 lg:px-8 py-4">
+                        <div className="flex items-center gap-4">
+                            <Link
+                                href="/pelanggan/tagihan"
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                            >
+                                <HiOutlineArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                            </Link>
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Pembayaran</h1>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    {NAMA_BULAN[tagihan.periodeBulan - 1]} {tagihan.periodeTahun}
+                                </p>
                             </div>
-                        </button>
-
-                        <button
-                            onClick={() => setSelectedGateway('midtrans')}
-                            className={`w-full p-4 rounded-lg border-2 transition-colors text-left ${selectedGateway === 'midtrans' ? 'border-sky-500 bg-sky-50' : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedGateway === 'midtrans' ? 'border-sky-500' : 'border-gray-300'
-                                    }`}>
-                                    {selectedGateway === 'midtrans' && <div className="w-3 h-3 bg-sky-500 rounded-full" />}
-                                </div>
-                                <div className="flex-1">
-                                    <p className="font-medium text-gray-900">Midtrans</p>
-                                    <p className="text-sm text-gray-500">Kartu Kredit, Transfer Bank, E-Wallet</p>
-                                </div>
-                            </div>
-                        </button>
-                    </div>
-                </div>
-
-                {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                        <p className="text-sm text-red-800">{error}</p>
-                    </div>
-                )}
-
-                {paymentLink && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
-                        <div className="flex items-center gap-3 mb-4">
-                            <HiOutlineCheckCircle className="w-6 h-6 text-green-600" />
-                            <h3 className="text-lg font-semibold text-green-900">Link Pembayaran Berhasil Dibuat!</h3>
                         </div>
-                        <p className="text-sm text-green-800 mb-4">
-                            Link pembayaran telah dibuka di tab baru. Jika tidak terbuka, klik tombol di bawah:
-                        </p>
-                        <a
-                            href={paymentLink.paymentUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                        >
-                            <HiOutlineCreditCard className="w-5 h-5" />
-                            Buka Halaman Pembayaran
-                        </a>
-                        <p className="text-xs text-green-700 mt-4">
-                            Link akan kedaluwarsa pada: {formatDate(paymentLink.expiresAt)}
-                        </p>
                     </div>
-                )}
-
-                {!paymentLink && (
-                    <button
-                        onClick={handleGeneratePaymentLink}
-                        disabled={generating}
-                        className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg"
-                    >
-                        {generating ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                Membuat Link Pembayaran...
-                            </>
-                        ) : (
-                            <>
-                                <HiOutlineCreditCard className="w-6 h-6" />
-                                Bayar Sekarang
-                            </>
-                        )}
-                    </button>
-                )}
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
-                    <p className="text-sm text-blue-800">
-                        <strong>💡 Catatan:</strong> Setelah pembayaran berhasil, status tagihan akan otomatis diperbarui dalam 1-5 menit.
-                        Cek kembali halaman tagihan Anda untuk melihat status terbaru.
-                    </p>
                 </div>
 
-                <div className="mt-6">
+                {/* Content */}
+                <main className="px-4 py-6 md:px-6 lg:px-8 max-w-4xl mx-auto">
+                    {error && (
+                        <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                            <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+                        </div>
+                    )}
+
+                    {/* Bill Summary */}
+                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-6 mb-6">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Detail Tagihan</h2>
+                        <div className="space-y-3">
+                            <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">No. Tagihan</span>
+                                <span className="font-medium text-gray-900 dark:text-white">{tagihan.noTagihan}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">Periode</span>
+                                <span className="font-medium text-gray-900 dark:text-white">
+                                    {NAMA_BULAN[tagihan.periodeBulan - 1]} {tagihan.periodeTahun}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">Jatuh Tempo</span>
+                                <span className="font-medium text-gray-900 dark:text-white">{formatDate(tagihan.jatuhTempo)}</span>
+                            </div>
+                            <div className="pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                                <span className="text-lg font-semibold text-gray-900 dark:text-white">Total</span>
+                                <span className="text-2xl font-bold text-sky-600 dark:text-sky-400">
+                                    {formatRupiah(tagihan.total)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Payment Gateway Selection */}
+                    {availableGateways.length > 0 && (
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-6 mb-6">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment Gateway</h2>
+                            <div className={`grid gap-3 ${availableGateways.length === 1 ? 'grid-cols-1' :
+                                    availableGateways.length === 2 ? 'grid-cols-2' :
+                                        'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
+                                }`}>
+                                {availableGateways.map((gateway) => (
+                                    <button
+                                        key={gateway.id}
+                                        onClick={() => setSelectedGateway(gateway.id)}
+                                        className={`p-3 border-2 rounded-xl transition-all ${selectedGateway === gateway.id
+                                                ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/20'
+                                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                                            }`}
+                                    >
+                                        <HiOutlineCreditCard className={`w-6 h-6 mx-auto mb-1 ${selectedGateway === gateway.id ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400'
+                                            }`} />
+                                        <p className={`text-xs font-medium ${selectedGateway === gateway.id
+                                                ? 'text-sky-600 dark:text-sky-400'
+                                                : 'text-gray-700 dark:text-gray-300'
+                                            }`}>
+                                            {gateway.name}
+                                        </p>
+                                    </button>
+                                ))}
+                            </div>
+                            <button
+                                onClick={handleGeneratePaymentLink}
+                                disabled={generating || !selectedGateway}
+                                className="w-full mt-4 px-6 py-3 bg-sky-500 text-white rounded-xl hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
+                            >
+                                {generating ? (
+                                    <>
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        Membuat...
+                                    </>
+                                ) : (
+                                    <>
+                                        <HiOutlineCreditCard className="w-5 h-5" />
+                                        Bayar dengan Payment Gateway
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Manual Transfer Option */}
+                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-6 mb-6">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Transfer Manual</h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                            Transfer langsung ke rekening bank perusahaan dan upload bukti transfer
+                        </p>
+                        <Link
+                            href={`/pelanggan/tagihan/${resolvedParams.id}/manual-payment`}
+                            className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium"
+                        >
+                            <HiOutlineBanknotes className="w-5 h-5" />
+                            Upload Bukti Transfer
+                        </Link>
+                    </div>
+
+                    {/* Payment Link Result */}
+                    {paymentLink && (
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 mb-6">
+                            <div className="flex items-center gap-3 mb-3">
+                                <HiOutlineCheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
+                                <h3 className="text-lg font-semibold text-green-900 dark:text-green-400">Link Pembayaran Dibuat!</h3>
+                            </div>
+                            <p className="text-sm text-green-800 dark:text-green-400 mb-4">
+                                Link pembayaran telah dibuat dan dibuka di tab baru. Silakan selesaikan pembayaran Anda.
+                            </p>
+                            <a
+                                href={paymentLink.paymentUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-block px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                            >
+                                Buka Link Pembayaran
+                            </a>
+                        </div>
+                    )}
+
+                    {/* Download Invoice */}
                     <button
-                        onClick={async () => {
-                            if (!tagihan) return
-                            try {
-                                const token = localStorage.getItem('pelanggan_token')
-                                const pelangganData = localStorage.getItem('pelanggan_data')
-
-                                if (!token || !pelangganData) {
-                                    alert('Sesi Anda telah berakhir. Silakan login kembali.')
-                                    router.push('/pelanggan/login')
-                                    return
-                                }
-
-                                const btn = document.activeElement as HTMLButtonElement
-                                const originalText = btn.innerText
-                                btn.innerText = 'Downloading...'
-                                btn.disabled = true
-
-                                const response = await fetch(`/api/tagihan/${tagihan.id}/pdf`, {
-                                    headers: {
-                                        'x-pelanggan-token': token,
-                                        'x-pelanggan-data': pelangganData,
-                                    },
-                                })
-
-                                if (!response.ok) throw new Error('Gagal mengunduh PDF')
-
-                                const blob = await response.blob()
-                                const url = window.URL.createObjectURL(blob)
-                                const a = document.createElement('a')
-                                a.href = url
-                                a.download = `Invoice-${tagihan.noTagihan}.pdf`
-                                document.body.appendChild(a)
-                                a.click()
-                                window.URL.revokeObjectURL(url)
-                                document.body.removeChild(a)
-                            } catch (error) {
-                                console.error('Download error:', error)
-                                alert('Gagal mengunduh invoice. Silakan coba lagi.')
-                            } finally {
-                                const btn = document.activeElement as HTMLButtonElement
-                                if (btn) {
-                                    btn.innerText = 'Download Invoice (PDF)'
-                                    btn.disabled = false
-                                }
-                            }
-                        }}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors w-full"
+                        onClick={handleDownloadInvoice}
+                        className="w-full px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium flex items-center justify-center gap-2"
                     >
                         <HiArrowDownTray className="w-5 h-5" />
-                        Download Invoice (PDF)
+                        Download Invoice
                     </button>
-                </div>
+                </main>
             </div>
-        </div>
+        </>
     )
 }

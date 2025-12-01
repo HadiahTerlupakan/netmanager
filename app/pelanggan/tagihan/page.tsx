@@ -9,39 +9,27 @@ import {
   HiOutlineCheckCircle,
   HiOutlineClock,
   HiOutlineXCircle,
-  HiArrowLeft,
-  HiOutlineHome,
-  HiOutlineUser,
-  HiOutlineInformationCircle,
-  HiBell,
   HiArrowPath,
+  HiArrowDownTray,
 } from 'react-icons/hi2'
 import Link from 'next/link'
+import { EmptyBills, AllBillsPaid, EmptyPaymentHistory } from '@/components/pelanggan/EmptyStates'
+import { SkeletonBillingCard } from '@/components/pelanggan/LoadingStates'
 
 type TagihanItem = {
   id: string
   bulan: string
   tahun: number
   jumlah: number
+  total: number
   jatuhTempo: string
   status: 'LUNAS' | 'BELUM_LUNAS' | 'TERLAMBAT'
   tanggalBayar?: string
 }
 
-// Module-level constants
 const NAMA_BULAN = [
-  'Januari',
-  'Februari',
-  'Maret',
-  'April',
-  'Mei',
-  'Juni',
-  'Juli',
-  'Agustus',
-  'September',
-  'Oktober',
-  'November',
-  'Desember',
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ] as const
 
 function TagihanContent() {
@@ -52,18 +40,11 @@ function TagihanContent() {
   const [pelanggan, setPelanggan] = useState<any>(null)
   const [tagihanList, setTagihanList] = useState<TagihanItem[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [renewing, setRenewing] = useState(false)
-  const [renewDisabled, setRenewDisabled] = useState(false)
-  const [renewDisabledMessage, setRenewDisabledMessage] = useState<string | null>(null)
-  const [checkingRenewStatus, setCheckingRenewStatus] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false) // Deprecated: causing re-renders
-  const isRefreshingRef = useRef(false) // Use ref for lock to prevent re-renders
+  const isRefreshingRef = useRef(false)
 
-  // Fungsi untuk fetch tagihan dengan cache busting dan locking
   const fetchTagihan = useCallback(async (showLoading = true, forceRefresh = false) => {
-    // Cegah multiple refresh simultan
     if (isRefreshingRef.current && !forceRefresh) {
       return
     }
@@ -79,14 +60,9 @@ function TagihanContent() {
     try {
       const data = JSON.parse(pelangganData)
       if (showLoading) setLoading(true)
-
-      // Set lock untuk mencegah multiple refresh
       isRefreshingRef.current = true
 
-      // Tambahkan timestamp untuk cache busting jika forceRefresh true
-      // Gunakan format yang tidak mengganggu routing Next.js
       const cacheBuster = forceRefresh ? `?_t=${Date.now()}` : ''
-
       const response = await fetch(`/api/tagihan/pelanggan/${data.id}${cacheBuster}`, {
         cache: 'no-store',
         headers: {
@@ -98,81 +74,29 @@ function TagihanContent() {
       })
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error('[Portal Tagihan] Error response:', errorText)
-
-        if (response.status === 404) {
-          throw new Error('Endpoint tidak ditemukan. Silakan refresh halaman.')
-        } else if (response.status === 401) {
-          throw new Error('Sesi Anda telah berakhir. Silakan login kembali.')
-        } else if (response.status === 500) {
-          throw new Error('Terjadi kesalahan server. Silakan coba lagi nanti.')
-        } else {
-          throw new Error(`Gagal mengambil data tagihan (${response.status})`)
-        }
+        throw new Error(`Gagal mengambil data tagihan`)
       }
+
       const tagihans = await response.json()
 
-      // Transform data dari API ke format TagihanItem
       const transformedTagihans: TagihanItem[] = tagihans.map((tagihan: any) => ({
         id: tagihan.id,
         bulan: NAMA_BULAN[tagihan.periodeBulan - 1],
         tahun: tagihan.periodeTahun,
-        jumlah: tagihan.total,
+        jumlah: tagihan.jumlah || tagihan.total,
+        total: tagihan.total,
         jatuhTempo: tagihan.jatuhTempo,
         status: tagihan.status,
         tanggalBayar: tagihan.tanggalBayar || undefined,
       }))
 
-      // Cek duplikasi periode dan gunakan yang terbaru
-      const periodeMap = new Map<string, TagihanItem>()
-
-      transformedTagihans.forEach(tagihan => {
-        const key = `${tagihan.bulan}-${tagihan.tahun}`
-        if (!periodeMap.has(key)) {
-          periodeMap.set(key, tagihan)
-        }
-      })
-
-      // Gunakan data unik berdasarkan periode
-      const uniqueTagihans = Array.from(periodeMap.values())
-      setTagihanList(uniqueTagihans)
-
-      // Cek status disable perpanjangan jika semua tagihan sudah lunas
-      const tagihanAktifCount = uniqueTagihans.filter(
-        (t: TagihanItem) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT'
-      ).length
-      const riwayatCount = uniqueTagihans.filter((t: TagihanItem) => t.status === 'LUNAS').length
-      const semuaLunas = tagihanAktifCount === 0 && riwayatCount > 0
-
-      if (semuaLunas && data.jatuhTempo) {
-        setCheckingRenewStatus(true)
-        try {
-          const renewStatusRes = await fetch(`/api/pelanggan-ppp/${data.id}/check-renew`, {
-            headers: {
-              'x-pelanggan-token': token || '',
-            },
-          })
-          if (renewStatusRes.ok) {
-            const renewStatusData = await renewStatusRes.json()
-            setRenewDisabled(renewStatusData.disabled)
-            setRenewDisabledMessage(renewStatusData.message)
-          }
-        } catch (err) {
-          console.error('Error checking renew status:', err)
-        } finally {
-          setCheckingRenewStatus(false)
-        }
-      }
-
-      // Update last refresh time after successful fetch
+      setTagihanList(transformedTagihans)
       setLastRefreshTime(new Date())
     } catch (err: any) {
       console.error('Error fetching tagihan:', err)
       setError(err.message || 'Gagal mengambil data tagihan')
     } finally {
       if (showLoading) setLoading(false)
-      // Release lock setelah selesai
       isRefreshingRef.current = false
     }
   }, [router])
@@ -189,52 +113,24 @@ function TagihanContent() {
     try {
       const data = JSON.parse(pelangganData)
       setPelanggan(data)
-
-      // Fetch tagihan pertama kali
       fetchTagihan()
 
-      // Auto-refresh setiap 30 detik (increased from 15 to reduce load)
-      let refreshCount = 0
-      let lastInteractionRefresh = 0
-
-      const intervalId = setInterval(() => {
-        refreshCount++
-        // Gunakan forceRefresh setiap 4 kali refresh untuk memastikan data terbaru
-        fetchTagihan(false, refreshCount % 4 === 0)
-      }, 30000) // 30 detik
-
-      // Event listener untuk refresh saat tab di-focus atau visible
-      const handlePageInteraction = () => {
-        const now = Date.now()
-        // Hanya refresh jika sudah 10 detik sejak refresh terakhir
-        if (now - lastInteractionRefresh > 10000) {
-          lastInteractionRefresh = now
-          fetchTagihan(false, true) // Gunakan forceRefresh saat ada interaksi
-        }
-      }
-
-      // Auto-refresh ketika tab/window di-focus
-      const handleFocus = () => {
-        handlePageInteraction()
-      }
-      window.addEventListener('focus', handleFocus)
-
-      // Auto-refresh ketika visibility berubah (user kembali ke tab)
+      const intervalId = setInterval(() => fetchTagihan(false, false), 30000)
+      const handleFocus = () => fetchTagihan(false, true)
       const handleVisibilityChange = () => {
-        if (!document.hidden) {
-          handlePageInteraction()
-        }
+        if (!document.hidden) fetchTagihan(false, true)
       }
+
+      window.addEventListener('focus', handleFocus)
       document.addEventListener('visibilitychange', handleVisibilityChange)
 
-      // Cleanup
       return () => {
         clearInterval(intervalId)
         window.removeEventListener('focus', handleFocus)
         document.removeEventListener('visibilitychange', handleVisibilityChange)
       }
-    } catch (error) {
-      console.error('Error parsing pelanggan data:', error)
+    } catch (err) {
+      console.error('Error loading pelanggan data:', err)
       router.push('/pelanggan/login')
     }
   }, [router, fetchTagihan])
@@ -248,491 +144,240 @@ function TagihanContent() {
   }
 
   const formatDate = (dateString: string) => {
-    // Parse tanggal dengan benar untuk menghindari timezone issue
-    let date: Date
-    if (dateString.includes('T')) {
-      // ISO format dengan time
-      date = new Date(dateString)
-    } else {
-      // Format YYYY-MM-DD, parse sebagai local date
-      const [year, month, day] = dateString.split('-').map(Number)
-      date = new Date(year, month - 1, day)
-    }
-
+    const date = new Date(dateString)
     return date.toLocaleDateString('id-ID', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric',
     })
   }
 
-  const formatDateShort = (dateString: string) => {
-    const date = new Date(dateString)
-    const day = date.getDate()
-    const month = date.toLocaleDateString('id-ID', { month: 'short' })
-    const year = date.getFullYear()
-    return `${day} ${month} ${year}`
-  }
-
-  // Check if date is overdue
-  const isDateOverdue = (dateString: string) => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const date = new Date(dateString)
-    return date < today
-  }
-
-  // Helper untuk membandingkan dua tanggal tanpa waktu
-  const areDatesSame = (date1: string, date2: string) => {
-    const d1 = new Date(date1)
-    const d2 = new Date(date2)
-    return d1.toDateString() === d2.toDateString()
-  }
-
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'LUNAS':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            <HiOutlineCheckCircle className="w-4 h-4" />
-            Lunas
-          </span>
-        )
-      case 'TERLAMBAT':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-            <HiOutlineXCircle className="w-4 h-4" />
-            Terlambat
-          </span>
-        )
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-            <HiOutlineClock className="w-4 h-4" />
-            Belum Lunas
-          </span>
-        )
+    const styles = {
+      LUNAS: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400',
+      BELUM_LUNAS: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400',
+      TERLAMBAT: 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400',
+    }
+    const labels = {
+      LUNAS: 'Lunas',
+      BELUM_LUNAS: 'Belum Lunas',
+      TERLAMBAT: 'Terlambat',
+    }
+    return (
+      <span className={`px-3 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>
+        {labels[status as keyof typeof labels]}
+      </span>
+    )
+  }
+
+  const tagihanAktif = tagihanList.filter(t => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT')
+  const riwayat = tagihanList.filter(t => t.status === 'LUNAS')
+
+  const handleDownloadInvoice = async (tagihanId: string) => {
+    try {
+      const token = localStorage.getItem('pelanggan_token')
+      const response = await fetch(`/api/tagihan/${tagihanId}/pdf`, {
+        headers: {
+          'x-pelanggan-token': token || '',
+        },
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `invoice-${tagihanId}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }
+    } catch (err) {
+      console.error('Error downloading invoice:', err)
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">Memuat data...</div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-red-500 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600"
-          >
-            Coba Lagi
-          </button>
+      <div className="flex-1 overflow-auto">
+        <div className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+          <div className="px-4 md:px-6 lg:px-8 py-4">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tagihan</h1>
+          </div>
         </div>
+        <main className="px-4 py-6 md:px-6 lg:px-8 max-w-5xl mx-auto">
+          <SkeletonBillingCard />
+          <SkeletonBillingCard />
+        </main>
       </div>
     )
-  }
-
-  const tagihanAktif = tagihanList.filter((t) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT')
-  const riwayatBayar = tagihanList.filter((t) => t.status === 'LUNAS')
-  const semuaTagihanLunas = tagihanAktif.length === 0 && riwayatBayar.length > 0
-
-  const handleRefresh = async () => {
-    setRefreshing(true)
-
-    // Tambahkan timestamp unik untuk memaksa refresh dari server
-    await fetchTagihan(true, true) // Gunakan forceRefresh untuk cache busting
-
-    setLastRefreshTime(new Date())
-    setRefreshing(false)
-
-    // Tampilkan notifikasi singkat
-    const notification = document.createElement('div')
-    notification.className = 'fixed top-20 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse'
-    notification.textContent = 'Data berhasil diperbarui dari server'
-    document.body.appendChild(notification)
-
-    // Hapus notifikasi setelah 2 detik
-    setTimeout(() => {
-      if (document.body.contains(notification)) {
-        document.body.removeChild(notification)
-      }
-    }, 2000)
-  }
-
-  const handleRenew = async () => {
-    if (!pelanggan) return
-
-    if (!confirm('Apakah Anda yakin ingin memperpanjang layanan? Tagihan baru akan dibuat untuk periode berikutnya.')) {
-      return
-    }
-
-    try {
-      setRenewing(true)
-      const token = localStorage.getItem('pelanggan_token')
-      const res = await fetch(`/api/pelanggan-ppp/${pelanggan.id}/renew`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-pelanggan-token': token || '',
-        },
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Gagal memperpanjang layanan')
-      }
-
-      const data = await res.json()
-      alert(`Layanan berhasil diperpanjang!\nJatuh Tempo Baru: ${new Date(data.jatuhTempoBaru).toLocaleDateString('id-ID', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      })}`)
-
-      // Gunakan fetchTagihan yang sudah diperbaiki untuk reload data
-      await fetchTagihan(false, true) // Gunakan forceRefresh untuk memastikan data terbaru
-    } catch (err: any) {
-      alert(err.message || 'Terjadi kesalahan saat memperpanjang layanan')
-    } finally {
-      setRenewing(false)
-    }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 md:pb-8">
-      {/* Sky Blue Header - Mobile App Style */}
-      <header className="bg-gradient-to-r from-sky-400 to-cyan-500 text-white shadow-lg">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/pelanggan"
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation"
-              >
-                <HiArrowLeft className="w-5 h-5" />
-              </Link>
-              <h1 className="text-xl font-bold">Tagihan & Pembayaran</h1>
-            </div>
-            <div className="flex items-center gap-2">
+    <>
+      <div className="flex-1 overflow-auto">
+        {/* Header */}
+        <div className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+          <div className="px-4 md:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tagihan</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Kelola tagihan dan pembayaran Anda</p>
+              </div>
               <button
-                onClick={handleRefresh}
+                onClick={() => fetchTagihan(false, true)}
                 disabled={loading || refreshing}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation disabled:opacity-50 relative"
-                title="Refresh Data"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 relative"
+                title="Refresh"
               >
-                <HiArrowPath className={`w-6 h-6 ${loading || refreshing ? 'animate-spin' : ''}`} />
-                {refreshing && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                )}
-              </button>
-              <button className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation">
-                <HiBell className="w-6 h-6" />
+                <HiArrowPath className={`w-5 h-5 text-gray-600 dark:text-gray-400 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>
-        </div>
-      </header>
-
-      {/* Client Info - Matching Dashboard Style */}
-      {pelanggan && (
-        <div className="bg-white rounded-2xl shadow-sm mb-4 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                <HiOutlineUser className="w-6 h-6 text-gray-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Client</p>
-                <p className="text-sm font-semibold text-gray-900">{pelanggan.noTelp || pelanggan.idPelanggan}</p>
-                <p className="text-xs text-gray-500">Status: {pelanggan.status}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-500">Jatuh Tempo</p>
-              <div>
-                <p className="text-sm font-semibold">
-                  {formatDateShort(pelanggan.jatuhTempo)}
-                </p>
-                {isDateOverdue(pelanggan.jatuhTempo) && (
-                  <p className="text-xs text-yellow-600">
-                    ⚠️ Jatuh tempo terlewat
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <main className="px-4 py-4">
-        {/* Tabs */}
-        <div className="flex gap-2 mb-4 bg-white rounded-xl p-1 shadow-sm">
-          <Link
-            href="/pelanggan/tagihan"
-            className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors touch-manipulation text-center ${activeTab === 'tagihan'
-              ? 'bg-sky-500 text-white'
-              : 'text-gray-600 hover:bg-gray-50'
-              }`}
-          >
-            Tagihan Aktif
-          </Link>
-          <Link
-            href="/pelanggan/tagihan?tab=riwayat"
-            className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors touch-manipulation text-center ${activeTab === 'riwayat'
-              ? 'bg-sky-500 text-white'
-              : 'text-gray-600 hover:bg-gray-50'
-              }`}
-          >
-            Riwayat
-          </Link>
         </div>
 
         {/* Content */}
-        {lastRefreshTime && (
-          <div className="mb-2 text-center">
-            <span className="text-xs text-gray-500">
-              Terakhir diperbarui: {lastRefreshTime.toLocaleTimeString('id-ID')}
-            </span>
+        <main className="px-4 py-6 md:px-6 lg:px-8 max-w-5xl mx-auto">
+          {lastRefreshTime && (
+            <div className="mb-4 text-center">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Terakhir diperbarui: {lastRefreshTime.toLocaleTimeString('id-ID')}
+              </span>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+              <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+            </div>
+          )}
+
+          {/* Tabs */}
+          <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+            <Link
+              href="/pelanggan/tagihan?tab=tagihan"
+              className={`px-4 py-2 font-medium text-sm transition-colors border-b-2 ${activeTab === 'tagihan'
+                  ? 'border-sky-500 text-sky-600 dark:text-sky-400'
+                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+            >
+              Tagihan Aktif ({tagihanAktif.length})
+            </Link>
+            <Link
+              href="/pelanggan/tagihan?tab=riwayat"
+              className={`px-4 py-2 font-medium text-sm transition-colors border-b-2 ${activeTab === 'riwayat'
+                  ? 'border-sky-500 text-sky-600 dark:text-sky-400'
+                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+            >
+              Riwayat ({riwayat.length})
+            </Link>
           </div>
-        )}
-        {activeTab === 'tagihan' ? (
-          <div className="space-y-3">
-            {/* Tombol Renew jika semua tagihan sudah lunas */}
-            {semuaTagihanLunas && (
-              <div className="bg-white rounded-xl shadow-sm p-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                      Perpanjang Layanan
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Semua tagihan sudah lunas. Perpanjang layanan untuk periode berikutnya?
-                    </p>
-                    {renewDisabled && renewDisabledMessage && (
-                      <p className="text-xs text-red-500 mt-2">
-                        {renewDisabledMessage}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleRenew}
-                    disabled={renewing || renewDisabled || checkingRenewStatus}
-                    className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors touch-manipulation active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+
+          {/* Tab Content */}
+          {activeTab === 'tagihan' && (
+            <div className="space-y-4">
+              {tagihanAktif.length === 0 && riwayat.length > 0 ? (
+                <AllBillsPaid />
+              ) : tagihanAktif.length === 0 ? (
+                <EmptyBills />
+              ) : (
+                tagihanAktif.map((tagihan) => (
+                  <div
+                    key={tagihan.id}
+                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-5"
                   >
-                    {checkingRenewStatus
-                      ? 'Memeriksa...'
-                      : renewing
-                        ? 'Memproses...'
-                        : renewDisabled
-                          ? 'Dinonaktifkan'
-                          : 'Perpanjang Layanan'}
-                  </button>
-                </div>
-              </div>
-            )}
-            {tagihanList.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-                <HiOutlineDocumentText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-2">Belum ada tagihan</p>
-                <p className="text-xs text-gray-500">Tagihan akan muncul setelah di-generate oleh admin</p>
-              </div>
-            ) : tagihanAktif.length === 0 && !semuaTagihanLunas ? (
-              <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-                <HiOutlineCheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                <p className="text-gray-600">Tidak ada tagihan yang belum dibayar</p>
-              </div>
-            ) : tagihanAktif.length > 0 ? (
-              tagihanAktif.map((tagihan) => (
-                <div
-                  key={tagihan.id}
-                  className="bg-white rounded-xl shadow-sm p-5 active:scale-[0.98] transition-transform touch-manipulation"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                        {tagihan.bulan} {tagihan.tahun}
-                      </h3>
-                      <div className="text-sm text-gray-500">
-                        <p>Jatuh Tempo: {pelanggan?.jatuhTempo ? formatDate(pelanggan.jatuhTempo) : formatDate(tagihan.jatuhTempo)}</p>
-                        {pelanggan?.jatuhTempo && isDateOverdue(pelanggan.jatuhTempo) && tagihan.status === 'BELUM_LUNAS' && (
-                          <p className="text-xs text-yellow-600 mt-1">
-                            ⚠️ Jatuh tempo terlewat
-                          </p>
-                        )}
-                        {pelanggan?.jatuhTempo && !areDatesSame(pelanggan.jatuhTempo, tagihan.jatuhTempo) && (
-                          <p className="text-xs text-blue-600 mt-1">
-                            📅 Periode tagihan: {formatDate(tagihan.jatuhTempo)}
-                          </p>
-                        )}
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {tagihan.bulan} {tagihan.tahun}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Jatuh tempo: {formatDate(tagihan.jatuhTempo)}
+                        </p>
+                      </div>
+                      {getStatusBadge(tagihan.status)}
+                    </div>
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Total Tagihan</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {formatRupiah(tagihan.total)}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleDownloadInvoice(tagihan.id)}
+                          className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+                        >
+                          <HiArrowDownTray className="w-4 h-4" />
+                          <span className="hidden sm:inline">Invoice</span>
+                        </button>
+                        <Link
+                          href={`/pelanggan/tagihan/${tagihan.id}/bayar`}
+                          className="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors font-medium"
+                        >
+                          Bayar Sekarang
+                        </Link>
                       </div>
                     </div>
-                    {getStatusBadge(tagihan.status)}
                   </div>
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Total Tagihan</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {formatRupiah(tagihan.jumlah)}
-                      </p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <button
-                        onClick={async () => {
-                          try {
-                            const token = localStorage.getItem('pelanggan_token')
-                            const pelangganData = localStorage.getItem('pelanggan_data')
-
-                            if (!token || !pelangganData) {
-                              alert('Sesi Anda telah berakhir. Silakan login kembali.')
-                              router.push('/pelanggan/login')
-                              return
-                            }
-
-                            // Show loading state (optional: add loading UI)
-                            const btn = document.activeElement as HTMLButtonElement
-                            const originalText = btn.innerText
-                            btn.innerText = 'Downloading...'
-                            btn.disabled = true
-
-                            const response = await fetch(`/api/tagihan/${tagihan.id}/pdf`, {
-                              headers: {
-                                'x-pelanggan-token': token,
-                                'x-pelanggan-data': pelangganData,
-                              },
-                            })
-
-                            if (!response.ok) throw new Error('Gagal mengunduh PDF')
-
-                            const blob = await response.blob()
-                            const url = window.URL.createObjectURL(blob)
-                            const a = document.createElement('a')
-                            a.href = url
-                            a.download = `Invoice-${tagihan.bulan}-${tagihan.tahun}.pdf`
-                            document.body.appendChild(a)
-                            a.click()
-                            window.URL.revokeObjectURL(url)
-                            document.body.removeChild(a)
-                          } catch (error) {
-                            console.error('Download error:', error)
-                            alert('Gagal mengunduh invoice. Silakan coba lagi.')
-                          } finally {
-                            // Restore button state
-                            const btn = document.activeElement as HTMLButtonElement
-                            if (btn) {
-                              btn.innerText = 'Download PDF'
-                              btn.disabled = false
-                            }
-                          }
-                        }}
-                        className="px-3 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors touch-manipulation active:scale-95 text-center"
-                      >
-                        Download PDF
-                      </button>
-                      <Link
-                        href={`/pelanggan/tagihan/${tagihan.id}/bayar`}
-                        className="px-4 py-2 bg-sky-500 text-white text-sm font-medium rounded-lg hover:bg-sky-600 transition-colors touch-manipulation active:scale-95 text-center"
-                      >
-                        Bayar Sekarang
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : null}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {riwayatBayar.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-                <HiOutlineDocumentText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Belum ada riwayat pembayaran</p>
-              </div>
-            ) : (
-              riwayatBayar.map((tagihan) => (
-                <div
-                  key={tagihan.id}
-                  className="bg-white rounded-xl shadow-sm p-5 active:scale-[0.98] transition-transform touch-manipulation"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                        {tagihan.bulan} {tagihan.tahun}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        Dibayar: {tagihan.tanggalBayar ? formatDate(tagihan.tanggalBayar) : '-'}
-                      </p>
-                    </div>
-                    {getStatusBadge(tagihan.status)}
-                  </div>
-                  <div className="pt-4 border-t border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-gray-500">Jumlah Pembayaran</p>
-                      <p className="text-xl font-bold text-gray-900">
-                        {formatRupiah(tagihan.jumlah)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* Bottom Navigation - Mobile App Style */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg md:hidden">
-        <div className="flex items-center justify-around h-16">
-          <Link
-            href="/pelanggan"
-            className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-gray-600 touch-manipulation"
-          >
-            <HiOutlineHome className="w-6 h-6" />
-            <span className="text-xs font-medium">Beranda</span>
-          </Link>
-          <Link
-            href="/pelanggan/tagihan"
-            className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-sky-500 touch-manipulation"
-          >
-            <div className="w-10 h-10 bg-sky-100 rounded-full flex items-center justify-center">
-              <HiOutlineDocumentText className="w-5 h-5" />
+                ))
+              )}
             </div>
-            <span className="text-xs font-medium">Tagihan</span>
-          </Link>
-          <Link
-            href="/pelanggan/profil"
-            className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-gray-600 touch-manipulation"
-          >
-            <HiOutlineUser className="w-6 h-6" />
-            <span className="text-xs font-medium">Profil</span>
-          </Link>
-          <Link
-            href="/pelanggan/bantuan"
-            className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-gray-600 touch-manipulation"
-          >
-            <HiOutlineInformationCircle className="w-6 h-6" />
-            <span className="text-xs font-medium">Bantuan</span>
-          </Link>
-        </div>
-      </nav>
-    </div>
+          )}
+
+          {activeTab === 'riwayat' && (
+            <div className="space-y-4">
+              {riwayat.length === 0 ? (
+                <EmptyPaymentHistory />
+              ) : (
+                riwayat.map((tagihan) => (
+                  <div
+                    key={tagihan.id}
+                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-5"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {tagihan.bulan} {tagihan.tahun}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Dibayar: {tagihan.tanggalBayar ? formatDate(tagihan.tanggalBayar) : '-'}
+                        </p>
+                      </div>
+                      {getStatusBadge(tagihan.status)}
+                    </div>
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
+                        <p className="text-xl font-bold text-gray-900 dark:text-white">
+                          {formatRupiah(tagihan.total)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDownloadInvoice(tagihan.id)}
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+                      >
+                        <HiArrowDownTray className="w-4 h-4" />
+                        Download Invoice
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+    </>
   )
 }
 
 export default function TagihanPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">Memuat data...</div>
-      </div>
-    }>
+    <Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading...</div>}>
       <TagihanContent />
     </Suspense>
   )

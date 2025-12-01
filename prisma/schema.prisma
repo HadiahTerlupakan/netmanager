@@ -670,6 +670,9 @@ model Pelanggan {
   // Relasi ke Ticket Helpdesk & Work Orders
   tickets     Ticket[]
   workOrders  WorkOrder[] // Relasi ke Ticket Helpdesk
+  
+  // Relasi ke Manual Payments
+  manualPayments ManualPayment[]
 
   @@index([idPelanggan])
   @@index([hargaPaketId])
@@ -707,6 +710,7 @@ model Tagihan {
 
   paymentTransactions PaymentGatewayTransaction[]
   paymentLink         PaymentLink?
+  manualPayments      ManualPayment[]
 
   @@unique([pelangganId, periodeBulan, periodeTahun]) // Satu tagihan per pelanggan per periode
   @@index([pelangganId])
@@ -831,6 +835,63 @@ model PaymentLink {
 
   @@index([linkToken])
   @@index([tagihanId])
+}
+
+// ============================================
+// MANUAL PAYMENT (Bank Transfer)
+// ============================================
+
+// Company Bank Accounts - Company bank accounts for customer manual payments
+model CompanyBankAccount {
+  id            String   @id @default(cuid())
+  bankName      String // BCA, BRI, Mandiri, BNI, etc
+  accountNumber String
+  accountName   String // Account holder name
+  isActive      Boolean  @default(true)
+  priority      Int      @default(1) // Display order (higher = shown first)
+  logo          String? // Bank logo URL (optional)
+  description   String? // Additional info for customers
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  manualPayments ManualPayment[]
+
+  @@index([isActive])
+  @@index([priority])
+}
+
+// Manual Payments - Customer bank transfer submissions
+model ManualPayment {
+  id              String    @id @default(cuid())
+  tagihanId       String
+  tagihan         Tagihan   @relation(fields: [tagihanId], references: [id], onDelete: Cascade)
+  pelangganId     String
+  pelanggan       Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  
+  // Transfer details
+  bankAccountId   String // Which company bank account they transferred to
+  bankAccount     CompanyBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  amount          BigInt // Amount transferred (in rupiah)
+  senderName      String // Name on the transfer
+  transferDate    DateTime // Date of transfer
+  
+  // Proof of payment
+  proofImageUrl   String // Storage path for proof image
+  notes           String? // Customer notes/additional info
+  
+  // Verification status
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  verifiedBy      String? // Admin user ID who verified
+  verifiedAt      DateTime?
+  rejectionReason String? // If rejected, why
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tagihanId])
+  @@index([pelangganId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 // Pengeluaran - Data pengeluaran untuk cashflow

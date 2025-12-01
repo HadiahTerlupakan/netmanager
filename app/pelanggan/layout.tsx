@@ -49,13 +49,8 @@ export default async function PelangganLayout({ children }: { children: React.Re
   //   redirect(`${protocol}://pelanggan.${host.split(':')[0]}${host.includes(':') ? ':' + host.split(':')[1] : ''}`)
   // }
 
-  // TODO: Cek apakah user sudah login sebagai pelanggan
-  // Jika belum login dan bukan di halaman login, redirect ke login
-  // const token = cookies().get('pelanggan_token')
-  // const pathname = usePathname()
-  // if (!token && pathname !== '/pelanggan/login') {
-  //   redirect('/pelanggan/login')
-  // }
+  // Authentication check moved to client-side in layout-client.tsx
+  // Server-side auth check is handled by middleware for API routes
 
   return (
     <>
@@ -64,4 +59,3 @@ export default async function PelangganLayout({ children }: { children: React.Re
     </>
   )
 }
-

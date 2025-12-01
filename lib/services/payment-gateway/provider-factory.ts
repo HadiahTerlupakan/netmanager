@@ -4,6 +4,8 @@ import type { PaymentProvider } from './provider-interface'
 import { XenditProvider } from './providers/xendit-provider'
 import { MidtransProvider } from './providers/midtrans-provider'
 import { DuitkuProvider } from './providers/duitku-provider'
+import { BRIProvider } from './providers/bri-provider'
+import { BCAProvider } from './providers/bca-provider'
 
 export class ProviderFactory {
     /**
@@ -20,11 +22,13 @@ export class ProviderFactory {
             case 'DUITKU':
                 return new DuitkuProvider()
 
-            // Future providers can be added here
-            // case 'BCA_API':
-            //   return new BCAProvider()
-            // case 'DANA_API':
-            //   return new DanaProvider()
+            case 'BRI':
+            case 'BRI_API':
+                return new BRIProvider()
+
+            case 'BCA':
+            case 'BCA_API':
+                return new BCAProvider()
 
             default:
                 throw new Error(`Unknown payment provider: ${type}`)
@@ -35,7 +39,7 @@ export class ProviderFactory {
      * Get list of supported providers
      */
     static getSupportedProviders(): string[] {
-        return ['XENDIT', 'MIDTRANS', 'DUITKU']
+        return ['XENDIT', 'MIDTRANS', 'DUITKU', 'BRI', 'BCA']
     }
 
     /**

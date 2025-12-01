@@ -105,67 +105,75 @@ export default function PelangganSidebar() {
           />
         )}
 
-        {/* Sidebar */}
+        {/* Sidebar - Desktop: always visible, Mobile: toggle */}
         <aside
-          className={`fixed top-0 left-0 h-full w-64 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          className={`fixed md:sticky top-0 left-0 h-screen w-64 shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 shadow-xl md:shadow-none z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
             }`}
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-sky-400 to-cyan-500 text-white p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                  <span className="text-xl font-bold">N</span>
-                </div>
-                <h2 className="text-lg font-bold">NetManager</h2>
+          <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-sky-400 to-cyan-500 md:bg-none md:from-transparent md:to-transparent">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/20 md:bg-white/20 rounded-lg flex items-center justify-center">
+                <span className="text-xl font-bold text-sky-600 dark:text-sky-400 md:text-white">N</span>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden"
-                aria-label="Close menu"
-              >
-                <HiXMark className="w-6 h-6" />
-              </button>
+              <h2 className="text-lg font-bold text-white md:text-gray-900 dark:md:text-white">NetManager</h2>
             </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-2 hover:bg-white/10 md:hover:bg-gray-100 dark:md:hover:bg-gray-800 rounded-lg transition-colors md:hidden text-white"
+              aria-label="Close menu"
+            >
+              <HiXMark className="w-6 h-6" />
+            </button>
+          </div>
 
-            {/* User Info */}
-            {pelanggan && (
-              <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+          {/* User Info - Mobile only */}
+          {pelanggan && (
+            <div className="md:hidden bg-gradient-to-r from-sky-400 to-cyan-500 px-4 pb-4">
+              <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm text-white">
                 <p className="text-sm font-medium truncate">{pelanggan.nama}</p>
                 <p className="text-xs text-white/80 truncate">ID: {pelanggan.idPelanggan}</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* User Info - Desktop only */}
+          {pelanggan && (
+            <div className="hidden md:block px-3 py-3 border-b border-gray-200 dark:border-gray-800">
+              <div className="bg-sky-50 dark:bg-sky-900/20 rounded-lg p-3">
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{pelanggan.nama}</p>
+                <p className="text-xs text-sky-600 dark:text-sky-400 truncate">ID: {pelanggan.idPelanggan}</p>
+              </div>
+            </div>
+          )}
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-4">
-            <div className="space-y-1">
-              {menuItems.map((item) => {
-                const Icon = item.icon
-                const active = isActive(item.href)
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${active
-                      ? 'bg-sky-50 text-sky-600 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
-                  </Link>
-                )
-              })}
-            </div>
+          <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+            {menuItems.map((item) => {
+              const Icon = item.icon
+              const active = isActive(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setIsOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-150 ${active
+                      ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t border-gray-200">
+          <div className="p-3 border-t border-gray-200 dark:border-gray-800">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
               <HiArrowRightOnRectangle className="w-5 h-5" />
               <span>Keluar</span>
@@ -176,4 +184,3 @@ export default function PelangganSidebar() {
     </SidebarContext.Provider>
   )
 }
-
