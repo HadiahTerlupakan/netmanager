@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
         // Verify customer is active
         const dbPelanggan = await prisma.pelanggan.findUnique({
             where: { id: pelanggan.id },
-            select: { status: true, pppUsername: true, idPelanggan: true },
+            select: { status: true, username: true, idPelanggan: true },
         });
 
         if (!dbPelanggan || dbPelanggan.status !== 'AKTIF') {
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
         }
 
         // Get username from idPelanggan or pppUsername
-        const username = dbPelanggan.pppUsername || dbPelanggan.idPelanggan;
+        const username = dbPelanggan.username || dbPelanggan.idPelanggan;
 
         // Get current active session
         const activeSession = await prisma.radAcct.findFirst({
