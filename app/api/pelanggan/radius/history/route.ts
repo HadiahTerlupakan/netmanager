@@ -10,27 +10,37 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
     try {
-        // Get customer token from header
+        // Get customer token and data from headers
         const token = req.headers.get('x-pelanggan-token');
+        const pelangganData = req.headers.get('x-pelanggan-data');
 
-        if (!token) {
+        if (!token || !pelangganData) {
             return NextResponse.json(
                 { error: 'Unauthorized - No token provided' },
                 { status: 401 }
             );
         }
 
-        // Verify token and get customer data
-        const pelanggan = await prisma.pelanggan.findFirst({
-            where: {
-                token,
-                status: 'AKTIF',
-            },
-        });
-
-        if (!pelanggan) {
+        // Parse customer data from header
+        let pelanggan;
+        try {
+            pelanggan = JSON.parse(pelangganData);
+        } catch (e) {
             return NextResponse.json(
                 { error: 'Unauthorized - Invalid token' },
+                { status: 401 }
+            );
+        }
+
+        // Verify customer is active
+        const dbPelanggan = await prisma.pelanggan.findUnique({
+            where: { id: pelanggan.id },
+            select: { status: true, pppUsername: true, idPelanggan: true },
+        });
+
+        if (!dbPelanggan || dbPelanggan.status !== 'AKTIF') {
+            return NextResponse.json(
+                { error: 'Unauthorized - Customer not active' },
                 { status: 401 }
             );
         }
@@ -41,7 +51,7 @@ export async function GET(req: NextRequest) {
         const skip = (page - 1) * limit;
 
         // Get username
-        const username = pelanggan.pppUsername || pelanggan.idPelanggan;
+        const username = dbPelanggan.pppUsername || dbPelanggan.idPelanggan;
 
         // Get total count
         const total = await prisma.radAcct.count({
