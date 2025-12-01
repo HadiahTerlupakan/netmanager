@@ -116,14 +116,17 @@ export default function BuatTiketPage() {
             {/* Header */}
             <header className="bg-gradient-to-r from-sky-400 to-cyan-500 text-white shadow-lg">
                 <div className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href="/pelanggan/bantuan/tiket"
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation"
-                        >
-                            <HiArrowLeft className="w-5 h-5" />
-                        </Link>
-                        <h1 className="text-xl font-bold">Buat Tiket Baru</h1>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Link
+                                href="/pelanggan/bantuan/tiket"
+                                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation"
+                            >
+                                <HiArrowLeft className="w-5 h-5" />
+                            </Link>
+                            <h1 className="text-xl font-bold">Buat Tiket Baru</h1>
+                        </div>
+                        <NotificationBell iconColor="text-white" hoverBg="hover:bg-white/10" />
                     </div>
                 </div>
             </header>

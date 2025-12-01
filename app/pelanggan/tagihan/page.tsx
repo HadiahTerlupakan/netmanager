@@ -16,6 +16,7 @@ import {
 import Link from 'next/link'
 import { EmptyBills, AllBillsPaid, EmptyPaymentHistory } from '@/components/pelanggan/EmptyStates'
 import { SkeletonBillingCard } from '@/components/pelanggan/LoadingStates'
+import PelangganHeader from '@/components/pelanggan/PelangganHeader'
 
 type TagihanItem = {
   id: string
@@ -174,9 +175,18 @@ function TagihanContent() {
   const handleDownloadInvoice = async (tagihanId: string) => {
     try {
       const token = localStorage.getItem('pelanggan_token')
+      const pelangganData = getWithExpiry<any>('pelanggan_data')
+
+      if (!token || !pelangganData) {
+        alert('Sesi Anda telah berakhir. Silakan login kembali.')
+        router.push('/pelanggan/login')
+        return
+      }
+
       const response = await fetch(`/api/tagihan/${tagihanId}/pdf`, {
         headers: {
-          'x-pelanggan-token': token || '',
+          'x-pelanggan-token': token,
+          'x-pelanggan-data': JSON.stringify(pelangganData),
         },
       })
 
@@ -190,20 +200,20 @@ function TagihanContent() {
         a.click()
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
+      } else {
+        const errorData = await response.json()
+        alert(errorData.error || 'Gagal mengunduh invoice')
       }
     } catch (err) {
       console.error('Error downloading invoice:', err)
+      alert('Terjadi kesalahan saat mengunduh invoice')
     }
   }
 
   if (loading) {
     return (
       <div className="flex-1 overflow-auto">
-        <div className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-          <div className="px-4 md:px-6 lg:px-8 py-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tagihan</h1>
-          </div>
-        </div>
+        <PelangganHeader title="Tagihan" subtitle="Kelola tagihan dan pembayaran Anda" />
         <main className="px-4 py-6 md:px-6 lg:px-8 max-w-5xl mx-auto">
           <SkeletonBillingCard />
           <SkeletonBillingCard />
@@ -216,24 +226,7 @@ function TagihanContent() {
     <>
       <div className="flex-1 overflow-auto">
         {/* Header */}
-        <div className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-          <div className="px-4 md:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tagihan</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Kelola tagihan dan pembayaran Anda</p>
-              </div>
-              <button
-                onClick={() => fetchTagihan(false, true)}
-                disabled={loading || refreshing}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 relative"
-                title="Refresh"
-              >
-                <HiArrowPath className={`w-5 h-5 text-gray-600 dark:text-gray-400 ${refreshing ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-          </div>
-        </div>
+        <PelangganHeader title="Tagihan" subtitle="Kelola tagihan dan pembayaran Anda" />
 
         {/* Content */}
         <main className="px-4 py-6 md:px-6 lg:px-8 max-w-5xl mx-auto">
@@ -256,8 +249,8 @@ function TagihanContent() {
             <Link
               href="/pelanggan/tagihan?tab=tagihan"
               className={`px-4 py-2 font-medium text-sm transition-colors border-b-2 ${activeTab === 'tagihan'
-                  ? 'border-sky-500 text-sky-600 dark:text-sky-400'
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                ? 'border-sky-500 text-sky-600 dark:text-sky-400'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                 }`}
             >
               Tagihan Aktif ({tagihanAktif.length})
@@ -265,8 +258,8 @@ function TagihanContent() {
             <Link
               href="/pelanggan/tagihan?tab=riwayat"
               className={`px-4 py-2 font-medium text-sm transition-colors border-b-2 ${activeTab === 'riwayat'
-                  ? 'border-sky-500 text-sky-600 dark:text-sky-400'
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                ? 'border-sky-500 text-sky-600 dark:text-sky-400'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                 }`}
             >
               Riwayat ({riwayat.length})

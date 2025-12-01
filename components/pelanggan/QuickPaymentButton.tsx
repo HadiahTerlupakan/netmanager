@@ -19,24 +19,21 @@ export function QuickPaymentButton({ tagihanId, amount, className = '' }: QuickP
     return (
         <Link
             href={`/pelanggan/tagihan/${tagihanId}/bayar`}
-            className={`group relative overflow-hidden bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl p-5 shadow-lg hover:shadow-xl transition-all duration-300 active:scale-[0.98] ${className}`}
+            className={`group relative overflow-hidden bg-white dark:bg-gray-800 border-2 border-green-500 hover:border-green-600 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] ${className}`}
         >
-            {/* Animated background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-
-            <div className="relative flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                        <HiOutlineCreditCard className="w-7 h-7" />
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center justify-center shrink-0">
+                        <HiOutlineCreditCard className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
-                    <div>
-                        <div className="text-xs text-green-100 font-medium mb-0.5">Tagihan Belum Dibayar</div>
-                        <div className="text-2xl font-bold">{formatRupiah(amount)}</div>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-0.5">Tagihan Belum Dibayar</div>
+                        <div className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">{formatRupiah(amount)}</div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm font-semibold">
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-green-600 dark:text-green-400 shrink-0 bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-lg group-hover:bg-green-100 dark:group-hover:bg-green-900/30 transition-colors">
                     <span>Bayar</span>
-                    <HiArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    <HiArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-200" />
                 </div>
             </div>
         </Link>

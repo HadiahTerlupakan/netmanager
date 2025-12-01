@@ -81,21 +81,21 @@ export default function PelangganLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-6">
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4 md:p-6">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">NetManager</h1>
-          <p className="text-gray-600 dark:text-gray-400">Portal Pelanggan</p>
+        <div className="text-center mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2 leading-tight">NetManager</h1>
+          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 leading-relaxed">Portal Pelanggan</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 md:p-8">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Masuk Sebagai Pelanggan</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6 lg:p-8">
+          <div className="mb-5 md:mb-6">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white leading-tight">Masuk Sebagai Pelanggan</h2>
+            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
               Gunakan ID Pelanggan dan password Anda untuk masuk
             </p>
           </div>
 
-          <form className="w-full space-y-5" onSubmit={handleSubmit(onSubmit)}>
+          <form className="w-full space-y-4 md:space-y-5" onSubmit={handleSubmit(onSubmit)}>
             {apiError && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-start gap-2">
                 <HiExclamationCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
@@ -112,7 +112,7 @@ export default function PelangganLoginPage() {
                 type="text"
                 inputMode="numeric"
                 maxLength={8}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 text-base text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors min-h-[44px] touch-manipulation"
                 placeholder="Masukkan ID Pelanggan (8 digit)"
                 {...register('idPelanggan', {
                   onChange: handleIdPelangganChange,
@@ -135,14 +135,14 @@ export default function PelangganLoginPage() {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 pr-10 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-3 pr-12 text-base text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors min-h-[44px] touch-manipulation"
                   placeholder="Masukkan password Anda"
                   {...register('password')}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors touch-manipulation p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors touch-manipulation p-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
                   aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                 >
                   {showPassword ? (
@@ -163,7 +163,7 @@ export default function PelangganLoginPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm touch-manipulation active:scale-[0.98]"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white text-base font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm touch-manipulation active:scale-[0.98] min-h-[44px]"
             >
               {isSubmitting ? (
                 <>

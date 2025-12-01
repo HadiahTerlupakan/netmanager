@@ -12,6 +12,7 @@ import {
   HiPlus,
 } from 'react-icons/hi2'
 import Link from 'next/link'
+import PelangganHeader from '@/components/pelanggan/PelangganHeader'
 
 type FAQItem = {
   id: string
@@ -92,14 +93,7 @@ export default function BantuanPage() {
       {/* Main Content Container */}
       <div className="flex-1 overflow-auto">
         {/* Header */}
-        <div className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-          <div className="px-4 md:px-6 lg:px-8 py-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bantuan & FAQ</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Pusat bantuan dan pertanyaan umum</p>
-            </div>
-          </div>
-        </div>
+        <PelangganHeader title="Bantuan & FAQ" subtitle="Pusat bantuan dan pertanyaan umum" />
 
         {/* Content */}
         <main className="px-4 py-6 md:px-6 lg:px-8 max-w-5xl mx-auto">

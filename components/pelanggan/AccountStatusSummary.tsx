@@ -51,32 +51,36 @@ export function AccountStatusSummary({ internetOnline, tagihanStatus, daysUntilD
     const StatusIcon = statusColor === 'green' ? HiCheckCircle : statusColor === 'yellow' ? HiClock : HiExclamationTriangle
 
     return (
-        <div className={`${styles.bg} border ${styles.border} rounded-xl p-4 mb-6`}>
-            <div className="flex items-start gap-3">
-                <StatusIcon className={`w-6 h-6 ${styles.icon} flex-shrink-0 mt-0.5`} />
-                <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className={`font-semibold ${styles.text}`}>
-                            Status Akun: {getStatusText()}
-                        </h3>
-                    </div>
-                    <div className="space-y-1.5 text-sm">
+        <div className={`${styles.bg} border ${styles.border} rounded-2xl p-4 md:p-5`}>
+            <div className="flex items-start gap-3 md:gap-4">
+                <StatusIcon className={`w-5 h-5 md:w-6 md:h-6 ${styles.icon} flex-shrink-0 mt-1`} />
+                <div className="flex-1 min-w-0">
+                    <h3 className={`text-sm md:text-base font-bold ${styles.text} mb-3`}>
+                        Status Akun: {getStatusText()}
+                    </h3>
+                    <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                            <span className={internetOnline ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                            <span className={`text-base ${internetOnline ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                 {internetOnline ? '●' : '○'}
                             </span>
-                            <span className="text-gray-700 dark:text-gray-300">
-                                Internet: {internetOnline ? 'Online' : 'Offline'}
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                                <span className="font-medium">Internet:</span>{' '}
+                                <span className={`font-semibold ${internetOnline ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                    {internetOnline ? 'Online' : 'Offline'}
+                                </span>
                             </span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className={tagihanStatus === 'LUNAS' ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}>
+                            <span className={`text-base ${tagihanStatus === 'LUNAS' ? 'text-green-600 dark:text-green-400' : tagihanStatus === 'TERLAMBAT' ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
                                 {tagihanStatus === 'LUNAS' ? '✓' : '!'}
                             </span>
-                            <span className="text-gray-700 dark:text-gray-300">
-                                Tagihan: {tagihanStatus === 'LUNAS' ? 'Lunas' : tagihanStatus === 'TERLAMBAT' ? 'Terlambat' : 'Belum Lunas'}
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                                <span className="font-medium">Tagihan:</span>{' '}
+                                <span className={`font-semibold ${tagihanStatus === 'LUNAS' ? 'text-green-600 dark:text-green-400' : tagihanStatus === 'TERLAMBAT' ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                                    {tagihanStatus === 'LUNAS' ? 'Lunas' : tagihanStatus === 'TERLAMBAT' ? 'Terlambat' : 'Belum Lunas'}
+                                </span>
                                 {tagihanStatus !== 'LUNAS' && daysUntilDueDate > 0 && (
-                                    <span className="ml-1">({daysUntilDueDate} hari lagi)</span>
+                                    <span className="ml-1 text-gray-500 dark:text-gray-400">({daysUntilDueDate} hari lagi)</span>
                                 )}
                             </span>
                         </div>

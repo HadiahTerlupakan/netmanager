@@ -67,11 +67,11 @@ export function SessionHistoryTable() {
 
     if (loading && !history) {
         return (
-            <div className="bg-white rounded-2xl shadow-md p-5">
-                <div className="h-6 bg-gray-200 rounded w-32 mb-4 animate-pulse" />
-                <div className="space-y-2">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6">
+                <div className="h-6 md:h-7 bg-gray-200 dark:bg-gray-700 rounded-lg w-40 mb-5 md:mb-6 animate-pulse" />
+                <div className="space-y-3">
                     {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-16 bg-gray-200 rounded animate-pulse" />
+                        <div key={i} className="h-20 md:h-24 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
                     ))}
                 </div>
             </div>
@@ -80,31 +80,33 @@ export function SessionHistoryTable() {
 
     if (!history || history.sessions.length === 0) {
         return (
-            <div className="bg-white rounded-2xl shadow-md p-5">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Riwayat Koneksi</h3>
-                <p className="text-gray-500 text-sm text-center py-8">Belum ada riwayat koneksi</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6">
+                <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white mb-4 md:mb-5">Riwayat Koneksi</h3>
+                <div className="py-12 md:py-16 text-center">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">Belum ada riwayat koneksi</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="bg-white rounded-2xl shadow-md p-5">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Riwayat Koneksi</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-5 lg:p-6">
+            <h3 className="text-base md:text-lg lg:text-xl font-bold text-gray-900 dark:text-white mb-4 md:mb-5 lg:mb-6 leading-tight">Riwayat Koneksi</h3>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
                 {history.sessions.map((session) => (
-                    <div key={session.sessionId} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                                <span className={`text-xs font-medium ${session.isActive ? 'text-green-600' : 'text-gray-600'}`}>
+                    <div key={session.sessionId} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-900 transition-all duration-200 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <span className={`text-xs md:text-sm font-semibold px-2 py-1 rounded-lg ${session.isActive ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                                     {session.isActive ? '● AKTIF' : '○ Selesai'}
                                 </span>
-                                <span className="text-xs text-gray-500 font-mono">{session.ipAddress}</span>
+                                <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400 font-mono">{session.ipAddress}</span>
                             </div>
-                            <span className="text-xs text-gray-600 font-medium">{session.durationHours.toFixed(2)} jam</span>
+                            <span className="text-xs md:text-sm text-gray-700 dark:text-gray-300 font-semibold">{session.durationHours.toFixed(2)} jam</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>
+                        <div className="flex items-center justify-between text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                            <span className="font-medium">
                                 {session.startTime
                                     ? formatDistanceToNow(new Date(session.startTime), {
                                         addSuffix: true,
@@ -112,7 +114,7 @@ export function SessionHistoryTable() {
                                     })
                                     : '-'}
                             </span>
-                            <span className="font-mono">
+                            <span className="font-mono font-semibold">
                                 ↓{session.downloadMB.toFixed(0)} MB / ↑{session.uploadMB.toFixed(0)} MB
                             </span>
                         </div>
@@ -122,21 +124,21 @@ export function SessionHistoryTable() {
 
             {/* Pagination */}
             {history.pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-between gap-3 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                     <button
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                         disabled={page === 1}
-                        className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[44px] min-w-[44px] touch-manipulation flex items-center justify-center"
                     >
                         Sebelumnya
                     </button>
-                    <span className="text-sm text-gray-600">
+                    <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400 font-medium text-center flex-1">
                         Halaman {history.pagination.page} dari {history.pagination.totalPages}
                     </span>
                     <button
                         onClick={() => setPage((p) => Math.min(history.pagination.totalPages, p + 1))}
                         disabled={page === history.pagination.totalPages}
-                        className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[44px] min-w-[44px] touch-manipulation flex items-center justify-center"
                     >
                         Selanjutnya
                     </button>

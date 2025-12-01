@@ -23,19 +23,32 @@ export async function GET(
 
         // Check for customer access via headers first
         const isPelangganAccess = request.headers.get('x-pelanggan-token')
+
+        console.log('[PDF Route] isPelangganAccess:', !!isPelangganAccess)
+        console.log('[PDF Route] Headers:', {
+            token: request.headers.get('x-pelanggan-token')?.substring(0, 20) + '...',
+            hasData: !!request.headers.get('x-pelanggan-data')
+        })
+
         if (isPelangganAccess) {
             const pelangganData = request.headers.get('x-pelanggan-data')
 
             if (!pelangganData) {
-                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+                console.log('[PDF Route] Missing x-pelanggan-data header')
+                return NextResponse.json({ error: 'Unauthorized - Missing pelanggan data' }, { status: 401 })
             }
 
             try {
                 const data = JSON.parse(pelangganData)
+                console.log('[PDF Route] Pelanggan ID from header:', data.id)
+                console.log('[PDF Route] Tagihan pelangganId:', tagihan.pelangganId)
+
                 if (tagihan.pelangganId !== data.id) {
+                    console.log('[PDF Route] Pelanggan ID mismatch')
                     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
                 }
             } catch (e) {
+                console.log('[PDF Route] Error parsing pelanggan data:', e)
                 return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
             }
         } else {

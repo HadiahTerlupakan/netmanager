@@ -13,6 +13,7 @@ import {
   HiOutlineCalendar,
   HiArrowPath,
 } from 'react-icons/hi2'
+import PelangganHeader from '@/components/pelanggan/PelangganHeader'
 
 export default function ProfilPage() {
   const router = useRouter()
@@ -156,27 +157,7 @@ export default function ProfilPage() {
       {/* Main Content Container */}
       <div className="flex-1 overflow-auto">
         {/* Header */}
-        <div className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-          <div className="px-4 md:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profil Saya</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Informasi akun dan paket Anda</p>
-              </div>
-              <button
-                onClick={() => loadPelangganData(true, true)}
-                disabled={loading || refreshing}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 relative"
-                title="Refresh"
-              >
-                <HiArrowPath className={`w-5 h-5 text-gray-600 dark:text-gray-400 ${loading || refreshing ? 'animate-spin' : ''}`} />
-                {refreshing && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <PelangganHeader title="Profil Saya" subtitle="Informasi akun dan paket Anda" />
 
         {/* Content */}
         <main className="px-4 py-6 md:px-6 lg:px-8 max-w-5xl mx-auto">

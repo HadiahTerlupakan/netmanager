@@ -8,18 +8,27 @@ import {
   HiOutlineClock,
   HiSignalSlash,
   HiArrowRight,
-  HiArrowPath,
   HiOutlineInformationCircle,
+  HiBars3,
 } from 'react-icons/hi2'
 import Link from 'next/link'
 import { usePelanggan } from '@/hooks/usePelanggan'
-import { ConnectionStatusCard } from '@/components/pelanggan/ConnectionStatusCard'
-import { UsageStatsCard } from '@/components/pelanggan/UsageStatsCard'
-import { SessionHistoryTable } from '@/components/pelanggan/SessionHistoryTable'
+import dynamic from 'next/dynamic'
+
+const ConnectionStatusCard = dynamic(() => import('@/components/pelanggan/ConnectionStatusCard').then(mod => ({ default: mod.ConnectionStatusCard })), {
+  loading: () => <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-5 animate-pulse"><div className="h-5 md:h-6 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-3" /></div>
+})
+
+const UsageStatsCard = dynamic(() => import('@/components/pelanggan/UsageStatsCard').then(mod => ({ default: mod.UsageStatsCard })), {
+  loading: () => <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-5 animate-pulse"><div className="h-5 md:h-6 bg-gray-200 dark:bg-gray-700 rounded w-40 mb-5" /></div>
+})
+
+const SessionHistoryTable = dynamic(() => import('@/components/pelanggan/SessionHistoryTable').then(mod => ({ default: mod.SessionHistoryTable })), {
+  loading: () => <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-5 animate-pulse"><div className="h-5 md:h-6 bg-gray-200 dark:bg-gray-700 rounded w-40 mb-5" /></div>
+})
 import { FullPageLoader } from '@/components/pelanggan/LoadingStates'
-import { AccountStatusSummary } from '@/components/pelanggan/AccountStatusSummary'
 import { PaymentReminderBanner } from '@/components/pelanggan/PaymentReminderBanner'
-import { QuickPaymentButton } from '@/components/pelanggan/QuickPaymentButton'
+import PelangganHeader from '@/components/pelanggan/PelangganHeader'
 
 // Helper function untuk format tanggal pendek
 const formatDateShort = (dateString: string) => {
@@ -81,20 +90,20 @@ function JatuhTempoDenganInfo({ pelangganId, pelangganJatuhTempo }: {
 
   return (
     <div>
-      <p className="text-sm font-semibold">
+      <p className="text-xs md:text-sm font-semibold leading-tight">
         {formatDateShort(pelangganJatuhTempo)}
       </p>
       {loading ? (
-        <p className="text-xs text-white/70">Memuat...</p>
+        <p className="text-[10px] md:text-xs text-white/70 mt-0.5 leading-relaxed">Memuat...</p>
       ) : (
         nextJatuhTempo && (
-          <p className="text-xs text-white/70 mt-1">
+          <p className="text-[10px] md:text-xs text-white/70 mt-1 leading-relaxed">
             Berikutnya: {formatDateShort(nextJatuhTempo)}
           </p>
         )
       )}
       {isOverdue() && (
-        <p className="text-xs text-yellow-300 mt-1">
+        <p className="text-[10px] md:text-xs text-yellow-300 mt-1 leading-relaxed">
           ⚠️ Jatuh tempo terlewat
         </p>
       )}
@@ -177,12 +186,6 @@ export default function PelangganDashboardPage() {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false)
   const [saldoTagihan, setSaldoTagihan] = useState(0)
 
-  // Data usage demo
-  const [dataUsage] = useState({
-    upload: { used: 2.5, total: 10, unit: 'GB' },
-    download: { used: 8.7, total: 50, unit: 'GB' }
-  })
-
   // Deteksi online/offline
   useEffect(() => {
     const handleOnline = () => setIsOnline(true)
@@ -230,10 +233,34 @@ export default function PelangganDashboardPage() {
     return jatuhTempoDate < today
   }
 
-  // Fetch saldo tagihan untuk UX components
+  // Auto-refresh data dashboard setiap 30 detik
   useEffect(() => {
     if (!pelanggan?.id) return
 
+    const refreshData = async () => {
+      // Refresh pelanggan data
+      refresh()
+      
+      // Refresh saldo tagihan
+      try {
+        const token = localStorage.getItem('pelanggan_token')
+        const response = await fetch(`/api/tagihan/pelanggan/${pelanggan.id}`, {
+          cache: 'no-store',
+          headers: { 'x-pelanggan-token': token || '' },
+        })
+        if (response.ok) {
+          const tagihans = await response.json()
+          const totalBelumBayar = tagihans
+            .filter((t: any) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT')
+            .reduce((sum: number, t: any) => sum + t.total, 0)
+          setSaldoTagihan(totalBelumBayar)
+        }
+      } catch (error) {
+        console.error('[refreshData] Error:', error)
+      }
+    }
+
+    // Initial fetch
     const fetchSaldo = async () => {
       try {
         const token = localStorage.getItem('pelanggan_token')
@@ -254,9 +281,26 @@ export default function PelangganDashboardPage() {
     }
 
     fetchSaldo()
-    const intervalId = setInterval(fetchSaldo, 30000)
-    return () => clearInterval(intervalId)
-  }, [pelanggan?.id])
+    
+    // Auto-refresh every 30 seconds
+    const intervalId = setInterval(refreshData, 30000)
+    
+    // Refresh when window gains focus
+    const handleFocus = () => refreshData()
+    window.addEventListener('focus', handleFocus)
+    
+    // Refresh when visibility changes
+    const handleVisibilityChange = () => {
+      if (!document.hidden) refreshData()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [pelanggan?.id, refresh])
 
   if (loading) {
     return <FullPageLoader message="Memuat dashboard..." />
@@ -267,8 +311,6 @@ export default function PelangganDashboardPage() {
   }
 
   const isOverdue = isJatuhTempo(pelanggan.jatuhTempo)
-  const uploadPercentage = (dataUsage.upload.used / dataUsage.upload.total) * 100
-  const downloadPercentage = (dataUsage.download.used / dataUsage.download.total) * 100
 
   return (
     <>
@@ -282,27 +324,29 @@ export default function PelangganDashboardPage() {
 
       {/* PWA Install Prompt */}
       {showInstallPrompt && !window.matchMedia('(display-mode: standalone)').matches && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-sky-500 text-white p-4 shadow-lg">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <div className="flex-1">
-              <p className="text-sm font-medium">Install NetManager untuk akses lebih cepat</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setShowInstallPrompt(false)
-                  localStorage.setItem('pwa-install-dismissed', 'true')
-                }}
-                className="px-3 py-1 text-sm hover:bg-sky-600 rounded transition-colors"
-              >
-                Nanti
-              </button>
-              <button
-                onClick={handleInstall}
-                className="px-4 py-1.5 text-sm font-medium bg-white text-sky-600 rounded hover:bg-gray-100 transition-colors"
-              >
-                Install
-              </button>
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-sky-500 to-cyan-500 text-white shadow-md">
+          <div className="max-w-7xl mx-auto px-4 py-3 md:px-6 md:py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex-1">
+                <p className="text-sm md:text-base font-medium">Install NetManager untuk akses lebih cepat</p>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => {
+                    setShowInstallPrompt(false)
+                    localStorage.setItem('pwa-install-dismissed', 'true')
+                  }}
+                  className="flex-1 sm:flex-none px-4 py-2 text-sm font-medium bg-white/20 hover:bg-white/30 rounded-lg transition-all duration-200 active:scale-95"
+                >
+                  Nanti
+                </button>
+                <button
+                  onClick={handleInstall}
+                  className="flex-1 sm:flex-none px-4 py-2 text-sm font-semibold bg-white text-sky-600 rounded-lg hover:bg-gray-50 transition-all duration-200 active:scale-95"
+                >
+                  Install
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -311,206 +355,122 @@ export default function PelangganDashboardPage() {
       {/* Main Content Container */}
       <div className="flex-1 overflow-auto">
         {/* Header */}
-        <div className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-          <div className="px-4 md:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Selamat datang kembali, {pelanggan.nama}!</p>
-              </div>
-              <button
-                onClick={() => refresh()}
-                disabled={loading || refreshing}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 relative"
-                title="Refresh"
-              >
-                <HiArrowPath className={`w-5 h-5 text-gray-600 dark:text-gray-400 ${refreshing ? 'animate-spin' : ''}`} />
-                {refreshing && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <PelangganHeader 
+          title="Dashboard" 
+          subtitle={`Selamat datang kembali, ${pelanggan.nama}!`}
+        />
 
         {/* Content */}
-        <main className="px-4 py-6 md:px-6 lg:px-8 max-w-7xl mx-auto">
-          {lastRefreshTime && (
-            <div className="mb-4 text-center">
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                Terakhir diperbarui: {lastRefreshTime.toLocaleTimeString('id-ID')}
-              </span>
+        <main className="px-4 py-4 md:px-6 md:py-6 lg:px-8 max-w-7xl mx-auto">
+          {/* Payment Reminder Banner - Only show if overdue or urgent */}
+          {saldoTagihan > 0 && (isOverdue || Math.ceil((new Date(pelanggan.jatuhTempo).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) <= 7) && (
+            <div className="mb-6">
+              <PaymentReminderBanner
+                daysUntilDue={Math.max(0, Math.ceil((new Date(pelanggan.jatuhTempo).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))}
+                amount={saldoTagihan}
+                tagihanId="current"
+                status={isOverdue ? 'TERLAMBAT' : 'BELUM_LUNAS'}
+              />
             </div>
           )}
 
-          {/* Account Status Summary */}
-          <AccountStatusSummary
-            internetOnline={!isOverdue}
-            tagihanStatus={saldoTagihan > 0 ? 'BELUM_LUNAS' : 'LUNAS'}
-            daysUntilDueDate={Math.ceil((new Date(pelanggan.jatuhTempo).getTime() - Date.now()) / (1000 * 60 * 60 * 24))}
-          />
-
-          {/* Payment Reminder Banner */}
-          {saldoTagihan > 0 && (
-            <PaymentReminderBanner
-              daysUntilDue={Math.max(0, Math.ceil((new Date(pelanggan.jatuhTempo).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))}
-              amount={saldoTagihan}
-              tagihanId="current"
-              status={isOverdue ? 'TERLAMBAT' : 'BELUM_LUNAS'}
-            />
-          )}
-
-          {/* Quick Payment Button */}
-          {saldoTagihan > 0 && !isOverdue && (
-            <QuickPaymentButton
-              tagihanId="current"
-              amount={saldoTagihan}
-              className="mb-6"
-            />
-          )}
-
-          {/* Client Info Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-sky-100 dark:bg-sky-900/20 rounded-full flex items-center justify-center">
-                  <HiOutlineUser className="w-6 h-6 text-sky-600 dark:text-sky-400" />
+          {/* Profile & Quick Actions Section */}
+          <div className="mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-5">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-sky-400 to-cyan-500 rounded-2xl flex items-center justify-center shrink-0">
+                  <HiOutlineUser className="w-7 h-7 md:w-8 md:h-8 text-white" />
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Client</p>
-                  <p className="text-base font-semibold text-gray-900 dark:text-white">{pelanggan.noTelp || pelanggan.idPelanggan}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Pelanggan</p>
+                  <p className="text-lg md:text-xl font-bold text-gray-900 dark:text-white truncate">{pelanggan.nama}</p>
+                  <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 truncate">{pelanggan.noTelp || pelanggan.idPelanggan}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Saldo Tagihan</p>
-                <SaldoTagihan pelangganId={pelanggan.id} />
-              </div>
-            </div>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-3 gap-3">
-              <Link
-                href="/pelanggan/tagihan"
-                className="flex flex-col items-center gap-2 p-3 rounded-lg bg-sky-50 dark:bg-sky-900/20 hover:bg-sky-100 dark:hover:bg-sky-900/30 transition-colors"
-              >
-                <HiOutlineCreditCard className="w-6 h-6 text-sky-600 dark:text-sky-400" />
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Bayar</span>
-              </Link>
-              <Link
-                href="/pelanggan/tagihan?tab=riwayat"
-                className="flex flex-col items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
-              >
-                <HiArrowRight className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Riwayat</span>
-              </Link>
-              <Link
-                href="/pelanggan/bantuan"
-                className="flex flex-col items-center gap-2 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
-              >
-                <HiOutlineInformationCircle className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Bantuan</span>
-              </Link>
-            </div>
-          </div>
-
-          {/* Package Info Card */}
-          <div className="bg-gradient-to-br from-sky-400 to-cyan-500 rounded-xl shadow-lg mb-6 p-6 text-white">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm opacity-90">Paket Internet</p>
-                <p className="text-xl font-bold">{pelanggan.hargaPaket?.name || 'Tidak ada paket'}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm opacity-90">Status</p>
-                <p className="text-lg font-bold">{pelanggan.status}</p>
-              </div>
-            </div>
-
-            <p className="text-xs opacity-75 mb-4">* Data usage demo - Integrasi monitoring dalam pengembangan</p>
-
-            {/* Data Usage */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="flex flex-col items-center">
-                <div className="relative w-20 h-20 mb-2">
-                  <svg className="w-20 h-20 transform -rotate-90">
-                    <circle cx="40" cy="40" r="32" stroke="rgba(255,255,255,0.2)" strokeWidth="6" fill="none" />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="32"
-                      stroke="white"
-                      strokeWidth="6"
-                      fill="none"
-                      strokeDasharray={`${2 * Math.PI * 32}`}
-                      strokeDashoffset={`${2 * Math.PI * 32 * (1 - uploadPercentage / 100)}`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-base font-bold">{dataUsage.upload.used}</span>
-                  </div>
-                </div>
-                <p className="text-xs opacity-90">UPLOAD</p>
-                <p className="text-xs opacity-75">{dataUsage.upload.unit}</p>
-              </div>
-
-              <div className="flex flex-col items-center">
-                <div className="relative w-20 h-20 mb-2">
-                  <svg className="w-20 h-20 transform -rotate-90">
-                    <circle cx="40" cy="40" r="32" stroke="rgba(255,255,255,0.2)" strokeWidth="6" fill="none" />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="32"
-                      stroke="white"
-                      strokeWidth="6"
-                      fill="none"
-                      strokeDasharray={`${2 * Math.PI * 32}`}
-                      strokeDashoffset={`${2 * Math.PI * 32 * (1 - downloadPercentage / 100)}`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-base font-bold">{dataUsage.download.used}</span>
-                  </div>
-                </div>
-                <p className="text-xs opacity-90">DOWNLOAD</p>
-                <p className="text-xs opacity-75">{dataUsage.download.unit}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-4 border-t border-white/20">
-              <div>
-                <p className="text-xs opacity-90">Kadaluarsa</p>
-                <JatuhTempoDenganInfo
-                  pelangganId={pelanggan.id}
-                  pelangganJatuhTempo={pelanggan.jatuhTempo}
-                />
+              {/* Quick Actions */}
+              <div className="grid grid-cols-3 gap-3 md:gap-4">
+                <Link
+                  href="/pelanggan/tagihan"
+                  className="flex flex-col items-center justify-center gap-2 md:gap-3 p-3 md:p-4 rounded-xl bg-gradient-to-br from-sky-50 to-cyan-50 dark:from-sky-900/20 dark:to-cyan-900/20 hover:from-sky-100 hover:to-cyan-100 dark:hover:from-sky-900/30 dark:hover:to-cyan-900/30 transition-all duration-200 hover:shadow-md border border-sky-100 dark:border-sky-800 active:scale-95 min-h-[80px] md:min-h-[100px] touch-manipulation"
+                >
+                  <HiOutlineCreditCard className="w-5 h-5 md:w-6 md:h-6 text-sky-600 dark:text-sky-400" />
+                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Bayar</span>
+                </Link>
+                <Link
+                  href="/pelanggan/tagihan?tab=riwayat"
+                  className="flex flex-col items-center justify-center gap-2 md:gap-3 p-3 md:p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30 transition-all duration-200 hover:shadow-md border border-blue-100 dark:border-blue-800 active:scale-95 min-h-[80px] md:min-h-[100px] touch-manipulation"
+                >
+                  <HiOutlineClock className="w-5 h-5 md:w-6 md:h-6 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Riwayat</span>
+                </Link>
+                <Link
+                  href="/pelanggan/bantuan"
+                  className="flex flex-col items-center justify-center gap-2 md:gap-3 p-3 md:p-4 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 hover:from-orange-100 hover:to-amber-100 dark:hover:from-orange-900/30 dark:hover:to-amber-900/30 transition-all duration-200 hover:shadow-md border border-orange-100 dark:border-orange-800 active:scale-95 min-h-[80px] md:min-h-[100px] touch-manipulation"
+                >
+                  <HiOutlineInformationCircle className="w-5 h-5 md:w-6 md:h-6 text-orange-600 dark:text-orange-400" />
+                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Bantuan</span>
+                </Link>
               </div>
             </div>
           </div>
 
-          {/* Alert Overdue */}
-          {isOverdue && (
-            <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <HiOutlineClock className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-red-800 dark:text-red-400 mb-1">
-                    ⚠️ Tagihan Anda sudah jatuh tempo
-                  </p>
-                  <p className="text-xs text-red-600 dark:text-red-500">
-                    Silakan lakukan pembayaran untuk menghindari gangguan layanan
-                  </p>
+          {/* Package & Subscription Info Card */}
+          <div className="mb-6">
+            <div className="bg-gradient-to-br from-sky-500 via-cyan-500 to-blue-500 rounded-2xl shadow-lg p-5 md:p-6 text-white overflow-hidden relative">
+              {/* Background decoration */}
+              <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-16 -translate-x-16"></div>
+
+              <div className="relative z-10">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-6">
+                  <div className="flex-1">
+                    <p className="text-xs md:text-sm font-medium opacity-90 mb-1.5">Paket Internet</p>
+                    <p className="text-xl md:text-2xl lg:text-3xl font-bold mb-1.5 leading-tight">{pelanggan.hargaPaket?.name || 'Tidak ada paket'}</p>
+                    {pelanggan.hargaPaket?.harga && (
+                      <p className="text-xs md:text-sm lg:text-base opacity-90 leading-relaxed">
+                        {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(pelanggan.hargaPaket.harga)}/bulan
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex-shrink-0">
+                    <p className="text-xs md:text-sm font-medium opacity-90 mb-1.5">Status</p>
+                    <span className={`inline-block px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-bold ${pelanggan.status === 'AKTIF'
+                      ? 'bg-green-500/90 text-white'
+                      : 'bg-red-500/90 text-white'
+                      }`}>
+                      {pelanggan.status}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-5 md:pt-6 border-t border-white/20">
+                  <div>
+                    <p className="text-xs md:text-sm font-medium opacity-90 mb-1.5">Berlaku Sampai</p>
+                    <JatuhTempoDenganInfo
+                      pelangganId={pelanggan.id}
+                      pelangganJatuhTempo={pelanggan.jatuhTempo}
+                    />
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <p className="text-xs md:text-sm font-medium opacity-90 mb-1.5">ID Pelanggan</p>
+                    <p className="text-sm md:text-base lg:text-lg font-semibold leading-tight">{pelanggan.idPelanggan}</p>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* RADIUS Components */}
-          <ConnectionStatusCard />
-          <UsageStatsCard />
-          <SessionHistoryTable />
+          {/* Connection & Usage Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
+            <ConnectionStatusCard />
+            <UsageStatsCard />
+          </div>
+
+          {/* Session History Section */}
+          <div className="mb-6">
+            <SessionHistoryTable />
+          </div>
         </main>
       </div>
     </>

@@ -18,6 +18,7 @@ import { TicketStatusBadge } from '@/components/helpdesk/TicketStatusBadge'
 import { TicketPriorityBadge } from '@/components/helpdesk/TicketPriorityBadge'
 import { formatDistanceToNow } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
+import NotificationBell from '@/components/pelanggan/NotificationBell'
 
 type Ticket = {
     id: string
@@ -122,13 +123,16 @@ export default function TiketPage() {
                             </Link>
                             <h1 className="text-xl font-bold">Tiket Bantuan</h1>
                         </div>
-                        <Link
-                            href="/pelanggan/bantuan/tiket/buat"
-                            className="bg-white text-sky-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-sky-50 transition-colors active:scale-[0.98] touch-manipulation flex items-center gap-2"
-                        >
-                            <HiPlus className="w-4 h-4" />
-                            <span>Buat Tiket</span>
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <NotificationBell iconColor="text-white" hoverBg="hover:bg-white/10" />
+                            <Link
+                                href="/pelanggan/bantuan/tiket/buat"
+                                className="bg-white text-sky-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-sky-50 transition-colors active:scale-[0.98] touch-manipulation flex items-center gap-2"
+                            >
+                                <HiPlus className="w-4 h-4" />
+                                <span>Buat Tiket</span>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </header>

@@ -13,6 +13,7 @@ import {
 } from 'react-icons/hi2'
 import { TicketStatusBadge } from '@/components/helpdesk/TicketStatusBadge'
 import { TicketPriorityBadge } from '@/components/helpdesk/TicketPriorityBadge'
+import NotificationBell from '@/components/pelanggan/NotificationBell'
 import { TicketTimeline } from '@/components/helpdesk/TicketTimeline'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
@@ -167,17 +168,20 @@ export default function TiketDetailPage() {
             {/* Header */}
             <header className="bg-gradient-to-r from-sky-400 to-cyan-500 text-white shadow-lg">
                 <div className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href="/pelanggan/bantuan/tiket"
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation"
-                        >
-                            <HiArrowLeft className="w-5 h-5" />
-                        </Link>
-                        <div className="flex-1 min-w-0">
-                            <h1 className="text-xl font-bold truncate">{ticket.ticketNumber}</h1>
-                            <p className="text-sm text-sky-100 truncate">{ticket.subject}</p>
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <Link
+                                href="/pelanggan/bantuan/tiket"
+                                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation"
+                            >
+                                <HiArrowLeft className="w-5 h-5" />
+                            </Link>
+                            <div className="flex-1 min-w-0">
+                                <h1 className="text-xl font-bold truncate">{ticket.ticketNumber}</h1>
+                                <p className="text-sm text-sky-100 truncate">{ticket.subject}</p>
+                            </div>
                         </div>
+                        <NotificationBell iconColor="text-white" hoverBg="hover:bg-white/10" />
                     </div>
                 </div>
             </header>
