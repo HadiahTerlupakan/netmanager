@@ -7,6 +7,7 @@ import { DuitkuProvider } from './providers/duitku-provider'
 import { BRIProvider } from './providers/bri-provider'
 import { BCAProvider } from './providers/bca-provider'
 import { TripayProvider } from './providers/tripay-provider'
+import { DANAProvider } from './providers/dana-provider'
 
 export class ProviderFactory {
     /**
@@ -34,6 +35,10 @@ export class ProviderFactory {
             case 'TRIPAY':
                 return new TripayProvider()
 
+            case 'DANA':
+            case 'DANA_API':
+                return new DANAProvider()
+
             default:
                 throw new Error(`Unknown payment provider: ${type}`)
         }
@@ -43,7 +48,7 @@ export class ProviderFactory {
      * Get list of supported providers
      */
     static getSupportedProviders(): string[] {
-        return ['XENDIT', 'MIDTRANS', 'DUITKU', 'BRI', 'BCA']
+        return ['XENDIT', 'MIDTRANS', 'DUITKU', 'BRI', 'BCA', 'TRIPAY', 'DANA']
     }
 
     /**

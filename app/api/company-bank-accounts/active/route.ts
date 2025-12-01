@@ -24,7 +24,13 @@ export async function GET(request: NextRequest) {
             ]
         })
 
-        return NextResponse.json(accounts)
+        return NextResponse.json(accounts, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            },
+        })
     } catch (error) {
         console.error('Error fetching active bank accounts:', error)
         return NextResponse.json(

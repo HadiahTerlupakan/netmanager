@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { getWithExpiry, setWithExpiry, removeWithExpiry } from '@/lib/utils/storage-with-expiry'
 import {
   HiArrowRightOnRectangle,
   HiOutlineUser,
@@ -27,7 +28,7 @@ export default function ProfilPage() {
     }
 
     const token = localStorage.getItem('pelanggan_token')
-    const pelangganData = localStorage.getItem('pelanggan_data')
+    const pelangganData = getWithExpiry<any>('pelanggan_data')
 
     if (!token || !pelangganData) {
       router.push('/pelanggan/login')
@@ -38,15 +39,13 @@ export default function ProfilPage() {
     isRefreshingRef.current = true
 
     try {
-      const cachedData = JSON.parse(pelangganData)
+      const cachedData = pelangganData
 
       try {
         const cacheBuster = forceRefresh ? `?_t=${Date.now()}` : ''
         const response = await fetch(`/api/pelanggan/me${cacheBuster}`, {
+          cache: forceRefresh ? 'no-store' : 'default',
           headers: {
-            'Cache-Control': 'no-cache, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
             'x-pelanggan-token': token,
           },
         })
@@ -57,7 +56,8 @@ export default function ProfilPage() {
 
         const data = await response.json()
         setPelanggan(data)
-        localStorage.setItem('pelanggan_data', JSON.stringify(data))
+        // Simpan dengan expiry 1 jam (3600 detik)
+        setWithExpiry('pelanggan_data', data, 3600)
 
         if (showRefreshing) {
           setLastRefreshTime(new Date())
@@ -78,7 +78,7 @@ export default function ProfilPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('pelanggan_token')
-    const pelangganData = localStorage.getItem('pelanggan_data')
+    const pelangganData = getWithExpiry<any>('pelanggan_data')
 
     if (!token || !pelangganData) {
       router.push('/pelanggan/login')
@@ -108,7 +108,7 @@ export default function ProfilPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('pelanggan_token')
-    localStorage.removeItem('pelanggan_data')
+    removeWithExpiry('pelanggan_data')
     router.push('/pelanggan/login')
   }
 

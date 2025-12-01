@@ -17,6 +17,9 @@ import { ConnectionStatusCard } from '@/components/pelanggan/ConnectionStatusCar
 import { UsageStatsCard } from '@/components/pelanggan/UsageStatsCard'
 import { SessionHistoryTable } from '@/components/pelanggan/SessionHistoryTable'
 import { FullPageLoader } from '@/components/pelanggan/LoadingStates'
+import { AccountStatusSummary } from '@/components/pelanggan/AccountStatusSummary'
+import { PaymentReminderBanner } from '@/components/pelanggan/PaymentReminderBanner'
+import { QuickPaymentButton } from '@/components/pelanggan/QuickPaymentButton'
 
 // Helper function untuk format tanggal pendek
 const formatDateShort = (dateString: string) => {
@@ -172,6 +175,7 @@ export default function PelangganDashboardPage() {
   const [isOnline, setIsOnline] = useState(true)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showInstallPrompt, setShowInstallPrompt] = useState(false)
+  const [saldoTagihan, setSaldoTagihan] = useState(0)
 
   // Data usage demo
   const [dataUsage] = useState({
@@ -225,6 +229,34 @@ export default function PelangganDashboardPage() {
     jatuhTempoDate.setHours(0, 0, 0, 0)
     return jatuhTempoDate < today
   }
+
+  // Fetch saldo tagihan untuk UX components
+  useEffect(() => {
+    if (!pelanggan?.id) return
+
+    const fetchSaldo = async () => {
+      try {
+        const token = localStorage.getItem('pelanggan_token')
+        const response = await fetch(`/api/tagihan/pelanggan/${pelanggan.id}`, {
+          cache: 'default',
+          headers: { 'x-pelanggan-token': token || '' },
+        })
+        if (response.ok) {
+          const tagihans = await response.json()
+          const totalBelumBayar = tagihans
+            .filter((t: any) => t.status === 'BELUM_LUNAS' || t.status === 'TERLAMBAT')
+            .reduce((sum: number, t: any) => sum + t.total, 0)
+          setSaldoTagihan(totalBelumBayar)
+        }
+      } catch (error) {
+        console.error('[fetchSaldo] Error:', error)
+      }
+    }
+
+    fetchSaldo()
+    const intervalId = setInterval(fetchSaldo, 30000)
+    return () => clearInterval(intervalId)
+  }, [pelanggan?.id])
 
   if (loading) {
     return <FullPageLoader message="Memuat dashboard..." />
@@ -309,6 +341,32 @@ export default function PelangganDashboardPage() {
                 Terakhir diperbarui: {lastRefreshTime.toLocaleTimeString('id-ID')}
               </span>
             </div>
+          )}
+
+          {/* Account Status Summary */}
+          <AccountStatusSummary
+            internetOnline={!isOverdue}
+            tagihanStatus={saldoTagihan > 0 ? 'BELUM_LUNAS' : 'LUNAS'}
+            daysUntilDueDate={Math.ceil((new Date(pelanggan.jatuhTempo).getTime() - Date.now()) / (1000 * 60 * 60 * 24))}
+          />
+
+          {/* Payment Reminder Banner */}
+          {saldoTagihan > 0 && (
+            <PaymentReminderBanner
+              daysUntilDue={Math.max(0, Math.ceil((new Date(pelanggan.jatuhTempo).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))}
+              amount={saldoTagihan}
+              tagihanId="current"
+              status={isOverdue ? 'TERLAMBAT' : 'BELUM_LUNAS'}
+            />
+          )}
+
+          {/* Quick Payment Button */}
+          {saldoTagihan > 0 && !isOverdue && (
+            <QuickPaymentButton
+              tagihanId="current"
+              amount={saldoTagihan}
+              className="mb-6"
+            />
           )}
 
           {/* Client Info Card */}

@@ -103,7 +103,11 @@ export async function GET(req: NextRequest) {
       // Return data pelanggan (tanpa password)
       const { password: _, passwordLogin: __, ...pelangganData } = pelanggan
 
-      return NextResponse.json(pelangganData)
+      return NextResponse.json(pelangganData, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59',
+        },
+      })
     } catch (parseError) {
       console.error('Error parsing token:', parseError)
       return NextResponse.json(

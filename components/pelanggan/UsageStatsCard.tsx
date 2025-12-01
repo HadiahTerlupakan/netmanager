@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { HiArrowUpTray, HiArrowDownTray } from 'react-icons/hi2';
+import { getWithExpiry } from '@/lib/utils/storage-with-expiry';
 
 interface UsageData {
     today: {
@@ -27,9 +28,16 @@ export function UsageStatsCard() {
     const fetchUsage = async () => {
         try {
             const token = localStorage.getItem('pelanggan_token');
+            const pelangganData = getWithExpiry<any>('pelanggan_data');
+            
+            if (!token || !pelangganData) {
+                return;
+            }
+
             const response = await fetch('/api/pelanggan/radius/usage', {
                 headers: {
-                    'x-pelanggan-token': token || '',
+                    'x-pelanggan-token': token,
+                    'x-pelanggan-data': JSON.stringify(pelangganData),
                 },
             });
 

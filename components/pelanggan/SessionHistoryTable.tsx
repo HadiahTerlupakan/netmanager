@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
+import { getWithExpiry } from '@/lib/utils/storage-with-expiry';
 
 interface Session {
     sessionId: string;
@@ -35,9 +36,17 @@ export function SessionHistoryTable() {
         setLoading(true);
         try {
             const token = localStorage.getItem('pelanggan_token');
+            const pelangganData = getWithExpiry<any>('pelanggan_data');
+            
+            if (!token || !pelangganData) {
+                setLoading(false);
+                return;
+            }
+
             const response = await fetch(`/api/pelanggan/radius/history?page=${currentPage}&limit=10`, {
                 headers: {
-                    'x-pelanggan-token': token || '',
+                    'x-pelanggan-token': token,
+                    'x-pelanggan-data': JSON.stringify(pelangganData),
                 },
             });
 

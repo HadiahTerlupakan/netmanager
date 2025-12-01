@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { PelangganData } from '@/types/pelanggan'
+import { getWithExpiry, setWithExpiry, removeWithExpiry, migrateOldData } from '@/lib/utils/storage-with-expiry'
 
 export function usePelanggan() {
     const router = useRouter()
@@ -19,19 +20,24 @@ export function usePelanggan() {
 
         try {
             const token = localStorage.getItem('pelanggan_token')
-            const storedData = localStorage.getItem('pelanggan_data')
-
-            if (!token || !storedData) {
+            
+            // Jika tidak ada token, baru logout
+            if (!token) {
                 router.push('/pelanggan/login')
                 return
             }
 
-            // Load from storage first untuk immediate display
-            const parsedData = JSON.parse(storedData)
-            setData(prevData => prevData || parsedData)
+            // Coba ambil data dari storage (bisa null jika expired)
+            const storedData = getWithExpiry<PelangganData>('pelanggan_data')
+            
+            // Load from storage first untuk immediate display (jika ada)
+            if (storedData) {
+                setData(prevData => prevData || storedData)
+            }
 
-            // Fetch fresh data
+            // Fetch fresh data dari API (selalu fetch jika ada token)
             const response = await fetch('/api/pelanggan/me', {
+                cache: force ? 'no-store' : 'default',
                 headers: {
                     'x-pelanggan-token': token,
                 },
@@ -40,11 +46,14 @@ export function usePelanggan() {
             if (response.ok) {
                 const freshData = await response.json()
                 setData(freshData)
-                localStorage.setItem('pelanggan_data', JSON.stringify(freshData))
+                // Simpan dengan expiry lebih lama (1 jam) untuk data pelanggan
+                // Cache HTTP tetap 10 detik, tapi localStorage lebih lama
+                setWithExpiry('pelanggan_data', freshData, 3600)
                 setLastRefreshTime(new Date())
             } else if (response.status === 401) {
+                // Token expired atau invalid, baru logout
                 localStorage.removeItem('pelanggan_token')
-                localStorage.removeItem('pelanggan_data')
+                removeWithExpiry('pelanggan_data')
                 router.push('/pelanggan/login')
             }
         } catch (error) {
@@ -58,21 +67,25 @@ export function usePelanggan() {
 
     // Initial load
     useEffect(() => {
-        const storedData = localStorage.getItem('pelanggan_data')
-        if (storedData) {
-            try {
-                const parsedData = JSON.parse(storedData)
-                setData(parsedData)
-                setLoading(false)
-                // Background refresh setelah initial load
-                loadData(true, true)
-            } catch (e) {
-                console.error('Error parsing stored data', e)
-                router.push('/pelanggan/login')
-            }
-        } else {
+        const token = localStorage.getItem('pelanggan_token')
+        
+        // Jika tidak ada token, langsung logout
+        if (!token) {
             router.push('/pelanggan/login')
+            return
         }
+
+        // Coba migrate data lama terlebih dahulu
+        const migratedData = migrateOldData<PelangganData>('pelanggan_data', 3600)
+        const storedData = migratedData || getWithExpiry<PelangganData>('pelanggan_data')
+        
+        if (storedData) {
+            setData(storedData)
+            setLoading(false)
+        }
+        
+        // Background refresh setelah initial load (selalu fetch jika ada token)
+        loadData(true, true)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []) // Run once on mount
 

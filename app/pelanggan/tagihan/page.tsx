@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { getWithExpiry } from '@/lib/utils/storage-with-expiry'
 import {
   HiOutlineCreditCard,
   HiOutlineDocumentText,
@@ -50,7 +51,7 @@ function TagihanContent() {
     }
 
     const token = localStorage.getItem('pelanggan_token')
-    const pelangganData = localStorage.getItem('pelanggan_data')
+    const pelangganData = getWithExpiry<any>('pelanggan_data')
 
     if (!token || !pelangganData) {
       router.push('/pelanggan/login')
@@ -58,17 +59,14 @@ function TagihanContent() {
     }
 
     try {
-      const data = JSON.parse(pelangganData)
+      const data = pelangganData
       if (showLoading) setLoading(true)
       isRefreshingRef.current = true
 
       const cacheBuster = forceRefresh ? `?_t=${Date.now()}` : ''
       const response = await fetch(`/api/tagihan/pelanggan/${data.id}${cacheBuster}`, {
-        cache: 'no-store',
+        cache: forceRefresh ? 'no-store' : 'default',
         headers: {
-          'Cache-Control': 'no-cache, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
           'x-pelanggan-token': token,
         },
       })
@@ -103,7 +101,7 @@ function TagihanContent() {
 
   useEffect(() => {
     const token = localStorage.getItem('pelanggan_token')
-    const pelangganData = localStorage.getItem('pelanggan_data')
+    const pelangganData = getWithExpiry<any>('pelanggan_data')
 
     if (!token || !pelangganData) {
       router.push('/pelanggan/login')
@@ -111,7 +109,7 @@ function TagihanContent() {
     }
 
     try {
-      const data = JSON.parse(pelangganData)
+      const data = pelangganData
       setPelanggan(data)
       fetchTagihan()
 

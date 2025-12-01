@@ -15,6 +15,7 @@ const PROVIDERS = [
     { id: 'MIDTRANS', name: 'Midtrans', logo: '🔵' },
     { id: 'DUITKU', name: 'Duitku', logo: '🟡' },
     { id: 'TRIPAY', name: 'Tripay', logo: '🟣' },
+    { id: 'DANA', name: 'DANA', logo: '💙' },
     { id: 'BRI', name: 'BRI API', logo: '🔷' },
     { id: 'BCA', name: 'BCA API', logo: '🔶' },
 ]
@@ -330,8 +331,8 @@ export default function PaymentGatewayTab() {
                                 </div>
                             )}
 
-                            {/* Merchant ID for Duitku & Tripay */}
-                            {(selectedProvider === 'DUITKU' || selectedProvider === 'TRIPAY') && (
+                            {/* Merchant ID for Duitku, Tripay & DANA */}
+                            {(selectedProvider === 'DUITKU' || selectedProvider === 'TRIPAY' || selectedProvider === 'DANA') && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Merchant Code *
@@ -340,11 +341,15 @@ export default function PaymentGatewayTab() {
                                         type="text"
                                         value={formData.merchantId}
                                         onChange={(e) => setFormData({ ...formData, merchantId: e.target.value })}
-                                        placeholder="Enter merchant code (e.g., T1234)"
+                                        placeholder="Enter merchant code"
                                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                     />
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                        Your unique merchant code from {selectedProvider === 'TRIPAY' ? 'Tripay' : 'Duitku'} dashboard
+                                        Your unique merchant code from {
+                                            selectedProvider === 'TRIPAY' ? 'Tripay' : 
+                                            selectedProvider === 'DANA' ? 'DANA' : 
+                                            'Duitku'
+                                        } dashboard
                                     </p>
                                 </div>
                             )}

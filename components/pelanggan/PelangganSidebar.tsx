@@ -11,6 +11,17 @@ import {
   HiXMark,
   HiArrowRightOnRectangle,
 } from 'react-icons/hi2'
+import { getWithExpiry, removeWithExpiry } from '@/lib/utils/storage-with-expiry'
+
+// Types
+interface PelangganData {
+  id: string
+  idPelanggan: string
+  nama: string
+  username: string
+  status: string
+  [key: string]: any
+}
 
 // Context for sidebar state
 const SidebarContext = createContext<{
@@ -27,22 +38,51 @@ export default function PelangganSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
-  const [pelanggan, setPelanggan] = useState<any>(null)
+  const [pelanggan, setPelanggan] = useState<PelangganData | null>(null)
 
-  useEffect(() => {
-    const pelangganData = localStorage.getItem('pelanggan_data')
-    if (pelangganData) {
-      try {
-        setPelanggan(JSON.parse(pelangganData))
-      } catch (error) {
-        console.error('Error parsing pelanggan data:', error)
+  // Load pelanggan data dengan getWithExpiry
+  const loadPelangganData = () => {
+    try {
+      const data = getWithExpiry<PelangganData>('pelanggan_data')
+      if (data) {
+        setPelanggan(data)
+      } else {
+        // Data expired atau tidak ada
+        setPelanggan(null)
       }
+    } catch (error) {
+      console.error('Error loading pelanggan data:', error)
+      setPelanggan(null)
+    }
+  }
+
+  // Initial load dan auto-refresh
+  useEffect(() => {
+    loadPelangganData()
+
+    // Auto-refresh setiap 30 detik untuk sinkronisasi
+    const intervalId = setInterval(loadPelangganData, 30000)
+
+    // Refresh when window gains focus
+    const handleFocus = () => loadPelangganData()
+    window.addEventListener('focus', handleFocus)
+
+    // Refresh when visibility changes
+    const handleVisibilityChange = () => {
+      if (!document.hidden) loadPelangganData()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('pelanggan_token')
-    localStorage.removeItem('pelanggan_data')
+    removeWithExpiry('pelanggan_data')
     router.push('/pelanggan/login')
   }
 
@@ -158,8 +198,8 @@ export default function PelangganSidebar() {
                   href={item.href}
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-150 ${active
-                      ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                     }`}
                 >
                   <Icon className="w-5 h-5" />

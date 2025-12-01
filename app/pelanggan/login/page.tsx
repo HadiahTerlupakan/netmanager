@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { HiArrowPath, HiLockClosed, HiEye, HiEyeSlash, HiExclamationCircle } from 'react-icons/hi2'
 import Link from 'next/link'
+import { setWithExpiry } from '@/lib/utils/storage-with-expiry'
 
 const schema = z.object({
   idPelanggan: z
@@ -65,7 +66,9 @@ export default function PelangganLoginPage() {
       // Simpan token/session
       if (data.token) {
         localStorage.setItem('pelanggan_token', data.token)
-        localStorage.setItem('pelanggan_data', JSON.stringify(data.pelanggan))
+        // Simpan data pelanggan dengan expiry 1 jam (3600 detik)
+        // Cache HTTP tetap 10 detik, tapi localStorage lebih lama untuk UX yang lebih baik
+        setWithExpiry('pelanggan_data', data.pelanggan, 3600)
       }
 
       // Redirect ke dashboard pelanggan

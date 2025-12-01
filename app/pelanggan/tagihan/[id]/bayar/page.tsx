@@ -49,10 +49,12 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
     const [availableGateways, setAvailableGateways] = useState<PaymentGateway[]>([])
     const [selectedGateway, setSelectedGateway] = useState<string>('')
     const [error, setError] = useState<string | null>(null)
+    const [hasActiveBankAccounts, setHasActiveBankAccounts] = useState<boolean>(false)
 
     useEffect(() => {
         fetchTagihan()
         fetchAvailableGateways()
+        checkActiveBankAccounts()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resolvedParams.id])
 
@@ -90,6 +92,24 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
             }
         } catch (error) {
             console.error('Error fetching gateways:', error)
+        }
+    }
+
+    const checkActiveBankAccounts = async () => {
+        try {
+            const response = await fetch('/api/company-bank-accounts/active', {
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache',
+                },
+            })
+            if (response.ok) {
+                const accounts = await response.json()
+                setHasActiveBankAccounts(accounts.length > 0)
+            }
+        } catch (error) {
+            console.error('Error checking bank accounts:', error)
+            setHasActiveBankAccounts(false)
         }
     }
 
@@ -308,20 +328,22 @@ export default function PaymentPage({ params }: { params: Promise<{ id: string }
                         </div>
                     )}
 
-                    {/* Manual Transfer Option */}
-                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-6 mb-6">
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Transfer Manual</h2>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                            Transfer langsung ke rekening bank perusahaan dan upload bukti transfer
-                        </p>
-                        <Link
-                            href={`/pelanggan/tagihan/${resolvedParams.id}/manual-payment`}
-                            className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium"
-                        >
-                            <HiOutlineBanknotes className="w-5 h-5" />
-                            Upload Bukti Transfer
-                        </Link>
-                    </div>
+                    {/* Manual Transfer Option - Only show if there are active bank accounts */}
+                    {hasActiveBankAccounts && (
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-6 mb-6">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Transfer Manual</h2>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                Transfer langsung ke rekening bank perusahaan dan upload bukti transfer
+                            </p>
+                            <Link
+                                href={`/pelanggan/tagihan/${resolvedParams.id}/manual-payment`}
+                                className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium"
+                            >
+                                <HiOutlineBanknotes className="w-5 h-5" />
+                                Upload Bukti Transfer
+                            </Link>
+                        </div>
+                    )}
 
                     {/* Payment Link Result */}
                     {paymentLink && (
