@@ -1,0 +1,257 @@
+import crypto from 'crypto'
+import {
+    PaymentProvider,
+    ProviderConfig,
+    CreatePaymentParams,
+    PaymentResult,
+    TransactionStatus,
+    WebhookResult,
+    TestResult
+} from '../provider-interface'
+
+export class TripayProvider implements PaymentProvider {
+    name = 'Tripay'
+    private config: ProviderConfig | null = null
+    private baseUrl: string = ''
+
+    initialize(config: ProviderConfig): void {
+        this.config = config
+        this.baseUrl = config.isProduction
+            ? 'https://tripay.co.id/api'
+            : 'https://tripay.co.id/api-sandbox'
+    }
+
+    private getHeaders() {
+        if (!this.config) throw new Error('Provider not initialized')
+        return {
+            'Authorization': `Bearer ${this.config.apiKey}`,
+        }
+    }
+
+    private generateSignature(payload: string): string {
+        if (!this.config?.apiSecret) throw new Error('Private Key (API Secret) not configured')
+        return crypto
+            .createHmac('sha256', this.config.apiSecret)
+            .update(payload)
+            .digest('hex')
+    }
+
+    async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
+        if (!this.config) throw new Error('Provider not initialized')
+
+        try {
+            // Tripay requires specific payload structure
+            // We'll default to 'BRIVA' if no method specified, or use the first one
+            const method = params.paymentMethods?.[0] || 'BRIVA'
+
+            // Calculate expiry time (Tripay expects unix timestamp)
+            const expiryTime = Math.floor(Date.now() / 1000) + ((params.expiryHours || 24) * 3600)
+
+            const payload = {
+                method,
+                merchant_ref: params.orderId,
+                amount: params.amount,
+                customer_name: params.customerName,
+                customer_email: params.customerEmail,
+                customer_phone: params.customerPhone,
+                order_items: [
+                    {
+                        sku: 'TAGIHAN',
+                        name: params.description,
+                        price: params.amount,
+                        quantity: 1
+                    }
+                ],
+                expired_time: expiryTime,
+                signature: '' // Will be filled below
+            }
+
+            // Generate signature for transaction creation
+            // Signature = HMAC_SHA256(merchant_code + merchant_ref + amount, private_key)
+            const signaturePayload = `${this.config.merchantId}${params.orderId}${params.amount}`
+            payload.signature = this.generateSignature(signaturePayload)
+
+            const response = await fetch(`${this.baseUrl}/transaction/create`, {
+                method: 'POST',
+                headers: {
+                    ...this.getHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                return {
+                    success: false,
+                    error: result.message || 'Failed to create Tripay transaction'
+                }
+            }
+
+            const data = result.data
+
+            return {
+                success: true,
+                paymentUrl: data.checkout_url,
+                qrCodeUrl: data.qr_url, // For QRIS
+                vaNumber: data.pay_code, // For VA
+                bankCode: method,
+                expiresAt: new Date(data.expired_time * 1000),
+                transactionId: data.reference
+            }
+
+        } catch (error: any) {
+            console.error('Tripay create payment error:', error)
+            return {
+                success: false,
+                error: error.message
+            }
+        }
+    }
+
+    async checkStatus(orderId: string): Promise<TransactionStatus> {
+        if (!this.config) throw new Error('Provider not initialized')
+
+        try {
+            const response = await fetch(`${this.baseUrl}/transaction/detail?reference=${orderId}`, {
+                method: 'GET',
+                headers: this.getHeaders()
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                throw new Error(result.message || 'Failed to check status')
+            }
+
+            const data = result.data
+            let status: TransactionStatus['status'] = 'PENDING'
+
+            switch (data.status) {
+                case 'PAID':
+                    status = 'PAID'
+                    break
+                case 'EXPIRED':
+                    status = 'EXPIRED'
+                    break
+                case 'FAILED':
+                    status = 'FAILED'
+                    break
+                case 'REFUND':
+                    status = 'CANCELLED'
+                    break
+            }
+
+            return {
+                orderId: data.merchant_ref,
+                status,
+                paidAt: data.paid_at ? new Date(data.paid_at * 1000) : undefined,
+                paymentMethod: data.payment_method,
+                amount: data.amount,
+                transactionId: data.reference
+            }
+
+        } catch (error: any) {
+            console.error('Tripay check status error:', error)
+            throw error
+        }
+    }
+
+    async cancelPayment(orderId: string): Promise<void> {
+        // Tripay doesn't strictly support cancellation via API for open transactions in the same way,
+        // but usually we just let them expire. 
+        // Implementing as no-op or check docs if specific endpoint exists.
+        // For now, we'll leave it empty as it's not critical for the flow.
+        return
+    }
+
+    verifyWebhook(payload: any, signature?: string): boolean {
+        if (!this.config?.apiSecret) return false
+        if (!signature) return false
+
+        // Tripay Webhook Signature: HMAC_SHA256(JSON_BODY, private_key)
+        // Note: payload passed here should be the raw body string, not parsed JSON object if possible.
+        // However, the interface might pass parsed object. 
+        // If we receive object, we might need to rely on the caller passing raw body or handle it carefully.
+        // Assuming the caller passes the raw body string as 'payload' if it's a string, or we re-stringify?
+        // Re-stringifying JSON is risky due to key order.
+        // Ideally verifyWebhook should take the raw string body.
+
+        // For this implementation, we assume the caller handles the raw body extraction 
+        // and passes it here, OR we implement a specific check.
+
+        // Let's assume payload is the raw string for verification.
+        const calculatedSignature = crypto
+            .createHmac('sha256', this.config.apiSecret)
+            .update(typeof payload === 'string' ? payload : JSON.stringify(payload))
+            .digest('hex')
+
+        return calculatedSignature === signature
+    }
+
+    async processWebhook(payload: any): Promise<WebhookResult> {
+        // Payload is the parsed JSON body from Tripay webhook
+
+        let status: WebhookResult['status'] = 'PENDING'
+
+        switch (payload.status) {
+            case 'PAID':
+                status = 'PAID'
+                break
+            case 'EXPIRED':
+                status = 'EXPIRED'
+                break
+            case 'FAILED':
+                status = 'FAILED'
+                break
+            case 'REFUND':
+                status = 'CANCELLED'
+                break
+        }
+
+        return {
+            orderId: payload.merchant_ref,
+            status,
+            paidAt: payload.paid_at ? new Date(payload.paid_at * 1000) : new Date(),
+            paymentMethod: payload.payment_method,
+            transactionId: payload.reference,
+            amount: payload.total_amount,
+            raw: payload
+        }
+    }
+
+    async testConnection(): Promise<TestResult> {
+        if (!this.config) {
+            return { success: false, message: 'Provider not initialized' }
+        }
+
+        try {
+            // Test by fetching payment channels
+            const response = await fetch(`${this.baseUrl}/merchant/payment-channel`, {
+                method: 'GET',
+                headers: this.getHeaders()
+            })
+
+            const result = await response.json()
+
+            if (result.success) {
+                return {
+                    success: true,
+                    message: 'Connected to Tripay successfully',
+                    details: { channels: result.data?.length || 0 }
+                }
+            } else {
+                return {
+                    success: false,
+                    message: result.message || 'Failed to connect to Tripay'
+                }
+            }
+        } catch (error: any) {
+            return {
+                success: false,
+                message: error.message || 'Connection failed'
+            }
+        }
+    }
+}

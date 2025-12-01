@@ -9,9 +9,10 @@ const ticketRepo = new TicketRepository(prisma);
 // PATCH /api/admin/helpdesk/categories/[id] - Update category
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await verifyAuth(request);
         if (!user || user.role === 'USER') {
             return NextResponse.json(
@@ -21,7 +22,7 @@ export async function PATCH(
         }
 
         const body = await request.json();
-        const category = await ticketRepo.updateCategory(params.id, body);
+        const category = await ticketRepo.updateCategory(id, body);
 
         return NextResponse.json({
             success: true,
@@ -40,9 +41,10 @@ export async function PATCH(
 // DELETE /api/admin/helpdesk/categories/[id] - Delete (soft delete) category
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await verifyAuth(request);
         if (!user || user.role === 'USER') {
             return NextResponse.json(
@@ -51,7 +53,7 @@ export async function DELETE(
             );
         }
 
-        await ticketRepo.deleteCategory(params.id);
+        await ticketRepo.deleteCategory(id);
 
         return NextResponse.json({
             success: true,

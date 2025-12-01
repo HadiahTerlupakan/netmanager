@@ -6,6 +6,7 @@ import { MidtransProvider } from './providers/midtrans-provider'
 import { DuitkuProvider } from './providers/duitku-provider'
 import { BRIProvider } from './providers/bri-provider'
 import { BCAProvider } from './providers/bca-provider'
+import { TripayProvider } from './providers/tripay-provider'
 
 export class ProviderFactory {
     /**
@@ -29,6 +30,9 @@ export class ProviderFactory {
             case 'BCA':
             case 'BCA_API':
                 return new BCAProvider()
+
+            case 'TRIPAY':
+                return new TripayProvider()
 
             default:
                 throw new Error(`Unknown payment provider: ${type}`)
