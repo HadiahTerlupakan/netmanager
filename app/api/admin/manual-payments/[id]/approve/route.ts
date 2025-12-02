@@ -1,6 +1,6 @@
 // API for admin to approve manual payment
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 
 const prisma = new PrismaClient()
 

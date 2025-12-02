@@ -22,8 +22,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!session) {
     redirect('/login?callbackUrl=/admin')
   }
-  // Optional RBAC: hanya ADMIN
-  if (session?.user?.role && session.user.role !== 'ADMIN') {
+  // Permitted roles: ADMIN, HR, FINANCE - these roles have access to different parts of the admin portal
+  const permittedRoles = ['ADMIN', 'HR', 'FINANCE'];
+  if (session?.user?.role && !permittedRoles.includes(session.user.role)) {
     redirect('/')
   }
   return (

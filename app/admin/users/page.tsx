@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlinePlus, HiOutlineBriefcase, HiOutlineUserCircle } from 'react-icons/hi2'
+import { HiOutlinePlus, HiOutlineBriefcase, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUserGroup, HiOutlineUsers, HiOutlineBuildingOffice } from 'react-icons/hi2'
 
 interface User {
   id: string
@@ -23,6 +23,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'ALL' | 'EMPLOYEE' | 'SYSTEM'>('ALL')
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     fetchUsers()
@@ -44,103 +45,201 @@ export default function UsersPage() {
   }
 
   const filteredUsers = users.filter(user => {
-    if (filter === 'EMPLOYEE') return !!user.employee
-    if (filter === 'SYSTEM') return !user.employee
-    return true
+    const matchesFilter = filter === 'ALL' ||
+      (filter === 'EMPLOYEE' && user.employee) ||
+      (filter === 'SYSTEM' && !user.employee)
+
+    const matchesSearch = searchTerm === '' ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.employee?.employeeId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.employee?.department?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+
+    return matchesFilter && matchesSearch
   })
 
+  // Statistics for cards
+  const totalUsers = users.length
+  const totalEmployees = users.filter(u => u.employee).length
+  const totalSystemUsers = users.filter(u => !u.employee).length
+
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Users & Employees</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manajemen Pengguna</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             Kelola pengguna sistem dan data karyawan
           </p>
         </div>
         <Link
           href="/admin/users/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
         >
-          <HiOutlinePlus className="w-4 h-4" />
-          Tambah User
+          <HiOutlinePlus className="w-5 h-5" />
+          Tambah Pengguna
         </Link>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => setFilter('ALL')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${filter === 'ALL'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-        >
-          All ({users.length})
-        </button>
-        <button
-          onClick={() => setFilter('EMPLOYEE')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${filter === 'EMPLOYEE'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-        >
-          Employees ({users.filter(u => u.employee).length})
-        </button>
-        <button
-          onClick={() => setFilter('SYSTEM')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${filter === 'SYSTEM'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-        >
-          System Users ({users.filter(u => !u.employee).length})
-        </button>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-500/10 rounded-lg">
+              <HiOutlineUsers className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalUsers}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Pengguna</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-indigo-50 to-indigo-100 dark:from-indigo-900/30 dark:to-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-5">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-indigo-500/10 rounded-lg">
+              <HiOutlineUserGroup className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalEmployees}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Pegawai</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-900/20 border border-gray-200 dark:border-gray-800 rounded-xl p-5">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gray-500/10 rounded-lg">
+              <HiOutlineUserCircle className="w-7 h-7 text-gray-600 dark:text-gray-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalSystemUsers}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Pengguna Sistem</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Users Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Filters and Search */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <HiMagnifyingGlass className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Cari pengguna berdasarkan email, nama, ID pegawai, atau departemen..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="flex rounded-lg bg-gray-100 dark:bg-gray-700/50 p-1">
+            <button
+              onClick={() => setFilter('ALL')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${filter === 'ALL'
+                ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+            >
+              <HiOutlineUserCircle className="w-4 h-4" />
+              Semua ({users.length})
+            </button>
+            <button
+              onClick={() => setFilter('EMPLOYEE')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${filter === 'EMPLOYEE'
+                ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+            >
+              <HiOutlineBriefcase className="w-4 h-4" />
+              Pegawai ({users.filter(u => u.employee).length})
+            </button>
+            <button
+              onClick={() => setFilter('SYSTEM')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${filter === 'SYSTEM'
+                ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+            >
+              <HiOutlineUserCircle className="w-4 h-4" />
+              Sistem ({users.filter(u => !u.employee).length})
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Users List */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Loading...</div>
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-500 mb-3"></div>
+              <p className="text-gray-600 dark:text-gray-400">Memuat data pengguna...</p>
+            </div>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="mx-auto w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+              <HiOutlineUsers className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Tidak ada pengguna ditemukan</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">
+              {searchTerm ? 'Coba ubah kata kunci pencarian Anda' : 'Mulai dengan menambahkan pengguna baru'}
+            </p>
+            <Link
+              href="/admin/users/new"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              <HiOutlinePlus className="w-5 h-5" />
+              Tambah Pengguna
+            </Link>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    User
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                    Pengguna
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Role
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                    Peran
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Type
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                    Tipe
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Employee ID
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                    ID Pegawai
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Department
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                    Departemen
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Created
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                    Dibuat
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Action
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                    Aksi
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
                 {filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        {user.employee ? (
-                          <HiOutlineBriefcase className="w-5 h-5 text-indigo-600" />
-                        ) : (
-                          <HiOutlineUserCircle className="w-5 h-5 text-gray-400" />
-                        )}
+                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                          {user.employee ? (
+                            <HiOutlineBriefcase className="w-5 h-5 text-white" />
+                          ) : (
+                            <HiOutlineUserCircle className="w-5 h-5 text-white" />
+                          )}
+                        </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {user.name || user.email.split('@')[0]}
@@ -149,46 +248,55 @@ export default function UsersPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'ADMIN'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                            : user.role === 'HR'
-                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${user.role === 'ADMIN'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                          : user.role === 'HR'
+                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                            : user.role === 'FINANCE'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
                               : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                           }`}
                       >
                         {user.role}
                       </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {user.employee ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400">
-                          Employee
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400">
+                          Pegawai
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
-                          System
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
+                          Sistem
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                       {user.employee?.employeeId || '-'}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {user.employee?.department?.name || '-'}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {user.employee?.department?.name ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <HiOutlineBuildingOffice className="w-3.5 h-3.5 text-gray-400" />
+                          {user.employee.department.name}
+                        </span>
+                      ) : (
+                        '-'
+                      )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                       {new Date(user.createdAt).toLocaleDateString('id-ID', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
                       })}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link
                         href={`/admin/users/${user.id}`}
-                        className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
                       >
                         Edit
                       </Link>
@@ -197,12 +305,6 @@ export default function UsersPage() {
                 ))}
               </tbody>
             </table>
-
-            {filteredUsers.length === 0 && (
-              <div className="p-8 text-center text-gray-500">
-                No users found
-              </div>
-            )}
           </div>
         )}
       </div>

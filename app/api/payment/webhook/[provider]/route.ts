@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { PaymentGatewayManager } from '@/lib/services/payment-gateway/gateway-manager'
 
-const prisma = new PrismaClient()
+// using shared prisma singleton
 const gatewayManager = new PaymentGatewayManager(prisma)
 
 export async function POST(

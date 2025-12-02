@@ -1,8 +1,8 @@
 // API to get enabled payment gateways for customer use
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 
-const prisma = new PrismaClient()
+// using shared prisma singleton
 
 export async function GET(request: NextRequest) {
     try {

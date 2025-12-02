@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { MRRService } from '@/lib/services/mrr-service'
 
 const prisma = new PrismaClient()

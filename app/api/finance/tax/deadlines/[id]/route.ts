@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
-
-// GET /api/finance/tax/deadlines/[id] - Get single deadline
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authConfig } from '@/lib/auth'
 export async function GET(
     request: NextRequest,
     { params }: { params: { id: string } }

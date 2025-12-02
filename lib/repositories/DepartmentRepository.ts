@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import type {
     IDepartmentRepository,
     DepartmentPublic,
@@ -6,8 +6,6 @@ import type {
     DepartmentCreateData,
     DepartmentUpdateData,
 } from './IDepartmentRepository'
-
-const prisma = new PrismaClient()
 
 export class DepartmentRepository implements IDepartmentRepository {
     async findAll(): Promise<DepartmentWithEmployeeCount[]> {

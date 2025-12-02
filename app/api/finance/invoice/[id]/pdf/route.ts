@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { InvoicePDFService } from '@/lib/services/invoice-pdf-service'
 
 const prisma = new PrismaClient()

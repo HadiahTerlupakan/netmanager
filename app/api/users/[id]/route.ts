@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getUserRepository } from '@/lib/repositories'
+import { prisma } from '@/lib/prisma'
 import { userUpdateSchema } from '@/lib/validations/user'
 import { hash } from 'bcryptjs'
 
@@ -81,6 +82,55 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
 
   await userRepository.update(id, data)
   return NextResponse.json({ ok: true })
+}
+
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAdmin()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { id } = await params
+
+  try {
+    // Fetch user
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    })
+
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+
+    // Fetch linked employee if exists
+    const emp = await prisma.employee.findFirst({
+      where: { userId: id },
+      include: {
+        department: {
+          select: { id: true, name: true },
+        },
+        position: {
+          select: { id: true, title: true },
+        },
+      },
+    })
+
+    const employee = emp
+      ? {
+          id: emp.id,
+          employeeId: emp.employeeId,
+          department: emp.department,
+          position: emp.position,
+          employmentStatus: emp.employmentStatus,
+        }
+      : null
+
+    return NextResponse.json({ user: { ...user, employee } })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || 'Gagal memuat pengguna' }, { status: 500 })
+  }
 }
 
 /**

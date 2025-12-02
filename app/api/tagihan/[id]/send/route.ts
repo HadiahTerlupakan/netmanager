@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { EmailService } from '@/lib/services/email-service'
 import { InvoicePDFService } from '@/lib/services/invoice-pdf-service'
 
-const prisma = new PrismaClient()
+// using shared prisma singleton
 
 export async function POST(
     request: NextRequest,

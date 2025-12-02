@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma'
 import { USORepository } from '@/lib/repositories/USORepository';
 import { PengeluaranRepository } from '@/lib/repositories/PengeluaranRepository';
 
-const prisma = new PrismaClient();
 const usoRepo = new USORepository(prisma);
 const pengeluaranRepo = new PengeluaranRepository(prisma);
 

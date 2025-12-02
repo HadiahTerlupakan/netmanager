@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma'
 import { USORepository } from '@/lib/repositories/USORepository';
 
-const prisma = new PrismaClient();
 const usoRepo = new USORepository(prisma);
 
 // GET /api/finance/uso/[id] - Get USO detail

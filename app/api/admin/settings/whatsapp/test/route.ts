@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { WhatsAppService } from '@/lib/services/whatsapp/whatsapp-service'
 
 const prisma = new PrismaClient()

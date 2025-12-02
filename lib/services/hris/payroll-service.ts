@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { AttendanceRepository } from '@/lib/repositories/AttendanceRepository'
 import { EmployeeRepository } from '@/lib/repositories/EmployeeRepository'
-
-const prisma = new PrismaClient()
 
 interface PayrollCalculation {
     employeeId: string

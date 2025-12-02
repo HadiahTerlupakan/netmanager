@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma'
 import { DeferredRevenueRepository } from '@/lib/repositories/DeferredRevenueRepository';
 
-const prisma = new PrismaClient();
 const deferredRepo = new DeferredRevenueRepository(prisma);
 
 // GET /api/finance/deferred/[id] - Get detail

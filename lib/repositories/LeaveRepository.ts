@@ -1,4 +1,5 @@
-import { PrismaClient, LeaveType, LeaveStatus } from '@prisma/client'
+import { LeaveType, LeaveStatus } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import type {
     ILeaveRequestRepository,
     ILeaveBalanceRepository,
@@ -9,8 +10,6 @@ import type {
     LeaveRequestFilters,
     LeaveBalancePublic,
 } from './ILeaveRepository'
-
-const prisma = new PrismaClient()
 
 export class LeaveRequestRepository implements ILeaveRequestRepository {
     async findAll(filters?: LeaveRequestFilters): Promise<LeaveRequestWithEmployee[]> {

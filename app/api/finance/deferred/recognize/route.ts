@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma'
 import { DeferredRevenueRepository } from '@/lib/repositories/DeferredRevenueRepository';
 
-const prisma = new PrismaClient();
 const deferredRepo = new DeferredRevenueRepository(prisma);
 
 // POST /api/finance/deferred/recognize - Manually trigger recognition

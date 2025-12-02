@@ -7,7 +7,11 @@ import {
     HiOutlineClock,
     HiOutlineCalendar,
     HiOutlineBanknotes,
-    HiOutlineCheckCircle
+    HiOutlineCheckCircle,
+    HiOutlineUser,
+    HiOutlineArrowTrendingUp,
+    HiOutlineArrowTrendingDown,
+    HiOutlineExclamationTriangle
 } from 'react-icons/hi2'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
@@ -50,15 +54,12 @@ export default function EmployeeDashboard() {
     const loadDashboardData = async () => {
         setLoading(true)
         try {
-            // Fetch attendance stats
             const attendanceRes = await fetch('/api/hris/attendance/summary')
             const attendanceData = attendanceRes.ok ? await attendanceRes.json() : null
 
-            // Fetch leave balance
             const leaveRes = await fetch('/api/hris/leaves/balance')
             const leaveData = leaveRes.ok ? await leaveRes.json() : null
 
-            // Fetch latest payslip
             const payslipRes = await fetch('/api/hris/payslips/latest')
             const payslipData = payslipRes.ok ? await payslipRes.json() : null
 
@@ -92,17 +93,22 @@ export default function EmployeeDashboard() {
         }).format(Number(amount))
     }
 
+    const attendancePercentage = stats?.attendance?.thisMonth && stats.attendance.thisMonth > 0
+        ? Math.round((stats.attendance.present / stats.attendance.thisMonth) * 100)
+        : 0
+
     if (status === 'loading' || loading) {
         return (
-            <div className="space-y-6">
-                {/* Welcome Header Skeleton */}
-                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
-                    <div className="h-8 w-48 bg-white/20 rounded mb-2 animate-pulse" />
-                    <div className="h-4 w-64 bg-white/20 rounded animate-pulse" />
+            <div className="space-y-6 sm:space-y-8 fade-in">
+                <div className="glass rounded-3xl shadow-xl p-8 sm:p-10 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-400/20 to-purple-400/20 rounded-full blur-3xl" />
+                    <div className="relative">
+                        <div className="h-10 w-64 skeleton rounded-lg mb-3" />
+                        <div className="h-6 w-80 skeleton rounded-lg" />
+                    </div>
                 </div>
 
-                {/* Stats Skeletons */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                     <StatCardSkeleton />
                     <StatCardSkeleton />
                     <StatCardSkeleton />
@@ -112,162 +118,229 @@ export default function EmployeeDashboard() {
     }
 
     return (
-        <div className="space-y-6">
-            {/* Welcome Header */}
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-6 sm:p-8 text-white">
-                <h1 className="text-2xl sm:text-3xl font-bold mb-2 leading-tight">
-                    Welcome Back, {session?.user?.name || 'Employee'}!
-                </h1>
-                <p className="text-indigo-100 text-base sm:text-lg">Here's your overview for today</p>
+        <div className="space-y-6 sm:space-y-8 fade-in">
+            {/* Hero Welcome Header */}
+            <div className="relative overflow-hidden rounded-3xl shadow-2xl">
+                <div className="absolute inset-0 gradient-vibrant opacity-95" />
+                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -mr-48 -mt-48" />
+                <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -ml-40 -mb-40" />
+
+                <div className="relative p-6 sm:p-8 lg:p-10 text-white">
+                    <p className="text-sm sm:text-base font-medium text-white/80 mb-2">
+                        {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 leading-tight drop-shadow-md">
+                        Selamat Datang, {session?.user?.name?.split(' ')[0] || 'Employee'}! 👋
+                    </h1>
+                    <p className="text-base sm:text-lg text-white/90 max-w-2xl">
+                        Semoga harimu menyenangkan. Berikut ringkasan aktivitas dan informasi pentingmu hari ini.
+                    </p>
+
+                    {stats && stats.attendance.thisMonth > 0 && (
+                        <div className="flex items-center gap-3 mt-6 p-4 bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                            <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm">
+                                {attendancePercentage >= 80 ? (
+                                    <HiOutlineArrowTrendingUp className="w-7 h-7 text-white" />
+                                ) : attendancePercentage >= 50 ? (
+                                    <HiOutlineExclamationTriangle className="w-7 h-7 text-white" />
+                                ) : (
+                                    <HiOutlineArrowTrendingDown className="w-7 h-7 text-white" />
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm text-white/80 mb-1">Tingkat Kehadiran Bulan Ini</p>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl sm:text-3xl font-bold">{attendancePercentage}%</span>
+                                    <span className="text-sm text-white/70">
+                                        {stats.attendance.present} dari {stats.attendance.thisMonth} hari
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {stats && (
                 <>
-                    {/* Quick Stats */}
+                    {/* Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-                        {/* Attendance This Month */}
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6 hover:shadow-lg transition-shadow">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                                    Attendance This Month
-                                </h3>
-                                <HiOutlineClock className="w-8 h-8 sm:w-10 sm:h-10 text-indigo-600 flex-shrink-0" />
-                            </div>
-                            <div className="space-y-2.5 sm:space-y-2">
-                                <div className="flex justify-between text-base sm:text-sm">
-                                    <span className="text-gray-600 dark:text-gray-400">Present:</span>
-                                    <span className="font-semibold text-green-600">{stats.attendance.present}</span>
+                        {/* Attendance */}
+                        <div className="group bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 sm:p-7 card-hover">
+                            <div className="flex items-start justify-between mb-5">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Kehadiran Bulan Ini</p>
+                                    <h3 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">{stats.attendance.thisMonth}</h3>
                                 </div>
-                                <div className="flex justify-between text-base sm:text-sm">
-                                    <span className="text-gray-600 dark:text-gray-400">Late:</span>
-                                    <span className="font-semibold text-yellow-600">{stats.attendance.late}</span>
-                                </div>
-                                <div className="flex justify-between text-base sm:text-sm">
-                                    <span className="text-gray-600 dark:text-gray-400">Absent:</span>
-                                    <span className="font-semibold text-red-600">{stats.attendance.absent}</span>
+                                <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-500/30 group-hover:scale-110 transition-transform">
+                                    <HiOutlineClock className="w-7 h-7 text-white" />
                                 </div>
                             </div>
-                            <Link
-                                href="/employee/attendance"
-                                className="mt-5 sm:mt-4 block text-center text-base sm:text-sm text-indigo-600 hover:text-indigo-700 font-medium touch-manipulation py-2"
-                            >
-                                Check In/Out →
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                                        Hadir
+                                    </span>
+                                    <span className="text-base font-semibold text-green-600 dark:text-green-400">{stats.attendance.present}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                                        Terlambat
+                                    </span>
+                                    <span className="text-base font-semibold text-yellow-600 dark:text-yellow-400">{stats.attendance.late}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                                        Tidak Hadir
+                                    </span>
+                                    <span className="text-base font-semibold text-red-600 dark:text-red-400">{stats.attendance.absent}</span>
+                                </div>
+                            </div>
+                            <Link href="/employee/attendance" className="mt-5 flex items-center justify-center gap-2 w-full py-3 px-4 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-xl font-medium text-sm transition-all active:scale-95 touch-manipulation">
+                                <HiOutlineClock className="w-5 h-5" />
+                                Check In/Out
                             </Link>
                         </div>
 
                         {/* Leave Balance */}
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6 hover:shadow-lg transition-shadow">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                                    Leave Balance
-                                </h3>
-                                <HiOutlineCalendar className="w-8 h-8 sm:w-10 sm:h-10 text-purple-600 flex-shrink-0" />
-                            </div>
-                            <div className="space-y-2.5 sm:space-y-2">
-                                <div className="flex justify-between text-base sm:text-sm">
-                                    <span className="text-gray-600 dark:text-gray-400">Annual:</span>
-                                    <span className="font-semibold text-gray-900 dark:text-white">
-                                        {stats.leave.annual.remaining}/{stats.leave.annual.total} days
-                                    </span>
+                        <div className="group bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 sm:p-7 card-hover">
+                            <div className="flex items-start justify-between mb-5">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Saldo Cuti</p>
+                                    <h3 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">{stats.leave.annual.remaining + stats.leave.sick.remaining}</h3>
                                 </div>
-                                <div className="flex justify-between text-base sm:text-sm">
-                                    <span className="text-gray-600 dark:text-gray-400">Sick:</span>
-                                    <span className="font-semibold text-gray-900 dark:text-white">
-                                        {stats.leave.sick.remaining}/{stats.leave.sick.total} days
-                                    </span>
+                                <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-500/30 group-hover:scale-110 transition-transform">
+                                    <HiOutlineCalendar className="w-7 h-7 text-white" />
                                 </div>
-                                {stats.leave.pendingRequests > 0 && (
-                                    <div className="mt-2 px-3 py-1.5 bg-yellow-100 dark:bg-yellow-900/30 rounded text-sm sm:text-xs text-yellow-800 dark:text-yellow-400">
-                                        {stats.leave.pendingRequests} pending request(s)
-                                    </div>
-                                )}
                             </div>
-                            <Link
-                                href="/employee/leaves"
-                                className="mt-5 sm:mt-4 block text-center text-base sm:text-sm text-indigo-600 hover:text-indigo-700 font-medium touch-manipulation py-2"
-                            >
-                                Request Leave →
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Cuti Tahunan</span>
+                                    <span className="text-base font-semibold text-gray-900 dark:text-white">{stats.leave.annual.remaining}/{stats.leave.annual.total} hari</span>
+                                </div>
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all" style={{ width: `${(stats.leave.annual.remaining / stats.leave.annual.total) * 100}%` }} />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Cuti Sakit</span>
+                                    <span className="text-base font-semibold text-gray-900 dark:text-white">{stats.leave.sick.remaining}/{stats.leave.sick.total} hari</span>
+                                </div>
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all" style={{ width: `${(stats.leave.sick.remaining / stats.leave.sick.total) * 100}%` }} />
+                                </div>
+                            </div>
+                            {stats.leave.pendingRequests > 0 && (
+                                <div className="mt-4 px-4 py-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dar:border-yellow-800 rounded-xl">
+                                    <p className="text-sm text-yellow-800 dark:text-yellow-400 font-medium text-center">{stats.leave.pendingRequests} pengajuan menunggu</p>
+                                </div>
+                            )}
+                            <Link href="/employee/leaves" className="mt-5 flex items-center justify-center gap-2 w-full py-3 px-4 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-xl font-medium text-sm transition-all active:scale-95 touch-manipulation">
+                                <HiOutlineCalendar className="w-5 h-5" />
+                                Ajukan Cuti
                             </Link>
                         </div>
 
                         {/* Latest Payslip */}
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6 hover:shadow-lg transition-shadow">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                                    Latest Payslip
-                                </h3>
-                                <HiOutlineBanknotes className="w-8 h-8 sm:w-10 sm:h-10 text-green-600 flex-shrink-0" />
+                        <div className="group bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 sm:p-7 card-hover">
+                            <div className="flex items-start justify-between mb-5">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Slip Gaji Terakhir</p>
+                                    {stats.latestPayslip && (
+                                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                                            {new Date(stats.latestPayslip.year, stats.latestPayslip.month - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-gradient-to-br from-green-500 to-green-600 shadow-lg shadow-green-500/30 group-hover:scale-110 transition-transform">
+                                    <HiOutlineBanknotes className="w-7 h-7 text-white" />
+                                </div>
                             </div>
                             {stats.latestPayslip ? (
                                 <div className="space-y-2">
-                                    <div className="text-sm sm:text-xs text-gray-500 dark:text-gray-400">
-                                        {new Date(stats.latestPayslip.year, stats.latestPayslip.month - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
-                                    </div>
-                                    <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                                    <div className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white break-words">
                                         {formatCurrency(stats.latestPayslip.netSalary)}
                                     </div>
-                                    <div className="text-sm sm:text-xs text-gray-500 dark:text-gray-400">Net Salary</div>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Gaji Bersih</p>
                                 </div>
                             ) : (
-                                <p className="text-base sm:text-sm text-gray-500 dark:text-gray-400">No payslip available</p>
+                                <div className="py-8">
+                                    <p className="text-center text-gray-500 dark:text-gray-400 text-sm">Belum ada slip gaji tersedia</p>
+                                </div>
                             )}
-                            <Link
-                                href="/employee/payslips"
-                                className="mt-5 sm:mt-4 block text-center text-base sm:text-sm text-indigo-600 hover:text-indigo-700 font-medium touch-manipulation py-2"
-                            >
-                                View All →
+                            <Link href="/employee/payslips" className="mt-5 flex items-center justify-center gap-2 w-full py-3 px-4 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 rounded-xl font-medium text-sm transition-all active:scale-95 touch-manipulation">
+                                <HiOutlineBanknotes className="w-5 h-5" />
+                                Lihat Semua
                             </Link>
                         </div>
                     </div>
 
                     {/* Quick Actions */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6">
-                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-5 sm:mb-4">
-                            Quick Actions
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-3">
-                            <Link
-                                href="/employee/attendance"
-                                className="group flex flex-col items-center gap-3 p-4 sm:p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all touch-manipulation min-h-[100px] sm:min-h-0"
-                            >
-                                <HiOutlineClock className="w-8 h-8 sm:w-6 md:w-8 md:h-8 text-indigo-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-sm sm:text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">Check In/Out</span>
+                    <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 sm:p-8">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                                <HiOutlineCheckCircle className="w-6 h-6 text-white" />
+                            </div>
+                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Aksi Cepat</h2>
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <Link href="/employee/attendance" className="group flex flex-col items-center gap-4 p-6 sm:p-5 border-2 border-gray-200 dark:border-gray-700 rounded-2xl hover:border-indigo-500 hover:shadow-lg transition-all ripple touch-manipulation min-h-[130px] sm:min-h-[140px] bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50">
+                                <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg group-hover:scale-110 transition-transform">
+                                    <HiOutlineClock className="w-7 h-7 text-white" />
+                                </div>
+                                <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white text-center">Absensi</span>
                             </Link>
-                            <Link
-                                href="/employee/leaves"
-                                className="group flex flex-col items-center gap-3 p-4 sm:p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all touch-manipulation min-h-[100px] sm:min-h-0"
-                            >
-                                <HiOutlineCalendar className="w-8 h-8 sm:w-6 md:w-8 md:h-8 text-purple-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-sm sm:text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">Request Leave</span>
+                            <Link href="/employee/leaves" className="group flex flex-col items-center gap-4 p-6 sm:p-5 border-2 border-gray-200 dark:border-gray-700 rounded-2xl hover:border-purple-500 hover:shadow-lg transition-all ripple touch-manipulation min-h-[130px] sm:min-h-[140px] bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50">
+                                <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg group-hover:scale-110 transition-transform">
+                                    <HiOutlineCalendar className="w-7 h-7 text-white" />
+                                </div>
+                                <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white text-center">Ajukan Cuti</span>
                             </Link>
-                            <Link
-                                href="/employee/payslips"
-                                className="group flex flex-col items-center gap-3 p-4 sm:p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all touch-manipulation min-h-[100px] sm:min-h-0"
-                            >
-                                <HiOutlineBanknotes className="w-8 h-8 sm:w-6 md:w-8 md:h-8 text-green-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-sm sm:text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">View Payslips</span>
+                            <Link href="/employee/payslips" className="group flex flex-col items-center gap-4 p-6 sm:p-5 border-2 border-gray-200 dark:border-gray-700 rounded-2xl hover:border-green-500 hover:shadow-lg transition-all ripple touch-manipulation min-h-[130px] sm:min-h-[140px] bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50">
+                                <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-gradient-to-br from-green-500 to-green-600 shadow-lg group-hover:scale-110 transition-transform">
+                                    <HiOutlineBanknotes className="w-7 h-7 text-white" />
+                                </div>
+                                <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white text-center">Slip Gaji</span>
                             </Link>
-                            <Link
-                                href="/employee/profile"
-                                className="group flex flex-col items-center gap-3 p-4 sm:p-3 md:p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all touch-manipulation min-h-[100px] sm:min-h-0"
-                            >
-                                <HiOutlineCheckCircle className="w-8 h-8 sm:w-6 md:w-8 md:h-8 text-blue-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-sm sm:text-xs md:text-sm font-medium text-gray-900 dark:text-white text-center">My Profile</span>
+                            <Link href="/employee/profile" className="group flex flex-col items-center gap-4 p-6 sm:p-5 border-2 border-gray-200 dark:border-gray-700 rounded-2xl hover:border-blue-500 hover:shadow-lg transition-all ripple touch-manipulation min-h-[130px] sm:min-h-[140px] bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50">
+                                <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg group-hover:scale-110 transition-transform">
+                                    <HiOutlineUser className="w-7 h-7 text-white" />
+                                </div>
+                                <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white text-center">Profil Saya</span>
                             </Link>
                         </div>
                     </div>
 
                     {/* Info Notice */}
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-5 sm:p-4">
-                        <h4 className="text-base sm:text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3 sm:mb-2">
-                            📢 Important Notes
-                        </h4>
-                        <ul className="text-base sm:text-sm text-blue-800 dark:text-blue-200 space-y-2 sm:space-y-1 ml-5 sm:ml-4 list-disc leading-relaxed">
-                            <li>Remember to check in/out every day with geolocation enabled</li>
-                            <li>Submit leave requests at least 3 days in advance</li>
-                            <li>Payslips are available on the 5th of each month</li>
-                            <li>Update your profile if there are any changes to your information</li>
-                        </ul>
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-2xl p-6 sm:p-7 shadow-md">
+                        <div className="flex items-start gap-4">
+                            <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-blue-500 shadow-lg">
+                                <span className="text-2xl">📢</span>
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-3">Catatan Penting</h3>
+                                <ul className="space-y-2.5 text-sm sm:text-base text-blue-800 dark:text-blue-200 leading-relaxed">
+                                    <li className="flex items-start gap-3">
+                                        <span className="text-blue-500 mt-0.5">•</span>
+                                        <span>Jangan lupa absen setiap hari dengan geolocation aktif</span>
+                                    </li>
+                                    <li className="flex items-start gap-3">
+                                        <span className="text-blue-500 mt-0.5">•</span>
+                                        <span>Ajukan cuti minimal 3 hari sebelumnya</span>
+                                    </li>
+                                    <li className="flex items-start gap-3">
+                                        <span className="text-blue-500 mt-0.5">•</span>
+                                        <span>Slip gaji tersedia setiap tanggal 5 setiap bulan</span>
+                                    </li>
+                                    <li className="flex items-start gap-3">
+                                        <span className="text-blue-500 mt-0.5">•</span>
+                                        <span>Update profil jika ada perubahan data pribadi</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </>
             )}

@@ -1,4 +1,5 @@
-import { PrismaClient, AttendanceStatus } from '@prisma/client'
+import { AttendanceStatus } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import type {
     IAttendanceRepository,
     AttendancePublic,
@@ -8,8 +9,6 @@ import type {
     AttendanceUpdateData,
     AttendanceFilters,
 } from './IAttendanceRepository'
-
-const prisma = new PrismaClient()
 
 export class AttendanceRepository implements IAttendanceRepository {
     async findAll(filters?: AttendanceFilters): Promise<AttendanceWithEmployee[]> {

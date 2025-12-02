@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { BankReconciliationService } from '@/lib/services/bank-reconciliation-service'
 
 const prisma = new PrismaClient()

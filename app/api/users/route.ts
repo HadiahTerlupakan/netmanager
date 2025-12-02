@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getUserRepository } from '@/lib/repositories'
 import { userCreateSchema } from '@/lib/validations/user'
+import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { logger } from '@/lib/logger'
 
@@ -57,10 +58,6 @@ export async function GET() {
       logger.warn('Unauthorized access attempt to GET /api/users')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    // Use Prisma client directly
-    const { PrismaClient } = await import('@prisma/client')
-    const prisma = new PrismaClient()
 
     try {
       const dbStart = Date.now()
@@ -117,8 +114,6 @@ export async function GET() {
 
       logger.dbOperation('findMany', 'User+Employee', Date.now() - dbStart)
 
-      await prisma.$disconnect()
-
       logger.apiRequest('GET', '/api/users', 200, Date.now() - startTime, {
         userId: session.user.id,
         userCount: users.length,
@@ -126,7 +121,7 @@ export async function GET() {
 
       return NextResponse.json({ users: usersWithEmployees })
     } finally {
-      await prisma.$disconnect()
+      // do not disconnect shared prisma client
     }
   } catch (error: any) {
     logger.error('Error fetching users', error, {
@@ -232,10 +227,15 @@ export async function POST(req: Request) {
       emergencyName, emergencyPhone, emergencyRelation
     } = formData
 
-    // Validate required fields
-    if (!email || !password || !role || !employeeId || !joinDate) {
+    // Validate required fields using zod schema
+    const parsed = userCreateSchema.safeParse({ email, name, password, role })
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    }
+
+    if (!employeeId || !joinDate) {
       return NextResponse.json(
-        { error: 'Missing required fields: email, password, role, employeeId, joinDate' },
+        { error: 'Missing required fields: employeeId, joinDate' },
         { status: 400 }
       )
     }
@@ -248,10 +248,6 @@ export async function POST(req: Request) {
     })
 
     const passwordHash = await hash(password, 10)
-
-    // Use Prisma client directly for transaction
-    const { PrismaClient } = await import('@prisma/client')
-    const prisma = new PrismaClient()
 
     try {
       // Create User + Employee in single transaction (ALL users are employees)
@@ -273,7 +269,7 @@ export async function POST(req: Request) {
         // 2. Create Employee record linked to user (ALWAYS)
         const employee = await tx.employee.create({
           data: {
-            employeeId,
+            employeeId: employeeId.toUpperCase(), // Ensure uppercase for consistent auth
             fullName: name || email.split('@')[0],
             email,
             phone: phone || null,
@@ -308,8 +304,6 @@ export async function POST(req: Request) {
         return { user, employee }
       })
 
-      await prisma.$disconnect()
-
       logger.apiRequest('POST', '/api/users', 200, Date.now() - startTime, {
         userId: session.user.id,
         newUserId: result.user.id,
@@ -321,24 +315,30 @@ export async function POST(req: Request) {
         employeeId: result.employee.id,
         message: 'User & Employee created successfully',
       })
-    } finally {
-      await prisma.$disconnect()
+    } catch (e: any) {
+      logger.error('Error creating user', e, {
+        path: '/api/users',
+        method: 'POST',
+      })
+
+      if (e.code === 'P2002') {
+        // Prisma unique constraint error
+        return NextResponse.json({ error: 'Email or Employee ID already exists' }, { status: 409 })
+      }
+
+      return NextResponse.json(
+        { error: e.message || 'Gagal membuat pengguna' },
+        { status: 500 }
+      )
     }
-  } catch (e: any) {
-    logger.error('Error creating user', e, {
+  } catch (error: any) {
+    logger.error('Error in POST /api/users', error, {
       path: '/api/users',
       method: 'POST',
     })
-
-    if (e.code === 'P2002') {
-      // Prisma unique constraint error
-      return NextResponse.json({ error: 'Email or Employee ID already exists' }, { status: 409 })
-    }
-
     return NextResponse.json(
-      { error: e.message || 'Gagal membuat pengguna' },
+      { error: 'Gagal memuat permintaan' },
       { status: 500 }
     )
   }
 }
-
