@@ -56,6 +56,12 @@ const nextConfig: NextConfig = {
               "frame-ancestors 'self'",
               "base-uri 'self'",
               "form-action 'self'",
+              "object-src 'none'",
+              "media-src 'self'",
+              "manifest-src 'self'",
+              "worker-src 'self' blob:",
+              "frame-src 'self'",
+              "child-src 'self'",
             ].filter(Boolean).join('; ')
           }
         ],

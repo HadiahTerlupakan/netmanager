@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { BudgetRepository } from '@/lib/repositories/BudgetRepository';
 
-const prisma = new PrismaClient();
 const budgetRepo = new BudgetRepository(prisma);
 
 // GET /api/finance/budget/analysis

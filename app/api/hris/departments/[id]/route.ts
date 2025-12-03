@@ -47,6 +47,28 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 }
 
+// PATCH /api/hris/departments/[id] - Same as PUT for partial updates
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+    try {
+        const session: any = await getServerSession(authConfig as any)
+        if (!session) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        if (session.user.role !== 'ADMIN' && session.user.role !== 'HR') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
+        const body = await req.json()
+        await deptRepo.update(params.id, body)
+
+        return NextResponse.json({ success: true })
+    } catch (error: any) {
+        console.error('Error updating department:', error)
+        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+    }
+}
+
 // DELETE /api/hris/departments/[id]
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
     try {

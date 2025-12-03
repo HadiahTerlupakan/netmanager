@@ -4,7 +4,6 @@ import { TicketRepository } from '@/lib/repositories/TicketRepository';
 import { WorkOrderRepository } from '@/lib/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
 
-const prisma = new PrismaClient();
 const ticketRepo = new TicketRepository(prisma);
 const workOrderRepo = new WorkOrderRepository(prisma);
 

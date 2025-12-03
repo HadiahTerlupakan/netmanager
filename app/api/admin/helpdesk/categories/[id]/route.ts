@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { TicketRepository } from '@/lib/repositories/TicketRepository';
 import { verifyAuth } from '@/lib/auth';
 
-const prisma = new PrismaClient();
 const ticketRepo = new TicketRepository(prisma);
 
 // PATCH /api/admin/helpdesk/categories/[id] - Update category

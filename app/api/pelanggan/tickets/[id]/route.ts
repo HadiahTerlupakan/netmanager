@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { TicketRepository } from '@/lib/repositories/TicketRepository';
+import { verifyPelangganAuth, getPelangganIdFromRequest } from '@/lib/middleware/pelanggan-auth';
+import { sanitizePathParams } from '@/lib/middleware/input-sanitization';
 
 const ticketRepo = new TicketRepository(prisma);
 
@@ -10,17 +12,23 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const pelangganData = request.headers.get('pelanggan-data');
+        // Verify pelanggan authentication
+        const authError = await verifyPelangganAuth(request);
+        if (authError) return authError;
 
-        if (!pelangganData) {
+        // Get pelanggan ID from request headers
+        const pelangganId = getPelangganIdFromRequest(request);
+        if (!pelangganId) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
                 { status: 401 }
             );
         }
 
-        const { id } = await params;
-        const pelanggan = JSON.parse(pelangganData);
+        // Sanitize path parameters
+        const sanitizedParams = sanitizePathParams(await params);
+        const { id } = sanitizedParams;
+        
         const ticket = await ticketRepo.findById(id);
 
         if (!ticket) {
@@ -31,7 +39,7 @@ export async function GET(
         }
 
         // Verify ticket belongs to this customer
-        if (ticket.pelangganId !== pelanggan.id) {
+        if (ticket.pelangganId !== pelangganId) {
             return NextResponse.json(
                 { error: 'Access denied' },
                 { status: 403 }

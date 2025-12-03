@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/lib/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
 
-const prisma = new PrismaClient();
 const workOrderRepo = new WorkOrderRepository(prisma);
 
 // GET /api/admin/workorders/recent - Get recent work orders

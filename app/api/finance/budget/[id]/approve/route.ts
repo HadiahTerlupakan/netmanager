@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
 
 // GET /api/finance/budget/[id]/approve - Approve budget
 export async function POST(

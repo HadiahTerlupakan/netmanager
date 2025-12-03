@@ -104,6 +104,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body: GeneralSettings = await req.json()
+    
+    // Validasi body
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      )
+    }
+    
     const {
       perusahaan,
       alamat,

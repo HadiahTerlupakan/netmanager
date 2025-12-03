@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
+import { hash } from 'bcryptjs'
 import path from 'path'
 import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
 import { afterCustomerCreate } from '@/lib/hooks/radius-sync-hooks'
@@ -256,6 +257,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Hash passwordLogin dengan bcrypt (salt rounds = 12)
+    const hashedPasswordLogin = await hash(passwordLogin.trim(), 12)
+
     // Buat pelanggan baru
     const pelanggan = await prisma.pelanggan.create({
       data: {
@@ -263,7 +267,8 @@ export async function POST(req: NextRequest) {
         nama: nama.trim(),
         username: username.trim(),
         password: password.trim(), // Password PPPoE
-        passwordLogin: passwordLogin.trim(), // Password Login Portal
+        passwordLogin: passwordLogin.trim(), // Password Login Portal (plain text untuk backward compatibility)
+        passwordHash: hashedPasswordLogin, // Hash dari passwordLogin
         hargaPaketId,
         tipe: tipeValue,
         tanggalAktif: (() => {

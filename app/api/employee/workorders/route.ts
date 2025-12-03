@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/lib/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
+import { checkEmployeeFeatureAccess } from '@/lib/utils/permissions';
 
-const prisma = new PrismaClient();
 const workOrderRepo = new WorkOrderRepository(prisma);
 
 // GET /api/employee/workorders - Get work orders for employee's department
@@ -26,6 +26,20 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(
                 { error: 'Employee profile not found' },
                 { status: 404 }
+            );
+        }
+
+        // Check if employee has permission to access work orders
+        const hasAccess = await checkEmployeeFeatureAccess(
+            employee.employeeId,
+            'WORKORDERS',
+            user.role
+        );
+
+        if (!hasAccess) {
+            return NextResponse.json(
+                { error: 'You do not have permission to access work orders' },
+                { status: 403 }
             );
         }
 

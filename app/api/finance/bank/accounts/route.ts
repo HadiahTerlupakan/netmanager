@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { BankAccountRepository } from '@/lib/repositories/BankAccountRepository'
 
-const prisma = new PrismaClient()
 const bankAccountRepo = new BankAccountRepository(prisma)
 
 export async function GET(request: NextRequest) {

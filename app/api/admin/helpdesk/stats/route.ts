@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { TicketRepository } from '@/lib/repositories/TicketRepository';
 import { verifyAuth } from '@/lib/auth';
 
-const prisma = new PrismaClient();
 const ticketRepo = new TicketRepository(prisma);
 
 // GET /api/admin/helpdesk/stats - Get helpdesk statistics

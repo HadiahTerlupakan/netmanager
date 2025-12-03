@@ -90,20 +90,36 @@ export const apiRateLimitConfig: Record<string, RateLimitOptions> = {
   },
   // Rate limit khusus untuk endpoint yang lebih sensitif
   '/api/auth': {
+    maxRequests: 5,
+    windowSeconds: 300, // 5 requests per 5 menit
+  },
+  '/api/pelanggan/auth/login': {
+    maxRequests: 5,
+    windowSeconds: 300, // 5 requests per 5 menit
+  },
+  '/api/pelanggan/auth/refresh': {
+    maxRequests: 10,
+    windowSeconds: 300, // 10 requests per 5 menit
+  },
+  '/api/finance/auth/login': {
+    maxRequests: 5,
+    windowSeconds: 300, // 5 requests per 5 menit
+  },
+  '/api/olts/test-connection': {
     maxRequests: 10,
     windowSeconds: 60, // 10 requests per minute
   },
-  '/api/olts/test-connection': {
-    maxRequests: 20,
-    windowSeconds: 60, // 20 requests per minute
-  },
   '/api/mikrotik-routers/test-connection': {
-    maxRequests: 20,
-    windowSeconds: 60, // 20 requests per minute
+    maxRequests: 10,
+    windowSeconds: 60, // 10 requests per minute
   },
   '/api/kmz': {
-    maxRequests: 10,
-    windowSeconds: 60, // 10 uploads per minute
+    maxRequests: 5,
+    windowSeconds: 60, // 5 uploads per minute
+  },
+  '/api/pelanggan-ppp': {
+    maxRequests: 20,
+    windowSeconds: 60, // 20 requests per minute
   },
 }
 

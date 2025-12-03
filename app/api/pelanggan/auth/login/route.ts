@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { checkRateLimit } from '@/lib/redis'
+import { checkRateLimit, checkDelay } from '@/lib/redis'
 import { compare } from 'bcryptjs'
+import { generatePelangganTokenPair } from '@/lib/jwt'
 
 /**
  * Login pelanggan menggunakan ID Pelanggan dan password
@@ -70,6 +71,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Check for progressive delay
+    const hasDelay = await checkDelay(`pelanggan-login:${idPelanggan}`)
+    if (hasDelay) {
+      return NextResponse.json(
+        { error: 'Terlalu banyak percobaan. Silakan tunggu beberapa saat sebelum mencoba lagi.' },
+        { status: 429 }
+      )
+    }
+
     // Cari pelanggan berdasarkan ID Pelanggan
     try {
       const pelanggan = await prisma.pelanggan.findUnique({
@@ -97,10 +107,19 @@ export async function POST(req: NextRequest) {
       // 
       // - pelanggan.password = Password PPPoE (untuk koneksi PPPoE ke router)
       // - pelanggan.passwordLogin = Password Login Portal (untuk login di portal pelanggan)
+      // - pelanggan.passwordHash = Hash dari passwordLogin (untuk keamanan)
       //
-      // Untuk sementara, password disimpan plain text, jadi langsung compare
-      // TODO: Jika ingin lebih secure, bisa hash password dengan bcrypt saat create pelanggan
-      const passwordMatch = pelanggan.passwordLogin === password
+      // Prioritasi verifikasi menggunakan passwordHash jika ada, fallback ke passwordLogin untuk backward compatibility
+      let passwordMatch = false
+      
+      if ((pelanggan as any).passwordHash) {
+        // Gunakan passwordHash yang sudah di-hash dengan bcrypt
+        passwordMatch = await compare(password, (pelanggan as any).passwordHash)
+      } else {
+        // Fallback ke passwordLogin plain text untuk backward compatibility
+        passwordMatch = pelanggan.passwordLogin === password
+      }
+      
       if (!passwordMatch) {
         return NextResponse.json(
           { error: 'ID Pelanggan atau password salah' },
@@ -116,17 +135,20 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Generate simple token (untuk sementara, bisa di-upgrade ke JWT nanti)
-      // Token = base64(id + timestamp + secret)
-      const timestamp = Date.now()
-      const tokenData = `${pelanggan.id}:${timestamp}:${process.env.NEXTAUTH_SECRET || 'secret'}`
-      const token = Buffer.from(tokenData).toString('base64')
+      // Generate JWT token pair (access + refresh)
+      const tokens = await generatePelangganTokenPair({
+        id: pelanggan.id,
+        idPelanggan: pelanggan.idPelanggan,
+        nama: pelanggan.nama,
+        username: pelanggan.username,
+        status: pelanggan.status,
+      })
 
       // Return data pelanggan (tanpa password)
-      const { password: _, passwordLogin: __, ...pelangganData } = pelanggan
+      const { password: _, passwordLogin: __, ...pelangganData } = pelanggan as any
 
       return NextResponse.json({
-        token,
+        ...tokens,
         pelanggan: pelangganData,
       })
     } catch (error: any) {

@@ -41,11 +41,46 @@ export async function checkRateLimit(
     if (count === 1) {
       await redis.expire(bucketKey, windowSeconds)
     }
+    
+    // Progressive delay: semakin banyak percobaan, semakin lama delay
+    if (count > maxAttempts) {
+      // Calculate delay based on excess attempts
+      const excessAttempts = count - maxAttempts
+      const delaySeconds = Math.min(excessAttempts * 30, 300) // Max 5 menit delay
+      
+      // Set a separate key for tracking the delay
+      const delayKey = `delay:${safeKey}`
+      await redis.setex(delayKey, delaySeconds, '1')
+      
+      console.log(`Rate limit exceeded for ${safeKey}. Delay: ${delaySeconds}s`)
+      return false
+    }
+    
     return count <= maxAttempts
   } catch (error: any) {
     // Jika Redis gagal (misconfig/NOAUTH), jangan blokir request (fail open)
     console.error('Redis rate limit error:', error?.message || error)
     return true
+  }
+}
+
+/**
+ * Check if there's an active delay for a key
+ */
+export async function checkDelay(key: string): Promise<boolean> {
+  if (!key || typeof key !== 'string' || key.length === 0) {
+    return false
+  }
+
+  const safeKey = String(key).trim().replace(/[^a-zA-Z0-9:_-]/g, '_')
+  const delayKey = `delay:${safeKey}`
+  
+  try {
+    const delay = await redis.get(delayKey)
+    return delay === '1'
+  } catch (error: any) {
+    console.error('Redis delay check error:', error?.message || error)
+    return false
   }
 }
 

@@ -620,6 +620,8 @@ model Pelanggan {
   username                      String // Username PPPoE
   password                      String // Password PPPoE (untuk koneksi PPPoE)
   passwordLogin                 String // Password Login Portal (untuk login di portal pelanggan)
+  passwordHash                  String? // Hash dari passwordLogin (untuk keamanan)
+  tokenVersion                  Int           @default(1) // Version untuk refresh token invalidation
   hargaPaketId                  String
   hargaPaket                    HargaPaket    @relation(fields: [hargaPaketId], references: [id], onDelete: Restrict)
   tipe                          TipePelanggan @default(REGULER) // Tipe pelanggan: REGULER atau NON_REGULER
@@ -1470,9 +1472,10 @@ model Department {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  employees  Employee[]
-  positions Position[]
-  workOrders WorkOrder[]
+  employees   Employee[]
+  positions   Position[]
+  workOrders  WorkOrder[]
+  customRoles CustomRole[] // Custom roles for this department
 
   @@map("departments")
 }
@@ -1495,6 +1498,101 @@ model Position {
   @@index([isActive])
   @@index([departmentId])
   @@map("positions")
+}
+
+// Custom Role - User-defined roles with custom permissions
+model CustomRole {
+  id          String  @id @default(cuid())
+  name        String // e.g., "Field Technician", "Sales Manager", "Department Head"
+  code        String  @unique // e.g., "FIELD_TECH", "SALES_MGR", "DEPT_HEAD" (auto-generated or manual)
+  description String?
+  
+  // Department binding (required - role must be tied to a department)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  
+  // Permissions - JSON array of allowed features
+  allowedFeatures String? @db.Text // e.g., ["WORKORDERS", "FTTH", "NETWORK"]
+  
+  // Priority system for conflict resolution (1-100)
+  // Higher priority = wins in conflicts
+  // 1-25: Low priority (basic roles)
+  // 26-75: Medium priority (standard roles)
+  // 76-100: High priority (manager/special roles)
+  priority Int @default(50)
+  
+  // Status
+  isActive Boolean @default(true)
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String? // User ID who created this role
+  
+  // Relations
+  employeeRoles EmployeeRole[]
+  auditLogs     RoleAuditLog[]
+  
+  @@unique([departmentId, code]) // Unique code per department
+  @@index([departmentId])
+  @@index([isActive])
+  @@index([priority])
+  @@map("custom_roles")
+}
+
+// Employee Role Assignment - Many-to-many between Employee and CustomRole
+model EmployeeRole {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  roleId     String
+  role       CustomRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  // Assignment metadata
+  assignedAt DateTime @default(now())
+  assignedBy String // User ID who assigned this role (required for audit)
+  
+  @@unique([employeeId, roleId]) // Employee can have each role only once
+  @@index([employeeId])
+  @@index([roleId])
+  @@index([assignedAt])
+  @@map("employee_roles")
+}
+
+// Role Audit Log - Track all role-related changes
+model RoleAuditLog {
+  id String @id @default(cuid())
+  
+  // What was changed
+  action     String // "CREATE", "UPDATE", "DELETE", "ASSIGN", "UNASSIGN"
+  entityType String // "ROLE", "ASSIGNMENT"
+  entityId   String // ID of the role or assignment
+  
+  // Role reference (optional - null for assignments)
+  roleId String?
+  role   CustomRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  
+  // Who made the change
+  userId   String // User ID who performed the action
+  userName String? // User name at time of action (for display)
+  
+  // What changed (JSON)
+  oldValues Json? // Previous values (for UPDATE)
+  newValues Json? // New values (for CREATE/UPDATE)
+  
+  // Context
+  ipAddress String? // IP address of the user
+  userAgent String? @db.Text // Browser/client info
+  notes     String? @db.Text // Optional notes/reason
+  
+  createdAt DateTime @default(now())
+  
+  @@index([roleId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@map("role_audit_logs")
 }
 
 // Employee - Data karyawan (master data)
@@ -1572,6 +1670,9 @@ model Employee {
   taskCompletions      WorkOrderTask[]
   workOrderUpdates     WorkOrderUpdate[]
   workOrderAttachments WorkOrderAttachment[]
+  
+  // Custom Role relations
+  customRoles EmployeeRole[]
 
   @@index([departmentId])
   @@index([positionId])

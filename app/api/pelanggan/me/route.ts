@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { verifyPelangganAccessToken } from '@/lib/jwt'
 
 /**
  * Mendapatkan data pelanggan yang sedang login berdasarkan token
@@ -37,84 +38,62 @@ import { prisma } from '@/lib/prisma'
  */
 export async function GET(req: NextRequest) {
   try {
-    const token = req.headers.get('x-pelanggan-token')
-
-    if (!token) {
+    // Extract token from Authorization header
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
-        { error: 'Token tidak ditemukan' },
+        { error: 'Token diperlukan' },
         { status: 401 }
       )
     }
 
-    // Parse token untuk mendapatkan pelanggan ID dan timestamp
-    // Token format: base64(id:timestamp:secret)
-    try {
-      const tokenData = Buffer.from(token, 'base64').toString('utf8')
-      const [pelangganId, timestamp] = tokenData.split(':')
+    const token = authHeader.substring(7) // Remove 'Bearer ' prefix
 
-      if (!pelangganId || !timestamp) {
-        return NextResponse.json(
-          { error: 'Token tidak valid' },
-          { status: 401 }
-        )
-      }
+    // Verify JWT token
+    const decoded = verifyPelangganAccessToken(token)
+    if (!decoded) {
+      return NextResponse.json(
+        { error: 'Token tidak valid atau expired' },
+        { status: 401 }
+      )
+    }
 
-      // Check if token is expired (24 hours)
-      const tokenTime = parseInt(timestamp)
-      const now = Date.now()
-      const tokenAge = now - tokenTime
-      const maxAge = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
-
-      if (tokenAge > maxAge) {
-        return NextResponse.json(
-          { error: 'Token expired' },
-          { status: 401 }
-        )
-      }
-
-      // Ambil data pelanggan dari database
-      const pelanggan = await prisma.pelanggan.findUnique({
-        where: { id: pelangganId },
-        include: {
-          hargaPaket: {
-            include: {
-              profilePPP: true,
-              bandwidth: true,
-            },
+    // Ambil data pelanggan dari database
+    const pelanggan = await prisma.pelanggan.findUnique({
+      where: { id: decoded.id },
+      include: {
+        hargaPaket: {
+          include: {
+            profilePPP: true,
+            bandwidth: true,
           },
         },
-      })
+      },
+    })
 
-      if (!pelanggan) {
-        return NextResponse.json(
-          { error: 'Pelanggan tidak ditemukan' },
-          { status: 404 }
-        )
-      }
-
-      // Cek status pelanggan
-      if (pelanggan.status !== 'AKTIF') {
-        return NextResponse.json(
-          { error: 'Akun pelanggan tidak aktif' },
-          { status: 403 }
-        )
-      }
-
-      // Return data pelanggan (tanpa password)
-      const { password: _, passwordLogin: __, ...pelangganData } = pelanggan
-
-      return NextResponse.json(pelangganData, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59',
-        },
-      })
-    } catch (parseError) {
-      console.error('Error parsing token:', parseError)
+    if (!pelanggan) {
       return NextResponse.json(
-        { error: 'Token tidak valid' },
-        { status: 401 }
+        { error: 'Pelanggan tidak ditemukan' },
+        { status: 404 }
       )
     }
+
+    // Cek status pelanggan
+    if (pelanggan.status !== 'AKTIF') {
+      return NextResponse.json(
+        { error: 'Akun pelanggan tidak aktif' },
+        { status: 403 }
+      )
+    }
+
+    // Return data pelanggan (tanpa password)
+    const { password: _, passwordLogin: __, ...pelangganData } = pelanggan as any
+
+    return NextResponse.json(pelangganData, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59',
+      },
+    })
   } catch (error: any) {
     console.error('Error in pelanggan me API:', error)
     return NextResponse.json(

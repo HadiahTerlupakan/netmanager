@@ -1,28 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'
 import { TicketRepository } from '@/lib/repositories/TicketRepository';
+import { verifyPelangganAuth, getPelangganIdFromRequest } from '@/lib/middleware/pelanggan-auth';
 
 const ticketRepo = new TicketRepository(prisma);
 
 // GET /api/pelanggan/tickets - List tickets untuk customer yang login
 export async function GET(request: NextRequest) {
     try {
-        // Get pelanggan from auth (assuming we have pelanggan authentication)
-        const pelangganData = request.headers.get('pelanggan-data');
+        // Verify pelanggan authentication
+        const authError = await verifyPelangganAuth(request);
+        if (authError) return authError;
 
-        if (!pelangganData) {
+        // Get pelanggan ID from request headers
+        const pelangganId = getPelangganIdFromRequest(request);
+        if (!pelangganId) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
                 { status: 401 }
             );
         }
 
-        const pelanggan = JSON.parse(pelangganData);
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');
 
         const tickets = await ticketRepo.findByPelangganId(
-            pelanggan.id,
+            pelangganId,
             status ? { status: status as any } : undefined
         );
 
@@ -42,16 +45,19 @@ export async function GET(request: NextRequest) {
 // POST /api/pelanggan/tickets - Submit ticket baru
 export async function POST(request: NextRequest) {
     try {
-        const pelangganData = request.headers.get('pelanggan-data');
+        // Verify pelanggan authentication
+        const authError = await verifyPelangganAuth(request);
+        if (authError) return authError;
 
-        if (!pelangganData) {
+        // Get pelanggan ID from request headers
+        const pelangganId = getPelangganIdFromRequest(request);
+        if (!pelangganId) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
                 { status: 401 }
             );
         }
 
-        const pelanggan = JSON.parse(pelangganData);
         const body = await request.json();
 
         // Validate required fields
@@ -84,7 +90,7 @@ export async function POST(request: NextRequest) {
         }
 
         const ticket = await ticketRepo.create({
-            pelangganId: pelanggan.id,
+            pelangganId: pelangganId,
             categoryId: body.categoryId || null,
             subject: body.subject,
             description: body.description,
@@ -97,7 +103,7 @@ export async function POST(request: NextRequest) {
             ticketId: ticket.id,
             message: body.description,
             senderType: 'CUSTOMER',
-            senderName: pelanggan.nama,
+            senderName: 'Pelanggan', // Assuming 'Pelanggan' is the default name for customer messages
             isInternal: false, // Explicitly set to false for customer messages
         });
 

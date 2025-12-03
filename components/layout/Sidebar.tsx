@@ -34,6 +34,7 @@ import {
   HiEnvelope,
   HiChatBubbleLeftRight,
   HiOutlineCodeBracket,
+  HiOutlineShieldCheck,
   HiOutlineClock,
   HiOutlineCalendar,
   HiOutlineUserGroup,
@@ -152,6 +153,7 @@ export default function Sidebar() {
       children: [
         { href: '/admin/pengaturan/umum', label: 'Umum', icon: <HiOutlineCog6Tooth className="w-4 h-4" /> },
         { href: '/admin/pengaturan/logo', label: 'Logo Perusahaan', icon: <HiOutlinePhoto className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/roles', label: 'Role Management', icon: <HiOutlineShieldCheck className="w-4 h-4" /> },
         { href: '/admin/pengaturan/email', label: 'Email', icon: <HiEnvelope className="w-4 h-4" /> },
         { href: '/admin/pengaturan/whatsapp', label: 'WhatsApp', icon: <HiChatBubbleLeftRight className="w-4 h-4" /> },
         { href: '/admin/pengaturan/payment-gateway', label: 'Payment Gateway', icon: <HiOutlineCreditCard className="w-4 h-4" /> },
