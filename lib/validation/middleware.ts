@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { ZodSchema } from 'zod'
 import { ZodError } from 'zod'
+// Export validation schemas for convenience
+export * from './schemas'
 
 export interface ValidationResponse {
   success: boolean

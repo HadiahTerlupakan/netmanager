@@ -10,9 +10,10 @@ const auditService = new RoleAuditService()
 // GET /api/admin/roles/[id] - Get role details
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const session: any = await getServerSession(authConfig as any)
 
         if (!session?.user) {
@@ -23,7 +24,7 @@ export async function GET(
             return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 })
         }
 
-        const role = await roleRepo.findById(params.id)
+        const role = await roleRepo.findById(id)
 
         if (!role) {
             return NextResponse.json({ error: 'Role not found' }, { status: 404 })
@@ -45,9 +46,10 @@ export async function GET(
 // PUT /api/admin/roles/[id] - Update role
 export async function PUT(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const session: any = await getServerSession(authConfig as any)
 
         if (!session?.user) {
@@ -59,7 +61,7 @@ export async function PUT(
         }
 
         // Get old role data for audit
-        const oldRole = await roleRepo.findById(params.id)
+        const oldRole = await roleRepo.findById(id)
         if (!oldRole) {
             return NextResponse.json({ error: 'Role not found' }, { status: 404 })
         }
@@ -67,7 +69,7 @@ export async function PUT(
         const body = await req.json()
 
         // Update the role
-        const updatedRole = await roleRepo.update(params.id, {
+        const updatedRole = await roleRepo.update(id, {
             name: body.name,
             description: body.description,
             allowedFeatures: body.allowedFeatures,
@@ -77,7 +79,7 @@ export async function PUT(
 
         // Log the update
         await auditService.logRoleUpdate(
-            params.id,
+            id,
             {
                 name: oldRole.name,
                 description: oldRole.description,
@@ -112,7 +114,7 @@ export async function PUT(
 // PATCH /api/admin/roles/[id] - Partial update
 export async function PATCH(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     return PUT(req, { params })
 }
@@ -120,9 +122,10 @@ export async function PATCH(
 // DELETE /api/admin/roles/[id] - Delete role
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const session: any = await getServerSession(authConfig as any)
 
         if (!session?.user) {
@@ -134,17 +137,17 @@ export async function DELETE(
         }
 
         // Get role data before deletion for audit
-        const role = await roleRepo.findById(params.id)
+        const role = await roleRepo.findById(id)
         if (!role) {
             return NextResponse.json({ error: 'Role not found' }, { status: 404 })
         }
 
         // Delete the role (will fail if there are assignments)
-        await roleRepo.delete(params.id)
+        await roleRepo.delete(id)
 
         // Log the deletion
         await auditService.logRoleDelete(
-            params.id,
+            id,
             {
                 name: role.name,
                 code: role.code,

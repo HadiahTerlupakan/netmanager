@@ -10,9 +10,10 @@ const auditService = new RoleAuditService()
 // POST /api/admin/roles/[id]/assign - Assign role to employee(s)
 export async function POST(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const session: any = await getServerSession(authConfig as any)
 
         if (!session?.user) {
@@ -24,7 +25,7 @@ export async function POST(
         }
 
         const body = await req.json()
-        const roleId = params.id
+        const roleId = id
 
         // Support both single employee and multiple employees
         const employeeIds: string[] = Array.isArray(body.employeeIds)
@@ -90,9 +91,10 @@ export async function POST(
 // DELETE /api/admin/roles/[id]/assign - Remove role from employee
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const session: any = await getServerSession(authConfig as any)
 
         if (!session?.user) {
@@ -105,7 +107,7 @@ export async function DELETE(
 
         const { searchParams } = new URL(req.url)
         const employeeId = searchParams.get('employeeId')
-        const roleId = params.id
+        const roleId = id
 
         if (!employeeId) {
             return NextResponse.json(

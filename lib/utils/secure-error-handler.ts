@@ -299,6 +299,9 @@ export function withSecureErrorHandler<T extends Record<string, any> = {}>(
 /**
  * Creates a success response with consistent format
  */
+// Alias for backward compatibility
+export const createSecureErrorResponse = createSecureError;
+
 export function createSuccessResponse<T>(
   data: T,
   message?: string,

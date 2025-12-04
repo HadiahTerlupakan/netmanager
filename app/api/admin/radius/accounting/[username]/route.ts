@@ -11,9 +11,10 @@ import { RadiusSyncService } from '@/lib/services/radius-sync-service';
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { username: string } }
+    { params }: { params: Promise<{ username: string }> }
 ) {
     try {
+        const { username } = await params
         // Auth check
         const session = await getServerSession(authConfig);
         if (!session?.user || session.user.role !== 'ADMIN') {
@@ -22,8 +23,6 @@ export async function GET(
                 { status: 401 }
             );
         }
-
-        const { username } = params;
         const { searchParams } = new URL(req.url);
 
         const startDate = searchParams.get('startDate')

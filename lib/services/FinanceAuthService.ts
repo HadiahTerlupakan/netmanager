@@ -590,4 +590,6 @@ class FinanceAuthService {
   }
 }
 
+// Export both as default and named for flexibility
+export { FinanceAuthService };
 export default FinanceAuthService;

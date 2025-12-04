@@ -11,9 +11,10 @@ import { RadiusSyncService } from '@/lib/services/radius-sync-service';
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         // Auth check
         const session = await getServerSession(authConfig);
         if (!session?.user || session.user.role !== 'ADMIN') {
@@ -22,8 +23,6 @@ export async function POST(
                 { status: 401 }
             );
         }
-
-        const { id } = params;
         const syncService = new RadiusSyncService(prisma);
 
         // Sync single customer
