@@ -3,6 +3,7 @@ import { getTagihanRepository, getPengeluaranRepository, getPemasukanRepository 
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
+import { FinanceAuthService } from '@/lib/services/FinanceAuthService'
 
 const convertJumlahToNumber = (jumlah: any): number => {
   if (typeof jumlah === 'bigint') return Number(jumlah)
@@ -16,25 +17,15 @@ export async function GET(request: NextRequest) {
     let userId: string | undefined
 
     if (token) {
-      // Verify finance token
+      // Verify JWT finance token using FinanceAuthService
       try {
-        const tokenData = Buffer.from(token, 'base64').toString('utf8')
-        const [uid, timestamp] = tokenData.split(':')
-        userId = uid
-
-        if (!userId) {
-          return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+        const authResult = await FinanceAuthService.authenticate(token)
+        if (!authResult.success || !authResult.user) {
+          return NextResponse.json({
+            error: authResult.error || 'Token tidak valid'
+          }, { status: 401 })
         }
-
-        // Check token expiry
-        const tokenTime = parseInt(timestamp)
-        const now = Date.now()
-        const tokenAge = now - tokenTime
-        const maxAge = 24 * 60 * 60 * 1000
-
-        if (tokenAge > maxAge) {
-          return NextResponse.json({ error: 'Token expired' }, { status: 401 })
-        }
+        userId = authResult.user.id
       } catch (parseError) {
         return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
       }

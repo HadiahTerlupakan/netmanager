@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { checkRateLimit } from '@/lib/redis'
 import { compare } from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 
 /**
  * Login finance menggunakan email dan password
@@ -89,10 +90,30 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Generate simple token (mirip dengan pelanggan)
-      const timestamp = Date.now()
-      const tokenData = `${user.id}:${timestamp}:${process.env.NEXTAUTH_SECRET || 'secret'}`
-      const token = Buffer.from(tokenData).toString('base64')
+      // Validate that NEXTAUTH_SECRET is configured
+      const jwtSecret = process.env.NEXTAUTH_SECRET
+      if (!jwtSecret) {
+        console.error('[Finance Login] CRITICAL: NEXTAUTH_SECRET is not configured')
+        return NextResponse.json(
+          { error: 'Server configuration error' },
+          { status: 500 }
+        )
+      }
+
+      // Generate proper JWT token compatible with FinanceAuthService
+      const tokenPayload = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        type: 'FINANCE_ACCESS',
+        timestamp: Date.now()
+      }
+
+      const token = jwt.sign(tokenPayload, jwtSecret, {
+        expiresIn: '24h',
+        issuer: 'netmanager-finance',
+        audience: 'finance-api'
+      })
 
       // Return data user (tanpa passwordHash)
       const { passwordHash: _, ...userData } = user

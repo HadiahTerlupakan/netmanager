@@ -1,16 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { BankAccountRepository } from '@/lib/repositories/BankAccountRepository'
+import FinanceAuthService, { ExtendedAuthResult } from '@/lib/services/FinanceAuthService'
+import { createSecureErrorResponse } from '@/lib/utils/secure-error-handler'
 
 const bankAccountRepo = new BankAccountRepository(prisma)
 
 export async function GET(request: NextRequest) {
     try {
-        // Auth check
-        const token = request.headers.get('x-finance-token')
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        // Proper authentication check
+        const authResult = await FinanceAuthService.authenticate(request)
+        if (!authResult.success) {
+            return createSecureErrorResponse(
+                authResult.error || 'Authentication failed',
+                authResult.errorCode || 'UNAUTHORIZED',
+                401
+            )
         }
+
+        // Log financial access
+        await FinanceAuthService.logFinancialAccess(
+            request,
+            authResult.user!,
+            'READ',
+            'BANK_ACCOUNTS'
+        )
 
         const { searchParams } = new URL(request.url)
         const activeOnly = searchParams.get('active') === 'true'
@@ -28,22 +42,36 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ data })
     } catch (error: any) {
         console.error('Error fetching bank accounts:', error)
-        return NextResponse.json(
-            { error: 'Failed to fetch bank accounts', details: error.message },
-            { status: 500 }
+        return createSecureErrorResponse(
+            'Failed to fetch bank accounts',
+            'INTERNAL_ERROR',
+            500
         )
     }
 }
 
 export async function POST(request: NextRequest) {
     try {
-        // Auth check
-        const token = request.headers.get('x-finance-token')
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        // Proper authentication check
+        const authResult = await FinanceAuthService.authenticate(request)
+        if (!authResult.success) {
+            return createSecureErrorResponse(
+                authResult.error || 'Authentication failed',
+                authResult.errorCode || 'UNAUTHORIZED',
+                401
+            )
         }
 
         const body = await request.json()
+
+        // Log financial access
+        await FinanceAuthService.logFinancialAccess(
+            request,
+            authResult.user!,
+            'CREATE',
+            'BANK_ACCOUNT',
+            { accountName: body.accountName, bankName: body.bankName }
+        )
 
         // Validation
         if (!body.accountName || !body.bankName || !body.accountNumber) {
@@ -61,9 +89,10 @@ export async function POST(request: NextRequest) {
         )
     } catch (error: any) {
         console.error('Error creating bank account:', error)
-        return NextResponse.json(
-            { error: 'Failed to create bank account', details: error.message },
-            { status: 500 }
+        return createSecureErrorResponse(
+            'Failed to create bank account',
+            'INTERNAL_ERROR',
+            500
         )
     }
 }

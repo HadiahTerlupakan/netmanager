@@ -3,7 +3,7 @@ import FinanceLayoutClient from './layout-client'
 
 export const metadata: Metadata = {
   title: 'Portal Finance - NetManager',
-  description: 'Portal finance untuk mengelola tagihan, laporan keuangan, dan data finansial',
+  description: 'Portal finance untuk mengelola tagihan dan data finansial',
   icons: {
     icon: [
       { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },

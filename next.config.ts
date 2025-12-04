@@ -70,17 +70,6 @@ const nextConfig: NextConfig = {
   },
 }
 
-// Tambahkan kondisi untuk tidak menggunakan PWA di development environment
-if (process.env.NODE_ENV === 'development') {
-  console.log('PWA disabled in development environment to avoid potential shell execution warnings')
-  module.exports = nextConfig
-} else {
-  const withPWA = require("@ducanh2912/next-pwa")
-  module.exports = withPWA({
-    dest: "public",
-    disable: process.env.NODE_ENV === "development",
-    register: true,
-  })(nextConfig)
-}
+export default nextConfig
 
 

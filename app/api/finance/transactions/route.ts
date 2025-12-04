@@ -1,56 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPengeluaranRepository, getPemasukanRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
+import { createSecureErrorResponse } from '@/lib/utils/secure-error-handler'
 
 export async function GET(request: NextRequest) {
     try {
-        const token = request.headers.get('x-finance-token')
-        let userId: string | undefined
-
-        if (token) {
-            // Verify finance token
-            try {
-                const tokenData = Buffer.from(token, 'base64').toString('utf8')
-                const [uid, timestamp] = tokenData.split(':')
-                userId = uid
-
-                if (!userId) {
-                    return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
-                }
-
-                // Check token expiry
-                const tokenTime = parseInt(timestamp)
-                const now = Date.now()
-                const tokenAge = now - tokenTime
-                const maxAge = 24 * 60 * 60 * 1000
-
-                if (tokenAge > maxAge) {
-                    return NextResponse.json({ error: 'Token expired' }, { status: 401 })
-                }
-            } catch (parseError) {
-                return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
-            }
-        } else {
-            // Verify NextAuth session
-            const session = await getServerSession(authConfig)
-            if (session?.user?.id) {
-                userId = session.user.id
-            } else {
-                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-            }
+        // Proper authentication check
+        const authResult = await FinanceAuthService.authenticate(request)
+        if (!authResult.success) {
+            return createSecureErrorResponse(
+                authResult.error || 'Authentication failed',
+                authResult.errorCode || 'UNAUTHORIZED',
+                401
+            )
         }
 
-        // Verify user exists and has FINANCE or ADMIN role
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-        })
-
-        const allowedRoles = ['FINANCE', 'ADMIN'] as const
-        if (!user || !allowedRoles.includes(user.role as any)) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-        }
+        // Log financial access
+        await FinanceAuthService.logFinancialAccess(
+            request,
+            authResult.user!,
+            'READ',
+            'TRANSACTIONS'
+        )
 
         // Parse Query Parameters
         const searchParams = request.nextUrl.searchParams
@@ -125,32 +97,64 @@ export async function GET(request: NextRequest) {
         // Filter out nulls (should not happen usually)
         const validDetails = fullDetails.filter(item => item !== null)
 
-        // Format export data for transactions
-        const exportData = items.map(item => ([
-            'Tanggal', 
-            'Jenis', 
-            'Tipe', 
-            'Kategori', 
-            'Deskripsi', 
+        // Function to sanitize CSV values and prevent CSV injection
+        const sanitizeCSVValue = (value: any): string => {
+            if (value === null || value === undefined) {
+                return ''
+            }
+
+            const stringValue = String(value)
+
+            // Remove dangerous characters that could cause CSV injection
+            // Remove =, +, -, @ at the beginning of cells (Excel formulas)
+            if (/^[=+\-@]/.test(stringValue)) {
+                return `'${stringValue}`
+            }
+
+            // Escape double quotes and wrap in quotes if contains comma, quote, or newline
+            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
+                return `"${stringValue.replace(/"/g, '""')}"`
+            }
+
+            return stringValue
+        }
+
+        // CSV Headers
+        const headers = [
+            'Tanggal',
+            'Jenis',
+            'Tipe',
+            'Kategori',
+            'Deskripsi',
             'Jumlah',
             'Metode Pembayaran',
             'Nomor Bukti',
             'Catatan'
-        ]))
-        
-        const csvContent = [
-            ...exportData, // Use exportData as headers
-            ...items.map(row => 
-                exportData.map(header => {
-                    // Handle values that contain commas or quotes
-                    const value = row[header as keyof any]
-                    if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-                        return `"${value.replace(/"/g, '""')}"`
-                    }
-                    return value || ''
-                }).join(',')
-            )
-        ].join('\n')
+        ]
+
+        // Build CSV content safely
+        const csvRows = [headers.map(sanitizeCSVValue).join(',')]
+
+        // Add data rows with sanitized values
+        for (const detail of validDetails) {
+            if (detail) {
+                const row = [
+                    detail.tanggal || '',
+                    detail.type || '',
+                    detail.tipe || '',
+                    detail.kategori || '',
+                    detail.deskripsi || '',
+                    detail.jumlah?.toString() || '0',
+                    detail.metodePembayaran || '',
+                    detail.nomorBukti || '',
+                    detail.catatan || ''
+                ].map(sanitizeCSVValue)
+
+                csvRows.push(row.join(','))
+            }
+        }
+
+        const csvContent = csvRows.join('\n')
         
         return NextResponse.json({
             data: validDetails,
@@ -165,6 +169,10 @@ export async function GET(request: NextRequest) {
 
     } catch (error: any) {
         console.error('Error fetching transactions:', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        return createSecureErrorResponse(
+            'Failed to fetch transactions',
+            'INTERNAL_ERROR',
+            500
+        )
     }
 }

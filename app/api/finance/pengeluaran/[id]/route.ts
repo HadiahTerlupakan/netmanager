@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPengeluaranRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
+import { FinanceAuthService } from '@/lib/services/FinanceAuthService'
 
 /**
  * GET /api/finance/pengeluaran/[id]
@@ -17,33 +18,18 @@ export async function GET(
       return NextResponse.json({ error: 'Token tidak ditemukan' }, { status: 401 })
     }
 
-    // Verify token
+    // Verify JWT token using FinanceAuthService
     try {
-      const tokenData = Buffer.from(token, 'base64').toString('utf8')
-      const [userId] = tokenData.split(':')
-
-      if (!userId) {
-        return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+      const authResult = await FinanceAuthService.authenticate(token)
+      if (!authResult.success || !authResult.user) {
+        return NextResponse.json({
+          error: authResult.error || 'Token tidak valid'
+        }, { status: 401 })
       }
 
-      // Check token expiry
-      const [, timestamp] = tokenData.split(':')
-      const tokenTime = parseInt(timestamp)
-      const now = Date.now()
-      const tokenAge = now - tokenTime
-      const maxAge = 24 * 60 * 60 * 1000
-
-      if (tokenAge > maxAge) {
-        return NextResponse.json({ error: 'Token expired' }, { status: 401 })
-      }
-
-      // Verify user exists and has FINANCE or ADMIN role
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-      })
-
+      // Verify user has FINANCE or ADMIN role
       const allowedRoles = ['FINANCE', 'ADMIN'] as const
-      if (!user || !allowedRoles.includes(user.role as any)) {
+      if (!allowedRoles.includes(authResult.user.role as any)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
       }
     } catch (parseError) {
@@ -178,33 +164,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Token tidak ditemukan' }, { status: 401 })
     }
 
-    // Verify token
+    // Verify JWT token using FinanceAuthService
     try {
-      const tokenData = Buffer.from(token, 'base64').toString('utf8')
-      const [userId] = tokenData.split(':')
-
-      if (!userId) {
-        return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+      const authResult = await FinanceAuthService.authenticate(token)
+      if (!authResult.success || !authResult.user) {
+        return NextResponse.json({
+          error: authResult.error || 'Token tidak valid'
+        }, { status: 401 })
       }
 
-      // Check token expiry
-      const [, timestamp] = tokenData.split(':')
-      const tokenTime = parseInt(timestamp)
-      const now = Date.now()
-      const tokenAge = now - tokenTime
-      const maxAge = 24 * 60 * 60 * 1000
-
-      if (tokenAge > maxAge) {
-        return NextResponse.json({ error: 'Token expired' }, { status: 401 })
-      }
-
-      // Verify user exists and has FINANCE or ADMIN role
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-      })
-
+      // Verify user has FINANCE or ADMIN role
       const allowedRoles = ['FINANCE', 'ADMIN'] as const
-      if (!user || !allowedRoles.includes(user.role as any)) {
+      if (!allowedRoles.includes(authResult.user.role as any)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
       }
     } catch (parseError) {

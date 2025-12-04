@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { FinanceAuthService } from '@/lib/services/FinanceAuthService'
 
 /**
  * Get current finance user data
@@ -30,64 +31,41 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Parse token untuk mendapatkan user ID dan timestamp
-    // Token format: base64(id:timestamp:secret)
+    // Verify JWT token using FinanceAuthService
     try {
-      const tokenData = Buffer.from(token, 'base64').toString('utf8')
-      const [userId, timestamp] = tokenData.split(':')
+      const authResult = await FinanceAuthService.authenticate(token)
 
-      console.log('[Finance Me] Token data:', { userId, timestamp, fullTokenData: tokenData })
-
-      if (!userId || !timestamp) {
-        console.log('[Finance Me] Invalid token - missing userId or timestamp')
-        return NextResponse.json(
-          { error: 'Token tidak valid' },
-          { status: 401 }
-        )
-      }
-
-      // Check if token is expired (24 hours)
-      const tokenTime = parseInt(timestamp)
-      const now = Date.now()
-      const tokenAge = now - tokenTime
-      const maxAge = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
-
-      if (tokenAge > maxAge) {
-        console.log('[Finance Me] Token expired:', { tokenAge, maxAge })
-        return NextResponse.json(
-          { error: 'Token expired' },
-          { status: 401 }
-        )
-      }
-
-      console.log('[Finance Me] Looking up user with ID:', userId)
-
-      // Ambil data user dari database
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
+      console.log('[Finance Me] Auth result:', {
+        success: authResult.success,
+        error: authResult.error,
+        userId: authResult.user?.id
       })
 
-      if (!user) {
-        console.log('[Finance Me] User not found for ID:', userId)
+      if (!authResult.success || !authResult.user) {
+        console.log('[Finance Me] Invalid token:', { success: authResult.success, error: authResult.error })
         return NextResponse.json(
-          { error: 'User tidak ditemukan' },
-          { status: 404 }
+          { error: authResult.error || 'Token tidak valid' },
+          { status: 401 }
         )
       }
-
-      console.log('[Finance Me] User found:', { id: user.id, email: user.email, role: user.role })
 
       // Cek role - FINANCE atau ADMIN bisa akses
       const allowedRoles = ['FINANCE', 'ADMIN'] as const
-      if (!allowedRoles.includes(user.role as any)) {
+      if (!allowedRoles.includes(authResult.user.role as any)) {
         return NextResponse.json(
           { error: 'Anda tidak memiliki akses ke portal finance' },
           { status: 403 }
         )
       }
 
+      console.log('[Finance Me] User authenticated:', {
+        id: authResult.user.id,
+        email: authResult.user.email,
+        role: authResult.user.role
+      })
+
       // Return data user (tanpa passwordHash)
-      const { passwordHash: _, ...userData } = user
+      const { passwordHash: _, ...userData } = authResult.user
 
       return NextResponse.json(userData)
     } catch (parseError) {

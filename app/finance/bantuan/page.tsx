@@ -51,7 +51,7 @@ export default function FinanceBantuanPage() {
             <div>
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">Cara Menggunakan Portal Finance</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Portal Finance memungkinkan Anda untuk mengelola tagihan, melihat laporan keuangan, dan memantau status pembayaran pelanggan.
+                Portal Finance memungkinkan Anda untuk mengelola tagihan dan memantau status pembayaran pelanggan.
               </p>
             </div>
             <div>

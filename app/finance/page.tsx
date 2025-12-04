@@ -301,19 +301,7 @@ export default function FinanceDashboardPage() {
                 <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Lihat dan kelola semua tagihan</p>
               </div>
             </Link>
-            <Link
-              href="/finance/reports"
-              className="touch-target touch-manipulation flex items-center gap-3 p-3 md:p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors"
-            >
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
-                <HiOutlineChartBar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-sm md:text-base text-gray-900 dark:text-white">Laporan Keuangan</p>
-                <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Lihat laporan keuangan detail</p>
-              </div>
-            </Link>
-          </div>
+            </div>
         </div>
       </main>
     </div>

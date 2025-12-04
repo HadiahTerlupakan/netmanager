@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { InvoicePDFService } from '@/lib/services/invoice-pdf-service'
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
+import { createSecureErrorResponse } from '@/lib/utils/secure-error-handler'
 
-const prisma = new PrismaClient()
 const pdfService = new InvoicePDFService(prisma)
 
 export async function GET(
@@ -10,7 +11,26 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
+        // Proper authentication check
+        const authResult = await FinanceAuthService.authenticate(request)
+        if (!authResult.success) {
+            return createSecureErrorResponse(
+                authResult.error || 'Authentication failed',
+                authResult.errorCode || 'UNAUTHORIZED',
+                401
+            )
+        }
+
         const tagihanId = params.id
+
+        // Log financial access
+        await FinanceAuthService.logFinancialAccess(
+            request,
+            authResult.user!,
+            'READ',
+            'INVOICE_PDF',
+            { tagihanId }
+        )
 
         // Generate PDF
         const pdfBuffer = await pdfService.generatePDF(tagihanId)
@@ -34,9 +54,10 @@ export async function GET(
         })
     } catch (error: any) {
         console.error('Error generating PDF:', error)
-        return NextResponse.json(
-            { error: 'Failed to generate PDF', details: error.message },
-            { status: 500 }
+        return createSecureErrorResponse(
+            'Failed to generate PDF',
+            'INTERNAL_ERROR',
+            500
         )
     }
 }

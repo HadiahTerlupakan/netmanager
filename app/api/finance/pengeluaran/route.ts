@@ -1,193 +1,159 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPengeluaranRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
+import { withQueryValidation, withValidation, financeQuerySchema, financePengeluaranSchema } from '@/lib/validation/middleware'
+import { createSuccessResponse, handleApiError, createAuthError } from '@/lib/utils/secure-error-handler'
 
 /**
  * GET /api/finance/pengeluaran
  * List semua pengeluaran untuk finance (FINANCE atau ADMIN)
  */
-export async function GET(request: NextRequest) {
-  try {
-    const token = request.headers.get('x-finance-token')
-
-    if (!token) {
-      return NextResponse.json({ error: 'Token tidak ditemukan' }, { status: 401 })
-    }
-
-    // Verify token
+export const GET = withQueryValidation(
+  financeQuerySchema,
+  async (request, { query }) => {
     try {
-      const tokenData = Buffer.from(token, 'base64').toString('utf8')
-      const [userId] = tokenData.split(':')
+      // Authenticate using secure FinanceAuthService
+      const authResult = await FinanceAuthService.authenticate(request)
 
-      if (!userId) {
-        return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+      if (!authResult.success) {
+        return createAuthError()
       }
 
-      // Check token expiry
-      const [, timestamp] = tokenData.split(':')
-      const tokenTime = parseInt(timestamp)
-      const now = Date.now()
-      const tokenAge = now - tokenTime
-      const maxAge = 24 * 60 * 60 * 1000
+      const pengeluaranRepo = getPengeluaranRepository()
 
-      if (tokenAge > maxAge) {
-        return NextResponse.json({ error: 'Token expired' }, { status: 401 })
+      // Extract query parameters with validation
+      const { page, limit, search, startDate, endDate, sortBy, sortOrder, kategori } = query
+
+      let filter: any = {}
+
+      if (startDate || endDate) {
+        filter.tanggal = {}
+        if (startDate) filter.tanggal.gte = startDate
+        if (endDate) filter.tanggal.lte = endDate
       }
 
-      // Verify user exists and has FINANCE or ADMIN role
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
+      if (kategori) {
+        filter.kategori = kategori
+      }
+
+      if (search) {
+        filter.OR = [
+          { deskripsi: { contains: search } },
+          { kategori: { contains: search } }
+        ]
+      }
+
+      // Get pengeluaran with pagination
+      const items = await pengeluaranRepo.getMany({
+        filter,
+        orderBy: sortBy ? { [sortBy]: sortOrder } : { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit
       })
 
-      const allowedRoles = ['FINANCE', 'ADMIN'] as const
-      if (!user || !allowedRoles.includes(user.role as any)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-      }
-    } catch (parseError) {
-      return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+      // Get total count for pagination
+      const total = await pengeluaranRepo.count({ filter })
+
+      return createSuccessResponse({
+        items,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page * limit < total,
+          hasPrev: page > 1
+        }
+      })
+
+    } catch (error) {
+      return handleApiError(error, {
+        method: 'GET',
+        url: request.url,
+        ip: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent')
+      })
     }
-
-    const { searchParams } = new URL(request.url)
-    const kategori = searchParams.get('kategori')
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
-
-    const pengeluaranRepo = getPengeluaranRepository()
-
-    let pengeluarans
-    if (kategori) {
-      pengeluarans = await pengeluaranRepo.findByKategori(kategori)
-    } else if (startDate && endDate) {
-      pengeluarans = await pengeluaranRepo.findByDateRange(
-        new Date(startDate),
-        new Date(endDate),
-      )
-    } else {
-      pengeluarans = await pengeluaranRepo.findAll()
-    }
-
-    return NextResponse.json(pengeluarans, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      },
-    })
-  } catch (error: any) {
-    console.error('Error fetching pengeluaran:', error)
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
   }
-}
+)
 
 /**
  * POST /api/finance/pengeluaran
  * Create pengeluaran baru (FINANCE atau ADMIN)
  */
-export async function POST(request: NextRequest) {
-  try {
-    const token = request.headers.get('x-finance-token')
-    let userId: string | undefined
+export const POST = withValidation(
+  financePengeluaranSchema,
+  async (request, { data }) => {
+    try {
+      // Authenticate using secure FinanceAuthService
+      const authResult = await FinanceAuthService.authenticate(request)
 
-    if (token) {
-      // Verify finance token
-      try {
-        const tokenData = Buffer.from(token, 'base64').toString('utf8')
-        const [uid, timestamp] = tokenData.split(':')
-        userId = uid
-
-        if (!userId) {
-          return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
-        }
-
-        // Check token expiry
-        const tokenTime = parseInt(timestamp)
-        const now = Date.now()
-        const tokenAge = now - tokenTime
-        const maxAge = 24 * 60 * 60 * 1000
-
-        if (tokenAge > maxAge) {
-          return NextResponse.json({ error: 'Token expired' }, { status: 401 })
-        }
-      } catch (parseError) {
-        return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+      if (!authResult.success) {
+        return createAuthError()
       }
-    } else {
-      // Verify NextAuth session
-      const session = await getServerSession(authConfig)
-      if (session?.user?.id) {
-        userId = session.user.id
-      } else {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+      const userId = authResult.user!.id
+      const pengeluaranRepo = getPengeluaranRepository()
+
+      // Check for duplicate nomor bukti if provided
+      if (data.nomorBukti) {
+        const existingExpense = await (prisma as any).pengeluaran.findFirst({
+          where: {
+            nomorBukti: data.nomorBukti,
+          },
+        })
+
+        if (existingExpense) {
+          return handleApiError(
+            { code: 'P2002', message: 'Duplicate nomor bukti' },
+            {
+              method: 'POST',
+              url: request.url,
+              ip: request.headers.get('x-forwarded-for') || 'unknown',
+              userAgent: request.headers.get('user-agent'),
+              userId
+            }
+          )
+        }
       }
-    }
 
-    // Verify user exists and has FINANCE or ADMIN role
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    })
-
-    const allowedRoles = ['FINANCE', 'ADMIN'] as const
-    if (!user || !allowedRoles.includes(user.role as any)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
-
-    const body = await request.json()
-    
-    // Validate required fields
-    if (!body.tanggal || !body.kategori || !body.deskripsi || !body.jumlah) {
-      return NextResponse.json({ error: 'Tanggal, kategori, deskripsi, dan jumlah wajib diisi' }, { status: 400 })
-    }
-    
-    // Validate date format and consistency
-    const tanggal = new Date(body.tanggal)
-    if (isNaN(tanggal.getTime())) {
-      return NextResponse.json({ error: 'Format tanggal tidak valid' }, { status: 400 })
-    }
-    
-    // Check if date is not in the future
-    const today = new Date()
-    today.setHours(23, 59, 59, 999) // End of today
-    if (tanggal > today) {
-      return NextResponse.json({ error: 'Tanggal tidak boleh melebihi hari ini' }, { status: 400 })
-    }
-    
-    // Check if date is not too far in the past (optional validation)
-    const minDate = new Date()
-    minDate.setFullYear(today.getFullYear() - 5) // Allow transactions up to 5 years ago
-    if (tanggal < minDate) {
-      return NextResponse.json({ error: 'Tanggal terlalu jauh di masa lalu (maksimal 5 tahun)' }, { status: 400 })
-    }
-    
-    // Validate nomor bukti if provided
-    if (body.nomorBukti && body.nomorBukti.trim() === '') {
-      return NextResponse.json({ error: 'Nomor bukti tidak boleh kosong jika diisi' }, { status: 400 })
-    }
-    
-    // Check for duplicate nomor bukti
-    if (body.nomorBukti) {
-      const existingExpense = await (prisma as any).pengeluaran.findFirst({
-        where: {
-          nomorBukti: body.nomorBukti,
-        },
+      // Create pengeluaran with audit trail
+      const result = await pengeluaranRepo.create({
+        ...data,
+        createdBy: userId,
       })
-      
-      if (existingExpense) {
-        return NextResponse.json({ error: 'Nomor bukti sudah digunakan' }, { status: 400 })
-      }
+
+      // Log financial access for audit
+      await FinanceAuthService.logFinancialAccess(
+        request,
+        authResult.user!,
+        'CREATE',
+        'PENGELUARAN',
+        {
+          id: result.id,
+          jumlah: data.jumlah,
+          kategori: data.kategori,
+          tipe: data.tipe
+        }
+      )
+
+      return createSuccessResponse(
+        result,
+        'Pengeluaran created successfully',
+        {
+          id: result.id,
+          createdAt: result.createdAt
+        }
+      )
+
+    } catch (error) {
+      return handleApiError(error, {
+        method: 'POST',
+        url: request.url,
+        ip: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent')
+      })
     }
-
-    const pengeluaranRepo = getPengeluaranRepository()
-    const result = await pengeluaranRepo.create({
-      ...body,
-      createdBy: userId,
-    })
-
-    return NextResponse.json(result, { status: 201 })
-  } catch (error: any) {
-    console.error('Error creating expense:', error)
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
   }
-}
-
+)

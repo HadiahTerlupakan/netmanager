@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 
 /**
  * Generate finance token untuk admin user dengan role FINANCE atau ADMIN
@@ -77,36 +78,40 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Generate finance token dengan format yang sama seperti login
-      const timestamp = Date.now()
-      const tokenData = `${user.id}:${timestamp}:${process.env.NEXTAUTH_SECRET || 'secret'}`
-      const token = Buffer.from(tokenData).toString('base64')
+      // Generate secure JWT token menggunakan FinanceAuthService
+      const { token, expiresAt } = FinanceAuthService.generateFinanceToken({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      });
 
-      // Log untuk audit trail
-      console.log(`[Finance Token Generated] User: ${user.email}, Role: ${user.role}, Timestamp: ${timestamp}`)
+      // Log untuk audit trail (tanpa sensitive data)
+      console.log(`[Finance Token Generated] User: ${user.email}, Role: ${user.role}, Expires: ${expiresAt.toISOString()}`);
 
-      // Return token
+      // Return token dengan informasi expiry
       return NextResponse.json({
         token,
+        expiresAt: expiresAt.toISOString(),
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role
         },
-      })
+      });
     } catch (error: any) {
-      console.error('[Finance Token Generation] Error:', error)
+      console.error('[Finance Token Generation] Database Error:', error.message)
       return NextResponse.json(
-        { error: 'Terjadi kesalahan saat生成 token' },
+        { error: 'Gagal memvalidasi user' },
         { status: 500 }
       )
     }
   } catch (error: any) {
-    console.error('[Finance Token Generation] Request Error:', error)
+    console.error('[Finance Token Generation] Request Error:', error.message)
     return NextResponse.json(
-      { error: 'Terjadi kesalahan saat memproses request' },
-      { status: 500 }
+      { error: 'Invalid request format' },
+      { status: 400 }
     )
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 
 /**
  * CORS Configuration
@@ -16,12 +17,68 @@ export interface CorsOptions {
 }
 
 const defaultOptions: Required<Omit<CorsOptions, 'origin'>> & { origin: CorsOptions['origin'] } = {
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: getAllowedOrigins(),
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: [],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Finance-Token', 'X-Client-Version'],
+  exposedHeaders: ['X-Request-ID', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
   credentials: false,
-  maxAge: 86400, // 24 hours
+  maxAge: 7200, // 2 hours (reduced from 24 hours for security)
+}
+
+/**
+ * Get allowed origins based on environment
+ */
+function getAllowedOrigins(): CorsOptions['origin'] {
+  const corsOrigin = process.env.CORS_ORIGIN
+  const nodeEnv = process.env.NODE_ENV
+
+  // Production: require explicit origins
+  if (nodeEnv === 'production') {
+    if (corsOrigin) {
+      // Support comma-separated origins
+      const origins = corsOrigin.split(',').map(origin => origin.trim())
+      return origins.length === 1 ? origins[0] : origins
+    }
+
+    // Default production origins (should be overridden by environment variable)
+    return [
+      'https://netmanager.yourdomain.com',
+      'https://admin.netmanager.yourdomain.com',
+      'https://finance.netmanager.yourdomain.com',
+      'https://pelanggan.netmanager.yourdomain.com'
+    ]
+  }
+
+  // Development: allow localhost with port restrictions
+  if (nodeEnv === 'development') {
+    return (origin: string | null) => {
+      if (!origin) return false
+
+      const allowedDevelopmentOrigins = [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001',
+        'http://localhost:8000',
+        'http://127.0.0.1:8000'
+      ]
+
+      return allowedDevelopmentOrigins.includes(origin) ||
+             origin.startsWith('http://localhost:') ||
+             origin.startsWith('http://127.0.0.1:')
+    }
+  }
+
+  // Staging: moderate restrictions
+  if (nodeEnv === 'staging') {
+    return [
+      'https://staging.netmanager.yourdomain.com',
+      'https://admin-staging.netmanager.yourdomain.com'
+    ]
+  }
+
+  // Fallback: no wildcard for security
+  return false
 }
 
 /**
@@ -139,6 +196,92 @@ export function addCorsHeaders(
   if (opts.exposedHeaders && opts.exposedHeaders.length > 0) {
     res.headers.set('Access-Control-Expose-Headers', opts.exposedHeaders.join(', '))
   }
+
+  // Add additional security headers
+  return addSecurityHeaders(res, req)
+}
+
+/**
+ * Add comprehensive security headers
+ */
+export function addSecurityHeaders(
+  res: NextResponse,
+  req: NextRequest
+): NextResponse {
+  const nodeEnv = process.env.NODE_ENV
+  const isProduction = nodeEnv === 'production'
+
+  // Content Security Policy
+  if (isProduction) {
+    res.headers.set('Content-Security-Policy', [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Keep unsafe-eval for Next.js development
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self' https:",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "object-src 'none'",
+      "media-src 'self'",
+      "manifest-src 'self'",
+      "worker-src 'self' blob:",
+      "frame-src 'none'",
+      "child-src 'none'",
+    ].join('; '))
+  } else {
+    // Development CSP - more permissive
+    res.headers.set('Content-Security-Policy', [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self' ws: wss: https:",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "object-src 'none'",
+    ].join('; '))
+  }
+
+  // Strict Transport Security (HTTPS only)
+  if (isProduction && req.url.startsWith('https://')) {
+    res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
+  }
+
+  // Frame Protection
+  res.headers.set('X-Frame-Options', 'DENY')
+
+  // MIME type sniffing protection
+  res.headers.set('X-Content-Type-Options', 'nosniff')
+
+  // XSS Protection
+  res.headers.set('X-XSS-Protection', '1; mode=block')
+
+  // Referrer Policy
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+
+  // Permissions Policy
+  res.headers.set('Permissions-Policy', [
+    'camera=()',
+    'microphone=()',
+    'geolocation=()',
+    'payment=()',
+    'usb=()',
+    'magnetometer=()',
+    'gyroscope=()',
+    'accelerometer=()',
+    'ambient-light-sensor=()'
+  ].join(', '))
+
+  // Remove server information
+  res.headers.set('Server', '')
+
+  // Add request ID for tracking
+  const requestId = randomBytes(16).reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '')
+  res.headers.set('X-Request-ID', requestId)
 
   return res
 }

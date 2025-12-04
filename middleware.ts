@@ -225,9 +225,22 @@ export default async function middleware(request: NextRequest) {
 
     return NextResponse.next({ request })
   } catch (error: any) {
-    // Fallback jika ada error di middleware
-    console.error('Middleware error:', error)
-    return NextResponse.next({ request })
+    // FAIL-CLOSE: Security-first approach - block request on middleware error
+    console.error('Middleware security error:', error.message)
+
+    // Return error response instead of allowing bypass
+    return NextResponse.json(
+      {
+        error: 'Service temporarily unavailable',
+        code: 'MIDDLEWARE_ERROR'
+      },
+      {
+        status: 503,
+        headers: {
+          'Retry-After': '60'
+        }
+      }
+    )
   }
 }
 
