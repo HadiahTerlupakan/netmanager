@@ -189,29 +189,25 @@ export async function POST(request: NextRequest) {
 
                 // Still log the webhook for audit
                 await prisma.financialAuditLog.create({
-                            data: {
-                                action: 'PAYMENT_DUPLICATE',
-                                entityType: 'WEBHOOK_DANA',
-                                description: `Duplicate DANA webhook received for order ${orderId}`,
-                                userId: 'SYSTEM',
-                                userName: 'DANA Webhook System',
-                                ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-                                newValues: {
-                                    orderId: orderId,
-                                    provider: 'DANA',
-                                    amount: result.amount || 0,
-                                    status: 'DUPLICATE',
-                                    noTagihan: noTagihan,
-                                    payload: payload,
-                                    processedAt: new Date().toISOString(),
-                                    note: 'Tagihan already LUNAS'
-                                }
-                            }
-                        })
+                    data: {
+                        action: 'PAYMENT_DUPLICATE',
+                        entityType: 'WEBHOOK_DANA',
+                        description: `Duplicate DANA webhook received for order ${orderId}`,
+                        userId: 'SYSTEM',
+                        userName: 'DANA Webhook System',
+                        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+                        newValues: {
+                            orderId: orderId,
+                            provider: 'DANA',
+                            amount: result.amount || 0,
+                            status: 'DUPLICATE',
+                            noTagihan: noTagihan,
+                            payload: payload,
+                            processedAt: new Date().toISOString(),
+                            note: 'Tagihan already LUNAS'
+                        }
                     }
-                } else {
-                    console.warn(`[DANA Webhook] Tagihan with noTagihan ${noTagihan} not found`)
-                }
+                })
             }
         } else {
             // Log non-payment status webhooks for audit
