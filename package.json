@@ -30,7 +30,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "recharts": "^2.12.7"
   },
   "keywords": [],
   "author": "",
@@ -68,6 +69,7 @@
     "react-hook-form": "^7.67.0",
     "react-icons": "^5.5.0",
     "react-window": "^2.2.3",
+    "recharts": "^2.12.7",
     "source-map-support": "^0.5.21",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-react": "^5.30.3",

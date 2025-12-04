@@ -1,32 +1,45 @@
 export interface PemasukanPublic {
   id: string
+  nomorBukti?: string
   tanggal: Date
   kategori: string
   deskripsi: string
-  jumlah: bigint | string // BigInt dari Prisma, string untuk JSON serialization
-  metodeBayar: string | null
-  catatan: string | null
+  jumlah: string
+  metodeBayar?: string
+  catatan?: string
   createdAt: Date
   updatedAt: Date
-  createdBy: string | null
-  updatedBy: string | null
+  createdBy?: string
+  updatedBy?: string
+  createdByUser?: {
+    id: string
+    name?: string
+    email?: string
+  }
+  updatedByUser?: {
+    id: string
+    name?: string
+    email?: string
+  }
 }
 
 export interface PemasukanCreateData {
   tanggal: Date | string
+  nomorBukti?: string
   kategori: string
   deskripsi: string
-  jumlah: number | bigint | string // Accept number, bigint, or string
-  metodeBayar?: string | null
-  catatan?: string | null
-  createdBy?: string | null
+  jumlah: number | string | bigint
+  metodeBayar?: string
+  catatan?: string
+  createdBy?: string
 }
 
 export interface PemasukanUpdateData {
   tanggal?: Date | string
+  nomorBukti?: string
   kategori?: string
   deskripsi?: string
-  jumlah?: number | bigint | string
+  jumlah?: number | string | bigint
   metodeBayar?: string | null
   catatan?: string | null
   updatedBy?: string | null

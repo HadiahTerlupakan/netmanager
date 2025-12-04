@@ -487,6 +487,35 @@ export class TagihanRepository implements ITagihanRepository {
     return result._sum.total || 0
   }
 
+  async aggregateTotalByStatusAndPeriod(status: string, month?: number, year?: number): Promise<number> {
+    try {
+      if (!('tagihan' in this.client)) {
+        return 0
+      }
+      
+      const where: any = { status }
+      
+      if (month !== undefined && year !== undefined) {
+        where.periodeBulan = month
+        where.periodeTahun = year
+      }
+      
+      const result = await (this.client as any).tagihan.aggregate({
+        where,
+        _sum: {
+          total: true,
+        },
+      })
+      
+      return Number(result._sum.total || 0)
+    } catch (error: any) {
+      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+        return 0
+      }
+      throw error
+    }
+  }
+
   async groupByPeriode(): Promise<any[]> {
     const result = await this.client.tagihan.groupBy({
       by: ['periodeBulan', 'periodeTahun', 'status'],
@@ -498,6 +527,136 @@ export class TagihanRepository implements ITagihanRepository {
       },
     })
     return result
+  }
+
+  async groupByCategoryAndPeriod(month?: number, year?: number): Promise<any[]> {
+    try {
+      if (!('tagihan' in this.client)) {
+        return []
+      }
+
+      const where: any = {}
+
+      if (month !== undefined && year !== undefined) {
+        where.periodeBulan = month
+        where.periodeTahun = year
+      }
+
+      // Since tagihan doesn't have kategori field, we'll create categories based on billing components
+      const tagihanData = await (this.client as any).tagihan.findMany({
+        where,
+        select: {
+          id: true,
+          periodeBulan: true,
+          periodeTahun: true,
+          subtotal: true,
+          biayaInstalasi: true,
+          biayaSewaPerangkat: true,
+          biayaLainnya: true,
+          total: true,
+          status: true,
+        }
+      })
+
+      // Group by manually created categories
+      const groupedData = tagihanData.reduce((acc: any, tagihan: any) => {
+        const key = `${tagihan.periodeBulan}-${tagihan.periodeTahun}`
+
+        if (!acc[key]) {
+          acc[key] = {
+            periodeBulan: tagihan.periodeBulan,
+            periodeTahun: tagihan.periodeTahun,
+            langganan: 0,
+            instalasi: 0,
+            sewaPerangkat: 0,
+            lainnya: 0,
+            total: 0,
+            count: 0,
+          }
+        }
+
+        acc[key].langganan += tagihan.subtotal
+        acc[key].instalasi += tagihan.biayaInstalasi
+        acc[key].sewaPerangkat += tagihan.biayaSewaPerangkat
+        acc[key].lainnya += tagihan.biayaLainnya
+        acc[key].total += tagihan.total
+        acc[key].count += 1
+
+        return acc
+      }, {})
+
+      // Convert to array format with categories
+      const result: any[] = []
+
+      Object.values(groupedData).forEach((data: any) => {
+        // Add subscription category
+        if (data.langganan > 0) {
+          result.push({
+            kategori: 'Langganan',
+            periodeBulan: data.periodeBulan,
+            periodeTahun: data.periodeTahun,
+            _sum: {
+              total: Number(data.langganan)
+            },
+            _count: {
+              id: data.count
+            }
+          })
+        }
+
+        // Add installation category
+        if (data.instalasi > 0) {
+          result.push({
+            kategori: 'Instalasi',
+            periodeBulan: data.periodeBulan,
+            periodeTahun: data.periodeTahun,
+            _sum: {
+              total: Number(data.instalasi)
+            },
+            _count: {
+              id: data.count
+            }
+          })
+        }
+
+        // Add device rental category
+        if (data.sewaPerangkat > 0) {
+          result.push({
+            kategori: 'Sewa Perangkat',
+            periodeBulan: data.periodeBulan,
+            periodeTahun: data.periodeTahun,
+            _sum: {
+              total: Number(data.sewaPerangkat)
+            },
+            _count: {
+              id: data.count
+            }
+          })
+        }
+
+        // Add other category
+        if (data.lainnya > 0) {
+          result.push({
+            kategori: 'Lainnya',
+            periodeBulan: data.periodeBulan,
+            periodeTahun: data.periodeTahun,
+            _sum: {
+              total: Number(data.lainnya)
+            },
+            _count: {
+              id: data.count
+            }
+          })
+        }
+      })
+
+      return result
+    } catch (error: any) {
+      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+        return []
+      }
+      throw error
+    }
   }
 }
 

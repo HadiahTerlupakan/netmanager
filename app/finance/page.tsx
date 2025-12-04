@@ -302,7 +302,7 @@ export default function FinanceDashboardPage() {
               </div>
             </Link>
             <Link
-              href="/finance/laporan"
+              href="/finance/reports"
               className="touch-target touch-manipulation flex items-center gap-3 p-3 md:p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors"
             >
               <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex-shrink-0">

@@ -201,6 +201,28 @@ export default async function middleware(request: NextRequest) {
       return response
     }
 
+    // Auth middleware untuk finance routes (baik dari subdomain atau path)
+    if (pathname.startsWith('/finance') || isFinanceSubdomain(request)) {
+      // Skip auth check untuk login page
+      if (pathname === '/finance/login' || pathname === '/login') {
+        return NextResponse.next({ request })
+      }
+
+      const response = await authMiddleware(request as any, {} as any)
+
+      // Jika redirect ke login, redirect ke finance login page
+      if (response && response.status === 307) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/finance/login'
+        if (pathname !== '/finance') {
+          url.searchParams.set('callbackUrl', pathname)
+        }
+        return NextResponse.redirect(url)
+      }
+
+      return response
+    }
+
     return NextResponse.next({ request })
   } catch (error: any) {
     // Fallback jika ada error di middleware

@@ -83,6 +83,7 @@ export class PemasukanRepository implements IPemasukanRepository {
     const created = await (this.client as any).pemasukan.create({
       data: {
         tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal,
+        nomorBukti: data.nomorBukti,
         kategori: data.kategori,
         deskripsi: data.deskripsi,
         jumlah: jumlahBigInt,
@@ -104,6 +105,7 @@ export class PemasukanRepository implements IPemasukanRepository {
       ...(data.tanggal !== undefined && {
         tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal
       }),
+      ...(data.nomorBukti !== undefined && { nomorBukti: data.nomorBukti }),
       ...(data.kategori !== undefined && { kategori: data.kategori }),
       ...(data.deskripsi !== undefined && { deskripsi: data.deskripsi }),
       ...(data.metodeBayar !== undefined && { metodeBayar: data.metodeBayar }),
@@ -233,6 +235,37 @@ export class PemasukanRepository implements IPemasukanRepository {
     }
   }
 
+  async aggregateTotalByPeriod(month?: number, year?: number): Promise<bigint> {
+    try {
+      if (!('pemasukan' in this.client)) {
+        return BigInt(0)
+      }
+      
+      const where: any = {}
+      
+      if (month !== undefined && year !== undefined) {
+        where.tanggal = {
+          gte: new Date(year, month - 1, 1), // Start of month
+          lt: new Date(year, month, 1), // Start of next month
+        }
+      }
+      
+      const result = await (this.client as any).pemasukan.aggregate({
+        where,
+        _sum: {
+          jumlah: true,
+        },
+      })
+      
+      return result._sum.jumlah || BigInt(0)
+    } catch (error: any) {
+      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+        return BigInt(0)
+      }
+      throw error
+    }
+  }
+
   async groupByPeriode(): Promise<any[]> {
     try {
       if (!('pemasukan' in this.client)) {
@@ -259,7 +292,7 @@ export class PemasukanRepository implements IPemasukanRepository {
     }
   }
 
-  async findIdsAndDates(startDate?: Date, endDate?: Date): Promise<{ id: string, tanggal: Date }[]> {
+  async findIdsAndDates(startDate?: Date, endDate?: Date, category?: string, paymentMethod?: string, searchDescription?: string): Promise<{ id: string, tanggal: Date }[]> {
     try {
       if (!('pemasukan' in this.client)) {
         return []
@@ -269,6 +302,18 @@ export class PemasukanRepository implements IPemasukanRepository {
         where.tanggal = {
           gte: startDate,
           lte: endDate,
+        }
+      }
+      if (category) {
+        where.kategori = category
+      }
+      if (paymentMethod) {
+        where.metodeBayar = paymentMethod
+      }
+      if (searchDescription) {
+        where.deskripsi = {
+          contains: searchDescription,
+          mode: 'insensitive'
         }
       }
 
@@ -284,6 +329,56 @@ export class PemasukanRepository implements IPemasukanRepository {
         id: item.id,
         tanggal: typeof item.tanggal === 'string' ? new Date(item.tanggal) : item.tanggal
       }))
+    } catch (error: any) {
+      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+        return []
+      }
+      throw error
+    }
+  }
+
+  async findByFilters(startDate?: Date, endDate?: Date, category?: string, paymentMethod?: string, searchDescription?: string): Promise<PemasukanPublic[]> {
+    try {
+      if (!('pemasukan' in this.client)) {
+        return []
+      }
+      const where: any = {}
+      if (startDate && endDate) {
+        where.tanggal = {
+          gte: startDate,
+          lte: endDate,
+        }
+      }
+      if (category) {
+        where.kategori = category
+      }
+      if (paymentMethod) {
+        where.metodeBayar = paymentMethod
+      }
+      if (searchDescription) {
+        where.deskripsi = {
+          contains: searchDescription,
+          mode: 'insensitive'
+        }
+      }
+
+      const items = await (this.client as any).pemasukan.findMany({
+        where,
+        orderBy: { tanggal: 'desc' },
+        include: {
+          createdByUser: {
+            select: { id: true, name: true, email: true }
+          },
+          updatedByUser: {
+            select: { id: true, name: true, email: true }
+          },
+        }
+      })
+      // Convert BigInt to string for JSON serialization
+      return items.map((item: any) => ({
+        ...item,
+        jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : item.jumlah
+      })) as unknown as PemasukanPublic[]
     } catch (error: any) {
       if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
         return []

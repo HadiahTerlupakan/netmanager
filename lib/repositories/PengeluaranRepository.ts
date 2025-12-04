@@ -173,6 +173,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
     const created = await (this.client as any).pengeluaran.create({
       data: {
         tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal,
+        nomorBukti: data.nomorBukti,
         tipePengeluaran: data.tipePengeluaran,
         kategori: data.kategori,
         deskripsi: data.deskripsi,
@@ -248,6 +249,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       ...(data.tanggal !== undefined && {
         tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal
       }),
+      ...(data.nomorBukti !== undefined && { nomorBukti: data.nomorBukti }),
       ...(data.tipePengeluaran !== undefined && { tipePengeluaran: data.tipePengeluaran }),
       ...(data.kategori !== undefined && { kategori: data.kategori }),
       ...(data.deskripsi !== undefined && { deskripsi: data.deskripsi }),
@@ -426,7 +428,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
     }
   }
 
-  async findIdsAndDates(startDate?: Date, endDate?: Date): Promise<{ id: string, tanggal: Date }[]> {
+  async findIdsAndDates(startDate?: Date, endDate?: Date, category?: string, paymentMethod?: string, searchDescription?: string): Promise<{ id: string, tanggal: Date }[]> {
     try {
       if (!('pengeluaran' in this.client)) {
         return []
@@ -436,6 +438,18 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         where.tanggal = {
           gte: startDate,
           lte: endDate,
+        }
+      }
+      if (category) {
+        where.kategori = category
+      }
+      if (paymentMethod) {
+        where.metodeBayar = paymentMethod
+      }
+      if (searchDescription) {
+        where.deskripsi = {
+          contains: searchDescription,
+          mode: 'insensitive'
         }
       }
 
@@ -450,6 +464,162 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       return items.map((item: any) => ({
         id: item.id,
         tanggal: typeof item.tanggal === 'string' ? new Date(item.tanggal) : item.tanggal
+      }))
+    } catch (error: any) {
+      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+        return []
+      }
+      throw error
+    }
+  }
+
+  async findByFilters(startDate?: Date, endDate?: Date, category?: string, paymentMethod?: string, searchDescription?: string): Promise<PengeluaranPublic[]> {
+    try {
+      if (!('pengeluaran' in this.client)) {
+        return []
+      }
+      const where: any = {}
+      if (startDate && endDate) {
+        where.tanggal = {
+          gte: startDate,
+          lte: endDate,
+        }
+      }
+      if (category) {
+        where.kategori = category
+      }
+      if (paymentMethod) {
+        where.metodeBayar = paymentMethod
+      }
+      if (searchDescription) {
+        where.deskripsi = {
+          contains: searchDescription,
+          mode: 'insensitive'
+        }
+      }
+
+      const items = await (this.client as any).pengeluaran.findMany({
+        where,
+        orderBy: { tanggal: 'desc' },
+        include: {
+          createdByUser: {
+            select: { id: true, name: true, email: true }
+          },
+          updatedByUser: {
+            select: { id: true, name: true, email: true }
+          },
+        }
+      })
+      // Convert BigInt to string for JSON serialization
+      return items.map((item: any) => ({
+        ...item,
+        jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : item.jumlah
+      })) as unknown as PengeluaranPublic[]
+    } catch (error: any) {
+      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+        return []
+      }
+      throw error
+    }
+  }
+
+  async aggregateTotalByPeriod(month?: number, year?: number): Promise<bigint> {
+    try {
+      if (!('pengeluaran' in this.client)) {
+        return BigInt(0)
+      }
+      
+      const where: any = {}
+      
+      if (month !== undefined && year !== undefined) {
+        where.tanggal = {
+          gte: new Date(year, month - 1, 1), // Start of month
+          lt: new Date(year, month, 1), // Start of next month
+        }
+      }
+      
+      const result = await (this.client as any).pengeluaran.aggregate({
+        where,
+        _sum: {
+          jumlah: true,
+        },
+      })
+      
+      return result._sum.jumlah || BigInt(0)
+    } catch (error: any) {
+      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+        return BigInt(0)
+      }
+      throw error
+    }
+  }
+
+  async aggregateTotalByTipeAndPeriod(tipePengeluaran: 'CAPEX' | 'OPEX', month?: number, year?: number): Promise<bigint> {
+    try {
+      if (!('pengeluaran' in this.client)) {
+        return BigInt(0)
+      }
+      
+      const where: any = { tipePengeluaran }
+      
+      if (month !== undefined && year !== undefined) {
+        where.tanggal = {
+          gte: new Date(year, month - 1, 1), // Start of month
+          lt: new Date(year, month, 1), // Start of next month
+        }
+      }
+      
+      const result = await (this.client as any).pengeluaran.aggregate({
+        where,
+        _sum: {
+          jumlah: true,
+        },
+      })
+      
+      return result._sum.jumlah || BigInt(0)
+    } catch (error: any) {
+      if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
+        return BigInt(0)
+      }
+      throw error
+    }
+  }
+
+  async groupByCategoryAndPeriod(month?: number, year?: number): Promise<any[]> {
+    try {
+      if (!('pengeluaran' in this.client)) {
+        return []
+      }
+      
+      const where: any = {}
+      
+      if (month !== undefined && year !== undefined) {
+        where.tanggal = {
+          gte: new Date(year, month - 1, 1), // Start of month
+          lt: new Date(year, month, 1), // Start of next month
+        }
+      }
+      
+      const items = await (this.client as any).pengeluaran.groupBy({
+        by: ['kategori', 'tipePengeluaran'],
+        where,
+        _sum: {
+          jumlah: true,
+        },
+        _count: {
+          id: true,
+        },
+      })
+      
+      return items.map((item: any) => ({
+        kategori: item.kategori || 'Lainnya',
+        tipePengeluaran: item.tipePengeluaran || 'OPEX',
+        _sum: {
+          jumlah: Number(item._sum.jumlah || 0)
+        },
+        _count: {
+          id: item._count.id || 0
+        }
       }))
     } catch (error: any) {
       if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {

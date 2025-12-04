@@ -1,35 +1,48 @@
 export interface PengeluaranPublic {
   id: string
+  nomorBukti?: string
   tanggal: Date
-  tipePengeluaran: 'CAPEX' | 'OPEX'
+  tipePengeluaran?: 'CAPEX' | 'OPEX'
   kategori: string
   deskripsi: string
-  jumlah: bigint | string // BigInt dari Prisma, string untuk JSON serialization
-  metodeBayar: string | null
-  catatan: string | null
+  jumlah: string
+  metodeBayar?: string
+  catatan?: string
   createdAt: Date
   updatedAt: Date
-  createdBy: string | null
-  updatedBy: string | null
+  createdBy?: string
+  updatedBy?: string
+  createdByUser?: {
+    id: string
+    name?: string
+    email?: string
+  }
+  updatedByUser?: {
+    id: string
+    name?: string
+    email?: string
+  }
 }
 
 export interface PengeluaranCreateData {
   tanggal: Date | string
-  tipePengeluaran: 'CAPEX' | 'OPEX'
+  nomorBukti?: string
+  tipePengeluaran?: 'CAPEX' | 'OPEX'
   kategori: string
   deskripsi: string
-  jumlah: number | bigint | string // Accept number, bigint, or string
-  metodeBayar?: string | null
-  catatan?: string | null
-  createdBy?: string | null
+  jumlah: number | string | bigint
+  metodeBayar?: string
+  catatan?: string
+  createdBy?: string
 }
 
 export interface PengeluaranUpdateData {
   tanggal?: Date | string
+  nomorBukti?: string
   tipePengeluaran?: 'CAPEX' | 'OPEX'
   kategori?: string
   deskripsi?: string
-  jumlah?: number | bigint | string
+  jumlah?: number | string | bigint
   metodeBayar?: string | null
   catatan?: string | null
   updatedBy?: string | null

@@ -112,19 +112,27 @@ enum ApplicationStatus {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  name         String?
-  email        String    @unique
-  passwordHash String
-  role         Role      @default(USER)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  sessions     Session[]
-
-  pengeluaransCreated Pengeluaran[] @relation("PengeluaranCreatedBy")
-  pengeluaransUpdated Pengeluaran[] @relation("PengeluaranUpdatedBy")
-  pemasukansCreated   Pemasukan[]   @relation("PemasukanCreatedBy")
-  pemasukansUpdated   Pemasukan[]   @relation("PemasukanUpdatedBy")
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(USER)
+  passwordHash  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      String[]
+  sessions      Session[]
+  pelanggan     Pelanggan[]
+  tickets       Ticket[]
+  pemasukanCreated Pemasukan[] @relation("PemasukanCreatedBy")
+  pemasukanUpdated Pemasukan[] @relation("PemasukanUpdatedBy")
+  pengeluaranCreated Pengeluaran[] @relation("PengeluaranCreatedBy")
+  pengeluaranUpdated Pengeluaran[] @relation("PengeluaranUpdatedBy")
+  bankAccountsCreated BankAccount[] @relation("BankAccountCreatedBy")
+  bankAccountsUpdated BankAccount[] @relation("BankAccountUpdatedBy")
+  transactionsCreated Transaction[] @relation("TransactionCreatedBy")
+  transactionsUpdated Transaction[] @relation("TransactionUpdatedBy")
 }
 
 model Session {
@@ -615,6 +623,7 @@ model HargaPaket {
 // Pelanggan - Data pelanggan PPPoE
 model Pelanggan {
   id                            String        @id @default(cuid())
+  userId                        String? // User ID yang terkait (optional)
   idPelanggan                   String        @unique // ID Pelanggan 8 digit (unique)
   nama                          String // Nama lengkap pelanggan
   username                      String // Username PPPoE
@@ -664,6 +673,7 @@ model Pelanggan {
   keteranganBiayaLainnya        String? // Keterangan untuk biaya lain-lain
   odpId                         String? // ODP yang digunakan pelanggan (opsional)
   odp                           Odp?          @relation(fields: [odpId], references: [id], onDelete: SetNull)
+  user                          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt                     DateTime      @default(now())
   updatedAt                     DateTime      @updatedAt
 
@@ -899,21 +909,22 @@ model ManualPayment {
 // Pengeluaran - Data pengeluaran untuk cashflow
 model Pengeluaran {
   id              String          @id @default(cuid())
+  nomorBukti     String?         // Nomor bukti transaksi
   tanggal         DateTime // Tanggal pengeluaran
   tipePengeluaran TipePengeluaran @default(OPEX) // CAPEX atau OPEX
-  kategori        String // Kategori pengeluaran (e.g., "OPERASIONAL", "PEMELIHARAAN", "GAJI", dll)
+  kategori        String // Kategori pengeluaran (e.g., "OPERASIONAL", "PEMELIHARAAN", "GAJI", "BONUS", "SEWA", "LISTRIK_PLN", "LISTRIK_PDAM", "LISTRIK_INTERNET", "LISTRIK_TELEPON", "INTERNET", "TELEPON", "MAINTENANCE_OFFICE", "MAINTENANCE_EQUIPMENT", "MAINTENANCE_SERVER", "BIAYA_INSTALLASI", "BIAYA_KONSUMSI", "BIAYA_CUTI", "BIAYA_CUTI", "BIAYA_ASURANSI", "BIAYA_JAMSOSTEK", "BIAYA_LEAVE", "BIAYA_LAINNYA", "SEWA_KANTOR", "SEWA_GEDUNG", "SEWA_EQUIPMENT", "SEWA_KENDARAAN", "LISTRIK_PLN", "LISTRIK_PDAM", "LISTRIK_INTERNET", "LISTRIK_TELEPON", "INTERNET_BACKBONE", "BANDWIDTH", "VOICE_CALL", "SMS_GATEWAY", "MAINTENANCE_OFFICE", "MAINTENANCE_EQUIPMENT", "MAINTENANCE_SERVER", "BIAYA_KEBERSIHAN", "BIAYA_KONSUMSI", "BIAYA_PPAJ", "BIAYA_PPH", "PAJAK_REKLAME", "PAJAK_BEBAN_BAKU", "ASURANSI_KARYAWAN", "ASURANSI_KENDARAAN", "ASURANSI_PROPERTY", "ASURANSI_LIABILITY", "BANK_ADMIN", "BANK_TRANSFER", "BANK_MATERAI", "BANK_CASH", "E_WALLET", "MARKETING", "ADVERTISING", "TRAINING", "TRAVEL", "ENTERTAINMENT", "LEGAL", "AKUNTANSI", "AUDIT", "LAINNYA")
   deskripsi       String // Deskripsi pengeluaran
   jumlah          BigInt // Jumlah pengeluaran (dalam rupiah)
-  metodeBayar     String? // Metode pembayaran (e.g., "TRANSFER", "CASH", dll)
+  metodeBayar     String? // Metode pembayaran (e.g., "TRANSFER", "CASH", "DEBIT", "KREDIT", "E-WALLET")
   catatan         String? // Catatan tambahan
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   createdBy       String? // User ID yang membuat (optional)
   updatedBy       String? // User ID yang update terakhir (optional)
-
+  
   // Budget tracking
   budgetId String? // Link to budget for tracking
-
+  
   // Approval workflow
   isApproved Boolean   @default(false)
   approvedBy String? // User ID yang approve
@@ -931,18 +942,19 @@ model Pengeluaran {
 
 // Pemasukan - Data pemasukan manual untuk cashflow
 model Pemasukan {
-  id          String   @id @default(cuid())
-  tanggal     DateTime // Tanggal pemasukan
-  kategori    String // Kategori pemasukan (e.g., "PENJUALAN", "INVESTASI", "BONUS", "LAINNYA", dll)
-  deskripsi   String // Deskripsi pemasukan
-  jumlah      BigInt // Jumlah pemasukan (dalam rupiah)
-  metodeBayar String? // Metode pembayaran (e.g., "TRANSFER", "CASH", dll)
-  catatan     String? // Catatan tambahan
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   String? // User ID yang membuat (optional)
-  updatedBy   String? // User ID yang update terakhir (optional)
-
+  id              String          @id @default(cuid())
+  nomorBukti     String?         // Nomor bukti transaksi
+  tanggal         DateTime // Tanggal pemasukan
+  kategori        String // Kategori pemasukan (e.g., "PENJUALAN", "INVESTASI", "BONUS", "HADIAH", "SEWA", "LAINNYA")
+  deskripsi       String // Deskripsi pemasukan
+  jumlah          BigInt // Jumlah pemasukan (dalam rupiah)
+  metodeBayar     String? // Metode pembayaran (e.g., "TRANSFER", "CASH", "DEBIT", "KREDIT", "E-WALLET")
+  catatan         String? // Catatan tambahan
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdBy       String? // User ID yang membuat (optional)
+  updatedBy       String? // User ID yang update terakhir (optional)
+  
   // Verification workflow
   isVerified Boolean   @default(false)
   verifiedBy String? // User ID yang verify
@@ -975,23 +987,23 @@ model Settings {
 
 // BankAccount - Support multiple bank accounts
 model BankAccount {
-  id            String   @id @default(cuid())
-  accountName   String // e.g., "BCA Operasional", "Mandiri Payroll"
-  bankName      String // e.g., "BCA", "Mandiri", "BRI"
-  accountNumber String   @unique
-  accountType   String   @default("CHECKING") // CHECKING, SAVINGS, E_WALLET
-  balance       BigInt   @default(0) // Current balance in system
-  currency      String   @default("IDR")
-  description   String?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
+  id              String          @id @default(cuid())
+  namaBank        String // Nama bank (e.g., "BCA", "Mandiri", "BNI", "BRI")
+  nomorRekening   String // Nomor rekening
+  namaPemilik     String // Nama pemilik rekening
+  saldoAwal       BigInt // Saldo awal rekening
+  saldoSaatIni    BigInt // Saldo saat ini
+  mataUang        String @default("IDR") // Mata uang (default IDR)
+  isActive        Boolean @default(true) // Status aktif/tidak
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdBy       String? // User ID yang membuat (optional)
+  updatedBy       String? // User ID yang update terakhir (optional)
+  createdByUser    User? @relation("BankAccountCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedByUser    User? @relation("BankAccountUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  transactions    Transaction[] // Relasi ke transaksi
   statements      BankStatement[]
   reconciliations Reconciliation[]
-
-  @@index([bankName])
-  @@index([isActive])
 }
 
 // BankStatement - Imported from bank
@@ -2371,6 +2383,7 @@ model Ticket {
   // Customer Info
   pelangganId String
   pelanggan   Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  userId      String? // User ID yang terkait (optional)
 
   // Ticket Details
   categoryId  String?
@@ -2405,6 +2418,7 @@ model Ticket {
   messages    TicketMessage[]
   attachments TicketAttachment[]
   workOrders  WorkOrder[]       // Link to work orders created from this ticket
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([pelangganId])
   @@index([status])
@@ -2677,4 +2691,366 @@ model WorkOrderAttachment {
   @@index([workOrderId])
   @@index([uploadedAt])
   @@map("work_order_attachments")
+}
+
+model Transaction {
+  id              String          @id @default(cuid())
+  bankAccountId    String // ID rekening bank
+  tanggal         DateTime // Tanggal transaksi
+  tipeTransaksi   String // Jenis transaksi (DEBIT/KREDIT)
+  kategori        String // Kategori transaksi
+  deskripsi       String // Deskripsi transaksi
+  jumlah          BigInt // Jumlah transaksi
+  saldoSebelumnya BigInt // Saldo sebelum transaksi
+  saldoSetelahnya BigInt // Saldo setelah transaksi
+  nomorReferensi  String? // Nomor referensi (opsional)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdBy       String? // User ID yang membuat (optional)
+  updatedBy       String? // User ID yang update terakhir (optional)
+  bankAccount      BankAccount @relation(fields: [bankAccountId], references: [id])
+  createdByUser    User? @relation("TransactionCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updatedByUser    User? @relation("TransactionUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@index([bankAccountId, tanggal])
+  @@index([tipeTransaksi])
+  @@index([kategori])
+  @@index([tanggal])
+}
+
+// ============================================
+// ENHANCED FINANCIAL REPORTING MODELS
+// ============================================
+
+// AccountingPeriod - Periods for financial reporting
+model AccountingPeriod {
+  id          String   @id @default(cuid())
+  year        Int      // 2024, 2025
+  month       Int?     // 1-12 (null for yearly periods)
+  quarter     Int?     // 1-4 (null for non-quarterly)
+  name        String   // "2024", "Q1 2024", "Jan 2024"
+  startDate   DateTime // Period start
+  endDate     DateTime // Period end
+  isActive    Boolean  @default(false)
+  isClosed    Boolean  @default(false) // Period closed for modifications
+  closedAt    DateTime?
+  closedBy    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations to financial data snapshots
+  balanceSheet       BalanceSheetSnapshot?
+  profitLoss         ProfitLossSnapshot?
+  cashFlow           CashFlowSnapshot?
+  financialRatios    FinancialRatioSnapshot[]
+  auditLogs          FinancialAuditLog[]
+
+  @@unique([year, month, quarter])
+  @@index([isActive])
+  @@index([isClosed])
+  @@index([year])
+}
+
+// BalanceSheetSnapshot - Balance sheet data at specific period
+model BalanceSheetSnapshot {
+  id                String   @id @default(cuid())
+  periodId          String   @unique
+  period            AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  // Assets
+  cashAndEquivalents     BigInt
+  accountsReceivable     BigInt
+  inventory              BigInt @default(0)
+  prepaidExpenses        BigInt @default(0)
+  currentAssets          BigInt
+  fixedAssets            BigInt
+  accumulatedDepreciation BigInt @default(0)
+  netFixedAssets         BigInt
+  totalAssets            BigInt
+
+  // Liabilities
+  accountsPayable        BigInt
+  accruedExpenses        BigInt @default(0)
+  shortTermDebt          BigInt @default(0)
+  currentLiabilities     BigInt
+  longTermDebt           BigInt @default(0)
+  totalLiabilities       BigInt
+
+  // Equity
+  initialCapital         BigInt @default(0)
+  retainedEarnings       BigInt
+  currentPeriodEarnings  BigInt @default(0)
+  totalEquity            BigInt
+
+  // Validation
+  isBalanced             Boolean @default(false) // Assets = Liabilities + Equity
+  variance               BigInt @default(0) // Should be 0 when balanced
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  createdBy              String?
+
+  @@index([periodId])
+}
+
+// ProfitLossSnapshot - P&L data for specific period
+model ProfitLossSnapshot {
+  id                String   @id @default(cuid())
+  periodId          String   @unique
+  period            AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  // Revenue
+  salesRevenue      BigInt
+  serviceRevenue    BigInt @default(0)
+  otherRevenue      BigInt @default(0)
+  totalRevenue      BigInt
+
+  // Cost of Goods Sold (COGS)
+  directCosts       BigInt @default(0)
+  cogs              BigInt @default(0)
+  grossProfit       BigInt
+  grossMargin       Float    @default(0) // Percentage
+
+  // Operating Expenses
+  operatingExpenses BigInt
+  operatingIncome   BigInt
+  operatingMargin   Float    @default(0) // Percentage
+
+  // Non-Operating Items
+  interestIncome    BigInt @default(0)
+  interestExpense   BigInt @default(0)
+  otherIncome       BigInt @default(0)
+  otherExpenses     BigInt @default(0)
+  incomeBeforeTax   BigInt
+
+  // Tax
+  incomeTax         BigInt @default(0)
+  netIncome         BigInt
+  netMargin         Float    @default(0) // Percentage
+
+  // Additional metrics
+  earningsPerShare  Float    @default(0)
+  returnOnAssets    Float    @default(0)
+  returnOnEquity    Float    @default(0)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdBy         String?
+
+  @@index([periodId])
+}
+
+// CashFlowSnapshot - Cash flow data for specific period
+model CashFlowSnapshot {
+  id                String   @id @default(cuid())
+  periodId          String   @unique
+  period            AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  // Operating Activities
+  netIncome         BigInt
+  depreciation      BigInt @default(0)
+  workingCapitalChanges BigInt @default(0)
+  operatingCashFlow  BigInt
+
+  // Investing Activities
+  capex             BigInt @default(0)
+  assetSales        BigInt @default(0)
+  investingCashFlow BigInt @default(0)
+
+  // Financing Activities
+  debtProceeds      BigInt @default(0)
+  debtRepayments    BigInt @default(0)
+  equityProceeds    BigInt @default(0)
+  dividends         BigInt @default(0)
+  financingCashFlow BigInt @default(0)
+
+  // Net Change
+  cashFlowIncrease  BigInt
+  beginningCash     BigInt
+  endingCash        BigInt
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdBy         String?
+
+  @@index([periodId])
+}
+
+// FinancialRatioSnapshot - Financial ratios for specific period
+model FinancialRatioSnapshot {
+  id          String   @id @default(cuid())
+  periodId    String
+  period      AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  // Liquidity Ratios
+  currentRatio       Float
+  quickRatio         Float @default(0)
+  cashRatio          Float @default(0)
+
+  // Profitability Ratios
+  grossMargin        Float
+  operatingMargin    Float
+  netMargin          Float
+  returnOnAssets     Float
+  returnOnEquity     Float
+
+  // Efficiency Ratios
+  assetTurnover      Float @default(0)
+  inventoryTurnover  Float @default(0)
+  receivablesTurnover Float @default(0)
+
+  // Solvency Ratios
+  debtToEquity       Float @default(0)
+  debtToAssets       Float @default(0)
+  interestCoverage   Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([periodId])
+  @@index([periodId])
+}
+
+// FinancialAuditLog - Audit trail for financial data changes
+model FinancialAuditLog {
+  id          String   @id @default(cuid())
+  periodId    String?
+  period      AccountingPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+
+  action      String   // "CREATE", "UPDATE", "DELETE", "CALCULATE"
+  entityType  String   // "BALANCE_SHEET", "PROFIT_LOSS", "CASH_FLOW"
+  entityId    String?  // ID of the affected record
+  description String   @db.Text // Human-readable description
+
+  // What changed
+  oldValues   Json?    // Previous values
+  newValues   Json?    // New values
+
+  // Who made the change
+  userId      String
+  userName    String?  // User name at time of action
+  ipAddress   String?
+  userAgent   String?  @db.Text
+
+  // When
+  createdAt   DateTime @default(now())
+
+  @@index([periodId])
+  @@index([entityType])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+// DepreciationSchedule - Asset depreciation tracking
+model DepreciationSchedule {
+  id              String   @id @default(cuid())
+  assetName       String
+  description     String?
+  assetCategory   String
+  purchaseDate    DateTime
+  purchaseCost    BigInt
+  salvageValue    BigInt @default(0)
+  usefulLifeYears Int
+  depreciationMethod String @default("STRAIGHT_LINE") // STRAIGHT_LINE, DECLINING_BALANCE
+
+  // Calculated fields
+  annualDepreciation BigInt @default(0)
+  monthlyDepreciation BigInt @default(0)
+  accumulatedDepreciation BigInt @default(0)
+  netBookValue         BigInt
+
+  // Status
+  isActive        Boolean  @default(true)
+  disposedDate    DateTime?
+  disposedValue   BigInt @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String?
+
+  // Periodic depreciation records
+  depreciationRecords DepreciationRecord[]
+
+  @@index([isActive])
+  @@index([purchaseDate])
+  @@index([assetCategory])
+}
+
+// DepreciationRecord - Monthly depreciation for each asset
+model DepreciationRecord {
+  id                    String @id @default(cuid())
+  depreciationScheduleId String
+  depreciationSchedule   DepreciationSchedule @relation(fields: [depreciationScheduleId], references: [id], onDelete: Cascade)
+
+  year                  Int
+  month                 Int
+  depreciationAmount    BigInt
+  accumulatedDepreciation BigInt // Running total
+  netBookValue          BigInt
+
+  createdAt             DateTime @default(now())
+
+  @@unique([depreciationScheduleId, year, month])
+  @@index([year, month])
+  @@index([depreciationScheduleId])
+}
+
+// FixedAsset - Fixed asset register
+model FixedAsset {
+  id              String   @id @default(cuid())
+  assetCode       String   @unique // Fixed asset code
+  assetName       String
+  description     String?
+  assetCategory   String
+  serialNumber    String?
+  location        String?
+
+  // Financial details
+  purchaseDate    DateTime
+  purchaseCost    BigInt
+  salvageValue    BigInt @default(0)
+  usefulLifeYears Int
+  currentValue    BigInt
+
+  // Status
+  status          String   @default("ACTIVE") // ACTIVE, INACTIVE, DISPOSED
+  condition       String?  // GOOD, FAIR, POOR
+
+  // Assignment
+  assignedTo      String?  // Employee or department
+  assignedDate    DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String?
+  updatedBy       String?
+
+  // Maintenance records
+  maintenanceRecords FixedAssetMaintenance[]
+
+  @@index([assetCode])
+  @@index([assetCategory])
+  @@index([status])
+  @@index([purchaseDate])
+}
+
+// FixedAssetMaintenance - Maintenance records for fixed assets
+model FixedAssetMaintenance {
+  id              String @id @default(cuid())
+  fixedAssetId    String
+  fixedAsset      FixedAsset @relation(fields: [fixedAssetId], references: [id], onDelete: Cascade)
+
+  maintenanceDate DateTime
+  maintenanceType String // "PREVENTIVE", "CORRECTIVE", "EMERGENCY"
+  description     String @db.Text
+  cost            BigInt @default(0)
+  performedBy     String? // Vendor or employee
+
+  createdAt       DateTime @default(now())
+  createdBy       String?
+
+  @@index([fixedAssetId])
+  @@index([maintenanceDate])
+  @@index([maintenanceType])
 }

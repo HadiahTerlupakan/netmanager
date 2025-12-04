@@ -148,11 +148,6 @@ export default function FinanceSidebar() {
     },
     {
       href: '/finance/reports',
-      label: 'Reports',
-      icon: HiOutlineDocumentChartBar,
-    },
-    {
-      href: '/finance/laporan',
       label: 'Laporan',
       icon: HiOutlineChartBar,
     },

@@ -59,9 +59,32 @@ export async function GET(request: NextRequest) {
         const type = searchParams.get('type') || 'all' // 'all', 'pemasukan', 'pengeluaran'
         const startDateStr = searchParams.get('startDate')
         const endDateStr = searchParams.get('endDate')
+        const category = searchParams.get('category')
+        const paymentMethod = searchParams.get('paymentMethod')
+        const search = searchParams.get('search')
+        const period = searchParams.get('period') || 'monthly' // 'daily', 'weekly', 'monthly', 'yearly'
 
-        const startDate = startDateStr ? new Date(startDateStr) : undefined
-        const endDate = endDateStr ? new Date(endDateStr) : undefined
+        // Calculate date range based on period if not explicitly provided
+        let startDate = startDateStr ? new Date(startDateStr) : undefined
+        let endDate = endDateStr ? new Date(endDateStr) : undefined
+        
+        if (!startDate && !endDate && period) {
+            const today = new Date()
+            endDate = today
+            
+            if (period === 'daily') {
+                startDate = today
+            } else if (period === 'weekly') {
+                startDate = new Date(today)
+                startDate.setDate(today.getDate() - 7)
+            } else if (period === 'monthly') {
+                startDate = new Date(today)
+                startDate.setMonth(today.getMonth() - 1)
+            } else if (period === 'yearly') {
+                startDate = new Date(today)
+                startDate.setFullYear(today.getFullYear() - 1)
+            }
+        }
 
         const pengeluaranRepo = getPengeluaranRepository()
         const pemasukanRepo = getPemasukanRepository()
@@ -70,12 +93,12 @@ export async function GET(request: NextRequest) {
 
         // Fetch IDs and Dates based on type
         if (type === 'all' || type === 'pemasukan') {
-            const pemasukanItems = await pemasukanRepo.findIdsAndDates(startDate, endDate)
+            const pemasukanItems = await pemasukanRepo.findIdsAndDates(startDate, endDate, category, paymentMethod, search)
             items = [...items, ...pemasukanItems.map(i => ({ ...i, type: 'pemasukan' as const }))]
         }
 
         if (type === 'all' || type === 'pengeluaran') {
-            const pengeluaranItems = await pengeluaranRepo.findIdsAndDates(startDate, endDate)
+            const pengeluaranItems = await pengeluaranRepo.findIdsAndDates(startDate, endDate, category, paymentMethod, search)
             items = [...items, ...pengeluaranItems.map(i => ({ ...i, type: 'pengeluaran' as const }))]
         }
 
@@ -102,8 +125,36 @@ export async function GET(request: NextRequest) {
         // Filter out nulls (should not happen usually)
         const validDetails = fullDetails.filter(item => item !== null)
 
+        // Format export data for transactions
+        const exportData = items.map(item => ([
+            'Tanggal', 
+            'Jenis', 
+            'Tipe', 
+            'Kategori', 
+            'Deskripsi', 
+            'Jumlah',
+            'Metode Pembayaran',
+            'Nomor Bukti',
+            'Catatan'
+        ]))
+        
+        const csvContent = [
+            ...exportData, // Use exportData as headers
+            ...items.map(row => 
+                exportData.map(header => {
+                    // Handle values that contain commas or quotes
+                    const value = row[header as keyof any]
+                    if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                        return `"${value.replace(/"/g, '""')}"`
+                    }
+                    return value || ''
+                }).join(',')
+            )
+        ].join('\n')
+        
         return NextResponse.json({
             data: validDetails,
+            exportData: csvContent,
             pagination: {
                 total,
                 page,
