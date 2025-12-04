@@ -4,13 +4,18 @@ import { TaxRepository } from '@/lib/repositories/TaxRepository';
 
 const taxRepo = new TaxRepository(prisma);
 
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
+
 // GET /api/finance/tax/records/[id]
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
-        const taxRecord = await taxRepo.getTaxRecordById(params.id);
+        const { id } = await context.params
+        const taxRecord = await taxRepo.getTaxRecordById(id);
 
         if (!taxRecord) {
             return NextResponse.json({ error: 'Tax record not found' }, { status: 404 });
@@ -35,9 +40,10 @@ export async function GET(
 // PUT /api/finance/tax/records/[id]
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
+        const { id } = await context.params
         const body = await request.json();
 
         const updateData: any = { ...body };
@@ -50,7 +56,7 @@ export async function PUT(
             updateData.taxAmount = BigInt(body.taxAmount);
         }
 
-        const taxRecord = await taxRepo.updateTaxRecord(params.id, updateData);
+        const taxRecord = await taxRepo.updateTaxRecord(id, updateData);
 
         const serialized = {
             ...taxRecord,
@@ -71,10 +77,11 @@ export async function PUT(
 // DELETE /api/finance/tax/records/[id]
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
-        await taxRepo.deleteTaxRecord(params.id);
+        const { id } = await context.params
+        await taxRepo.deleteTaxRecord(id);
         return NextResponse.json({ message: 'Tax record deleted successfully' });
     } catch (error: any) {
         console.error('Error deleting tax record:', error);

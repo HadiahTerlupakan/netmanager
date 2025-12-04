@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ARRepository } from '@/lib/repositories/ARRepository'
 
-const prisma = new PrismaClient()
 const arRepo = new ARRepository(prisma)
 
 export async function POST(request: NextRequest) {

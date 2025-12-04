@@ -5,21 +5,27 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+interface RouteContext {
+  params: Promise<{ id: string }>
+}
+
 // DELETE - Hapus transaksi bank
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
     const session = await getServerSession(authConfig)
-    
+
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await context.params
+
     // Ambil data transaksi untuk mendapatkan informasi
     const transaction = await prisma.transaction.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         bankAccount: true
       }
@@ -30,18 +36,18 @@ export async function DELETE(
     }
 
     // Hitung kembali saldo rekening bank
-    let newSaldo: BigInt
+    let newSaldo: bigint
     if (transaction.tipeTransaksi === 'DEBIT') {
       // Jika DEBIT, kurangi dari saldo saat ini
-      newSaldo = transaction.bankAccount.saldoSaatIni - transaction.jumlah
+      newSaldo = BigInt(transaction.bankAccount.saldoSaatIni) - BigInt(transaction.jumlah)
     } else {
       // Jika KREDIT, tambahkan ke saldo saat ini
-      newSaldo = transaction.bankAccount.saldoSaatIni + transaction.jumlah
+      newSaldo = BigInt(transaction.bankAccount.saldoSaatIni) + BigInt(transaction.jumlah)
     }
 
     // Hapus transaksi
     await prisma.transaction.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     // Update saldo rekening bank

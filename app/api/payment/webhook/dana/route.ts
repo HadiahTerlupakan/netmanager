@@ -155,9 +155,8 @@ export async function POST(request: NextRequest) {
                         where: { id: tagihan.id },
                         data: {
                             status: 'LUNAS',
-                            tglBayar: result.paidAt || new Date(),
-                            metodePembayaran: `DANA - ${result.paymentMethod || 'DANA'}`,
-                            updatedBy: 'SYSTEM'
+                            tanggalBayar: result.paidAt || new Date(),
+                            metodePembayaran: `DANA - ${result.paymentMethod || 'DANA'}`
                         }
                     })
 

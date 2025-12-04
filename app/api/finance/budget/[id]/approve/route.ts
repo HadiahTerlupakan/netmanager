@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
 
-// GET /api/finance/budget/[id]/approve - Approve budget
+// POST /api/finance/budget/[id]/approve - Approve budget
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
+        const { id } = await context.params
         const body = await request.json();
         const { approvedBy, notes } = body;
 
@@ -20,7 +24,7 @@ export async function POST(
 
         // Get current budget
         const budget = await prisma.budget.findUnique({
-            where: { id: params.id },
+            where: { id },
         });
 
         if (!budget) {
@@ -37,7 +41,7 @@ export async function POST(
 
         // Update budget status to APPROVED
         const updated = await prisma.budget.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 status: 'APPROVED',
                 approvedBy,

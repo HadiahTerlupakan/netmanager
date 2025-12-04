@@ -4,13 +4,18 @@ import { USORepository } from '@/lib/repositories/USORepository';
 
 const usoRepo = new USORepository(prisma);
 
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
+
 // GET /api/finance/uso/[id] - Get USO detail
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
-        const contribution = await usoRepo.findById(params.id);
+        const { id } = await context.params
+        const contribution = await usoRepo.findById(id);
 
         if (!contribution) {
             return NextResponse.json(
@@ -32,12 +37,13 @@ export async function GET(
 // PUT /api/finance/uso/[id] - Update USO
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
+        const { id } = await context.params
         const body = await request.json();
 
-        const contribution = await usoRepo.update(params.id, body);
+        const contribution = await usoRepo.update(id, body);
 
         return NextResponse.json(contribution);
     } catch (error: any) {
@@ -52,10 +58,11 @@ export async function PUT(
 // DELETE /api/finance/uso/[id] - Delete USO
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
-        await usoRepo.delete(params.id);
+        const { id } = await context.params
+        await usoRepo.delete(id);
 
         return NextResponse.json({ success: true });
     } catch (error: any) {

@@ -57,7 +57,7 @@ export default function BankAccountsPage() {
     try {
       const response = await fetch('/api/finance/bank-accounts')
       const data = await response.json()
-      
+
       if (response.ok) {
         setBankAccounts(data.data)
       } else {
@@ -77,10 +77,10 @@ export default function BankAccountsPage() {
     setSuccess('')
 
     try {
-      const url = isEditing 
+      const url = isEditing
         ? `/api/finance/bank-accounts/${selectedAccount?.id}`
         : '/api/finance/bank-accounts'
-      
+
       const method = isEditing ? 'PUT' : 'POST'
       const response = await fetch(url, {
         method,
@@ -91,7 +91,7 @@ export default function BankAccountsPage() {
       })
 
       const data = await response.json()
-      
+
       if (response.ok) {
         setSuccess(data.message || 'Berhasil menyimpan rekening bank')
         setIsModalOpen(false)
@@ -139,7 +139,7 @@ export default function BankAccountsPage() {
       })
 
       const data = await response.json()
-      
+
       if (response.ok) {
         setSuccess(data.message || 'Berhasil menghapus rekening bank')
         setIsDeleteModalOpen(false)
@@ -313,11 +313,10 @@ export default function BankAccountsPage() {
                           {formatRupiah(account.saldoSaatIni)}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            account.isActive
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${account.isActive
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
-                          }`}>
+                            }`}>
                             {account.isActive ? 'Aktif' : 'Tidak Aktif'}
                           </span>
                         </td>
@@ -361,7 +360,7 @@ export default function BankAccountsPage() {
 
       {/* Modal untuk tambah/edit rekening bank */}
       <Modal
-        isOpen={isModalOpen}
+        open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={isEditing ? 'Edit Rekening Bank' : 'Tambah Rekening Bank'}
       >
@@ -471,11 +470,11 @@ export default function BankAccountsPage() {
 
       {/* Modal konfirmasi hapus */}
       <ConfirmDialog
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
+        open={isDeleteModalOpen}
+        onCancel={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDelete}
         title="Hapus Rekening Bank"
-        message={`Apakah Anda yakin ingin menghapus rekening bank ${selectedAccount?.namaBank} - ${selectedAccount?.nomorRekening}?`}
+        description={`Apakah Anda yakin ingin menghapus rekening bank ${selectedAccount?.namaBank} - ${selectedAccount?.nomorRekening}?`}
         confirmText="Hapus"
         cancelText="Batal"
       />

@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { PaymentGatewayManager } from '@/lib/services/payment-gateway/gateway-manager'
 
-// using shared prisma singleton
 const gatewayManager = new PaymentGatewayManager(prisma)
+
+interface RouteContext {
+    params: Promise<{ orderId: string }>
+}
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { orderId: string } }
+    context: RouteContext
 ) {
     try {
-        const orderId = params.orderId
+        const { orderId } = await context.params
 
         // Get transaction from database
         const transaction = await prisma.paymentGatewayTransaction.findUnique({

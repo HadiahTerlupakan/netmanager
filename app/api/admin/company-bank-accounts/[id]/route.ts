@@ -2,15 +2,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-const prisma = new PrismaClient()
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
 
 // PUT - Update bank account
 export async function PUT(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    context: RouteContext
 ) {
     try {
-        const { id } = await params
+        const { id } = await context.params
         const body = await request.json()
         const { bankName, accountNumber, accountName, description, isActive, priority } = body
 
@@ -39,10 +41,10 @@ export async function PUT(
 // DELETE - Delete bank account
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    context: RouteContext
 ) {
     try {
-        const { id } = await params
+        const { id } = await context.params
 
         // Check if account has any manual payments
         const paymentsCount = await prisma.manualPayment.count({

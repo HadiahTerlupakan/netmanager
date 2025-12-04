@@ -76,7 +76,7 @@ export default function BankAccountDetailPage() {
     try {
       const response = await fetch(`/api/finance/bank-accounts/${params.id}`)
       const data = await response.json()
-      
+
       if (response.ok) {
         setBankAccount(data.data)
       } else {
@@ -105,7 +105,7 @@ export default function BankAccountDetailPage() {
       })
 
       const data = await response.json()
-      
+
       if (response.ok) {
         setSuccess(data.message || 'Berhasil membuat transaksi bank')
         setIsModalOpen(false)
@@ -138,7 +138,7 @@ export default function BankAccountDetailPage() {
       })
 
       const data = await response.json()
-      
+
       if (response.ok) {
         setSuccess(data.message || 'Berhasil menghapus transaksi bank')
         setIsDeleteModalOpen(false)
@@ -336,11 +336,10 @@ export default function BankAccountDetailPage() {
                 Status
               </dt>
               <dd className="mt-1">
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  bankAccount.isActive
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                }`}>
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${bankAccount.isActive
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-red-100 text-red-800'
+                  }`}>
                   {bankAccount.isActive ? 'Aktif' : 'Tidak Aktif'}
                 </span>
               </dd>
@@ -409,11 +408,10 @@ export default function BankAccountDetailPage() {
                             {formatDate(transaction.tanggal)}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              transaction.tipeTransaksi === 'DEBIT'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}>
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${transaction.tipeTransaksi === 'DEBIT'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                              }`}>
                               {transaction.tipeTransaksi}
                             </span>
                           </td>
@@ -481,7 +479,7 @@ export default function BankAccountDetailPage() {
 
       {/* Modal untuk tambah/edit transaksi */}
       <Modal
-        isOpen={isModalOpen}
+        open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={isEditing ? 'Edit Transaksi Bank' : 'Tambah Transaksi Bank'}
       >
@@ -590,11 +588,11 @@ export default function BankAccountDetailPage() {
 
       {/* Modal konfirmasi hapus */}
       <ConfirmDialog
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
+        open={isDeleteModalOpen}
+        onCancel={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDeleteTransaction}
         title="Hapus Transaksi Bank"
-        message={`Apakah Anda yakin ingin menghapus transaksi ${selectedTransaction?.deskripsi}?`}
+        description={`Apakah Anda yakin ingin menghapus transaksi ${selectedTransaction?.deskripsi}?`}
         confirmText="Hapus"
         cancelText="Batal"
       />

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { HiX } from 'react-icons/hi2'
+import { HiXMark } from 'react-icons/hi2'
 
 interface TaxRecordModalProps {
     isOpen: boolean
@@ -124,7 +124,7 @@ export default function TaxRecordModal({ isOpen, onClose, onSuccess }: TaxRecord
                         className="touch-target p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
                         aria-label="Tutup"
                     >
-                        <HiX className="w-5 h-5" />
+                        <HiXMark className="w-5 h-5" />
                     </button>
                 </div>
 

@@ -5,15 +5,21 @@ import { DepartmentRepository } from '@/lib/repositories/DepartmentRepository'
 
 const deptRepo = new DepartmentRepository()
 
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
+
 // GET /api/hris/departments/[id]
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: RouteContext) {
     try {
         const session: any = await getServerSession(authConfig as any)
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const department = await deptRepo.findById(params.id)
+        const { id } = await context.params
+
+        const department = await deptRepo.findById(id)
         if (!department) {
             return NextResponse.json({ error: 'Department not found' }, { status: 404 })
         }
@@ -26,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PUT /api/hris/departments/[id]
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, context: RouteContext) {
     try {
         const session: any = await getServerSession(authConfig as any)
         if (!session) {
@@ -37,8 +43,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
+        const { id } = await context.params
         const body = await req.json()
-        await deptRepo.update(params.id, body)
+        await deptRepo.update(id, body)
 
         return NextResponse.json({ success: true })
     } catch (error: any) {
@@ -48,7 +55,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PATCH /api/hris/departments/[id] - Same as PUT for partial updates
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: RouteContext) {
     try {
         const session: any = await getServerSession(authConfig as any)
         if (!session) {
@@ -59,8 +66,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
+        const { id } = await context.params
         const body = await req.json()
-        await deptRepo.update(params.id, body)
+        await deptRepo.update(id, body)
 
         return NextResponse.json({ success: true })
     } catch (error: any) {
@@ -70,7 +78,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE /api/hris/departments/[id]
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, context: RouteContext) {
     try {
         const session: any = await getServerSession(authConfig as any)
         if (!session) {
@@ -81,7 +89,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
             return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 })
         }
 
-        await deptRepo.delete(params.id)
+        const { id } = await context.params
+        await deptRepo.delete(id)
         return NextResponse.json({ success: true })
     } catch (error: any) {
         console.error('Error deleting department:', error)

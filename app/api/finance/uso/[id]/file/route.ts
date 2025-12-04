@@ -4,12 +4,17 @@ import { USORepository } from '@/lib/repositories/USORepository';
 
 const usoRepo = new USORepository(prisma);
 
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
+
 // PATCH /api/finance/uso/[id]/file - Mark as filed
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
+        const { id } = await context.params
         const body = await request.json();
         const { filedBy } = body;
 
@@ -20,7 +25,7 @@ export async function PATCH(
             );
         }
 
-        const contribution = await usoRepo.markAsFiled(params.id, filedBy);
+        const contribution = await usoRepo.markAsFiled(id, filedBy);
 
         return NextResponse.json(contribution);
     } catch (error: any) {

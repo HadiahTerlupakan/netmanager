@@ -2,15 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { PaymentGatewayManager } from '@/lib/services/payment-gateway/gateway-manager'
 
-// using shared prisma singleton
 const gatewayManager = new PaymentGatewayManager(prisma)
+
+interface RouteContext {
+    params: Promise<{ provider: string }>
+}
 
 export async function POST(
     request: NextRequest,
-    { params }: { params: { provider: string } }
+    context: RouteContext
 ) {
+    const { provider: providerParam } = await context.params
+
     try {
-        const provider = params.provider.toUpperCase()
+        const provider = providerParam.toUpperCase()
 
         // Get raw body for signature verification
         const body = await request.text()
@@ -74,7 +79,7 @@ export async function POST(
 
         return NextResponse.json({ success: true, status: result.status })
     } catch (error: any) {
-        console.error(`Webhook processing error (${params.provider}):`, error)
+        console.error(`Webhook processing error (${providerParam}):`, error)
 
         // Still return 200 to prevent provider from retrying
         // Log the error for manual review

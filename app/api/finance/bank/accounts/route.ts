@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { BankAccountRepository } from '@/lib/repositories/BankAccountRepository'
-import FinanceAuthService, { ExtendedAuthResult } from '@/lib/services/FinanceAuthService'
-import { createSecureErrorResponse } from '@/lib/utils/secure-error-handler'
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
+import { createAuthError, createAuthorizationError, createSecureError, ErrorType } from '@/lib/utils/secure-error-handler'
 
 const bankAccountRepo = new BankAccountRepository(prisma)
 
@@ -11,11 +11,10 @@ export async function GET(request: NextRequest) {
         // Proper authentication check
         const authResult = await FinanceAuthService.authenticate(request)
         if (!authResult.success) {
-            return createSecureErrorResponse(
-                authResult.error || 'Authentication failed',
-                authResult.errorCode || 'UNAUTHORIZED',
-                401
-            )
+            if (authResult.errorCode === 'FORBIDDEN') {
+                return createAuthorizationError(authResult.error)
+            }
+            return createAuthError(authResult.error)
         }
 
         // Log financial access
@@ -42,11 +41,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ data })
     } catch (error: any) {
         console.error('Error fetching bank accounts:', error)
-        return createSecureErrorResponse(
-            'Failed to fetch bank accounts',
-            'INTERNAL_ERROR',
-            500
-        )
+        return createSecureError(ErrorType.SYSTEM, 'Failed to fetch bank accounts')
     }
 }
 
@@ -55,11 +50,10 @@ export async function POST(request: NextRequest) {
         // Proper authentication check
         const authResult = await FinanceAuthService.authenticate(request)
         if (!authResult.success) {
-            return createSecureErrorResponse(
-                authResult.error || 'Authentication failed',
-                authResult.errorCode || 'UNAUTHORIZED',
-                401
-            )
+            if (authResult.errorCode === 'FORBIDDEN') {
+                return createAuthorizationError(authResult.error)
+            }
+            return createAuthError(authResult.error)
         }
 
         const body = await request.json()
@@ -89,10 +83,6 @@ export async function POST(request: NextRequest) {
         )
     } catch (error: any) {
         console.error('Error creating bank account:', error)
-        return createSecureErrorResponse(
-            'Failed to create bank account',
-            'INTERNAL_ERROR',
-            500
-        )
+        return createSecureError(ErrorType.SYSTEM, 'Failed to create bank account')
     }
 }

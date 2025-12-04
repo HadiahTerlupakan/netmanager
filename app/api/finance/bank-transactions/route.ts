@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-
-const prisma = new PrismaClient()
 
 // Schema validasi untuk transaksi bank
 const bankTransactionSchema = z.object({
@@ -21,7 +19,7 @@ const bankTransactionSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authConfig)
-    
+
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -85,7 +83,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authConfig)
-    
+
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -103,13 +101,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Hitung saldo sebelumnya dan setelahnya
-    const saldoSebelumnya = bankAccount.saldoSaatIni
-    let saldoSetelahnya: BigInt
+    const saldoSebelumnya = BigInt(bankAccount.saldoSaatIni)
+    let saldoSetelahnya: bigint
 
     if (validatedData.tipeTransaksi === 'DEBIT') {
-      saldoSetelahnya = saldoSebelumnya + validatedData.jumlah
+      saldoSetelahnya = saldoSebelumnya + BigInt(validatedData.jumlah)
     } else {
-      saldoSetelahnya = saldoSebelumnya - validatedData.jumlah
+      saldoSetelahnya = saldoSebelumnya - BigInt(validatedData.jumlah)
     }
 
     // Buat transaksi baru

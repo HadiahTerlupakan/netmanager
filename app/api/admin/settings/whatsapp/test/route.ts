@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { WhatsAppService } from '@/lib/services/whatsapp/whatsapp-service'
 
-const prisma = new PrismaClient()
 
 export async function POST(request: NextRequest) {
     try {

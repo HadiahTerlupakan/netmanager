@@ -46,7 +46,7 @@ export class DatabaseSecurity {
 
     try {
       const iv = crypto.randomBytes(IV_LENGTH)
-      const cipher = crypto.createCipher('aes-256-gcm', ENCRYPTION_KEY)
+      const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'hex'), iv)
       cipher.setAAD(Buffer.from('netmanager-db')) // Additional authenticated data
 
       let encrypted = cipher.update(text, 'utf8', 'hex')
@@ -78,7 +78,7 @@ export class DatabaseSecurity {
       const authTag = Buffer.from(parts[1], 'hex')
       const encrypted = parts[2]
 
-      const decipher = crypto.createDecipher('aes-256-gcm', ENCRYPTION_KEY)
+      const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'hex'), iv)
       decipher.setAAD(Buffer.from('netmanager-db'))
       decipher.setAuthTag(authTag)
 
@@ -112,7 +112,7 @@ export class DatabaseSecurity {
         select: {
           id: true,
           role: true,
-          department: true
+
         }
       })
 
@@ -130,13 +130,13 @@ export class DatabaseSecurity {
         case 'tagihan':
           return await this.checkTagihanAccess(user, resourceId, action)
         case 'pemasukan':
-          return user.role === 'FINANCE' || user.role === 'ADMIN'
+          return user.role === 'FINANCE'
         case 'pengeluaran':
-          return user.role === 'FINANCE' || user.role === 'ADMIN'
+          return user.role === 'FINANCE'
         case 'pelanggan':
-          return user.role === 'ADMIN' || user.role === 'FINANCE'
+          return user.role === 'FINANCE'
         case 'karyawan':
-          return user.role === 'ADMIN' || user.role === 'HR'
+          return user.role === 'HR'
         default:
           return false
       }
@@ -150,7 +150,7 @@ export class DatabaseSecurity {
    * Check specific access for tagihan (billing)
    */
   private async checkTagihanAccess(
-    user: { role: string; department?: string | null },
+    user: { id: string; role: string },
     tagihanId: string,
     action: string
   ): Promise<boolean> {
@@ -269,6 +269,13 @@ export class DatabaseSecurity {
   }
 
   /**
+   * Hash sensitive identifiers for logging
+   */
+  hashIdentifier(identifier: string): string {
+    return crypto.createHash('sha256').update(identifier).digest('hex').substring(0, 16)
+  }
+
+  /**
    * Validate data integrity using checksums
    */
   async validateDataIntegrity(
@@ -357,14 +364,14 @@ export function withDatabaseSecurity<T extends Record<string, any>>(
   return (target: any, propertyName: string, descriptor: PropertyDescriptor) => {
     const originalMethod = descriptor.value
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (this: any, ...args: any[]) {
       const dbSecurity = new DatabaseSecurity(this.prisma, options)
 
       // Extract user context from first argument (usually request)
       const request = args[0]
       const userId = request.headers.get('x-user-id') ||
-                     request.user?.id ||
-                     'anonymous'
+        request.user?.id ||
+        'anonymous'
 
       try {
         // Log access attempt

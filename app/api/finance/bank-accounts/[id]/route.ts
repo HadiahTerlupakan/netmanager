@@ -16,20 +16,26 @@ const updateBankAccountSchema = z.object({
   isActive: z.boolean().default(true).optional(),
 })
 
+interface RouteContext {
+  params: Promise<{ id: string }>
+}
+
 // GET - Mendapatkan rekening bank berdasarkan ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
     const session = await getServerSession(authConfig)
-    
+
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await context.params
+
     const bankAccount = await prisma.bankAccount.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         transactions: {
           orderBy: {
@@ -73,20 +79,21 @@ export async function GET(
 // PUT - Update rekening bank
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
     const session = await getServerSession(authConfig)
-    
+
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await context.params
     const body = await request.json()
     const validatedData = updateBankAccountSchema.parse(body)
 
     const bankAccount = await prisma.bankAccount.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...validatedData,
         updatedBy: session.user.id,
@@ -116,18 +123,20 @@ export async function PUT(
 // DELETE - Hapus rekening bank
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
     const session = await getServerSession(authConfig)
-    
+
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await context.params
+
     // Cek apakah rekening bank memiliki transaksi
     const transactionCount = await prisma.transaction.count({
-      where: { bankAccountId: params.id }
+      where: { bankAccountId: id }
     })
 
     if (transactionCount > 0) {
@@ -138,7 +147,7 @@ export async function DELETE(
     }
 
     await prisma.bankAccount.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({

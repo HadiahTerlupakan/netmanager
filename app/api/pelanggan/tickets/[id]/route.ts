@@ -28,7 +28,7 @@ export async function GET(
         // Sanitize path parameters
         const sanitizedParams = sanitizePathParams(await params);
         const { id } = sanitizedParams;
-        
+
         const ticket = await ticketRepo.findById(id);
 
         if (!ticket) {
@@ -50,13 +50,13 @@ export async function GET(
         // Ensure messages array exists and filter properly
         if (ticket.messages && Array.isArray(ticket.messages)) {
             const originalCount = ticket.messages.length;
-            
+
             // Log all messages for debugging
             console.log(`[Pelanggan Ticket Detail] Ticket ${id}: ${originalCount} total messages`);
             ticket.messages.forEach((msg, idx) => {
                 console.log(`  Message ${idx + 1}: id=${msg.id}, senderType=${msg.senderType}, isInternal=${msg.isInternal} (type: ${typeof msg.isInternal}), createdAt=${msg.createdAt}, message=${msg.message?.substring(0, 50)}...`);
             });
-            
+
             ticket.messages = ticket.messages.filter(msg => {
                 // Show all CUSTOMER messages regardless of isInternal
                 // Only filter out STAFF messages that are explicitly internal
@@ -64,11 +64,11 @@ export async function GET(
                     return true; // Always show customer messages
                 }
                 // For STAFF messages, only show non-internal ones
-                return msg.isInternal !== true && msg.isInternal !== 'true';
+                return msg.isInternal !== true;
             });
-            
+
             console.log(`[Pelanggan Ticket Detail] Ticket ${id}: After filtering, ${ticket.messages.length} messages shown`);
-            
+
             // Sort by createdAt to ensure chronological order
             ticket.messages.sort((a, b) => {
                 const dateA = new Date(a.createdAt).getTime();
@@ -144,7 +144,7 @@ export async function POST(
             isInternal: false, // Explicitly set to false for customer messages
             attachments: body.attachments,
         });
-        
+
         console.log(`[Pelanggan Ticket Detail] Message created: id=${message.id}, senderType=${message.senderType}, isInternal=${message.isInternal}`);
 
         // If ticket was WAITING_CUSTOMER, change to IN_PROGRESS

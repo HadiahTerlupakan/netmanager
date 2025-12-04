@@ -2,16 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { BudgetRepository } from '@/lib/repositories/BudgetRepository';
 
-const prisma = new PrismaClient();
 const budgetRepo = new BudgetRepository(prisma);
+
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
 
 // GET /api/finance/budget/[id] - Get single budget
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
-        const budget = await budgetRepo.findById(params.id);
+        const { id } = await context.params
+        const budget = await budgetRepo.getBudgetById(id);
 
         if (!budget) {
             return NextResponse.json({ error: 'Budget not found' }, { status: 404 });
@@ -38,12 +42,13 @@ export async function GET(
 // PUT /api/finance/budget/[id] - Update budget
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
+        const { id } = await context.params
         const body = await request.json();
 
-        const updated = await budgetRepo.update(params.id, body);
+        const updated = await budgetRepo.updateBudget(id, body);
 
         // Serialize BigInt
         const serialized = {
@@ -66,10 +71,11 @@ export async function PUT(
 // DELETE /api/finance/budget/[id] - Delete budget
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
-        await budgetRepo.delete(params.id);
+        const { id } = await context.params
+        await budgetRepo.deleteBudget(id);
         return NextResponse.json({ success: true, message: 'Budget deleted successfully' });
     } catch (error: any) {
         console.error('Error deleting budget:', error);

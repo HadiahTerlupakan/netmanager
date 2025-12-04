@@ -66,11 +66,11 @@ export async function GET(request: NextRequest) {
         // Calculate date range based on period if not explicitly provided
         let startDate = startDateStr ? new Date(startDateStr) : undefined
         let endDate = endDateStr ? new Date(endDateStr) : undefined
-        
+
         if (!startDate && !endDate && period) {
             const today = new Date()
             endDate = today
-            
+
             if (period === 'daily') {
                 startDate = today
             } else if (period === 'weekly') {
@@ -92,12 +92,12 @@ export async function GET(request: NextRequest) {
 
         // Fetch data based on type
         if (type === 'all' || type === 'pemasukan') {
-            const pemasukanItems = await pemasukanRepo.findByFilters(startDate, endDate, category, paymentMethod, search)
+            const pemasukanItems = await pemasukanRepo.findByFilters(startDate, endDate, category || undefined, paymentMethod || undefined, search || undefined)
             items = [...items, ...pemasukanItems.map(item => ({ ...item, type: 'pemasukan' }))]
         }
 
         if (type === 'all' || type === 'pengeluaran') {
-            const pengeluaranItems = await pengeluaranRepo.findByFilters(startDate, endDate, category, paymentMethod, search)
+            const pengeluaranItems = await pengeluaranRepo.findByFilters(startDate, endDate, category || undefined, paymentMethod || undefined, search || undefined)
             items = [...items, ...pengeluaranItems.map(item => ({ ...item, type: 'pengeluaran' }))]
         }
 
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
         items.sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime())
 
         // Format data for export
-        const exportData = items.map(item => ({
+        const exportData: Record<string, string | number>[] = items.map(item => ({
             'Tanggal': new Date(item.tanggal).toLocaleDateString('id-ID'),
             'Jenis': item.type === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran',
             'Tipe': item.type === 'pengeluaran' && item.tipePengeluaran ? item.tipePengeluaran : '-',
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
             const headers = Object.keys(exportData[0] || {})
             const csvContent = [
                 headers.join(','),
-                ...exportData.map(row => 
+                ...exportData.map(row =>
                     headers.map(header => {
                         const value = row[header]
                         // Handle values that contain commas or quotes
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
             const headers = Object.keys(exportData[0] || {})
             const csvContent = [
                 headers.join(','),
-                ...exportData.map(row => 
+                ...exportData.map(row =>
                     headers.map(header => {
                         const value = row[header]
                         // Handle values that contain commas or quotes

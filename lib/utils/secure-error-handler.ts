@@ -168,7 +168,7 @@ export function createRateLimitError(retryAfter?: number): NextResponse {
  */
 export function createFileUploadError(
   type: 'size' | 'type' | 'malicious',
-  details?: { maxSize?: number; allowedTypes?: string[] }
+  details?: { maxSize?: number | string; allowedTypes?: string[] | string; retryAfter?: number }
 ): NextResponse {
   const messages = {
     size: 'File size exceeds maximum allowed limit',

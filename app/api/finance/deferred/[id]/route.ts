@@ -4,13 +4,18 @@ import { DeferredRevenueRepository } from '@/lib/repositories/DeferredRevenueRep
 
 const deferredRepo = new DeferredRevenueRepository(prisma);
 
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
+
 // GET /api/finance/deferred/[id] - Get detail
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
-        const deferral = await deferredRepo.findById(params.id);
+        const { id } = await context.params
+        const deferral = await deferredRepo.findById(id);
 
         if (!deferral) {
             return NextResponse.json(
@@ -32,12 +37,13 @@ export async function GET(
 // PUT /api/finance/deferred/[id] - Update
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
+        const { id } = await context.params
         const body = await request.json();
 
-        const deferral = await deferredRepo.update(params.id, body);
+        const deferral = await deferredRepo.update(id, body);
 
         return NextResponse.json(deferral);
     } catch (error: any) {
@@ -52,10 +58,11 @@ export async function PUT(
 // DELETE /api/finance/deferred/[id] - Cancel
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
-        const deferral = await deferredRepo.cancel(params.id);
+        const { id } = await context.params
+        const deferral = await deferredRepo.cancel(id);
 
         return NextResponse.json(deferral);
     } catch (error: any) {

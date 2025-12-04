@@ -22,59 +22,42 @@ import { FinanceAuthService } from '@/lib/services/FinanceAuthService'
  */
 export async function GET(req: NextRequest) {
   try {
-    const token = req.headers.get('x-finance-token')
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Token tidak ditemukan' },
-        { status: 401 }
-      )
-    }
-
     // Verify JWT token using FinanceAuthService
-    try {
-      const authResult = await FinanceAuthService.authenticate(token)
+    const authResult = await FinanceAuthService.authenticate(req)
 
-      console.log('[Finance Me] Auth result:', {
-        success: authResult.success,
-        error: authResult.error,
-        userId: authResult.user?.id
-      })
+    console.log('[Finance Me] Auth result:', {
+      success: authResult.success,
+      error: authResult.error,
+      userId: authResult.user?.id
+    })
 
-      if (!authResult.success || !authResult.user) {
-        console.log('[Finance Me] Invalid token:', { success: authResult.success, error: authResult.error })
-        return NextResponse.json(
-          { error: authResult.error || 'Token tidak valid' },
-          { status: 401 }
-        )
-      }
-
-      // Cek role - FINANCE atau ADMIN bisa akses
-      const allowedRoles = ['FINANCE', 'ADMIN'] as const
-      if (!allowedRoles.includes(authResult.user.role as any)) {
-        return NextResponse.json(
-          { error: 'Anda tidak memiliki akses ke portal finance' },
-          { status: 403 }
-        )
-      }
-
-      console.log('[Finance Me] User authenticated:', {
-        id: authResult.user.id,
-        email: authResult.user.email,
-        role: authResult.user.role
-      })
-
-      // Return data user (tanpa passwordHash)
-      const { passwordHash: _, ...userData } = authResult.user
-
-      return NextResponse.json(userData)
-    } catch (parseError) {
-      console.error('Error parsing token:', parseError)
+    if (!authResult.success || !authResult.user) {
+      console.log('[Finance Me] Invalid token:', { success: authResult.success, error: authResult.error })
       return NextResponse.json(
-        { error: 'Token tidak valid' },
+        { error: authResult.error || 'Token tidak valid' },
         { status: 401 }
       )
     }
+
+    // Cek role - FINANCE atau ADMIN bisa akses
+    const allowedRoles = ['FINANCE', 'ADMIN'] as const
+    if (!allowedRoles.includes(authResult.user.role as any)) {
+      return NextResponse.json(
+        { error: 'Anda tidak memiliki akses ke portal finance' },
+        { status: 403 }
+      )
+    }
+
+    console.log('[Finance Me] User authenticated:', {
+      id: authResult.user.id,
+      email: authResult.user.email,
+      role: authResult.user.role
+    })
+
+    // Return data user
+    const userData = authResult.user
+
+    return NextResponse.json(userData)
   } catch (error: any) {
     console.error('[Finance Me] Error:', error)
     return NextResponse.json(

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { BankReconciliationService } from '@/lib/services/bank-reconciliation-service'
 
-const prisma = new PrismaClient()
 const reconService = new BankReconciliationService(prisma)
 
 export async function POST(request: NextRequest) {

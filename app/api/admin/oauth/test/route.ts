@@ -34,9 +34,10 @@ export async function POST(request: NextRequest) {
 
     const result = await testOAuthConnection(body.provider)
 
+    // Return result with success ensured at the end to override any existing success key
     return NextResponse.json({
-      success: true,
-      ...result
+      ...result,
+      success: true
     })
 
   } catch (error) {

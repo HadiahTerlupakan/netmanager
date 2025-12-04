@@ -2,19 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { DeferredRevenueRepository } from '@/lib/repositories/DeferredRevenueRepository';
 
-const prisma = new PrismaClient();
 const deferredRepo = new DeferredRevenueRepository(prisma);
+
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
 
 // GET /api/finance/deferred/schedule/[id] - Get recognition schedule
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
-        const schedule = await deferredRepo.getRecognitionSchedule(params.id);
+        const { id } = await context.params
+        const schedule = await deferredRepo.getRecognitionSchedule(id);
 
         return NextResponse.json({
-            deferredId: params.id,
+            deferredId: id,
             schedule,
         });
     } catch (error: any) {

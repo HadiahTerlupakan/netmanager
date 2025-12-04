@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { MRRService } from '@/lib/services/mrr-service'
 
-const prisma = new PrismaClient()
 const mrrService = new MRRService(prisma)
 
 export async function GET(request: NextRequest) {

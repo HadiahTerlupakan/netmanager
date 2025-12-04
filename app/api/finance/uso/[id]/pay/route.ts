@@ -6,12 +6,17 @@ import { PengeluaranRepository } from '@/lib/repositories/PengeluaranRepository'
 const usoRepo = new USORepository(prisma);
 const pengeluaranRepo = new PengeluaranRepository(prisma);
 
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
+
 // PATCH /api/finance/uso/[id]/pay - Mark as paid & create expense
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
+        const { id } = await context.params
         const body = await request.json();
         const { paidBy, paymentDate } = body;
 
@@ -23,7 +28,7 @@ export async function PATCH(
         }
 
         // Get USO contribution
-        const uso = await usoRepo.findById(params.id);
+        const uso = await usoRepo.findById(id);
         if (!uso) {
             return NextResponse.json(
                 { error: 'USO contribution not found' },
@@ -47,7 +52,7 @@ export async function PATCH(
 
         // Mark USO as paid with expense reference
         const contribution = await usoRepo.markAsPaid(
-            params.id,
+            id,
             paidBy,
             expense.id
         );

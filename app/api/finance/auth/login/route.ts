@@ -73,6 +73,12 @@ export async function POST(req: NextRequest) {
       }
 
       // Verifikasi password
+      if (!user.passwordHash) {
+        return NextResponse.json(
+          { error: 'Email atau password salah' },
+          { status: 401 }
+        )
+      }
       const passwordMatch = await compare(password, user.passwordHash)
       if (!passwordMatch) {
         return NextResponse.json(

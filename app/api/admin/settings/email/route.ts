@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { encryptApiKey, decryptApiKey } from '@/lib/utils/encryption'
 
-const prisma = new PrismaClient()
 
 export async function GET(request: NextRequest) {
     try {

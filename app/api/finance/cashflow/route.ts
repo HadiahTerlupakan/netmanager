@@ -13,40 +13,12 @@ const convertJumlahToNumber = (jumlah: any): number => {
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get('x-finance-token')
-    let userId: string | undefined
-
-    if (token) {
-      // Verify JWT finance token using FinanceAuthService
-      try {
-        const authResult = await FinanceAuthService.authenticate(token)
-        if (!authResult.success || !authResult.user) {
-          return NextResponse.json({
-            error: authResult.error || 'Token tidak valid'
-          }, { status: 401 })
-        }
-        userId = authResult.user.id
-      } catch (parseError) {
-        return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
-      }
-    } else {
-      // Verify NextAuth session
-      const session = await getServerSession(authConfig)
-      if (session?.user?.id) {
-        userId = session.user.id
-      } else {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    }
-
-    // Verify user exists and has FINANCE or ADMIN role
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    })
-
-    const allowedRoles = ['FINANCE', 'ADMIN'] as const
-    if (!user || !allowedRoles.includes(user.role as any)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    // Proper authentication check
+    const authResult = await FinanceAuthService.authenticate(request)
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json({
+        error: authResult.error || 'Unauthorized'
+      }, { status: 401 })
     }
 
     const tagihanRepo = getTagihanRepository()
@@ -171,12 +143,12 @@ export async function GET(request: NextRequest) {
     const currentYear = new Date().getFullYear()
     let previousMonth = currentMonth - 1
     let previousYear = currentYear
-    
+
     if (previousMonth < 1) {
       previousMonth = 12
       previousYear = currentYear - 1
     }
-    
+
     const [
       prevTotalTagihanLunas,
       prevTotalPemasukanManualBigInt,
@@ -190,7 +162,7 @@ export async function GET(request: NextRequest) {
       pengeluaranRepo.aggregateTotalByTipeAndPeriod('CAPEX', previousMonth, previousYear),
       pengeluaranRepo.aggregateTotalByTipeAndPeriod('OPEX', previousMonth, previousYear)
     ])
-    
+
     const prevTotalPemasukanManual = Number(prevTotalPemasukanManualBigInt)
     const prevTotalPengeluaran = Number(prevTotalPengeluaranBigInt)
     const prevTotalCapex = Number(prevTotalCapexBigInt)
@@ -201,10 +173,10 @@ export async function GET(request: NextRequest) {
     // Calculate percentage changes
     const pemasukanChange = totalPemasukan - prevTotalPemasukan
     const pemasukanChangePercent = prevTotalPemasukan > 0 ? (pemasukanChange / prevTotalPemasukan) * 100 : 0
-    
+
     const pengeluaranChange = totalPengeluaran - prevTotalPengeluaran
     const pengeluaranChangePercent = prevTotalPengeluaran > 0 ? (pengeluaranChange / prevTotalPengeluaran) * 100 : 0
-    
+
     const saldoChange = saldo - prevSaldo
     const saldoChangePercent = prevSaldo !== 0 ? (saldoChange / Math.abs(prevSaldo)) * 100 : 0
 

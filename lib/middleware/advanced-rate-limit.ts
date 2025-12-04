@@ -387,8 +387,8 @@ export async function advancedRateLimit(
 function defaultKeyGenerator(request: NextRequest): string {
   // Try to get user ID first for more specific rate limiting
   const userId = request.headers.get('x-user-id') ||
-                 request.cookies.get('user-id')?.value ||
-                 request.cookies.get('next-auth.session-token')?.value
+    request.cookies.get('user-id')?.value ||
+    request.cookies.get('next-auth.session-token')?.value
 
   if (userId) {
     return `rate-limit:user:${crypto.createHash('sha256').update(userId).digest('hex').substring(0, 16)}`
@@ -397,7 +397,7 @@ function defaultKeyGenerator(request: NextRequest): string {
   // Fallback to IP address
   const forwardedFor = request.headers.get('x-forwarded-for')
   const realIp = request.headers.get('x-real-ip')
-  const ip = request.ip
+  const ip = (request as any).ip
 
   const clientIp = forwardedFor
     ? forwardedFor.split(',')[0]?.trim()

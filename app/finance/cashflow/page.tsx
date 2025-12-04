@@ -13,13 +13,13 @@ import {
   HiOutlineTrash,
   HiOutlineDocumentArrowDown,
   HiOutlineDocumentArrowUp,
-  HiOutlineTrendingUp,
-  HiOutlineTrendingDown,
+  HiOutlineArrowTrendingUp,
+  HiOutlineArrowTrendingDown,
 } from 'react-icons/hi2'
 import { useFinance } from '@/hooks/useFinance'
 import TransaksiModal from '@/components/finance/TransaksiModal'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
-import { Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, PieChart } from 'recharts'
+import { Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, PieChart, Pie, Cell } from 'recharts'
 import PageLoader from '@/components/ui/PageLoader'
 
 const formatRupiah = (amount: number | string) => {
@@ -859,8 +859,6 @@ export default function FinanceCashflowPage() {
                     saldo: Number(item.saldo)
                   }))}
                   margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  xDataKey="month"
-                  yDataKey="saldo"
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
@@ -869,21 +867,11 @@ export default function FinanceCashflowPage() {
                   />
                   <YAxis
                     tick={{ fontSize: 12 }}
-                    labelFormatter={(value) => formatRupiah(Number(value))}
+                    tickFormatter={(value: number) => formatRupiah(Number(value))}
                   />
                   <Tooltip
                     contentStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.8)', color: '#fff', borderRadius: '4px' }}
-                    formatter={(value, name) => {
-                      if (name === 'saldo') {
-                        return (
-                          <div>
-                            <p style={{ fontWeight: 'bold', margin: '0 0 4px' }}>{`${item.bulan} ${item.tahun}`}</p>
-                            <p style={{ margin: '0 0 8px 0' }}>Saldo: {formatRupiah(Number(value))}</p>
-                          </div>
-                        )
-                      }
-                      return null
-                    }}
+                    formatter={(value: number, name: string) => [formatRupiah(Number(value)), name === 'saldo' ? 'Saldo' : name === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran']}
                   />
                   <Line
                     type="monotone"
@@ -919,20 +907,24 @@ export default function FinanceCashflowPage() {
 
             <div className="h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart
-                  data={[
-                    { name: 'Pemasukan', value: cashflowData.summary.totalPemasukan, fill: '#22c55e' },
-                    { name: 'Pengeluaran', value: cashflowData.summary.totalPengeluaran, fill: '#ef4444' },
-                  ]}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  labelKey="name"
-                  label={({ name, percent }) => `${name}: ${formatRupiah(Number(value))} (${percent.toFixed(1)}%)`}
-                  labelStyle={{ fontSize: 14, fill: '#fff' }}
-                />
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Pemasukan', value: cashflowData.summary.totalPemasukan, fill: '#22c55e' },
+                      { name: 'Pengeluaran', value: cashflowData.summary.totalPengeluaran, fill: '#ef4444' },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    dataKey="value"
+                    label={({ name, value, percent }: { name: string; value: number; percent: number }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                  >
+                    <Cell fill="#22c55e" />
+                    <Cell fill="#ef4444" />
+                  </Pie>
+                  <Tooltip formatter={(value: number) => formatRupiah(Number(value))} />
+                  <Legend />
+                </PieChart>
               </ResponsiveContainer>
             </div>
           </div>

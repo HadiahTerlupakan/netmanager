@@ -1,5 +1,5 @@
 import React from 'react';
-import { TicketMessage, TicketAttachment } from '@prisma/client';
+import type { TicketMessage, TicketAttachment } from '@prisma/client';
 import { HiUser, HiUserCircle, HiPaperClip } from 'react-icons/hi2';
 import { formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';

@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma'
 import { decryptApiKey } from '@/lib/utils/encryption'
 import nodemailer from 'nodemailer'
 
-const prisma = new PrismaClient()
 
 export async function POST(request: NextRequest) {
     try {

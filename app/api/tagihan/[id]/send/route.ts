@@ -5,170 +5,146 @@ import { authConfig } from '@/lib/auth'
 import { EmailService } from '@/lib/services/email-service'
 import { InvoicePDFService } from '@/lib/services/invoice-pdf-service'
 
-// using shared prisma singleton
+interface RouteContext {
+  params: Promise<{ id: string }>
+}
 
 export async function POST(
-    request: NextRequest,
-    { params }: { params: { id: string } }
+  request: NextRequest,
+  context: RouteContext
 ) {
-    try {
-        const session: any = await getServerSession(authConfig as any)
-        if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'FINANCE')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
-        const tagihanId = params.id
-        const body = await request.json()
-        const { method = 'email' } = body // 'email' or 'whatsapp' or 'both'
-
-        // Get tagihan with customer details
-        const tagihan = await prisma.tagihan.findUnique({
-            where: { id: tagihanId },
-            include: {
-                pelanggan: true
-            }
-        })
-
-        if (!tagihan) {
-            return NextResponse.json({ error: 'Tagihan not found' }, { status: 404 })
-        }
-
-        const results = {
-            email: { sent: false, error: null as string | null },
-            whatsapp: { sent: false, error: null as string | null }
-        }
-
-        // Send via Email
-        if (method === 'email' || method === 'both') {
-            const customerEmail = tagihan.pelanggan.email
-
-            if (!customerEmail) {
-                results.email.error = 'Customer email not found'
-            } else {
-                try {
-                    const emailService = new EmailService(prisma)
-                    const pdfService = new InvoicePDFService(prisma)
-
-                    // Generate PDF
-                    const pdfBuffer = await pdfService.generatePDF(tagihanId)
-
-                    // Send email with PDF attachment
-                    const emailResult = await emailService.sendEmail({
-                        to: customerEmail,
-                        subject: `Tagihan ${tagihan.noTagihan} - ${getMonthName(tagihan.periodeBulan)} ${tagihan.periodeTahun}`,
-                        html: generateEmailHTML(tagihan),
-                        attachments: [
-                            {
-                                filename: `Invoice-${tagihan.noTagihan}.pdf`,
-                                content: pdfBuffer,
-                                contentType: 'application/pdf'
-                            }
-                        ]
-                    })
-
-                    if (emailResult.success) {
-                        results.email.sent = true
-                    } else {
-                        results.email.error = emailResult.error || 'Failed to send email'
-                    }
-                } catch (error: any) {
-                    results.email.error = error.message
-                }
-            }
-        }
-
-        // Send via WhatsApp
-        if (method === 'whatsapp' || method === 'both') {
-            const customerPhone = tagihan.pelanggan.noTelp
-
-            if (!customerPhone) {
-                results.whatsapp.error = 'Customer phone number not found'
-            } else {
-                try {
-                    // WhatsApp integration would go here
-                    // For now, we'll mark it as not implemented
-                    results.whatsapp.error = 'WhatsApp integration not configured'
-
-                    // Example implementation (uncomment when WhatsApp service is ready):
-                    /*
-                    const whatsappService = new WhatsAppService(prisma)
-                    const paymentLink = `${process.env.NEXT_PUBLIC_APP_URL}/pelanggan/tagihan/${tagihanId}/bayar`
-                    
-                    const message = `Halo ${tagihan.pelanggan.nama},\n\n` +
-                      `Tagihan bulan ${getMonthName(tagihan.periodeBulan)} ${tagihan.periodeTahun}:\n` +
-                      `Nomor: ${tagihan.noTagihan}\n` +
-                      `Total: ${formatRupiah(Number(tagihan.total))}\n` +
-                      `Jatuh Tempo: ${formatDate(tagihan.jatuhTempo)}\n\n` +
-                      `Bayar sekarang: ${paymentLink}\n\n` +
-                      `Terima kasih!`
-          
-                    const whatsappResult = await whatsappService.sendMessage({
-                      to: customerPhone,
-                      message: message
-                    })
-          
-                    if (whatsappResult.success) {
-                      results.whatsapp.sent = true
-                    } else {
-                      results.whatsapp.error = whatsappResult.error || 'Failed to send WhatsApp message'
-                    }
-                    */
-                } catch (error: any) {
-                    results.whatsapp.error = error.message
-                }
-            }
-        }
-
-        // Determine overall success
-        const anySent = results.email.sent || results.whatsapp.sent
-        const allFailed = !results.email.sent && !results.whatsapp.sent
-
-        return NextResponse.json({
-            success: anySent,
-            results,
-            message: anySent
-                ? 'Invoice sent successfully'
-                : 'Failed to send invoice'
-        }, { status: anySent ? 200 : 500 })
-
-    } catch (error: any) {
-        console.error('Error sending invoice:', error)
-        return NextResponse.json(
-            { error: 'Failed to send invoice', details: error.message },
-            { status: 500 }
-        )
+  try {
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'FINANCE')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const { id: tagihanId } = await context.params
+    const body = await request.json()
+    const { method = 'email' } = body // 'email' or 'whatsapp' or 'both'
+
+    // Get tagihan with customer details
+    const tagihan = await prisma.tagihan.findUnique({
+      where: { id: tagihanId },
+      include: {
+        pelanggan: true
+      }
+    })
+
+    if (!tagihan) {
+      return NextResponse.json({ error: 'Tagihan not found' }, { status: 404 })
+    }
+
+    const results = {
+      email: { sent: false, error: null as string | null },
+      whatsapp: { sent: false, error: null as string | null }
+    }
+
+    // Send via Email
+    if (method === 'email' || method === 'both') {
+      const customerEmail = tagihan.pelanggan.email
+
+      if (!customerEmail) {
+        results.email.error = 'Customer email not found'
+      } else {
+        try {
+          const emailService = new EmailService(prisma)
+          const pdfService = new InvoicePDFService(prisma)
+
+          // Generate PDF
+          const pdfBuffer = await pdfService.generatePDF(tagihanId)
+
+          // Send email with PDF attachment
+          const emailResult = await emailService.sendEmail({
+            to: customerEmail,
+            subject: `Tagihan ${tagihan.noTagihan} - ${getMonthName(tagihan.periodeBulan)} ${tagihan.periodeTahun}`,
+            html: generateEmailHTML(tagihan),
+            attachments: [
+              {
+                filename: `Invoice-${tagihan.noTagihan}.pdf`,
+                content: pdfBuffer,
+                contentType: 'application/pdf'
+              }
+            ]
+          })
+
+          if (emailResult.success) {
+            results.email.sent = true
+          } else {
+            results.email.error = emailResult.error || 'Failed to send email'
+          }
+        } catch (error: any) {
+          results.email.error = error.message
+        }
+      }
+    }
+
+    // Send via WhatsApp
+    if (method === 'whatsapp' || method === 'both') {
+      const customerPhone = tagihan.pelanggan.noTelp
+
+      if (!customerPhone) {
+        results.whatsapp.error = 'Customer phone number not found'
+      } else {
+        try {
+          // WhatsApp integration would go here
+          // For now, we'll mark it as not implemented
+          results.whatsapp.error = 'WhatsApp integration not configured'
+        } catch (error: any) {
+          results.whatsapp.error = error.message
+        }
+      }
+    }
+
+    // Determine overall success
+    const anySent = results.email.sent || results.whatsapp.sent
+
+    return NextResponse.json({
+      success: anySent,
+      results,
+      message: anySent
+        ? 'Invoice sent successfully'
+        : 'Failed to send invoice'
+    }, { status: anySent ? 200 : 500 })
+
+  } catch (error: any) {
+    console.error('Error sending invoice:', error)
+    return NextResponse.json(
+      { error: 'Failed to send invoice', details: error.message },
+      { status: 500 }
+    )
+  }
 }
 
 // Helper functions
 function getMonthName(month: number): string {
-    const months = [
-        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-    ]
-    return months[month - 1]
+  const months = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ]
+  return months[month - 1]
 }
 
 function formatRupiah(amount: number): string {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(amount)
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+  }).format(amount)
 }
 
 function formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    })
+  return new Date(dateString).toLocaleDateString('id-ID', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
 }
 
 function generateEmailHTML(tagihan: any): string {
-    const paymentLink = `${process.env.NEXT_PUBLIC_APP_URL}/pelanggan/tagihan/${tagihan.id}/bayar`
+  const paymentLink = `${process.env.NEXT_PUBLIC_APP_URL}/pelanggan/tagihan/${tagihan.id}/bayar`
 
-    return `
+  return `
     <!DOCTYPE html>
     <html>
     <head>

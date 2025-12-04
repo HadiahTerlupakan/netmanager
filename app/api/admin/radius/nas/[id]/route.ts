@@ -10,14 +10,15 @@ import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/lib/repositories/RadiusRepository';
+import type { INas } from '@/lib/repositories/IRadiusRepository';
 
-interface Params {
-    params: {
+interface RouteContext {
+    params: Promise<{
         id: string;
-    };
+    }>;
 }
 
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, context: RouteContext) {
     try {
         // Auth check
         const session = await getServerSession(authConfig);
@@ -28,7 +29,8 @@ export async function GET(req: NextRequest, { params }: Params) {
             );
         }
 
-        const id = parseInt(params.id);
+        const { id: idStr } = await context.params;
+        const id = parseInt(idStr);
         if (isNaN(id)) {
             return NextResponse.json(
                 { error: 'Invalid NAS ID' },
@@ -62,7 +64,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     }
 }
 
-export async function PUT(req: NextRequest, { params }: Params) {
+export async function PUT(req: NextRequest, context: RouteContext) {
     try {
         // Auth check
         const session = await getServerSession(authConfig);
@@ -73,7 +75,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
             );
         }
 
-        const id = parseInt(params.id);
+        const { id: idStr } = await context.params;
+        const id = parseInt(idStr);
         if (isNaN(id)) {
             return NextResponse.json(
                 { error: 'Invalid NAS ID' },
@@ -134,7 +137,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, context: RouteContext) {
     try {
         // Auth check
         const session = await getServerSession(authConfig);
@@ -145,7 +148,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
             );
         }
 
-        const id = parseInt(params.id);
+        const { id: idStr } = await context.params;
+        const id = parseInt(idStr);
         if (isNaN(id)) {
             return NextResponse.json(
                 { error: 'Invalid NAS ID' },

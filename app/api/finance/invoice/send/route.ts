@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { InvoiceDeliveryService } from '@/lib/services/invoice-delivery-service'
 
-const prisma = new PrismaClient()
 const deliveryService = new InvoiceDeliveryService(prisma)
 
 export async function POST(request: NextRequest) {

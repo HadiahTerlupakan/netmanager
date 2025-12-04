@@ -7,16 +7,22 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 const payrollService = new PayrollService()
 
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
+
 // GET /api/hris/payroll/[id]
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: RouteContext) {
     try {
         const session: any = await getServerSession(authConfig as any)
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        const { id } = await context.params
+
         const payroll = await prisma.payroll.findUnique({
-            where: { id: params.id },
+            where: { id },
             include: {
                 payrollDetails: {
                     include: {
@@ -49,7 +55,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PUT /api/hris/payroll/[id] - Approve or mark as paid
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, context: RouteContext) {
     try {
         const session: any = await getServerSession(authConfig as any)
         if (!session) {
@@ -60,17 +66,18 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
+        const { id } = await context.params
         const body = await req.json()
         const { action, bankAccountId } = body
 
         if (action === 'approve') {
-            await payrollService.approvePayroll(params.id, session.user.id)
+            await payrollService.approvePayroll(id, session.user.id)
             return NextResponse.json({ success: true, message: 'Payroll approved' })
         } else if (action === 'mark_paid') {
             if (!bankAccountId) {
                 return NextResponse.json({ error: 'Bank account ID is required' }, { status: 400 })
             }
-            await payrollService.markAsPaid(params.id, session.user.id, bankAccountId)
+            await payrollService.markAsPaid(id, session.user.id, bankAccountId)
             return NextResponse.json({
                 success: true,
                 message: 'Payroll marked as paid. Pengeluaran entry created in Finance module.'

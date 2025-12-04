@@ -58,8 +58,11 @@ export interface IPengeluaranRepository {
   findByDateRange(startDate: Date, endDate: Date): Promise<PengeluaranPublic[]>
   findByKategori(kategori: string): Promise<PengeluaranPublic[]>
   aggregateTotal(): Promise<bigint>
+  aggregateTotalByPeriod(month: number, year: number): Promise<bigint>
   aggregateTotalByTipe(tipePengeluaran: 'CAPEX' | 'OPEX'): Promise<bigint>
+  aggregateTotalByTipeAndPeriod(tipePengeluaran: 'CAPEX' | 'OPEX', month: number, year: number): Promise<bigint>
   groupByPeriode(): Promise<any[]>
-  findIdsAndDates(startDate?: Date, endDate?: Date): Promise<{ id: string, tanggal: Date }[]>
+  findIdsAndDates(startDate?: Date, endDate?: Date, category?: string, paymentMethod?: string, searchDescription?: string): Promise<{ id: string, tanggal: Date }[]>
+  findByFilters(startDate?: Date, endDate?: Date, category?: string, paymentMethod?: string, searchDescription?: string): Promise<PengeluaranPublic[]>
 }
 

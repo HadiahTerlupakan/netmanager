@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'
 import { TaxRepository } from '@/lib/repositories/TaxRepository';
 
-const prisma = new PrismaClient();
 const taxRepo = new TaxRepository(prisma);
 
 // POST /api/finance/tax/calculate - Calculate tax amount

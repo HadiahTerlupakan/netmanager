@@ -165,7 +165,7 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
               email: user.email,
               name: user.name ?? employee?.fullName ?? null,
               role: user.role,
-              image: user.image ?? null,
+              image: null,
               employeeId: employee?.employeeId,
               employee: employee ? {
                 id: employee.id,
@@ -361,7 +361,7 @@ export const authConfig: NextAuthOptions = {
             email: user.email,
             name: user.name ?? employee?.fullName ?? null,
             role: user.role,
-            image: user.image ?? null,
+            image: null,
             employeeId: employee?.employeeId,
             employee: employee ? {
               id: employee.id,

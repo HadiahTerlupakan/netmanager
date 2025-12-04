@@ -2,18 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPengeluaranRepository, getPemasukanRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
 import FinanceAuthService from '@/lib/services/FinanceAuthService'
-import { createSecureErrorResponse } from '@/lib/utils/secure-error-handler'
+import { createAuthError, createAuthorizationError, createSecureError, ErrorType } from '@/lib/utils/secure-error-handler'
 
 export async function GET(request: NextRequest) {
     try {
         // Proper authentication check
         const authResult = await FinanceAuthService.authenticate(request)
         if (!authResult.success) {
-            return createSecureErrorResponse(
-                authResult.error || 'Authentication failed',
-                authResult.errorCode || 'UNAUTHORIZED',
-                401
-            )
+            if (authResult.errorCode === 'FORBIDDEN') {
+                return createAuthorizationError(authResult.error)
+            }
+            return createAuthError(authResult.error)
         }
 
         // Log financial access
@@ -39,11 +38,11 @@ export async function GET(request: NextRequest) {
         // Calculate date range based on period if not explicitly provided
         let startDate = startDateStr ? new Date(startDateStr) : undefined
         let endDate = endDateStr ? new Date(endDateStr) : undefined
-        
+
         if (!startDate && !endDate && period) {
             const today = new Date()
             endDate = today
-            
+
             if (period === 'daily') {
                 startDate = today
             } else if (period === 'weekly') {
@@ -65,12 +64,12 @@ export async function GET(request: NextRequest) {
 
         // Fetch IDs and Dates based on type
         if (type === 'all' || type === 'pemasukan') {
-            const pemasukanItems = await pemasukanRepo.findIdsAndDates(startDate, endDate, category, paymentMethod, search)
+            const pemasukanItems = await pemasukanRepo.findIdsAndDates(startDate, endDate, category || undefined, paymentMethod || undefined, search || undefined)
             items = [...items, ...pemasukanItems.map(i => ({ ...i, type: 'pemasukan' as const }))]
         }
 
         if (type === 'all' || type === 'pengeluaran') {
-            const pengeluaranItems = await pengeluaranRepo.findIdsAndDates(startDate, endDate, category, paymentMethod, search)
+            const pengeluaranItems = await pengeluaranRepo.findIdsAndDates(startDate, endDate, category || undefined, paymentMethod || undefined, search || undefined)
             items = [...items, ...pengeluaranItems.map(i => ({ ...i, type: 'pengeluaran' as const }))]
         }
 
@@ -141,11 +140,11 @@ export async function GET(request: NextRequest) {
                 const row = [
                     detail.tanggal || '',
                     detail.type || '',
-                    detail.tipe || '',
+                    detail.tipePengeluaran || '',
                     detail.kategori || '',
                     detail.deskripsi || '',
                     detail.jumlah?.toString() || '0',
-                    detail.metodePembayaran || '',
+                    detail.metodeBayar || '',
                     detail.nomorBukti || '',
                     detail.catatan || ''
                 ].map(sanitizeCSVValue)
@@ -155,7 +154,7 @@ export async function GET(request: NextRequest) {
         }
 
         const csvContent = csvRows.join('\n')
-        
+
         return NextResponse.json({
             data: validDetails,
             exportData: csvContent,
@@ -169,10 +168,6 @@ export async function GET(request: NextRequest) {
 
     } catch (error: any) {
         console.error('Error fetching transactions:', error)
-        return createSecureErrorResponse(
-            'Failed to fetch transactions',
-            'INTERNAL_ERROR',
-            500
-        )
+        return createSecureError(ErrorType.SYSTEM, 'Failed to fetch transactions')
     }
 }

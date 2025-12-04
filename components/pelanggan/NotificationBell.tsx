@@ -30,7 +30,7 @@ export default function NotificationBell({ iconColor, hoverBg }: NotificationBel
     try {
       const token = localStorage.getItem('pelanggan_token')
       const pelangganData = getWithExpiry<any>('pelanggan_data')
-      
+
       if (!token || !pelangganData) {
         setLoading(false)
         return
@@ -57,14 +57,14 @@ export default function NotificationBell({ iconColor, hoverBg }: NotificationBel
 
   useEffect(() => {
     fetchNotifications()
-    
+
     // Auto-fetch notifications every 60 seconds
     const interval = setInterval(fetchNotifications, 60000)
-    
+
     // Refresh when window gains focus
     const handleFocus = () => fetchNotifications()
     window.addEventListener('focus', handleFocus)
-    
+
     // Refresh when visibility changes
     const handleVisibilityChange = () => {
       if (!document.hidden) fetchNotifications()
@@ -80,7 +80,7 @@ export default function NotificationBell({ iconColor, hoverBg }: NotificationBel
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: Event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false)
       }
@@ -115,7 +115,7 @@ export default function NotificationBell({ iconColor, hoverBg }: NotificationBel
           </span>
         )}
       </button>
-      
+
       {isOpen && (
         <NotificationDropdown
           notifications={notifications}
@@ -125,7 +125,7 @@ export default function NotificationBell({ iconColor, hoverBg }: NotificationBel
             try {
               const token = localStorage.getItem('pelanggan_token')
               const pelangganData = getWithExpiry<any>('pelanggan_data')
-              
+
               await fetch(`/api/pelanggan/notifications/${id}/read`, {
                 method: 'POST',
                 headers: {
@@ -133,9 +133,9 @@ export default function NotificationBell({ iconColor, hoverBg }: NotificationBel
                   'x-pelanggan-data': JSON.stringify(pelangganData),
                 },
               })
-              
+
               // Update local state
-              setNotifications(prev => 
+              setNotifications(prev =>
                 prev.map(n => n.id === id ? { ...n, isRead: true } : n)
               )
             } catch (error) {

@@ -2,13 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
+
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
+
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
+        const { id } = await context.params
+
         const deadline = await prisma.taxFilingDeadline.findUnique({
-            where: { id: params.id },
+            where: { id },
         });
 
         if (!deadline) {
@@ -28,14 +35,15 @@ export async function GET(
 // PUT /api/finance/tax/deadlines/[id] - Update deadline
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
+        const { id } = await context.params
         const body = await request.json();
         const { status, filedAt, filedBy, notes } = body;
 
         const updated = await prisma.taxFilingDeadline.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 ...(status && { status }),
                 ...(filedAt && { filedAt: new Date(filedAt) }),
@@ -57,14 +65,15 @@ export async function PUT(
 // PATCH /api/finance/tax/deadlines/[id]/file - Mark as filed
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
+        const { id } = await context.params
         const body = await request.json();
         const { filedBy, notes } = body;
 
         const updated = await prisma.taxFilingDeadline.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 status: 'FILED',
                 filedAt: new Date(),

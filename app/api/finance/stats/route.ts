@@ -10,28 +10,18 @@ import { FinanceAuthService } from '@/lib/services/FinanceAuthService'
  */
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get('x-finance-token')
-
-    if (!token) {
-      return NextResponse.json({ error: 'Token tidak ditemukan' }, { status: 401 })
+    // Verify JWT token using FinanceAuthService
+    const authResult = await FinanceAuthService.authenticate(request)
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json({
+        error: authResult.error || 'Unauthorized'
+      }, { status: 401 })
     }
 
-    // Verify JWT token using FinanceAuthService
-    try {
-      const authResult = await FinanceAuthService.authenticate(token)
-      if (!authResult.success || !authResult.user) {
-        return NextResponse.json({
-          error: authResult.error || 'Token tidak valid'
-        }, { status: 401 })
-      }
-
-      // Verify user has FINANCE or ADMIN role
-      const allowedRoles = ['FINANCE', 'ADMIN'] as const
-      if (!allowedRoles.includes(authResult.user.role as any)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-      }
-    } catch (parseError) {
-      return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+    // Verify user has FINANCE or ADMIN role
+    const allowedRoles = ['FINANCE', 'ADMIN'] as const
+    if (!allowedRoles.includes(authResult.user.role as any)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     const tagihanRepo = getTagihanRepository()

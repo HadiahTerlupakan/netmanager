@@ -9,13 +9,13 @@ import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/lib/repositories/RadiusRepository';
 
-interface Params {
-    params: {
+interface RouteContext {
+    params: Promise<{
         ipAddress: string;
-    };
+    }>;
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, context: RouteContext) {
     try {
         // Auth check
         const session = await getServerSession(authConfig);
@@ -26,7 +26,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
             );
         }
 
-        const { ipAddress } = params;
+        const { ipAddress } = await context.params;
 
         // Validate IP address format
         const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;

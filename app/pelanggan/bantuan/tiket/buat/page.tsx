@@ -12,6 +12,7 @@ import {
     HiPaperClip,
     HiXMark,
 } from 'react-icons/hi2'
+import NotificationBell from '@/components/pelanggan/NotificationBell'
 
 type Category = {
     id: string

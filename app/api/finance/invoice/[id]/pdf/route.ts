@@ -2,26 +2,29 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { InvoicePDFService } from '@/lib/services/invoice-pdf-service'
 import FinanceAuthService from '@/lib/services/FinanceAuthService'
-import { createSecureErrorResponse } from '@/lib/utils/secure-error-handler'
+import { createAuthError, createAuthorizationError, createSecureError, ErrorType } from '@/lib/utils/secure-error-handler'
 
 const pdfService = new InvoicePDFService(prisma)
 
+interface RouteContext {
+    params: Promise<{ id: string }>
+}
+
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: RouteContext
 ) {
     try {
         // Proper authentication check
         const authResult = await FinanceAuthService.authenticate(request)
         if (!authResult.success) {
-            return createSecureErrorResponse(
-                authResult.error || 'Authentication failed',
-                authResult.errorCode || 'UNAUTHORIZED',
-                401
-            )
+            if (authResult.errorCode === 'FORBIDDEN') {
+                return createAuthorizationError(authResult.error)
+            }
+            return createAuthError(authResult.error)
         }
 
-        const tagihanId = params.id
+        const { id: tagihanId } = await context.params
 
         // Log financial access
         await FinanceAuthService.logFinancialAccess(
@@ -44,7 +47,7 @@ export async function GET(
         const filename = `Invoice-${tagihan?.noTagihan || tagihanId}.pdf`
 
         // Return PDF as blob
-        return new NextResponse(pdfBuffer, {
+        return new NextResponse(pdfBuffer as any, {
             status: 200,
             headers: {
                 'Content-Type': 'application/pdf',
@@ -54,10 +57,6 @@ export async function GET(
         })
     } catch (error: any) {
         console.error('Error generating PDF:', error)
-        return createSecureErrorResponse(
-            'Failed to generate PDF',
-            'INTERNAL_ERROR',
-            500
-        )
+        return createSecureError(ErrorType.SYSTEM, 'Failed to generate PDF')
     }
 }

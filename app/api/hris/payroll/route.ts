@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { PayrollService } from '@/lib/services/hris/payroll-service'
 
 const payrollService = new PayrollService()

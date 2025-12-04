@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { formatISO } from 'date-fns'
+import { TaxRepository } from '@/lib/repositories/TaxRepository'
+
 const taxRepo = new TaxRepository(prisma);
 
 // GET /api/finance/tax/reports/ppn

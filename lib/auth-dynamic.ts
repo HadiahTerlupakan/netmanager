@@ -1,4 +1,4 @@
-import { NextAuthOptions } from 'next-auth'
+import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import GitHubProvider from 'next-auth/providers/github'
 import AzureADProvider from 'next-auth/providers/azure-ad'
@@ -30,8 +30,8 @@ export async function getDynamicOAuthProviders(): Promise<any[]> {
                 authorization: {
                   params: {
                     scope: config.scope || 'openid email profile',
-                    prompt: config.settings?.prompt || undefined,
-                    hd: config.settings?.hostedDomain || undefined
+                    prompt: (config.settings as Record<string, string> | null)?.prompt || undefined,
+                    hd: (config.settings as Record<string, string> | null)?.hostedDomain || undefined
                   }
                 },
                 allowDangerousEmailAccountLinking: true,
