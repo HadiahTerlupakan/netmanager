@@ -11,7 +11,9 @@ import {
     HiArrowDownTray,
     HiOutlinePaperAirplane,
     HiOutlineCurrencyDollar,
+    HiOutlinePrinter,
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 type TagihanStatus = 'BELUM_LUNAS' | 'LUNAS' | 'TERLAMBAT'
 
@@ -167,11 +169,7 @@ export default function TagihanDetailPage({ params }: { params: Promise<{ id: st
     ]
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-gray-500">Memuat data...</div>
-            </div>
-        )
+        return <PageLoader />
     }
 
     if (!tagihan) {

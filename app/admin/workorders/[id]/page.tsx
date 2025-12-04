@@ -4,19 +4,20 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { format } from 'date-fns'
+import { id as localeId } from 'date-fns/locale'
 import {
     HiArrowLeft,
     HiPencil,
     HiCheck,
-    HiUserCircle,
-    HiMapPin,
-    HiCalendar,
     HiClock,
+    HiUserCircle,
+    HiCalendar,
+    HiMapPin,
 } from 'react-icons/hi2'
-import { format } from 'date-fns'
-import { id as localeId } from 'date-fns/locale'
+import PageLoader from '@/components/ui/PageLoader'
 
-type WorkOrderDetail = {
+interface WorkOrderDetail {
     id: string
     workOrderNumber: string
     type: string
@@ -181,7 +182,7 @@ export default function WorkOrderDetailPage() {
     if (status === 'loading' || loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
-                <div className="text-gray-500">Loading...</div>
+                <PageLoader />
             </div>
         )
     }

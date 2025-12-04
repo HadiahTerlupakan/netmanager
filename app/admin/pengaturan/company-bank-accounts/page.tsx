@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react'
 import {
     HiOutlineBanknotes,
     HiOutlinePlus,
-    HiOutlinePencil,
-    HiOutlineTrash,
-    HiXMark,
     HiOutlineCheckCircle,
     HiOutlineXCircle,
+    HiOutlinePencil,
+    HiOutlineTrash,
+    HiXMark
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 interface CompanyBankAccount {
     id: string
@@ -143,11 +144,7 @@ export default function CompanyBankAccountsPage() {
     }
 
     if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-gray-500 dark:text-gray-400">Loading...</div>
-            </div>
-        )
+        return <PageLoader />
     }
 
     return (
@@ -263,8 +260,8 @@ export default function CompanyBankAccountsPage() {
                                 </div>
 
                                 <div className={`text-xs px-3 py-1 rounded-full inline-block ${account.isActive
-                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
+                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                    : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
                                     }`}>
                                     {account.isActive ? 'Aktif' : 'Nonaktif'}
                                 </div>

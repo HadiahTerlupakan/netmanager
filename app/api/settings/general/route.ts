@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { invalidateTimezoneCache } from '@/lib/utils/get-timezone'
 
 type BankAccount = {
   id?: string
@@ -18,6 +19,7 @@ type GeneralSettings = {
   rekeningBank: BankAccount[]
   invoiceOtomatis: string
   disablePerpanjanganPaket: string
+  timezone: string
 }
 
 /**
@@ -49,6 +51,7 @@ export async function GET(req: NextRequest) {
             'GENERAL_REKENING_BANK',
             'GENERAL_INVOICE_OTOMATIS',
             'GENERAL_DISABLE_PERPANJANGAN_PAKET',
+            'GENERAL_TIMEZONE',
           ],
         },
       },
@@ -76,6 +79,7 @@ export async function GET(req: NextRequest) {
       rekeningBank,
       invoiceOtomatis: settingsMap.get('GENERAL_INVOICE_OTOMATIS') || '5',
       disablePerpanjanganPaket: settingsMap.get('GENERAL_DISABLE_PERPANJANGAN_PAKET') || '5',
+      timezone: settingsMap.get('GENERAL_TIMEZONE') || 'Asia/Jakarta',
     })
   } catch (error: any) {
     console.error('Error fetching general settings:', error)
@@ -104,7 +108,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body: GeneralSettings = await req.json()
-    
+
     // Validasi body
     if (!body || typeof body !== 'object') {
       return NextResponse.json(
@@ -112,7 +116,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
-    
+
     const {
       perusahaan,
       alamat,
@@ -121,6 +125,7 @@ export async function POST(req: NextRequest) {
       rekeningBank,
       invoiceOtomatis,
       disablePerpanjanganPaket,
+      timezone,
     } = body
 
     // Upsert semua pengaturan
@@ -236,7 +241,26 @@ export async function POST(req: NextRequest) {
           encrypted: false,
         },
       }),
+
+      // Timezone
+      prisma.settings.upsert({
+        where: { key: 'GENERAL_TIMEZONE' },
+        update: {
+          value: timezone?.trim() || 'Asia/Jakarta',
+          description: 'Zona waktu aplikasi (IANA timezone)',
+          updatedAt: new Date(),
+        },
+        create: {
+          key: 'GENERAL_TIMEZONE',
+          value: timezone?.trim() || 'Asia/Jakarta',
+          description: 'Zona waktu aplikasi (IANA timezone)',
+          encrypted: false,
+        },
+      }),
     ])
+
+    // Invalidate timezone cache agar cron jobs menggunakan timezone baru
+    invalidateTimezoneCache()
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

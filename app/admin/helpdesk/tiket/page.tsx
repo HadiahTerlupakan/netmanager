@@ -14,6 +14,7 @@ import { TicketStatusBadge } from '@/components/helpdesk/TicketStatusBadge'
 import { TicketPriorityBadge } from '@/components/helpdesk/TicketPriorityBadge'
 import { formatDistanceToNow } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
+import PageLoader from '@/components/ui/PageLoader'
 
 type Ticket = {
     id: string
@@ -100,11 +101,7 @@ export default function HelpdeskTicketsPage() {
     const hasActiveFilters = filterStatus || filterPriority || unassignedOnly || search
 
     if (status === 'loading' || loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-gray-500">Memuat data...</div>
-            </div>
-        )
+        return <PageLoader />
     }
 
     return (

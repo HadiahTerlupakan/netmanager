@@ -5,6 +5,7 @@
 
 import cron from 'node-cron'
 import { updateStatusTagihanTerlambat } from '@/lib/services/tagihan-service'
+import { getTimezone } from '@/lib/utils/get-timezone'
 
 let updateJob: ReturnType<typeof cron.schedule> | null = null
 
@@ -13,7 +14,7 @@ let updateJob: ReturnType<typeof cron.schedule> | null = null
  * Default: setiap hari jam 00:00
  * @param cronExpression - Cron expression (default: '0 0 * * *' = setiap hari jam 00:00)
  */
-export function startTagihanStatusUpdater(cronExpression: string = '0 0 * * *'): void {
+export async function startTagihanStatusUpdater(cronExpression: string = '0 0 * * *'): Promise<void> {
   if (updateJob) {
     console.log(
       '[Tagihan-Status-Updater] Scheduler already running, stopping previous one...',
@@ -21,8 +22,11 @@ export function startTagihanStatusUpdater(cronExpression: string = '0 0 * * *'):
     stopTagihanStatusUpdater()
   }
 
+  // Ambil timezone dari settings
+  const timezone = await getTimezone()
+
   console.log(
-    `[Tagihan-Status-Updater] Starting tagihan status updater scheduler with cron: ${cronExpression}`,
+    `[Tagihan-Status-Updater] Starting tagihan status updater scheduler with cron: ${cronExpression}, timezone: ${timezone}`,
   )
 
   updateJob = cron.schedule(
@@ -48,7 +52,7 @@ export function startTagihanStatusUpdater(cronExpression: string = '0 0 * * *'):
     },
     {
       scheduled: true,
-      timezone: 'Asia/Jakarta',
+      timezone: timezone,
     } as any,
   )
 

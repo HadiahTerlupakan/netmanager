@@ -85,8 +85,15 @@ export async function DELETE(
       return NextResponse.json({ error: 'KMZ file tidak ditemukan' }, { status: 404 })
     }
 
-    // Delete files from filesystem
-    await deleteKmzFiles(id)
+    // Extract kmzId from filePath to delete the correct directory
+    // filePath format: /uploads/kmz/{kmzId}/original.kmz
+    const filePathMatch = existing.filePath.match(/\/uploads\/kmz\/([^\/]+)\/original\.kmz/)
+    if (filePathMatch) {
+      const kmzId = filePathMatch[1]
+      await deleteKmzFiles(kmzId)
+    } else {
+      console.warn(`Could not extract kmzId from filePath: ${existing.filePath}`)
+    }
 
     // Delete from database
     await kmzRepository.delete(id)

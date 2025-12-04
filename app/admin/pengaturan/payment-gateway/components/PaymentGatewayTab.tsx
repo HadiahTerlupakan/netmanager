@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import {
-    HiOutlineCog6Tooth,
-    HiOutlineCheckCircle,
-    HiOutlineXCircle,
+    HiCheckCircle,
+    HiXCircle,
+    HiInformationCircle,
     HiOutlineArrowPath,
     HiXMark,
     HiOutlineCreditCard,
+    HiOutlineCog6Tooth,
+    HiOutlineCheckCircle,
+    HiOutlineXCircle,
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 const PROVIDERS = [
     { id: 'XENDIT', name: 'Xendit', logo: '🟢' },
@@ -148,10 +152,7 @@ export default function PaymentGatewayTab() {
     if (loading) {
         return (
             <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                    <HiOutlineArrowPath className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
-                    <div className="text-gray-500">Loading...</div>
-                </div>
+                <PageLoader />
             </div>
         )
     }
@@ -346,9 +347,9 @@ export default function PaymentGatewayTab() {
                                     />
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                         Your unique merchant code from {
-                                            selectedProvider === 'TRIPAY' ? 'Tripay' : 
-                                            selectedProvider === 'DANA' ? 'DANA' : 
-                                            'Duitku'
+                                            selectedProvider === 'TRIPAY' ? 'Tripay' :
+                                                selectedProvider === 'DANA' ? 'DANA' :
+                                                    'Duitku'
                                         } dashboard
                                     </p>
                                 </div>

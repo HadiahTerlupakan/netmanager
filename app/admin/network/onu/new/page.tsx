@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { HiOutlinePlus, HiOutlineSignal, HiOutlineDevicePhoneMobile, HiArrowPath, HiArrowRightOnRectangle, HiArrowDownTray } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 type Olt = { id: string; name: string; ipAddress: string }
 type UnconfiguredOnu = {
@@ -26,7 +27,7 @@ export default function AddOnuPage() {
 
   // Load OLTs
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       try {
         const res = await fetch('/api/olts')
         if (!res.ok) throw new Error('Gagal memuat data OLT')
@@ -62,7 +63,7 @@ export default function AddOnuPage() {
       }
       const data = await res.json()
       setUnconfiguredOnus(data.unconfiguredOnus || [])
-      
+
       // Jika tidak ada ONU, tampilkan pesan info
       if (data.unconfiguredOnus && data.unconfiguredOnus.length === 0) {
         setError(null) // Clear error jika memang tidak ada data
@@ -102,14 +103,7 @@ export default function AddOnuPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="mb-4 text-4xl">⏳</div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data...</p>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   return (

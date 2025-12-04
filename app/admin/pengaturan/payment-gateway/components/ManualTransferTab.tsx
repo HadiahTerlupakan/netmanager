@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import {
-    HiOutlineBanknotes,
     HiOutlinePlus,
-    HiOutlinePencil,
-    HiOutlineTrash,
-    HiXMark,
+    HiOutlineBanknotes,
     HiOutlineCheckCircle,
     HiOutlineXCircle,
+    HiOutlinePencil,
+    HiOutlineTrash,
+    HiXMark
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 interface CompanyBankAccount {
     id: string
@@ -145,7 +146,7 @@ export default function ManualTransferTab() {
     if (loading) {
         return (
             <div className="flex items-center justify-center py-12">
-                <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+                <PageLoader />
             </div>
         )
     }

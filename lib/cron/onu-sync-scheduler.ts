@@ -14,6 +14,7 @@ import { syncOnuDataByOltId } from '@/lib/services/onu-sync'
 import { onuIncrementalSyncService } from '@/lib/services/onu-sync-incremental'
 import { getC300GponOnuDataViaSNMP } from '@/app/api/onus/sync/route'
 import { logger } from '@/lib/logger'
+import { getTimezone } from '@/lib/utils/get-timezone'
 
 let syncJob: ReturnType<typeof cron.schedule> | null = null
 let useOptimizedSync = true // Toggle to enable/disable optimizations
@@ -31,13 +32,16 @@ export function setOptimizedSyncMode(enabled: boolean): void {
  * Default: setiap 5 menit
  * @param cronExpression - Cron expression (default: setiap 5 menit)
  */
-export function startOnuSyncScheduler(cronExpression: string = '*/5 * * * *'): void {
+export async function startOnuSyncScheduler(cronExpression: string = '*/5 * * * *'): Promise<void> {
   if (syncJob) {
     logger.info('Scheduler already running, stopping previous one...')
     stopOnuSyncScheduler()
   }
 
-  logger.info(`Starting ONU sync scheduler with cron: ${cronExpression}`)
+  // Ambil timezone dari settings
+  const timezone = await getTimezone()
+
+  logger.info(`Starting ONU sync scheduler with cron: ${cronExpression}, timezone: ${timezone}`)
   logger.info(`Mode: ${useOptimizedSync ? 'OPTIMIZED (Phase 3+4)' : 'LEGACY'}`)
 
   syncJob = cron.schedule(
@@ -142,7 +146,7 @@ export function startOnuSyncScheduler(cronExpression: string = '*/5 * * * *'): v
     },
     {
       scheduled: true,
-      timezone: 'Asia/Jakarta',
+      timezone: timezone,
     } as any
   )
 

@@ -11,6 +11,7 @@ import {
     HiOutlineUsers,
     HiOutlineCurrencyDollar,
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 const formatRupiah = (amount: number | string) => {
     const numAmount = typeof amount === 'string' ? Number(amount) : amount
@@ -98,14 +99,7 @@ export default function MRRDashboardPage() {
     }
 
     if (userLoading || loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-                <div className="text-center">
-                    <HiOutlineArrowPath className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin mx-auto mb-4" />
-                    <div className="text-gray-500 dark:text-gray-400">Memuat data...</div>
-                </div>
-            </div>
-        )
+        return <PageLoader />
     }
 
     return (

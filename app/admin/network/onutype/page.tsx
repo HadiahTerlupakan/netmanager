@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import OnuTypeModal from '@/components/onutype/OnuTypeModal'
 import { HiExclamationCircle, HiArrowPath, HiEye, HiTrash, HiXMark } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 type OnuType = {
   id: string
@@ -109,7 +110,7 @@ export default function OnuTypePage() {
       setOnuTypes(onuTypesWithOlt)
       const oltList = oltsData.olts || []
       setOlts(oltList.map((o: any) => ({ id: o.id, name: o.name, ipAddress: o.ipAddress })))
-      
+
       // Auto-expand semua OLT yang memiliki OnuType saat pertama kali load
       const allOltIds = new Set(onuTypesWithOlt.map((ot) => ot.oltId))
       setExpandedOlts(allOltIds)
@@ -198,7 +199,7 @@ export default function OnuTypePage() {
 
       const result = await res.json()
       alert(`Berhasil sync ${result.data.syncedTypes} ONU types dari Telnet!\n\nTotal Types: ${result.data.totalTypes}\nSynced: ${result.data.syncedTypes}`)
-      
+
       // Reload data setelah sync
       await loadData()
     } catch (error: any) {
@@ -235,7 +236,7 @@ export default function OnuTypePage() {
 
       const result = await res.json()
       alert(`Berhasil sync ${result.data.syncedTypes} ONU types dari SNMP!\n\nTotal Types: ${result.data.totalTypes}\nSynced: ${result.data.syncedTypes}`)
-      
+
       // Reload data setelah sync
       await loadData()
     } catch (error: any) {
@@ -262,14 +263,7 @@ export default function OnuTypePage() {
   }, {} as Record<string, OnuTypeWithOlt[]>)
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="mb-4 text-4xl">⏳</div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data...</p>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   return (

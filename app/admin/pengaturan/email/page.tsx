@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import {
-    HiOutlineEnvelope,
-    HiOutlineCheckCircle,
-    HiOutlineXCircle,
     HiOutlineArrowPath,
-    HiOutlinePaperAirplane
+    HiOutlineEnvelope,
+    HiOutlinePaperAirplane,
+    HiOutlineCheckCircle,
+    HiOutlineXCircle
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 export default function EmailSettingsPage() {
     const [loading, setLoading] = useState(true)
@@ -114,14 +115,7 @@ export default function EmailSettingsPage() {
     }
 
     if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <HiOutlineArrowPath className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
-                    <div className="text-gray-500">Loading...</div>
-                </div>
-            </div>
-        )
+        return <PageLoader />
     }
 
     return (
@@ -295,7 +289,7 @@ export default function EmailSettingsPage() {
                         <li>Go to Google Account → Security</li>
                         <li>Enable 2-Step Verification</li>
                         <li>Go to App Passwords section</li>
-                        <li>Select "Mail" and generate password</li>
+                        <li>Select &quot;Mail&quot; and generate password</li>
                         <li>Use generated password as SMTP Password</li>
                     </ol>
                 </div>

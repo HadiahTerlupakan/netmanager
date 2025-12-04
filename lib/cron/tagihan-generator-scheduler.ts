@@ -5,6 +5,7 @@
 
 import cron from 'node-cron'
 import { generateTagihanBulanan, generateTagihanOtomatis } from '@/lib/services/tagihan-service'
+import { getTimezone } from '@/lib/utils/get-timezone'
 
 let generateJob: ReturnType<typeof cron.schedule> | null = null
 
@@ -13,9 +14,9 @@ let generateJob: ReturnType<typeof cron.schedule> | null = null
  * Default: setiap tanggal 1 jam 00:00 (setiap bulan)
  * @param cronExpression - Cron expression (default: '0 0 1 * *' = setiap tanggal 1 jam 00:00)
  */
-export function startTagihanGeneratorScheduler(
+export async function startTagihanGeneratorScheduler(
   cronExpression: string = '0 0 1 * *',
-): void {
+): Promise<void> {
   if (generateJob) {
     console.log(
       '[Tagihan-Generator-Scheduler] Scheduler already running, stopping previous one...',
@@ -23,8 +24,11 @@ export function startTagihanGeneratorScheduler(
     stopTagihanGeneratorScheduler()
   }
 
+  // Ambil timezone dari settings
+  const timezone = await getTimezone()
+
   console.log(
-    `[Tagihan-Generator-Scheduler] Starting tagihan generator scheduler with cron: ${cronExpression}`,
+    `[Tagihan-Generator-Scheduler] Starting tagihan generator scheduler with cron: ${cronExpression}, timezone: ${timezone}`,
   )
 
   generateJob = cron.schedule(
@@ -60,7 +64,7 @@ export function startTagihanGeneratorScheduler(
     },
     {
       scheduled: true,
-      timezone: 'Asia/Jakarta',
+      timezone: timezone,
     } as any,
   )
 
@@ -76,9 +80,9 @@ let autoInvoiceJob: ReturnType<typeof cron.schedule> | null = null
  * Default: setiap hari jam 00:00
  * @param cronExpression - Cron expression (default: '0 0 * * *' = setiap hari jam 00:00)
  */
-export function startAutoInvoiceScheduler(
+export async function startAutoInvoiceScheduler(
   cronExpression: string = '0 0 * * *',
-): void {
+): Promise<void> {
   if (autoInvoiceJob) {
     console.log(
       '[Auto-Invoice-Scheduler] Scheduler already running, stopping previous one...',
@@ -86,8 +90,11 @@ export function startAutoInvoiceScheduler(
     stopAutoInvoiceScheduler()
   }
 
+  // Ambil timezone dari settings
+  const timezone = await getTimezone()
+
   console.log(
-    `[Auto-Invoice-Scheduler] Starting auto invoice scheduler with cron: ${cronExpression}`,
+    `[Auto-Invoice-Scheduler] Starting auto invoice scheduler with cron: ${cronExpression}, timezone: ${timezone}`,
   )
 
   autoInvoiceJob = cron.schedule(
@@ -120,7 +127,7 @@ export function startAutoInvoiceScheduler(
     },
     {
       scheduled: true,
-      timezone: 'Asia/Jakarta',
+      timezone: timezone,
     } as any,
   )
 

@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { HiArrowPath, HiCheckCircle, HiExclamationCircle, HiPlus, HiXMark } from 'react-icons/hi2'
+import { HiArrowPath, HiCheckCircle, HiClock, HiExclamationCircle, HiGlobeAlt, HiPlus, HiXMark } from 'react-icons/hi2'
 import Link from 'next/link'
+import { TIMEZONE_OPTIONS, type TimezoneOption } from '@/lib/constants/timezone-constants'
 
 type BankAccount = {
   id?: string
@@ -19,6 +20,7 @@ type GeneralSettings = {
   rekeningBank: BankAccount[]
   invoiceOtomatis: string
   disablePerpanjanganPaket: string
+  timezone: string
 }
 
 export default function GeneralSettingsPage() {
@@ -26,6 +28,7 @@ export default function GeneralSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [currentTime, setCurrentTime] = useState<string>('')
   const [settings, setSettings] = useState<GeneralSettings>({
     perusahaan: '',
     alamat: '',
@@ -34,7 +37,34 @@ export default function GeneralSettingsPage() {
     rekeningBank: [],
     invoiceOtomatis: '5',
     disablePerpanjanganPaket: '5',
+    timezone: 'Asia/Jakarta',
   })
+
+  // Update current time every second based on selected timezone
+  useEffect(() => {
+    const updateTime = () => {
+      try {
+        const now = new Date()
+        const timeStr = now.toLocaleString('id-ID', {
+          timeZone: settings.timezone,
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+        setCurrentTime(timeStr)
+      } catch (e) {
+        setCurrentTime('Invalid timezone')
+      }
+    }
+
+    updateTime()
+    const interval = setInterval(updateTime, 1000)
+    return () => clearInterval(interval)
+  }, [settings.timezone])
 
   useEffect(() => {
     loadSettings()
@@ -55,6 +85,7 @@ export default function GeneralSettingsPage() {
           rekeningBank: data.rekeningBank || [],
           invoiceOtomatis: data.invoiceOtomatis || '5',
           disablePerpanjanganPaket: data.disablePerpanjanganPaket || '5',
+          timezone: data.timezone || 'Asia/Jakarta',
         })
       } else {
         const errorData = await res.json()
@@ -339,6 +370,43 @@ export default function GeneralSettingsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Zona Waktu */}
+            <div className="space-y-3 p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+              <div className="flex items-center gap-2">
+                <HiGlobeAlt className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <label htmlFor="timezone" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Zona Waktu Aplikasi
+                </label>
+              </div>
+
+              <select
+                id="timezone"
+                name="timezone"
+                value={settings.timezone}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+              >
+                {TIMEZONE_OPTIONS.map((tz) => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* Live Clock Preview */}
+              <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <HiClock className="w-5 h-5 text-green-600 dark:text-green-400 animate-pulse" />
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Waktu saat ini di zona {settings.timezone}:</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{currentTime || 'Memuat...'}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Zona waktu ini akan digunakan untuk semua jadwal otomatis (cron job) seperti generate tagihan, sync OLT/ONU, dll.
+              </p>
             </div>
 
             {/* Messages */}

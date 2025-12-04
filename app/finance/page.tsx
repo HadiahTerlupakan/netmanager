@@ -14,6 +14,7 @@ import {
 } from 'react-icons/hi2'
 import Link from 'next/link'
 import { useFinance } from '@/hooks/useFinance'
+import PageLoader from '@/components/ui/PageLoader'
 
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -61,14 +62,7 @@ export default function FinanceDashboardPage() {
   }, [financeUser])
 
   if (loading || statsLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="text-center">
-          <HiArrowPath className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin mx-auto mb-4" />
-          <div className="text-gray-500 dark:text-gray-400">Memuat data...</div>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   if (!financeUser) {
@@ -301,7 +295,7 @@ export default function FinanceDashboardPage() {
                 <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Lihat dan kelola semua tagihan</p>
               </div>
             </Link>
-            </div>
+          </div>
         </div>
       </main>
     </div>

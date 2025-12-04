@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { HiArrowPath, HiBars3, HiOutlineDocumentText } from 'react-icons/hi2'
 import { useFinance } from '@/hooks/useFinance'
+import PageLoader from '@/components/ui/PageLoader'
 
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -35,10 +36,10 @@ export default function FinanceTagihanPage() {
         const token = localStorage.getItem('finance_token')
         if (!token) return
 
-        const url = filterStatus === 'all' 
+        const url = filterStatus === 'all'
           ? '/api/finance/tagihan'
           : `/api/finance/tagihan?status=${filterStatus}`
-        
+
         const response = await fetch(url, {
           headers: {
             'x-finance-token': token,
@@ -62,14 +63,7 @@ export default function FinanceTagihanPage() {
   }, [financeUser, filterStatus])
 
   if (loading || tagihanLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="text-center">
-          <HiArrowPath className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin mx-auto mb-4" />
-          <div className="text-gray-500 dark:text-gray-400">Memuat data...</div>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   const getStatusBadge = (status: string) => {
@@ -110,7 +104,7 @@ export default function FinanceTagihanPage() {
                 setTagihanLoading(true)
                 const token = localStorage.getItem('finance_token')
                 if (token) {
-                  const url = filterStatus === 'all' 
+                  const url = filterStatus === 'all'
                     ? '/api/finance/tagihan'
                     : `/api/finance/tagihan?status=${filterStatus}`
                   fetch(url, {
@@ -143,41 +137,37 @@ export default function FinanceTagihanPage() {
         <div className="mb-4 flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
           <button
             onClick={() => setFilterStatus('all')}
-            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${
-              filterStatus === 'all'
+            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${filterStatus === 'all'
                 ? 'bg-emerald-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-            }`}
+              }`}
           >
             Semua
           </button>
           <button
             onClick={() => setFilterStatus('BELUM_LUNAS')}
-            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${
-              filterStatus === 'BELUM_LUNAS'
+            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${filterStatus === 'BELUM_LUNAS'
                 ? 'bg-emerald-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-            }`}
+              }`}
           >
             Belum Lunas
           </button>
           <button
             onClick={() => setFilterStatus('TERLAMBAT')}
-            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${
-              filterStatus === 'TERLAMBAT'
+            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${filterStatus === 'TERLAMBAT'
                 ? 'bg-emerald-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-            }`}
+              }`}
           >
             Terlambat
           </button>
           <button
             onClick={() => setFilterStatus('LUNAS')}
-            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${
-              filterStatus === 'LUNAS'
+            className={`touch-target touch-manipulation px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${filterStatus === 'LUNAS'
                 ? 'bg-emerald-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-            }`}
+              }`}
           >
             Lunas
           </button>

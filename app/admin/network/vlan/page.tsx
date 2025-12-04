@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { HiArrowPath, HiPencil, HiTrash } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 type Olt = { id: string; name: string; ipAddress: string }
 type Vlan = {
@@ -155,14 +156,7 @@ export default function VlanPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="mb-4 text-4xl">⏳</div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data...</p>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   return (

@@ -5,6 +5,7 @@
 
 import cron from 'node-cron'
 import { checkAllMikroTikRouterStatus } from '@/lib/services/mikrotik-ping-check'
+import { getTimezone } from '@/lib/utils/get-timezone'
 
 let statusCheckJob: ReturnType<typeof cron.schedule> | null = null
 
@@ -13,13 +14,16 @@ let statusCheckJob: ReturnType<typeof cron.schedule> | null = null
  * Default: setiap 5 menit
  * @param cronExpression - Cron expression (default: setiap 5 menit)
  */
-export function startMikroTikPingScheduler(cronExpression: string = '*/5 * * * *'): void {
+export async function startMikroTikPingScheduler(cronExpression: string = '*/5 * * * *'): Promise<void> {
   if (statusCheckJob) {
     console.log('[MikroTik-Status-Scheduler] Scheduler already running, stopping previous one...')
     stopMikroTikPingScheduler()
   }
 
-  console.log(`[MikroTik-Status-Scheduler] Starting MikroTik API connection check scheduler with cron: ${cronExpression}`)
+  // Ambil timezone dari settings
+  const timezone = await getTimezone()
+
+  console.log(`[MikroTik-Status-Scheduler] Starting MikroTik API connection check scheduler with cron: ${cronExpression}, timezone: ${timezone}`)
 
   statusCheckJob = cron.schedule(
     cronExpression,
@@ -34,7 +38,7 @@ export function startMikroTikPingScheduler(cronExpression: string = '*/5 * * * *
     },
     {
       scheduled: true,
-      timezone: 'Asia/Jakarta',
+      timezone: timezone,
     } as any
   )
 

@@ -10,6 +10,7 @@ import {
     HiOutlineArrowRightOnRectangle
 } from 'react-icons/hi2'
 import { ToastProvider } from '@/components/ui/Toast'
+import PageLoader from '@/components/ui/PageLoader'
 
 const navigation = [
     { name: 'Dashboard', href: '/helpdesk', icon: HiOutlineHome },
@@ -69,14 +70,7 @@ function HelpdeskContent({ children }: { children: React.ReactNode }) {
 
     // Show loading while checking auth
     if (status === 'loading') {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading...</p>
-                </div>
-            </div>
-        )
+        return <PageLoader />
     }
 
     // Don't render anything if not authenticated

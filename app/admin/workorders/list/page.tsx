@@ -1,18 +1,19 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import {
-    HiMagnifyingGlass,
-    HiAdjustmentsHorizontal,
-    HiPlus,
-} from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
+import {
+    HiPlus,
+    HiMagnifyingGlass,
+    HiAdjustmentsHorizontal,
+} from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
-type WorkOrder = {
+interface WorkOrder {
     id: string
     workOrderNumber: string
     title: string
@@ -134,7 +135,7 @@ export default function WorkOrderListPage() {
     if (status === 'loading' || loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
-                <div className="text-gray-500">Loading...</div>
+                <PageLoader />
             </div>
         )
     }

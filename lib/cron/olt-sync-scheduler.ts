@@ -5,6 +5,7 @@
 
 import cron from 'node-cron'
 import { syncAllOltData } from '@/lib/services/olt-sync'
+import { getTimezone } from '@/lib/utils/get-timezone'
 
 let syncJob: ReturnType<typeof cron.schedule> | null = null
 
@@ -13,13 +14,16 @@ let syncJob: ReturnType<typeof cron.schedule> | null = null
  * Default: setiap 5 menit
  * @param cronExpression - Cron expression (default: setiap 5 menit)
  */
-export function startOltSyncScheduler(cronExpression: string = '*/5 * * * *'): void {
+export async function startOltSyncScheduler(cronExpression: string = '*/5 * * * *'): Promise<void> {
   if (syncJob) {
     console.log('[OLT-Sync-Scheduler] Scheduler already running, stopping previous one...')
     stopOltSyncScheduler()
   }
 
-  console.log(`[OLT-Sync-Scheduler] Starting OLT sync scheduler with cron: ${cronExpression}`)
+  // Ambil timezone dari settings
+  const timezone = await getTimezone()
+
+  console.log(`[OLT-Sync-Scheduler] Starting OLT sync scheduler with cron: ${cronExpression}, timezone: ${timezone}`)
 
   syncJob = cron.schedule(
     cronExpression,
@@ -34,7 +38,7 @@ export function startOltSyncScheduler(cronExpression: string = '*/5 * * * *'): v
     },
     {
       scheduled: true,
-      timezone: 'Asia/Jakarta',
+      timezone: timezone,
     } as any
   )
 

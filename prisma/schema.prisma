@@ -121,7 +121,7 @@ model User {
   passwordHash  String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  accounts      String[]
+  accounts      Account[] // OAuth accounts (Google, GitHub, Microsoft, etc.)
   sessions      Session[]
   pelanggan     Pelanggan[]
   tickets       Ticket[]
@@ -133,6 +133,26 @@ model User {
   bankAccountsUpdated BankAccount[] @relation("BankAccountUpdatedBy")
   transactionsCreated Transaction[] @relation("TransactionCreatedBy")
   transactionsUpdated Transaction[] @relation("TransactionUpdatedBy")
+}
+
+// OAuth Account model for Auth.js v5
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -349,7 +369,8 @@ model KmzFile {
   id          String   @id @default(cuid())
   name        String
   filename    String
-  filePath    String // Path ke file KML hasil ekstrak
+  filePath    String // Path ke file KMZ asli
+  kmlPath     String // Path ke file KML hasil ekstrak
   fileSize    Int // Size dalam bytes
   description String?
   lineColor   String   @default("#3388ff") // Warna garis KMZ (hex color)
@@ -979,6 +1000,44 @@ model Settings {
   updatedAt   DateTime @updatedAt
 
   @@index([key])
+}
+
+// OAuth Provider Configuration (Dynamic OAuth support)
+model OAuthProviderConfig {
+  id String @id @default(cuid())
+
+  // Provider identification
+  provider     String @unique // "GOOGLE", "GITHUB", "MICROSOFT", "FACEBOOK", "LINKEDIN", etc.
+  providerName String // Display name: "Google", "GitHub", etc.
+
+  // Configuration
+  isEnabled    Boolean @default(false)
+  isProduction Boolean @default(false) // For providers with sandbox environments
+  priority     Int     @default(0) // Display order priority
+
+  // OAuth Credentials (ENCRYPTED!)
+  clientId     String? // OAuth Client ID (encrypted)
+  clientSecret String? // OAuth Client Secret (encrypted)
+  tenantId     String? // Azure AD Tenant ID (encrypted, if applicable)
+
+  // OAuth Configuration
+  scope        String? // OAuth scopes (comma-separated)
+  redirectUri  String? // Custom redirect URI (auto-generated if not provided)
+
+  // Provider-specific settings (JSON)
+  settings Json? // { "hostedDomain": "example.com", "allowSignup": true, "prompt": "consent" }
+
+  // Metadata
+  lastTestedAt DateTime? // Last successful test
+  testStatus   String? // "SUCCESS", "FAILED", error message
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    String? // Admin user ID
+
+  @@map("oauth_provider_configs")
+  @@index([provider])
+  @@index([isEnabled])
+  @@index([priority])
 }
 
 // ============================================
@@ -1893,6 +1952,41 @@ model RadPostAuth {
   @@index([username])
   @@index([authDate])
   @@map("radpostauth")
+}
+
+// NAS - Network Access Server Configuration (MikroTik Routers)
+model Nas {
+  id          Int      @id @default(autoincrement())
+  nasname     String   // IP address or hostname
+  shortname   String?  // Short name for display
+  type        String   @default("other") // NAS type (other, mikrotik, cisco, etc.)
+  ports       Int?     // Number of ports
+  secret      String   @default("secret") // RADIUS secret
+  community   String?  // SNMP community
+  description String?  // Description of the NAS
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([nasname])
+  @@map("nas")
+}
+
+// RADIUS IP Pool - IP Address Pool Management
+model RadIpPool {
+  id               Int      @id @default(autoincrement())
+  poolName         String   @map("pool_name")
+  framedIpAddress  String   @map("framedipaddress") @db.Inet
+  nasIpAddress     String?  @map("nasipaddress") @db.Inet
+  poolKey          String?  @map("pool_key")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([framedIpAddress])
+  @@index([poolName])
+  @@index([nasIpAddress])
+  @@map("radippool")
 }
 
 // Leave Balance - Saldo cuti karyawan

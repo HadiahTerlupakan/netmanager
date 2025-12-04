@@ -20,6 +20,7 @@ import { useFinance } from '@/hooks/useFinance'
 import TransaksiModal from '@/components/finance/TransaksiModal'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, PieChart } from 'recharts'
+import PageLoader from '@/components/ui/PageLoader'
 
 const formatRupiah = (amount: number | string) => {
   const numAmount = typeof amount === 'string' ? Number(amount) : amount
@@ -65,7 +66,7 @@ export default function FinanceCashflowPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteType, setDeleteType] = useState<'pengeluaran' | 'pemasukan' | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  
+
   // Filter states
   const [filterPeriod, setFilterPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly')
   const [filterStartDate, setFilterStartDate] = useState<string>('')
@@ -73,7 +74,7 @@ export default function FinanceCashflowPage() {
   const [filterCategory, setFilterCategory] = useState<string>('')
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>('')
   const [searchDescription, setSearchDescription] = useState<string>('')
-  
+
   // Import states
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
@@ -92,7 +93,7 @@ export default function FinanceCashflowPage() {
       const queryParams = new URLSearchParams()
       queryParams.append('page', page.toString())
       queryParams.append('limit', pagination.limit.toString())
-      
+
       if (filterPeriod) queryParams.append('period', filterPeriod)
       if (filterStartDate) queryParams.append('startDate', filterStartDate)
       if (filterEndDate) queryParams.append('endDate', filterEndDate)
@@ -182,7 +183,7 @@ export default function FinanceCashflowPage() {
 
       // Build query parameters for filters
       const queryParams = new URLSearchParams()
-      
+
       if (filterPeriod) queryParams.append('period', filterPeriod)
       if (filterStartDate) queryParams.append('startDate', filterStartDate)
       if (filterEndDate) queryParams.append('endDate', filterEndDate)
@@ -220,7 +221,7 @@ export default function FinanceCashflowPage() {
     if (file) {
       setImportFile(file)
       setImportErrors([])
-      
+
       // Read and preview the file
       const reader = new FileReader()
       reader.onload = (event) => {
@@ -228,62 +229,62 @@ export default function FinanceCashflowPage() {
           const text = event.target?.result as string
           const lines = text.split('\n')
           const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
-          
+
           // Validate required headers
           const requiredHeaders = ['Tanggal', 'Jenis', 'Kategori', 'Deskripsi', 'Jumlah']
           const missingHeaders = requiredHeaders.filter(h => !headers.includes(h))
-          
+
           if (missingHeaders.length > 0) {
             setImportErrors([`Header yang diperlukan tidak ada: ${missingHeaders.join(', ')}`])
             setImportPreview([])
             return
           }
-          
+
           // Parse data
           const data = lines.slice(1).filter(line => line.trim()).map((line, index) => {
             const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
             const row: any = {}
-            
+
             headers.forEach((header, i) => {
               row[header] = values[i] || ''
             })
-            
+
             return {
               index: index + 2, // +2 because of header and 0-based index
               ...row
             }
           })
-          
+
           setImportPreview(data.slice(0, 5)) // Show only first 5 rows for preview
-          
+
           // Validate data
           const errors: string[] = []
           data.forEach((row, index) => {
             const rowNum = index + 2
-            
+
             if (!row.Tanggal) {
               errors.push(`Baris ${rowNum}: Tanggal tidak boleh kosong`)
             } else if (isNaN(Date.parse(row.Tanggal))) {
               errors.push(`Baris ${rowNum}: Format tanggal tidak valid`)
             }
-            
+
             if (!row.Jenis || !['Pemasukan', 'Pengeluaran'].includes(row.Jenis)) {
               errors.push(`Baris ${rowNum}: Jenis harus "Pemasukan" atau "Pengeluaran"`)
             }
-            
+
             if (!row.Kategori) {
               errors.push(`Baris ${rowNum}: Kategori tidak boleh kosong`)
             }
-            
+
             if (!row.Deskripsi) {
               errors.push(`Baris ${rowNum}: Deskripsi tidak boleh kosong`)
             }
-            
+
             if (!row.Jumlah || isNaN(Number(row.Jumlah))) {
               errors.push(`Baris ${rowNum}: Jumlah harus berupa angka`)
             }
           })
-          
+
           setImportErrors(errors)
         } catch (error) {
           console.error('Error parsing file:', error)
@@ -291,30 +292,30 @@ export default function FinanceCashflowPage() {
           setImportPreview([])
         }
       }
-      
+
       reader.readAsText(file)
     }
   }
 
   const handleImport = async () => {
     if (!importFile || importErrors.length > 0) return
-    
+
     setImportLoading(true)
     try {
       const token = localStorage.getItem('finance_token')
       if (!token) return
-      
+
       const formData = new FormData()
       formData.append('file', importFile)
-      
+
       const response = await fetch('/api/finance/transactions/import', {
         method: 'POST',
         headers: { 'x-finance-token': token },
         body: formData
       })
-      
+
       const data = await response.json()
-      
+
       if (response.ok) {
         alert(`Berhasil mengimport ${data.imported} transaksi. ${data.errors.length} transaksi gagal diimport.`)
         setImportModalOpen(false)
@@ -341,10 +342,10 @@ export default function FinanceCashflowPage() {
       ['2023-12-02', 'Pengeluaran', 'OPERASIONAL', 'Pembayaran listrik kantor', '1500000', 'TRANSFER', 'Listrik PLN'],
       ['2023-12-03', 'Pengeluaran', 'GAJI', 'Gaji karyawan', '5000000', 'TRANSFER', 'Gaji bulanan Desember']
     ]
-    
+
     const csvContent = [
       headers.join(','),
-      ...sampleData.map(row => 
+      ...sampleData.map(row =>
         row.map(cell => {
           // Handle values that contain commas or quotes
           if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"'))) {
@@ -354,7 +355,7 @@ export default function FinanceCashflowPage() {
         }).join(',')
       )
     ].join('\n')
-    
+
     // Create download link
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -368,14 +369,7 @@ export default function FinanceCashflowPage() {
   }
 
   if (loading || loadingData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="text-center">
-          <HiArrowPath className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin mx-auto mb-4" />
-          <div className="text-gray-500 dark:text-gray-400">Memuat data...</div>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   return (
@@ -489,7 +483,7 @@ export default function FinanceCashflowPage() {
         {/* Filters Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 mb-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Filter Transaksi</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             {/* Period Filter */}
             <div className="space-y-2">
@@ -503,7 +497,7 @@ export default function FinanceCashflowPage() {
                   // Set default date range based on period
                   const today = new Date()
                   let startDate = new Date()
-                  
+
                   if (e.target.value === 'daily') {
                     startDate = today
                   } else if (e.target.value === 'weekly') {
@@ -513,7 +507,7 @@ export default function FinanceCashflowPage() {
                   } else if (e.target.value === 'yearly') {
                     startDate.setFullYear(today.getFullYear() - 1)
                   }
-                  
+
                   setFilterStartDate(startDate.toISOString().split('T')[0])
                   setFilterEndDate(today.toISOString().split('T')[0])
                 }}
@@ -755,7 +749,7 @@ export default function FinanceCashflowPage() {
         {cashflowData && cashflowData.cashFlowStatement && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Cash Flow Statement</h3>
-            
+
             <div className="space-y-4">
               {/* Operating Activities */}
               <div>
@@ -832,8 +826,8 @@ export default function FinanceCashflowPage() {
                   <div className="flex justify-between py-1">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Net Cash Flow</span>
                     <span className={`text-sm font-medium ${Number(cashflowData.cashFlowStatement.netCashFlow) >= 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
                       }`}>
                       {formatRupiah(cashflowData.cashFlowStatement.netCashFlow)}
                     </span>
@@ -854,7 +848,7 @@ export default function FinanceCashflowPage() {
         {cashflowData && cashflowData.perBulan && cashflowData.perBulan.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Trend Cash Flow (6 Bulan Terakhir)</h3>
-            
+
             <div className="h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
@@ -869,15 +863,15 @@ export default function FinanceCashflowPage() {
                   yDataKey="saldo"
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="month" 
+                  <XAxis
+                    dataKey="month"
                     tick={{ fontSize: 12 }}
                   />
-                  <YAxis 
+                  <YAxis
                     tick={{ fontSize: 12 }}
                     labelFormatter={(value) => formatRupiah(Number(value))}
                   />
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.8)', color: '#fff', borderRadius: '4px' }}
                     formatter={(value, name) => {
                       if (name === 'saldo') {
@@ -891,25 +885,25 @@ export default function FinanceCashflowPage() {
                       return null
                     }}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="saldo" 
-                    stroke="#10b981" 
-                    strokeWidth={2} 
+                  <Line
+                    type="monotone"
+                    dataKey="saldo"
+                    stroke="#10b981"
+                    strokeWidth={2}
                     dot={{ fill: "#10b981", r: 4 }}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="pemasukan" 
-                    stroke="#22c55e" 
-                    strokeWidth={2} 
+                  <Line
+                    type="monotone"
+                    dataKey="pemasukan"
+                    stroke="#22c55e"
+                    strokeWidth={2}
                     dot={{ fill: "#22c55e", r: 4 }}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="pengeluaran" 
-                    stroke="#ef4444" 
-                    strokeWidth={2} 
+                  <Line
+                    type="monotone"
+                    dataKey="pengeluaran"
+                    stroke="#ef4444"
+                    strokeWidth={2}
                     dot={{ fill: "#ef4444", r: 4 }}
                   />
                 </LineChart>
@@ -922,7 +916,7 @@ export default function FinanceCashflowPage() {
         {cashflowData && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Komposisi Cash Flow</h3>
-            
+
             <div className="h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart
@@ -948,13 +942,13 @@ export default function FinanceCashflowPage() {
         {cashflowData && cashflowData.comparison && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Perbandingan dengan Periode Sebelumnya</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Perubahan Pemasukan</div>
                 <div className={`text-2xl font-bold flex items-center gap-2 ${cashflowData.comparison.changes.pemasukan.percentage >= 0
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
                   }`}>
                   {cashflowData.comparison.changes.pemasukan.percentage >= 0 ? (
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -971,12 +965,12 @@ export default function FinanceCashflowPage() {
                   {formatRupiah(cashflowData.comparison.changes.pemasukan.amount)}
                 </div>
               </div>
-              
+
               <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Perubahan Pengeluaran</div>
                 <div className={`text-2xl font-bold flex items-center gap-2 ${cashflowData.comparison.changes.pengeluaran.percentage >= 0
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
                   }`}>
                   {cashflowData.comparison.changes.pengeluaran.percentage >= 0 ? (
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -993,12 +987,12 @@ export default function FinanceCashflowPage() {
                   {formatRupiah(cashflowData.comparison.changes.pengeluaran.amount)}
                 </div>
               </div>
-              
+
               <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Perubahan Saldo</div>
                 <div className={`text-2xl font-bold flex items-center gap-2 ${cashflowData.comparison.changes.saldo.percentage >= 0
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
                   }`}>
                   {cashflowData.comparison.changes.saldo.percentage >= 0 ? (
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1323,7 +1317,7 @@ export default function FinanceCashflowPage() {
                 </button>
               </div>
             </div>
-            
+
             <div className="p-6">
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { HiArrowLeft, HiExclamationCircle } from 'react-icons/hi2'
 import Link from 'next/link'
+import PageLoader from '@/components/ui/PageLoader'
 
 type Pelanggan = {
   id: string
@@ -200,14 +201,7 @@ export default function RenewPelangganPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="mb-4 text-4xl">⏳</div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data...</p>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   if (error && !pelanggan) {
@@ -375,8 +369,8 @@ export default function RenewPelangganPage() {
           <div className="mb-2">
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${pelanggan.tipe === 'REGULER'
-                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                 }`}
             >
               {pelanggan.tipe}

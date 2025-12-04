@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { HiOutlineUsers, HiOutlineClock, HiOutlineCalendar, HiOutlineBanknotes, HiOutlineTrendingUp } from 'react-icons/hi2'
+import { HiOutlineUsers, HiOutlineClock, HiOutlineCalendar, HiOutlineBanknotes, HiOutlineArrowTrendingUp } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 export default function HRISDashboard() {
     const [stats, setStats] = useState<any>(null)
@@ -20,7 +21,7 @@ export default function HRISDashboard() {
     }, [])
 
     if (loading) {
-        return <div>Loading...</div>
+        return <PageLoader />
     }
 
     return (

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { HiOutlinePlus, HiOutlineBriefcase, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUserGroup, HiOutlineUsers, HiOutlineBuildingOffice } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 interface User {
   id: string
@@ -177,12 +178,7 @@ export default function UsersPage() {
       {/* Users List */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-500 mb-3"></div>
-              <p className="text-gray-600 dark:text-gray-400">Memuat data pengguna...</p>
-            </div>
-          </div>
+          <PageLoader variant="section" message="Memuat data pengguna..." />
         ) : filteredUsers.length === 0 ? (
           <div className="text-center py-16">
             <div className="mx-auto w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">

@@ -15,6 +15,7 @@ import {
     HiAdjustmentsHorizontal,
     HiArrowDownTray,
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 type TagihanStatus = 'BELUM_LUNAS' | 'LUNAS' | 'TERLAMBAT'
 
@@ -115,11 +116,7 @@ export default function TagihanPage() {
     }
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-gray-500">Memuat data...</div>
-            </div>
-        )
+        return <PageLoader />
     }
 
     return (
@@ -223,8 +220,8 @@ export default function TagihanPage() {
                         <button
                             onClick={() => setFilter('all')}
                             className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${filter === 'all'
-                                    ? 'bg-sky-500 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'bg-sky-500 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                         >
                             Semua
@@ -232,8 +229,8 @@ export default function TagihanPage() {
                         <button
                             onClick={() => setFilter('BELUM_LUNAS')}
                             className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${filter === 'BELUM_LUNAS'
-                                    ? 'bg-yellow-500 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'bg-yellow-500 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                         >
                             Belum Lunas
@@ -241,8 +238,8 @@ export default function TagihanPage() {
                         <button
                             onClick={() => setFilter('LUNAS')}
                             className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${filter === 'LUNAS'
-                                    ? 'bg-green-500 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'bg-green-500 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                         >
                             Lunas
@@ -250,8 +247,8 @@ export default function TagihanPage() {
                         <button
                             onClick={() => setFilter('TERLAMBAT')}
                             className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${filter === 'TERLAMBAT'
-                                    ? 'bg-red-500 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'bg-red-500 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                         >
                             Terlambat

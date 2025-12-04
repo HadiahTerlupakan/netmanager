@@ -13,6 +13,7 @@ import {
 } from 'react-icons/hi2'
 import Link from 'next/link'
 import PelangganHeader from '@/components/pelanggan/PelangganHeader'
+import PageLoader from '@/components/ui/PageLoader'
 
 type FAQItem = {
   id: string
@@ -81,11 +82,7 @@ export default function BantuanPage() {
   }, [router])
 
   if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-gray-500 dark:text-gray-400">Memuat data...</div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   return (

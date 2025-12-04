@@ -13,6 +13,7 @@ import {
     HiArrowTrendingUp,
     HiChartBar,
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 type Statistics = {
     total: number
@@ -81,11 +82,7 @@ export default function HelpdeskDashboard() {
     }
 
     if (status === 'loading' || loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-gray-500">Memuat data...</div>
-            </div>
-        )
+        return <PageLoader />
     }
 
     const formatHours = (hours: number) => {
@@ -243,12 +240,12 @@ export default function HelpdeskDashboard() {
                                             <span className="text-xs text-gray-500">{ticket.ticketNumber}</span>
                                             <span
                                                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ticket.status === 'OPEN'
-                                                        ? 'bg-blue-100 text-blue-800'
-                                                        : ticket.status === 'IN_PROGRESS'
-                                                            ? 'bg-yellow-100 text-yellow-800'
-                                                            : ticket.status === 'RESOLVED'
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : 'bg-gray-100 text-gray-800'
+                                                    ? 'bg-blue-100 text-blue-800'
+                                                    : ticket.status === 'IN_PROGRESS'
+                                                        ? 'bg-yellow-100 text-yellow-800'
+                                                        : ticket.status === 'RESOLVED'
+                                                            ? 'bg-green-100 text-green-800'
+                                                            : 'bg-gray-100 text-gray-800'
                                                     }`}
                                             >
                                                 {ticket.status}

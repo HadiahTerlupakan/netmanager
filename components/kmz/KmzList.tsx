@@ -21,23 +21,25 @@ export function KmzList() {
   const [kmzFiles, setKmzFiles] = useState<KmzFile[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function fetchKmzFiles() {
-      try {
-        const res = await fetch('/api/kmz', { cache: 'no-store' })
-        if (res.ok) {
-          const json = await res.json()
-          setKmzFiles((json.kmzFiles || []).map((f: any) => ({
-            ...f,
-            status: f.status || 'AKTIF',
-          })))
-        }
-      } catch (error) {
-        console.error('Error fetching KMZ files:', error)
-      } finally {
-        setLoading(false)
+  const fetchKmzFiles = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch('/api/kmz', { cache: 'no-store' })
+      if (res.ok) {
+        const json = await res.json()
+        setKmzFiles((json.kmzFiles || []).map((f: any) => ({
+          ...f,
+          status: f.status || 'AKTIF',
+        })))
       }
+    } catch (error) {
+      console.error('Error fetching KMZ files:', error)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     fetchKmzFiles()
   }, [])
 
@@ -115,25 +117,25 @@ export function KmzList() {
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                      kmzFile.isActive
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${kmzFile.isActive
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
                         : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
-                    }`}
+                      }`}
                   >
                     {kmzFile.isActive ? 'Ya' : 'Tidak'}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{formatDate(kmzFile.createdAt instanceof Date ? kmzFile.createdAt.toISOString() : kmzFile.createdAt)}</td>
                 <td className="px-4 py-3">
-                  <KmzActions kmzFile={{...kmzFile, createdAt: kmzFile.createdAt instanceof Date ? kmzFile.createdAt : new Date(kmzFile.createdAt)}} />
+                  <KmzActions
+                    kmzFile={{ ...kmzFile, createdAt: kmzFile.createdAt instanceof Date ? kmzFile.createdAt : new Date(kmzFile.createdAt) }}
+                    onSuccess={fetchKmzFiles}
+                  />
                 </td>
               </tr>
-            ))}
-          </tbody>
+            ))}</tbody>
         </table>
       </div>
     </div>
   )
 }
-

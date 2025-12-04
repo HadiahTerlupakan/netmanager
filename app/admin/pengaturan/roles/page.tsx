@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
     HiOutlinePlus,
-    HiOutlinePencil,
-    HiOutlineTrash,
-    HiOutlineShieldCheck,
     HiOutlineUsers,
     HiOutlineCheckCircle,
     HiOutlineXCircle,
+    HiOutlinePencil,
+    HiOutlineTrash
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 interface CustomRole {
     id: string
@@ -279,7 +279,7 @@ export default function RoleManagementPage() {
             {/* Roles Table */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {loading ? (
-                    <div className="p-8 text-center text-gray-500">Loading...</div>
+                    <PageLoader />
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full">

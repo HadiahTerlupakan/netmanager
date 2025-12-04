@@ -8,6 +8,7 @@ import {
     HiOutlineEye,
     HiXMark,
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 interface ManualPayment {
     id: string
@@ -144,8 +145,8 @@ export default function ManualPaymentsPage() {
                             key={status}
                             onClick={() => setFilter(status)}
                             className={`px-4 py-2 font-medium transition-colors ${filter === status
-                                    ? 'border-b-2 border-blue-600 text-blue-600'
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                                ? 'border-b-2 border-blue-600 text-blue-600'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                                 }`}
                         >
                             {status === 'PENDING' && '⏳ Pending'}
@@ -162,7 +163,7 @@ export default function ManualPaymentsPage() {
             {/* Payments List */}
             <div className="max-w-7xl mx-auto">
                 {loading ? (
-                    <div className="text-center py-12 text-gray-500">Loading...</div>
+                    <PageLoader variant="section" />
                 ) : payments.length === 0 ? (
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
                         <p className="text-gray-500 dark:text-gray-400">Tidak ada data</p>

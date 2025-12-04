@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import {
+    HiOutlineArrowPath,
     HiOutlineCog6Tooth,
     HiOutlineCheckCircle,
-    HiOutlineXCircle,
-    HiOutlineArrowPath,
+    HiOutlineXCircle
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 interface WhatsAppSettings {
     whatsappProvider: 'WABLAS' | 'FONNTE' | 'OFFICIAL'
@@ -119,14 +120,7 @@ export default function WhatsAppSettingsPage() {
     }
 
     if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <HiOutlineArrowPath className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
-                    <div className="text-gray-500">Loading...</div>
-                </div>
-            </div>
-        )
+        return <PageLoader />
     }
 
     return (

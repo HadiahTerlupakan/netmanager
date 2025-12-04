@@ -18,6 +18,7 @@ import { TicketPriorityBadge } from '@/components/helpdesk/TicketPriorityBadge'
 import { TicketTimeline } from '@/components/helpdesk/TicketTimeline'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
+import PageLoader from '@/components/ui/PageLoader'
 
 type TicketDetail = {
     id: string
@@ -202,16 +203,12 @@ export default function AdminTicketDetailPage() {
             }
         } catch (error) {
             console.error('Error updating ticket:', error)
-            alert('Terjadi kesalahan. Silakan coba lagi.')
+            alert('Gagal update tiket')
         }
     }
 
-    if (status === 'loading' || loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-gray-500">Memuat data...</div>
-            </div>
-        )
+    if (loading) {
+        return <PageLoader />
     }
 
     if (!ticket) {

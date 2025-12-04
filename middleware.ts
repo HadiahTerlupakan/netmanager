@@ -77,34 +77,40 @@ export default async function middleware(request: NextRequest) {
     // Jika tidak ada subdomain tapi mengakses /admin, /pelanggan, /employee atau /finance
     // Redirect ke subdomain yang sesuai (untuk production)
     // Di development, kita biarkan tetap bisa akses langsung
+    // Jika tidak ada subdomain tapi mengakses /admin, /pelanggan, /employee atau /finance
+    // Redirect ke subdomain yang sesuai
     if (!subdomain) {
+      // Redirect root domain login & home ke admin subdomain
+      if (pathname === '/' || pathname === '/login') {
+        const url = request.nextUrl.clone()
+        url.hostname = `admin.${url.hostname}`
+        // Jika akses root '/', arahkan ke dashboard admin '/admin' di subdomain admin
+        // Jika akses '/login', arahkan ke '/login' di subdomain admin
+        if (pathname === '/') {
+          url.pathname = '/admin'
+        }
+        return NextResponse.redirect(url)
+      }
+
       if (pathname.startsWith('/admin')) {
-        // Di development, biarkan tetap bisa akses
-        // Di production, bisa redirect ke admin subdomain jika diperlukan
-        // const url = request.nextUrl.clone()
-        // url.hostname = `admin.${url.hostname}`
-        // return NextResponse.redirect(url)
+        const url = request.nextUrl.clone()
+        url.hostname = `admin.${url.hostname}`
+        return NextResponse.redirect(url)
       }
       if (pathname.startsWith('/pelanggan')) {
-        // Di development, biarkan tetap bisa akses
-        // Di production, bisa redirect ke pelanggan subdomain jika diperlukan
-        // const url = request.nextUrl.clone()
-        // url.hostname = `pelanggan.${url.hostname}`
-        // return NextResponse.redirect(url)
+        const url = request.nextUrl.clone()
+        url.hostname = `pelanggan.${url.hostname}`
+        return NextResponse.redirect(url)
       }
       if (pathname.startsWith('/employee')) {
-        // Di development, biarkan tetap bisa akses
-        // Di production, bisa redirect ke karyawan subdomain jika diperlukan
-        // const url = request.nextUrl.clone()
-        // url.hostname = `karyawan.${url.hostname}`
-        // return NextResponse.redirect(url)
+        const url = request.nextUrl.clone()
+        url.hostname = `karyawan.${url.hostname}`
+        return NextResponse.redirect(url)
       }
       if (pathname.startsWith('/finance')) {
-        // Di development, biarkan tetap bisa akses
-        // Di production, bisa redirect ke finance subdomain jika diperlukan
-        // const url = request.nextUrl.clone()
-        // url.hostname = `finance.${url.hostname}`
-        // return NextResponse.redirect(url)
+        const url = request.nextUrl.clone()
+        url.hostname = `finance.${url.hostname}`
+        return NextResponse.redirect(url)
       }
     }
 

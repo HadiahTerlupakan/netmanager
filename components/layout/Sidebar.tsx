@@ -157,6 +157,7 @@ export default function Sidebar() {
         { href: '/admin/pengaturan/roles', label: 'Role Management', icon: <HiOutlineShieldCheck className="w-4 h-4" /> },
         { href: '/admin/pengaturan/email', label: 'Email', icon: <HiEnvelope className="w-4 h-4" /> },
         { href: '/admin/pengaturan/whatsapp', label: 'WhatsApp', icon: <HiChatBubbleLeftRight className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/oauth', label: 'OAuth', icon: <HiOutlineKey className="w-4 h-4" /> },
         { href: '/admin/pengaturan/payment-gateway', label: 'Payment Gateway', icon: <HiOutlineCreditCard className="w-4 h-4" /> },
         { href: '/admin/pengaturan/api', label: 'API', icon: <HiOutlineCodeBracket className="w-4 h-4" /> },
       ]

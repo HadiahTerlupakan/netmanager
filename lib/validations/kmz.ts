@@ -9,7 +9,7 @@ export const kmzCreateSchema = z.object({
 
 export const kmzUpdateSchema = z.object({
   name: z.string().trim().min(1, 'Nama wajib diisi').optional(),
-  description: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
+  description: z.string().trim().nullable().optional().transform(val => val || null),
   lineColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Format warna harus hex (contoh: #3388ff)').optional(),
   isActive: z.boolean().optional(),
   status: z.enum(['AKTIF', 'NONAKTIF', 'MAINTENANCE']).optional(),

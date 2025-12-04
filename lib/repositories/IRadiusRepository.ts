@@ -38,6 +38,25 @@ export interface IRadiusAccountingStats {
     activeSessions: number;
 }
 
+export interface INas {
+    id?: number;
+    nasname: string;
+    shortname?: string;
+    type?: string;
+    ports?: number;
+    secret: string;
+    community?: string;
+    description?: string;
+}
+
+export interface IRadIpPool {
+    id?: number;
+    poolName: string;
+    framedIpAddress: string;
+    nasIpAddress?: string;
+    poolKey?: string;
+}
+
 export interface IRadiusRepository {
     // User Management
     createRadiusUser(data: IRadiusUser): Promise<void>;
@@ -64,4 +83,20 @@ export interface IRadiusRepository {
     // Sync Operations
     syncPelangganToRadius(pelangganId: string): Promise<void>;
     syncAllActiveCustomers(): Promise<{ created: number; updated: number; deleted: number }>;
+
+    // NAS Management
+    createNas(nas: INas): Promise<INas>;
+    updateNas(id: number, nas: Partial<INas>): Promise<INas>;
+    deleteNas(id: number): Promise<void>;
+    getNasById(id: number): Promise<INas | null>;
+    getAllNas(): Promise<INas[]>;
+    getNasByIp(ip: string): Promise<INas | null>;
+
+    // IP Pool Management
+    addToIpPool(pool: IRadIpPool): Promise<IRadIpPool>;
+    removeFromIpPool(ipAddress: string): Promise<void>;
+    getIpFromPool(poolName: string, nasIpAddress?: string): Promise<string | null>;
+    returnIpToPool(ipAddress: string): Promise<void>;
+    getIpPoolStats(poolName?: string): Promise<{ total: number; used: number; available: number }>;
+    getAllIpPools(): Promise<IRadIpPool[]>;
 }

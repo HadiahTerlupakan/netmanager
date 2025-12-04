@@ -14,6 +14,7 @@ import {
   HiArrowPath,
 } from 'react-icons/hi2'
 import PelangganHeader from '@/components/pelanggan/PelangganHeader'
+import PageLoader from '@/components/ui/PageLoader'
 
 export default function ProfilPage() {
   const router = useRouter()
@@ -138,14 +139,7 @@ export default function ProfilPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <HiArrowPath className="w-8 h-8 text-sky-600 dark:text-sky-400 animate-spin mx-auto mb-4" />
-          <div className="text-gray-600 dark:text-gray-400">Memuat data...</div>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   if (!pelanggan) {

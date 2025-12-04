@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { HiPrinter, HiXMark } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 type Pelanggan = {
   id: string
@@ -134,7 +135,7 @@ export default function PrintTagihanPage() {
         if (logoRes.ok) {
           const logoData = await logoRes.json()
           console.log('Logo settings loaded from API:', logoData)
-          
+
           // Pastikan path logo valid (harus dimulai dengan /)
           if (logoData.logoInvoice) {
             // Normalize path - pastikan dimulai dengan /
@@ -143,7 +144,7 @@ export default function PrintTagihanPage() {
               normalizedPath = '/' + normalizedPath.replace(/^\//, '')
             }
             logoData.logoInvoice = normalizedPath
-            
+
             // Test apakah logo bisa diakses (silent check, tidak perlu log error)
             const testImg = new Image()
             testImg.onload = () => {
@@ -155,7 +156,7 @@ export default function PrintTagihanPage() {
             }
             testImg.src = normalizedPath
           }
-          
+
           setLogoSettings(logoData)
         } else {
           const errorText = await logoRes.text()
@@ -254,14 +255,7 @@ export default function PrintTagihanPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="mb-4 text-4xl">⏳</div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data...</p>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   if (error || !pelanggan || !tagihan) {

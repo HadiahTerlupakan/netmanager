@@ -75,11 +75,27 @@ export async function extractAndSaveKmz(
   // This regex removes all <href> tags containing http:// or https:// URLs
   // It handles both <Icon><href>...</href></Icon> and standalone <href>...</href> patterns
   kmlContent = kmlContent.replace(/<href>https?:\/\/[^<]*<\/href>/gi, '<href></href>')
-  
+
+  // Handle CDATA sections with URLs
+  // Remove URLs wrapped in CDATA sections
+  kmlContent = kmlContent.replace(/<href><!\[CDATA\[https?:\/\/[^\]]*\]\]><\/href>/gi, '<href></href>')
+
+  // Remove Google Earth specific icon URLs with CDATA
+  kmlContent = kmlContent.replace(/https?:\/\/earth\.google\.com\/earth\/document\/icon[^\s<]*<!\[CDATA\[&\]\][^\s<]*/gi, '')
+
   // Remove IconStyle blocks that contain external URLs
   // This uses a more robust pattern to match IconStyle blocks with external hrefs
   kmlContent = kmlContent.replace(/<IconStyle>[\s\S]*?<href>https?:\/\/[^<]*<\/href>[\s\S]*?<\/IconStyle>/gi, '<IconStyle></IconStyle>')
-  
+
+  // Remove IconStyle blocks with CDATA URLs
+  kmlContent = kmlContent.replace(/<IconStyle>[\s\S]*?<href><!\[CDATA\[https?:\/\/[^\]]*\]\]><\/href>[\s\S]*?<\/IconStyle>/gi, '<IconStyle></IconStyle>')
+
+  // Remove all IconStyle blocks that reference external resources
+  kmlContent = kmlContent.replace(/<IconStyle>[\s\S]*?https?:\/\/[\s\S]*?<\/IconStyle>/gi, '<IconStyle></IconStyle>')
+
+  // Remove styleUrl references that might point to external styles
+  kmlContent = kmlContent.replace(/<styleUrl>#[^<]*<\/styleUrl>/gi, '<styleUrl></styleUrl>')
+
   // Also remove any remaining external URLs in icon-related tags
   kmlContent = kmlContent.replace(/<icon>https?:\/\/[^<]*<\/icon>/gi, '<icon></icon>')
   

@@ -362,6 +362,230 @@ export class RadiusRepository implements IRadiusRepository {
 
         return { created, updated, deleted };
     }
+
+    /**
+     * Create new NAS (Network Access Server)
+     */
+    async createNas(nas: INas): Promise<INas> {
+        const created = await this.prisma.nas.create({
+            data: {
+                nasname: nas.nasname,
+                shortname: nas.shortname,
+                type: nas.type || 'other',
+                ports: nas.ports,
+                secret: nas.secret,
+                community: nas.community,
+                description: nas.description,
+            },
+        });
+
+        return {
+            id: created.id,
+            nasname: created.nasname,
+            shortname: created.shortname,
+            type: created.type,
+            ports: created.ports,
+            secret: created.secret,
+            community: created.community,
+            description: created.description,
+        };
+    }
+
+    /**
+     * Update NAS configuration
+     */
+    async updateNas(id: number, nas: Partial<INas>): Promise<INas> {
+        const updated = await this.prisma.nas.update({
+            where: { id },
+            data: nas,
+        });
+
+        return {
+            id: updated.id,
+            nasname: updated.nasname,
+            shortname: updated.shortname,
+            type: updated.type,
+            ports: updated.ports,
+            secret: updated.secret,
+            community: updated.community,
+            description: updated.description,
+        };
+    }
+
+    /**
+     * Delete NAS
+     */
+    async deleteNas(id: number): Promise<void> {
+        await this.prisma.nas.delete({
+            where: { id },
+        });
+    }
+
+    /**
+     * Get NAS by ID
+     */
+    async getNasById(id: number): Promise<INas | null> {
+        const nas = await this.prisma.nas.findUnique({
+            where: { id },
+        });
+
+        if (!nas) return null;
+
+        return {
+            id: nas.id,
+            nasname: nas.nasname,
+            shortname: nas.shortname,
+            type: nas.type,
+            ports: nas.ports,
+            secret: nas.secret,
+            community: nas.community,
+            description: nas.description,
+        };
+    }
+
+    /**
+     * Get all NAS
+     */
+    async getAllNas(): Promise<INas[]> {
+        const nasList = await this.prisma.nas.findMany({
+            orderBy: { nasname: 'asc' },
+        });
+
+        return nasList.map(nas => ({
+            id: nas.id,
+            nasname: nas.nasname,
+            shortname: nas.shortname,
+            type: nas.type,
+            ports: nas.ports,
+            secret: nas.secret,
+            community: nas.community,
+            description: nas.description,
+        }));
+    }
+
+    /**
+     * Get NAS by IP address
+     */
+    async getNasByIp(ip: string): Promise<INas | null> {
+        const nas = await this.prisma.nas.findUnique({
+            where: { nasname: ip },
+        });
+
+        if (!nas) return null;
+
+        return {
+            id: nas.id,
+            nasname: nas.nasname,
+            shortname: nas.shortname,
+            type: nas.type,
+            ports: nas.ports,
+            secret: nas.secret,
+            community: nas.community,
+            description: nas.description,
+        };
+    }
+
+    /**
+     * Add IP to pool
+     */
+    async addToIpPool(pool: IRadIpPool): Promise<IRadIpPool> {
+        const created = await this.prisma.radIpPool.create({
+            data: {
+                poolName: pool.poolName,
+                framedIpAddress: pool.framedIpAddress,
+                nasIpAddress: pool.nasIpAddress,
+                poolKey: pool.poolKey,
+            },
+        });
+
+        return {
+            id: created.id,
+            poolName: created.poolName,
+            framedIpAddress: created.framedIpAddress,
+            nasIpAddress: created.nasIpAddress,
+            poolKey: created.poolKey,
+        };
+    }
+
+    /**
+     * Remove IP from pool
+     */
+    async removeFromIpPool(ipAddress: string): Promise<void> {
+        await this.prisma.radIpPool.delete({
+            where: { framedIpAddress: ipAddress },
+        });
+    }
+
+    /**
+     * Get available IP from pool
+     */
+    async getIpFromPool(poolName: string, nasIpAddress?: string): Promise<string | null> {
+        const availableIp = await this.prisma.radIpPool.findFirst({
+            where: {
+                poolName,
+                nasIpAddress: nasIpAddress || null,
+                // Find IP that's not currently assigned
+            },
+        });
+
+        return availableIp?.framedIpAddress || null;
+    }
+
+    /**
+     * Return IP to pool (mark as available)
+     */
+    async returnIpToPool(ipAddress: string): Promise<void> {
+        // In a real implementation, you might clear the poolKey or nasIpAddress
+        // to mark the IP as available again
+        await this.prisma.radIpPool.updateMany({
+            where: { framedIpAddress: ipAddress },
+            data: {
+                nasIpAddress: null,
+                poolKey: null,
+            },
+        });
+    }
+
+    /**
+     * Get IP pool statistics
+     */
+    async getIpPoolStats(poolName?: string): Promise<{ total: number; used: number; available: number }> {
+        const whereClause = poolName ? { poolName } : {};
+
+        const total = await this.prisma.radIpPool.count({
+            where: whereClause,
+        });
+
+        const used = await this.prisma.radIpPool.count({
+            where: {
+                ...whereClause,
+                nasIpAddress: { not: null },
+            },
+        });
+
+        return {
+            total,
+            used,
+            available: total - used,
+        };
+    }
+
+    /**
+     * Get all IP pools
+     */
+    async getAllIpPools(): Promise<IRadIpPool[]> {
+        const pools = await this.prisma.radIpPool.findMany({
+            orderBy: [{ poolName: 'asc' }, { framedIpAddress: 'asc' }],
+        });
+
+        return pools.map(pool => ({
+            id: pool.id,
+            poolName: pool.poolName,
+            framedIpAddress: pool.framedIpAddress,
+            nasIpAddress: pool.nasIpAddress,
+            poolKey: pool.poolKey,
+        }));
+    }
 }
 
 export default RadiusRepository;

@@ -20,7 +20,7 @@ type KmzFile = {
   createdAt: Date
 }
 
-export function KmzActions({ kmzFile }: { kmzFile: KmzFile }) {
+export function KmzActions({ kmzFile, onSuccess }: { kmzFile: KmzFile; onSuccess?: () => void }) {
   const router = useRouter()
   const { show } = useToast()
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
@@ -36,13 +36,17 @@ export function KmzActions({ kmzFile }: { kmzFile: KmzFile }) {
     const res = await fetch(`/api/kmz/${kmzFile.id}`, { method: 'DELETE' })
     if (res.ok) {
       show({ type: 'success', title: 'Berhasil', message: 'File KMZ berhasil dihapus' })
-      router.refresh()
+      if (onSuccess) {
+        onSuccess()
+      } else {
+        router.refresh()
+      }
     } else {
       let msg = 'Gagal menghapus file KMZ'
       try {
         const j = await res.json()
         if (j?.error) msg = String(j.error)
-      } catch {}
+      } catch { }
       show({ type: 'error', title: 'Gagal', message: msg })
     }
   }
@@ -59,7 +63,11 @@ export function KmzActions({ kmzFile }: { kmzFile: KmzFile }) {
       if (res.ok) {
         show({ type: 'success', title: 'Berhasil', message: 'File KMZ berhasil diupdate' })
         setEditModalOpen(false)
-        router.refresh()
+        if (onSuccess) {
+          onSuccess()
+        } else {
+          router.refresh()
+        }
       } else {
         const json = await res.json()
         const errorMessage = typeof json.error === 'string' ? json.error : 'Gagal mengupdate file KMZ'
@@ -79,7 +87,7 @@ export function KmzActions({ kmzFile }: { kmzFile: KmzFile }) {
   async function handleToggleActive() {
     const newActive = !isActive
     setIsActive(newActive)
-    
+
     try {
       const res = await fetch(`/api/kmz/${kmzFile.id}`, {
         method: 'PUT',
@@ -93,7 +101,11 @@ export function KmzActions({ kmzFile }: { kmzFile: KmzFile }) {
           title: 'Berhasil',
           message: `File KMZ ${newActive ? 'diaktifkan' : 'dinonaktifkan'}`,
         })
-        router.refresh()
+        if (onSuccess) {
+          onSuccess()
+        } else {
+          router.refresh()
+        }
       } else {
         setIsActive(!newActive) // Revert on error
         const json = await res.json()
@@ -126,11 +138,10 @@ export function KmzActions({ kmzFile }: { kmzFile: KmzFile }) {
           onClick={handleToggleActive}
           aria-label={isActive ? 'Nonaktifkan' : 'Aktifkan'}
           title={isActive ? 'Nonaktifkan' : 'Aktifkan'}
-          className={`inline-flex items-center justify-center h-8 w-8 rounded border ${
-            isActive
+          className={`inline-flex items-center justify-center h-8 w-8 rounded border ${isActive
               ? 'border-green-300 text-green-600 hover:bg-green-50 dark:border-green-700 dark:text-green-400'
               : 'border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400'
-          }`}
+            }`}
         >
           {isActive ? (
             <HiCheckCircle className="h-4 w-4" />

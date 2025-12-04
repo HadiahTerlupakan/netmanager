@@ -241,8 +241,23 @@ export default function TopologyMap() {
       // KMZ layers - hanya tampilkan garis/polygon, sembunyikan point/marker
       const kmzLayers: any[] = []
       if (data && data.kmzFiles && data.kmzFiles.length > 0) {
-        data.kmzFiles.forEach((kmzFile) => {
+        data.kmzFiles.forEach((kmzFile, index) => {
           if (kmzFile.isActive) {
+            // Add debugging logs
+            console.log(`Loading KMZ file ${index + 1}:`, {
+              id: kmzFile.id,
+              name: kmzFile.name,
+              kmlPath: kmzFile.kmlPath,
+              isActive: kmzFile.isActive,
+              lineColor: kmzFile.lineColor
+            })
+
+            // Check if kmlPath exists
+            if (!kmzFile.kmlPath) {
+              console.error(`KMZ file ${kmzFile.id} (${kmzFile.name}) is missing kmlPath`)
+              return // Skip this file
+            }
+
             const kmzSource = new VectorSource({
               url: kmzFile.kmlPath,
               format: new KML({
@@ -250,6 +265,16 @@ export default function TopologyMap() {
                 showPointNames: false,
                 writeStyles: false,
               }),
+            })
+
+            // Add error handling for KMZ loading
+            kmzSource.on('error', (error) => {
+              console.error(`Error loading KMZ file ${kmzFile.name}:`, error)
+            })
+
+            // Log when features are loaded
+            kmzSource.on('featuresloadend', (event) => {
+              console.log(`KMZ file ${kmzFile.name} loaded with ${event.features.length} features`)
             })
             
             // Style function untuk menyembunyikan point dan hanya menampilkan garis/polygon
