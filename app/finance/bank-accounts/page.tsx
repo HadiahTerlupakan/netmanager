@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+
+// Force dynamic rendering to prevent prerendering issues
+export const dynamic = 'force-dynamic'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { HiPlus, HiPencil, HiTrash, HiEye, HiBanknotes } from 'react-icons/hi2'
@@ -29,7 +32,7 @@ interface BankAccountFormData {
   isActive: boolean
 }
 
-export default function BankAccountsPage() {
+function BankAccountsContent() {
   const { data: session } = useSession()
   const router = useRouter()
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
@@ -479,5 +482,25 @@ export default function BankAccountsPage() {
         cancelText="Batal"
       />
     </div>
+  )
+}
+
+// Wrapper component with Suspense boundary
+export default function BankAccountsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600 dark:text-gray-400">Memuat...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    }>
+      <BankAccountsContent />
+    </Suspense>
   )
 }

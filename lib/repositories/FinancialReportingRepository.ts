@@ -102,7 +102,7 @@ export interface CashFlowItem {
   date: Date;
   description: string;
   category: string;
-  amount: bigint;
+  amount: number;
   type: 'INFLOW' | 'OUTFLOW';
   activity: 'OPERATING' | 'INVESTING' | 'FINANCING';
 }
@@ -306,8 +306,8 @@ class FinancialReportingRepository {
 
     // Additional Metrics
     const earningsPerShare = 0; // Not applicable for private company
-    const returnOnAssets = BigInt(0); // Would need average assets
-    const returnOnEquity = BigInt(0); // Would need average equity
+    const returnOnAssets = 0; // Would need average assets
+    const returnOnEquity = 0; // Would need average equity
 
     const result: ProfitLossData = {
       salesRevenue,
@@ -523,7 +523,7 @@ class FinancialReportingRepository {
         date: income.tanggal,
         description: income.deskripsi,
         category: income.kategori,
-        amount: income.jumlah,
+        amount: Number(income.jumlah),
         type: 'INFLOW',
         activity: 'OPERATING',
       });
@@ -550,7 +550,7 @@ class FinancialReportingRepository {
         date: expense.tanggal,
         description: expense.deskripsi,
         category: expense.kategori,
-        amount: expense.jumlah,
+        amount: Number(expense.jumlah),
         type: 'OUTFLOW',
         activity,
       });
@@ -602,7 +602,7 @@ class FinancialReportingRepository {
       _sum: { total: true },
     });
 
-    return result._sum.total || BigInt(0);
+    return BigInt(result._sum.total || 0);
   }
 
   private static async calculatePrepaidExpenses(dateFilter: { startDate: Date; endDate: Date }): Promise<bigint> {
@@ -672,7 +672,7 @@ class FinancialReportingRepository {
       _sum: { total: true },
     });
 
-    return result._sum.total || BigInt(0);
+    return BigInt(result._sum.total || 0);
   }
 
   private static async calculateServiceRevenue(dateFilter: { startDate: Date; endDate: Date }): Promise<bigint> {

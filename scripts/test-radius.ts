@@ -57,9 +57,9 @@ async function testRadiusIntegration() {
 
         // 5. Show sample RADIUS user
         const sampleUser = await prisma.radCheck.findFirst({
-            include: {
-                // Can't include relations as they're not defined in schema
-            },
+            where: {
+                attribute: 'Cleartext-Password'
+            }
         });
 
         if (sampleUser) {

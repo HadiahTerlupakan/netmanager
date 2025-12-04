@@ -56,6 +56,15 @@ async function seedEmployees() {
         const staffPos = await prisma.position.findUnique({ where: { title: 'Staff' } })
         const juniorStaffPos = await prisma.position.findUnique({ where: { title: 'Junior Staff' } })
 
+        // Ensure all departments exist
+        if (!itDept || !hrdDept || !financeDept || !marketingDept || !operationsDept) {
+            throw new Error('One or more departments not found')
+        }
+
+        if (!managerPos || !seniorStaffPos || !staffPos || !juniorStaffPos) {
+            throw new Error('One or more positions not found')
+        }
+
         // 3. Create Employees with User Accounts
         console.log('\n👤 Creating employees...')
 
@@ -70,8 +79,8 @@ async function seedEmployees() {
                 address: 'Jl. Merdeka No. 123',
                 city: 'Jakarta',
                 province: 'DKI Jakarta',
-                departmentId: itDept?.id,
-                positionId: managerPos?.id,
+                departmentId: itDept.id,
+                positionId: managerPos.id,
                 employmentStatus: 'PERMANENT',
                 joinDate: new Date('2020-01-01'),
                 emergencyName: 'Siti Nurhaliza',
@@ -89,8 +98,8 @@ async function seedEmployees() {
                 address: 'Jl. Sudirman No. 456',
                 city: 'Bandung',
                 province: 'Jawa Barat',
-                departmentId: hrdDept?.id,
-                positionId: seniorStaffPos?.id,
+                departmentId: hrdDept.id,
+                positionId: seniorStaffPos.id,
                 employmentStatus: 'PERMANENT',
                 joinDate: new Date('2021-06-15'),
                 emergencyName: 'Budi Rahmawan',
@@ -108,8 +117,8 @@ async function seedEmployees() {
                 address: 'Jl. Gatot Subroto No. 789',
                 city: 'Surabaya',
                 province: 'Jawa Timur',
-                departmentId: financeDept?.id,
-                positionId: staffPos?.id,
+                departmentId: financeDept.id,
+                positionId: staffPos.id,
                 employmentStatus: 'PERMANENT',
                 joinDate: new Date('2022-03-01'),
                 emergencyName: 'Sri Santoso',
@@ -127,8 +136,8 @@ async function seedEmployees() {
                 address: 'Jl. Ahmad Yani No. 321',
                 city: 'Medan',
                 province: 'Sumatera Utara',
-                departmentId: marketingDept?.id,
-                positionId: juniorStaffPos?.id,
+                departmentId: marketingDept.id,
+                positionId: juniorStaffPos.id,
                 employmentStatus: 'PROBATION',
                 joinDate: new Date('2024-01-15'),
                 probationEndDate: new Date('2024-04-15'),
@@ -147,8 +156,8 @@ async function seedEmployees() {
                 address: 'Jl. Diponegoro No. 654',
                 city: 'Semarang',
                 province: 'Jawa Tengah',
-                departmentId: operationsDept?.id,
-                positionId: staffPos?.id,
+                departmentId: operationsDept.id,
+                positionId: staffPos.id,
                 employmentStatus: 'PERMANENT',
                 joinDate: new Date('2021-09-01'),
                 emergencyName: 'Indah Pratama',
@@ -185,6 +194,7 @@ async function seedEmployees() {
             await prisma.employee.create({
                 data: {
                     ...employeeData,
+                    employmentStatus: employeeData.employmentStatus as any,
                     userId: user.id,
                 },
             })

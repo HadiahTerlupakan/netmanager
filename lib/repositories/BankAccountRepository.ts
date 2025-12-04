@@ -33,7 +33,7 @@ export class BankAccountRepository implements IBankAccountRepository {
                 isActive: true
             },
             orderBy: {
-                accountName: 'asc'
+                createdAt: 'asc'
             }
         })
 
@@ -43,14 +43,14 @@ export class BankAccountRepository implements IBankAccountRepository {
     async create(data: BankAccountCreateData): Promise<{ id: string }> {
         const account = await this.prisma.bankAccount.create({
             data: {
-                accountName: data.accountName,
-                bankName: data.bankName,
-                accountNumber: data.accountNumber,
-                accountType: data.accountType || 'CHECKING',
-                balance: data.balance ? BigInt(data.balance) : BigInt(0),
-                currency: data.currency || 'IDR',
-                description: data.description || null,
-                isActive: data.isActive ?? true
+                namaBank: data.namaBank,
+                nomorRekening: data.nomorRekening,
+                namaPemilik: data.namaPemilik,
+                saldoAwal: data.saldoAwal ? BigInt(data.saldoAwal.toString()) : BigInt(0),
+                saldoSaatIni: data.saldoSaatIni ? BigInt(data.saldoSaatIni.toString()) : BigInt(0),
+                mataUang: data.mataUang || 'IDR',
+                isActive: data.isActive ?? true,
+                createdBy: data.createdBy
             }
         })
 
@@ -60,14 +60,14 @@ export class BankAccountRepository implements IBankAccountRepository {
     async update(id: string, data: BankAccountUpdateData): Promise<void> {
         const updateData: any = {}
 
-        if (data.accountName !== undefined) updateData.accountName = data.accountName
-        if (data.bankName !== undefined) updateData.bankName = data.bankName
-        if (data.accountNumber !== undefined) updateData.accountNumber = data.accountNumber
-        if (data.accountType !== undefined) updateData.accountType = data.accountType
-        if (data.balance !== undefined) updateData.balance = BigInt(data.balance)
-        if (data.currency !== undefined) updateData.currency = data.currency
-        if (data.description !== undefined) updateData.description = data.description
+        if (data.namaBank !== undefined) updateData.namaBank = data.namaBank
+        if (data.nomorRekening !== undefined) updateData.nomorRekening = data.nomorRekening
+        if (data.namaPemilik !== undefined) updateData.namaPemilik = data.namaPemilik
+        if (data.saldoAwal !== undefined) updateData.saldoAwal = BigInt(data.saldoAwal.toString())
+        if (data.saldoSaatIni !== undefined) updateData.saldoSaatIni = BigInt(data.saldoSaatIni.toString())
+        if (data.mataUang !== undefined) updateData.mataUang = data.mataUang
         if (data.isActive !== undefined) updateData.isActive = data.isActive
+        if (data.updatedBy !== undefined) updateData.updatedBy = data.updatedBy
 
         await this.prisma.bankAccount.update({
             where: { id },
@@ -78,7 +78,7 @@ export class BankAccountRepository implements IBankAccountRepository {
     async updateBalance(id: string, newBalance: bigint): Promise<void> {
         await this.prisma.bankAccount.update({
             where: { id },
-            data: { balance: newBalance }
+            data: { saldoSaatIni: newBalance }
         })
     }
 
@@ -91,16 +91,17 @@ export class BankAccountRepository implements IBankAccountRepository {
     private toPublic(account: any): BankAccountPublic {
         return {
             id: account.id,
-            accountName: account.accountName,
-            bankName: account.bankName,
-            accountNumber: account.accountNumber,
-            accountType: account.accountType,
-            balance: account.balance,
-            currency: account.currency,
-            description: account.description,
+            namaBank: account.namaBank,
+            nomorRekening: account.nomorRekening,
+            namaPemilik: account.namaPemilik,
+            saldoAwal: account.saldoAwal,
+            saldoSaatIni: account.saldoSaatIni,
+            mataUang: account.mataUang,
             isActive: account.isActive,
             createdAt: account.createdAt,
-            updatedAt: account.updatedAt
+            updatedAt: account.updatedAt,
+            createdBy: account.createdBy,
+            updatedBy: account.updatedBy
         }
     }
 }

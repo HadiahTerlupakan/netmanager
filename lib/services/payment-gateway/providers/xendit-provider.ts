@@ -1,6 +1,6 @@
 // Xendit Payment Provider Implementation
 
-import {
+import type {
     PaymentProvider,
     ProviderConfig,
     CreatePaymentParams,

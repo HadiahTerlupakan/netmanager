@@ -25,7 +25,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
         return NextResponse.json({
             ...account,
-            balance: account.balance.toString()
+            saldoSaatIni: account.saldoSaatIni.toString(),
+            saldoAwal: account.saldoAwal.toString()
         })
     } catch (error: any) {
         console.error('Error fetching bank account:', error)

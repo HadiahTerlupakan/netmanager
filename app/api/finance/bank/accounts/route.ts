@@ -35,7 +35,8 @@ export async function GET(request: NextRequest) {
         // Convert BigInt to string for JSON
         const data = accounts.map((acc) => ({
             ...acc,
-            balance: acc.balance.toString()
+            saldoSaatIni: acc.saldoSaatIni.toString(),
+            saldoAwal: acc.saldoAwal.toString()
         }))
 
         return NextResponse.json({ data })

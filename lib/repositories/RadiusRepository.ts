@@ -11,6 +11,8 @@ import type {
     IRadiusBandwidth,
     IRadiusSession,
     IRadiusAccountingStats,
+    INas,
+    IRadIpPool,
 } from './IRadiusRepository';
 
 export class RadiusRepository implements IRadiusRepository {
@@ -382,12 +384,12 @@ export class RadiusRepository implements IRadiusRepository {
         return {
             id: created.id,
             nasname: created.nasname,
-            shortname: created.shortname,
-            type: created.type,
-            ports: created.ports,
+            shortname: created.shortname || undefined,
+            type: created.type || undefined,
+            ports: created.ports || undefined,
             secret: created.secret,
-            community: created.community,
-            description: created.description,
+            community: created.community || undefined,
+            description: created.description || undefined,
         };
     }
 
@@ -403,12 +405,12 @@ export class RadiusRepository implements IRadiusRepository {
         return {
             id: updated.id,
             nasname: updated.nasname,
-            shortname: updated.shortname,
-            type: updated.type,
-            ports: updated.ports,
+            shortname: updated.shortname || undefined,
+            type: updated.type || undefined,
+            ports: updated.ports || undefined,
             secret: updated.secret,
-            community: updated.community,
-            description: updated.description,
+            community: updated.community || undefined,
+            description: updated.description || undefined,
         };
     }
 
@@ -434,12 +436,12 @@ export class RadiusRepository implements IRadiusRepository {
         return {
             id: nas.id,
             nasname: nas.nasname,
-            shortname: nas.shortname,
-            type: nas.type,
-            ports: nas.ports,
+            shortname: nas.shortname || undefined,
+            type: nas.type || undefined,
+            ports: nas.ports || undefined,
             secret: nas.secret,
-            community: nas.community,
-            description: nas.description,
+            community: nas.community || undefined,
+            description: nas.description || undefined,
         };
     }
 
@@ -454,12 +456,12 @@ export class RadiusRepository implements IRadiusRepository {
         return nasList.map(nas => ({
             id: nas.id,
             nasname: nas.nasname,
-            shortname: nas.shortname,
-            type: nas.type,
-            ports: nas.ports,
+            shortname: nas.shortname || undefined,
+            type: nas.type || undefined,
+            ports: nas.ports || undefined,
             secret: nas.secret,
-            community: nas.community,
-            description: nas.description,
+            community: nas.community || undefined,
+            description: nas.description || undefined,
         }));
     }
 
@@ -476,12 +478,12 @@ export class RadiusRepository implements IRadiusRepository {
         return {
             id: nas.id,
             nasname: nas.nasname,
-            shortname: nas.shortname,
-            type: nas.type,
-            ports: nas.ports,
+            shortname: nas.shortname || undefined,
+            type: nas.type || undefined,
+            ports: nas.ports || undefined,
             secret: nas.secret,
-            community: nas.community,
-            description: nas.description,
+            community: nas.community || undefined,
+            description: nas.description || undefined,
         };
     }
 
@@ -502,8 +504,8 @@ export class RadiusRepository implements IRadiusRepository {
             id: created.id,
             poolName: created.poolName,
             framedIpAddress: created.framedIpAddress,
-            nasIpAddress: created.nasIpAddress,
-            poolKey: created.poolKey,
+            nasIpAddress: created.nasIpAddress || undefined,
+            poolKey: created.poolKey || undefined,
         };
     }
 
@@ -582,8 +584,8 @@ export class RadiusRepository implements IRadiusRepository {
             id: pool.id,
             poolName: pool.poolName,
             framedIpAddress: pool.framedIpAddress,
-            nasIpAddress: pool.nasIpAddress,
-            poolKey: pool.poolKey,
+            nasIpAddress: pool.nasIpAddress || undefined,
+            poolKey: pool.poolKey || undefined,
         }));
     }
 }

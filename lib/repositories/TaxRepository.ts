@@ -1,14 +1,16 @@
-import { PrismaClient, TaxRecord, TaxFilingDeadline } from '@prisma/client';
-import {
+import { PrismaClient } from '@prisma/client';
+import type { TaxRecord, TaxFilingDeadline } from '@prisma/client';
+import type {
     ITaxRepository,
     CreateTaxRecordDTO,
     UpdateTaxRecordDTO,
-    TaxRecordFilter,
+    TaxRecordFilters,
     CreateTaxFilingDeadlineDTO,
     UpdateTaxFilingDeadlineDTO,
     PPNReportData,
     PPHReportData,
     TaxCalculationResult,
+    PaginatedResult,
 } from './ITaxRepository';
 
 export class TaxRepository implements ITaxRepository {
@@ -29,44 +31,32 @@ export class TaxRepository implements ITaxRepository {
     }
 
     async getTaxRecords(
-        filter: TaxRecordFilter,
-        page = 1,
-        limit = 50
-    ): Promise<{
-        data: TaxRecord[];
-        total: number;
-        page: number;
-        limit: number;
-    }> {
+        filters: TaxRecordFilters
+    ): Promise<PaginatedResult<TaxRecord>> {
+        const page = filters.page || 1;
+        const limit = filters.limit || 50;
         const where: any = {};
 
-        if (filter.taxType) {
-            where.taxType = filter.taxType;
+        if (filters.taxType) {
+            where.taxType = filters.taxType;
         }
 
-        if (filter.taxPeriod) {
-            where.taxPeriod = filter.taxPeriod;
+        if (filters.period) {
+            where.taxPeriod = filters.period;
         }
 
-        if (filter.taxYear) {
-            where.taxYear = filter.taxYear;
+        if (filters.year) {
+            where.taxYear = filters.year;
         }
 
-        if (filter.status) {
-            where.status = filter.status;
-        }
-
-        if (filter.relatedEntityType) {
-            where.relatedEntityType = filter.relatedEntityType;
-        }
-
-        if (filter.startDate || filter.endDate) {
+        
+        if (filters.startDate || filters.endDate) {
             where.createdAt = {};
-            if (filter.startDate) {
-                where.createdAt.gte = filter.startDate;
+            if (filters.startDate) {
+                where.createdAt.gte = filters.startDate;
             }
-            if (filter.endDate) {
-                where.createdAt.lte = filter.endDate;
+            if (filters.endDate) {
+                where.createdAt.lte = filters.endDate;
             }
         }
 
@@ -84,7 +74,13 @@ export class TaxRepository implements ITaxRepository {
             this.prisma.taxRecord.count({ where }),
         ]);
 
-        return { data, total, page, limit };
+        return {
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        };
     }
 
     async getTaxRecordById(id: string): Promise<TaxRecord | null> {

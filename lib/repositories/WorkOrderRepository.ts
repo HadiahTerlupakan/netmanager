@@ -1,5 +1,6 @@
-import { PrismaClient, WorkOrder, WorkOrderTask, WorkOrderAssignment, WorkOrderUpdate, WorkOrderAttachment, WorkOrderStatus, WorkOrderPriority, TaskStatus } from '@prisma/client';
-import {
+import { PrismaClient } from '@prisma/client';
+import type { WorkOrder, WorkOrderTask, WorkOrderAssignment, WorkOrderUpdate, WorkOrderAttachment, WorkOrderStatus, WorkOrderPriority, TaskStatus } from '@prisma/client';
+import type {
     IWorkOrderRepository,
     WorkOrderWithRelations,
     CreateWorkOrderData,

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import FinancialReportingRepository, {
+import FinancialReportingRepository from '@/lib/repositories/FinancialReportingRepository';
+import type {
   BalanceSheetData,
   ProfitLossData,
   CashFlowData,
@@ -363,13 +364,13 @@ class FinancialCalculationService {
       const debtToAssets = balanceSheet.data.totalAssets > 0
         ? Number(totalDebt) / Number(balanceSheet.data.totalAssets)
         : 0;
-      const interestCoverage = balanceSheet.data.interestExpense > 0
-        ? Number(profitLoss.data.operatingIncome) / Number(balanceSheet.data.interestExpense)
+      const interestCoverage = profitLoss.data.interestExpense > 0
+        ? Number(profitLoss.data.operatingIncome) / Number(profitLoss.data.interestExpense)
         : 0;
 
       // Debt Service Coverage (simplified)
-      const debtServiceCoverage = (balanceSheet.data.shortTermDebt + balanceSheet.data.interestExpense) > 0
-        ? Number(profitLoss.data.operatingIncome) / Number(balanceSheet.data.shortTermDebt + balanceSheet.data.interestExpense)
+      const debtServiceCoverage = (balanceSheet.data.shortTermDebt + profitLoss.data.interestExpense) > 0
+        ? Number(profitLoss.data.operatingIncome) / Number(balanceSheet.data.shortTermDebt + profitLoss.data.interestExpense)
         : 0;
 
       // Validation

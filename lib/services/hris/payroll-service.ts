@@ -294,11 +294,10 @@ export class PayrollService {
             data: {
                 tanggal: new Date(),
                 kategori: 'GAJI_KARYAWAN',
-                jenis: 'OPEX',
+                tipePengeluaran: 'OPEX',
                 jumlah: payroll.totalNet,
                 deskripsi: `Gaji karyawan bulan ${this.getMonthName(payroll.month)} ${payroll.year} - ${payroll.totalEmployees} karyawan`,
-                metodePembayaran: 'TRANSFER',
-                bankAccountId,
+                metodeBayar: 'TRANSFER',
                 createdBy: paidBy,
             },
         })

@@ -1,4 +1,13 @@
-import { TaxRecord, TaxFilingDeadline } from '@prisma/client';
+import type { TaxRecord, TaxFilingDeadline } from '@prisma/client';
+
+// Common Types
+export interface PaginatedResult<T> {
+    data: T[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
 
 // Tax Record DTOs
 export interface CreateTaxRecordDTO {
@@ -59,6 +68,18 @@ export interface UpdateTaxFilingDeadlineDTO {
     notes?: string;
 }
 
+// Tax Filters
+export interface TaxRecordFilters {
+    page?: number;
+    limit?: number;
+    taxType?: string;
+    period?: number;
+    year?: number;
+    startDate?: Date;
+    endDate?: Date;
+    isPaid?: boolean;
+}
+
 // Tax Report DTOs
 export interface PPNReportData {
     period: number;
@@ -74,7 +95,7 @@ export interface PPHReportData {
     period: number;
     year: number;
     taxType: string;
-    pphRecords: TaxRecordDTO[];
+    pphRecords: TaxRecord[];
     totalTaxableAmount: bigint;
     totalTaxAmount: bigint;
     averageRate: number;
@@ -90,10 +111,10 @@ export interface TaxCalculationResult {
 // Repository Interface
 export interface ITaxRepository {
     // Tax Record CRUD
-    createTaxRecord(data: CreateTaxRecordDTO): Promise<TaxRecordDTO>;
-    getTaxRecords(filters: TaxRecordFilters): Promise<PaginatedResult<TaxRecordDTO>>;
-    getTaxRecordById(id: string): Promise<TaxRecordDTO | null>;
-    updateTaxRecord(id: string, data: Partial<CreateTaxRecordDTO>): Promise<TaxRecordDTO>;
+    createTaxRecord(data: CreateTaxRecordDTO): Promise<TaxRecord>;
+    getTaxRecords(filters: TaxRecordFilters): Promise<PaginatedResult<TaxRecord>>;
+    getTaxRecordById(id: string): Promise<TaxRecord | null>;
+    updateTaxRecord(id: string, data: Partial<CreateTaxRecordDTO>): Promise<TaxRecord>;
     deleteTaxRecord(id: string): Promise<void>;
 
     // Tax Reports

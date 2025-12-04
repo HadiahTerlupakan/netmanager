@@ -1,5 +1,6 @@
-import { PrismaClient, Ticket, TicketCategory, TicketMessage, TicketStatus, TicketPriority } from '@prisma/client';
-import {
+import { PrismaClient } from '@prisma/client';
+import type { Ticket, TicketCategory, TicketMessage, TicketStatus, TicketPriority } from '@prisma/client';
+import type {
     ITicketRepository,
     TicketWithRelations,
     CreateTicketData,

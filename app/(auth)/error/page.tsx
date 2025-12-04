@@ -3,9 +3,9 @@
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { HiOutlineExclamationTriangle, HiOutlineArrowLeft, HiOutlineClock } from 'react-icons/hi2'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 
-export default function AuthErrorPage() {
+function AuthErrorPageContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
   const [countdown, setCountdown] = useState<number | null>(null)
@@ -109,6 +109,26 @@ export default function AuthErrorPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Wrapper component with Suspense boundary
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">
+        <div className="max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600 dark:text-gray-400">Memuat...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    }>
+      <AuthErrorPageContent />
+    </Suspense>
   )
 }
 

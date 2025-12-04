@@ -1,4 +1,4 @@
-import { Ticket, TicketCategory, TicketMessage, TicketAttachment, TicketStatus, TicketPriority } from '@prisma/client';
+import type { Ticket, TicketCategory, TicketMessage, TicketAttachment, TicketStatus, TicketPriority } from '@prisma/client';
 
 export interface TicketWithRelations extends Ticket {
     category?: TicketCategory | null;

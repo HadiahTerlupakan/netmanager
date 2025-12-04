@@ -1,4 +1,4 @@
-import { Employee, EmploymentStatus } from '@prisma/client'
+import type { Employee, EmploymentStatus } from '@prisma/client'
 
 export interface EmployeePublic {
     id: string

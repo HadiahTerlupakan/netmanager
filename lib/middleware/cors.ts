@@ -30,7 +30,7 @@ const defaultOptions: Required<Omit<CorsOptions, 'origin'>> & { origin: CorsOpti
  */
 function getAllowedOrigins(): CorsOptions['origin'] {
   const corsOrigin = process.env.CORS_ORIGIN
-  const nodeEnv = process.env.NODE_ENV
+  const nodeEnv = process.env.NODE_ENV as string
 
   // Production: require explicit origins
   if (nodeEnv === 'production') {
@@ -64,8 +64,8 @@ function getAllowedOrigins(): CorsOptions['origin'] {
       ]
 
       return allowedDevelopmentOrigins.includes(origin) ||
-             origin.startsWith('http://localhost:') ||
-             origin.startsWith('http://127.0.0.1:')
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:')
     }
   }
 
@@ -78,7 +78,7 @@ function getAllowedOrigins(): CorsOptions['origin'] {
   }
 
   // Fallback: no wildcard for security
-  return false
+  return []
 }
 
 /**

@@ -37,7 +37,7 @@ export const financePengeluaranSchema = z.object({
   jumlah: z.number().positive('Amount must be positive').max(999999999.99, 'Amount is too large'),
   tanggal: z.string().datetime('Invalid date format'),
   tipe: z.enum(['CAPEX', 'OPEX'], {
-    errorMap: () => ({ message: 'Type must be CAPEX or OPEX' })
+    message: 'Type must be CAPEX or OPEX'
   }),
   karyawanId: z.string().uuid('Invalid employee ID format').optional(),
 })
@@ -180,7 +180,7 @@ export const auditLogQuerySchema = z.object({
   userId: z.string().uuid().optional(),
   action: z.string().max(50).optional(),
   entityType: z.string().max(50).optional(),
-  ipAddress: z.string().ip({ message: 'Invalid IP address format' }).optional(),
+  ipAddress: z.string().regex(/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/, 'Invalid IP address format').optional(),
 })
 
 // Type exports for use in components

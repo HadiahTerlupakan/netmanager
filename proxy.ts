@@ -18,7 +18,7 @@ const authMiddleware = withAuth({
 })
 
 // Combine auth middleware dengan rate limiting
-export default async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   try {
     const pathname = request.nextUrl?.pathname || ''
     const subdomain = getSubdomain(request)
@@ -74,9 +74,6 @@ export default async function middleware(request: NextRequest) {
       }
     }
 
-    // Jika tidak ada subdomain tapi mengakses /admin, /pelanggan, /employee atau /finance
-    // Redirect ke subdomain yang sesuai (untuk production)
-    // Di development, kita biarkan tetap bisa akses langsung
     // Jika tidak ada subdomain tapi mengakses /admin, /pelanggan, /employee atau /finance
     // Redirect ke subdomain yang sesuai
     if (!subdomain) {
@@ -231,14 +228,14 @@ export default async function middleware(request: NextRequest) {
 
     return NextResponse.next({ request })
   } catch (error: any) {
-    // FAIL-CLOSE: Security-first approach - block request on middleware error
-    console.error('Middleware security error:', error.message)
+    // FAIL-CLOSE: Security-first approach - block request on proxy error
+    console.error('Proxy security error:', error.message)
 
     // Return error response instead of allowing bypass
     return NextResponse.json(
       {
         error: 'Service temporarily unavailable',
-        code: 'MIDDLEWARE_ERROR'
+        code: 'PROXY_ERROR'
       },
       {
         status: 503,
@@ -263,6 +260,4 @@ export const config = {
      */
     '/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-  // Gunakan Node.js runtime untuk kompatibilitas dengan ioredis
-  runtime: 'nodejs',
 }

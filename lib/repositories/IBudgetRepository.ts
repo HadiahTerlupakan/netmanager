@@ -1,4 +1,4 @@
-import { Budget, BudgetCategory, BudgetAlert, CashFlowForecast } from '@prisma/client';
+import type { Budget, BudgetCategory, BudgetAlert, CashFlowForecast } from '@prisma/client';
 
 // Budget DTOs
 export interface CreateBudgetDTO {

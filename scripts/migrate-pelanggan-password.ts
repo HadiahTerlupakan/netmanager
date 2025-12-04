@@ -11,7 +11,7 @@ async function migratePelangganPasswords() {
     const pelanggans = await prisma.pelanggan.findMany({
       where: {
         passwordLogin: {
-          not: null
+          not: null as any
         }
       }
     })
@@ -24,13 +24,13 @@ async function migratePelangganPasswords() {
     for (const pelanggan of pelanggans) {
       try {
         // Skip jika password sudah di-hash (dimulai dengan $2a$, $2b$, atau $2y$)
-        if (pelanggan.passwordLogin.startsWith('$2')) {
+        if (pelanggan.passwordLogin && pelanggan.passwordLogin.startsWith('$2')) {
           console.log(`Pelanggan ${pelanggan.idPelanggan} password sudah di-hash, melewati...`)
           continue
         }
 
         // Hash password dengan bcrypt (salt rounds = 12)
-        const hashedPassword = await hash(pelanggan.passwordLogin, 12)
+        const hashedPassword = await hash(pelanggan.passwordLogin!, 12)
 
         // Update pelanggan dengan password yang sudah di-hash
         await prisma.pelanggan.update({

@@ -24,7 +24,10 @@ if (
   typeof window === 'undefined' &&
   !(globalThis as any).__schedulerStarted &&
   process.env.NODE_ENV !== 'test' &&
-  !process.env.VITEST
+  !process.env.VITEST &&
+  !process.env.NEXT_PHASE &&
+  process.env.NEXT_PHASE !== 'phase-production-build' &&
+  process.env.NEXT_PHASE !== 'phase-production-build-server'
 ) {
   // Import dan start scheduler
   import('@/lib/cron/start-scheduler').then(({ startAllSchedulers }) => {

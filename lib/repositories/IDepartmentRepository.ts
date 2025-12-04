@@ -1,10 +1,9 @@
 export interface DepartmentPublic {
     id: string
     name: string
-    code: string | null
     description: string | null
-    headId: string | null
-    isActive: boolean
+    jobDescription: string | null
+    allowedFeatures: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -17,25 +16,22 @@ export interface DepartmentWithEmployeeCount extends DepartmentPublic {
 
 export interface DepartmentCreateData {
     name: string
-    code?: string | null
     description?: string | null
-    headId?: string | null
-    isActive?: boolean
+    jobDescription?: string | null
+    allowedFeatures?: string | null
 }
 
 export interface DepartmentUpdateData {
     name?: string
-    code?: string | null
     description?: string | null
-    headId?: string | null
-    isActive?: boolean
+    jobDescription?: string | null
+    allowedFeatures?: string | null
 }
 
 export interface IDepartmentRepository {
     findAll(): Promise<DepartmentWithEmployeeCount[]>
     findById(id: string): Promise<DepartmentPublic | null>
-    findByCode(code: string): Promise<DepartmentPublic | null>
-    findActive(): Promise<DepartmentPublic[]>
+    findByName(name: string): Promise<DepartmentPublic | null>
     create(data: DepartmentCreateData): Promise<{ id: string }>
     update(id: string, data: DepartmentUpdateData): Promise<void>
     delete(id: string): Promise<void>

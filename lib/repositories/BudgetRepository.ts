@@ -1,5 +1,6 @@
-import { PrismaClient, Budget, BudgetCategory, BudgetAlert, CashFlowForecast } from '@prisma/client';
-import {
+import { PrismaClient } from '@prisma/client';
+import type { Budget, BudgetCategory, BudgetAlert, CashFlowForecast } from '@prisma/client';
+import type {
     IBudgetRepository,
     CreateBudgetDTO,
     UpdateBudgetDTO,

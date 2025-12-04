@@ -1,4 +1,3 @@
-```typescript
 import { AttendanceStatus } from '@prisma/client'
 
 export interface AttendancePublic {
@@ -90,4 +89,3 @@ export interface IAttendanceRepository {
     count(filters?: AttendanceFilters): Promise<number>
     getSummary(date: Date): Promise<{ present: number; late: number; absent: number; leave: number }>
 }
-```

@@ -9,18 +9,17 @@ export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
 
-        const filter = {
+        const filters = {
             taxType: searchParams.get('taxType') || undefined,
-            taxPeriod: searchParams.get('taxPeriod') ? parseInt(searchParams.get('taxPeriod')!) : undefined,
-            taxYear: searchParams.get('taxYear') ? parseInt(searchParams.get('taxYear')!) : undefined,
+            period: searchParams.get('taxPeriod') ? parseInt(searchParams.get('taxPeriod')!) : undefined,
+            year: searchParams.get('taxYear') ? parseInt(searchParams.get('taxYear')!) : undefined,
             status: searchParams.get('status') || undefined,
             relatedEntityType: searchParams.get('relatedEntityType') || undefined,
+            page: searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1,
+            limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50,
         };
 
-        const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1;
-        const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50;
-
-        const result = await taxRepo.getTaxRecords(filter, page, limit);
+        const result = await taxRepo.getTaxRecords(filters);
 
         // Convert BigInt to string for JSON serialization
         const serializedData = {

@@ -1,4 +1,4 @@
-import { WorkOrder, WorkOrderTask, WorkOrderAssignment, WorkOrderUpdate, WorkOrderAttachment, WorkOrderStatus, WorkOrderPriority, WorkOrderType, TaskStatus } from '@prisma/client';
+import type { WorkOrder, WorkOrderTask, WorkOrderAssignment, WorkOrderUpdate, WorkOrderAttachment, WorkOrderStatus, WorkOrderPriority, WorkOrderType, TaskStatus } from '@prisma/client';
 
 export interface WorkOrderWithRelations extends WorkOrder {
     ticket?: {
@@ -19,22 +19,19 @@ export interface WorkOrderWithRelations extends WorkOrder {
     } | null;
     assignedTo?: {
         id: string;
-        firstName: string;
-        lastName: string;
-        email: string;
+        fullName: string;
+        email: string | null;
     } | null;
     tasks?: WorkOrderTask[];
     assignments?: (WorkOrderAssignment & {
         employee: {
             id: string;
-            firstName: string;
-            lastName: string;
+            fullName: string;
         };
     })[];
     updates?: (WorkOrderUpdate & {
         createdBy?: {
-            firstName: string;
-            lastName: string;
+            fullName: string;
         } | null;
     })[];
     attachments?: WorkOrderAttachment[];

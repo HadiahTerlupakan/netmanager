@@ -82,7 +82,6 @@ export class EmployeeRepository implements IEmployeeRepository {
                     select: {
                         id: true,
                         name: true,
-                        code: true,
                     },
                 },
                 position: {

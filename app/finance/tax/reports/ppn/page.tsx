@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { HiArrowLeft, HiDocumentArrowDown, HiCalendar } from 'react-icons/hi2'
 import Link from 'next/link'
@@ -40,7 +40,7 @@ const MONTHS = [
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ]
 
-export default function PPNReportPage() {
+function Content() {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -399,5 +399,22 @@ export default function PPNReportPage() {
                 </div>
             </div>
         </div>
+    )
+}
+
+export default function PPNReportPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 p-8">
+                <div className="max-w-7xl mx-auto">
+                    <div className="text-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                        <p className="mt-4 text-gray-600">Memuat laporan...</p>
+                    </div>
+                </div>
+            </div>
+        }>
+            <Content />
+        </Suspense>
     )
 }

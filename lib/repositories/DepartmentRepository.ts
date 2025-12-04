@@ -18,7 +18,7 @@ export class DepartmentRepository implements IDepartmentRepository {
             orderBy: { name: 'asc' },
         })
 
-        return departments as DepartmentWithEmployeeCount[]
+        return departments
     }
 
     async findById(id: string): Promise<DepartmentPublic | null> {
@@ -26,24 +26,15 @@ export class DepartmentRepository implements IDepartmentRepository {
             where: { id },
         })
 
-        return department as DepartmentPublic | null
+        return department
     }
 
-    async findByCode(code: string): Promise<DepartmentPublic | null> {
+    async findByName(name: string): Promise<DepartmentPublic | null> {
         const department = await prisma.department.findUnique({
-            where: { code },
+            where: { name },
         })
 
-        return department as DepartmentPublic | null
-    }
-
-    async findActive(): Promise<DepartmentPublic[]> {
-        const departments = await prisma.department.findMany({
-            where: { isActive: true },
-            orderBy: { name: 'asc' },
-        })
-
-        return departments as DepartmentPublic[]
+        return department
     }
 
     async create(data: DepartmentCreateData): Promise<{ id: string }> {

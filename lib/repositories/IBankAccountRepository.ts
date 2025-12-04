@@ -2,38 +2,39 @@
 
 export interface BankAccountPublic {
     id: string
-    accountName: string
-    bankName: string
-    accountNumber: string
-    accountType: string // CHECKING, SAVINGS, E_WALLET
-    balance: bigint | string
-    currency: string
-    description: string | null
+    namaBank: string
+    nomorRekening: string
+    namaPemilik: string
+    saldoAwal: bigint | string
+    saldoSaatIni: bigint | string
+    mataUang: string
     isActive: boolean
     createdAt: Date
     updatedAt: Date
+    createdBy?: string | null
+    updatedBy?: string | null
 }
 
 export interface BankAccountCreateData {
-    accountName: string
-    bankName: string
-    accountNumber: string
-    accountType?: string
-    balance?: bigint | number | string
-    currency?: string
-    description?: string
+    namaBank: string
+    nomorRekening: string
+    namaPemilik: string
+    saldoAwal?: bigint | number | string
+    saldoSaatIni?: bigint | number | string
+    mataUang?: string
     isActive?: boolean
+    createdBy?: string
 }
 
 export interface BankAccountUpdateData {
-    accountName?: string
-    bankName?: string
-    accountNumber?: string
-    accountType?: string
-    balance?: bigint | number | string
-    currency?: string
-    description?: string
+    namaBank?: string
+    nomorRekening?: string
+    namaPemilik?: string
+    saldoAwal?: bigint | number | string
+    saldoSaatIni?: bigint | number | string
+    mataUang?: string
     isActive?: boolean
+    updatedBy?: string
 }
 
 export interface IBankAccountRepository {

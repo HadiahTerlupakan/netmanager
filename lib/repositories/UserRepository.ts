@@ -35,7 +35,10 @@ export class UserRepository implements IUserRepository {
 
   async findByEmail(email: string): Promise<UserWithPassword | null> {
     const user = await this.client.user.findUnique({
-      where: { email },
+      where: {
+        email,
+        passwordHash: { not: null } // Only find users with password
+      },
       select: {
         id: true,
         name: true,
@@ -45,7 +48,13 @@ export class UserRepository implements IUserRepository {
         passwordHash: true,
       },
     })
-    return user
+    if (!user || !user.passwordHash) {
+      return null
+    }
+    return {
+      ...user,
+      passwordHash: user.passwordHash // Type assertion that it's not null
+    }
   }
 
   async create(data: UserCreateData): Promise<{ id: string }> {

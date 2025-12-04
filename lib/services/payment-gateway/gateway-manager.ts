@@ -2,7 +2,7 @@
 
 import { PrismaClient } from '@prisma/client'
 import { ProviderFactory } from './provider-factory'
-import { PaymentProvider, CreatePaymentParams, PaymentResult } from './provider-interface'
+import type { PaymentProvider, CreatePaymentParams, PaymentResult } from './provider-interface'
 import { decryptApiKey } from '@/lib/utils/encryption'
 
 export class PaymentGatewayManager {
