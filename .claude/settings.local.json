@@ -27,7 +27,17 @@
       "Bash(del:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(npx prisma migrate:*)"
+      "Bash(npx prisma migrate:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker inspect:*)",
+      "Bash(docker events:*)",
+      "Bash(docker run:*)",
+      "Bash(docker pull:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": [],
     "ask": []
