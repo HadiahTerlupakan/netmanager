@@ -460,6 +460,9 @@ export const authConfig: NextAuthOptions = {
   },
 }
 
+// Export authOptions for NextAuth API route
+export const authOptions = authConfig
+
 export const handler = NextAuth(authConfig)
 
 // Helper function for API route authentication
