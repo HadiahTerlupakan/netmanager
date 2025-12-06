@@ -26,7 +26,7 @@ export async function rateLimit(
         // Default: gunakan IP address
         const forwardedFor = req.headers.get('x-forwarded-for')
         const realIp = req.headers.get('x-real-ip')
-        
+
         let ip = 'unknown'
         if (forwardedFor) {
           const ips = String(forwardedFor).split(',')
@@ -34,7 +34,7 @@ export async function rateLimit(
         } else if (realIp) {
           ip = String(realIp).trim() || 'unknown'
         }
-        
+
         return `ratelimit:${ip}`
       },
       message = 'Terlalu banyak permintaan. Silakan coba lagi nanti.',
@@ -56,11 +56,11 @@ export async function rateLimit(
 
     if (!allowed) {
       return NextResponse.json(
-        { 
+        {
           error: message,
           retryAfter: windowSeconds,
         },
-        { 
+        {
           status: 429,
           headers: {
             'Retry-After': String(windowSeconds),
@@ -88,10 +88,35 @@ export const apiRateLimitConfig: Record<string, RateLimitOptions> = {
     maxRequests: 100,
     windowSeconds: 60, // 100 requests per minute
   },
-  // Rate limit khusus untuk endpoint yang lebih sensitif
-  '/api/auth': {
+  // Session check - called on every page navigation, needs higher limit
+  '/api/auth/session': {
+    maxRequests: 200,
+    windowSeconds: 60, // 200 requests per minute (high because every page checks session)
+  },
+  // CSRF token fetch - also called frequently
+  '/api/auth/csrf': {
+    maxRequests: 200,
+    windowSeconds: 60, // 200 requests per minute
+  },
+  // OAuth providers list - called on login page
+  '/api/auth/oauth/providers': {
+    maxRequests: 50,
+    windowSeconds: 60, // 50 requests per minute
+  },
+  // Auth callback - rate limit strictly for security
+  '/api/auth/callback': {
+    maxRequests: 10,
+    windowSeconds: 300, // 10 requests per 5 minutes
+  },
+  // Login attempts - strict rate limit for security
+  '/api/auth/signin': {
     maxRequests: 5,
-    windowSeconds: 300, // 5 requests per 5 menit
+    windowSeconds: 300, // 5 requests per 5 minutes
+  },
+  // Rate limit untuk general auth (fallback for other auth endpoints)
+  '/api/auth': {
+    maxRequests: 30,
+    windowSeconds: 60, // 30 requests per minute
   },
   '/api/pelanggan/auth/login': {
     maxRequests: 5,
@@ -136,9 +161,14 @@ export function getRateLimitConfig(pathname: string): RateLimitOptions {
     return apiRateLimitConfig[pathname]
   }
 
-  // Cek prefix match
-  for (const [prefix, config] of Object.entries(apiRateLimitConfig)) {
-    if (prefix !== 'default' && pathname.startsWith(prefix)) {
+  // Cek prefix match - sort by path length descending to prioritize more specific paths
+  // This ensures /api/auth/session matches before /api/auth
+  const entries = Object.entries(apiRateLimitConfig)
+    .filter(([key]) => key !== 'default')
+    .sort((a, b) => b[0].length - a[0].length)
+
+  for (const [prefix, config] of entries) {
+    if (pathname.startsWith(prefix)) {
       return config
     }
   }
