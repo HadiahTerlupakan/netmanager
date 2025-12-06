@@ -59,8 +59,13 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
 
   return {
     adapter: PrismaAdapter(prisma) as any,
+    // IMPORTANT: Secret is required for JWT signing
+    secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+    // Enable debug mode in development
+    debug: process.env.NODE_ENV === 'development',
     session: {
       strategy: 'jwt', // Use JWT for sessions (works for both OAuth and credentials)
+      maxAge: 30 * 24 * 60 * 60, // 30 days
     },
     // Configure cookies for cross-subdomain support if COOKIE_DOMAIN is set
     cookies: process.env.COOKIE_DOMAIN ? {
@@ -268,8 +273,13 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
 // Fallback static configuration for when dynamic loading fails
 export const authConfig: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
+  // IMPORTANT: Secret is required for JWT signing
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+  // Enable debug mode in development
+  debug: process.env.NODE_ENV === 'development',
   session: {
     strategy: 'jwt', // Use JWT for sessions (works for both OAuth and credentials)
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: '/login',
