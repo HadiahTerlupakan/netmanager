@@ -66,16 +66,27 @@ export async function POST(req: NextRequest) {
     const allowed = await checkRateLimit(`pelanggan-login:${idPelanggan}`, 5, 300)
     if (!allowed) {
       return NextResponse.json(
-        { error: 'Terlalu banyak percobaan. Coba lagi nanti.' },
+        {
+          error: 'Terlalu banyak percobaan login. Silakan tunggu 5 menit sebelum mencoba lagi.',
+          errorType: 'RATE_LIMIT',
+          retryAfter: 300
+        },
         { status: 429 }
       )
     }
 
     // Check for progressive delay
-    const hasDelay = await checkDelay(`pelanggan-login:${idPelanggan}`)
-    if (hasDelay) {
+    const delayTime = await checkDelay(`pelanggan-login:${idPelanggan}`)
+    if (delayTime > 0) {
+      const minutes = Math.floor(delayTime / 60)
+      const seconds = delayTime % 60
+      const timeText = minutes > 0 ? `${minutes} menit ${seconds > 0 ? `${seconds} detik` : ''}` : `${seconds} detik`
       return NextResponse.json(
-        { error: 'Terlalu banyak percobaan. Silakan tunggu beberapa saat sebelum mencoba lagi.' },
+        {
+          error: `Terlalu banyak percobaan. Silakan tunggu ${timeText} sebelum mencoba lagi.`,
+          errorType: 'RATE_LIMIT',
+          retryAfter: delayTime
+        },
         { status: 429 }
       )
     }

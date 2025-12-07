@@ -11,25 +11,25 @@ describe('rate-limit utilities', () => {
 
     it('should return specific config for /api/auth', () => {
       const config = getRateLimitConfig('/api/auth')
-      expect(config.maxRequests).toBe(10)
+      expect(config.maxRequests).toBe(30)
       expect(config.windowSeconds).toBe(60)
     })
 
     it('should return specific config for /api/olts/test-connection', () => {
       const config = getRateLimitConfig('/api/olts/test-connection')
-      expect(config.maxRequests).toBe(20)
+      expect(config.maxRequests).toBe(10)
       expect(config.windowSeconds).toBe(60)
     })
 
     it('should return specific config for /api/olts/onus/sync', () => {
       const config = getRateLimitConfig('/api/olts/onus/sync')
-      expect(config.maxRequests).toBe(5)
-      expect(config.windowSeconds).toBe(300)
+      expect(config.maxRequests).toBe(100)
+      expect(config.windowSeconds).toBe(60)
     })
 
     it('should return specific config for /api/kmz', () => {
       const config = getRateLimitConfig('/api/kmz')
-      expect(config.maxRequests).toBe(10)
+      expect(config.maxRequests).toBe(5)
       expect(config.windowSeconds).toBe(60)
     })
 

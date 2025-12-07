@@ -65,22 +65,22 @@ export async function checkRateLimit(
 }
 
 /**
- * Check if there's an active delay for a key
+ * Check if there's an active delay for a key and return remaining time
  */
-export async function checkDelay(key: string): Promise<boolean> {
+export async function checkDelay(key: string): Promise<number> {
   if (!key || typeof key !== 'string' || key.length === 0) {
-    return false
+    return 0
   }
 
   const safeKey = String(key).trim().replace(/[^a-zA-Z0-9:_-]/g, '_')
   const delayKey = `delay:${safeKey}`
-  
+
   try {
-    const delay = await redis.get(delayKey)
-    return delay === '1'
+    const ttl = await redis.ttl(delayKey)
+    return ttl > 0 ? ttl : 0
   } catch (error: any) {
     console.error('Redis delay check error:', error?.message || error)
-    return false
+    return 0
   }
 }
 

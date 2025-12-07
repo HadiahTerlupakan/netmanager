@@ -55,7 +55,11 @@ export async function POST(req: NextRequest) {
     const allowed = await checkRateLimit(`finance-login:${email.toLowerCase()}`, 5, 300)
     if (!allowed) {
       return NextResponse.json(
-        { error: 'Terlalu banyak percobaan. Coba lagi nanti.' },
+        {
+          error: 'Terlalu banyak percobaan login. Silakan tunggu 5 menit sebelum mencoba lagi.',
+          errorType: 'RATE_LIMIT',
+          retryAfter: 300
+        },
         { status: 429 }
       )
     }

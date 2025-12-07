@@ -5,9 +5,10 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
-import { HiArrowPath, HiLockClosed, HiEye, HiEyeSlash, HiExclamationCircle } from 'react-icons/hi2'
+import { HiArrowPath, HiLockClosed, HiEye, HiEyeSlash } from 'react-icons/hi2'
 import Link from 'next/link'
 import { setWithExpiry } from '@/lib/utils/storage-with-expiry'
+import { ErrorDisplay } from '@/components/auth/ErrorDisplay'
 
 const schema = z.object({
   idPelanggan: z
@@ -22,7 +23,11 @@ type FormValues = z.infer<typeof schema>
 export default function PelangganLoginPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = React.useState(false)
-  const [apiError, setApiError] = React.useState<string | null>(null)
+  const [apiError, setApiError] = React.useState<{
+    message: string
+    type: 'RATE_LIMIT' | 'CREDENTIAL' | 'GENERAL'
+    retryAfter?: number
+  } | null>(null)
 
   const {
     register,
@@ -58,8 +63,19 @@ export default function PelangganLoginPage() {
 
       if (!res.ok) {
         const errorMessage = data.error || 'ID Pelanggan atau password salah'
-        setApiError(errorMessage)
-        setError('password', { message: errorMessage })
+        const errorType = data.errorType === 'RATE_LIMIT' ? 'RATE_LIMIT' :
+                         res.status === 401 ? 'CREDENTIAL' : 'GENERAL'
+
+        setApiError({
+          message: errorMessage,
+          type: errorType,
+          retryAfter: data.retryAfter
+        })
+
+        // Only set form error for credential errors
+        if (errorType === 'CREDENTIAL') {
+          setError('password', { message: errorMessage })
+        }
         return
       }
 
@@ -75,7 +91,10 @@ export default function PelangganLoginPage() {
       router.push('/pelanggan')
     } catch (err: any) {
       const errorMessage = err.message || 'Terjadi kesalahan saat login'
-      setApiError(errorMessage)
+      setApiError({
+        message: errorMessage,
+        type: 'GENERAL'
+      })
       setError('password', { message: errorMessage })
     }
   }
@@ -97,10 +116,11 @@ export default function PelangganLoginPage() {
 
           <form className="w-full space-y-4 md:space-y-5" onSubmit={handleSubmit(onSubmit)}>
             {apiError && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-start gap-2">
-                <HiExclamationCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-800 dark:text-red-400">{apiError}</p>
-              </div>
+              <ErrorDisplay
+                error={apiError.message}
+                errorType={apiError.type}
+                retryAfter={apiError.retryAfter}
+              />
             )}
 
             <div className="space-y-2">

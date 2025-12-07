@@ -1,0 +1,166 @@
+{
+  "project_info": {
+    "name": "NetManager",
+    "version": "1.0.0",
+    "description": "FTTH (Fiber to the Home) network management application built with Next.js, TypeScript, Prisma, and PostgreSQL",
+    "type": "Next.js Full-Stack Application",
+    "main_tech": ["Next.js 16.0.7", "React 19.2.1", "TypeScript 5.9.3"],
+    "database": ["PostgreSQL", "Redis"],
+    "orm": "Prisma 6.18.0",
+    "authentication": "NextAuth.js 4.24.13",
+    "styling": "Tailwind CSS 4.1.17",
+    "testing": ["Vitest 4.0.14", "Testing Library", "Supertest 7.1.4"],
+    "deployment": ["Docker", "Docker Compose"]
+  },
+  "tech_stack": {
+    "frontend": {
+      "framework": "Next.js 16.0.7 with App Router",
+      "ui": "React 19.2.1",
+      "styling": "Tailwind CSS 4.1.17",
+      "state_management": ["React Query (TanStack)", "React Hook Form"],
+      "validation": "Zod 4.1.13",
+      "icons": "React Icons 5.5.0",
+      "charts": "Recharts 2.12.7",
+      "maps": "OpenLayers (ol) 10.7.0"
+    },
+    "backend": {
+      "api": "Next.js API Routes",
+      "authentication": "NextAuth.js with OAuth providers",
+      "database": ["PostgreSQL via Prisma", "Redis for caching"],
+      "file_storage": "AWS S3 SDK",
+      "email": "Nodemailer 7.0.11",
+      "task_scheduling": "node-cron 4.2.1"
+    },
+    "network_management": {
+      "snmp": "net-snmp 3.26.0",
+      "router_management": "node-routeros-v2 1.6.12",
+      "telnet": ["node-telnet", "telnet-client"],
+      "radius": "FreeRADIUS integration"
+    },
+    "payment": {
+      "gateways": ["Midtrans Client 1.4.3", "Xendit Node 7.0.0"],
+      "processing": "JWT tokens for API auth"
+    },
+    "security": {
+      "headers": "Helmet 8.1.0",
+      "xss_protection": "DOMPurify 3.3.0",
+      "password_hashing": "bcryptjs 3.0.3",
+      "rate_limiting": "Custom middleware"
+    }
+  },
+  "core_features": {
+    "network_management": {
+      "olt_management": "OLT device configuration and monitoring",
+      "onu_monitoring": "ONU device sync and status tracking",
+      "router_config": "MikroTik router management via API",
+      "device_communication": ["SNMP protocol", "Telnet connections"],
+      "infrastructure_tracking": ["ODC", "ODP", "OTB", "Pole management"]
+    },
+    "customer_management": {
+      "registration": "Customer onboarding and data management",
+      "billing": "Invoice generation and payment processing",
+      "radius_integration": "PPPoE authentication and accounting",
+      "ticketing_system": "Customer support and issue tracking",
+      "portal_access": "Customer dashboard for self-service"
+    },
+    "financial_management": {
+      "income_tracking": "Pemasukan records and categorization",
+      "expense_management": "Pengeluaran tracking with approvals",
+      "budget_planning": "Budget creation and monitoring",
+      "tax_calculations": ["PPN", "PPH", "calculations"],
+      "bank_reconciliation": "Bank account matching and reporting",
+      "payment_integration": ["Midtrans", "Xendit", "TriPay"]
+    },
+    "hris_features": {
+      "employee_management": "Employee profiles and data",
+      "attendance_tracking": "Check-in/out and monitoring",
+      "leave_management": "Leave requests and approvals",
+      "payroll_processing": "Salary calculations and disbursement",
+      "recruitment": "Applicant tracking and hiring"
+    }
+  },
+  "key_entities": {
+    "authentication": ["User", "Account", "Session"],
+    "network": ["Olt", "Onu", "Pelanggan", "Radius configuration"],
+    "financial": ["Pemasukan", "Pengeluaran", "Transaction", "BankAccount", "Budget", "TaxRecord"],
+    "hris": ["Employee", "Attendance", "Leave", "Payroll"],
+    "support": ["Ticket", "TicketCategory", "TicketResponse"]
+  },
+  "api_endpoints": {
+    "network": [
+      "/api/olts - OLT CRUD operations",
+      "/api/onus - ONU management and sync",
+      "/api/pelanggan - Customer management",
+      "/api/radius - Radius server integration",
+      "/api/network/mikrotik - MikroTik router management"
+    ],
+    "financial": [
+      "/api/finance/pemasukan - Income management",
+      "/api/finance/pengeluaran - Expense management",
+      "/api/finance/budget - Budget planning",
+      "/api/finance/tax - Tax calculations",
+      "/api/finance/bank - Bank reconciliation"
+    ],
+    "authentication": [
+      "/api/auth/[...nextauth] - NextAuth configuration",
+      "/api/users - User management",
+      "/api/admin/oauth - OAuth provider management"
+    ],
+    "customer": [
+      "/api/pelanggan/tickets - Customer support",
+      "/api/pelanggan/radius - Radius services",
+      "/api/payment - Payment processing"
+    ]
+  },
+  "project_structure": {
+    "app": "Next.js App Router pages and API routes",
+    "components": "Reusable React components",
+    "lib": ["Utilities", "Services", "Repositories", "Validations"],
+    "prisma": "Database schema and migration files",
+    "tests": ["Unit tests", "Integration tests", "Test utilities"],
+    "types": "TypeScript type definitions",
+    "scripts": "Database seeding and utility scripts",
+    "hooks": "Custom React hooks"
+  },
+  "testing_setup": {
+    "framework": "Vitest 4.0.14",
+    "libraries": ["Testing Library", "Supertest"],
+    "configuration": "vitest.config.ts with Node.js environment",
+    "coverage": "V8 provider with HTML/JSON/Text reports",
+    "test_areas": [
+      "Authentication flows",
+      "API endpoint validation",
+      "Database operations",
+      "Error handling",
+      "Rate limiting",
+      "Input sanitization"
+    ],
+    "existing_tests": [
+      "lib/__tests__/logger.test.ts",
+      "lib/middleware/__tests__/rate-limit.test.ts",
+      "lib/utils/__tests__/sanitize.test.ts",
+      "tests/integration/api/health.test.ts",
+      "tests/integration/api/users.test.ts",
+      "tests/integration/api/olts.test.ts"
+    ]
+  },
+  "security_features": {
+    "authentication": ["JWT tokens", "OAuth providers", "Role-based access (USER, ADMIN, FINANCE, HR)"],
+    "authorization": "Role-based permissions",
+    "protection": ["XSS protection via DOMPurify", "SQL injection prevention via Prisma", "Rate limiting", "Security headers via Helmet"],
+    "validation": "Input validation with Zod schemas"
+  },
+  "integrations": {
+    "payment": ["Midtrans", "Xendit", "TriPay"],
+    "infrastructure": ["AWS S3", "Docker containers", "Redis caching"],
+    "communication": ["Email via Nodemailer", "SMS notifications"],
+    "documentation": "Swagger/OpenAPI integration",
+    "monitoring": ["Health check endpoints", "Logging system"]
+  },
+  "development_tools": {
+    "build": ["Next.js build", "TypeScript compilation", "Tailwind CSS processing"],
+    "database": ["Prisma migrations", "Database seeding scripts", "Test database setup"],
+    "testing": ["Vitest test runner", "Coverage reporting", "Integration test helpers"],
+    "development": ["Hot reload", "TypeScript checking", "ESLint linting"]
+  }
+}
