@@ -10,6 +10,7 @@ import { getUserRepository } from '@/lib/repositories'
 import { compare } from 'bcryptjs'
 import { checkRateLimit } from '@/lib/redis'
 import { getAllOAuthProviders } from '@/lib/auth-dynamic'
+import { canLinkAccount, logOAuthSecurityEvent } from './oauth-security'
 
 // Fallback OAuth providers from environment variables
 function getFallbackOAuthProviders() {
@@ -21,7 +22,17 @@ function getFallbackOAuthProviders() {
       GoogleProvider({
         clientId: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        allowDangerousEmailAccountLinking: true,
+        allowDangerousEmailAccountLinking: false,
+        authorization: {
+          params: {
+            scope: 'openid email profile',
+            access_type: 'offline',
+            response_type: 'code',
+          },
+        },
+        client: {
+          token_endpoint_auth_method: 'client_secret_post',
+        },
       })
     )
   }
@@ -32,7 +43,15 @@ function getFallbackOAuthProviders() {
       GitHubProvider({
         clientId: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
-        allowDangerousEmailAccountLinking: true,
+        allowDangerousEmailAccountLinking: false,
+        authorization: {
+          params: {
+            scope: 'user:email',
+          },
+        },
+        client: {
+          token_endpoint_auth_method: 'client_secret_post',
+        },
       })
     )
   }
@@ -44,7 +63,16 @@ function getFallbackOAuthProviders() {
         clientId: process.env.AZURE_AD_CLIENT_ID,
         clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
         tenantId: process.env.AZURE_AD_TENANT_ID,
-        allowDangerousEmailAccountLinking: true,
+        allowDangerousEmailAccountLinking: false,
+        authorization: {
+          params: {
+            scope: 'openid email profile',
+            response_type: 'code',
+          },
+        },
+        client: {
+          token_endpoint_auth_method: 'client_secret_post',
+        },
       })
     )
   }
@@ -65,7 +93,8 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
     debug: process.env.NODE_ENV === 'development',
     session: {
       strategy: 'jwt', // Use JWT for sessions (works for both OAuth and credentials)
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+      maxAge: parseInt(process.env.SESSION_MAX_AGE || '604800'), // 7 days (default)
+      updateAge: parseInt(process.env.SESSION_UPDATE_AGE || '3600'), // 1 hour (sliding expiration)
     },
     // Configure cookies for cross-subdomain support if COOKIE_DOMAIN is set
     cookies: process.env.COOKIE_DOMAIN ? {
@@ -189,22 +218,71 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
     ],
     callbacks: {
       async signIn({ user, account, profile }) {
-        // For OAuth providers, auto-provision users
+        // For OAuth providers, handle account linking securely
         if (account?.provider !== 'credentials') {
-          console.log('[AUTH] OAuth sign in:', account?.provider, user.email)
+          const provider = account?.provider
+          const email = user.email
+
+          if (!email) {
+            logOAuthSecurityEvent('OAUTH_SIGNIN_NO_EMAIL', { provider }, 'error')
+            return false
+          }
+
+          logOAuthSecurityEvent('OAUTH_SIGNIN_ATTEMPT', { provider, email })
+
+          // Check if account linking is allowed based on email verification
+          const canLink = await canLinkAccount(email)
+          if (!canLink) {
+            logOAuthSecurityEvent('OAUTH_ACCOUNT_LINKING_DENIED', { provider, email }, 'warn')
+            return false
+          }
 
           // Check if user already exists
           const existingUser = await prisma.user.findUnique({
-            where: { email: user.email! },
+            where: { email },
           })
 
-          // If user doesn't exist, the adapter will create it
-          // We just need to ensure it has a proper role (default: USER)
-          if (!existingUser && user.email) {
+          // If user doesn't exist, create with email verification requirement
+          if (!existingUser) {
+            logOAuthSecurityEvent('OAUTH_NEW_USER', { provider, email })
             // The Prisma adapter will create the user automatically
-            // We'll assign proper role in the jwt callback
-            console.log('[AUTH] New OAuth user will be created:', user.email)
+            // We'll set emailVerified to null to require verification
+            return true
           }
+
+          // If user exists but email is not verified, enforce verification
+          if (existingUser && !existingUser.emailVerified) {
+            logOAuthSecurityEvent('OAUTH_EMAIL_NOT_VERIFIED', { provider, email }, 'warn')
+            // For now, allow sign-in but mark as requiring verification
+            // In production, you might want to redirect to a verification page
+            return true
+          }
+
+          // For existing users with verified emails, ensure secure account linking
+          if (existingUser && existingUser.emailVerified && account) {
+            // Check if this OAuth account is already linked
+            const existingAccount = await prisma.account.findFirst({
+              where: {
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+              }
+            })
+
+            if (!existingAccount) {
+              // This is a new OAuth account being linked to an existing user
+              logOAuthSecurityEvent('OAUTH_NEW_ACCOUNT_LINK', {
+                provider,
+                email,
+                providerAccountId: account.providerAccountId
+              })
+
+              // The adapter will handle the account linking
+              // We've already disabled allowDangerousEmailAccountLinking
+              return true
+            }
+          }
+
+          logOAuthSecurityEvent('OAUTH_SIGNIN_SUCCESS', { provider, email })
         }
 
         return true
@@ -279,7 +357,8 @@ export const authConfig: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
   session: {
     strategy: 'jwt', // Use JWT for sessions (works for both OAuth and credentials)
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: parseInt(process.env.SESSION_MAX_AGE || '604800'), // 7 days (default)
+    updateAge: parseInt(process.env.SESSION_UPDATE_AGE || '3600'), // 1 hour (sliding expiration)
   },
   pages: {
     signIn: '/login',

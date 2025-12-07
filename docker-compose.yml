@@ -9,15 +9,37 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-netmgr}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-netmgr}
       POSTGRES_DB: ${POSTGRES_DB:-netmanager}
+      # SSL Configuration
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"
     ports:
       - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+      # Mount SSL certificates (uncomment for production)
+      # - ./ssl/postgres/server.crt:/var/lib/postgresql/server.crt:ro
+      # - ./ssl/postgres/server.key:/var/lib/postgresql/server.key:ro
+      # - ./ssl/postgres/ca.crt:/var/lib/postgresql/ca.crt:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 10
+    # Add security configurations
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     image: redis:7-alpine
@@ -25,9 +47,24 @@ services:
     restart: unless-stopped
     ports:
       - "6380:6379"
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-}"]
     volumes:
       - redis_data:/data
+    # Add security configurations
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
 
   freeradius:
     image: freeradius/freeradius-server:3.2.5
@@ -46,12 +83,76 @@ services:
       - DB_USER=${POSTGRES_USER:-netmgr}
       - DB_PASSWORD=${POSTGRES_PASSWORD:-netmgr}
       - RADIUS_SECRET=${RADIUS_SECRET:-testing123}
+      # Additional security settings
+      - DEBUG=${RADIUS_DEBUG:-false}
     volumes:
       - radius_logs:/var/log/freeradius
+      # Mount custom radius configuration (optional)
+      # - ./config/radius:/etc/freeradius/3.0/mods-config/sql/main/postgresql
+    # Add security configurations
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Add database backup service
+  db-backup:
+    image: postgres:16
+    container_name: netmanager-postgres-backup
+    restart: "no"
+    depends_on:
+      - db
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-netmgr}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup-db.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["chmod +x /backup.sh && /backup.sh"]
+    profiles:
+      - backup
+
+  # Optional: Add database restore service
+  db-restore:
+    image: postgres:16
+    container_name: netmanager-postgres-restore
+    restart: "no"
+    depends_on:
+      - db
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-netmgr}
+    volumes:
+      - ./backups:/backups:ro
+      - ./scripts/restore-db.sh:/restore.sh:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["chmod +x /restore.sh && echo 'Use: docker-compose --profile restore run --rm db-restore /restore.sh your-backup-file.sql.gz'"]
+    profiles:
+      - restore
 
 volumes:
   db_data:
+    driver: local
   redis_data:
+    driver: local
   radius_logs:
+    driver: local
+
+# Network configuration for enhanced security
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
 
 

@@ -3,6 +3,175 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getRateLimitConfig, rateLimit } from '@/lib/middleware/rate-limit'
 import { getSubdomain, isAdminSubdomain, isPelangganSubdomain, isKaryawanSubdomain, isFinanceSubdomain, isHelpdeskSubdomain } from '@/lib/utils/subdomain'
+import { getToken } from 'next-auth/jwt'
+
+// Define role-based protected routes
+const roleBasedRoutes = {
+  admin: [
+    '/admin',
+    '/api/admin',
+    '/api/users',
+    '/api/olts',
+    '/api/onu',
+    '/api/tickets/admin',
+    '/api/workorders/admin',
+  ],
+  finance: [
+    '/finance',
+    '/api/finance',
+    '/api/tagihan',
+    '/api/pembayaran',
+    '/api/ar',
+  ],
+  hr: [
+    '/hr',
+    '/api/hr',
+    '/api/employees',
+    '/api/attendance',
+  ],
+  technician: [
+    '/technician',
+    '/api/technician',
+    '/api/workorders/technician',
+  ],
+}
+
+// Helper function to check if path requires specific role
+function getRequiredRole(pathname: string): string | null {
+  for (const [role, routes] of Object.entries(roleBasedRoutes)) {
+    if (routes.some(route => pathname.startsWith(route))) {
+      return role
+    }
+  }
+  return null
+}
+
+// Helper function to check if user has required role
+function hasRequiredRole(userRole: string, requiredRole: string): boolean {
+  // Admin has access to everything
+  if (userRole === 'ADMIN') {
+    return true
+  }
+
+  // Direct role match
+  return userRole.toLowerCase() === requiredRole.toLowerCase()
+}
+
+// Log unauthorized access attempts
+function logUnauthorizedAccess(request: NextRequest, reason: string) {
+  const userAgent = request.headers.get('user-agent') || 'Unknown'
+  const ip = request.ip || request.headers.get('x-forwarded-for') || 'Unknown'
+  const timestamp = new Date().toISOString()
+
+  console.warn(`[SECURITY] Unauthorized access attempt - ${reason}`, {
+    timestamp,
+    ip,
+    userAgent,
+    url: request.url,
+    method: request.method,
+  })
+}
+
+// Check role-based access
+async function checkRoleAccess(request: NextRequest, pathname: string): Promise<NextResponse | null> {
+  const requiredRole = getRequiredRole(pathname)
+
+  if (!requiredRole) {
+    return null // No role required
+  }
+
+  try {
+    // Get the token from the request
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+      secureCookie: process.env.NODE_ENV === 'production',
+    })
+
+    if (!token) {
+      logUnauthorizedAccess(request, 'No authentication token')
+
+      // For API routes, return 401
+      if (pathname.startsWith('/api/')) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Authentication required' }),
+          {
+            status: 401,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      }
+
+      // For pages, redirect to login
+      const loginUrl = new URL('/login', request.url)
+      loginUrl.searchParams.set('callbackUrl', pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    const userRole = (token.role as string)?.toUpperCase() || 'USER'
+
+    if (!hasRequiredRole(userRole, requiredRole)) {
+      logUnauthorizedAccess(request, `Insufficient role. Required: ${requiredRole}, User has: ${userRole}`)
+
+      // For API routes, return 403
+      if (pathname.startsWith('/api/')) {
+        return new NextResponse(
+          JSON.stringify({
+            error: 'Insufficient permissions',
+            required: requiredRole,
+            current: userRole
+          }),
+          {
+            status: 403,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      }
+
+      // For pages, redirect to appropriate dashboard
+      const roleDashboardMap: Record<string, string> = {
+        'ADMIN': '/admin',
+        'FINANCE': '/finance',
+        'HR': '/hr',
+        'TECHNICIAN': '/technician',
+      }
+
+      const dashboardUrl = roleDashboardMap[userRole] || '/dashboard'
+      return NextResponse.redirect(new URL(dashboardUrl, request.url))
+    }
+
+    // Add user info to response headers
+    const response = NextResponse.next()
+    response.headers.set('x-user-id', token.id as string)
+    response.headers.set('x-user-role', (token.role as string) || 'USER')
+    response.headers.set('x-user-email', token.email as string)
+
+    return response
+
+  } catch (error) {
+    console.error('[PROXY] Role check error:', error)
+
+    // For API routes, return 500
+    if (pathname.startsWith('/api/')) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Internal server error' }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+    }
+
+    // For pages, redirect to error page
+    return NextResponse.redirect(new URL('/error', request.url))
+  }
+}
 
 // Create auth middleware dengan callback URL yang menjaga subdomain
 const authMiddleware = withAuth({
@@ -139,6 +308,12 @@ export default async function proxy(request: NextRequest) {
       }
     }
 
+    // Check role-based access for protected routes
+    const roleCheckResponse = await checkRoleAccess(request, pathname)
+    if (roleCheckResponse) {
+      return roleCheckResponse
+    }
+
     // Auth middleware untuk admin routes (baik dari subdomain atau path)
     if (pathname.startsWith('/admin') || isAdminSubdomain(request)) {
       const response = await authMiddleware(request as any, {} as any)
@@ -226,7 +401,17 @@ export default async function proxy(request: NextRequest) {
       return response
     }
 
-    return NextResponse.next({ request })
+    // Add security headers to all responses
+    const response = NextResponse.next({ request })
+    response.headers.set('X-Frame-Options', 'DENY')
+    response.headers.set('X-Content-Type-Options', 'nosniff')
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.set(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https:;"
+    )
+
+    return response
   } catch (error: any) {
     // FAIL-CLOSE: Security-first approach - block request on proxy error
     console.error('Proxy security error:', error.message)

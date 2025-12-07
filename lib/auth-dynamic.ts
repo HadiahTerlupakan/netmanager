@@ -30,11 +30,13 @@ export async function getDynamicOAuthProviders(): Promise<any[]> {
                 authorization: {
                   params: {
                     scope: config.scope || 'openid email profile',
+                    access_type: 'offline',
+                    response_type: 'code',
                     prompt: (config.settings as Record<string, string> | null)?.prompt || undefined,
                     hd: (config.settings as Record<string, string> | null)?.hostedDomain || undefined
                   }
                 },
-                allowDangerousEmailAccountLinking: true,
+                allowDangerousEmailAccountLinking: false,
                 client: {
                   token_endpoint_auth_method: 'client_secret_post'
                 }
@@ -52,7 +54,7 @@ export async function getDynamicOAuthProviders(): Promise<any[]> {
                     scope: config.scope || 'user:email'
                   }
                 },
-                allowDangerousEmailAccountLinking: true,
+                allowDangerousEmailAccountLinking: false,
                 client: {
                   token_endpoint_auth_method: 'client_secret_post'
                 }
@@ -73,10 +75,11 @@ export async function getDynamicOAuthProviders(): Promise<any[]> {
                 tenantId: config.tenantId,
                 authorization: {
                   params: {
-                    scope: config.scope || 'openid email profile'
+                    scope: config.scope || 'openid email profile',
+                    response_type: 'code'
                   }
                 },
-                allowDangerousEmailAccountLinking: true,
+                allowDangerousEmailAccountLinking: false,
                 client: {
                   token_endpoint_auth_method: 'client_secret_post'
                 }

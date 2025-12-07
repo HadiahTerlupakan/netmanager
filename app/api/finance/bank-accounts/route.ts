@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
+import { protectRoute, UserRole } from '@/lib/route-protection'
 
 const prisma = new PrismaClient()
 
@@ -19,11 +18,14 @@ const bankAccountSchema = z.object({
 // GET - Mendapatkan semua rekening bank
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authConfig)
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Check authorization - Finance and Admin roles can access
+    const authCheck = await protectRoute(request, {
+      requirePermission: {
+        resource: 'finance',
+        action: 'read'
+      }
+    })
+    if (authCheck) return authCheck
 
     const bankAccounts = await prisma.bankAccount.findMany({
       orderBy: {
@@ -54,20 +56,26 @@ export async function GET(request: NextRequest) {
 // POST - Membuat rekening bank baru
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authConfig)
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Check authorization - Finance and Admin roles can create
+    const authCheck = await protectRoute(request, {
+      requirePermission: {
+        resource: 'finance',
+        action: 'create'
+      }
+    })
+    if (authCheck) return authCheck
 
     const body = await request.json()
     const validatedData = bankAccountSchema.parse(body)
+
+    // Get user ID from headers (set by middleware)
+    const userId = request.headers.get('x-user-id')
 
     const bankAccount = await prisma.bankAccount.create({
       data: {
         ...validatedData,
         saldoSaatIni: validatedData.saldoAwal, // Saldo saat ini sama dengan saldo awal saat dibuat
-        createdBy: session.user.id,
+        createdBy: userId || 'unknown',
       }
     })
 

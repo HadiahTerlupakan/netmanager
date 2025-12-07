@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { RoleRepository } from '@/lib/repositories/RoleRepository'
 import { RoleAuditService } from '@/lib/services/RoleAuditService'
+import { requireAdmin } from '@/lib/route-protection'
 
 const roleRepo = new RoleRepository()
 const auditService = new RoleAuditService()
@@ -10,16 +9,9 @@ const auditService = new RoleAuditService()
 // GET /api/admin/roles - List all custom roles
 export async function GET(req: NextRequest) {
     try {
-        const session: any = await getServerSession(authConfig as any)
-
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
-        // Only ADMIN can view roles
-        if (session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 })
-        }
+        // Check authorization using our protection system
+        const authCheck = await requireAdmin(req)
+        if (authCheck) return authCheck
 
         const { searchParams } = new URL(req.url)
         const departmentId = searchParams.get('departmentId') || undefined
@@ -49,16 +41,9 @@ export async function GET(req: NextRequest) {
 // POST /api/admin/roles - Create new custom role
 export async function POST(req: NextRequest) {
     try {
-        const session: any = await getServerSession(authConfig as any)
-
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
-        // Only ADMIN can create roles
-        if (session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 })
-        }
+        // Check authorization using our protection system
+        const authCheck = await requireAdmin(req)
+        if (authCheck) return authCheck
 
         const body = await req.json()
 
@@ -78,6 +63,9 @@ export async function POST(req: NextRequest) {
             )
         }
 
+        // Get user ID from headers (set by middleware)
+        const userId = req.headers.get('x-user-id')
+
         // Create the role
         const role = await roleRepo.create({
             name: body.name,
@@ -86,7 +74,7 @@ export async function POST(req: NextRequest) {
             departmentId: body.departmentId,
             allowedFeatures: body.allowedFeatures,
             priority: body.priority,
-            createdBy: session.user.id,
+            createdBy: userId || 'unknown',
         })
 
         // Log the creation
