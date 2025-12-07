@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { HiOutlineChartBar, HiPencil, HiTrash } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 type MikroTikRouter = {
   id: string
@@ -124,14 +125,7 @@ export default function MikroTikRouterPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="mb-4 text-4xl">⏳</div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data Router...</p>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   return (
@@ -255,11 +249,10 @@ export default function MikroTikRouterPage() {
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          router.pingStatus === 'online'
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${router.pingStatus === 'online'
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                             : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                        }`}
+                          }`}
                       >
                         {router.pingStatus === 'online' ? '✔ online' : '✗ offline'}
                       </span>
@@ -328,11 +321,10 @@ export default function MikroTikRouterPage() {
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 text-sm border rounded ${
-                  currentPage === page
+                className={`px-3 py-1 text-sm border rounded ${currentPage === page
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                }`}
+                  }`}
               >
                 {page}
               </button>

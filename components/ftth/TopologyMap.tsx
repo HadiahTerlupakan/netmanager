@@ -10,6 +10,7 @@ import {
   HiOutlineBuildingOffice,
   HiOutlineUserGroup
 } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 type TopologyData = {
   otbs: Array<{
@@ -1496,6 +1497,10 @@ export default function TopologyMap() {
         <div className="text-sm text-red-600 dark:text-red-400">Error: {error}</div>
       </div>
     )
+  }
+
+  if (loading) {
+    return <PageLoader />
   }
 
   if (!data) {

@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import OLTModal from '@/components/olt/OLTModal'
 import { HiOutlinePlus, HiOutlineSignal, HiArrowPath, HiPencil, HiOutlineCpuChip, HiOutlineFire, HiOutlineSignal as HiSignal, HiOutlineComputerDesktop, HiOutlineClock, HiCheck, HiOutlineCalendar, HiTrash, HiEye, HiOutlineTableCells, HiXMark, HiExclamationTriangle, HiInformationCircle } from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
 
 export default function OLTPage() {
   const router = useRouter()
@@ -83,13 +84,13 @@ export default function OLTPage() {
       }
 
       const result = await res.json()
-      
+
       // Tampilkan pesan bahwa sync dimulai di background
       alert(`Sync dimulai di background untuk ${result.oltName || olt.name}.\n\nProgress dapat dilihat di kolom "Synchronization Status".\nHalaman akan otomatis refresh setiap 3 detik untuk melihat progress.`)
-      
+
       // Refresh list untuk melihat progress awal
       await loadOlts()
-      
+
       // Start auto-refresh untuk melihat progress sync
       startAutoRefresh(olt.id)
     } catch (error: any) {
@@ -107,9 +108,9 @@ export default function OLTPage() {
     if (refreshIntervalRef.current) {
       clearInterval(refreshIntervalRef.current)
     }
-    
+
     setRefreshingOltId(oltId)
-    
+
     // Refresh setiap 3 detik
     refreshIntervalRef.current = setInterval(async () => {
       // Load data terbaru
@@ -117,10 +118,10 @@ export default function OLTPage() {
         .then(res => res.json())
         .then(data => data.olts || [])
         .catch(() => [])
-      
+
       // Update state
       setOlts(freshOlts)
-      
+
       // Cek apakah sync sudah selesai (progress = 100%)
       const olt = freshOlts.find((o: any) => o.id === oltId)
       if (olt && olt.syncStatus === '100') {
@@ -219,7 +220,7 @@ export default function OLTPage() {
     setIsViewModalOpen(true)
     setLoadingOnus(true)
     setOnus([])
-    
+
     try {
       // Fetch ONU data dari database untuk OLT ini (bukan dari SNMP)
       // Gunakan limit yang lebih besar (2000) untuk memastikan semua ONU terlihat
@@ -229,13 +230,13 @@ export default function OLTPage() {
           'Cache-Control': 'no-cache',
         },
       })
-      
+
       if (!res.ok) {
         const error = await res.json().catch(() => ({ error: 'Gagal memuat data ONU' }))
         alert(error.error || 'Gagal memuat data ONU')
         return
       }
-      
+
       const data = await res.json()
       setOnus(data.onus || [])
       setOnuPagination(data.pagination || null)
@@ -337,14 +338,7 @@ export default function OLTPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="mb-4 text-4xl">⏳</div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Memuat data OLT...</p>
-        </div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   return (
@@ -480,21 +474,19 @@ export default function OLTPage() {
                     <td className="px-4 py-4">
                       <div className="space-y-1">
                         <span
-                          className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                            olt.telnetConnected
+                          className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${olt.telnetConnected
                               ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                               : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
-                          }`}
+                            }`}
                         >
                           Telnet {olt.telnetConnected ? 'Connected' : 'Disconnected'}
                         </span>
                         <br />
                         <span
-                          className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                            olt.snmpConnected
+                          className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${olt.snmpConnected
                               ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                               : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
-                          }`}
+                            }`}
                         >
                           SNMP {olt.snmpConnected ? 'Connected' : 'Disconnected'}
                         </span>
@@ -627,15 +619,14 @@ export default function OLTPage() {
                           <td className="px-3 py-2 text-gray-900 dark:text-white font-mono text-xs">{onu.gponOnu || 'N/A'}</td>
                           <td className="px-3 py-2 text-gray-900 dark:text-white">{onu.name || 'N/A'}</td>
                           <td className="px-3 py-2">
-                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                              onu.status === 'Online' 
+                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${onu.status === 'Online'
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                                 : onu.status === 'LOS'
-                                ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                                : onu.status === 'DyingGasp'
-                                ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
-                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
-                            }`}>
+                                  ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                                  : onu.status === 'DyingGasp'
+                                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
+                              }`}>
                               {onu.status || 'Unknown'}
                             </span>
                           </td>
@@ -651,7 +642,7 @@ export default function OLTPage() {
                             {onu.lastSeen ? new Date(onu.lastSeen).toLocaleString('id-ID') : 'N/A'}
                           </td>
                           <td className="px-3 py-2">
-                            <button 
+                            <button
                               onClick={() => handleTestSnmpTable(onu)}
                               disabled={!onu.statusOid || !onu.compositeIndex}
                               className="inline-flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

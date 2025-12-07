@@ -17,6 +17,7 @@ import {
   HiOutlineMap,
   HiOutlineUsers,
   HiChevronRight,
+  HiChevronDown,
   HiOutlineWifi,
   HiOutlineArchiveBox,
   HiOutlineSquares2X2,
@@ -145,7 +146,7 @@ export default function Sidebar() {
         { href: '/admin/finance/tagihan', label: 'Tagihan', icon: <HiOutlineDocumentText className="w-4 h-4" /> },
         { href: '/admin/finance/cashflow', label: 'Cashflow & Pengeluaran', icon: <HiOutlineBanknotes className="w-4 h-4" /> },
         { href: '/finance/bank-accounts', label: 'Rekening Bank', icon: <HiBanknotes className="w-4 h-4" /> },
-        ]
+      ]
     },
     {
       href: '/admin/pengaturan',
@@ -195,9 +196,9 @@ export default function Sidebar() {
   return (
     <aside className="hidden w-64 shrink-0 bg-white border-r border-gray-200 dark:bg-gray-900 dark:border-gray-800 md:block">
       <div className="h-16 flex items-center px-6 border-b border-gray-200 dark:border-gray-800">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">NetManager</h2>
+        <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent">NetManager</h2>
       </div>
-      <nav className="p-3 space-y-1">
+      <nav className="p-3 space-y-1.5">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
           const hasChildren = item.children && item.children.length > 0
@@ -209,41 +210,47 @@ export default function Sidebar() {
             )
 
             return (
-              <div key={item.href}>
+              <div key={item.href} className="space-y-0.5">
                 <button
                   onClick={() => toggleMenu(item.href)}
-                  className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-150 ${isActive || hasActiveChild
+                  className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group ${isActive || hasActiveChild
                     ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                     }`}
                 >
                   <div className="flex items-center gap-3">
-                    {item.icon}
+                    <span className={`transition-colors duration-200 ${isActive || hasActiveChild ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'}`}>
+                      {item.icon}
+                    </span>
                     <span>{item.label}</span>
                   </div>
-                  <HiChevronRight className={`w-4 h-4 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
+                  <HiChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
-                {isExpanded && (
-                  <div className="ml-4 mt-1 space-y-1">
-                    {item.children!.map((child) => {
-                      const isChildActive =
-                        pathname === child.href || pathname?.startsWith(child.href + '/')
-                      return (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-all duration-150 ${isChildActive
-                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                            }`}
-                        >
-                          {child.icon}
-                          <span>{child.label}</span>
-                        </Link>
-                      )
-                    })}
+                <div
+                  className={`grid transition-all duration-200 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="relative border-l-2 border-gray-100 dark:border-gray-800 ml-5 my-1 pl-3 space-y-1">
+                      {item.children!.map((child) => {
+                        const isChildActive =
+                          pathname === child.href || pathname?.startsWith(child.href + '/')
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-150 ${isChildActive
+                              ? 'bg-indigo-50/80 text-indigo-600 dark:bg-indigo-900/10 dark:text-indigo-400'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/30'
+                              }`}
+                          >
+                            <span className="opacity-70">{child.icon}</span>
+                            <span>{child.label}</span>
+                          </Link>
+                        )
+                      })}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             )
           }
@@ -252,12 +259,14 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-150 ${isActive
+              className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group ${isActive
                 ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                 }`}
             >
-              {item.icon}
+              <div className={`transition-colors duration-200 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'}`}>
+                {item.icon}
+              </div>
               <span>{item.label}</span>
             </Link>
           )

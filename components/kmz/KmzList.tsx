@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { KmzActions } from './KmzActions'
 import { StatusBadge } from '@/components/common/StatusBadge'
+import PageLoader from '@/components/ui/PageLoader'
 
 type KmzFile = {
   id: string
@@ -44,11 +45,7 @@ export function KmzList() {
   }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="text-sm text-gray-600 dark:text-gray-400">Memuat data...</div>
-      </div>
-    )
+    return <PageLoader />
   }
 
   if (kmzFiles.length === 0) {
@@ -118,8 +115,8 @@ export function KmzList() {
                 <td className="px-4 py-3">
                   <span
                     className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${kmzFile.isActive
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
                       }`}
                   >
                     {kmzFile.isActive ? 'Ya' : 'Tidak'}
