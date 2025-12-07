@@ -145,7 +145,7 @@ export default function Sidebar() {
       children: [
         { href: '/admin/finance/tagihan', label: 'Tagihan', icon: <HiOutlineDocumentText className="w-4 h-4" /> },
         { href: '/admin/finance/cashflow', label: 'Cashflow & Pengeluaran', icon: <HiOutlineBanknotes className="w-4 h-4" /> },
-        { href: '/finance/bank-accounts', label: 'Rekening Bank', icon: <HiBanknotes className="w-4 h-4" /> },
+        { href: '/admin/finance/bank-accounts', label: 'Rekening Bank', icon: <HiBanknotes className="w-4 h-4" /> },
       ]
     },
     {
