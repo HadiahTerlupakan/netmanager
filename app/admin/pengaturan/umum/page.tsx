@@ -14,6 +14,7 @@ type BankAccount = {
 
 type GeneralSettings = {
   perusahaan: string
+  namaAplikasi: string
   alamat: string
   nomorHp: string
   deskripsiInvoice: string
@@ -31,6 +32,7 @@ export default function GeneralSettingsPage() {
   const [currentTime, setCurrentTime] = useState<string>('')
   const [settings, setSettings] = useState<GeneralSettings>({
     perusahaan: '',
+    namaAplikasi: '',
     alamat: '',
     nomorHp: '',
     deskripsiInvoice: '',
@@ -79,6 +81,7 @@ export default function GeneralSettingsPage() {
         const data = await res.json()
         setSettings({
           perusahaan: data.perusahaan || '',
+          namaAplikasi: data.namaAplikasi || '',
           alamat: data.alamat || '',
           nomorHp: data.nomorHp || '',
           deskripsiInvoice: data.deskripsiInvoice || '',
@@ -192,6 +195,22 @@ export default function GeneralSettingsPage() {
                 value={settings.perusahaan}
                 onChange={handleChange}
                 placeholder="Masukkan nama perusahaan"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+              />
+            </div>
+
+            {/* Nama Aplikasi */}
+            <div className="space-y-2">
+              <label htmlFor="namaAplikasi" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-red-500">!</span> Nama Aplikasi
+              </label>
+              <input
+                id="namaAplikasi"
+                name="namaAplikasi"
+                type="text"
+                value={settings.namaAplikasi}
+                onChange={handleChange}
+                placeholder="Masukkan nama aplikasi (contoh: NetManager)"
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
               />
             </div>

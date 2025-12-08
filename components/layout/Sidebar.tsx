@@ -4,47 +4,50 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import {
-  HiOutlineChartBar,
-  HiOutlineGlobeAlt,
-  HiOutlineServer,
-  HiOutlineSignal,
-  HiOutlineDevicePhoneMobile,
-  HiOutlinePlus,
-  HiOutlineClipboardDocumentList,
-  HiOutlineBolt,
-  HiOutlineLink,
-  HiOutlineBuildingOffice,
-  HiOutlineMap,
-  HiOutlineUsers,
-  HiChevronRight,
-  HiChevronDown,
-  HiOutlineWifi,
-  HiOutlineArchiveBox,
-  HiOutlineSquares2X2,
-  HiOutlineRectangleStack,
-  HiOutlineDocument,
-  HiOutlineShoppingCart,
-  HiOutlineCircleStack,
-  HiOutlineUserCircle,
-  HiOutlineCurrencyDollar,
-  HiOutlineBanknotes,
-  HiOutlineCreditCard,
-  HiOutlineKey,
-  HiOutlineCog6Tooth,
-  HiOutlinePhoto,
-  HiEnvelope,
-  HiChatBubbleLeftRight,
-  HiOutlineCodeBracket,
-  HiOutlineShieldCheck,
-  HiOutlineClock,
-  HiOutlineCalendar,
-  HiOutlineUserGroup,
-  HiTicket,
-  HiWrenchScrewdriver,
-  HiClipboardDocumentList,
-  HiOutlineDocumentText,
-  HiBanknotes,
-} from 'react-icons/hi2'
+  FiBarChart,
+  FiGlobe,
+  FiServer,
+  FiActivity,
+  FiSmartphone,
+  FiPlus,
+  FiClipboard,
+  FiZap,
+  FiLink,
+  FiHome,
+  FiMap,
+  FiUsers,
+  FiChevronRight,
+  FiChevronDown,
+  FiWifi,
+  FiArchive,
+  FiGrid,
+  FiLayers,
+  FiFile,
+  FiShoppingCart,
+  FiDatabase,
+  FiUser,
+  FiDollarSign,
+  FiTrendingUp,
+  FiCreditCard,
+  FiKey,
+  FiSettings,
+  FiImage,
+  FiMail,
+  FiMessageSquare,
+  FiCode,
+  FiShield,
+  FiClock,
+  FiCalendar,
+  FiUser as FiUserGroup,
+  FiHelpCircle,
+  FiTool,
+  FiBox,
+  FiTruck,
+  FiDownload,
+  FiUpload,
+  FiFileText,
+} from 'react-icons/fi'
+import { useSettings } from '@/hooks/useSettings'
 
 type NavItem = {
   href: string
@@ -56,111 +59,128 @@ type NavItem = {
 export default function Sidebar() {
   const pathname = usePathname()
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set())
+  const { settings } = useSettings()
+  const appName = settings?.namaAplikasi || 'NetManager'
 
   const navItems: NavItem[] = useMemo(() => [
-    { href: '/admin', label: 'Dashboard', icon: <HiOutlineChartBar className="w-5 h-5" /> },
+    { href: '/admin', label: 'Dashboard', icon: <FiBarChart className="w-5 h-5" /> },
     {
       href: '/admin/network',
       label: 'Network',
-      icon: <HiOutlineGlobeAlt className="w-5 h-5" />,
+      icon: <FiGlobe className="w-5 h-5" />,
       children: [
-        { href: '/admin/network/mikrotik', label: 'MikroTik', icon: <HiOutlineServer className="w-4 h-4" /> },
-        { href: '/admin/radius', label: 'RADIUS', icon: <HiOutlineKey className="w-4 h-4" /> },
-        { href: '/admin/network/olt', label: 'OLT', icon: <HiOutlineSignal className="w-4 h-4" /> },
-        { href: '/admin/network/onu', label: 'All ONU', icon: <HiOutlineDevicePhoneMobile className="w-4 h-4" /> },
-        { href: '/admin/network/onu/new', label: 'Add ONU', icon: <HiOutlinePlus className="w-4 h-4" /> },
-        { href: '/admin/network/onutype', label: 'Onu Type', icon: <HiOutlineClipboardDocumentList className="w-4 h-4" /> },
-        { href: '/admin/network/speedprofiles', label: 'Speed Profiles', icon: <HiOutlineBolt className="w-4 h-4" /> },
-        { href: '/admin/network/vlan', label: 'VLAN', icon: <HiOutlineLink className="w-4 h-4" /> },
+        { href: '/admin/network/mikrotik', label: 'MikroTik', icon: <FiServer className="w-4 h-4" /> },
+        { href: '/admin/radius', label: 'RADIUS', icon: <FiKey className="w-4 h-4" /> },
+        { href: '/admin/network/olt', label: 'OLT', icon: <FiActivity className="w-4 h-4" /> },
+        { href: '/admin/network/onu', label: 'All ONU', icon: <FiSmartphone className="w-4 h-4" /> },
+        { href: '/admin/network/onu/new', label: 'Add ONU', icon: <FiPlus className="w-4 h-4" /> },
+        { href: '/admin/network/onutype', label: 'Onu Type', icon: <FiClipboard className="w-4 h-4" /> },
+        { href: '/admin/network/speedprofiles', label: 'Speed Profiles', icon: <FiZap className="w-4 h-4" /> },
+        { href: '/admin/network/vlan', label: 'VLAN', icon: <FiLink className="w-4 h-4" /> },
       ],
     },
     {
       href: '/admin/ftth',
       label: 'FTTH',
-      icon: <HiOutlineWifi className="w-5 h-5" />,
+      icon: <FiWifi className="w-5 h-5" />,
       children: [
-        { href: '/admin/ftth/otb', label: 'OTB', icon: <HiOutlineServer className="w-4 h-4" /> },
-        { href: '/admin/ftth/odc', label: 'ODC', icon: <HiOutlineArchiveBox className="w-4 h-4" /> },
-        { href: '/admin/ftth/odp', label: 'ODP', icon: <HiOutlineSquares2X2 className="w-4 h-4" /> },
-        { href: '/admin/ftth/closure', label: 'Join BOX/Closure', icon: <HiOutlineRectangleStack className="w-4 h-4" /> },
-        { href: '/admin/ftth/pole', label: 'Pole/Tiang', icon: <HiOutlineBolt className="w-4 h-4" /> },
-        { href: '/admin/ftth/kmz', label: 'KMZ', icon: <HiOutlineDocument className="w-4 h-4" /> },
-        { href: '/admin/ftth/map', label: 'Topology Map', icon: <HiOutlineMap className="w-4 h-4" /> },
+        { href: '/admin/ftth/otb', label: 'OTB', icon: <FiServer className="w-4 h-4" /> },
+        { href: '/admin/ftth/odc', label: 'ODC', icon: <FiArchive className="w-4 h-4" /> },
+        { href: '/admin/ftth/odp', label: 'ODP', icon: <FiGrid className="w-4 h-4" /> },
+        { href: '/admin/ftth/closure', label: 'Join BOX/Closure', icon: <FiLayers className="w-4 h-4" /> },
+        { href: '/admin/ftth/pole', label: 'Pole/Tiang', icon: <FiZap className="w-4 h-4" /> },
+        { href: '/admin/ftth/kmz', label: 'KMZ', icon: <FiFile className="w-4 h-4" /> },
+        { href: '/admin/ftth/map', label: 'Topology Map', icon: <FiMap className="w-4 h-4" /> },
       ],
     },
     {
       href: '/admin/paket',
       label: 'Paket',
-      icon: <HiOutlineShoppingCart className="w-5 h-5" />,
+      icon: <FiShoppingCart className="w-5 h-5" />,
       children: [
-        { href: '/admin/paket/bandwidth', label: 'Bandwidth', icon: <HiOutlineCircleStack className="w-4 h-4" /> },
-        { href: '/admin/paket/profileppp', label: 'Profile PPP', icon: <HiOutlineUserCircle className="w-4 h-4" /> },
-        { href: '/admin/paket/harga', label: 'Harga Paket', icon: <HiOutlineCurrencyDollar className="w-4 h-4" /> },
+        { href: '/admin/paket/bandwidth', label: 'Bandwidth', icon: <FiDatabase className="w-4 h-4" /> },
+        { href: '/admin/paket/profileppp', label: 'Profile PPP', icon: <FiUser className="w-4 h-4" /> },
+        { href: '/admin/paket/harga', label: 'Harga Paket', icon: <FiDollarSign className="w-4 h-4" /> },
       ],
     },
     {
       href: '/admin/pelanggan',
       label: 'Pelanggan',
-      icon: <HiOutlineUsers className="w-5 h-5" />,
+      icon: <FiUsers className="w-5 h-5" />,
       children: [
-        { href: '/admin/pelanggan/ppp', label: 'Pelanggan PPP', icon: <HiOutlineUserCircle className="w-4 h-4" /> },
+        { href: '/admin/pelanggan/ppp', label: 'Pelanggan PPP', icon: <FiUser className="w-4 h-4" /> },
       ],
     },
-    { href: '/admin/users', label: 'Users', icon: <HiOutlineUsers className="w-5 h-5" /> },
+    {
+      href: '/admin/inventory',
+      label: 'Inventory',
+      icon: <FiBox className="w-5 h-5" />,
+      children: [
+        { href: '/admin/inventory', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" /> },
+        { href: '/admin/inventory/barang', label: 'Barang', icon: <FiBox className="w-4 h-4" /> },
+        { href: '/admin/inventory/masuk', label: 'Barang Masuk', icon: <FiDownload className="w-4 h-4" /> },
+        { href: '/admin/inventory/keluar', label: 'Barang Keluar', icon: <FiUpload className="w-4 h-4" /> },
+        { href: '/admin/inventory/transfer', label: 'Transfer Antar Gudang', icon: <FiTruck className="w-4 h-4" /> },
+        { href: '/admin/inventory/restock', label: 'Restock Management', icon: <FiTrendingUp className="w-4 h-4" /> },
+        { href: '/admin/inventory/opname', label: 'Stock Opname', icon: <FiClipboard className="w-4 h-4" /> },
+        { href: '/admin/inventory/gudang', label: 'Gudang', icon: <FiHome className="w-4 h-4" /> },
+      ],
+    },
+    { href: '/admin/users', label: 'Users', icon: <FiUsers className="w-5 h-5" /> },
     {
       href: '/admin/helpdesk',
       label: 'Helpdesk',
-      icon: <HiTicket className="w-5 h-5" />,
+      icon: <FiHelpCircle className="w-5 h-5" />,
       children: [
-        { href: '/admin/helpdesk', label: 'Dashboard', icon: <HiOutlineChartBar className="w-4 h-4" /> },
-        { href: '/admin/helpdesk/tiket', label: 'Semua Tiket', icon: <HiTicket className="w-4 h-4" /> },
+        { href: '/admin/helpdesk', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" /> },
+        { href: '/admin/helpdesk/tiket', label: 'Semua Tiket', icon: <FiHelpCircle className="w-4 h-4" /> },
       ],
     },
     {
       href: '/admin/workorders',
       label: 'Work Orders',
-      icon: <HiWrenchScrewdriver className="w-5 h-5" />,
+      icon: <FiTool className="w-5 h-5" />,
       children: [
-        { href: '/admin/workorders', label: 'Dashboard', icon: <HiOutlineChartBar className="w-4 h-4" /> },
-        { href: '/admin/workorders/list', label: 'All Work Orders', icon: <HiClipboardDocumentList className="w-4 h-4" /> },
+        { href: '/admin/workorders', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" /> },
+        { href: '/admin/workorders/list', label: 'All Work Orders', icon: <FiClipboard className="w-4 h-4" /> },
       ],
     },
     {
       href: '/admin/hris',
       label: 'HRIS',
-      icon: <HiOutlineUserGroup className="w-5 h-5" />,
+      icon: <FiUserGroup className="w-5 h-5" />,
       children: [
-        { href: '/admin/hris', label: 'Dashboard', icon: <HiOutlineChartBar className="w-4 h-4" /> },
-        { href: '/admin/hris/departments', label: 'Departments', icon: <HiOutlineBuildingOffice className="w-4 h-4" /> },
-        { href: '/admin/hris/employees', label: 'Employees', icon: <HiOutlineUsers className="w-4 h-4" /> },
-        { href: '/admin/hris/attendance', label: 'Attendance', icon: <HiOutlineClock className="w-4 h-4" /> },
-        { href: '/admin/hris/leaves', label: 'Leave Management', icon: <HiOutlineCalendar className="w-4 h-4" /> },
-        { href: '/admin/hris/payroll', label: 'Payroll', icon: <HiOutlineBanknotes className="w-4 h-4" /> },
+        { href: '/admin/hris', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" /> },
+        { href: '/admin/hris/departments', label: 'Departments', icon: <FiHome className="w-4 h-4" /> },
+        { href: '/admin/hris/employees', label: 'Employees', icon: <FiUsers className="w-4 h-4" /> },
+        { href: '/admin/hris/attendance', label: 'Attendance', icon: <FiClock className="w-4 h-4" /> },
+        { href: '/admin/hris/leaves', label: 'Leave Management', icon: <FiCalendar className="w-4 h-4" /> },
+        { href: '/admin/hris/payroll', label: 'Payroll', icon: <FiTrendingUp className="w-4 h-4" /> },
       ],
     },
     {
       href: '/admin/finance',
       label: 'Finance',
-      icon: <HiOutlineCurrencyDollar className="w-5 h-5" />,
+      icon: <FiDollarSign className="w-5 h-5" />,
       children: [
-        { href: '/admin/finance/tagihan', label: 'Tagihan', icon: <HiOutlineDocumentText className="w-4 h-4" /> },
-        { href: '/admin/finance/cashflow', label: 'Cashflow & Pengeluaran', icon: <HiOutlineBanknotes className="w-4 h-4" /> },
-        { href: '/admin/finance/bank-accounts', label: 'Rekening Bank', icon: <HiBanknotes className="w-4 h-4" /> },
+        { href: '/admin/finance/tagihan', label: 'Tagihan', icon: <FiFileText className="w-4 h-4" /> },
+        { href: '/admin/finance/cashflow', label: 'Cashflow & Pengeluaran', icon: <FiTrendingUp className="w-4 h-4" /> },
+        { href: '/admin/finance/bank-accounts', label: 'Rekening Bank', icon: <FiTrendingUp className="w-4 h-4" /> },
       ]
     },
     {
       href: '/admin/pengaturan',
       label: 'Pengaturan',
-      icon: <HiOutlineCog6Tooth className="w-5 h-5" />,
+      icon: <FiSettings className="w-5 h-5" />,
       children: [
-        { href: '/admin/pengaturan/umum', label: 'Umum', icon: <HiOutlineCog6Tooth className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/logo', label: 'Logo Perusahaan', icon: <HiOutlinePhoto className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/roles', label: 'Role Management', icon: <HiOutlineShieldCheck className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/email', label: 'Email', icon: <HiEnvelope className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/whatsapp', label: 'WhatsApp', icon: <HiChatBubbleLeftRight className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/oauth', label: 'OAuth', icon: <HiOutlineKey className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/payment-gateway', label: 'Payment Gateway', icon: <HiOutlineCreditCard className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/api', label: 'API', icon: <HiOutlineCodeBracket className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/umum', label: 'Umum', icon: <FiSettings className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/logo', label: 'Logo Perusahaan', icon: <FiImage className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/roles', label: 'Role Management', icon: <FiShield className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/email', label: 'Email', icon: <FiMail className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/whatsapp', label: 'WhatsApp', icon: <FiMessageSquare className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/oauth', label: 'OAuth', icon: <FiKey className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/payment-gateway', label: 'Payment Gateway', icon: <FiCreditCard className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/api', label: 'API', icon: <FiCode className="w-4 h-4" /> },
       ]
     },
   ], [])
@@ -196,7 +216,9 @@ export default function Sidebar() {
   return (
     <aside className="hidden w-64 shrink-0 bg-white border-r border-gray-200 dark:bg-gray-900 dark:border-gray-800 md:block">
       <div className="h-16 flex items-center px-6 border-b border-gray-200 dark:border-gray-800">
-        <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent">NetManager</h2>
+        <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent truncate" title={appName}>
+          {appName}
+        </h2>
       </div>
       <nav className="p-3 space-y-1.5">
         {navItems.map((item) => {
@@ -224,7 +246,7 @@ export default function Sidebar() {
                     </span>
                     <span>{item.label}</span>
                   </div>
-                  <HiChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  <FiChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
                 <div
                   className={`grid transition-all duration-200 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}

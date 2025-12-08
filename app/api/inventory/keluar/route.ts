@@ -1,0 +1,326 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authConfig } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { logger } from '@/lib/logger'
+
+async function requireAdmin() {
+  const session: any = await getServerSession(authConfig as any)
+  if (!session || session?.user?.role !== 'ADMIN') {
+    return null
+  }
+  return session
+}
+
+// Helper function to calculate stock by condition
+async function getStockByCondition(barangId: string, gudangId: string) {
+  // Get ALL transactions for this barang to calculate current condition breakdown
+  const [masukData, keluarData] = await Promise.all([
+    prisma.barangMasuk.findMany({
+      where: { barangId, gudangId },
+      orderBy: { tanggal: 'desc' }
+    }),
+    prisma.barangKeluar.findMany({
+      where: { barangId, gudangId },
+      orderBy: { tanggal: 'desc' }
+    })
+  ])
+
+  // Calculate current stock by condition
+  let stokBaru = 0
+  let stokBekas = 0
+  let stokRusak = 0
+
+  // Process barang masuk
+  masukData.forEach((masuk: any) => {
+    switch (masuk.kondisi) {
+      case 'BARU':
+        stokBaru += masuk.jumlah
+        break
+      case 'BEKAS':
+        stokBekas += masuk.jumlah
+        break
+      case 'RUSAK':
+        stokRusak += masuk.jumlah
+        break
+      default:
+        stokBaru += masuk.jumlah
+        break
+    }
+  })
+
+  // Process barang keluar
+  keluarData.forEach((keluar: any) => {
+    switch (keluar.kondisi) {
+      case 'BARU':
+        stokBaru = Math.max(0, stokBaru - keluar.jumlah)
+        break
+      case 'BEKAS':
+        stokBekas = Math.max(0, stokBekas - keluar.jumlah)
+        break
+      case 'RUSAK':
+        stokRusak = Math.max(0, stokRusak - keluar.jumlah)
+        break
+      default:
+        stokBaru = Math.max(0, stokBaru - keluar.jumlah)
+        break
+    }
+  })
+
+  return {
+    stokBaru,
+    stokBekas,
+    stokRusak,
+    totalStok: stokBaru + stokBekas + stokRusak
+  }
+}
+
+/**
+ * GET /api/inventory/keluar
+ * Get all stock-out movements with filters
+ */
+export async function GET(req: NextRequest) {
+  const startTime = Date.now()
+  try {
+    const session = await requireAdmin()
+    if (!session) {
+      logger.warn('Unauthorized access attempt to GET /api/inventory/keluar')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const searchParams = req.nextUrl.searchParams
+    const barangId = searchParams.get('barangId')
+    const gudangId = searchParams.get('gudangId')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const offset = (page - 1) * limit
+
+    // If checking stock availability for specific barang
+    if (searchParams.has('checkStock') && barangId && gudangId) {
+      try {
+        const stockByCondition = await getStockByCondition(barangId, gudangId)
+        return NextResponse.json({
+          stokByKondisi: {
+            BARU: stockByCondition.stokBaru,
+            BEKAS: stockByCondition.stokBekas,
+            RUSAK: stockByCondition.stokRusak,
+            total: stockByCondition.totalStok
+          }
+        })
+      } catch (error) {
+        return NextResponse.json({ error: 'Gagal mengecek stok' }, { status: 500 })
+      }
+    }
+
+    try {
+      const dbStart = Date.now()
+
+      // Build where clause
+      const where: any = {}
+      if (barangId) where.barangId = barangId
+      if (gudangId) where.gudangId = gudangId
+
+      const [keluarList, total] = await Promise.all([
+        prisma.barangKeluar.findMany({
+          where,
+          include: {
+            barang: {
+              select: {
+                id: true,
+                kode: true,
+                nama: true,
+                satuan: true
+              }
+            },
+            gudang: {
+              select: {
+                id: true,
+                kode: true,
+                nama: true
+              }
+            }
+          },
+          orderBy: {
+            tanggal: 'desc'
+          },
+          skip: offset,
+          take: limit
+        }),
+        prisma.barangKeluar.count({ where })
+      ])
+
+      logger.dbOperation('findMany', 'BarangKeluar+Relations', Date.now() - dbStart)
+
+      logger.apiRequest('GET', '/api/inventory/keluar', 200, Date.now() - startTime, {
+        userId: session.user.id,
+        count: keluarList.length,
+        page,
+        limit,
+        total,
+        barangId,
+        gudangId,
+      })
+
+      return NextResponse.json({
+        keluarList,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      })
+    } finally {
+      // do not disconnect shared prisma client
+    }
+  } catch (error: any) {
+    logger.error('Error fetching barang keluar', error, {
+      path: '/api/inventory/keluar',
+      method: 'GET',
+    })
+    return NextResponse.json(
+      { error: 'Gagal memuat data barang keluar' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * POST /api/inventory/keluar
+ * Record new stock-out movement
+ */
+export async function POST(req: NextRequest) {
+  const startTime = Date.now()
+  try {
+    const session = await requireAdmin()
+    if (!session) {
+      logger.warn('Unauthorized access attempt to POST /api/inventory/keluar')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const { barangId, gudangId, jumlah, kondisi, isHilang, keterangan } = body
+
+    // Validation
+    if (!barangId || !gudangId || !jumlah || jumlah <= 0) {
+      return NextResponse.json(
+        { error: 'Barang, gudang, dan jumlah harus diisi dengan benar' },
+        { status: 400 }
+      )
+    }
+
+    // Validate condition (HILANG is now a separate boolean field)
+    const validConditions = ['BARU', 'BEKAS', 'RUSAK']
+    if (kondisi && !validConditions.includes(kondisi)) {
+      return NextResponse.json(
+        { error: 'Kondisi tidak valid. Pilih: BARU, BEKAS, atau RUSAK' },
+        { status: 400 }
+      )
+    }
+
+    try {
+      const dbStart = Date.now()
+      await prisma.$transaction(async (tx) => {
+        // Check if barang exists
+        const barang = await tx.barang.findUnique({
+          where: { id: barangId }
+        })
+
+        if (!barang) {
+          throw new Error('Barang tidak ditemukan')
+        }
+
+        // Check if gudang exists
+        const gudang = await tx.gudang.findUnique({
+          where: { id: gudangId, isActive: true }
+        })
+
+        if (!gudang) {
+          throw new Error('Gudang tidak ditemukan atau tidak aktif')
+        }
+
+        // Get current stock from BarangGudang (authoritative source of truth)
+        const currentStock = await tx.barangGudang.findUnique({
+          where: { barangId_gudangId: { barangId, gudangId } }
+        })
+
+        // Validate stock availability using BarangGudang.stok
+        if (!currentStock || currentStock.stok === 0) {
+          throw new Error('Barang tidak memiliki stok di gudang ini')
+        }
+
+        if (currentStock.stok < jumlah) {
+          throw new Error(`Stok tidak mencukupi. Stok tersedia: ${currentStock.stok}, diminta: ${jumlah}`)
+        }
+
+        // Create stock-out record
+        const keluarRecord = await tx.barangKeluar.create({
+          data: {
+            barangId,
+            gudangId,
+            jumlah,
+            kondisi: kondisi || 'BARU',
+            isHilang: isHilang || false,
+            keterangan
+          }
+        })
+
+        // Update stock
+        const newStock = currentStock.stok - jumlah
+        if (newStock === 0) {
+          // If stock becomes 0, delete the BarangGudang record
+          await tx.barangGudang.delete({
+            where: { barangId_gudangId: { barangId, gudangId } }
+          })
+        } else {
+          // Update with reduced stock
+          await tx.barangGudang.update({
+            where: { barangId_gudangId: { barangId, gudangId } },
+            data: { stok: newStock }
+          })
+        }
+
+        logger.dbOperation('transaction', 'BarangKeluar+BarangGudang', Date.now() - dbStart)
+
+        logger.apiRequest('POST', '/api/inventory/keluar', 201, Date.now() - startTime, {
+          userId: session.user.id,
+          barangId,
+          gudangId,
+          jumlah,
+          keluarId: keluarRecord.id,
+          previousStock: currentStock.stok,
+          newStock: currentStock.stok - jumlah,
+        })
+
+        return keluarRecord
+      })
+
+      return NextResponse.json(
+        { message: 'Barang keluar berhasil dicatat' },
+        { status: 201 }
+      )
+    } finally {
+      // do not disconnect shared prisma client
+    }
+  } catch (error: any) {
+    logger.error('Error creating barang keluar', error, {
+      path: '/api/inventory/keluar',
+      method: 'POST',
+    })
+
+    if (error.message === 'Barang tidak ditemukan') {
+      return NextResponse.json({ error: error.message }, { status: 404 })
+    }
+    if (error.message === 'Gudang tidak ditemukan atau tidak aktif') {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    if (error.message.includes('Stok tidak mencukupi') || error.message.includes('tersedia')) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    return NextResponse.json(
+      { error: 'Gagal mencatat barang keluar' },
+      { status: 500 }
+    )
+  }
+}

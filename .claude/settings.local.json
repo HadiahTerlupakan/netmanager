@@ -39,7 +39,9 @@
       "Bash(docker pull:*)",
       "Bash(npx tsx:*)",
       "Bash(timeout 300 npm run build:*)",
-      "Bash(npm run test:*)"
+      "Bash(npm run test:*)",
+      "Bash(Get-Content \"c:\\Users\\ASUS\\Documents\\projeck\\netmanager\\prisma\\schema.prisma\")",
+      "Bash(Select-Object:*)"
     ],
     "deny": [],
     "ask": []

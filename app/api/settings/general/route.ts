@@ -13,6 +13,7 @@ type BankAccount = {
 
 type GeneralSettings = {
   perusahaan: string
+  namaAplikasi: string
   alamat: string
   nomorHp: string
   deskripsiInvoice: string
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
         key: {
           in: [
             'GENERAL_PERUSAHAAN',
+            'GENERAL_NAMA_APLIKASI',
             'GENERAL_ALAMAT',
             'GENERAL_NOMOR_HP',
             'GENERAL_DESKRIPSI_INVOICE',
@@ -73,6 +75,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       perusahaan: settingsMap.get('GENERAL_PERUSAHAAN') || '',
+      namaAplikasi: settingsMap.get('GENERAL_NAMA_APLIKASI') || 'NetManager',
       alamat: settingsMap.get('GENERAL_ALAMAT') || '',
       nomorHp: settingsMap.get('GENERAL_NOMOR_HP') || '',
       deskripsiInvoice: settingsMap.get('GENERAL_DESKRIPSI_INVOICE') || '',
@@ -119,6 +122,7 @@ export async function POST(req: NextRequest) {
 
     const {
       perusahaan,
+      namaAplikasi,
       alamat,
       nomorHp,
       deskripsiInvoice,
@@ -142,6 +146,22 @@ export async function POST(req: NextRequest) {
           key: 'GENERAL_PERUSAHAAN',
           value: perusahaan?.trim() || null,
           description: 'Nama perusahaan',
+          encrypted: false,
+        },
+      }),
+
+      // Nama Aplikasi
+      prisma.settings.upsert({
+        where: { key: 'GENERAL_NAMA_APLIKASI' },
+        update: {
+          value: namaAplikasi?.trim() || 'NetManager',
+          description: 'Nama Aplikasi',
+          updatedAt: new Date(),
+        },
+        create: {
+          key: 'GENERAL_NAMA_APLIKASI',
+          value: namaAplikasi?.trim() || 'NetManager',
+          description: 'Nama Aplikasi',
           encrypted: false,
         },
       }),

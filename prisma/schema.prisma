@@ -48,6 +48,37 @@ enum TipePengeluaran {
   OPEX
 }
 
+enum KondisiBarang {
+  BARU    // Barang baru
+  BEKAS   // Barang bekas (masih bisa dipakai)
+  RUSAK   // Barang rusak (masih ada fisiknya)
+}
+
+// ============================================
+// RESTOCK MANAGEMENT ENUMS
+// ============================================
+
+enum AlertType {
+  RESTOCK_NEEDED
+  STOCK_OUT
+  LOW_STOCK
+  OVERSTOCK
+  EXPIRED_WARNING
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum PeriodType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
 // ============================================
 // HRIS ENUMS
 // ============================================
@@ -3147,4 +3178,286 @@ model FixedAssetMaintenance {
   @@index([fixedAssetId])
   @@index([maintenanceDate])
   @@index([maintenanceType])
+}
+
+// ============================================
+// INVENTORY MANAGEMENT MODELS
+// ============================================
+
+// Gudang - Lokasi penyimpanan inventory
+model Gudang {
+  id          String   @id @default(cuid())
+  kode        String   @unique // G01, G02, etc
+  nama        String   // Gudang Utama, Gudang Cabang, etc
+  lokasi      String?  // Alamat lengkap
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  barang      BarangGudang[]
+  masuk       BarangMasuk[]
+  keluar      BarangKeluar[]
+  opname      StockOpname[]
+  transferDari TransferAntarGudang[] @relation("TransferDariGudang")
+  transferKe  TransferAntarGudang[] @relation("TransferKeGudang")
+  restockSettings RestockSettings[]
+  restockAlerts RestockAlerts[]
+  usageAnalytics UsageAnalytics[]
+
+  @@map("gudang")
+}
+
+// Barang - Master data barang inventory
+model Barang {
+  id          String   @id @default(cuid())
+  kode        String   @unique // Kode barang
+  nama        String   // Nama barang
+  satuan      String   // pcs, meter, box, dll
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  stok        BarangGudang[]
+  masuk       BarangMasuk[]
+  keluar      BarangKeluar[]
+  opname      StockOpname[]
+  transfer    TransferAntarGudang[]
+  restockSettings RestockSettings[]
+  restockAlerts RestockAlerts[]
+  usageAnalytics UsageAnalytics[]
+
+  @@map("barang")
+}
+
+// BarangGudang - Stok barang per gudang (junction table)
+model BarangGudang {
+  id          String   @id @default(cuid())
+  barangId    String
+  gudangId    String
+  stok        Int      @default(0) // Stok di gudang ini
+
+  barang      Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang      Gudang   @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([barangId, gudangId])
+  @@map("barang_gudang")
+}
+
+// BarangMasuk - Tracking barang masuk
+model BarangMasuk {
+  id                  String       @id @default(cuid())
+  barangId            String
+  gudangId            String
+  transferId          String?      // ID transfer antar gudang (nullable)
+  tanggal             DateTime     @default(now())
+  jumlah              Int          // Jumlah barang masuk
+  kondisi             KondisiBarang @default(BARU) // Kondisi barang (BARU, BEKAS, RUSAK)
+  keterangan          String?      // Keterangan/pengirim
+
+  // Enhanced fields for detailed tracking
+  lokasiPenyimpanan   String?      // Lokasi spesifik penyimpanan
+  nomorRak            String?      // Nomor rak/shelf
+  nomorBox            String?      // Nomor box/container
+  pic                 String?      // Person in charge
+  suhuPenyimpanan     Float?       // Suhu penyimpanan
+  kelembaban          Float?       // Kelembaban
+  tanggalExpire       DateTime?    // Tanggal kadaluarsa barang
+  nomorBatch          String?      // Nomor batch/lot
+  supplier            String?      // Nama supplier
+
+  barang              Barang       @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang              Gudang       @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  transfer            TransferAntarGudang? @relation(fields: [transferId], references: [id])
+  createdAt           DateTime     @default(now())
+
+  @@index([barangId])
+  @@index([gudangId])
+  @@index([transferId])
+  @@index([tanggal])
+  @@index([kondisi])
+  @@map("barang_masuk")
+}
+
+// BarangKeluar - Tracking barang keluar
+model BarangKeluar {
+  id          String       @id @default(cuid())
+  barangId    String
+  gudangId    String
+  transferId  String?      // ID transfer antar gudang (nullable)
+  tanggal     DateTime     @default(now())
+  jumlah      Int          // Jumlah barang keluar
+  kondisi     KondisiBarang @default(BARU) // Kondisi barang (BARU, BEKAS, RUSAK)
+  keterangan  String?      // Keterangan/tujuan
+
+  // Enhanced fields for detailed tracking
+  lokasiPenyimpanan   String?      // Lokasi spesifik penyimpanan
+  nomorRak            String?      // Nomor rak/shelf
+  nomorBox            String?      // Nomor box/container
+  pic                 String?      // Person in charge
+  tujuanPenggunaan    String?      // Tujuan penggunaan
+  nomorBatch          String?      // Nomor batch/lot
+  customer            String?      // Customer/pelanggan
+  isHilang            Boolean      @default(false) // True jika barang hilang (tidak ada fisiknya)
+
+  barang              Barang       @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang              Gudang       @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  transfer            TransferAntarGudang? @relation(fields: [transferId], references: [id])
+  createdAt           DateTime     @default(now())
+
+  @@index([barangId])
+  @@index([gudangId])
+  @@index([transferId])
+  @@index([tanggal])
+  @@index([kondisi])
+  @@index([isHilang])
+  @@map("barang_keluar")
+}
+
+// StockOpname - Pencatatan stock opname
+model StockOpname {
+  id              String   @id @default(cuid())
+  barangId        String
+  gudangId        String
+  tanggal         DateTime @default(now())
+  stokFisik       Int      // Stok fisik yang dihitung
+  stokSistem      Int      // Stok di sistem sebelum opname
+  selisih         Int      // Selisih dengan stok sistem
+  keterangan      String?  // Keterangan perbedaan
+
+  // Enhanced fields for condition breakdown
+  kondisiBaik     Int      @default(0)    // Jumlah barang kondisi baik
+  kondisiRusak    Int      @default(0)    // Jumlah barang rusak
+  kondisiExpire   Int      @default(0)    // Jumlah barang kadaluarsa
+  lokasiPenyimpanan String?              // Lokasi spesifik penyimpanan
+  nomorRak        String?                // Nomor rak/shelf
+  nomorBox        String?                // Nomor box/container
+  pic             String?                // Person in charge
+  suhuPenyimpanan Float?                 // Suhu penyimpanan (untuk barang tertentu)
+  kelembaban      Float?                 // Kelembaban (untuk barang tertentu)
+  tanggalExpire   DateTime?              // Tanggal kadaluarsa barang
+  nomorBatch      String?                // Nomor batch/lot
+  catatanDetail   String?                // Catatan detail tambahan
+
+  barang          Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang          Gudang   @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+
+  @@index([barangId])
+  @@index([gudangId])
+  @@index([tanggal])
+  @@map("stock_opname")
+}
+
+// TransferAntarGudang - Transfer barang antar gudang
+model TransferAntarGudang {
+  id                String   @id @default(cuid())
+  kodeTransfer      String   @unique // Kode transfer otomatis
+  barangId          String
+  dariGudangId      String   // Gudang sumber
+  keGudangId        String   // Gudang tujuan
+  tanggal           DateTime @default(now())
+  jumlah            Int      // Jumlah barang yang ditransfer
+  kondisi           KondisiBarang @default(BARU) // Kondisi barang saat transfer
+  keterangan        String?  // Keterangan transfer
+
+  // Relations
+  barang            Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  dariGudang        Gudang   @relation("TransferDariGudang", fields: [dariGudangId], references: [id], onDelete: Cascade)
+  keGudang          Gudang   @relation("TransferKeGudang", fields: [keGudangId], references: [id], onDelete: Cascade)
+  masuk             BarangMasuk[]
+  keluar            BarangKeluar[]
+
+  createdAt         DateTime @default(now())
+
+  @@index([barangId])
+  @@index([dariGudangId])
+  @@index([keGudangId])
+  @@index([tanggal])
+  @@index([kondisi])
+  @@map("transfer_antar_gudang")
+}
+
+// RestockSettings - Pengaturan restock per barang per gudang
+model RestockSettings {
+  id                  String   @id @default(cuid())
+  barangId            String
+  gudangId            String
+  minStok             Int      // Minimum stock level (reorder point)
+  maxStok             Int      // Maximum stock level
+  safetyStok          Int      @default(0) // Safety stock buffer
+  leadTimeDays        Int      @default(7) // Estimated lead time in days
+  avgDailyUsage       Float    @default(0) // Average daily usage
+  lastUsageCalculation DateTime? // Last time usage was calculated
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  barang              Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang              Gudang   @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+
+  @@unique([barangId, gudangId])
+  @@index([barangId])
+  @@index([gudangId])
+  @@index([isActive])
+  @@map("restock_settings")
+}
+
+// RestockAlerts - Notifikasi restock
+model RestockAlerts {
+  id                  String   @id @default(cuid())
+  barangId            String
+  gudangId            String
+  alertType           AlertType @default(RESTOCK_NEEDED) // Type of alert
+  currentStok         Int      // Current stock when alert created
+  minStok             Int      // Minimum stock threshold
+  recommendedOrder    Int      // Recommended order quantity
+  urgency             UrgencyLevel @default(MEDIUM) // Urgency level
+  message             String?  // Alert message
+  isRead              Boolean  @default(false)
+  isResolved          Boolean  @default(false)
+  resolvedAt          DateTime?
+  resolvedBy          String?  // User ID who resolved
+  createdAt           DateTime @default(now())
+
+  // Relations
+  barang              Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang              Gudang   @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+
+  @@index([barangId])
+  @@index([gudangId])
+  @@index([isRead])
+  @@index([isResolved])
+  @@index([alertType])
+  @@index([createdAt])
+  @@map("restock_alerts")
+}
+
+// Usage Analytics - Track barang usage for better prediction
+model UsageAnalytics {
+  id                  String   @id @default(cuid())
+  barangId            String
+  gudangId            String
+  periodType          PeriodType @default(DAILY) // DAILY, WEEKLY, MONTHLY
+  periodStart         DateTime // Start of the period
+  periodEnd           DateTime // End of the period
+  totalUsage          Int      @default(0) // Total quantity used in this period
+  transactionCount    Int      @default(0) // Number of transactions
+  avgPerTransaction   Float    @default(0) // Average quantity per transaction
+  createdAt           DateTime @default(now())
+
+  // Relations
+  barang              Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang              Gudang   @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+
+  @@unique([barangId, gudangId, periodType, periodStart])
+  @@index([barangId])
+  @@index([gudangId])
+  @@index([periodType])
+  @@index([periodStart])
+  @@map("usage_analytics")
 }

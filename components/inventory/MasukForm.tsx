@@ -1,0 +1,342 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+
+interface MasukFormProps {
+  initialData?: any
+  onClose: () => void
+}
+
+export function MasukForm({ initialData, onClose }: MasukFormProps) {
+  const [formData, setFormData] = useState({
+    barangId: '',
+    gudangId: '',
+    jumlah: '',
+    kondisi: 'BARU' as 'BARU' | 'BEKAS' | 'RUSAK',
+    keterangan: ''
+  })
+  const [barangs, setBarangs] = useState<any[]>([])
+  const [gudangs, setGudangs] = useState<any[]>([])
+  const [currentStock, setCurrentStock] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const router = useRouter()
+
+  useEffect(() => {
+    async function fetchInitialData() {
+      try {
+        // Fetch barang
+        const barangResponse = await fetch('/api/inventory/barang?limit=100')
+        const barangData = await barangResponse.json()
+        setBarangs(barangData.barangs || [])
+
+        // Fetch gudang
+        const gudangResponse = await fetch('/api/inventory/gudang')
+        const gudangData = await gudangResponse.json()
+        setGudangs(gudangData.gudangs || [])
+      } catch (error) {
+        console.error('Error fetching initial data:', error)
+        setError('Gagal memuat data awal')
+      }
+    }
+
+    fetchInitialData()
+  }, [])
+
+  useEffect(() => {
+    async function fetchCurrentStock() {
+      if (formData.barangId && formData.gudangId) {
+        try {
+          // Check current stock for this barang-gudang combination
+          const selectedBarang = barangs.find(b => b.id === formData.barangId)
+          if (selectedBarang) {
+            const stockInfo = selectedBarang.stockPerGudang?.find((s: any) => s.gudangId === formData.gudangId)
+            setCurrentStock(stockInfo?.stok || 0)
+          }
+        } catch (error) {
+          console.error('Error fetching current stock:', error)
+        }
+      } else {
+        setCurrentStock(0)
+      }
+    }
+
+    fetchCurrentStock()
+  }, [formData.barangId, formData.gudangId, barangs])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validation
+    if (!formData.barangId || !formData.gudangId || !formData.jumlah) {
+      setError('Barang, gudang, dan jumlah harus diisi')
+      return
+    }
+
+    const jumlah = parseInt(formData.jumlah)
+    if (isNaN(jumlah) || jumlah <= 0) {
+      setError('Jumlah harus berupa angka positif')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const response = await fetch('/api/inventory/masuk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          jumlah
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Gagal mencatat barang masuk')
+      }
+
+      setSuccess('Barang masuk berhasil dicatat!')
+
+      // Reset form
+      setFormData({
+        barangId: '',
+        gudangId: '',
+        jumlah: '',
+        kondisi: 'BARU',
+        keterangan: ''
+      })
+      setCurrentStock(0)
+
+      // Close form after 1 second
+      setTimeout(() => {
+        onClose()
+      }, 1000)
+
+    } catch (error) {
+      console.error('Error submitting barang masuk:', error)
+      setError(error instanceof Error ? error.message : 'Terjadi kesalahan')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const selectedBarang = barangs.find(b => b.id === formData.barangId)
+  const selectedGudang = gudangs.find(g => g.id === formData.gudangId)
+
+  const getStockStatusColor = (stock: number) => {
+    if (stock === 0) return 'text-red-600 font-bold'
+    if (stock < 5) return 'text-yellow-600 font-semibold'
+    return 'text-green-600'
+  }
+
+  const getKondisiColor = (kondisi: string) => {
+    switch (kondisi) {
+      case 'BARU': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+      case 'BEKAS': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+      case 'RUSAK': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-md text-green-800">
+            {success}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div>
+            <label htmlFor="barangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Barang *
+            </label>
+            <select
+              id="barangId"
+              value={formData.barangId}
+              onChange={(e) => setFormData({ ...formData, barangId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              disabled={loading}
+            >
+              <option value="">Pilih barang</option>
+              {barangs.map((barang) => (
+                <option key={barang.id} value={barang.id}>
+                  {barang.kode} - {barang.nama}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="gudangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Gudang *
+            </label>
+            <select
+              id="gudangId"
+              value={formData.gudangId}
+              onChange={(e) => setFormData({ ...formData, gudangId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              disabled={loading}
+            >
+              <option value="">Pilih gudang</option>
+              {gudangs.map((gudang) => (
+                <option key={gudang.id} value={gudang.id}>
+                  {gudang.kode} - {gudang.nama}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Selected Barang & Gudang Info */}
+        {(selectedBarang || selectedGudang) && (
+          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {selectedBarang && (
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Barang terpilih:</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {selectedBarang.kode} - {selectedBarang.nama}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Satuan: {selectedBarang.satuan}
+                  </p>
+                </div>
+              )}
+              {selectedGudang && (
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Gudang terpilih:</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {selectedGudang.kode} - {selectedGudang.nama}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Lokasi: {selectedGudang.lokasi || '-'}
+                  </p>
+                </div>
+              )}
+              {currentStock >= 0 && (
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Stok saat ini:</p>
+                  <p className={`text-lg ${getStockStatusColor(currentStock)}`}>
+                    {currentStock} {selectedBarang?.satuan || 'pcs'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {currentStock === 0 && 'Stok kosong'}
+                    {currentStock > 0 && currentStock < 5 && 'Stok menipis'}
+                    {currentStock >= 5 && 'Stok aman'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div>
+            <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Jumlah *
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                id="jumlah"
+                value={formData.jumlah}
+                onChange={(e) => setFormData({ ...formData, jumlah: e.target.value })}
+                className="w-full px-3 py-2 pr-16 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="0"
+                min="1"
+                disabled={loading}
+              />
+              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">
+                {selectedBarang?.satuan || 'pcs'}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="kondisi" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Kondisi Barang *
+            </label>
+            <select
+              id="kondisi"
+              value={formData.kondisi}
+              onChange={(e) => setFormData({ ...formData, kondisi: e.target.value as 'BARU' | 'BEKAS' | 'RUSAK' })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              disabled={loading}
+            >
+              <option value="BARU">🟢 Baru</option>
+              <option value="BEKAS">🟡 Bekas</option>
+              <option value="RUSAK">🔴 Rusak</option>
+            </select>
+            <div className="mt-1">
+              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiColor(formData.kondisi)}`}>
+                {formData.kondisi === 'BARU' && 'Baru - Siap pakai'}
+                {formData.kondisi === 'BEKAS' && 'Bekas - Pernah dipakai'}
+                {formData.kondisi === 'RUSAK' && 'Rusak - Perlu perbaikan'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="tanggal" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Tanggal
+          </label>
+          <input
+            type="date"
+            id="tanggal"
+            defaultValue={new Date().toISOString().split('T')[0]}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            disabled={loading}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="keterangan" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Keterangan
+          </label>
+          <textarea
+            id="keterangan"
+            value={formData.keterangan}
+            onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            placeholder="Contoh: Dari supplier PT Telkom Indonesia"
+            disabled={loading}
+          />
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            disabled={loading}
+          >
+            Batal
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Menyimpan...' : 'Simpan'}
+          </button>
+        </div>
+      </form>
+  )
+}
