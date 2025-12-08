@@ -209,14 +209,28 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { barangId, gudangId, jumlah, kondisi, isHilang, keterangan, purpose } = body
+    const {
+      barangId,
+      gudangId,
+      jumlah,
+      kondisi,
+      isHilang,
+      keterangan,
+      purpose,
+      fotoBukti,
+      fotoMetadata,
+      employeeId: requestEmployeeId  // Allow admin to specify employeeId
+    } = body
 
     // If employee is creating the record, set employeeId and use purpose from body
-    let employeeId = null
+    let finalEmployeeId = null
     let finalKeterangan = keterangan
 
     if (session.user.role === 'EMPLOYEE') {
-      employeeId = session.user.id
+      finalEmployeeId = session.user.id
+    } else if (session.user.role === 'ADMIN' && requestEmployeeId) {
+      // Admin can specify employeeId
+      finalEmployeeId = requestEmployeeId
     }
 
     // For employees (or anyone using the employee form), always use purpose as keterangan if provided
@@ -241,9 +255,24 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Validate photo data if provided
+    if (fotoBukti && !Array.isArray(fotoBukti)) {
+      return NextResponse.json(
+        { error: 'fotoBukti harus berupa array URL foto' },
+        { status: 400 }
+      )
+    }
+
+    if (fotoMetadata && typeof fotoMetadata !== 'object') {
+      return NextResponse.json(
+        { error: 'fotoMetadata harus berupa object JSON' },
+        { status: 400 }
+      )
+    }
+
     try {
       const dbStart = Date.now()
-      await prisma.$transaction(async (tx) => {
+      const keluarRecord = await prisma.$transaction(async (tx) => {
         // Check if barang exists
         const barang = await tx.barang.findUnique({
           where: { id: barangId }
@@ -284,7 +313,7 @@ export async function POST(req: NextRequest) {
           bodyKeterangan: keterangan,
           finalKeterangan: finalKeterangan
         })
-        const keluarRecord = await tx.barangKeluar.create({
+        const newKeluarRecord = await tx.barangKeluar.create({
           data: {
             barangId,
             gudangId,
@@ -292,11 +321,13 @@ export async function POST(req: NextRequest) {
             kondisi: kondisi || 'BARU',
             isHilang: isHilang || false,
             keterangan: finalKeterangan,
-            employeeId,
-            purpose: session.user.role === 'EMPLOYEE' ? purpose : null
+            employeeId: finalEmployeeId,
+            purpose: session.user.role === 'EMPLOYEE' ? purpose : null,
+            fotoBukti: fotoBukti || [],
+            fotoMetadata: fotoMetadata || null
           }
         })
-        console.log('[DEBUG] Created record result:', keluarRecord)
+        console.log('[DEBUG] Created record result:', newKeluarRecord)
 
         // Update stock
         const newStock = currentStock.stok - jumlah
@@ -320,16 +351,20 @@ export async function POST(req: NextRequest) {
           barangId,
           gudangId,
           jumlah,
-          keluarId: keluarRecord.id,
+          keluarId: newKeluarRecord.id,
           previousStock: currentStock.stok,
           newStock: currentStock.stok - jumlah,
         })
 
-        return keluarRecord
+        return newKeluarRecord
       })
 
       return NextResponse.json(
-        { message: 'Barang keluar berhasil dicatat' },
+        {
+          message: 'Barang keluar berhasil dicatat',
+          keluarId: keluarRecord.id,
+          data: keluarRecord
+        },
         { status: 201 }
       )
     } finally {

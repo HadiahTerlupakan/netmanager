@@ -119,7 +119,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { barangId, gudangId, jumlah, kondisi, keterangan } = body
+    const {
+      barangId,
+      gudangId,
+      jumlah,
+      kondisi,
+      keterangan,
+      fotoBukti,
+      fotoMetadata
+    } = body
 
     // Validation
     if (!barangId || !gudangId || !jumlah || jumlah <= 0) {
@@ -129,9 +137,24 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Validate photo data if provided
+    if (fotoBukti && !Array.isArray(fotoBukti)) {
+      return NextResponse.json(
+        { error: 'fotoBukti harus berupa array URL foto' },
+        { status: 400 }
+      )
+    }
+
+    if (fotoMetadata && typeof fotoMetadata !== 'object') {
+      return NextResponse.json(
+        { error: 'fotoMetadata harus berupa object JSON' },
+        { status: 400 }
+      )
+    }
+
     try {
       const dbStart = Date.now()
-      await prisma.$transaction(async (tx) => {
+      const masukRecord = await prisma.$transaction(async (tx) => {
         // Check if barang exists
         const barang = await tx.barang.findUnique({
           where: { id: barangId }
@@ -151,13 +174,15 @@ export async function POST(req: NextRequest) {
         }
 
         // Create stock-in record
-        const masukRecord = await tx.barangMasuk.create({
+        const newMasukRecord = await tx.barangMasuk.create({
           data: {
             barangId,
             gudangId,
             jumlah,
             kondisi: kondisi || 'BARU',
-            keterangan
+            keterangan,
+            fotoBukti: fotoBukti || [],
+            fotoMetadata: fotoMetadata || null
           }
         })
 
@@ -192,14 +217,18 @@ export async function POST(req: NextRequest) {
           barangId,
           gudangId,
           jumlah,
-          masukId: masukRecord.id,
+          masukId: newMasukRecord.id,
         })
 
-        return masukRecord
+        return newMasukRecord
       })
 
       return NextResponse.json(
-        { message: 'Barang masuk berhasil dicatat' },
+        {
+          message: 'Barang masuk berhasil dicatat',
+          masukId: masukRecord.id,
+          data: masukRecord
+        },
         { status: 201 }
       )
     } finally {

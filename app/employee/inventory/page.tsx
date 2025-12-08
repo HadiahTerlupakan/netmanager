@@ -7,8 +7,11 @@ import {
   HiOutlineCube,
   HiOutlineMagnifyingGlass,
   HiOutlineCheckCircle,
-  HiOutlineXMark
+  HiOutlineXMark,
+  HiOutlineCamera,
+  HiOutlinePhoto
 } from 'react-icons/hi2'
+import { PhotoUpload, UploadedPhoto } from '@/components/inventory/PhotoUpload'
 
 export default function InventoryPage() {
   const router = useRouter()
@@ -24,6 +27,10 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [photos, setPhotos] = useState<UploadedPhoto[]>([])
+  const [transactionId, setTransactionId] = useState<string | null>(null)
+  const [uploadingPhotos, setUploadingPhotos] = useState(false)
+  const [showPhotoSection, setShowPhotoSection] = useState(false)
 
   // Check for URL params (from items page)
   useEffect(() => {
@@ -77,6 +84,12 @@ export default function InventoryPage() {
     setSuccess('')
   }
 
+  const handlePhotosChange = (newPhotos: UploadedPhoto[]) => {
+    setPhotos(newPhotos)
+    setError('')
+    setSuccess('')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -101,6 +114,7 @@ export default function InventoryPage() {
     setSuccess('')
 
     try {
+      // Step 1: Create the inventory transaction
       const response = await fetch('/api/inventory/keluar', {
         method: 'POST',
         headers: {
@@ -115,35 +129,117 @@ export default function InventoryPage() {
         }),
       })
 
-      if (response.ok) {
-        setSuccess('Barang berhasil diambil!')
-        // Reset form
-        setFormData({
-          barangId: '',
-          gudangId: '',
-          jumlah: '',
-          purpose: ''
-        })
-        setCurrentStock(0)
-
-        // Refresh data setelah 2 detik
-        setTimeout(() => {
-          setSuccess('')
-          // Refresh barang data untuk update stock
-          const barangResponse = fetch('/api/inventory/barang?limit=100')
-            .then(res => res.json())
-            .then(data => setBarangs(data.barangs || []))
-        }, 2000)
-      } else {
+      if (!response.ok) {
         const errorData = await response.json()
         setError(errorData.error || 'Gagal mengambil barang')
+        setLoading(false)
+        return
+      }
+
+      const result = await response.json()
+      const newTransactionId = result.data?.id || result.keluarId || result.id
+
+      if (!newTransactionId) {
+        console.error('Response structure:', result)
+        setError('Transaksi berhasil dibuat tetapi tidak ada ID yang dikembalikan')
+        setLoading(false)
+        return
+      }
+
+      // Step 2: Handle photo uploads if any photos were added
+      if (photos.length > 0) {
+        setTransactionId(newTransactionId)
+        setShowPhotoSection(true)
+        setSuccess('Transaksi berhasil! Silakan unggah foto barang yang diambil.')
+        setLoading(false)
+
+        // Auto-upload photos after a short delay
+        setTimeout(() => {
+          uploadTransactionPhotos(newTransactionId)
+        }, 1000)
+      } else {
+        // No photos to upload - complete the process
+        setSuccess('Barang berhasil diambil!')
+        resetForm()
       }
     } catch (error) {
       console.error('Error taking item:', error)
       setError('Terjadi kesalahan. Silakan coba lagi.')
-    } finally {
       setLoading(false)
     }
+  }
+
+  const uploadTransactionPhotos = async (txId: string) => {
+    if (photos.length === 0) return
+
+    setUploadingPhotos(true)
+    setError('')
+
+    try {
+      const formData = new FormData()
+
+      // Add all photos
+      photos.forEach((photo) => {
+        formData.append('photos', photo.file)
+      })
+
+      formData.append('transactionId', txId)
+      formData.append('transactionType', 'inventory-keluar')
+
+      const response = await fetch('/api/inventory/upload-photo', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setSuccess(`Barang berhasil diambil dan ${result.data.count} foto berhasil diunggah!`)
+
+        // Update photos status to success
+        setPhotos(prev => prev.map(photo => ({
+          ...photo,
+          status: 'success',
+          url: photo.url || result.data.urls[prev.indexOf(photo)] || '',
+          progress: 100
+        })))
+
+        // Reset form after showing success message
+        setTimeout(() => {
+          resetForm()
+          setShowPhotoSection(false)
+        }, 3000)
+      } else {
+        const errorData = await response.json()
+        setError(`Transaksi berhasil tetapi gagal mengunggah foto: ${errorData.error}`)
+      }
+    } catch (error) {
+      console.error('Error uploading photos:', error)
+      setError('Transaksi berhasil tetapi terjadi kesalahan saat mengunggah foto')
+    } finally {
+      setUploadingPhotos(false)
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      barangId: '',
+      gudangId: '',
+      jumlah: '',
+      purpose: ''
+    })
+    setPhotos([])
+    setTransactionId(null)
+    setCurrentStock(0)
+
+    // Refresh barang data untuk update stock
+    fetch('/api/inventory/barang?limit=100')
+      .then(res => res.json())
+      .then(data => setBarangs(data.barangs || []))
+
+    // Clear success message after 2 seconds
+    setTimeout(() => {
+      setSuccess('')
+    }, 2000)
   }
 
   const selectedBarang = barangs.find(b => b.id === formData.barangId)
@@ -304,16 +400,55 @@ export default function InventoryPage() {
             />
           </div>
 
+          {/* Photo Upload Section */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <HiOutlineCamera className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Foto Barang (Opsional)
+              </label>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                - Dokumentasi saat pengambilan
+              </span>
+            </div>
+
+            {/* Photo Upload Info */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
+              <div className="flex items-start gap-2">
+                <HiOutlinePhoto className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-blue-800 dark:text-blue-200">
+                  <p className="font-medium mb-1">Mengapa perlu foto?</p>
+                  <ul className="space-y-0.5 ml-4">
+                    <li>• Sebagai bukti dokumentasi</li>
+                    <li>• Membantu tracking barang</li>
+                    <li>• Verifikasi kondisi barang</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Photo Upload Component */}
+            <PhotoUpload
+              transactionId={transactionId || undefined}
+              transactionType="inventory-keluar"
+              onPhotosChange={handlePhotosChange}
+              maxPhotos={3}
+              maxSizeMB={5}
+              disabled={loading || uploadingPhotos}
+              className="mb-4"
+            />
+          </div>
+
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading || !formData.barangId || !formData.gudangId || !formData.jumlah || !formData.purpose}
+            disabled={loading || uploadingPhotos || !formData.barangId || !formData.gudangId || !formData.jumlah || !formData.purpose}
             className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-lg hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
           >
-            {loading ? (
+            {loading || uploadingPhotos ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Memproses...
+                {uploadingPhotos ? 'Mengunggah Foto...' : 'Memproses...'}
               </>
             ) : (
               <>
@@ -322,6 +457,26 @@ export default function InventoryPage() {
               </>
             )}
           </button>
+
+          {/* Photo Upload Progress Section */}
+          {showPhotoSection && transactionId && (
+            <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
+                  Mengunggah Foto Dokumentasi
+                </h3>
+              </div>
+              <p className="text-xs text-green-700 dark:text-green-300">
+                Mohon tunggu sebentar, foto sedang diunggah untuk dokumentasi transaksi #{transactionId.slice(-8)}...
+              </p>
+              {photos.length > 0 && (
+                <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                  {photos.filter(p => p.status === 'success').length} dari {photos.length} foto berhasil diunggah
+                </div>
+              )}
+            </div>
+          )}
         </form>
       </div>
 
@@ -330,13 +485,29 @@ export default function InventoryPage() {
         <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2">
           📌 Petunjuk Penggunaan
         </h3>
-        <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
-          <li>• Pilih barang yang akan diambil dari dropdown</li>
-          <li>• Pilih gudang lokasi barang berada</li>
-          <li>• Periksa stok tersedia sebelum input jumlah</li>
-          <li>• Jelaskan keperluan pengambilan barang</li>
-          <li>• Pastikan jumlah tidak melebihi stok tersedia</li>
-        </ul>
+        <div className="space-y-3">
+          <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
+            <li>• Pilih barang yang akan diambil dari dropdown</li>
+            <li>• Pilih gudang lokasi barang berada</li>
+            <li>• Periksa stok tersedia sebelum input jumlah</li>
+            <li>• Jelaskan keperluan pengambilan barang</li>
+            <li>• Pastikan jumlah tidak melebihi stok tersedia</li>
+          </ul>
+
+          <div className="border-t border-amber-200 dark:border-amber-700 pt-3">
+            <h4 className="text-xs font-semibold text-amber-900 dark:text-amber-100 mb-2 flex items-center gap-1">
+              <HiOutlineCamera className="w-3 h-3" />
+              Panduan Foto Dokumentasi:
+            </h4>
+            <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
+              <li>• Foto opsional tapi direkomendasikan untuk dokumentasi</li>
+              <li>• Pastikan foto jelas dan menunjukkan kondisi barang</li>
+              <li>• Maksimal 3 foto dengan ukuran 5MB per foto</li>
+              <li>• Format: JPEG, PNG, GIF, WebP</li>
+              <li>• Foto akan otomatis diunggah setelah transaksi</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   )
