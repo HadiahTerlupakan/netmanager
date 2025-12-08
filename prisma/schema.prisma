@@ -164,6 +164,7 @@ model User {
   bankAccountsUpdated BankAccount[] @relation("BankAccountUpdatedBy")
   transactionsCreated Transaction[] @relation("TransactionCreatedBy")
   transactionsUpdated Transaction[] @relation("TransactionUpdatedBy")
+  barangKeluar         BarangKeluar[] @relation("EmployeeBarangKeluar")
 }
 
 // OAuth Account model for Auth.js v5
@@ -3303,9 +3304,14 @@ model BarangKeluar {
   customer            String?      // Customer/pelanggan
   isHilang            Boolean      @default(false) // True jika barang hilang (tidak ada fisiknya)
 
+  // Employee fields for tracking who took the item
+  employeeId          String?      // ID karyawan yang mengambil barang
+  purpose             String?      // Keperluan pengambilan barang
+
   barang              Barang       @relation(fields: [barangId], references: [id], onDelete: Cascade)
   gudang              Gudang       @relation(fields: [gudangId], references: [id], onDelete: Cascade)
   transfer            TransferAntarGudang? @relation(fields: [transferId], references: [id])
+  user                User?        @relation("EmployeeBarangKeluar", fields: [employeeId], references: [id], onDelete: SetNull)
   createdAt           DateTime     @default(now())
 
   @@index([barangId])

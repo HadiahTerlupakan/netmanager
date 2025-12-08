@@ -12,7 +12,8 @@ import {
     HiOutlineBanknotes,
     HiOutlineWrench,
     HiOutlineBell,
-    HiOutlineArrowRightOnRectangle
+    HiOutlineArrowRightOnRectangle,
+    HiOutlineCube
 } from 'react-icons/hi2'
 import { PWAInstallBanner } from '@/components/pwa/PWAInstallBanner'
 import { ToastProvider } from '@/components/ui/Toast'
@@ -24,6 +25,7 @@ const navigationConfig = [
     { name: 'Dashboard', href: '/employee', icon: HiOutlineHome },
     { name: 'Attendance', href: '/employee/attendance', icon: HiOutlineClock, feature: 'HRIS' },
     { name: 'Leaves', href: '/employee/leaves', icon: HiOutlineCalendar, feature: 'HRIS' },
+    { name: 'Ambil Barang', href: '/employee/inventory', icon: HiOutlineCube, feature: 'INVENTORY' },
     { name: 'Payslips', href: '/employee/payslips', icon: HiOutlineBanknotes, feature: 'HRIS' },
     { name: 'Profile', href: '/employee/profile', icon: HiOutlineUser },
 ]

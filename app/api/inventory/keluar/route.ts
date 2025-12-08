@@ -4,9 +4,9 @@ import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 
-async function requireAdmin() {
+async function requireAdminOrEmployee() {
   const session: any = await getServerSession(authConfig as any)
-  if (!session || session?.user?.role !== 'ADMIN') {
+  if (!session || (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'EMPLOYEE')) {
     return null
   }
   return session
@@ -82,7 +82,7 @@ async function getStockByCondition(barangId: string, gudangId: string) {
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
+    const session = await requireAdminOrEmployee()
     if (!session) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/keluar')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -138,7 +138,17 @@ export async function GET(req: NextRequest) {
                 kode: true,
                 nama: true
               }
-            }
+            },
+            // Include employee info if employeeId exists
+            ...(session.user.role === 'ADMIN' ? {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              }
+            } : {})
           },
           orderBy: {
             tanggal: 'desc'
@@ -192,14 +202,27 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
+    const session = await requireAdminOrEmployee()
     if (!session) {
       logger.warn('Unauthorized access attempt to POST /api/inventory/keluar')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await req.json()
-    const { barangId, gudangId, jumlah, kondisi, isHilang, keterangan } = body
+    const { barangId, gudangId, jumlah, kondisi, isHilang, keterangan, purpose } = body
+
+    // If employee is creating the record, set employeeId and use purpose from body
+    let employeeId = null
+    let finalKeterangan = keterangan
+
+    if (session.user.role === 'EMPLOYEE') {
+      employeeId = session.user.id
+    }
+
+    // For employees (or anyone using the employee form), always use purpose as keterangan if provided
+    if (purpose && purpose.trim()) {
+      finalKeterangan = purpose.trim() // Just save the purpose directly as keterangan
+    }
 
     // Validation
     if (!barangId || !gudangId || !jumlah || jumlah <= 0) {
@@ -254,6 +277,13 @@ export async function POST(req: NextRequest) {
         }
 
         // Create stock-out record
+        console.log('[DEBUG] Creating BarangKeluar record:', {
+          sessionRole: session.user.role,
+          employeeId: session.user.id,
+          bodyPurpose: purpose,
+          bodyKeterangan: keterangan,
+          finalKeterangan: finalKeterangan
+        })
         const keluarRecord = await tx.barangKeluar.create({
           data: {
             barangId,
@@ -261,9 +291,12 @@ export async function POST(req: NextRequest) {
             jumlah,
             kondisi: kondisi || 'BARU',
             isHilang: isHilang || false,
-            keterangan
+            keterangan: finalKeterangan,
+            employeeId,
+            purpose: session.user.role === 'EMPLOYEE' ? purpose : null
           }
         })
+        console.log('[DEBUG] Created record result:', keluarRecord)
 
         // Update stock
         const newStock = currentStock.stok - jumlah

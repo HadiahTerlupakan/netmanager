@@ -26,6 +26,26 @@ export async function GET(req: NextRequest) {
         })
 
         if (!employee) {
+            // If user is ADMIN, allow access with default permissions
+            if (session.user.role === 'ADMIN') {
+                return NextResponse.json({
+                    employee: null,
+                    permissions: {
+                        employeeId: null,
+                        departmentId: null,
+                        departmentName: null,
+                        allowedFeatures: ['HRIS', 'WORKORDERS', 'INVENTORY'], // Admin has all features
+                        role: session.user.role,
+                    },
+                    user: {
+                        id: session.user.id,
+                        name: session.user.name,
+                        email: session.user.email,
+                        role: session.user.role,
+                    },
+                })
+            }
+
             return NextResponse.json(
                 { error: 'Employee profile not found' },
                 { status: 404 }

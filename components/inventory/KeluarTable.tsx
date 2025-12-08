@@ -13,6 +13,8 @@ interface BarangKeluar {
   keterangan: string | null
   tanggal: string
   createdAt: string
+  employeeId?: string | null
+  purpose?: string | null
   barang: {
     id: string
     kode: string
@@ -24,6 +26,11 @@ interface BarangKeluar {
     kode: string
     nama: string
   }
+  user?: {
+    id: string
+    name: string | null
+    email: string
+  } | null
 }
 
 interface KeluarTableProps {
@@ -128,6 +135,9 @@ export function KeluarTable({ onEdit, refreshTrigger = 0 }: KeluarTableProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Keterangan
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                Diambil Oleh
+              </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Aksi
               </th>
@@ -136,13 +146,13 @@ export function KeluarTable({ onEdit, refreshTrigger = 0 }: KeluarTableProps) {
           <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
                   Memuat data...
                 </td>
               </tr>
             ) : keluarList.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                   Tidak ada data barang keluar
                 </td>
               </tr>
@@ -199,7 +209,31 @@ export function KeluarTable({ onEdit, refreshTrigger = 0 }: KeluarTableProps) {
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 dark:text-white">
                       {keluar.keterangan || '-'}
+                      {keluar.purpose && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          📝 {keluar.purpose}
+                        </div>
+                      )}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {keluar.user ? (
+                      <div className="text-sm">
+                        <div className="font-medium text-indigo-600 dark:text-indigo-400">
+                          👤 {keluar.user.name || 'Unknown'}
+                        </div>
+                        <div className="text-gray-500 dark:text-gray-400">
+                          {keluar.user.email}
+                        </div>
+                        {keluar.purpose && (
+                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            📝 {keluar.purpose}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Admin</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">
