@@ -11,6 +11,7 @@ import { compare } from 'bcryptjs'
 import { checkRateLimit } from '@/lib/redis'
 import { getAllOAuthProviders } from '@/lib/auth-dynamic'
 import { canLinkAccount, logOAuthSecurityEvent } from './oauth-security'
+import { redis } from '@/lib/redis'
 
 // Fallback OAuth providers from environment variables
 function getFallbackOAuthProviders() {
@@ -80,6 +81,32 @@ function getFallbackOAuthProviders() {
   return providers
 }
 
+// Database connection validation
+async function validateDatabaseConnection(): Promise<boolean> {
+  try {
+    console.log('[AUTH] Validating database connection...')
+    await prisma.$queryRaw`SELECT 1`
+    console.log('[AUTH] Database connection: OK')
+    return true
+  } catch (error) {
+    console.error('[AUTH] Database connection failed:', error)
+    return false
+  }
+}
+
+// Redis connection validation
+async function validateRedisConnection(): Promise<boolean> {
+  try {
+    console.log('[AUTH] Validating Redis connection...')
+    await redis.ping()
+    console.log('[AUTH] Redis connection: OK')
+    return true
+  } catch (error) {
+    console.error('[AUTH] Redis connection failed:', error)
+    return false
+  }
+}
+
 // Dynamic auth configuration that loads OAuth providers at runtime
 export async function createAuthConfig(): Promise<NextAuthOptions> {
   // Load OAuth providers dynamically
@@ -94,7 +121,7 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
     session: {
       strategy: 'jwt', // Use JWT for sessions (works for both OAuth and credentials)
       maxAge: parseInt(process.env.SESSION_MAX_AGE || '604800'), // 7 days (default)
-      updateAge: parseInt(process.env.SESSION_UPDATE_AGE || '3600'), // 1 hour (sliding expiration)
+      updateAge: parseInt(process.env.SESSION_UPDATE_AGE || '1800'), // 30 minutes (sliding expiration)
     },
     // Configure cookies for cross-subdomain support if COOKIE_DOMAIN is set
     cookies: process.env.COOKIE_DOMAIN ? {
@@ -138,11 +165,24 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
               return null
             }
 
-            // Rate limit percobaan login per identifier (mis. 5x per 5 menit)
-            const allowed = await checkRateLimit(`login:${identifier}`, 5, 300)
-            if (!allowed) {
-              console.log('[AUTH] Rate limit exceeded for:', identifier)
-              throw new Error('Terlalu banyak percobaan. Coba lagi nanti.')
+            // Validate database connection before proceeding
+            const dbConnected = await validateDatabaseConnection()
+            if (!dbConnected) {
+              console.error('[AUTH] Database connection failed during login attempt')
+              throw new Error('Database connection error. Please try again later.')
+            }
+
+            // Validate Redis connection for rate limiting
+            const redisConnected = await validateRedisConnection()
+            if (!redisConnected) {
+              console.warn('[AUTH] Redis connection failed, proceeding without rate limiting')
+            } else {
+              // Rate limit percobaan login per identifier (mis. 5x per 5 menit)
+              const allowed = await checkRateLimit(`login:${identifier}`, 5, 300)
+              if (!allowed) {
+                console.log('[AUTH] Rate limit exceeded for:', identifier)
+                throw new Error('Terlalu banyak percobaan. Coba lagi nanti.')
+              }
             }
 
             const userRepository = getUserRepository()
@@ -155,6 +195,18 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
               // Login dengan email
               user = await userRepository.findByEmail(identifier)
               console.log('[AUTH] User found by email:', !!user)
+
+              if (user) {
+                // Try to find employee data linked to this user
+                employee = await prisma.employee.findUnique({
+                  where: { userId: user.id },
+                  include: {
+                    department: true,
+                    position: true,
+                  },
+                })
+                console.log('[AUTH] Employee found for user:', !!employee)
+              }
             } else {
               console.log('[AUTH] Attempting Employee ID login')
               // Login dengan Employee ID
@@ -167,13 +219,15 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
               })
               console.log('[AUTH] Employee found:', !!employee)
 
+              // Employee-User Link Validation
               if (employee && employee.userId) {
                 user = await prisma.user.findUnique({
                   where: { id: employee.userId },
                 })
                 console.log('[AUTH] User found via employee:', !!user)
               } else if (employee) {
-                console.log('[AUTH] Employee found but no userId:', employee.employeeId)
+                console.warn('[AUTH] Employee found but no userId:', employee.employeeId)
+                throw new Error('Employee account is not properly linked to a user account. Please contact HR.')
               }
             }
 
@@ -358,7 +412,7 @@ export const authConfig: NextAuthOptions = {
   session: {
     strategy: 'jwt', // Use JWT for sessions (works for both OAuth and credentials)
     maxAge: parseInt(process.env.SESSION_MAX_AGE || '604800'), // 7 days (default)
-    updateAge: parseInt(process.env.SESSION_UPDATE_AGE || '3600'), // 1 hour (sliding expiration)
+    updateAge: parseInt(process.env.SESSION_UPDATE_AGE || '1800'), // 30 minutes (sliding expiration)
   },
   pages: {
     signIn: '/login',
@@ -389,11 +443,24 @@ export const authConfig: NextAuthOptions = {
             return null
           }
 
-          // Rate limit percobaan login per identifier (mis. 5x per 5 menit)
-          const allowed = await checkRateLimit(`login:${identifier}`, 5, 300)
-          if (!allowed) {
-            console.log('[AUTH] Rate limit exceeded for:', identifier)
-            throw new Error('Terlalu banyak percobaan. Coba lagi nanti.')
+          // Validate database connection before proceeding
+          const dbConnected = await validateDatabaseConnection()
+          if (!dbConnected) {
+            console.error('[AUTH] Database connection failed during login attempt')
+            throw new Error('Database connection error. Please try again later.')
+          }
+
+          // Validate Redis connection for rate limiting
+          const redisConnected = await validateRedisConnection()
+          if (!redisConnected) {
+            console.warn('[AUTH] Redis connection failed, proceeding without rate limiting')
+          } else {
+            // Rate limit percobaan login per identifier (mis. 5x per 5 menit)
+            const allowed = await checkRateLimit(`login:${identifier}`, 5, 300)
+            if (!allowed) {
+              console.log('[AUTH] Rate limit exceeded for:', identifier)
+              throw new Error('Terlalu banyak percobaan. Coba lagi nanti.')
+            }
           }
 
           const userRepository = getUserRepository()
@@ -430,13 +497,15 @@ export const authConfig: NextAuthOptions = {
             })
             console.log('[AUTH] Employee found:', !!employee)
 
+            // Employee-User Link Validation
             if (employee && employee.userId) {
               user = await prisma.user.findUnique({
                 where: { id: employee.userId },
               })
               console.log('[AUTH] User found via employee:', !!user)
             } else if (employee) {
-              console.log('[AUTH] Employee found but no userId:', employee.employeeId)
+              console.warn('[AUTH] Employee found but no userId:', employee.employeeId)
+              throw new Error('Employee account is not properly linked to a user account. Please contact HR.')
             }
           }
 

@@ -26,12 +26,34 @@ export default function KaryawanLoginPage() {
             })
 
             if (result?.error) {
-                setError('Invalid Employee ID or Password')
+                // Handle different types of errors with specific messages
+                if (result.error.includes('Terlalu banyak percobaan')) {
+                    setError('Terlalu banyak percobaan login. Silakan coba lagi dalam beberapa menit.')
+                } else if (result.error.includes('Database connection error')) {
+                    setError('Sistem sedang bermasalah. Silakan coba lagi dalam beberapa saat.')
+                } else if (result.error.includes('Employee account is not properly linked')) {
+                    setError('Akun karyawan belum terhubung dengan benar. Silakan hubungi HR.')
+                } else if (result.error.includes('rate limit')) {
+                    setError('Terlalu banyak percobaan login. Akun sementara diblokir.')
+                } else {
+                    setError('Employee ID atau Password tidak valid. Silakan periksa kembali.')
+                }
             } else if (result?.ok) {
                 router.push('/employee')
+            } else {
+                setError('Terjadi kesalahan yang tidak diketahui. Silakan coba lagi.')
             }
-        } catch (err) {
-            setError('Login failed. Please try again.')
+        } catch (err: any) {
+            console.error('[LOGIN] Error during sign in:', err)
+            
+            // Handle network errors or other exceptions
+            if (err.name === 'TypeError' && err.message.includes('fetch')) {
+                setError('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.')
+            } else if (err.message) {
+                setError(err.message)
+            } else {
+                setError('Login gagal. Silakan coba lagi nanti.')
+            }
         } finally {
             setLoading(false)
         }
