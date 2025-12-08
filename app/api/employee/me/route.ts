@@ -66,6 +66,11 @@ export async function GET(req: NextRequest) {
                 fullName: employee.fullName,
                 email: employee.email,
                 phone: employee.phone,
+                address: employee.address,
+                dateOfBirth: employee.dateOfBirth,
+                emergencyName: employee.emergencyName,
+                emergencyPhone: employee.emergencyPhone,
+                emergencyRelation: employee.emergencyRelation,
                 photoUrl: employee.photoUrl,
                 departmentId: employee.departmentId,
                 departmentName: employee.department?.name || null,
@@ -95,5 +100,42 @@ export async function GET(req: NextRequest) {
             { error: error.message || 'Internal server error' },
             { status: 500 }
         )
+    }
+}
+
+// PATCH /api/employee/me - Update current employee profile
+export async function PATCH(req: NextRequest) {
+    try {
+        const session: any = await getServerSession(authConfig as any)
+        if (!session) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const employeeId = session.user?.employee?.id
+        if (!employeeId) {
+            return NextResponse.json({ error: 'Employee not found in session' }, { status: 404 })
+        }
+
+        const body = await req.json()
+
+        // Only allow updating certain fields
+        const allowedFields = ['phone', 'address', 'emergencyName', 'emergencyPhone', 'emergencyRelation']
+        const data: any = {}
+
+        for (const field of allowedFields) {
+            if (body[field] !== undefined) {
+                data[field] = body[field]
+            }
+        }
+
+        await prisma.employee.update({
+            where: { id: employeeId },
+            data,
+        })
+
+        return NextResponse.json({ success: true })
+    } catch (error: any) {
+        console.error('Error updating current employee:', error)
+        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
     }
 }

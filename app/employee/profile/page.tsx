@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { apiFetch, API_ENDPOINTS } from '@/lib/api-helper'
 import { HiOutlineUser, HiOutlinePencil } from 'react-icons/hi2'
 import { useToast } from '@/components/ui/Toast'
 import { Skeleton } from '@/components/ui/LoadingSkeleton'
@@ -45,12 +46,12 @@ export default function EmployeeProfile() {
     const loadProfile = async () => {
         setLoading(true)
         try {
-            const res = await fetch('/api/hris/employees/me')
+            const res = await apiFetch(API_ENDPOINTS.EMPLOYEE.ME)
             if (res.ok) {
                 const data = await res.json()
                 console.log('[PROFILE PAGE] Received data:', data)
-                setProfile(data)
-                setFormData(data)
+                setProfile(data.employee)
+                setFormData(data.employee)
             } else {
                 showToast('error', 'Failed to load profile')
             }
@@ -65,7 +66,7 @@ export default function EmployeeProfile() {
     const handleSave = async () => {
         setSaving(true)
         try {
-            const res = await fetch('/api/hris/employees/me', {
+            const res = await apiFetch(API_ENDPOINTS.EMPLOYEE.ME, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
