@@ -2,40 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { FiEdit2, FiTrash2, FiEye, FiFilter, FiDownload } from 'react-icons/fi'
+import type { StockOpnameRecord } from '@/lib/types/inventory'
 
-interface StockOpnameRecord {
-  id: string
-  barangId: string
-  gudangId: string
-  stokFisik: number
-  stokSistem: number
-  selisih: number
-  keterangan: string | null
-  kondisiBaik: number
-  kondisiRusak: number
-  kondisiExpire: number
-  lokasiPenyimpanan: string | null
-  nomorRak: string | null
-  nomorBox: string | null
-  pic: string | null
-  suhuPenyimpanan: number | null
-  kelembaban: number | null
-  tanggalExpire: Date | null
-  nomorBatch: string | null
-  catatanDetail: string | null
-  createdAt: string
-  barang: {
-    id: string
-    kode: string
-    nama: string
-    satuan: string
-  }
-  gudang: {
-    id: string
-    kode: string
-    nama: string
-  }
-}
 
 interface OpnameReportTableProps {
   onEdit?: (opname: StockOpnameRecord) => void

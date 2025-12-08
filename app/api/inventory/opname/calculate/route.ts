@@ -400,15 +400,15 @@ function generateNotesFromTransactions(transaksiData: any, stokSistem: number, b
   let notes = `Stok sistem: ${stokSistem}, Breakdown aktual:`
 
   // Count by condition from masuk transactions for detailed breakdown
-  const masukByCondition = {
+  const masukByCondition: Record<string, number> = {
     BARU: 0,
     BEKAS: 0,
     RUSAK: 0
   }
 
   transaksiData.masukData.forEach((masuk: any) => {
-    const kondisi = masuk.kondisi || 'BARU'
-    if (masukByCondition.hasOwnProperty(kondisi)) {
+    const kondisi: string = masuk.kondisi || 'BARU'
+    if (kondisi in masukByCondition) {
       masukByCondition[kondisi] += masuk.jumlah
     } else {
       masukByCondition.BARU += masuk.jumlah

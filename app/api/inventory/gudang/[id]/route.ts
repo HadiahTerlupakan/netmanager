@@ -12,15 +12,14 @@ async function requireAdmin() {
   return session
 }
 
-interface Params {
-  params: { id: string }
-}
-
 /**
  * GET /api/inventory/gudang/[id]
  * Get specific warehouse by ID
  */
-export async function GET(req: Request, { params }: Params) {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const startTime = Date.now()
   try {
     const session = await requireAdmin()
@@ -29,7 +28,7 @@ export async function GET(req: Request, { params }: Params) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     try {
       const dbStart = Date.now()
@@ -67,7 +66,7 @@ export async function GET(req: Request, { params }: Params) {
     logger.error('Error fetching gudang', error, {
       path: '/api/inventory/gudang/[id]',
       method: 'GET',
-      id: params.id,
+      id: 'unknown',
     })
     return NextResponse.json(
       { error: 'Gagal memuat data gudang' },
@@ -80,7 +79,11 @@ export async function GET(req: Request, { params }: Params) {
  * PUT /api/inventory/gudang/[id]
  * Update specific warehouse
  */
-export async function PUT(req: Request, { params }: Params) {
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
   const startTime = Date.now()
   try {
     const session = await requireAdmin()
@@ -88,8 +91,6 @@ export async function PUT(req: Request, { params }: Params) {
       logger.warn('Unauthorized access attempt to PUT /api/inventory/gudang/[id]')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const { id } = params
     const body = await req.json()
     const { kode, nama, lokasi, isActive } = body
 
@@ -156,7 +157,7 @@ export async function PUT(req: Request, { params }: Params) {
     logger.error('Error updating gudang', error, {
       path: '/api/inventory/gudang/[id]',
       method: 'PUT',
-      id: params.id,
+      id: 'unknown',
     })
     return NextResponse.json(
       { error: 'Gagal mengupdate gudang' },
@@ -169,7 +170,11 @@ export async function PUT(req: Request, { params }: Params) {
  * DELETE /api/inventory/gudang/[id]
  * Delete specific warehouse (soft delete by setting isActive to false)
  */
-export async function DELETE(req: Request, { params }: Params) {
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
   const startTime = Date.now()
   try {
     const session = await requireAdmin()
@@ -177,8 +182,6 @@ export async function DELETE(req: Request, { params }: Params) {
       logger.warn('Unauthorized access attempt to DELETE /api/inventory/gudang/[id]')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const { id } = params
 
     try {
       const dbStart = Date.now()
@@ -228,7 +231,7 @@ export async function DELETE(req: Request, { params }: Params) {
     logger.error('Error deleting gudang', error, {
       path: '/api/inventory/gudang/[id]',
       method: 'DELETE',
-      id: params.id,
+      id: id ?? 'unknown',
     })
     return NextResponse.json(
       { error: 'Gagal menghapus gudang' },

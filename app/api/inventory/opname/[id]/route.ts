@@ -16,7 +16,7 @@ async function requireAdmin() {
  * GET /api/inventory/opname/[id]
  * Get single stock opname record by ID
  */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const startTime = Date.now()
   try {
     const session = await requireAdmin()
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     logger.error('Error fetching stock opname record', error, {
       path: '/api/inventory/opname/[id]',
       method: 'GET',
-      id: id,
+      id: 'unknown',
     })
     return NextResponse.json(
       { error: 'Gagal memuat data stock opname' },
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
  * PUT /api/inventory/opname/[id]
  * Update stock opname record
  */
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const startTime = Date.now()
   try {
     const session = await requireAdmin()
@@ -229,7 +229,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     logger.error('Error updating stock opname', error, {
       path: '/api/inventory/opname/[id]',
       method: 'PUT',
-      id: id,
+      id: 'unknown',
     })
 
     if (error.message === 'Record stock opname tidak ditemukan') {
@@ -247,7 +247,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
  * DELETE /api/inventory/opname/[id]
  * Delete stock opname record
  */
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireAdmin()
     if (!session) {

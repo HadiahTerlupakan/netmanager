@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
               "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data: https://fonts.gstatic.com",
-              "connect-src 'self' https:",
+              "connect-src 'self' https: ws: wss: localhost:* 127.0.0.1:*",
               "frame-ancestors 'self'",
               "base-uri 'self'",
               "form-action 'self'",

@@ -7,40 +7,7 @@ import { StockOpnameRecorder } from '@/components/inventory/StockOpnameRecorder'
 import { OpnameReportTable } from '@/components/inventory/OpnameReportTable'
 import { OpnameForm } from '@/components/inventory/OpnameForm'
 import { StockReport } from '@/components/inventory/StockReport'
-
-interface StockOpnameRecord {
-  id: string
-  barangId: string
-  gudangId: string
-  stokFisik: number
-  stokSistem: number
-  selisih: number
-  keterangan: string | null
-  kondisiBaik: number
-  kondisiRusak: number
-  kondisiExpire: number
-  lokasiPenyimpanan: string | null
-  nomorRak: string | null
-  nomorBox: string | null
-  pic: string | null
-  suhuPenyimpanan: number | null
-  kelembaban: number | null
-  tanggalExpire: Date | null
-  nomorBatch: string | null
-  catatanDetail: string | null
-  createdAt: string
-  barang: {
-    id: string
-    kode: string
-    nama: string
-    satuan: string
-  }
-  gudang: {
-    id: string
-    kode: string
-    nama: string
-  }
-}
+import type { StockOpnameRecord, StockOpnameFormData } from '@/lib/types/inventory'
 
 export default function StockOpnamePage() {
   const [activeTab, setActiveTab] = useState<'report' | 'input' | 'history'>('report')
@@ -96,8 +63,8 @@ export default function StockOpnamePage() {
           <button
             onClick={() => setActiveTab('report')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'report'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
           >
             <FiPieChart className="inline mr-2 h-4 w-4" />
@@ -106,8 +73,8 @@ export default function StockOpnamePage() {
           <button
             onClick={() => setActiveTab('input')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'input'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
           >
             <FiClipboard className="inline mr-2 h-4 w-4" />
@@ -116,8 +83,8 @@ export default function StockOpnamePage() {
           <button
             onClick={() => setActiveTab('history')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'history'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
           >
             <FiList className="inline mr-2 h-4 w-4" />
@@ -217,7 +184,7 @@ export default function StockOpnamePage() {
               {/* Content */}
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                 <OpnameForm
-                  initialData={editingOpname || undefined}
+                  initialData={editingOpname as unknown as StockOpnameFormData || undefined}
                   onClose={handleFormClose}
                   onSuccess={handleFormClose}
                 />

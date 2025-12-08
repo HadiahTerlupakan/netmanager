@@ -202,10 +202,14 @@ export async function getSecureOAuthConfig(provider: string) {
     }
 
     // Ensure secure defaults
+    const existingSettings = typeof config.settings === 'object' && config.settings !== null
+      ? config.settings
+      : {}
+
     return {
       ...config,
       settings: {
-        ...(config.settings || {}),
+        ...existingSettings,
         // Force PKCE if supported
         usePKCE: true,
         // Additional security parameters

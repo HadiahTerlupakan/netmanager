@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
                 where: {
                   barangId: setting.barangId,
                   gudangId: setting.gudangId,
-                  alertType,
+                  alertType: alertType as any,
                   isResolved: false
                 }
               })

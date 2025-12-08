@@ -80,7 +80,7 @@ function logSecurityEvent(
   details: any = null
 ) {
   const timestamp = new Date().toISOString()
-  const ip = request.ip || request.headers.get('x-forwarded-for') || 'Unknown'
+  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown'
   const userAgent = request.headers.get('user-agent') || 'Unknown'
 
   console.warn(`[SECURITY] ${event}`, {
@@ -165,15 +165,16 @@ export async function protectRoute(
   }
 
   // If session exists, extract user info
-  const userRole = session?.user?.role as string | undefined
-  const userId = session?.user?.id as string | undefined
+  const sessionData = session as any
+  const userRole = sessionData?.user?.role as string | undefined
+  const userId = sessionData?.user?.id as string | undefined
 
   // Check role requirement
   if (requireRole && session) {
     if (!hasRole(userRole, requireRole)) {
       logSecurityEvent(request, 'INSUFFICIENT_ROLE', {
         userRole,
-        requiredRole,
+        requireRole,
         userId
       })
 
@@ -283,7 +284,7 @@ export function withRateLimit(
     maxRequests = 100,
     windowMs = 15 * 60 * 1000, // 15 minutes
     keyGenerator = (req) => {
-      const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown'
+      const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
       const userId = req.headers.get('x-user-id') || 'anonymous'
       return `${ip}:${userId}`
     }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { apiFetch, API_ENDPOINTS } from '@/lib/api-helper'
 import { HiOutlineMapPin, HiOutlineClock, HiOutlineCheckCircle } from 'react-icons/hi2'
 import { useToast } from '@/components/ui/Toast'
 import { AttendanceCardSkeleton } from '@/components/ui/LoadingSkeleton'
@@ -49,7 +50,7 @@ export default function EmployeeAttendancePage() {
 
     const checkTodayAttendance = async () => {
         try {
-            const res = await fetch('/api/hris/attendance/today')
+            const res = await apiFetch(API_ENDPOINTS.EMPLOYEE.ATTENDANCE_TODAY)
             if (res.ok) {
                 const data = await res.json()
                 setTodayAttendance(data.attendance)
@@ -104,10 +105,11 @@ export default function EmployeeAttendancePage() {
         setCheckingIn(true)
 
         try {
-            const res = await fetch('/api/hris/attendance/check-in', {
+            const res = await apiFetch(API_ENDPOINTS.EMPLOYEE.ATTENDANCE_TODAY, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    action: 'check-in',
                     latitude: geolocation.latitude,
                     longitude: geolocation.longitude,
                 }),
@@ -143,10 +145,11 @@ export default function EmployeeAttendancePage() {
         setCheckingOut(true)
 
         try {
-            const res = await fetch('/api/hris/attendance/check-out', {
+            const res = await apiFetch(API_ENDPOINTS.EMPLOYEE.ATTENDANCE_TODAY, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    action: 'check-out',
                     attendanceId: todayAttendance.attendanceId,
                     latitude: geolocation.latitude,
                     longitude: geolocation.longitude,

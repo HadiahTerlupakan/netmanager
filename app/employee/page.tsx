@@ -16,6 +16,7 @@ import {
 import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
 import { StatCardSkeleton } from '@/components/ui/LoadingSkeleton'
+import { apiFetch, API_ENDPOINTS } from '@/lib/api-helper'
 
 interface DashboardStats {
     attendance: {
@@ -54,29 +55,37 @@ export default function EmployeeDashboard() {
     const loadDashboardData = async () => {
         setLoading(true)
         try {
-            const attendanceRes = await fetch('/api/hris/attendance/summary')
-            const attendanceData = attendanceRes.ok ? await attendanceRes.json() : null
+            // Use new consolidated dashboard API
+            const res = await apiFetch(API_ENDPOINTS.EMPLOYEE.DASHBOARD)
+            const data = res.ok ? await res.json() : null
 
-            const leaveRes = await fetch('/api/hris/leaves/balance')
-            const leaveData = leaveRes.ok ? await leaveRes.json() : null
-
-            const payslipRes = await fetch('/api/hris/payslips/latest')
-            const payslipData = payslipRes.ok ? await payslipRes.json() : null
-
-            setStats({
-                attendance: attendanceData?.summary || {
-                    thisMonth: 0,
-                    present: 0,
-                    late: 0,
-                    absent: 0,
-                },
-                leave: leaveData?.balances || {
-                    annual: { total: 12, used: 0, remaining: 12 },
-                    sick: { total: 12, used: 0, remaining: 12 },
-                    pendingRequests: 0,
-                },
-                latestPayslip: payslipData?.payslip || undefined,
-            })
+            if (data?.success && data?.data) {
+                setStats({
+                    attendance: data.data.attendanceSummary || {
+                        thisMonth: 0,
+                        present: 0,
+                        late: 0,
+                        absent: 0,
+                    },
+                    leave: data.data.leaveBalances || {
+                        annual: { total: 12, used: 0, remaining: 12 },
+                        sick: { total: 12, used: 0, remaining: 12 },
+                        pendingRequests: 0,
+                    },
+                    latestPayslip: data.data.latestPayslip || undefined,
+                })
+            } else {
+                // Fallback to empty stats if API fails
+                setStats({
+                    attendance: { thisMonth: 0, present: 0, late: 0, absent: 0 },
+                    leave: {
+                        annual: { total: 12, used: 0, remaining: 12 },
+                        sick: { total: 12, used: 0, remaining: 12 },
+                        pendingRequests: 0,
+                    },
+                    latestPayslip: undefined,
+                })
+            }
         } catch (error) {
             console.error('Error loading dashboard:', error)
             showToast('error', 'Failed to load dashboard data')

@@ -279,15 +279,15 @@ export async function DELETE(
         }
 
         // Delete related barang masuk and keluar records
-        if (transferRecord.masuk) {
-          await tx.barangMasuk.delete({
-            where: { id: transferRecord.masuk.id }
+        if (transferRecord.masuk && transferRecord.masuk.length > 0) {
+          await tx.barangMasuk.deleteMany({
+            where: { transferId: id }
           })
         }
 
-        if (transferRecord.keluar) {
-          await tx.barangKeluar.delete({
-            where: { id: transferRecord.keluar.id }
+        if (transferRecord.keluar && transferRecord.keluar.length > 0) {
+          await tx.barangKeluar.deleteMany({
+            where: { transferId: id }
           })
         }
 

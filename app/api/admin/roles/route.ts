@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
         })
 
         // Log the creation
+        const userName = req.headers.get('x-user-name') || 'Unknown User'
         await auditService.logRoleCreate(
             role.id,
             {
@@ -87,8 +88,8 @@ export async function POST(req: NextRequest) {
                 allowedFeatures: role.allowedFeatures,
                 priority: role.priority,
             },
-            session.user.id,
-            session.user.name
+            userId || 'unknown',
+            userName
         )
 
         return NextResponse.json({

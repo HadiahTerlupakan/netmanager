@@ -60,7 +60,7 @@ function hasRequiredRole(userRole: string, requiredRole: string): boolean {
 // Log unauthorized access attempts
 function logUnauthorizedAccess(request: NextRequest, reason: string) {
   const userAgent = request.headers.get('user-agent') || 'Unknown'
-  const ip = request.ip || request.headers.get('x-forwarded-for') || 'Unknown'
+  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown'
   const timestamp = new Date().toISOString()
 
   console.warn(`[SECURITY] Unauthorized access attempt - ${reason}`, {

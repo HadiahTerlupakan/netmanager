@@ -1,31 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-
-interface StockOpnameRecord {
-  id?: string
-  barangId: string
-  gudangId: string
-  stokFisik: number
-  stokSistem?: number
-  selisih?: number
-  keterangan?: string
-  kondisiBaik: number
-  kondisiRusak: number
-  kondisiExpire: number
-  lokasiPenyimpanan?: string
-  nomorRak?: string
-  nomorBox?: string
-  pic?: string
-  suhuPenyimpanan?: number
-  kelembaban?: number
-  tanggalExpire?: string
-  nomorBatch?: string
-  catatanDetail?: string
-}
+import type { StockOpnameFormData } from '@/lib/types/inventory'
 
 interface OpnameFormProps {
-  initialData?: StockOpnameRecord
+  initialData?: StockOpnameFormData
   onClose: () => void
   onSuccess: () => void
 }

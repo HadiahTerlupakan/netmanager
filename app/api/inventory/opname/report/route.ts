@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
 
     } catch (error) {
         console.error('Error generating stock report:', error)
-        logger.error('Error generating stock report', { error })
+        logger.error('Error generating stock report', error as Error)
         return NextResponse.json(
             { error: 'Gagal menghasilkan laporan stok' },
             { status: 500 }

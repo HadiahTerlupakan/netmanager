@@ -63,9 +63,16 @@ function getAllowedOrigins(): CorsOptions['origin'] {
         'http://127.0.0.1:8000'
       ]
 
-      return allowedDevelopmentOrigins.includes(origin) ||
-        origin.startsWith('http://localhost:') ||
-        origin.startsWith('http://127.0.0.1:')
+      // Allow valid development origins including subdomains
+      if (allowedDevelopmentOrigins.includes(origin)) return true
+
+      // Check for localhost with port
+      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) return true
+
+      // Check for subdomains of localhost (e.g., http://karyawan.localhost:3000)
+      if (/^http:\/\/[a-z0-9-]+\.localhost(:\d+)?$/.test(origin)) return true
+
+      return false
     }
   }
 

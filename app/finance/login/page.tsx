@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
-import { HiArrowPath, HiLockClosed, HiEye, HiEyeSlash } from 'react-icons/hi2'
+import { HiArrowPath, HiLockClosed, HiEye, HiEyeSlash, HiExclamationCircle } from 'react-icons/hi2'
 import Link from 'next/link'
 import { ErrorDisplay } from '@/components/auth/ErrorDisplay'
 
@@ -55,7 +55,7 @@ export default function FinanceLoginPage() {
       if (!res.ok) {
         const errorMessage = data.error || 'Email atau password salah'
         const errorType = data.errorType === 'RATE_LIMIT' ? 'RATE_LIMIT' :
-                         res.status === 401 ? 'CREDENTIAL' : 'GENERAL'
+          res.status === 401 ? 'CREDENTIAL' : 'GENERAL'
 
         setApiError({
           message: errorMessage,

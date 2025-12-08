@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { LeaveBalanceSkeleton } from '@/components/ui/LoadingSkeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { apiFetch, API_ENDPOINTS } from '@/lib/api-helper'
 
 interface LeaveBalance {
     leaveType: string
@@ -54,18 +55,23 @@ export default function EmployeeLeavePage() {
     const loadData = async () => {
         setLoading(true)
         try {
-            // Fetch leave balances
-            const balanceRes = await fetch('/api/hris/leaves/balance')
-            if (balanceRes.ok) {
-                const balanceData = await balanceRes.json()
-                setBalances(balanceData.balances || [])
-            }
+            // Fetch both leaves and balances from single endpoint
+            const res = await apiFetch(API_ENDPOINTS.EMPLOYEE.LEAVES)
+            if (res.ok) {
+                const data = await res.json()
+                if (data.success) {
+                    setBalances(Object.values(data.balances).filter(b => typeof b === 'object') as LeaveBalance[])
 
-            // Fetch leave requests
-            const requestsRes = await fetch('/api/hris/leaves')
-            if (requestsRes.ok) {
-                const requestsData = await requestsRes.json()
-                setRequests(requestsData.leaves || [])
+                    // Transform balances object to array format expected by UI
+                    // The UI expects an array of LeaveBalance objects
+                    // We need to construct it from the balances object returned by API
+                    const balancesArray = [
+                        { ...data.balances.annual, leaveType: 'Annual Leave' },
+                        { ...data.balances.sick, leaveType: 'Sick Leave' }
+                    ]
+                    setBalances(balancesArray)
+                    setRequests(data.leaves || [])
+                }
             }
         } catch (error) {
             console.error('Error loading data:', error)
@@ -81,7 +87,7 @@ export default function EmployeeLeavePage() {
         setSubmitting(true)
 
         try {
-            const res = await fetch('/api/hris/leaves', {
+            const res = await apiFetch(API_ENDPOINTS.EMPLOYEE.LEAVES, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),

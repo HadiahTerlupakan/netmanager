@@ -406,6 +406,18 @@ export const authConfig: NextAuthOptions = {
             // Login dengan email
             user = await userRepository.findByEmail(identifier)
             console.log('[AUTH] User found by email:', !!user)
+
+            if (user) {
+              // Try to find employee data linked to this user
+              employee = await prisma.employee.findUnique({
+                where: { userId: user.id },
+                include: {
+                  department: true,
+                  position: true,
+                },
+              })
+              console.log('[AUTH] Employee found for user:', !!employee)
+            }
           } else {
             console.log('[AUTH] Attempting Employee ID login')
             // Login dengan Employee ID

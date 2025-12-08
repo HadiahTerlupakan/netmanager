@@ -122,7 +122,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     logger.error('Error fetching barang', error, {
       path: '/api/inventory/barang/[id]',
       method: 'GET',
-      id: params.id,
+      id: 'unknown',
     })
     return NextResponse.json(
       { error: 'Gagal memuat data barang' },
@@ -210,7 +210,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     logger.error('Error updating barang', error, {
       path: '/api/inventory/barang/[id]',
       method: 'PUT',
-      id: params.id,
+      id: 'unknown',
     })
     return NextResponse.json(
       { error: 'Gagal mengupdate barang' },

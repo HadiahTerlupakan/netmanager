@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { apiFetch, API_ENDPOINTS } from '@/lib/api-helper'
 import { HiOutlineDocumentText, HiOutlineEye, HiOutlineArrowDownTray } from 'react-icons/hi2'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -44,7 +45,7 @@ export default function PayslipsPage() {
     const loadPayslips = async () => {
         setLoading(true)
         try {
-            const res = await fetch('/api/hris/payslips')
+            const res = await apiFetch(API_ENDPOINTS.EMPLOYEE.PAYSLIPS)
             if (res.ok) {
                 const data = await res.json()
                 setPayslips(data.payslips || [])
