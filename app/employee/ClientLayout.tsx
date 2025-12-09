@@ -26,7 +26,7 @@ const navigationConfig = [
     { name: 'Dashboard', href: '/employee', icon: HiOutlineHome },
     { name: 'Attendance', href: '/employee/attendance', icon: HiOutlineClock, feature: 'HRIS' },
     { name: 'Leaves', href: '/employee/leaves', icon: HiOutlineCalendar, feature: 'HRIS' },
-    { name: 'Ambil Barang', href: '/employee/inventory', icon: HiOutlineCube, feature: 'INVENTORY' },
+    { name: 'Gudang', href: '/employee/inventory', icon: HiOutlineCube, feature: 'INVENTORY' },
     { name: 'Payslips', href: '/employee/payslips', icon: HiOutlineBanknotes, feature: 'HRIS' },
     { name: 'Profile', href: '/employee/profile', icon: HiOutlineUser },
 ]

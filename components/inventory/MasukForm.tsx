@@ -114,6 +114,17 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
     }
   }, [uploadedPhotos, transactionId, onClose])
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    console.log('handleInputChange called:', { name, value, type: e.target.type })
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value }
+      console.log('Updated formData:', newData)
+      return newData
+    })
+    setError('')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -150,18 +161,21 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
         }
       } else {
         // Create mode - create the inventory transaction first
+        const jumlah = parseInt(formData.jumlah)
+        console.log('FORM DATA before submit:', formData)
+        console.log('PARSED jumlah:', jumlah)
         const response = await fetch('/api/inventory/masuk', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            barangId: formData.barangId,
-            gudangId: formData.gudangId,
-            jumlah,
-            kondisi: formData.kondisi,
-            keterangan: formData.keterangan,
-            tanggal: formData.tanggal
+            barangId: String(formData.barangId),
+            gudangId: String(formData.gudangId),
+            jumlah: Number(jumlah),
+            kondisi: String(formData.kondisi),
+            keterangan: String(formData.keterangan || ''),
+            tanggal: String(formData.tanggal)
           }),
         })
 
@@ -276,8 +290,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             </label>
             <select
               id="barangId"
+              name="barangId"
               value={formData.barangId}
-              onChange={(e) => setFormData({ ...formData, barangId: e.target.value })}
+              onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               disabled={loading || !!initialData}
             >
@@ -301,8 +316,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             </label>
             <select
               id="gudangId"
+              name="gudangId"
               value={formData.gudangId}
-              onChange={(e) => setFormData({ ...formData, gudangId: e.target.value })}
+              onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               disabled={loading || !!initialData}
             >
@@ -373,8 +389,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
               <input
                 type="number"
                 id="jumlah"
+                name="jumlah"
                 value={formData.jumlah}
-                onChange={(e) => setFormData({ ...formData, jumlah: e.target.value })}
+                onChange={handleInputChange}
                 className="w-full px-3 py-2 pr-16 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 placeholder="0"
                 min="1"
@@ -397,8 +414,12 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             </label>
             <select
               id="kondisi"
+              name="kondisi"
               value={formData.kondisi}
-              onChange={(e) => setFormData({ ...formData, kondisi: e.target.value as 'BARU' | 'BEKAS' | 'RUSAK' })}
+              onChange={(e) => {
+    const { value } = e.target
+    setFormData(prev => ({ ...prev, kondisi: value as 'BARU' | 'BEKAS' | 'RUSAK' }))
+  }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               disabled={loading || !!initialData}
             >
@@ -428,8 +449,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
           <input
             type="date"
             id="tanggal"
+            name="tanggal"
             value={formData.tanggal}
-            onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
+            onChange={handleInputChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             disabled={loading || !!initialData}
           />
@@ -446,8 +468,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
           </label>
           <textarea
             id="keterangan"
+            name="keterangan"
             value={formData.keterangan}
-            onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
+            onChange={handleInputChange}
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             placeholder="Contoh: Dari supplier PT Telkom Indonesia"

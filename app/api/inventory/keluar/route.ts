@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger'
 
 async function requireAdminOrEmployee() {
   const session: any = await getServerSession(authConfig as any)
-  if (!session || (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'EMPLOYEE')) {
+  if (!session || (session?.user?.role !== 'ADMIN' && !session?.user?.employeeId)) {
     return null
   }
   return session
@@ -226,8 +226,8 @@ export async function POST(req: NextRequest) {
     let finalEmployeeId = null
     let finalKeterangan = keterangan
 
-    if (session.user.role === 'EMPLOYEE') {
-      finalEmployeeId = session.user.id
+    if (session.user.employeeId) {
+      finalEmployeeId = session.user.id  // Use user.id as reference
     } else if (session.user.role === 'ADMIN' && requestEmployeeId) {
       // Admin can specify employeeId
       finalEmployeeId = requestEmployeeId

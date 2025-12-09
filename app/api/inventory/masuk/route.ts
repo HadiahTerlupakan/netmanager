@@ -4,9 +4,9 @@ import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 
-async function requireAdmin() {
+async function requireAuth() {
   const session: any = await getServerSession(authConfig as any)
-  if (!session || session?.user?.role !== 'ADMIN') {
+  if (!session || !['ADMIN', 'EMPLOYEE'].includes(session?.user?.role)) {
     return null
   }
   return session
@@ -19,7 +19,7 @@ async function requireAdmin() {
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
+    const session = await requireAuth()
     if (!session) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/masuk')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
+    const session = await requireAuth()
     if (!session) {
       logger.warn('Unauthorized access attempt to POST /api/inventory/masuk')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -130,7 +130,18 @@ export async function POST(req: NextRequest) {
     } = body
 
     // Validation
-    if (!barangId || !gudangId || !jumlah || jumlah <= 0) {
+    const parsedJumlah = Number(jumlah)
+    console.log('DEBUG - Received data:', { barangId, gudangId, jumlah, parsedJumlah, kondisi, keterangan })
+
+    if (!barangId || !gudangId || !jumlah || isNaN(parsedJumlah) || parsedJumlah <= 0) {
+      console.log('DEBUG - Validation failed:', {
+        barangId: !!barangId,
+        gudangId: !!gudangId,
+        jumlah: !!jumlah,
+        isNaN: isNaN(parsedJumlah),
+        parsedJumlah,
+        parsedJumlahLeq0: parsedJumlah <= 0
+      })
       return NextResponse.json(
         { error: 'Barang, gudang, dan jumlah harus diisi dengan benar' },
         { status: 400 }
@@ -178,7 +189,7 @@ export async function POST(req: NextRequest) {
           data: {
             barangId,
             gudangId,
-            jumlah,
+            jumlah: parsedJumlah,
             kondisi: kondisi || 'BARU',
             keterangan,
             fotoBukti: fotoBukti || [],
@@ -196,7 +207,7 @@ export async function POST(req: NextRequest) {
           await tx.barangGudang.update({
             where: { barangId_gudangId: { barangId, gudangId } },
             data: {
-              stok: existingStock.stok + jumlah
+              stok: existingStock.stok + parsedJumlah
             }
           })
         } else {
@@ -205,7 +216,7 @@ export async function POST(req: NextRequest) {
             data: {
               barangId,
               gudangId,
-              stok: jumlah
+              stok: parsedJumlah
             }
           })
         }
@@ -216,7 +227,7 @@ export async function POST(req: NextRequest) {
           userId: session.user.id,
           barangId,
           gudangId,
-          jumlah,
+          jumlah: parsedJumlah,
           masukId: newMasukRecord.id,
         })
 
