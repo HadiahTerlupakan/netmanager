@@ -255,10 +255,12 @@ export default function AmbilBarangForm() {
       setError('Transaksi berhasil tetapi terjadi kesalahan saat mengunggah foto')
     } finally {
       setUploadingPhotos(false)
+      setLoading(false) // Ensure loading state is reset after photo upload completes
     }
   }
 
   const resetForm = () => {
+    setLoading(false) // Reset loading state
     setFormData({
       barangId: '',
       gudangId: '',

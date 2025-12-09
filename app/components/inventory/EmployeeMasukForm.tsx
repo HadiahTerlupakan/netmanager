@@ -216,10 +216,12 @@ export default function EmployeeMasukForm() {
       setError('Transaksi berhasil tetapi terjadi kesalahan saat mengunggah foto')
     } finally {
       setUploadingPhotos(false)
+      setLoading(false) // Ensure loading state is reset after photo upload completes
     }
   }
 
   const resetForm = () => {
+    setLoading(false) // Reset loading state
     setFormData({
       barangId: '',
       gudangId: '',
@@ -415,6 +417,7 @@ export default function EmployeeMasukForm() {
               rows={3}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-colors resize-none"
               placeholder="Contoh: Barang hibah, Barang pembelian baru, Barang dari proyek sebelumnya, dll"
+              required
             />
           </div>
 
