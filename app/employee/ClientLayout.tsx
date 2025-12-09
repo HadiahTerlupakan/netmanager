@@ -19,6 +19,7 @@ import { PWAInstallBanner } from '@/components/pwa/PWAInstallBanner'
 import { ToastProvider } from '@/components/ui/Toast'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { EmployeePermissionProvider, useEmployeePermissions } from '@/components/providers/EmployeePermissionContext'
+import { ThemeProvider } from '../contexts/ThemeContext'
 
 // Navigation items with optional feature requirements
 const navigationConfig = [
@@ -84,7 +85,7 @@ function EmployeeLayoutContent({ children }: { children: React.ReactNode }) {
 
     return (
         <ToastProvider>
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+            <div className="min-h-screen">
                 {/* PWA Install Banner */}
                 <PWAInstallBanner />
 
@@ -232,9 +233,11 @@ function EmployeeLayoutContent({ children }: { children: React.ReactNode }) {
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     return (
         <SessionProvider>
-            <EmployeePermissionProvider>
-                <EmployeeLayoutContent>{children}</EmployeeLayoutContent>
-            </EmployeePermissionProvider>
+            <ThemeProvider>
+                <EmployeePermissionProvider>
+                    <EmployeeLayoutContent>{children}</EmployeeLayoutContent>
+                </EmployeePermissionProvider>
+            </ThemeProvider>
         </SessionProvider>
     )
 }

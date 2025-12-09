@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automatic Theme Detection Test</title>
+    <style>
+        /* Import the same CSS variables and theme styles from globals.css */
+        :root {
+            /* Dark Theme Colors (Default) */
+            --color-bg-primary: 15 15 30; /* #0F0F1E - Deep space blue */
+            --color-bg-surface: 26 26 46; /* #1A1A2E - Elevated surface */
+            --color-bg-surface-variant: 22 33 62; /* #16213E - Secondary surface */
+            --color-text-primary: 255 255 255; /* #FFFFFF - White text */
+            --color-text-secondary: 255 255 255; /* #FFFFFF - White text */
+            --color-text-tertiary: 255 255 255 / 0.7; /* rgba(255, 255, 255, 0.7) - Muted white */
+            --color-text-placeholder: 255 255 255 / 0.5; /* rgba(255, 255, 255, 0.5) - Placeholder white */
+            --color-border: 255 255 255 / 0.1; /* rgba(255, 255, 255, 0.1) - Subtle white border */
+            --color-primary: 79 70 229; /* #4F46E5 - Indigo 600 */
+            --color-primary-variant: 99 102 241; /* #6366F1 - Indigo 500 */
+            --color-secondary: 6 182 212; /* #06B6D4 - Cyan 500 */
+            --color-accent: 245 158 11; /* #F59E0B - Amber 500 */
+            
+            /* Light Theme Colors */
+            --color-light-bg-primary: 250 250 250; /* #FAFAFA - Near white */
+            --color-light-bg-surface: 255 255 255; /* #FFFFFF - Pure white */
+            --color-light-bg-surface-variant: 243 244 246; /* #F3F4F6 - Light gray */
+            --color-light-text-primary: 15 23 42; /* #0F172A - Dark slate */
+            --color-light-text-secondary: 30 41 59; /* #1E293B - Medium slate */
+            --color-light-text-tertiary: 71 85 105; /* #475569 - Muted slate */
+            --color-light-text-placeholder: 148 163 184; /* #94A3B8 - Light slate */
+            --color-light-border: 203 213 225; /* #CBD5E1 - Light border */
+            
+            /* Semantic Colors (Same for both themes) */
+            --color-success: 16 185 129; /* #10B981 - Emerald 500 */
+            --color-warning: 245 158 11; /* #F59E0B - Amber 500 */
+            --color-error: 239 68 68; /* #EF4444 - Red 500 */
+            --color-info: 59 130 246; /* #3B82F6 - Blue 500 */
+            
+            /* Neumorphism 2.0 Shadows */
+            --shadow-neumorphic-inset: inset 6px 6px 12px rgba(0, 0, 0, 0.3), inset -6px -6px 12px rgba(255, 255, 255, 0.1);
+            --shadow-neumorphic-raised: 6px 6px 12px rgba(0, 0, 0, 0.3), -6px -6px 12px rgba(255, 255, 255, 0.1);
+            --shadow-neumorphic-soft: 4px 4px 8px rgba(0, 0, 0, 0.2), -4px -4px 8px rgba(255, 255, 255, 0.1);
+            --shadow-neumorphic-hover: 8px 8px 16px rgba(0, 0, 0, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.1);
+            
+            /* Transitions */
+            --transition-slow: 350ms cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+
+        /* Base styles */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            margin: 0;
+            padding: 2rem;
+            transition: background-color var(--transition-slow), color var(--transition-slow);
+            background-color: rgb(var(--color-bg-primary));
+            color: rgb(var(--color-text-primary));
+            min-height: 100vh;
+        }
+
+        /* Container */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Card styles */
+        .card {
+            background: rgb(var(--color-bg-surface));
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-neumorphic-raised);
+            transition: all var(--transition-slow);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-neumorphic-hover);
+            transform: translateY(-2px);
+        }
+
+        /* Input styles */
+        .input {
+            background: rgb(var(--color-bg-surface));
+            box-shadow: var(--shadow-neumorphic-inset);
+            border: none;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            width: 100%;
+            margin-bottom: 1rem;
+            color: rgb(var(--color-text-primary));
+            transition: all var(--transition-slow);
+        }
+
+        .input::placeholder {
+            color: rgb(var(--color-text-placeholder));
+        }
+
+        .input:focus {
+            outline: none;
+            box-shadow: var(--shadow-neumorphic-inset), 0 0 0 3px rgba(var(--color-primary), 0.2);
+        }
+
+        /* Button styles */
+        .btn {
+            background: linear-gradient(135deg, rgb(var(--color-primary)), rgb(var(--color-primary-variant)));
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            padding: 1rem 2rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-slow);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(var(--color-primary), 0.3);
+        }
+
+        /* Theme indicator */
+        .theme-indicator {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: rgb(var(--color-bg-surface));
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            box-shadow: var(--shadow-neumorphic-raised);
+            font-size: 0.875rem;
+            z-index: 1000;
+        }
+
+        /* Automatic Theme Detection using prefers-color-scheme */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --color-bg-primary: 15 15 30; /* #0F0F1E - Deep space blue */
+                --color-bg-surface: 26 26 46; /* #1A1A2E - Elevated surface */
+                --color-bg-surface-variant: 22 33 62; /* #16213E - Secondary surface */
+                --color-text-primary: 255 255 255; /* #FFFFFF - White text */
+                --color-text-secondary: 255 255 255; /* #FFFFFF - White text */
+                --color-text-tertiary: 255 255 255 / 0.7; /* rgba(255, 255, 255, 0.7) - Muted white */
+                --color-text-placeholder: 255 255 255 / 0.5; /* rgba(255, 255, 255, 0.5) - Placeholder white */
+                --color-border: 255 255 255 / 0.1; /* rgba(255, 255, 255, 0.1) - Subtle white border */
+            }
+            
+            .card {
+                background: rgb(var(--color-bg-surface));
+                box-shadow: var(--shadow-neumorphic-raised);
+            }
+            
+            .input {
+                background: rgb(var(--color-bg-surface));
+                box-shadow: var(--shadow-neumorphic-inset);
+                color: rgb(var(--color-text-primary));
+            }
+            
+            .input::placeholder {
+                color: rgb(var(--color-text-placeholder));
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --color-bg-primary: 250 250 250; /* #FAFAFA - Near white */
+                --color-bg-surface: 255 255 255; /* #FFFFFF - Pure white */
+                --color-bg-surface-variant: 243 244 246; /* #F3F4F6 - Light gray */
+                --color-text-primary: 15 23 42; /* #0F172A - Dark slate */
+                --color-text-secondary: 30 41 59; /* #1E293B - Medium slate */
+                --color-text-tertiary: 71 85 105; /* #475569 - Muted slate */
+                --color-text-placeholder: 148 163 184; /* #94A3B8 - Light slate */
+                --color-border: 203 213 225; /* #CBD5E1 - Light border */
+            }
+            
+            .card {
+                background: rgb(var(--color-bg-surface));
+                box-shadow: 6px 6px 12px rgba(0, 0, 0, 0.1), -6px -6px 12px rgba(255, 255, 255, 0.9);
+            }
+            
+            .input {
+                background: rgb(var(--color-bg-surface));
+                box-shadow: inset 6px 6px 12px rgba(0, 0, 0, 0.1), inset -6px -6px 12px rgba(255, 255, 255, 0.9);
+                color: rgb(var(--color-text-primary));
+            }
+            
+            .input::placeholder {
+                color: rgb(var(--color-text-placeholder));
+            }
+        }
+
+        /* Instructions */
+        .instructions {
+            background: rgba(var(--color-primary), 0.1);
+            border-left: 4px solid rgb(var(--color-primary));
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="theme-indicator" id="themeIndicator">Detecting theme...</div>
+    
+    <div class="container">
+        <h1>Automatic Theme Detection Test</h1>
+        
+        <div class="instructions">
+            <h2>How to Test:</h2>
+            <ol>
+                <li>Change your system theme preference (light/dark mode)</li>
+                <li>The page should automatically update to match your system preference</li>
+                <li>No manual toggle button is available - theme follows system preference</li>
+                <li>Test on different devices and browsers</li>
+            </ol>
+        </div>
+
+        <div class="card">
+            <h2>Sample Login Form</h2>
+            <p>This form demonstrates the automatic theme detection in action.</p>
+            
+            <input type="text" class="input" placeholder="Employee ID" />
+            <input type="password" class="input" placeholder="Password" />
+            
+            <button class="btn">Sign In</button>
+        </div>
+
+        <div class="card">
+            <h2>Theme Information</h2>
+            <p><strong>Current System Preference:</strong> <span id="systemPreference">Detecting...</span></p>
+            <p><strong>Applied Theme:</strong> <span id="appliedTheme">Detecting...</span></p>
+            <p><strong>Media Query Support:</strong> <span id="mediaQuerySupport">Detecting...</span></p>
+        </div>
+
+        <div class="card">
+            <h2>Expected Behavior:</h2>
+            <ul>
+                <li>Page automatically detects system theme on load</li>
+                <li>Theme changes dynamically when system preference changes</li>
+                <li>Smooth transitions between light and dark themes</li>
+                <li>All UI components respond to automatic theme changes</li>
+                <li>No manual theme controls needed</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Detect and display theme information
+        function updateThemeInfo() {
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const systemPreference = systemPrefersDark ? 'dark' : 'light';
+            const appliedTheme = systemPreference;
+            const mediaQuerySupport = window.matchMedia('(prefers-color-scheme: dark)').media !== 'not all';
+            
+            document.getElementById('systemPreference').textContent = systemPreference;
+            document.getElementById('appliedTheme').textContent = appliedTheme;
+            document.getElementById('mediaQuerySupport').textContent = mediaQuerySupport ? 'Supported' : 'Not Supported';
+            document.getElementById('themeIndicator').textContent = `Theme: ${appliedTheme}`;
+        }
+
+        // Listen for system theme changes
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        mediaQuery.addEventListener('change', updateThemeInfo);
+
+        // Initial detection
+        updateThemeInfo();
+
+        // Log theme changes for debugging
+        console.log('Automatic Theme Detection Test Page Loaded');
+        console.log('Initial system preference:', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    </script>
+</body>
+</html>
