@@ -191,7 +191,16 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { barangId, dariGudangId, keGudangId, jumlah, kondisi, keterangan } = body
+    const {
+      barangId,
+      dariGudangId,
+      keGudangId,
+      jumlah,
+      kondisi,
+      keterangan,
+      fotoBukti,
+      fotoMetadata
+    } = body
 
     // Validation
     if (!barangId || !dariGudangId || !keGudangId || !jumlah || jumlah <= 0) {
@@ -204,6 +213,21 @@ export async function POST(req: NextRequest) {
     if (dariGudangId === keGudangId) {
       return NextResponse.json(
         { error: 'Gudang sumber dan tujuan tidak boleh sama' },
+        { status: 400 }
+      )
+    }
+
+    // Validate photo data if provided
+    if (fotoBukti && !Array.isArray(fotoBukti)) {
+      return NextResponse.json(
+        { error: 'fotoBukti harus berupa array URL foto' },
+        { status: 400 }
+      )
+    }
+
+    if (fotoMetadata && typeof fotoMetadata !== 'object') {
+      return NextResponse.json(
+        { error: 'fotoMetadata harus berupa object JSON' },
         { status: 400 }
       )
     }
@@ -259,9 +283,20 @@ export async function POST(req: NextRequest) {
             keGudangId,
             jumlah,
             kondisi: kondisi || 'BARU',
-            keterangan
+            keterangan,
+            fotoBukti: fotoBukti || [],
+            fotoMetadata: fotoMetadata || null
           }
         })
+
+        // Get current stock in source warehouse
+        const stockSumber = await tx.barangGudang.findUnique({
+          where: { barangId_gudangId: { barangId, gudangId: dariGudangId } }
+        })
+
+        if (!stockSumber || stockSumber.stok < jumlah) {
+          throw new Error('Stok tidak mencukupi di gudang sumber')
+        }
 
         // Create barang keluar record from source warehouse
         await tx.barangKeluar.create({
@@ -271,7 +306,8 @@ export async function POST(req: NextRequest) {
             transferId: transferRecord.id,
             jumlah,
             kondisi: kondisi || 'BARU',
-            keterangan: `Transfer ke ${keGudang.nama} (${keGudang.kode})${keterangan ? ` - ${keterangan}` : ''}`
+            keterangan: `Transfer ke ${keGudang.nama} (${keGudang.kode})${keterangan ? ` - ${keterangan}` : ''}`,
+            employeeId: session.user.id
           }
         })
 
@@ -315,7 +351,8 @@ export async function POST(req: NextRequest) {
             transferId: transferRecord.id,
             jumlah,
             kondisi: kondisi || 'BARU',
-            keterangan: `Transfer dari ${dariGudang.nama} (${dariGudang.kode})${keterangan ? ` - ${keterangan}` : ''}`
+            keterangan: `Transfer dari ${dariGudang.nama} (${dariGudang.kode})${keterangan ? ` - ${keterangan}` : ''}`,
+            employeeId: session.user.id
           }
         })
 

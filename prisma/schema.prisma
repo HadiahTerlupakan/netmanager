@@ -2596,6 +2596,8 @@ model TransferAntarGudang {
   jumlah       Int
   kondisi      KondisiBarang  @default(BARU)
   keterangan   String?
+  fotoBukti    String[]
+  fotoMetadata Json?
   createdAt    DateTime       @default(now())
   keluar       BarangKeluar[]
   masuk        BarangMasuk[]

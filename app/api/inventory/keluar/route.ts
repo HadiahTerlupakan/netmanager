@@ -139,16 +139,14 @@ export async function GET(req: NextRequest) {
                 nama: true
               }
             },
-            // Include employee info if employeeId exists
-            ...(session.user.role === 'ADMIN' ? {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true
-                }
+            // Include user info if available
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true
               }
-            } : {})
+            }
           },
           orderBy: {
             tanggal: 'desc'

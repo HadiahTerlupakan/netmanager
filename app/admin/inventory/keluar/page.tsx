@@ -5,15 +5,22 @@ import Link from 'next/link'
 import { FiUpload, FiPlus } from 'react-icons/fi'
 import { KeluarForm } from '@/components/inventory/KeluarForm'
 import { KeluarTable } from '@/components/inventory/KeluarTable'
+import { DetailKeluarModal } from '@/components/inventory/DetailKeluarModal'
 
 interface BarangKeluar {
   id: string
   barangId: string
   gudangId: string
   jumlah: number
+  kondisi: 'BARU' | 'BEKAS' | 'RUSAK'
+  isHilang?: boolean
   keterangan: string | null
   tanggal: string
   createdAt: string
+  employeeId?: string | null
+  purpose?: string | null
+  fotoBukti: string[]
+  fotoMetadata?: any
   barang: {
     id: string
     kode: string
@@ -25,11 +32,17 @@ interface BarangKeluar {
     kode: string
     nama: string
   }
+  user?: {
+    id: string
+    name: string | null
+    email: string
+  } | null
 }
 
 export default function BarangKeluarPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingKeluar, setEditingKeluar] = useState<BarangKeluar | null>(null)
+  const [viewingKeluar, setViewingKeluar] = useState<BarangKeluar | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const handleEdit = (keluar: BarangKeluar) => {
@@ -37,10 +50,18 @@ export default function BarangKeluarPage() {
     setShowForm(true)
   }
 
+  const handleView = (keluar: BarangKeluar) => {
+    setViewingKeluar(keluar)
+  }
+
   const handleFormClose = () => {
     setShowForm(false)
     setEditingKeluar(null)
     setRefreshTrigger(prev => prev + 1)
+  }
+
+  const handleViewClose = () => {
+    setViewingKeluar(null)
   }
 
   return (
@@ -122,10 +143,19 @@ export default function BarangKeluarPage() {
         <div className="p-6">
           <KeluarTable
             onEdit={handleEdit}
+            onView={handleView}
             refreshTrigger={refreshTrigger}
           />
         </div>
       </div>
+
+      {/* Detail Modal */}
+      <DetailKeluarModal
+        keluar={viewingKeluar}
+        isOpen={!!viewingKeluar}
+        onClose={handleViewClose}
+        onEdit={handleEdit}
+      />
     </div>
   )
 }

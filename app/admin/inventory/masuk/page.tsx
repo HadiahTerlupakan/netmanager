@@ -5,15 +5,20 @@ import Link from 'next/link'
 import { FiDownload, FiPlus } from 'react-icons/fi'
 import { MasukForm } from '@/components/inventory/MasukForm'
 import { MasukTable } from '@/components/inventory/MasukTable'
+import { DetailMasukModal } from '@/components/inventory/DetailMasukModal'
 
 interface BarangMasuk {
   id: string
   barangId: string
   gudangId: string
   jumlah: number
+  kondisi: 'BARU' | 'BEKAS' | 'RUSAK'
   keterangan: string | null
   tanggal: string
   createdAt: string
+  employeeId?: string | null
+  fotoBukti: string[]
+  fotoMetadata?: any
   barang: {
     id: string
     kode: string
@@ -25,11 +30,17 @@ interface BarangMasuk {
     kode: string
     nama: string
   }
+  user?: {
+    id: string
+    name: string | null
+    email: string
+  } | null
 }
 
 export default function BarangMasukPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingMasuk, setEditingMasuk] = useState<BarangMasuk | null>(null)
+  const [viewingMasuk, setViewingMasuk] = useState<BarangMasuk | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const handleEdit = (masuk: BarangMasuk) => {
@@ -37,10 +48,18 @@ export default function BarangMasukPage() {
     setShowForm(true)
   }
 
+  const handleView = (masuk: BarangMasuk) => {
+    setViewingMasuk(masuk)
+  }
+
   const handleFormClose = () => {
     setShowForm(false)
     setEditingMasuk(null)
     setRefreshTrigger(prev => prev + 1)
+  }
+
+  const handleViewClose = () => {
+    setViewingMasuk(null)
   }
 
   return (
@@ -122,10 +141,19 @@ export default function BarangMasukPage() {
         <div className="p-6">
           <MasukTable
             onEdit={handleEdit}
+            onView={handleView}
             refreshTrigger={refreshTrigger}
           />
         </div>
       </div>
+
+      {/* Detail Modal */}
+      <DetailMasukModal
+        masuk={viewingMasuk}
+        isOpen={!!viewingMasuk}
+        onClose={handleViewClose}
+        onEdit={handleEdit}
+      />
     </div>
   )
 }

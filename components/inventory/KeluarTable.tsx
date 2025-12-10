@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FiEdit, FiTrash2, FiEye } from 'react-icons/fi'
+import { FiEdit, FiTrash2, FiEye, FiPaperclip, FiCamera } from 'react-icons/fi'
 
 interface BarangKeluar {
   id: string
@@ -15,6 +15,8 @@ interface BarangKeluar {
   createdAt: string
   employeeId?: string | null
   purpose?: string | null
+  fotoBukti: string[]
+  fotoMetadata?: any
   barang: {
     id: string
     kode: string
@@ -35,10 +37,11 @@ interface BarangKeluar {
 
 interface KeluarTableProps {
   onEdit?: (keluar: BarangKeluar) => void
+  onView?: (keluar: BarangKeluar) => void
   refreshTrigger?: number
 }
 
-export function KeluarTable({ onEdit, refreshTrigger = 0 }: KeluarTableProps) {
+export function KeluarTable({ onEdit, onView, refreshTrigger = 0 }: KeluarTableProps) {
   const [keluarList, setKeluarList] = useState<BarangKeluar[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -138,6 +141,9 @@ export function KeluarTable({ onEdit, refreshTrigger = 0 }: KeluarTableProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Diambil Oleh
               </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                Foto
+              </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Aksi
               </th>
@@ -146,13 +152,13 @@ export function KeluarTable({ onEdit, refreshTrigger = 0 }: KeluarTableProps) {
           <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                   Memuat data...
                 </td>
               </tr>
             ) : keluarList.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                   Tidak ada data barang keluar
                 </td>
               </tr>
@@ -235,8 +241,29 @@ export function KeluarTable({ onEdit, refreshTrigger = 0 }: KeluarTableProps) {
                       <span className="text-sm text-gray-500 dark:text-gray-400">Admin</span>
                     )}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    {keluar.fotoBukti && keluar.fotoBukti.length > 0 ? (
+                      <div className="flex items-center justify-center space-x-1">
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                          <FiPaperclip className="h-3 w-3 mr-1" />
+                          {keluar.fotoBukti.length}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-400 dark:text-gray-500">
+                        <FiCamera className="h-4 w-4" />
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">
+                      <button
+                        onClick={() => onView?.(keluar)}
+                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                        title="Lihat Detail"
+                      >
+                        <FiEye className="h-4 w-4" />
+                      </button>
                       <button
                         onClick={() => onEdit?.(keluar)}
                         className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"

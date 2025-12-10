@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { PhotoUpload } from './PhotoUpload'
 
 interface TransferFormProps {
   initialData?: any
@@ -29,6 +30,7 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([])
   const router = useRouter()
 
   useEffect(() => {
@@ -128,7 +130,13 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
         },
         body: JSON.stringify({
           ...formData,
-          jumlah
+          jumlah,
+          fotoBukti: uploadedPhotos.map(photo => photo.url),
+          fotoMetadata: uploadedPhotos.length > 0 ? {
+            uploadedAt: new Date().toISOString(),
+            count: uploadedPhotos.length,
+            totalSize: uploadedPhotos.reduce((sum, photo) => sum + (photo.size || 0), 0)
+          } : null
         }),
       })
 
@@ -151,6 +159,7 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
       })
       setStockSumber(0)
       setStockPerKondisi({ BARU: 0, BEKAS: 0, RUSAK: 0 })
+      setUploadedPhotos([])
 
       // Close form after 2 seconds
       setTimeout(() => {
@@ -455,6 +464,18 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           placeholder="Contoh: Transfer untuk cabang bulan Desember"
           disabled={loading}
+        />
+      </div>
+
+      {/* Foto Bukti */}
+      <div>
+        <PhotoUpload
+          uploadedPhotos={uploadedPhotos}
+          setUploadedPhotos={setUploadedPhotos}
+          disabled={loading}
+          title="Foto Bukti Transfer (Opsional)"
+          description="Upload foto bukti transfer barang antar gudang untuk dokumentasi"
+          maxPhotos={3}
         />
       </div>
 
