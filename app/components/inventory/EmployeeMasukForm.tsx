@@ -12,8 +12,7 @@ import {
   HiOutlineCube,
   HiOutlineMagnifyingGlass
 } from 'react-icons/hi2'
-import { PhotoUpload } from './PhotoUpload'
-import type { UploadedPhoto } from './PhotoUpload'
+import { PhotoUpload, type UploadedPhoto } from './PhotoUpload'
 
 export default function EmployeeMasukForm() {
   const router = useRouter()
@@ -31,9 +30,7 @@ export default function EmployeeMasukForm() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [photos, setPhotos] = useState<UploadedPhoto[]>([])
-  const [transactionId, setTransactionId] = useState<string | null>(null)
-  const [uploadingPhotos, setUploadingPhotos] = useState(false)
-  const [showPhotoSection, setShowPhotoSection] = useState(false)
+  const [transactionId] = useState<string>('temp-' + Date.now())
 
   useEffect(() => {
     async function fetchInitialData() {
@@ -113,7 +110,38 @@ export default function EmployeeMasukForm() {
     setSuccess('')
 
     try {
-      // Create the inventory transaction
+      // Upload photos first if any exist
+      let fotoBuktiUrls: string[] = []
+
+      if (photos.length > 0) {
+        setSuccess('Mengunggah foto...')
+
+        const uploadFormData = new FormData()
+        photos.forEach((photo) => {
+          if (photo.file) { // Ensure file exists before appending
+            uploadFormData.append('photos', photo.file);
+          }
+        })
+        uploadFormData.append('transactionId', transactionId)
+        uploadFormData.append('transactionType', 'inventory-masuk')
+
+        const uploadResponse = await fetch('/api/inventory/upload-photo', {
+          method: 'POST',
+          body: uploadFormData
+        })
+
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json()
+          fotoBuktiUrls = uploadResult.data?.urls || []
+        } else {
+          console.error('Photo upload failed')
+          setError('Gagal mengunggah foto.')
+          setLoading(false)
+          return
+        }
+      }
+
+      // Create the inventory transaction with photo URLs
       const response = await fetch('/api/inventory/masuk', {
         method: 'POST',
         headers: {
@@ -124,7 +152,12 @@ export default function EmployeeMasukForm() {
           gudangId: formData.gudangId,
           jumlah: jumlah,
           kondisi: formData.kondisi,
-          keterangan: formData.purpose // Gunakan purpose sebagai keterangan
+          keterangan: formData.purpose,
+          fotoBukti: fotoBuktiUrls,
+          fotoMetadata: fotoBuktiUrls.length > 0 ? {
+            uploadedAt: new Date().toISOString(),
+            count: fotoBuktiUrls.length
+          } : null
         }),
       })
 
@@ -135,93 +168,17 @@ export default function EmployeeMasukForm() {
         return
       }
 
-      const result = await response.json()
-      const newTransactionId = result.data?.id || result.masukId || result.id
-
-      if (!newTransactionId) {
-        console.error('Response structure:', result)
-        setError('Transaksi berhasil dibuat tetapi tidak ada ID yang dikembalikan')
-        setLoading(false)
-        return
-      }
-
-      // Handle photo uploads if any photos were added
-      if (photos.length > 0) {
-        setTransactionId(newTransactionId)
-        setShowPhotoSection(true)
-        setSuccess('Transaksi berhasil! Silakan unggah foto dokumentasi.')
-        setLoading(false)
-
-        // Auto-upload photos after a short delay
-        setTimeout(() => {
-          uploadTransactionPhotos(newTransactionId)
-        }, 1000)
-      } else {
-        // No photos to upload - complete the process
-        setSuccess('Barang berhasil ditambahkan!')
-        resetForm()
-      }
+      setSuccess('Barang berhasil ditambahkan!')
+      resetForm()
     } catch (error) {
       console.error('Error adding item:', error)
-      setError('Terjadi kesalahan. Silakan coba lagi.')
+      setError(error instanceof Error ? error.message : 'Terjadi kesalahan')
       setLoading(false)
     }
   }
 
-  const uploadTransactionPhotos = async (txId: string) => {
-    if (photos.length === 0) return
-
-    setUploadingPhotos(true)
-    setError('')
-
-    try {
-      const formData = new FormData()
-
-      // Add all photos
-      photos.forEach((photo) => {
-        formData.append('photos', photo.file)
-      })
-
-      formData.append('transactionId', txId)
-      formData.append('transactionType', 'inventory-masuk')
-
-      const response = await fetch('/api/inventory/upload-photo', {
-        method: 'POST',
-        body: formData
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        setSuccess(`Barang berhasil ditambahkan dan ${result.data.count} foto berhasil diunggah!`)
-
-        // Update photos status to success
-        setPhotos(prev => prev.map(photo => ({
-          ...photo,
-          status: 'success',
-          url: photo.url || result.data.urls[prev.indexOf(photo)] || '',
-          progress: 100
-        })))
-
-        // Reset form after showing success message
-        setTimeout(() => {
-          resetForm()
-          setShowPhotoSection(false)
-        }, 3000)
-      } else {
-        const errorData = await response.json()
-        setError(`Transaksi berhasil tetapi gagal mengunggah foto: ${errorData.error}`)
-      }
-    } catch (error) {
-      console.error('Error uploading photos:', error)
-      setError('Transaksi berhasil tetapi terjadi kesalahan saat mengunggah foto')
-    } finally {
-      setUploadingPhotos(false)
-      setLoading(false) // Ensure loading state is reset after photo upload completes
-    }
-  }
-
   const resetForm = () => {
-    setLoading(false) // Reset loading state
+    setLoading(false)
     setFormData({
       barangId: '',
       gudangId: '',
@@ -230,7 +187,6 @@ export default function EmployeeMasukForm() {
       kondisi: 'BARU'
     })
     setPhotos([])
-    setTransactionId(null)
     setCurrentStock(0)
 
     // Refresh barang data untuk update stock
@@ -455,7 +411,7 @@ export default function EmployeeMasukForm() {
               onPhotosChange={handlePhotosChange}
               maxPhotos={3}
               maxSizeMB={5}
-              disabled={loading || uploadingPhotos}
+              disabled={loading}
               className="mb-4"
             />
           </div>
@@ -463,13 +419,13 @@ export default function EmployeeMasukForm() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading || uploadingPhotos || !formData.barangId || !formData.gudangId || !formData.jumlah || !formData.purpose}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-lg hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
+            disabled={loading || !formData.barangId || !formData.gudangId || !formData.jumlah || !formData.purpose}
+            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95 text-lg"
           >
-            {loading || uploadingPhotos ? (
+            {loading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                {uploadingPhotos ? 'Mengunggah Foto...' : 'Memproses...'}
+                Memproses...
               </>
             ) : (
               <>
@@ -478,26 +434,6 @@ export default function EmployeeMasukForm() {
               </>
             )}
           </button>
-
-          {/* Photo Upload Progress Section */}
-          {showPhotoSection && transactionId && (
-            <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
-                <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
-                  Mengunggah Foto Dokumentasi
-                </h3>
-              </div>
-              <p className="text-xs text-green-700 dark:text-green-300">
-                Mohon tunggu sebentar, foto sedang diunggah untuk dokumentasi transaksi #{transactionId.slice(-8)}...
-              </p>
-              {photos.length > 0 && (
-                <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                  {photos.filter(p => p.status === 'success').length} dari {photos.length} foto berhasil diunggah
-                </div>
-              )}
-            </div>
-          )}
         </form>
       </div>
 

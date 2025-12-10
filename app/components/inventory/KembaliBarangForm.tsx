@@ -28,9 +28,7 @@ export default function KembaliBarangForm() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [photos, setPhotos] = useState<UploadedPhoto[]>([])
-  const [transactionId, setTransactionId] = useState<string | null>(null)
-  const [uploadingPhotos, setUploadingPhotos] = useState(false)
-  const [showPhotoSection, setShowPhotoSection] = useState(false)
+  const [transactionId] = useState<string>('temp-' + Date.now())
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -46,12 +44,12 @@ export default function KembaliBarangForm() {
         limit: '20',
         ...(searchTerm && { search: searchTerm })
       })
-      
+
       const response = await fetch(`/api/inventory/employee/returns?${params}`)
       if (!response.ok) {
         throw new Error('Gagal memuat data barang dipinjam')
       }
-      
+
       const data = await response.json()
       setBorrowedItems(data.returns || [])
       setTotalPages(data.pagination?.totalPages || 1)
@@ -112,7 +110,35 @@ export default function KembaliBarangForm() {
     setSuccess('')
 
     try {
-      // Step 1: Create the return transaction
+      // Upload photos first if any exist
+      let fotoBuktiUrls: string[] = []
+
+      if (photos.length > 0) {
+        setSuccess('Mengunggah foto...')
+
+        const uploadFormData = new FormData()
+        photos.forEach((photo) => {
+          if (photo.file) {
+            uploadFormData.append('photos', photo.file)
+          }
+        })
+        uploadFormData.append('transactionId', transactionId)
+        uploadFormData.append('transactionType', 'inventory-masuk')
+
+        const uploadResponse = await fetch('/api/inventory/upload-photo', {
+          method: 'POST',
+          body: uploadFormData
+        })
+
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json()
+          fotoBuktiUrls = uploadResult.data?.urls || []
+        } else {
+          console.error('Photo upload failed')
+        }
+      }
+
+      // Create the return transaction with photo URLs
       const response = await fetch('/api/inventory/returns', {
         method: 'POST',
         headers: {
@@ -122,7 +148,12 @@ export default function KembaliBarangForm() {
           barangKeluarId: formData.barangKeluarId,
           jumlahDikembalikan: jumlah,
           kondisiPengembalian: formData.kondisiPengembalian,
-          keterangan: formData.keterangan || undefined
+          keterangan: formData.keterangan || undefined,
+          fotoBukti: fotoBuktiUrls,
+          fotoMetadata: fotoBuktiUrls.length > 0 ? {
+            uploadedAt: new Date().toISOString(),
+            count: fotoBuktiUrls.length
+          } : null
         }),
       })
 
@@ -133,32 +164,8 @@ export default function KembaliBarangForm() {
         return
       }
 
-      const result = await response.json()
-      const newTransactionId = result.data?.id || result.returnId || result.id
-
-      if (!newTransactionId) {
-        console.error('Response structure:', result)
-        setError('Transaksi berhasil dibuat tetapi tidak ada ID yang dikembalikan')
-        setLoading(false)
-        return
-      }
-
-      // Step 2: Handle photo uploads if any photos were added
-      if (photos.length > 0) {
-        setTransactionId(newTransactionId)
-        setShowPhotoSection(true)
-        setSuccess('Transaksi berhasil! Silakan unggah foto dokumentasi.')
-        setLoading(false)
-
-        // Auto-upload photos after a short delay
-        setTimeout(() => {
-          uploadTransactionPhotos(newTransactionId)
-        }, 1000)
-      } else {
-        // No photos to upload - complete the process
-        setSuccess('Barang berhasil dikembalikan!')
-        resetForm()
-      }
+      setSuccess('Barang berhasil dikembalikan!')
+      resetForm()
     } catch (error) {
       console.error('Error returning item:', error)
       setError('Terjadi kesalahan. Silakan coba lagi.')
@@ -166,57 +173,8 @@ export default function KembaliBarangForm() {
     }
   }
 
-  const uploadTransactionPhotos = async (txId: string) => {
-    if (photos.length === 0) return
-
-    setUploadingPhotos(true)
-    setError('')
-
-    try {
-      const formData = new FormData()
-
-      // Add all photos
-      photos.forEach((photo) => {
-        formData.append('photos', photo.file)
-      })
-
-      formData.append('returnId', txId)
-
-      const response = await fetch('/api/inventory/returns/upload-photo', {
-        method: 'POST',
-        body: formData
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        setSuccess(`Barang berhasil dikembalikan dan ${result.data.count} foto berhasil diunggah!`)
-
-        // Update photos status to success
-        setPhotos(prev => prev.map(photo => ({
-          ...photo,
-          status: 'success',
-          url: photo.url || result.data.urls[prev.indexOf(photo)] || '',
-          progress: 100
-        })))
-
-        // Reset form after showing success message
-        setTimeout(() => {
-          resetForm()
-          setShowPhotoSection(false)
-        }, 3000)
-      } else {
-        const errorData = await response.json()
-        setError(`Transaksi berhasil tetapi gagal mengunggah foto: ${errorData.error}`)
-      }
-    } catch (error) {
-      console.error('Error uploading photos:', error)
-      setError('Transaksi berhasil tetapi terjadi kesalahan saat mengunggah foto')
-    } finally {
-      setUploadingPhotos(false)
-    }
-  }
-
   const resetForm = () => {
+    setLoading(false)
     setFormData({
       barangKeluarId: '',
       jumlahDikembalikan: '',
@@ -224,7 +182,6 @@ export default function KembaliBarangForm() {
       keterangan: ''
     })
     setPhotos([])
-    setTransactionId(null)
     setSelectedItem(null)
 
     // Refresh borrowed items data
@@ -319,11 +276,10 @@ export default function KembaliBarangForm() {
             {borrowedItems.map((item) => (
               <div
                 key={item.id}
-                className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                  selectedItem?.id === item.id
+                className={`border rounded-lg p-4 cursor-pointer transition-all ${selectedItem?.id === item.id
                     ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
+                  }`}
                 onClick={() => handleItemSelect(item.id)}
               >
                 <div className="flex items-center justify-between">
@@ -353,11 +309,10 @@ export default function KembaliBarangForm() {
                   </div>
                   <div className="ml-4">
                     <button
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        selectedItem?.id === item.id
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${selectedItem?.id === item.id
                           ? 'bg-green-600 text-white'
                           : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
+                        }`}
                     >
                       {selectedItem?.id === item.id ? 'Dipilih' : 'Pilih'}
                     </button>
@@ -514,7 +469,7 @@ export default function KembaliBarangForm() {
                 onPhotosChange={handlePhotosChange}
                 maxPhotos={3}
                 maxSizeMB={5}
-                disabled={loading || uploadingPhotos}
+                disabled={loading}
                 className="mb-4"
               />
             </div>
@@ -522,13 +477,13 @@ export default function KembaliBarangForm() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || uploadingPhotos || !formData.barangKeluarId || !formData.jumlahDikembalikan}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-teal-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
+              disabled={loading || !formData.barangKeluarId || !formData.jumlahDikembalikan}
+              className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-green-500 to-teal-600 text-white font-medium rounded-xl hover:from-green-600 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95 text-lg"
             >
-              {loading || uploadingPhotos ? (
+              {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  {uploadingPhotos ? 'Mengunggah Foto...' : 'Memproses...'}
+                  Memproses...
                 </>
               ) : (
                 <>
@@ -537,26 +492,6 @@ export default function KembaliBarangForm() {
                 </>
               )}
             </button>
-
-            {/* Photo Upload Progress Section */}
-            {showPhotoSection && transactionId && (
-              <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
-                  <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
-                    Mengunggah Foto Dokumentasi
-                  </h3>
-                </div>
-                <p className="text-xs text-green-700 dark:text-green-300">
-                  Mohon tunggu sebentar, foto sedang diunggah untuk dokumentasi transaksi #{transactionId.slice(-8)}...
-                </p>
-                {photos.length > 0 && (
-                  <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                    {photos.filter(p => p.status === 'success').length} dari {photos.length} foto berhasil diunggah
-                  </div>
-                )}
-              </div>
-            )}
           </form>
         </div>
       )}

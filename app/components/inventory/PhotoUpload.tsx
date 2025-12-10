@@ -346,15 +346,6 @@ export function PhotoUpload({
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Foto ({photos.length}/{maxPhotos})
             </h3>
-            {transactionId && photos.some(p => p.status === 'pending') && (
-              <button
-                onClick={uploadPhotos}
-                disabled={isUploading}
-                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isUploading ? 'Mengunggah...' : 'Upload Sekarang'}
-              </button>
-            )}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
