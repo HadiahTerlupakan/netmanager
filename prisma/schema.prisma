@@ -28,6 +28,7 @@ model User {
   sessions            Session[]
   transactionsCreated Transaction[]  @relation("TransactionCreatedBy")
   transactionsUpdated Transaction[]  @relation("TransactionUpdatedBy")
+  barangMasuk         BarangMasuk[]  @relation("EmployeeBarangMasuk")
   barangKeluar        BarangKeluar[] @relation("EmployeeBarangKeluar")
   tickets             Ticket[]
 }
@@ -2501,11 +2502,13 @@ model BarangMasuk {
   tanggalExpire     DateTime?
   nomorBatch        String?
   supplier          String?
+  employeeId        String?
   createdAt         DateTime             @default(now())
   fotoBukti         String[]
   fotoMetadata      Json?
   barang            Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
   gudang            Gudang               @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  user              User?                @relation("EmployeeBarangMasuk", fields: [employeeId], references: [id])
   transfer          TransferAntarGudang? @relation(fields: [transferId], references: [id])
 
   @@index([barangId])

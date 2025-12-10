@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { RestockSettingsForm } from '@/components/inventory/RestockSettingsForm'
+import { Modal } from '@/components/ui/Modal'
 
 interface PredictionData {
   barangId: string
@@ -440,34 +441,20 @@ export default function RestockPage() {
       </div>
 
       {/* Settings Form Modal */}
-      {showSettingsForm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-3xl shadow-lg rounded-md bg-white dark:bg-gray-800">
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                  Pengaturan Restock Barang
-                </h3>
-                <button
-                  onClick={() => setShowSettingsForm(false)}
-                  className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
-                >
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <RestockSettingsForm
-                onClose={() => setShowSettingsForm(false)}
-                onSuccess={() => {
-                  setShowSettingsForm(false)
-                  fetchPredictions()
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={showSettingsForm}
+        onClose={() => setShowSettingsForm(false)}
+        title="Pengaturan Restock Barang"
+        size="3xl"
+      >
+        <RestockSettingsForm
+          onClose={() => setShowSettingsForm(false)}
+          onSuccess={() => {
+            setShowSettingsForm(false)
+            fetchPredictions()
+          }}
+        />
+      </Modal>
     </div>
   )
 }

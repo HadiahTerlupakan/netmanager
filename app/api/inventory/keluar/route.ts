@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger'
 
 async function requireAdminOrEmployee() {
   const session: any = await getServerSession(authConfig as any)
-  if (!session || (session?.user?.role !== 'ADMIN' && !session?.user?.employeeId)) {
+  if (!session || !['ADMIN', 'EMPLOYEE'].includes(session?.user?.role)) {
     return null
   }
   return session
@@ -216,27 +216,12 @@ export async function POST(req: NextRequest) {
       kondisi,
       isHilang,
       keterangan,
-      purpose,
       fotoBukti,
-      fotoMetadata,
-      employeeId: requestEmployeeId  // Allow admin to specify employeeId
+      fotoMetadata
     } = body
 
-    // If employee is creating the record, set employeeId and use purpose from body
-    let finalEmployeeId = null
-    let finalKeterangan = keterangan
-
-    if (session.user.employeeId) {
-      finalEmployeeId = session.user.id  // Use user.id as reference
-    } else if (session.user.role === 'ADMIN' && requestEmployeeId) {
-      // Admin can specify employeeId
-      finalEmployeeId = requestEmployeeId
-    }
-
-    // For employees (or anyone using the employee form), always use purpose as keterangan if provided
-    if (purpose && purpose.trim()) {
-      finalKeterangan = purpose.trim() // Just save the purpose directly as keterangan
-    }
+    // Simplified executor tracking - use current session user
+    const finalEmployeeId = session.user.id
 
     // Validation
     if (!barangId || !gudangId || !jumlah || jumlah <= 0) {
@@ -306,13 +291,6 @@ export async function POST(req: NextRequest) {
         }
 
         // Create stock-out record
-        console.log('[DEBUG] Creating BarangKeluar record:', {
-          sessionRole: session.user.role,
-          employeeId: session.user.id,
-          bodyPurpose: purpose,
-          bodyKeterangan: keterangan,
-          finalKeterangan: finalKeterangan
-        })
         const newKeluarRecord = await tx.barangKeluar.create({
           data: {
             barangId,
@@ -320,14 +298,12 @@ export async function POST(req: NextRequest) {
             jumlah,
             kondisi: kondisi || 'BARU',
             isHilang: isHilang || false,
-            keterangan: finalKeterangan,
+            keterangan,
             employeeId: finalEmployeeId,
-            purpose: session.user.role === 'EMPLOYEE' ? purpose : null,
             fotoBukti: fotoBukti || [],
             fotoMetadata: fotoMetadata || null
           }
         })
-        console.log('[DEBUG] Created record result:', newKeluarRecord)
 
         // Update stock
         const newStock = currentStock.stok - jumlah

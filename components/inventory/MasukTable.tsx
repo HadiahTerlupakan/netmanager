@@ -12,6 +12,7 @@ interface BarangMasuk {
   keterangan: string | null
   tanggal: string
   createdAt: string
+  employeeId?: string | null
   barang: {
     id: string
     kode: string
@@ -23,6 +24,11 @@ interface BarangMasuk {
     kode: string
     nama: string
   }
+  user?: {
+    id: string
+    name: string | null
+    email: string
+  } | null
 }
 
 interface MasukTableProps {
@@ -128,6 +134,9 @@ export function MasukTable({ onEdit, refreshTrigger = 0 }: MasukTableProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Keterangan
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                Diproses Oleh
+              </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Aksi
               </th>
@@ -136,13 +145,13 @@ export function MasukTable({ onEdit, refreshTrigger = 0 }: MasukTableProps) {
           <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
                   Memuat data...
                 </td>
               </tr>
             ) : masukList.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                   Tidak ada data barang masuk
                 </td>
               </tr>
@@ -194,6 +203,20 @@ export function MasukTable({ onEdit, refreshTrigger = 0 }: MasukTableProps) {
                     <div className="text-sm text-gray-900 dark:text-white">
                       {masuk.keterangan || '-'}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {masuk.user ? (
+                      <div className="text-sm">
+                        <div className="font-medium text-green-600 dark:text-green-400">
+                          👤 {masuk.user.name || 'Unknown'}
+                        </div>
+                        <div className="text-gray-500 dark:text-gray-400">
+                          {masuk.user.email}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-500 dark:text-gray-400">System</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">

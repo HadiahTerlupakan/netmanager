@@ -58,7 +58,17 @@ export async function GET(req: NextRequest) {
                 kode: true,
                 nama: true
               }
-            }
+            },
+            // Include user info if available
+            ...(session.user.role === 'ADMIN' ? {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              }
+            } : {})
           },
           orderBy: {
             tanggal: 'desc'
@@ -192,6 +202,7 @@ export async function POST(req: NextRequest) {
             jumlah: parsedJumlah,
             kondisi: kondisi || 'BARU',
             keterangan,
+            employeeId: session.user.id,
             fotoBukti: fotoBukti || [],
             fotoMetadata: fotoMetadata || null
           }

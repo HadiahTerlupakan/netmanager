@@ -12,6 +12,68 @@ async function requireAdmin() {
   return session
 }
 
+async function getStockByCondition(barangId: string, gudangId: string) {
+  // Get ALL transactions for this barang to calculate current condition breakdown
+  const [masukData, keluarData] = await Promise.all([
+    prisma.barangMasuk.findMany({
+      where: { barangId, gudangId },
+      orderBy: { tanggal: 'desc' }
+    }),
+    prisma.barangKeluar.findMany({
+      where: { barangId, gudangId, isHilang: false },
+      orderBy: { tanggal: 'desc' }
+    })
+  ])
+
+  // Calculate current stock by condition
+  let stokBaru = 0
+  let stokBekas = 0
+  let stokRusak = 0
+
+  // Process barang masuk
+  masukData.forEach((masuk: any) => {
+    switch (masuk.kondisi) {
+      case 'BARU':
+        stokBaru += masuk.jumlah
+        break
+      case 'BEKAS':
+        stokBekas += masuk.jumlah
+        break
+      case 'RUSAK':
+        stokRusak += masuk.jumlah
+        break
+      default:
+        stokBaru += masuk.jumlah
+        break
+    }
+  })
+
+  // Process barang keluar
+  keluarData.forEach((keluar: any) => {
+    switch (keluar.kondisi) {
+      case 'BARU':
+        stokBaru = Math.max(0, stokBaru - keluar.jumlah)
+        break
+      case 'BEKAS':
+        stokBekas = Math.max(0, stokBekas - keluar.jumlah)
+        break
+      case 'RUSAK':
+        stokRusak = Math.max(0, stokRusak - keluar.jumlah)
+        break
+      default:
+        stokBaru = Math.max(0, stokBaru - keluar.jumlah)
+        break
+    }
+  })
+
+  return {
+    stokBaru,
+    stokBekas,
+    stokRusak,
+    totalStok: stokBaru + stokBekas + stokRusak
+  }
+}
+
 /**
  * GET /api/inventory/transfer/[id]
  * Get specific transfer record by ID
@@ -250,16 +312,27 @@ export async function DELETE(
           })
         }
 
-        // Reduce stock from destination warehouse
+        // Check condition-specific stock in destination warehouse before rollback
+        const stockTujuanByKondisi = await getStockByCondition(transferRecord.barangId, transferRecord.keGudangId)
+        const availableStockInTujuan = stockTujuanByKondisi[
+          transferRecord.kondisi === 'BARU' ? 'stokBaru' :
+          transferRecord.kondisi === 'BEKAS' ? 'stokBekas' :
+          transferRecord.kondisi === 'RUSAK' ? 'stokRusak' : 'stokBaru'
+        ] || 0
+
+        if (availableStockInTujuan < transferRecord.jumlah) {
+          throw new Error(
+            `Stok ${transferRecord.kondisi.toLowerCase()} di gudang tujuan tidak mencukupi untuk pembatalan transfer. ` +
+            `Stok tersedia: ${availableStockInTujuan}, Diperlukan: ${transferRecord.jumlah}`
+          )
+        }
+
+        // Reduce stock from destination warehouse (using BarangGudang for atomicity)
         const stockTujuan = await tx.barangGudang.findUnique({
           where: { barangId_gudangId: { barangId: transferRecord.barangId, gudangId: transferRecord.keGudangId } }
         })
 
         if (stockTujuan) {
-          if (stockTujuan.stok < transferRecord.jumlah) {
-            throw new Error('Stok di gudang tujuan tidak mencukupi untuk pembatalan transfer')
-          }
-
           const newStock = stockTujuan.stok - transferRecord.jumlah
 
           if (newStock === 0) {
@@ -317,10 +390,7 @@ export async function DELETE(
     if (error.message === 'Record transfer tidak ditemukan') {
       return NextResponse.json({ error: error.message }, { status: 404 })
     }
-    if (error.message === 'Stok di gudang tujuan tidak mencukupi untuk pembatalan transfer') {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-    if (error.message === 'Stok tidak ditemukan di gudang tujuan') {
+    if (error.message.includes('tidak mencukupi untuk pembatalan transfer') || error.message.includes('tidak ditemukan di gudang tujuan')) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 

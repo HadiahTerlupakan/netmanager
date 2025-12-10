@@ -12,6 +12,68 @@ async function requireAdmin() {
   return session
 }
 
+async function getStockByCondition(barangId: string, gudangId: string) {
+  // Get ALL transactions for this barang to calculate current condition breakdown
+  const [masukData, keluarData] = await Promise.all([
+    prisma.barangMasuk.findMany({
+      where: { barangId, gudangId },
+      orderBy: { tanggal: 'desc' }
+    }),
+    prisma.barangKeluar.findMany({
+      where: { barangId, gudangId, isHilang: false },
+      orderBy: { tanggal: 'desc' }
+    })
+  ])
+
+  // Calculate current stock by condition
+  let stokBaru = 0
+  let stokBekas = 0
+  let stokRusak = 0
+
+  // Process barang masuk
+  masukData.forEach((masuk: any) => {
+    switch (masuk.kondisi) {
+      case 'BARU':
+        stokBaru += masuk.jumlah
+        break
+      case 'BEKAS':
+        stokBekas += masuk.jumlah
+        break
+      case 'RUSAK':
+        stokRusak += masuk.jumlah
+        break
+      default:
+        stokBaru += masuk.jumlah
+        break
+    }
+  })
+
+  // Process barang keluar
+  keluarData.forEach((keluar: any) => {
+    switch (keluar.kondisi) {
+      case 'BARU':
+        stokBaru = Math.max(0, stokBaru - keluar.jumlah)
+        break
+      case 'BEKAS':
+        stokBekas = Math.max(0, stokBekas - keluar.jumlah)
+        break
+      case 'RUSAK':
+        stokRusak = Math.max(0, stokRusak - keluar.jumlah)
+        break
+      default:
+        stokBaru = Math.max(0, stokBaru - keluar.jumlah)
+        break
+    }
+  })
+
+  return {
+    stokBaru,
+    stokBekas,
+    stokRusak,
+    totalStok: stokBaru + stokBekas + stokRusak
+  }
+}
+
 /**
  * GET /api/inventory/transfer
  * Get all transfer records with filters
@@ -176,13 +238,16 @@ export async function POST(req: NextRequest) {
           throw new Error('Gudang tujuan tidak ditemukan atau tidak aktif')
         }
 
-        // Check stock in source warehouse
-        const stockSumber = await tx.barangGudang.findUnique({
-          where: { barangId_gudangId: { barangId, gudangId: dariGudangId } }
-        })
+        // Check condition-specific stock in source warehouse
+        const stockByKondisi = await getStockByCondition(barangId, dariGudangId)
+        const availableStockForCondition = stockByKondisi[
+          kondisi === 'BARU' ? 'stokBaru' :
+          kondisi === 'BEKAS' ? 'stokBekas' :
+          kondisi === 'RUSAK' ? 'stokRusak' : 'stokBaru'
+        ] || 0
 
-        if (!stockSumber || stockSumber.stok < jumlah) {
-          throw new Error(`Stok tidak mencukupi di gudang sumber. Stok tersedia: ${stockSumber?.stok || 0}`)
+        if (availableStockForCondition < jumlah) {
+          throw new Error(`Stok ${kondisi.toLowerCase()} tidak mencukupi di gudang sumber. Stok tersedia: ${availableStockForCondition}`)
         }
 
         // Create transfer record
@@ -294,7 +359,7 @@ export async function POST(req: NextRequest) {
     if (error.message === 'Gudang tujuan tidak ditemukan atau tidak aktif') {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
-    if (error.message.includes('Stok tidak mencukupi')) {
+    if (error.message.includes('Stok tidak mencukupi') || error.message.includes('tidak mencukupi')) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
     if (error.message === 'Gudang sumber dan tujuan tidak boleh sama') {

@@ -17,13 +17,10 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
     kondisi: 'BARU' as 'BARU' | 'BEKAS' | 'RUSAK',
     isHilang: false, // Checkbox for lost items
     keterangan: '',
-    tanggal: new Date().toISOString().split('T')[0],
-    employeeId: '',
-    purpose: ''
+    tanggal: new Date().toISOString().split('T')[0]
   })
   const [barangs, setBarangs] = useState<any[]>([])
   const [gudangs, setGudangs] = useState<any[]>([])
-  const [employees, setEmployees] = useState<any[]>([])
   const [stockByCondition, setStockByCondition] = useState({
     BARU: 0,
     BEKAS: 0,
@@ -51,11 +48,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
         const gudangData = await gudangResponse.json()
         setGudangs(gudangData.gudangs || [])
 
-        // Fetch employees
-        const employeeResponse = await fetch('/api/employees')
-        const employeeData = await employeeResponse.json()
-        setEmployees(employeeData.employees || [])
-
+  
         // If in edit mode, populate form with initial data
         if (initialData) {
           setFormData({
@@ -65,9 +58,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
             kondisi: initialData.kondisi || 'BARU',
             isHilang: initialData.isHilang || false,
             keterangan: initialData.keterangan || '',
-            tanggal: initialData.tanggal ? new Date(initialData.tanggal).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-            employeeId: initialData.employeeId || '',
-            purpose: initialData.purpose || ''
+            tanggal: initialData.tanggal ? new Date(initialData.tanggal).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
           })
           setTransactionId(initialData.id || null)
         }
@@ -175,9 +166,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
             isHilang: false,
             keterangan: '',
             tanggal: new Date().toISOString().split('T')[0],
-            employeeId: '',
-            purpose: ''
-          })
+                                  })
           setCurrentStock(0)
           setUploadedPhotos([])
           setTransactionId(null)
@@ -260,9 +249,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
             isHilang: formData.isHilang,
             keterangan: formData.keterangan,
             tanggal: formData.tanggal,
-            employeeId: formData.employeeId,
-            purpose: formData.purpose
-          }),
+                        }),
         })
 
         const data = await response.json()
@@ -292,9 +279,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
                 isHilang: false,
                 keterangan: '',
                 tanggal: new Date().toISOString().split('T')[0],
-                employeeId: '',
-                purpose: ''
-              })
+                                              })
               setCurrentStock(0)
               setUploadedPhotos([])
               setTransactionId(null)
@@ -314,9 +299,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
               isHilang: false,
               keterangan: '',
               tanggal: new Date().toISOString().split('T')[0],
-              employeeId: '',
-              purpose: ''
-            })
+                                        })
             setCurrentStock(0)
             setUploadedPhotos([])
             onClose()
@@ -639,44 +622,13 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
         )}
       </div>
 
-      {/* Employee Fields */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <div>
-          <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Karyawan (Opsional)
-          </label>
-          <select
-            id="employeeId"
-            value={formData.employeeId}
-            onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            disabled={loading}
-          >
-            <option value="">Pilih karyawan</option>
-            {employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.name} - {employee.department}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="purpose" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Tujuan Penggunaan (Opsional)
-          </label>
-          <input
-            type="text"
-            id="purpose"
-            value={formData.purpose}
-            onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            placeholder="Contoh: Proyek ABC, Maintenance, dll"
-            disabled={loading}
-          />
-        </div>
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <p className="text-sm text-blue-800 dark:text-blue-200">
+          <strong>ℹ️ Informasi:</strong> Pelaksana barang keluar akan dicatat secara otomatis menggunakan akun Anda yang sedang aktif.
+        </p>
       </div>
 
+  
       <div>
         <label htmlFor="keterangan" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Keterangan

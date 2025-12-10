@@ -21,6 +21,11 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
   const [barangs, setBarangs] = useState<any[]>([])
   const [gudangs, setGudangs] = useState<any[]>([])
   const [stockSumber, setStockSumber] = useState(0)
+  const [stockPerKondisi, setStockPerKondisi] = useState({
+    BARU: 0,
+    BEKAS: 0,
+    RUSAK: 0
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -48,24 +53,41 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
   }, [])
 
   useEffect(() => {
-    async function fetchStockSumber() {
+    async function fetchStockByCondition() {
       if (formData.barangId && formData.dariGudangId) {
         try {
-          // Check current stock for this barang-gudang combination
+          // Fetch condition-specific stock from API
+          const response = await fetch(
+            `/api/inventory/barang/stock/by-kondisi?barangId=${formData.barangId}&gudangId=${formData.dariGudangId}`
+          )
+          if (response.ok) {
+            const data = await response.json()
+            setStockPerKondisi(data.stockPerKondisi || { BARU: 0, BEKAS: 0, RUSAK: 0 })
+            setStockSumber(data.totalStock || 0)
+          } else {
+            // Fallback to current logic if API fails
+            const selectedBarang = barangs.find(b => b.id === formData.barangId)
+            if (selectedBarang) {
+              const stockInfo = selectedBarang.stockPerGudang?.find((s: any) => s.gudangId === formData.dariGudangId)
+              setStockSumber(stockInfo?.stok || 0)
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching stock by condition:', error)
+          // Fallback to current logic
           const selectedBarang = barangs.find(b => b.id === formData.barangId)
           if (selectedBarang) {
             const stockInfo = selectedBarang.stockPerGudang?.find((s: any) => s.gudangId === formData.dariGudangId)
             setStockSumber(stockInfo?.stok || 0)
           }
-        } catch (error) {
-          console.error('Error fetching stock sumber:', error)
         }
       } else {
+        setStockPerKondisi({ BARU: 0, BEKAS: 0, RUSAK: 0 })
         setStockSumber(0)
       }
     }
 
-    fetchStockSumber()
+    fetchStockByCondition()
   }, [formData.barangId, formData.dariGudangId, barangs])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,8 +110,9 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
       return
     }
 
-    if (jumlah > stockSumber) {
-      setError(`Jumlah tidak boleh melebihi stok tersedia (${stockSumber})`)
+    const availableStockForCondition = stockPerKondisi[formData.kondisi] || 0
+    if (jumlah > availableStockForCondition) {
+      setError(`Jumlah ${formData.kondisi.toLowerCase()} tidak boleh melebihi stok tersedia (${availableStockForCondition})`)
       return
     }
 
@@ -127,6 +150,7 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
         keterangan: ''
       })
       setStockSumber(0)
+      setStockPerKondisi({ BARU: 0, BEKAS: 0, RUSAK: 0 })
 
       // Close form after 2 seconds
       setTimeout(() => {
@@ -214,9 +238,15 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             disabled={loading}
           >
-            <option value="BARU">🟢 Baru</option>
-            <option value="BEKAS">🟡 Bekas</option>
-            <option value="RUSAK">🔴 Rusak</option>
+            <option value="BARU" disabled={stockPerKondisi.BARU === 0}>
+              🟢 Baru {stockPerKondisi.BARU > 0 ? `(${stockPerKondisi.BARU})` : '(Tidak tersedia)'}
+            </option>
+            <option value="BEKAS" disabled={stockPerKondisi.BEKAS === 0}>
+              🟡 Bekas {stockPerKondisi.BEKAS > 0 ? `(${stockPerKondisi.BEKAS})` : '(Tidak tersedia)'}
+            </option>
+            <option value="RUSAK" disabled={stockPerKondisi.RUSAK === 0}>
+              🔴 Rusak {stockPerKondisi.RUSAK > 0 ? `(${stockPerKondisi.RUSAK})` : '(Tidak tersedia)'}
+            </option>
           </select>
           <div className="mt-1">
             <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiColor(formData.kondisi)}`}>
@@ -314,7 +344,7 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
       {/* Stock Info */}
       {stockSumber >= 0 && selectedBarang && selectedGudangSumber && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
                 Stok tersedia di {selectedGudangSumber.nama}:
@@ -335,6 +365,39 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
               )}
             </div>
           </div>
+
+          {/* Stock per Kondisi */}
+          <div className="border-t border-blue-200 dark:border-blue-700 pt-3">
+            <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-2">
+              Stok per Kondisi:
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className={`text-center p-2 rounded ${
+                formData.kondisi === 'BARU' ? 'bg-green-100 ring-2 ring-green-500' : 'bg-white/50'
+              }`}>
+                <p className="text-xs text-green-700 font-medium">Baru</p>
+                <p className="text-sm font-bold text-green-800">
+                  {stockPerKondisi.BARU}
+                </p>
+              </div>
+              <div className={`text-center p-2 rounded ${
+                formData.kondisi === 'BEKAS' ? 'bg-yellow-100 ring-2 ring-yellow-500' : 'bg-white/50'
+              }`}>
+                <p className="text-xs text-yellow-700 font-medium">Bekas</p>
+                <p className="text-sm font-bold text-yellow-800">
+                  {stockPerKondisi.BEKAS}
+                </p>
+              </div>
+              <div className={`text-center p-2 rounded ${
+                formData.kondisi === 'RUSAK' ? 'bg-red-100 ring-2 ring-red-500' : 'bg-white/50'
+              }`}>
+                <p className="text-xs text-red-700 font-medium">Rusak</p>
+                <p className="text-sm font-bold text-red-800">
+                  {stockPerKondisi.RUSAK}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -352,16 +415,16 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
               className="w-full px-3 py-2 pr-16 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               placeholder="0"
               min="1"
-              max={stockSumber}
+              max={stockPerKondisi[formData.kondisi] || 0}
               disabled={loading || stockSumber === 0}
             />
             <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">
               {selectedBarang?.satuan || 'pcs'}
             </span>
           </div>
-          {stockSumber > 0 && (
+          {stockPerKondisi[formData.kondisi] > 0 && (
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Maks: {stockSumber} {selectedBarang?.satuan || 'pcs'}
+              Maks: {stockPerKondisi[formData.kondisi]} {selectedBarang?.satuan || 'pcs'}
             </p>
           )}
         </div>
@@ -406,7 +469,7 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
         </button>
         <button
           type="submit"
-          disabled={loading || stockSumber === 0 || !formData.keGudangId}
+          disabled={loading || stockSumber === 0 || !formData.keGudangId || (stockPerKondisi[formData.kondisi] || 0) === 0}
           className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Mentransfer...' : 'Transfer Barang'}
