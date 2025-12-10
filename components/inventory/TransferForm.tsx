@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { PhotoUpload } from './PhotoUpload'
+import type { PhotoUploadRef } from './PhotoUpload'
 
 interface TransferFormProps {
   initialData?: any
@@ -31,6 +32,8 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([])
+  const [transactionId, setTransactionId] = useState<string | null>(null)
+  const photoUploadRef = useRef<PhotoUploadRef>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -123,6 +126,30 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
     setSuccess('')
 
     try {
+      // Upload photos first if any exist
+      let fotoBuktiUrls: string[] = []
+      let uploadedPhotosList: any[] = []
+
+      if (photoUploadRef.current) {
+        const currentPhotos = photoUploadRef.current.getPhotos()
+
+        if (currentPhotos.length > 0) {
+          setSuccess('Mengunggah foto...')
+
+          // Upload photos
+          fotoBuktiUrls = await photoUploadRef.current.uploadPhotos()
+
+          // Get updated photos after upload
+          uploadedPhotosList = photoUploadRef.current.getPhotos()
+
+          // Check if any photos failed to upload
+          const failedPhotos = uploadedPhotosList.filter(photo => photo.status === 'error')
+          if (failedPhotos.length > 0) {
+            throw new Error(`Beberapa foto gagal diunggah: ${failedPhotos.map(p => p.error).join(', ')}`)
+          }
+        }
+      }
+
       const response = await fetch('/api/inventory/transfer', {
         method: 'POST',
         headers: {
@@ -131,11 +158,11 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
         body: JSON.stringify({
           ...formData,
           jumlah,
-          fotoBukti: uploadedPhotos.map(photo => photo.url),
-          fotoMetadata: uploadedPhotos.length > 0 ? {
+          fotoBukti: fotoBuktiUrls,
+          fotoMetadata: uploadedPhotosList.length > 0 ? {
             uploadedAt: new Date().toISOString(),
-            count: uploadedPhotos.length,
-            totalSize: uploadedPhotos.reduce((sum, photo) => sum + (photo.size || 0), 0)
+            count: uploadedPhotosList.length,
+            totalSize: uploadedPhotosList.reduce((sum, photo) => sum + (photo.file?.size || 0), 0)
           } : null
         }),
       })
@@ -160,6 +187,10 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
       setStockSumber(0)
       setStockPerKondisi({ BARU: 0, BEKAS: 0, RUSAK: 0 })
       setUploadedPhotos([])
+      // Reset photo upload component
+      if (photoUploadRef.current) {
+        photoUploadRef.current.resetPhotos()
+      }
 
       // Close form after 2 seconds
       setTimeout(() => {
@@ -381,25 +412,22 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
               Stok per Kondisi:
             </p>
             <div className="grid grid-cols-3 gap-2">
-              <div className={`text-center p-2 rounded ${
-                formData.kondisi === 'BARU' ? 'bg-green-100 ring-2 ring-green-500' : 'bg-white/50'
-              }`}>
+              <div className={`text-center p-2 rounded ${formData.kondisi === 'BARU' ? 'bg-green-100 ring-2 ring-green-500' : 'bg-white/50'
+                }`}>
                 <p className="text-xs text-green-700 font-medium">Baru</p>
                 <p className="text-sm font-bold text-green-800">
                   {stockPerKondisi.BARU}
                 </p>
               </div>
-              <div className={`text-center p-2 rounded ${
-                formData.kondisi === 'BEKAS' ? 'bg-yellow-100 ring-2 ring-yellow-500' : 'bg-white/50'
-              }`}>
+              <div className={`text-center p-2 rounded ${formData.kondisi === 'BEKAS' ? 'bg-yellow-100 ring-2 ring-yellow-500' : 'bg-white/50'
+                }`}>
                 <p className="text-xs text-yellow-700 font-medium">Bekas</p>
                 <p className="text-sm font-bold text-yellow-800">
                   {stockPerKondisi.BEKAS}
                 </p>
               </div>
-              <div className={`text-center p-2 rounded ${
-                formData.kondisi === 'RUSAK' ? 'bg-red-100 ring-2 ring-red-500' : 'bg-white/50'
-              }`}>
+              <div className={`text-center p-2 rounded ${formData.kondisi === 'RUSAK' ? 'bg-red-100 ring-2 ring-red-500' : 'bg-white/50'
+                }`}>
                 <p className="text-xs text-red-700 font-medium">Rusak</p>
                 <p className="text-sm font-bold text-red-800">
                   {stockPerKondisi.RUSAK}
@@ -470,12 +498,13 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
       {/* Foto Bukti */}
       <div>
         <PhotoUpload
-          uploadedPhotos={uploadedPhotos}
-          setUploadedPhotos={setUploadedPhotos}
-          disabled={loading}
-          title="Foto Bukti Transfer (Opsional)"
-          description="Upload foto bukti transfer barang antar gudang untuk dokumentasi"
+          ref={photoUploadRef}
+          transactionId={transactionId || 'temp-' + Date.now()}
+          transactionType="inventory-transfer"
+          onPhotosChange={setUploadedPhotos}
           maxPhotos={3}
+          maxSizeMB={5}
+          disabled={loading}
         />
       </div>
 

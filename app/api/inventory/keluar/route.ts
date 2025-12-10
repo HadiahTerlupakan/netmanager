@@ -207,6 +207,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
+
+    console.log('DEBUG - Keluar API received body:', JSON.stringify(body, null, 2))
+
     const {
       barangId,
       gudangId,
@@ -217,6 +220,17 @@ export async function POST(req: NextRequest) {
       fotoBukti,
       fotoMetadata
     } = body
+
+    console.log('DEBUG - Keluar API parsed data:', {
+      barangId,
+      gudangId,
+      jumlah,
+      kondisi,
+      isHilang,
+      keterangan,
+      fotoBukti: fotoBukti ? `Array with ${fotoBukti.length} items` : null,
+      fotoMetadata
+    })
 
     // Simplified executor tracking - use current session user
     const finalEmployeeId = session.user.id
@@ -350,6 +364,12 @@ export async function POST(req: NextRequest) {
       method: 'POST',
     })
 
+    console.error('DEBUG - Keluar API Error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    })
+
     if (error.message === 'Barang tidak ditemukan') {
       return NextResponse.json({ error: error.message }, { status: 404 })
     }
@@ -361,7 +381,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Gagal mencatat barang keluar' },
+      { error: error.message || 'Gagal mencatat barang keluar' },
       { status: 500 }
     )
   }

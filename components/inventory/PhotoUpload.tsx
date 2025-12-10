@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, forwardRef, useImperativeHandle } from 'react'
 import Image from 'next/image'
 
 interface PhotoUploadProps {
   transactionId?: string
-  transactionType: 'inventory-masuk' | 'inventory-keluar'
+  transactionType: 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer'
   onPhotosChange?: (photos: UploadedPhoto[]) => void
   maxPhotos?: number
   maxSizeMB?: number
@@ -22,7 +22,13 @@ export interface UploadedPhoto {
   error?: string
 }
 
-export function PhotoUpload({
+export interface PhotoUploadRef {
+  uploadPhotos: () => Promise<string[]>
+  getPhotos: () => UploadedPhoto[]
+  resetPhotos: () => void
+}
+
+export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(({
   transactionId,
   transactionType,
   onPhotosChange,
@@ -30,7 +36,7 @@ export function PhotoUpload({
   maxSizeMB = 5,
   disabled = false,
   className = ''
-}: PhotoUploadProps) {
+}: PhotoUploadProps, ref) => {
   const [photos, setPhotos] = useState<UploadedPhoto[]>([])
   const [dragActive, setDragActive] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -128,15 +134,14 @@ export function PhotoUpload({
     notifyPhotosChange(newPhotos)
   }, [photos, disabled, notifyPhotosChange])
 
-  // Upload photos to server
+  // Upload photos to server (automatic upload)
   const uploadPhotos = useCallback(async () => {
-    if (!transactionId || photos.length === 0) {
-      setUploadError('Transaction ID diperlukan untuk upload foto')
-      return
+    if (photos.length === 0) {
+      return []
     }
 
-    setIsUploading(true)
-    setUploadError(null)
+    // Generate temporary transaction ID if not provided
+    const tempTransactionId = transactionId || `temp-${Date.now()}`
 
     // Update photos status to uploading
     const uploadingPhotos = photos.map(photo => ({
@@ -154,7 +159,7 @@ export function PhotoUpload({
         formData.append('photos', photo.file)
       })
 
-      formData.append('transactionId', transactionId)
+      formData.append('transactionId', tempTransactionId)
       formData.append('transactionType', transactionType)
 
       // Simulate progress updates
@@ -191,6 +196,8 @@ export function PhotoUpload({
       setPhotos(successPhotos)
       notifyPhotosChange(successPhotos)
 
+      return result.data.urls
+
     } catch (error) {
       console.error('Upload error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan saat upload'
@@ -204,10 +211,39 @@ export function PhotoUpload({
 
       setPhotos(errorPhotos)
       setUploadError(errorMessage)
+      throw error
+    }
+  }, [transactionId, transactionType, photos, notifyPhotosChange])
+
+  // Public method to trigger upload from parent component
+  const triggerUpload = useCallback(async () => {
+    if (photos.length === 0) {
+      return []
+    }
+
+    setIsUploading(true)
+    setUploadError(null)
+
+    try {
+      const urls = await uploadPhotos()
+      return urls
+    } catch (error) {
+      throw error
     } finally {
       setIsUploading(false)
     }
-  }, [transactionId, transactionType, photos, notifyPhotosChange])
+  }, [uploadPhotos, photos.length])
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    uploadPhotos: triggerUpload,
+    getPhotos: () => photos,
+    resetPhotos: () => {
+      setPhotos([])
+      setUploadError(null)
+      notifyPhotosChange([])
+    }
+  }), [triggerUpload, photos, notifyPhotosChange])
 
   // Handle drag events
   const handleDragEnter = useCallback((e: React.DragEvent) => {
@@ -346,14 +382,10 @@ export function PhotoUpload({
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Foto ({photos.length}/{maxPhotos})
             </h3>
-            {transactionId && photos.some(p => p.status === 'pending') && (
-              <button
-                onClick={uploadPhotos}
-                disabled={isUploading}
-                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isUploading ? 'Mengunggah...' : 'Upload Sekarang'}
-              </button>
+            {isUploading && (
+              <span className="text-sm text-blue-600 dark:text-blue-400">
+                Mengunggah otomatis...
+              </span>
             )}
           </div>
 
@@ -447,4 +479,6 @@ export function PhotoUpload({
       )}
     </div>
   )
-}
+})
+
+PhotoUpload.displayName = 'PhotoUpload'

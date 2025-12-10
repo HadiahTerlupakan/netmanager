@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { PhotoUpload } from './PhotoUpload'
+import type { PhotoUploadRef } from './PhotoUpload'
 
 interface MasukFormProps {
   initialData?: any
@@ -26,6 +27,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
   const [success, setSuccess] = useState('')
   const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([])
   const [transactionId, setTransactionId] = useState<string | null>(null)
+  const photoUploadRef = useRef<PhotoUploadRef>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -160,10 +162,35 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
           }, 1000)
         }
       } else {
-        // Create mode - create the inventory transaction first
+        // Create mode - upload photos first, then create transaction
         const jumlah = parseInt(formData.jumlah)
         console.log('FORM DATA before submit:', formData)
         console.log('PARSED jumlah:', jumlah)
+
+        // Upload photos first if any exist
+        let fotoBuktiUrls: string[] = []
+        let uploadedPhotosList: any[] = []
+
+        if (photoUploadRef.current) {
+          const currentPhotos = photoUploadRef.current.getPhotos()
+
+          if (currentPhotos.length > 0) {
+            setSuccess('Mengunggah foto...')
+
+            // Upload photos
+            fotoBuktiUrls = await photoUploadRef.current.uploadPhotos()
+
+            // Get updated photos after upload
+            uploadedPhotosList = photoUploadRef.current.getPhotos()
+
+            // Check if any photos failed to upload
+            const failedPhotos = uploadedPhotosList.filter(photo => photo.status === 'error')
+            if (failedPhotos.length > 0) {
+              throw new Error(`Beberapa foto gagal diunggah: ${failedPhotos.map(p => p.error).join(', ')}`)
+            }
+          }
+        }
+
         const response = await fetch('/api/inventory/masuk', {
           method: 'POST',
           headers: {
@@ -175,7 +202,13 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             jumlah: Number(jumlah),
             kondisi: String(formData.kondisi),
             keterangan: String(formData.keterangan || ''),
-            tanggal: String(formData.tanggal)
+            tanggal: String(formData.tanggal),
+            fotoBukti: fotoBuktiUrls,
+            fotoMetadata: uploadedPhotosList.length > 0 ? {
+              uploadedAt: new Date().toISOString(),
+              count: uploadedPhotosList.length,
+              totalSize: uploadedPhotosList.reduce((sum, photo) => sum + (photo.file?.size || 0), 0)
+            } : null
           }),
         })
 
@@ -188,29 +221,27 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
         // Extract transaction ID from response
         if (data.masukId) {
           setTransactionId(data.masukId)
+          setSuccess('Barang masuk berhasil dicatat!')
 
-          // If there are photos to upload, trigger the upload
-          if (uploadedPhotos.length > 0) {
-            setSuccess('Barang masuk berhasil dicatat! Mengunggah foto...')
-          } else {
-            setSuccess('Barang masuk berhasil dicatat!')
-
-            // Reset form after a short delay
-            setTimeout(() => {
-              setFormData({
-                barangId: '',
-                gudangId: '',
-                jumlah: '',
-                kondisi: 'BARU',
-                keterangan: '',
-                tanggal: new Date().toISOString().split('T')[0]
-              })
-              setCurrentStock(0)
-              setUploadedPhotos([])
-              setTransactionId(null)
-              onClose()
-            }, 1000)
-          }
+          // Reset form after a short delay
+          setTimeout(() => {
+            setFormData({
+              barangId: '',
+              gudangId: '',
+              jumlah: '',
+              kondisi: 'BARU',
+              keterangan: '',
+              tanggal: new Date().toISOString().split('T')[0]
+            })
+            setCurrentStock(0)
+            setUploadedPhotos([])
+            setTransactionId(null)
+            // Reset photo upload component
+            if (photoUploadRef.current) {
+              photoUploadRef.current.resetPhotos()
+            }
+            onClose()
+          }, 1500)
         } else {
           setSuccess('Barang masuk berhasil dicatat!')
 
@@ -277,272 +308,273 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
         </div>
       )}
 
-        {success && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-md text-green-800">
-            {success}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div>
-            <label htmlFor="barangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Barang *
-            </label>
-            <select
-              id="barangId"
-              name="barangId"
-              value={formData.barangId}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              disabled={loading || !!initialData}
-            >
-              <option value="">Pilih barang</option>
-              {barangs.map((barang) => (
-                <option key={barang.id} value={barang.id}>
-                  {barang.kode} - {barang.nama}
-                </option>
-              ))}
-            </select>
-            {initialData && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Barang tidak dapat diubah pada mode edit
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="gudangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Gudang *
-            </label>
-            <select
-              id="gudangId"
-              name="gudangId"
-              value={formData.gudangId}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              disabled={loading || !!initialData}
-            >
-              <option value="">Pilih gudang</option>
-              {gudangs.map((gudang) => (
-                <option key={gudang.id} value={gudang.id}>
-                  {gudang.kode} - {gudang.nama}
-                </option>
-              ))}
-            </select>
-            {initialData && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Gudang tidak dapat diubah pada mode edit
-              </p>
-            )}
-          </div>
+      {success && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-md text-green-800">
+          {success}
         </div>
+      )}
 
-        {/* Selected Barang & Gudang Info */}
-        {(selectedBarang || selectedGudang) && (
-          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {selectedBarang && (
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Barang terpilih:</p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {selectedBarang.kode} - {selectedBarang.nama}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Satuan: {selectedBarang.satuan}
-                  </p>
-                </div>
-              )}
-              {selectedGudang && (
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Gudang terpilih:</p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {selectedGudang.kode} - {selectedGudang.nama}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Lokasi: {selectedGudang.lokasi || '-'}
-                  </p>
-                </div>
-              )}
-              {currentStock >= 0 && (
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Stok saat ini:</p>
-                  <p className={`text-lg ${getStockStatusColor(currentStock)}`}>
-                    {currentStock} {selectedBarang?.satuan || 'pcs'}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {currentStock === 0 && 'Stok kosong'}
-                    {currentStock > 0 && currentStock < 5 && 'Stok menipis'}
-                    {currentStock >= 5 && 'Stok aman'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div>
-            <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Jumlah *
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                id="jumlah"
-                name="jumlah"
-                value={formData.jumlah}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 pr-16 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="0"
-                min="1"
-                disabled={loading || !!initialData}
-              />
-              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">
-                {selectedBarang?.satuan || 'pcs'}
-              </span>
-            </div>
-            {initialData && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Jumlah tidak dapat diubah pada mode edit
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="kondisi" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Kondisi Barang *
-            </label>
-            <select
-              id="kondisi"
-              name="kondisi"
-              value={formData.kondisi}
-              onChange={(e) => {
-    const { value } = e.target
-    setFormData(prev => ({ ...prev, kondisi: value as 'BARU' | 'BEKAS' | 'RUSAK' }))
-  }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              disabled={loading || !!initialData}
-            >
-              <option value="BARU">🟢 Baru</option>
-              <option value="BEKAS">🟡 Bekas</option>
-              <option value="RUSAK">🔴 Rusak</option>
-            </select>
-            <div className="mt-1">
-              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiColor(formData.kondisi)}`}>
-                {formData.kondisi === 'BARU' && 'Baru - Siap pakai'}
-                {formData.kondisi === 'BEKAS' && 'Bekas - Pernah dipakai'}
-                {formData.kondisi === 'RUSAK' && 'Rusak - Perlu perbaikan'}
-              </span>
-            </div>
-            {initialData && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Kondisi tidak dapat diubah pada mode edit
-              </p>
-            )}
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
-          <label htmlFor="tanggal" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Tanggal
+          <label htmlFor="barangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Barang *
           </label>
-          <input
-            type="date"
-            id="tanggal"
-            name="tanggal"
-            value={formData.tanggal}
+          <select
+            id="barangId"
+            name="barangId"
+            value={formData.barangId}
             onChange={handleInputChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             disabled={loading || !!initialData}
-          />
+          >
+            <option value="">Pilih barang</option>
+            {barangs.map((barang) => (
+              <option key={barang.id} value={barang.id}>
+                {barang.kode} - {barang.nama}
+              </option>
+            ))}
+          </select>
           {initialData && (
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Tanggal tidak dapat diubah pada mode edit
+              Barang tidak dapat diubah pada mode edit
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="keterangan" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Keterangan
+          <label htmlFor="gudangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Gudang *
           </label>
-          <textarea
-            id="keterangan"
-            name="keterangan"
-            value={formData.keterangan}
+          <select
+            id="gudangId"
+            name="gudangId"
+            value={formData.gudangId}
             onChange={handleInputChange}
-            rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            placeholder="Contoh: Dari supplier PT Telkom Indonesia"
             disabled={loading || !!initialData}
-          />
+          >
+            <option value="">Pilih gudang</option>
+            {gudangs.map((gudang) => (
+              <option key={gudang.id} value={gudang.id}>
+                {gudang.kode} - {gudang.nama}
+              </option>
+            ))}
+          </select>
           {initialData && (
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Keterangan tidak dapat diubah pada mode edit
+              Gudang tidak dapat diubah pada mode edit
             </p>
           )}
         </div>
+      </div>
 
-        {/* Photo Upload Section */}
-        {(!initialData || transactionId) && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Foto Barang (Opsional)
-            </label>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              {initialData
-                ? 'Tambah foto barang untuk dokumentasi (maksimal 5 foto)'
-                : 'Upload foto barang saat masuk untuk dokumentasi (maksimal 5 foto)'
-              }
-            </p>
-            {initialData && (
-              <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                <p className="text-sm text-blue-800 dark:text-blue-300">
-                  <strong>Mode Edit:</strong> Anda dapat menambahkan foto baru untuk transaksi ini.
+      {/* Selected Barang & Gudang Info */}
+      {(selectedBarang || selectedGudang) && (
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {selectedBarang && (
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Barang terpilih:</p>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {selectedBarang.kode} - {selectedBarang.nama}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Satuan: {selectedBarang.satuan}
                 </p>
               </div>
             )}
-            <PhotoUpload
-              transactionId={transactionId || undefined}
-              transactionType="inventory-masuk"
-              onPhotosChange={setUploadedPhotos}
-              maxPhotos={5}
-              maxSizeMB={5}
-              disabled={loading}
-              className="border border-gray-200 dark:border-gray-600 rounded-lg"
-            />
+            {selectedGudang && (
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Gudang terpilih:</p>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {selectedGudang.kode} - {selectedGudang.nama}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Lokasi: {selectedGudang.lokasi || '-'}
+                </p>
+              </div>
+            )}
+            {currentStock >= 0 && (
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Stok saat ini:</p>
+                <p className={`text-lg ${getStockStatusColor(currentStock)}`}>
+                  {currentStock} {selectedBarang?.satuan || 'pcs'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {currentStock === 0 && 'Stok kosong'}
+                  {currentStock > 0 && currentStock < 5 && 'Stok menipis'}
+                  {currentStock >= 5 && 'Stok aman'}
+                </p>
+              </div>
+            )}
           </div>
-        )}
-        {initialData && !transactionId && (
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-sm text-yellow-800">
-              <strong>Perhatian:</strong> Data transaksi sedang dimuat. Foto dapat ditambahkan setelah data tersedia.
-            </p>
-          </div>
-        )}
-
-        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-            disabled={loading}
-          >
-            Batal
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading
-              ? 'Menyimpan...'
-              : initialData
-                ? 'Update & Upload Foto'
-                : 'Simpan'
-            }
-          </button>
         </div>
-      </form>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div>
+          <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Jumlah *
+          </label>
+          <div className="relative">
+            <input
+              type="number"
+              id="jumlah"
+              name="jumlah"
+              value={formData.jumlah}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 pr-16 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              placeholder="0"
+              min="1"
+              disabled={loading || !!initialData}
+            />
+            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">
+              {selectedBarang?.satuan || 'pcs'}
+            </span>
+          </div>
+          {initialData && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Jumlah tidak dapat diubah pada mode edit
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="kondisi" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Kondisi Barang *
+          </label>
+          <select
+            id="kondisi"
+            name="kondisi"
+            value={formData.kondisi}
+            onChange={(e) => {
+              const { value } = e.target
+              setFormData(prev => ({ ...prev, kondisi: value as 'BARU' | 'BEKAS' | 'RUSAK' }))
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            disabled={loading || !!initialData}
+          >
+            <option value="BARU">🟢 Baru</option>
+            <option value="BEKAS">🟡 Bekas</option>
+            <option value="RUSAK">🔴 Rusak</option>
+          </select>
+          <div className="mt-1">
+            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiColor(formData.kondisi)}`}>
+              {formData.kondisi === 'BARU' && 'Baru - Siap pakai'}
+              {formData.kondisi === 'BEKAS' && 'Bekas - Pernah dipakai'}
+              {formData.kondisi === 'RUSAK' && 'Rusak - Perlu perbaikan'}
+            </span>
+          </div>
+          {initialData && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Kondisi tidak dapat diubah pada mode edit
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="tanggal" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Tanggal
+        </label>
+        <input
+          type="date"
+          id="tanggal"
+          name="tanggal"
+          value={formData.tanggal}
+          onChange={handleInputChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          disabled={loading || !!initialData}
+        />
+        {initialData && (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Tanggal tidak dapat diubah pada mode edit
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="keterangan" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Keterangan
+        </label>
+        <textarea
+          id="keterangan"
+          name="keterangan"
+          value={formData.keterangan}
+          onChange={handleInputChange}
+          rows={3}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          placeholder="Contoh: Dari supplier PT Telkom Indonesia"
+          disabled={loading || !!initialData}
+        />
+        {initialData && (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Keterangan tidak dapat diubah pada mode edit
+          </p>
+        )}
+      </div>
+
+      {/* Photo Upload Section */}
+      {(!initialData || transactionId) && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Foto Barang (Opsional)
+          </label>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            {initialData
+              ? 'Tambah foto barang untuk dokumentasi (maksimal 5 foto)'
+              : 'Upload foto barang saat masuk untuk dokumentasi (maksimal 5 foto)'
+            }
+          </p>
+          {initialData && (
+            <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>Mode Edit:</strong> Anda dapat menambahkan foto baru untuk transaksi ini.
+              </p>
+            </div>
+          )}
+          <PhotoUpload
+            ref={photoUploadRef}
+            transactionId={transactionId || 'temp-' + Date.now()}
+            transactionType="inventory-masuk"
+            onPhotosChange={setUploadedPhotos}
+            maxPhotos={5}
+            maxSizeMB={5}
+            disabled={loading}
+            className="border border-gray-200 dark:border-gray-600 rounded-lg"
+          />
+        </div>
+      )}
+      {initialData && !transactionId && (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+          <p className="text-sm text-yellow-800">
+            <strong>Perhatian:</strong> Data transaksi sedang dimuat. Foto dapat ditambahkan setelah data tersedia.
+          </p>
+        </div>
+      )}
+
+      <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          disabled={loading}
+        >
+          Batal
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading
+            ? 'Menyimpan...'
+            : initialData
+              ? 'Update & Upload Foto'
+              : 'Simpan'
+          }
+        </button>
+      </div>
+    </form>
   )
 }

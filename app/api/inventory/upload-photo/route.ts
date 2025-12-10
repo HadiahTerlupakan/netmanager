@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     })
 
     const transactionId = formData.get('transactionId') as string
-    const transactionType = formData.get('transactionType') as 'inventory-masuk' | 'inventory-keluar'
+    const transactionType = formData.get('transactionType') as 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer'
 
     // Validate required fields
     if (!transactionId) {
@@ -77,9 +77,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!transactionType || !['inventory-masuk', 'inventory-keluar'].includes(transactionType)) {
+    if (!transactionType || !['inventory-masuk', 'inventory-keluar', 'inventory-transfer'].includes(transactionType)) {
       return NextResponse.json(
-        { error: 'Transaction type must be either "inventory-masuk" or "inventory-keluar"' },
+        { error: 'Transaction type must be "inventory-masuk", "inventory-keluar", or "inventory-transfer"' },
         { status: 400 }
       )
     }
@@ -104,46 +104,62 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify transaction exists in database
-    try {
-      const dbStart = Date.now()
+    // For temporary transaction IDs (starting with 'temp-'), skip verification
+    // These will be created as part of the main form submission
+    if (!transactionId.startsWith('temp-')) {
+      // Verify transaction exists in database
+      try {
+        const dbStart = Date.now()
 
-      if (transactionType === 'inventory-masuk') {
-        const transaction = await prisma.barangMasuk.findUnique({
-          where: { id: transactionId },
-          select: { id: true, barangId: true, gudangId: true }
-        })
+        if (transactionType === 'inventory-masuk') {
+          const transaction = await prisma.barangMasuk.findUnique({
+            where: { id: transactionId },
+            select: { id: true, barangId: true, gudangId: true }
+          })
 
-        if (!transaction) {
-          return NextResponse.json(
-            { error: 'Inventory masuk transaction not found' },
-            { status: 404 }
-          )
+          if (!transaction) {
+            return NextResponse.json(
+              { error: 'Inventory masuk transaction not found' },
+              { status: 404 }
+            )
+          }
+        } else if (transactionType === 'inventory-keluar') {
+          const transaction = await prisma.barangKeluar.findUnique({
+            where: { id: transactionId },
+            select: { id: true, barangId: true, gudangId: true }
+          })
+
+          if (!transaction) {
+            return NextResponse.json(
+              { error: 'Inventory keluar transaction not found' },
+              { status: 404 }
+            )
+          }
+        } else if (transactionType === 'inventory-transfer') {
+          const transaction = await prisma.transferAntarGudang.findUnique({
+            where: { id: transactionId },
+            select: { id: true, barangId: true }
+          })
+
+          if (!transaction) {
+            return NextResponse.json(
+              { error: 'Inventory transfer transaction not found' },
+              { status: 404 }
+            )
+          }
         }
-      } else {
-        const transaction = await prisma.barangKeluar.findUnique({
-          where: { id: transactionId },
-          select: { id: true, barangId: true, gudangId: true }
-        })
 
-        if (!transaction) {
-          return NextResponse.json(
-            { error: 'Inventory keluar transaction not found' },
-            { status: 404 }
-          )
-        }
+        logger.dbOperation('findUnique', transactionType, Date.now() - dbStart)
+      } catch (dbError: any) {
+        logger.error('Error verifying inventory transaction', dbError, {
+          transactionId,
+          transactionType
+        })
+        return NextResponse.json(
+          { error: 'Failed to verify transaction' },
+          { status: 500 }
+        )
       }
-
-      logger.dbOperation('findUnique', transactionType, Date.now() - dbStart)
-    } catch (dbError: any) {
-      logger.error('Error verifying inventory transaction', dbError, {
-        transactionId,
-        transactionType
-      })
-      return NextResponse.json(
-        { error: 'Failed to verify transaction' },
-        { status: 500 }
-      )
     }
 
     // Prepare upload directory

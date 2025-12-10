@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { PhotoUpload } from './PhotoUpload'
+import { PhotoUpload, PhotoUploadRef } from './PhotoUpload'
 
 interface KeluarFormProps {
   initialData?: any
@@ -33,6 +33,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
   const [success, setSuccess] = useState('')
   const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([])
   const [transactionId, setTransactionId] = useState<string | null>(null)
+  const photoUploadRef = useRef<PhotoUploadRef>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -181,40 +182,38 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validation - only validate in create mode
-    if (!initialData) {
-      if (!formData.barangId || !formData.gudangId || !formData.jumlah) {
-        setError('Barang, gudang, dan jumlah harus diisi')
-        return
-      }
+    // Validation
+    if (!formData.barangId || !formData.gudangId || !formData.jumlah) {
+      setError('Barang, gudang, dan jumlah harus diisi')
+      return
+    }
 
-      const jumlah = parseInt(formData.jumlah)
-      if (isNaN(jumlah) || jumlah <= 0) {
-        setError('Jumlah harus berupa angka positif')
-        return
-      }
+    const jumlah = parseInt(formData.jumlah)
+    if (isNaN(jumlah) || jumlah <= 0) {
+      setError('Jumlah harus berupa angka positif')
+      return
+    }
 
-      // Check stock availability for selected condition
-      let stokTersedia = 0
-      switch (formData.kondisi) {
-        case 'BARU':
-          stokTersedia = stockByCondition.BARU
-          break
-        case 'BEKAS':
-          stokTersedia = stockByCondition.BEKAS
-          break
-        case 'RUSAK':
-          stokTersedia = stockByCondition.RUSAK
-          break
-        default:
-          stokTersedia = stockByCondition.BARU
-          break
-      }
+    // Check stock availability for selected condition
+    let stokTersedia = 0
+    switch (formData.kondisi) {
+      case 'BARU':
+        stokTersedia = stockByCondition.BARU
+        break
+      case 'BEKAS':
+        stokTersedia = stockByCondition.BEKAS
+        break
+      case 'RUSAK':
+        stokTersedia = stockByCondition.RUSAK
+        break
+      default:
+        stokTersedia = stockByCondition.BARU
+        break
+    }
 
-      if (jumlah > stokTersedia) {
-        setError(`Jumlah tidak boleh melebihi stok tersedia untuk kondisi ${formData.kondisi} (${stokTersedia})`)
-        return
-      }
+    if (jumlah > stokTersedia) {
+      setError(`Jumlah tidak boleh melebihi stok tersedia untuk kondisi ${formData.kondisi} (${stokTersedia})`)
+      return
     }
 
     setLoading(true)
@@ -222,98 +221,91 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
     setSuccess('')
 
     try {
-      if (initialData) {
-        // Edit mode - we already have a transaction ID
-        if (uploadedPhotos.length > 0) {
+      // Upload photos first if any exist
+      let fotoBuktiUrls: string[] = []
+      let uploadedPhotosList: any[] = []
+
+      if (photoUploadRef.current) {
+        const currentPhotos = photoUploadRef.current.getPhotos()
+
+        if (currentPhotos.length > 0) {
           setSuccess('Mengunggah foto...')
-          // The PhotoUpload component will handle the upload automatically
-          // when transactionId is already set
-        } else {
-          setSuccess('Tidak ada foto baru untuk diunggah')
-          setTimeout(() => {
-            onClose()
-          }, 1000)
-        }
-      } else {
-        // Create mode - create the inventory transaction first
-        const response = await fetch('/api/inventory/keluar', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            barangId: formData.barangId,
-            gudangId: formData.gudangId,
-            jumlah: parseInt(formData.jumlah),
-            kondisi: formData.kondisi,
-            isHilang: formData.isHilang,
-            keterangan: formData.keterangan,
-            tanggal: formData.tanggal,
-                        }),
-        })
 
-        const data = await response.json()
+          // Upload photos automatically
+          fotoBuktiUrls = await photoUploadRef.current.uploadPhotos()
 
-        if (!response.ok) {
-          console.error('API Error Response:', data)
-          throw new Error(data.error || 'Gagal mencatat barang keluar')
-        }
+          // Get updated photos after upload
+          uploadedPhotosList = photoUploadRef.current.getPhotos()
 
-        // Extract transaction ID from response
-        if (data.keluarId) {
-          setTransactionId(data.keluarId)
-
-          // If there are photos to upload, trigger the upload
-          if (uploadedPhotos.length > 0) {
-            setSuccess('Barang keluar berhasil dicatat! Mengunggah foto...')
-          } else {
-            setSuccess('Barang keluar berhasil dicatat!')
-
-            // Reset form after a short delay
-            setTimeout(() => {
-              setFormData({
-                barangId: '',
-                gudangId: '',
-                jumlah: '',
-                kondisi: 'BARU',
-                isHilang: false,
-                keterangan: '',
-                tanggal: new Date().toISOString().split('T')[0],
-                                              })
-              setCurrentStock(0)
-              setUploadedPhotos([])
-              setTransactionId(null)
-              onClose()
-            }, 1000)
+          // Check if any photos failed to upload
+          const failedPhotos = uploadedPhotosList.filter(photo => photo.status === 'error')
+          if (failedPhotos.length > 0) {
+            throw new Error(`Beberapa foto gagal diunggah: ${failedPhotos.map(p => p.error).join(', ')}`)
           }
-        } else {
-          setSuccess('Barang keluar berhasil dicatat!')
-
-          // Reset form
-          setTimeout(() => {
-            setFormData({
-              barangId: '',
-              gudangId: '',
-              jumlah: '',
-              kondisi: 'BARU',
-              isHilang: false,
-              keterangan: '',
-              tanggal: new Date().toISOString().split('T')[0],
-                                        })
-            setCurrentStock(0)
-            setUploadedPhotos([])
-            onClose()
-          }, 1000)
         }
       }
 
-    } catch (error) {
-      console.error('Error submitting barang keluar:', error)
-      setError(error instanceof Error ? error.message : 'Terjadi kesalahan')
+      // Create the inventory transaction with photo URLs
+      const requestBody = {
+        barangId: formData.barangId,
+        gudangId: formData.gudangId,
+        jumlah: parseInt(formData.jumlah),
+        kondisi: formData.kondisi,
+        isHilang: formData.isHilang || false,
+        keterangan: formData.keterangan || null,
+        tanggal: formData.tanggal || new Date().toISOString(),
+        fotoBukti: fotoBuktiUrls,
+        fotoMetadata: uploadedPhotosList.length > 0 ? {
+          uploadedAt: new Date().toISOString(),
+          count: uploadedPhotosList.length,
+          totalSize: uploadedPhotosList.reduce((sum, photo) => sum + (photo.file?.size || 0), 0)
+        } : null
+      }
+
+      console.log('DEBUG - KeluarForm submitting with:', {
+        fotoBuktiCount: fotoBuktiUrls.length,
+        fotoBuktiUrls,
+        requestBody
+      })
+
+      const response = await fetch('/api/inventory/keluar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Gagal menyimpan barang keluar')
+      }
+
+      const result = await response.json()
+      console.log('DEBUG - API response:', result)
+
+      setSuccess('Barang keluar berhasil disimpan!')
+
+      // Clear form and close
+      setTimeout(() => {
+        onClose()
+        // Reset photo upload component
+        if (photoUploadRef.current) {
+          photoUploadRef.current.resetPhotos()
+        }
+      }, 1500)
+
+    } catch (error: any) {
+      console.error('Error in handleSubmit:', error)
+      setError(error.message || 'Gagal menyimpan barang keluar')
+      setSuccess('')
     } finally {
       setLoading(false)
     }
   }
+
+
+
 
   const selectedBarang = barangs.find(b => b.id === formData.barangId)
   const selectedGudang = gudangs.find(g => g.id === formData.gudangId)
@@ -664,7 +656,8 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
             </div>
           )}
           <PhotoUpload
-            transactionId={transactionId || undefined}
+            ref={photoUploadRef}
+            transactionId={transactionId || 'temp-' + Date.now()}
             transactionType="inventory-keluar"
             onPhotosChange={setUploadedPhotos}
             maxPhotos={5}
