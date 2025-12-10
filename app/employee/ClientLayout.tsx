@@ -9,7 +9,6 @@ import {
     HiOutlineUser,
     HiOutlineClock,
     HiOutlineCalendar,
-    HiOutlineBanknotes,
     HiOutlineWrench,
     HiOutlineBell,
     HiOutlineArrowRightOnRectangle,
@@ -22,25 +21,25 @@ import { EmployeePermissionProvider, useEmployeePermissions } from '@/components
 import { ThemeProvider } from '../contexts/ThemeContext'
 
 // Navigation items with optional feature requirements
+// Reorganized for mobile: Cuti at leftmost, Dashboard in center (3rd position)
 const navigationConfig = [
+    { name: 'Cuti', href: '/employee/leaves', icon: HiOutlineCalendar, feature: 'HRIS' },
+    { name: 'Absensi', href: '/employee/attendance', icon: HiOutlineClock, feature: 'HRIS' },
     { name: 'Dashboard', href: '/employee', icon: HiOutlineHome },
-    { name: 'Attendance', href: '/employee/attendance', icon: HiOutlineClock, feature: 'HRIS' },
-    { name: 'Leaves', href: '/employee/leaves', icon: HiOutlineCalendar, feature: 'HRIS' },
     { name: 'Gudang', href: '/employee/inventory', icon: HiOutlineCube, feature: 'INVENTORY' },
-    { name: 'Payslips', href: '/employee/payslips', icon: HiOutlineBanknotes, feature: 'HRIS' },
-    { name: 'Profile', href: '/employee/profile', icon: HiOutlineUser },
+    { name: 'Work Orders', href: '/employee/workorders', icon: HiOutlineWrench, feature: 'WORKORDERS' },
 ]
 
 const desktopNavigationConfig = [
     ...navigationConfig,
-    { name: 'Work Orders', href: '/employee/workorders', icon: HiOutlineWrench, feature: 'WORKORDERS' },
-    { name: 'Notifications', href: '/employee/notifications', icon: HiOutlineBell },
+    { name: 'Profil', href: '/employee/profile', icon: HiOutlineUser },
+    { name: 'Notifikasi', href: '/employee/notifications', icon: HiOutlineBell },
 ]
 
 function EmployeeLayoutContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
-    const { hasFeature, loading: permissionsLoading } = useEmployeePermissions()
+    const { hasFeature } = useEmployeePermissions()
 
     // Filter navigation based on permissions
     const navigation = useMemo(() => {

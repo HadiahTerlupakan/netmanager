@@ -67,7 +67,7 @@ export default function EmployeeAttendancePage() {
             setGeolocation(prev => ({
                 ...prev,
                 loading: false,
-                error: 'Geolocation is not supported by your browser',
+                error: 'Geolocation tidak didukung oleh browser Anda',
             }))
             return
         }
@@ -85,7 +85,7 @@ export default function EmployeeAttendancePage() {
                 setGeolocation(prev => ({
                     ...prev,
                     loading: false,
-                    error: 'Unable to get your location. Please enable location services.',
+                    error: 'Tidak dapat mendapatkan lokasi Anda. Silakan aktifkan layanan lokasi.',
                 }))
             },
             {
@@ -98,7 +98,7 @@ export default function EmployeeAttendancePage() {
 
     const handleCheckIn = async () => {
         if (!geolocation.latitude || !geolocation.longitude) {
-            showToast('error', 'Location not available. Please allow location access.')
+            showToast('error', 'Lokasi tidak tersedia. Silakan izinkan akses lokasi.')
             return
         }
 
@@ -118,14 +118,14 @@ export default function EmployeeAttendancePage() {
             const data = await res.json()
 
             if (res.ok) {
-                showToast('success', `Check-in successful! Time: ${new Date(data.checkInTime).toLocaleTimeString('id-ID')}`)
+                showToast('success', `Check-in berhasil! Waktu: ${new Date(data.checkInTime).toLocaleTimeString('id-ID')}`)
                 setTodayAttendance(data)
             } else {
-                showToast('error', data.error || 'Check-in failed')
+                showToast('error', data.error || 'Check-in gagal')
             }
         } catch (error) {
             console.error('Check-in error:', error)
-            showToast('error', 'Failed to check in. Please try again.')
+            showToast('error', 'Gagal melakukan check-in. Silakan coba lagi.')
         } finally {
             setCheckingIn(false)
         }
@@ -133,12 +133,12 @@ export default function EmployeeAttendancePage() {
 
     const handleCheckOut = async () => {
         if (!todayAttendance?.attendanceId) {
-            showToast('error', 'No check-in record found for today')
+            showToast('error', 'Tidak ada catatan check-in untuk hari ini')
             return
         }
 
         if (!geolocation.latitude || !geolocation.longitude) {
-            showToast('error', 'Location not available. Please allow location access.')
+            showToast('error', 'Lokasi tidak tersedia. Silakan izinkan akses lokasi.')
             return
         }
 
@@ -159,14 +159,14 @@ export default function EmployeeAttendancePage() {
             const data = await res.json()
 
             if (res.ok) {
-                showToast('success', `Check-out successful! Time: ${new Date(data.checkOutTime).toLocaleTimeString('id-ID')}\nWorking Hours: ${data.workingHours} hours`)
+                showToast('success', `Check-out berhasil! Waktu: ${new Date(data.checkOutTime).toLocaleTimeString('id-ID')}\nJam Kerja: ${data.workingHours} jam`)
                 setTodayAttendance({ ...todayAttendance, checkedOut: true })
             } else {
-                showToast('error', data.error || 'Check-out failed')
+                showToast('error', data.error || 'Check-out gagal')
             }
         } catch (error) {
             console.error('Check-out error:', error)
-            showToast('error', 'Failed to check out. Please try again.')
+            showToast('error', 'Gagal melakukan check-out. Silakan coba lagi.')
         } finally {
             setCheckingOut(false)
         }
@@ -196,15 +196,15 @@ export default function EmployeeAttendancePage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="text-center">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Attendance</h1>
-                <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400 mt-2">Check in/out with location tracking</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Absensi</h1>
+                <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400 mt-2">Check in/out dengan pelacakan lokasi</p>
             </div>
 
             {/* Current Time */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 sm:p-8 text-center">
                 <div className="flex items-center justify-center gap-2 text-indigo-600 dark:text-indigo-400 mb-3 sm:mb-2">
                     <HiOutlineClock className="w-6 h-6 sm:w-5 sm:h-5" />
-                    <span className="text-base sm:text-sm font-medium">Current Time</span>
+                    <span className="text-base sm:text-sm font-medium">Waktu Saat Ini</span>
                 </div>
                 <div className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-2 font-mono">
                     {timeString}
@@ -214,11 +214,11 @@ export default function EmployeeAttendancePage() {
                 </div>
             </div>
 
-            {/* Todaysummary */}
+            {/* Ringkasan Hari Ini */}
             {todayAttendance && (
                 <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-xl p-5 sm:p-6">
                     <h3 className="text-lg sm:text-xl font-semibold text-green-900 dark:text-green-100 mb-4 sm:mb-3">
-                        📊 Today's Summary
+                        📊 Ringkasan Hari Ini
                     </h3>
                     <div className="grid grid-cols-2 gap-4 sm:gap-6">
                         <div>
@@ -237,7 +237,7 @@ export default function EmployeeAttendancePage() {
                 </div>
             )}
 
-            {/* Geolocation Status */}
+            {/* Status Lokasi */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
@@ -252,13 +252,13 @@ export default function EmployeeAttendancePage() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-base sm:text-sm font-medium text-gray-900 dark:text-white">
-                                {geolocation.loading ? 'Getting location...' : 'Location Status'}
+                                {geolocation.loading ? 'Mendapatkan lokasi...' : 'Status Lokasi'}
                             </p>
                             <p className="text-sm sm:text-xs text-gray-600 dark:text-gray-400 break-words">
                                 {geolocation.error ? geolocation.error :
                                     geolocation.latitude && geolocation.longitude
                                         ? `${geolocation.latitude.toFixed(6)}, ${geolocation.longitude.toFixed(6)}`
-                                        : 'Location not available'}
+                                        : 'Lokasi tidak tersedia'}
                             </p>
                         </div>
                     </div>
@@ -267,13 +267,13 @@ export default function EmployeeAttendancePage() {
                             onClick={requestGeolocation}
                             className="text-base sm:text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium touch-manipulation min-w-[60px] min-h-[44px] px-3 flex items-center justify-center flex-shrink-0"
                         >
-                            Retry
+                            Coba Lagi
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* Check In/Out Buttons */}
+            {/* Tombol Check In/Out */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
                     onClick={handleCheckIn}
@@ -284,7 +284,7 @@ export default function EmployeeAttendancePage() {
                     <div className="text-center">
                         <div className="font-semibold text-lg sm:text-base">Check In</div>
                         <div className="text-sm sm:text-xs opacity-90 mt-1">
-                            {checkingIn ? 'Processing...' : todayAttendance?.attendanceId ? 'Already checked in' : 'Start your day'}
+                            {checkingIn ? 'Memproses...' : todayAttendance?.attendanceId ? 'Sudah check in' : 'Mulai hari Anda'}
                         </div>
                     </div>
                 </button>
@@ -298,22 +298,22 @@ export default function EmployeeAttendancePage() {
                     <div className="text-center">
                         <div className="font-semibold text-lg sm:text-base">Check Out</div>
                         <div className="text-sm sm:text-xs opacity-90 mt-1">
-                            {checkingOut ? 'Processing...' : !todayAttendance?.attendanceId ? 'Check in first' : todayAttendance?.checkedOut ? 'Already checked out' : 'End your day'}
+                            {checkingOut ? 'Memproses...' : !todayAttendance?.attendanceId ? 'Check in terlebih dahulu' : todayAttendance?.checkedOut ? 'Sudah check out' : 'Akhiri hari Anda'}
                         </div>
                     </div>
                 </button>
             </div>
 
-            {/* Instructions */}
+            {/* Petunjuk */}
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-5 sm:p-4">
                 <h3 className="text-base sm:text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3 sm:mb-2">
-                    📍 How it works
+                    📍 Cara Penggunaan
                 </h3>
                 <ul className="text-base sm:text-sm text-blue-800 dark:text-blue-200 space-y-2 sm:space-y-1 leading-relaxed">
-                    <li>• Allow location access when prompted</li>
-                    <li>• Click "Check In" when you arrive at work</li>
-                    <li>• Click "Check Out" when you leave</li>
-                    <li>• Your location will be recorded automatically</li>
+                    <li>• Izinkan akses lokasi saat diminta</li>
+                    <li>• Klik "Check In" saat tiba di tempat kerja</li>
+                    <li>• Klik "Check Out" saat pulang</li>
+                    <li>• Lokasi Anda akan dicatat secara otomatis</li>
                 </ul>
             </div>
         </div>

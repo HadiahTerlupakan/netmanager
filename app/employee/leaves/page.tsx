@@ -28,6 +28,21 @@ interface LeaveRequest {
     createdAt: string
 }
 
+// Function to translate leave types from API
+const translateLeaveType = (leaveType: string): string => {
+    const translations: Record<string, string> = {
+        'ANNUAL': 'Cuti Tahunan',
+        'SICK': 'Cuti Sakit',
+        'PERMISSION': 'Izin',
+        'UNPAID': 'Cuti Tanpa Gaji',
+        'Annual Leave': 'Cuti Tahunan',
+        'Sick Leave': 'Cuti Sakit',
+        'Permission': 'Izin',
+        'Unpaid Leave': 'Cuti Tanpa Gaji'
+    }
+    return translations[leaveType] || leaveType
+}
+
 export default function EmployeeLeavePage() {
     const { data: session, status } = useSession()
     const router = useRouter()
@@ -66,16 +81,22 @@ export default function EmployeeLeavePage() {
                     // The UI expects an array of LeaveBalance objects
                     // We need to construct it from the balances object returned by API
                     const balancesArray = [
-                        { ...data.balances.annual, leaveType: 'Annual Leave' },
-                        { ...data.balances.sick, leaveType: 'Sick Leave' }
+                        { ...data.balances.annual, leaveType: 'Cuti Tahunan' },
+                        { ...data.balances.sick, leaveType: 'Cuti Sakit' }
                     ]
                     setBalances(balancesArray)
-                    setRequests(data.leaves || [])
+
+                    // Translate leave types in requests
+                    const translatedRequests = (data.leaves || []).map((request: LeaveRequest) => ({
+                        ...request,
+                        leaveType: translateLeaveType(request.leaveType)
+                    }))
+                    setRequests(translatedRequests)
                 }
             }
         } catch (error) {
             console.error('Error loading data:', error)
-            showToast('error', 'Failed to load leave data')
+            showToast('error', 'Gagal memuat data cuti')
         } finally {
             setLoading(false)
         }
@@ -96,16 +117,16 @@ export default function EmployeeLeavePage() {
             const data = await res.json()
 
             if (res.ok) {
-                showToast('success', 'Leave request submitted successfully!')
+                showToast('success', 'Pengajuan cuti berhasil dikirim!')
                 setShowRequestForm(false)
                 setFormData({ leaveType: 'ANNUAL', startDate: '', endDate: '', reason: '' })
                 loadData()
             } else {
-                showToast('error', data.error || 'Failed to submit leave request')
+                showToast('error', data.error || 'Gagal mengajukan cuti')
             }
         } catch (error) {
             console.error('Error submitting leave:', error)
-            showToast('error', 'Failed to submit leave request')
+            showToast('error', 'Gagal mengajukan cuti')
         } finally {
             setSubmitting(false)
         }
@@ -117,7 +138,12 @@ export default function EmployeeLeavePage() {
             APPROVED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
             REJECTED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
         }
-        return <span className={`px-2 py-1 text-xs rounded-full font-medium ${colors[status]}`}>{status}</span>
+        const statusText: Record<string, string> = {
+            PENDING: 'Menunggu',
+            APPROVED: 'Disetujui',
+            REJECTED: 'Ditolak',
+        }
+        return <span className={`px-2 py-1 text-xs rounded-full font-medium ${colors[status]}`}>{statusText[status] || status}</span>
     }
 
     if (status === 'loading' || loading) {
@@ -142,13 +168,13 @@ export default function EmployeeLeavePage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="text-center">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Leave Management</h1>
-                <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400 mt-2">Check your leave balance and submit requests</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Manajemen Cuti</h1>
+                <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400 mt-2">Cek saldo cuti dan ajukan permintaan cuti</p>
             </div>
 
             {/* Leave Balances */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 sm:p-6">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-5 sm:mb-4">Leave Balance</h2>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-5 sm:mb-4">Saldo Cuti</h2>
                 {balances.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                         {balances.map((balance, index) => (
@@ -161,10 +187,10 @@ export default function EmployeeLeavePage() {
                                         <div className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
                                             {balance.remainingDays}
                                         </div>
-                                        <div className="text-sm sm:text-xs text-gray-500 dark:text-gray-400 mt-1">days remaining</div>
+                                        <div className="text-sm sm:text-xs text-gray-500 dark:text-gray-400 mt-1">hari tersisa</div>
                                     </div>
                                     <div className="text-right text-base sm:text-sm text-gray-600 dark:text-gray-400">
-                                        Used: {balance.usedDays} / {balance.totalDays}
+                                        Terpakai: {balance.usedDays} / {balance.totalDays}
                                     </div>
                                 </div>
                             </div>
@@ -172,7 +198,7 @@ export default function EmployeeLeavePage() {
                     </div>
                 ) : (
                     <p className="text-base sm:text-sm text-gray-500 dark:text-gray-400 text-center py-6 sm:py-4">
-                        No leave balance information available
+                        Tidak ada informasi saldo cuti tersedia
                     </p>
                 )}
             </div>
@@ -183,20 +209,20 @@ export default function EmployeeLeavePage() {
                 className="w-full flex items-center justify-center gap-3 min-h-[56px] py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl shadow-lg hover:from-indigo-600 hover:to-purple-700 transition-all transform hover:scale-[1.01] active:scale-[0.99] touch-manipulation text-base sm:text-sm font-semibold"
             >
                 <HiOutlinePlus className="w-6 h-6 sm:w-5 sm:h-5" />
-                Request Leave
+                Ajukan Cuti
             </button>
 
             {/* Request Form Modal */}
             <Modal
                 isOpen={showRequestForm}
                 onClose={() => !submitting && setShowRequestForm(false)}
-                title="New Leave Request"
+                title="Ajukan Cuti Baru"
                 size="md"
             >
                 <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-4">
                     <div>
                         <label className="block text-base sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:mb-1">
-                            Leave Type *
+                            Jenis Cuti *
                         </label>
                         <select
                             value={formData.leaveType}
@@ -204,15 +230,15 @@ export default function EmployeeLeavePage() {
                             className="w-full px-4 py-3 sm:py-2 min-h-[48px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-base sm:text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent touch-manipulation"
                             required
                         >
-                            <option value="ANNUAL">Annual Leave</option>
-                            <option value="SICK">Sick Leave</option>
-                            <option value="PERMISSION">Permission</option>
-                            <option value="UNPAID">Unpaid Leave</option>
+                            <option value="ANNUAL">Cuti Tahunan</option>
+                            <option value="SICK">Cuti Sakit</option>
+                            <option value="PERMISSION">Izin</option>
+                            <option value="UNPAID">Cuti Tanpa Gaji</option>
                         </select>
                     </div>
                     <div>
                         <label className="block text-base sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:mb-1">
-                            Start Date *
+                            Tanggal Mulai *
                         </label>
                         <input
                             type="date"
@@ -225,7 +251,7 @@ export default function EmployeeLeavePage() {
                     </div>
                     <div>
                         <label className="block text-base sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:mb-1">
-                            End Date *
+                            Tanggal Selesai *
                         </label>
                         <input
                             type="date"
@@ -238,14 +264,14 @@ export default function EmployeeLeavePage() {
                     </div>
                     <div>
                         <label className="block text-base sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:mb-1">
-                            Reason *
+                            Alasan *
                         </label>
                         <textarea
                             required
                             value={formData.reason}
                             onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                             rows={4}
-                            placeholder="Please provide a reason for your leave request"
+                            placeholder="Mohon berikan alasan untuk pengajuan cuti Anda"
                             className="w-full px-4 py-3 sm:py-2 min-h-[100px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-base sm:text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent touch-manipulation resize-none"
                         />
                     </div>
@@ -256,22 +282,22 @@ export default function EmployeeLeavePage() {
                             disabled={submitting}
                             className="flex-1 px-4 py-3 sm:py-2 min-h-[48px] border border-gray-300 dark:border-gray-600 rounded-lg text-base sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 touch-manipulation font-medium"
                         >
-                            Cancel
+                            Batal
                         </button>
                         <button
                             type="submit"
                             disabled={submitting}
                             className="flex-1 px-4 py-3 sm:py-2 min-h-[48px] bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 touch-manipulation font-medium text-base sm:text-sm"
                         >
-                            {submitting ? 'Submitting...' : 'Submit Request'}
+                            {submitting ? 'Mengirim...' : 'Ajukan Cuti'}
                         </button>
                     </div>
                 </form>
             </Modal>
 
-            {/* Leave History */}
+            {/* Riwayat Cuti */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 sm:p-6">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-5 sm:mb-4">Leave History</h2>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-5 sm:mb-4">Riwayat Cuti</h2>
                 {requests.length > 0 ? (
                     <div className="space-y-4 sm:space-y-3">
                         {requests.map((request) => (
@@ -286,7 +312,7 @@ export default function EmployeeLeavePage() {
                                         </div>
                                         <div className="text-base sm:text-sm text-gray-600 dark:text-gray-400">
                                             {new Date(request.startDate).toLocaleDateString('id-ID')} -{' '}
-                                            {new Date(request.endDate).toLocaleDateString('id-ID')} ({request.totalDays} days)
+                                            {new Date(request.endDate).toLocaleDateString('id-ID')} ({request.totalDays} hari)
                                         </div>
                                     </div>
                                     <div className="flex-shrink-0">
@@ -299,8 +325,8 @@ export default function EmployeeLeavePage() {
                     </div>
                 ) : (
                     <EmptyState
-                        title="No leave requests yet"
-                        description="You haven't submitted any leave requests. Click the button above to create your first request."
+                        title="Belum ada pengajuan cuti"
+                        description="Anda belum mengajukan cuti. Klik tombol di atas untuk membuat pengajuan pertama Anda."
                     />
                 )}
             </div>
