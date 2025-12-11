@@ -11,6 +11,7 @@ import {
     HiClock
 } from 'react-icons/hi2'
 import Link from 'next/link'
+import { useEmployeePermissions } from '@/components/providers/EmployeePermissionContext'
 
 // Notification types
 type NotificationType = 'work_order' | 'ticket' | 'system' | 'alert'
@@ -29,13 +30,14 @@ interface Notification {
 
 export default function NotificationsPage() {
     const { data: session } = useSession()
+    const { hasFeature } = useEmployeePermissions()
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [filter, setFilter] = useState<'all' | 'unread'>('all')
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         loadNotifications()
-    }, [])
+    }, [hasFeature]) // Reload if permissions change
 
     const loadNotifications = async () => {
         setLoading(true)
@@ -75,7 +77,17 @@ export default function NotificationsPage() {
                         createdAt: new Date(Date.now() - 86400000) // 1 day ago
                     },
                 ]
-                setNotifications(mockNotifications)
+
+                // Filter notifications based on permissions
+                const allowedNotifications = mockNotifications.filter(notification => {
+                    if (notification.type === 'work_order') {
+                        return hasFeature('WORKORDERS')
+                    }
+                    // Add other feature checks if needed
+                    return true
+                })
+
+                setNotifications(allowedNotifications)
                 setLoading(false)
             }, 500)
         } catch (error) {
@@ -164,8 +176,8 @@ export default function NotificationsPage() {
                 <button
                     onClick={() => setFilter('all')}
                     className={`px-4 py-3 sm:py-2 min-h-[44px] font-medium border-b-2 transition-colors touch-manipulation text-base sm:text-sm ${filter === 'all'
-                            ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-                            : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                        ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                        : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                         }`}
                 >
                     All ({notifications.length})
@@ -173,8 +185,8 @@ export default function NotificationsPage() {
                 <button
                     onClick={() => setFilter('unread')}
                     className={`px-4 py-3 sm:py-2 min-h-[44px] font-medium border-b-2 transition-colors touch-manipulation text-base sm:text-sm ${filter === 'unread'
-                            ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-                            : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                        ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                        : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                         }`}
                 >
                     Unread ({unreadCount})
@@ -224,8 +236,8 @@ export default function NotificationsPage() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
                                         <h3 className={`font-semibold text-base sm:text-sm ${!notification.read
-                                                ? 'text-gray-900 dark:text-white'
-                                                : 'text-gray-700 dark:text-gray-300'
+                                            ? 'text-gray-900 dark:text-white'
+                                            : 'text-gray-700 dark:text-gray-300'
                                             }`}>
                                             {notification.title}
                                         </h3>

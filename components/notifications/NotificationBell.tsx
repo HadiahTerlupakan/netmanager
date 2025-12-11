@@ -20,7 +20,7 @@ export function NotificationBell() {
             // TODO: Replace with actual API call
             // Simulated data for now
             setTimeout(() => {
-                setUnreadCount(2) // Mock unread count
+                setUnreadCount(0) // Reset to 0 until real API is ready
                 setLoading(false)
             }, 100)
         } catch (error) {
