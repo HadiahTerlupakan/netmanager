@@ -147,7 +147,10 @@ export const ALL_FEATURE_CODES = [
     // Employee Portal
     'EMPLOYEE.DASHBOARD',
     'EMPLOYEE.ABSENSI',
+    'EMPLOYEE.CUTI',
     'EMPLOYEE.INVENTORY',
+    'EMPLOYEE.WORKORDERS',
+    'EMPLOYEE.PAYSLIPS',
     'EMPLOYEE.PROFILE',
 
     // Finance Portal

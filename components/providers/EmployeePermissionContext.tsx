@@ -101,7 +101,22 @@ export function EmployeePermissionProvider({ children }: { children: ReactNode }
             return false
         }
 
-        return permissions.allowedFeatures.includes(feature)
+        // 1. Exact match
+        if (permissions.allowedFeatures.includes(feature)) {
+            return true
+        }
+
+        // 2. Parent match - if user has 'HRIS', they also have 'HRIS.EMPLOYEES'
+        const parts = feature.split('.')
+        while (parts.length > 1) {
+            parts.pop()
+            const parent = parts.join('.')
+            if (permissions.allowedFeatures.includes(parent)) {
+                return true
+            }
+        }
+
+        return false
     }
 
     const isAdmin = (): boolean => {

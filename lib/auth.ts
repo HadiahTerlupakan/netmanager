@@ -12,6 +12,7 @@ import { checkRateLimit } from '@/lib/redis'
 import { getAllOAuthProviders } from '@/lib/auth-dynamic'
 import { canLinkAccount, logOAuthSecurityEvent } from './oauth-security'
 import { redis } from '@/lib/redis'
+import { getEmployeePermissions } from '@/lib/utils/permissions'
 
 // Fallback OAuth providers from environment variables
 function getFallbackOAuthProviders() {
@@ -248,6 +249,15 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
 
             console.log('[AUTH] Login successful for:', user.email)
 
+            // Get granular permissions
+            let permissions: string[] = []
+            if (employee) {
+              const perms = await getEmployeePermissions(employee.employeeId, user.role)
+              if (perms) {
+                permissions = perms.allowedFeatures
+              }
+            }
+
             return {
               id: user.id,
               email: user.email,
@@ -262,6 +272,7 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
                 department: employee.department,
                 position: employee.position,
               } : null,
+              permissions,
             } as any
           } catch (error) {
             console.error('[AUTH] Error in authorize:', error)
@@ -349,6 +360,7 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
           token.role = (user as any).role || 'USER' // Default to USER for OAuth users
           token.employeeId = (user as any).employeeId
           token.employee = (user as any).employee
+          token.permissions = (user as any).permissions
 
           // For OAuth sign in, fetch role from database
           if (account?.provider !== 'credentials') {
@@ -358,6 +370,29 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
 
             if (dbUser) {
               token.role = dbUser.role as any
+
+              // Also fetch employee info for OAuth users
+              const employee = await prisma.employee.findUnique({
+                where: { userId: dbUser.id },
+                include: {
+                  department: true,
+                  position: true,
+                }
+              })
+
+              if (employee) {
+                token.employeeId = employee.employeeId
+                token.employee = {
+                  id: employee.id,
+                  employeeId: employee.employeeId,
+                  fullName: employee.fullName,
+                  department: employee.department,
+                  position: employee.position,
+                }
+
+                const perms = await getEmployeePermissions(employee.employeeId, dbUser.role)
+                token.permissions = perms?.allowedFeatures || []
+              }
             }
           }
         }
@@ -374,6 +409,15 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
             token.name = dbUser.name
             token.email = dbUser.email
             token.picture = dbUser.image
+
+            // Update permissions on session refresh
+            const employee = await prisma.employee.findUnique({
+              where: { userId: dbUser.id }
+            })
+            if (employee) {
+              const perms = await getEmployeePermissions(employee.employeeId, dbUser.role)
+              token.permissions = perms?.allowedFeatures || []
+            }
           }
         }
 
@@ -386,6 +430,7 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
           (session.user as any).role = token.role;
           (session.user as any).employeeId = token.employeeId;
           (session.user as any).employee = token.employee;
+          (session.user as any).permissions = token.permissions || [];
         }
         return session
       },

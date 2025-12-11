@@ -4,57 +4,67 @@ import type { NextRequest } from 'next/server'
 import { getRateLimitConfig, rateLimit } from '@/lib/middleware/rate-limit'
 import { getSubdomain, isAdminSubdomain, isPelangganSubdomain, isKaryawanSubdomain, isFinanceSubdomain, isHelpdeskSubdomain } from '@/lib/utils/subdomain'
 import { getToken } from 'next-auth/jwt'
+import { ROUTE_PERMISSIONS } from '@/lib/config/route-permissions'
 
-// SIMPLIFIED RBAC: All authorization is now handled via CustomRole permissions
-// This proxy only handles:
-// 1. Authentication (is user logged in?)
-// 2. Rate limiting
-// 3. Subdomain routing
-// Legacy role-based routes have been REMOVED - use CustomRole.allowedFeatures instead
+// RBAC Enforcement: Now actually checks permissions from session.permissions
+// Permissions are loaded from CustomRole.allowedFeatures during login
 
-// All available permissions - proxy now allows all authenticated users
-// Fine-grained permission checks are done at API/page level using CustomRole
+// All available permissions (admin + employee portal)
 const ALL_PERMISSIONS = [
   'DASHBOARD', 'ROLES', 'NETWORK', 'FTTH', 'PAKET', 'PELANGGAN',
-  'INVENTORY', 'USERS', 'HELPDESK', 'WORKORDERS', 'HRIS', 'FINANCE', 'PENGATURAN'
+  'INVENTORY', 'USERS', 'HELPDESK', 'WORKORDERS', 'HRIS', 'FINANCE', 'PENGATURAN',
+  // Employee Portal
+  'EMPLOYEE.DASHBOARD', 'EMPLOYEE.ABSENSI', 'EMPLOYEE.CUTI', 'EMPLOYEE.INVENTORY',
+  'EMPLOYEE.WORKORDERS', 'EMPLOYEE.PAYSLIPS', 'EMPLOYEE.PROFILE'
 ]
 
-// Route permissions mapping (kept for page-level checks, but not enforced in proxy)
-const ROUTE_PERMISSIONS = {
-  '/admin': 'DASHBOARD',
-  '/admin/roles': 'ROLES',
-  '/admin/network': 'NETWORK',
-  '/admin/ftth': 'FTTH',
-  '/admin/paket': 'PAKET',
-  '/admin/pelanggan': 'PELANGGAN',
-  '/admin/inventory': 'INVENTORY',
-  '/admin/users': 'USERS',
-  '/admin/helpdesk': 'HELPDESK',
-  '/admin/workorders': 'WORKORDERS',
-  '/admin/hris': 'HRIS',
-  '/admin/finance': 'FINANCE',
-  '/admin/pengaturan': 'PENGATURAN',
-}
+// ROUTE_PERMISSIONS is imported from @/lib/config/route-permissions
 
-// Function to get required permission for a route (informational only)
+// Function to get required permission for a route
 function getRequiredPermission(pathname: string): string | null {
-  for (const [route, permission] of Object.entries(ROUTE_PERMISSIONS)) {
+  // First try exact match from config
+  if (ROUTE_PERMISSIONS[pathname]) {
+    return ROUTE_PERMISSIONS[pathname]
+  }
+
+  // Then try prefix match (longest match wins)
+  const sortedRoutes = Object.keys(ROUTE_PERMISSIONS).sort((a, b) => b.length - a.length)
+  for (const route of sortedRoutes) {
     if (pathname.startsWith(route)) {
-      return permission
+      return ROUTE_PERMISSIONS[route]
     }
   }
   return null
 }
 
+// Check if user has permission (with hierarchy support)
+function hasPermission(userPermissions: string[] | undefined, requiredFeature: string): boolean {
+  if (!userPermissions || !Array.isArray(userPermissions)) return false
+
+  // 1. Exact match
+  if (userPermissions.includes(requiredFeature)) return true
+
+  // 2. Parent match (e.g. PELANGGAN access grants PELANGGAN.TAGIHAN)
+  const parts = requiredFeature.split('.')
+  while (parts.length > 1) {
+    parts.pop()
+    const parent = parts.join('.')
+    if (userPermissions.includes(parent)) return true
+  }
+
+  return false
+}
+
 // Function to get user permissions from token
-// SIMPLIFIED: Always return all permissions - actual permission check is at API/page level
+// IMPORTANT: Now returns actual permissions from session token
 function getUserPermissions(token: any): string[] {
-  // If user is authenticated, give all permissions at proxy level
-  // The actual permission enforcement happens at API handlers and page components
-  if (token) {
+  // For ADMIN users, grant all permissions (fail-safe)
+  if (token?.role === 'ADMIN') {
     return ALL_PERMISSIONS
   }
-  return []
+
+  // Return permissions from session (set during login in auth.ts)
+  return token?.permissions || []
 }
 
 // NOTE: hasRoutePermission and hasRequiredRole removed - now handled at API/page level
@@ -123,9 +133,33 @@ async function checkRoleAccess(request: NextRequest, pathname: string): Promise<
       return NextResponse.redirect(loginUrl)
     }
 
-    // User is authenticated - allow access
-    // Authorization (permission check) is done at API/page level
+    // User is authenticated - now check authorization
     const userPermissions = getUserPermissions(token)
+    const requiredPermission = getRequiredPermission(pathname)
+
+    // If route requires a specific permission, check it
+    if (requiredPermission) {
+      if (!hasPermission(userPermissions, requiredPermission)) {
+        console.log(`[PROXY] Access denied for ${token.email} to ${pathname}. Required: ${requiredPermission}, Has: ${userPermissions.join(', ')}`)
+
+        // For API routes, return 403
+        if (pathname.startsWith('/api/')) {
+          return new NextResponse(
+            JSON.stringify({ error: 'Forbidden', required: requiredPermission }),
+            {
+              status: 403,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          )
+        }
+
+        // For pages, redirect to dashboard with access denied message
+        const redirectUrl = new URL('/admin', request.url)
+        redirectUrl.searchParams.set('accessDenied', 'true')
+        redirectUrl.searchParams.set('required', requiredPermission)
+        return NextResponse.redirect(redirectUrl)
+      }
+    }
 
     // Add user info to response headers for downstream use
     const response = NextResponse.next()

@@ -10,6 +10,8 @@ type GeneralSettings = {
     invoiceOtomatis: string;
     disablePerpanjanganPaket: string;
     timezone: string;
+    logoInvoice?: string | null;
+    logoAplikasi?: string | null;
 };
 
 export function useSettings() {
@@ -19,10 +21,20 @@ export function useSettings() {
     useEffect(() => {
         async function fetchSettings() {
             try {
-                const res = await fetch('/api/settings/general');
-                if (res.ok) {
-                    const data = await res.json();
-                    setSettings(data);
+                const [generalRes, logoRes] = await Promise.all([
+                    fetch('/api/settings/general'),
+                    fetch('/api/settings/logo')
+                ]);
+
+                if (generalRes.ok) {
+                    const generalData = await generalRes.json();
+                    let logoData = {};
+
+                    if (logoRes.ok) {
+                        logoData = await logoRes.json();
+                    }
+
+                    setSettings({ ...generalData, ...logoData });
                 }
             } catch (error) {
                 console.error('Failed to fetch settings:', error);

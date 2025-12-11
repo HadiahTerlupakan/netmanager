@@ -336,6 +336,7 @@ export async function checkEmployeeFeatureAccess(
  */
 export function getAllFeatures(): string[] {
     return [
+        // Admin Portal
         'DASHBOARD',
         'ROLES',
         'NETWORK',
@@ -348,7 +349,15 @@ export function getAllFeatures(): string[] {
         'WORKORDERS',
         'HRIS',
         'FINANCE',
-        'PENGATURAN'
+        'PENGATURAN',
+        // Employee Portal
+        'EMPLOYEE.DASHBOARD',
+        'EMPLOYEE.ABSENSI',
+        'EMPLOYEE.CUTI',
+        'EMPLOYEE.INVENTORY',
+        'EMPLOYEE.WORKORDERS',
+        'EMPLOYEE.PAYSLIPS',
+        'EMPLOYEE.PROFILE',
     ]
 }
 

@@ -25,6 +25,7 @@ declare module 'next-auth' {
         department?: { id: string; name: string } | null
         position?: { id: string; title: string } | null
       }
+      permissions?: string[]
     }
   }
 
@@ -51,6 +52,7 @@ declare module 'next-auth' {
       department?: { id: string; name: string } | null
       position?: { id: string; title: string } | null
     }
+    permissions?: string[]
   }
 }
 
@@ -76,6 +78,7 @@ declare module 'next-auth/jwt' {
       department?: { id: string; name: string } | null
       position?: { id: string; title: string } | null
     }
+    permissions?: string[]
   }
 }
 
