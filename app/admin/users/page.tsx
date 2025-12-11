@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlinePlus, HiOutlineBriefcase, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUserGroup, HiOutlineUsers, HiOutlineBuildingOffice } from 'react-icons/hi2'
+import { HiOutlinePlus, HiOutlineBriefcase, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUserGroup, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
 interface User {
@@ -214,6 +214,13 @@ export default function UsersPage() {
                       })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <Link
+                        href={`/admin/users/${user.id}?view=true`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                        title="Lihat Detail"
+                      >
+                        <HiOutlineEye className="w-4 h-4" />
+                      </Link>
                       <Link
                         href={`/admin/users/${user.id}`}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"

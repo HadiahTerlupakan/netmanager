@@ -35,9 +35,19 @@ interface Role {
   isActive: boolean
 }
 
-export default function UserEditPage({ params }: { params: Promise<{ id: string }> }) {
+export default function UserEditPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const router = useRouter()
   const { id } = use(params)
+  const [isViewMode, setIsViewMode] = useState(false)
+
+  useEffect(() => {
+    if (searchParams) {
+      searchParams.then(p => {
+        setIsViewMode(p?.view === 'true')
+      })
+    }
+  }, [searchParams])
+
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -314,6 +324,238 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
     )
   }
 
+  // --- CV / DETAIL VIEW MODE ---
+  if (isViewMode) {
+    const roleName = roles.find(r => r.id === formData.customRoleId)?.name || 'No Role'
+    const departmentName = departments.find(d => d.id === formData.departmentId)?.name || '-'
+
+    return (
+      <div className="space-y-8 max-w-5xl mx-auto pb-10">
+        {/* Navigation & Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin/users"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+              title="Kembali"
+            >
+              <HiOutlineArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profile Karyawan</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Detail informasi pengguna</p>
+            </div>
+          </div>
+          <Link
+            href={`/admin/users/${id}`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm font-medium"
+          >
+            <HiOutlineKey className="w-4 h-4" />
+            Edit Data
+          </Link>
+        </div>
+
+        {/* Profile Header Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 rounded-bl-full -mr-16 -mt-16 pointer-events-none" />
+
+          <div className="relative flex flex-col md:flex-row gap-8 items-start">
+            {/* Avatar */}
+            <div className="flex-shrink-0">
+              <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform duration-300">
+                <span className="text-4xl font-bold text-white">
+                  {formData.name ? formData.name.charAt(0).toUpperCase() : '?'}
+                </span>
+              </div>
+            </div>
+
+            {/* Main Info */}
+            <div className="flex-1 space-y-4">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+                  {formData.name || 'Nama Belum Diisi'}
+                </h1>
+                <div className="flex flex-wrap gap-3 mt-3">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50">
+                    <HiOutlineBriefcase className="w-4 h-4 mr-1.5" />
+                    {roleName}
+                  </span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                    <HiCheckBadge className="w-4 h-4 mr-1.5 text-gray-500" />
+                    ID: {formData.employeeId || '-'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div className="flex items-center text-gray-600 dark:text-gray-300">
+                  <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center mr-3">
+                    <HiOutlineUser className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <span className="font-medium text-lg">{user?.email}</span>
+                </div>
+                <div className="flex items-center text-gray-600 dark:text-gray-300">
+                  <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center mr-3">
+                    <HiOutlinePhone className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <span className="font-medium text-lg">{formData.phone || '-'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Details Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+          {/* Left Column: Personal Info */}
+          <div className="lg:col-span-1 space-y-8">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                <HiOutlineUserCircle className="w-5 h-5 text-indigo-500" />
+                Data Pribadi
+              </h3>
+
+              <dl className="space-y-5">
+                <div>
+                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tanggal Lahir</dt>
+                  <dd className="text-gray-900 dark:text-white font-medium flex items-center gap-2">
+                    <HiOutlineCalendar className="w-4 h-4 text-gray-400" />
+                    {formData.dateOfBirth ? new Date(formData.dateOfBirth).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Jenis Kelamin</dt>
+                  <dd className="text-gray-900 dark:text-white font-medium">
+                    {formData.gender === 'MALE' ? 'Laki-laki' : formData.gender === 'FEMALE' ? 'Perempuan' : '-'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Nomor KTP</dt>
+                  <dd className="text-gray-900 dark:text-white font-medium break-all">
+                    {formData.idCardNumber || '-'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Alamat</dt>
+                  <dd className="text-gray-900 dark:text-white font-medium leading-relaxed">
+                    {formData.address || '-'}
+                    {formData.city && <br />}
+                    {formData.city} {formData.province && `, ${formData.province}`}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                <HiOutlineExclamationTriangle className="w-5 h-5 text-red-500" />
+                Kontak Darurat
+              </h3>
+              <dl className="space-y-5">
+                <div>
+                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Nama Kontak</dt>
+                  <dd className="text-gray-900 dark:text-white font-medium">{formData.emergencyName || '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Hubungan</dt>
+                  <dd className="text-gray-900 dark:text-white font-medium">{formData.emergencyRelation || '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Nomor Telepon</dt>
+                  <dd className="text-gray-900 dark:text-white font-medium text-lg">{formData.emergencyPhone || '-'}</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+
+          {/* Right Column: Employment & Finance */}
+          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                <HiOutlineBuildingOffice className="w-5 h-5 text-indigo-500" />
+                Informasi Pekerjaan
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div className="col-span-1 md:col-span-2 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-100 dark:border-gray-700">
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Departemen</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">{departmentName}</p>
+                    </div>
+                    <div className="w-px bg-gray-200 dark:bg-gray-600 self-stretch my-1"></div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Status Kepegawaian</p>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${formData.employmentStatus === 'PERMANENT' ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300' :
+                        formData.employmentStatus === 'PROBATION' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                          'bg-blue-100 text-blue-800 border-blue-200'
+                        }`}>
+                        {formData.employmentStatus}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6 pt-2">
+                  <div>
+                    <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tanggal Bergabung</dt>
+                    <dd className="text-gray-900 dark:text-white font-medium">
+                      {formData.joinDate ? new Date(formData.joinDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Selesai Masa Percobaan</dt>
+                    <dd className="text-gray-900 dark:text-white font-medium">
+                      {formData.probationEndDate ? new Date(formData.probationEndDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}
+                    </dd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                <HiOutlineCreditCard className="w-5 h-5 text-indigo-500" />
+                Data Keuangan
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-5 border border-indigo-100 dark:border-indigo-900/30 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <HiOutlineCreditCard className="w-24 h-24" />
+                  </div>
+                  <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-3 tracking-wide uppercase">Rekening Bank</p>
+                  <p className="text-2xl font-mono font-bold text-gray-900 dark:text-white tracking-tight mb-1">
+                    {formData.bankAccountNumber || '**** **** ****'}
+                  </p>
+                  <div className="flex justify-between items-end mt-4">
+                    <div>
+                      <p className="text-xs text-indigo-400 dark:text-indigo-400/70 mb-0.5">BANK</p>
+                      <p className="font-semibold text-indigo-900 dark:text-indigo-200">{formData.bankName || 'N/A'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-indigo-400 dark:text-indigo-400/70 mb-0.5">HOLDER</p>
+                      <p className="font-medium text-indigo-900 dark:text-indigo-200">{formData.bankAccountName || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col justify-center p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                  <p className="text-sm font-medium text-gray-500 mb-2">Nomor Pokok Wajib Pajak (NPWP)</p>
+                  <p className="text-xl font-mono font-bold text-gray-900 dark:text-white">
+                    {formData.npwp || '-'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // --- EDIT MODE FORM (Existing Layout) ---
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -441,6 +683,7 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
                       {showPassword ? <HiOutlineEyeSlash className="w-5 h-5" /> : <HiOutlineEye className="w-5 h-5" />}
                     </button>
                   </div>
+
                   <button
                     type="button"
                     onClick={generatePassword}
@@ -449,6 +692,7 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
                     <HiOutlineKey className="w-5 h-5" />
                     Generate
                   </button>
+
                 </div>
                 {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
               </div>
@@ -813,19 +1057,14 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Nomor Telepon
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlinePhone className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="tel"
-                    name="emergencyPhone"
-                    value={formData.emergencyPhone}
-                    onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="+62 812-3456-7890"
-                  />
-                </div>
+                <input
+                  type="tel"
+                  name="emergencyPhone"
+                  value={formData.emergencyPhone}
+                  onChange={handleChange}
+                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Nomor telepon darurat"
+                />
               </div>
 
               <div>
@@ -838,43 +1077,39 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
                   value={formData.emergencyRelation}
                   onChange={handleChange}
                   className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Contoh: Pasangan, Orang Tua"
+                  placeholder="Contoh: Orang Tua, Istri, Suami"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Error Message */}
-        {errors.submit && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <HiOutlineExclamationTriangle className="w-6 h-6 text-red-500 dark:text-red-400 flex-shrink-0" />
-              <p className="text-red-700 dark:text-red-300">{errors.submit}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Form Actions */}
-        <div className="flex items-center justify-end gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex justify-end gap-3 sticky bottom-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg">
           <Link
             href="/admin/users"
-            className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="px-6 py-2.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
           >
             Batal
           </Link>
           <button
             type="submit"
             disabled={submitting}
-            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting && <HiArrowPath className="w-5 h-5 animate-spin" />}
-            {submitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+            {submitting ? (
+              <>
+                <HiArrowPath className="w-5 h-5 animate-spin" />
+                Menyimpan...
+              </>
+            ) : (
+              <>
+                <HiOutlineCheckCircle className="w-5 h-5" />
+                Simpan Perubahan
+              </>
+            )}
           </button>
         </div>
-      </form>
-    </div>
+      </form >
+    </div >
   )
 }
-
-

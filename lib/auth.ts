@@ -357,7 +357,7 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
             })
 
             if (dbUser) {
-              token.role = dbUser.role
+              token.role = dbUser.role as any
             }
           }
         }
@@ -370,7 +370,7 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
           })
 
           if (dbUser) {
-            token.role = dbUser.role
+            token.role = dbUser.role as any
             token.name = dbUser.name
             token.email = dbUser.email
             token.picture = dbUser.image
@@ -586,7 +586,7 @@ export const authConfig: NextAuthOptions = {
           })
 
           if (dbUser) {
-            token.role = dbUser.role
+            token.role = dbUser.role as any
           }
         }
       }
@@ -599,7 +599,7 @@ export const authConfig: NextAuthOptions = {
         })
 
         if (dbUser) {
-          token.role = dbUser.role
+          token.role = dbUser.role as any
           token.name = dbUser.name
           token.email = dbUser.email
           token.picture = dbUser.image
