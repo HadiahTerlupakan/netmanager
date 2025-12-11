@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json()
-        const { action, latitude, longitude, location } = body
+        const { action, latitude, longitude, location, photoUrl } = body
 
         const now = new Date()
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -121,6 +121,7 @@ export async function POST(req: NextRequest) {
                     checkInLat: latitude ? parseFloat(latitude) : null,
                     checkInLng: longitude ? parseFloat(longitude) : null,
                     checkInNote: location || null,
+                    checkInPhoto: photoUrl || null,
                 }
             })
 
@@ -154,6 +155,7 @@ export async function POST(req: NextRequest) {
                     checkOutLat: latitude ? parseFloat(latitude) : null,
                     checkOutLng: longitude ? parseFloat(longitude) : null,
                     checkOutNote: location || null,
+                    checkOutPhoto: photoUrl || null,
                 }
             })
 

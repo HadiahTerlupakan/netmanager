@@ -1397,10 +1397,12 @@ model Attendance {
   checkInLat   Float?
   checkInLng   Float?
   checkInNote  String?
+  checkInPhoto String?
   checkOutTime DateTime?
   checkOutLat  Float?
   checkOutLng  Float?
   checkOutNote String?
+  checkOutPhoto String?
   workingHours Float?
   status       AttendanceStatus @default(ABSENT)
   isManual     Boolean          @default(false)
