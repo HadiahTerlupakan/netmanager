@@ -58,8 +58,12 @@ function hasPermission(userPermissions: string[] | undefined, requiredFeature: s
 // Function to get user permissions from token
 // IMPORTANT: Now returns actual permissions from session token
 function getUserPermissions(token: any): string[] {
+  // Debug log to see what role is in token
+  console.log(`[PROXY] getUserPermissions - email: ${token?.email}, role: ${token?.role}, type: ${typeof token?.role}`)
+
   // For ADMIN users, grant all permissions (fail-safe)
   if (token?.role === 'ADMIN') {
+    console.log('[PROXY] ADMIN detected, granting all permissions')
     return ALL_PERMISSIONS
   }
 
@@ -137,6 +141,8 @@ async function checkRoleAccess(request: NextRequest, pathname: string): Promise<
     const userPermissions = getUserPermissions(token)
     const requiredPermission = getRequiredPermission(pathname)
 
+    console.log(`[PROXY] Auth check - Path: ${pathname}, Role: ${token.role}, Required: ${requiredPermission || 'none'}`)
+
     // If route requires a specific permission, check it
     if (requiredPermission) {
       if (!hasPermission(userPermissions, requiredPermission)) {
@@ -161,14 +167,10 @@ async function checkRoleAccess(request: NextRequest, pathname: string): Promise<
       }
     }
 
-    // Add user info to response headers for downstream use
-    const response = NextResponse.next()
-    response.headers.set('x-user-id', token.id as string)
-    response.headers.set('x-user-role', (token.role as string) || 'USER')
-    response.headers.set('x-user-email', token.email as string)
-    response.headers.set('x-user-permissions', JSON.stringify(userPermissions))
-
-    return response
+    // User info is available via session - no need to expose in response headers
+    // Note: If reverse proxy (nginx/traefik) needs user info, consider using
+    // internal headers with 'X-Internal-' prefix that are stripped at the edge
+    return NextResponse.next()
 
   } catch (error) {
     console.error('[PROXY] Role check error:', error)

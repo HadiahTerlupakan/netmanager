@@ -60,17 +60,17 @@ async function main() {
     where: { email: adminEmail },
     update: {
       passwordHash,
-      role: 'USER', // Role enum is not used for access control anymore
+      role: 'ADMIN', // Admin user needs ADMIN role for full access
       name: 'Administrator',
     },
     create: {
       email: adminEmail,
       name: 'Administrator',
       passwordHash,
-      role: 'USER', // All users have same base role
+      role: 'ADMIN', // Admin user needs ADMIN role for full access
     },
   })
-  console.log(`✓ User created/updated: ${user.email}`)
+  console.log(`✓ User created/updated: ${user.email} (Role: ADMIN)`)
 
   // ============================================
   // STEP 2: Create Administrator CustomRole

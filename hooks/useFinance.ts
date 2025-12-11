@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 
 interface FinanceUser {
-  id: string
-  email: string
-  name: string | null
-  role: 'FINANCE'
-  createdAt: Date
-  updatedAt: Date
+    id: string
+    email: string
+    name: string | null
+    role: string
 }
 
 export function useFinance() {
     const router = useRouter()
+    const { data: session, status } = useSession()
     const [data, setData] = useState<FinanceUser | null>(null)
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
@@ -20,41 +20,35 @@ export function useFinance() {
 
     const loadData = useCallback(async (force = false, silent = false) => {
         if (!force && isRefreshingRef.current) return
+        if (status === 'loading') return
 
         if (!silent) setLoading(true)
         setRefreshing(true)
         isRefreshingRef.current = true
 
         try {
-            const token = localStorage.getItem('finance_token')
-            const storedData = localStorage.getItem('finance_data')
-
-            if (!token || !storedData) {
+            if (status === 'unauthenticated' || !session?.user) {
                 router.push('/finance/login')
                 return
             }
 
-            // Load from storage first untuk immediate display
-            const parsedData = JSON.parse(storedData)
-            setData(prevData => prevData || parsedData)
+            // Use session data directly
+            const user = session.user as any
 
-            // Fetch fresh data
-            const response = await fetch('/api/finance/me', {
-                headers: {
-                    'x-finance-token': token,
-                },
-            })
-
-            if (response.ok) {
-                const freshData = await response.json()
-                setData(freshData)
-                localStorage.setItem('finance_data', JSON.stringify(freshData))
-                setLastRefreshTime(new Date())
-            } else if (response.status === 401) {
-                localStorage.removeItem('finance_token')
-                localStorage.removeItem('finance_data')
-                router.push('/finance/login')
+            // Check if user has finance access (ADMIN or FINANCE role)
+            const role = user.role || 'USER'
+            if (role !== 'ADMIN' && role !== 'FINANCE') {
+                router.push('/finance/login?error=unauthorized')
+                return
             }
+
+            setData({
+                id: user.id || '',
+                email: user.email || '',
+                name: user.name || null,
+                role: role,
+            })
+            setLastRefreshTime(new Date())
         } catch (error) {
             console.error('Error loading finance data:', error)
         } finally {
@@ -62,45 +56,40 @@ export function useFinance() {
             setRefreshing(false)
             isRefreshingRef.current = false
         }
-    }, [router])
+    }, [router, session, status])
 
-    // Initial load
+    // Wait for session to load
     useEffect(() => {
-        const storedData = localStorage.getItem('finance_data')
-        if (storedData) {
-            try {
-                const parsedData = JSON.parse(storedData)
-                setData(parsedData)
-                setLoading(false)
-                // Background refresh setelah initial load
-                loadData(true, true)
-            } catch (e) {
-                console.error('Error parsing stored data', e)
-                router.push('/finance/login')
-            }
-        } else {
-            router.push('/finance/login')
+        if (status === 'loading') {
+            setLoading(true)
+            return
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []) // Run once on mount
+
+        if (status === 'unauthenticated') {
+            router.push('/finance/login')
+            return
+        }
+
+        if (status === 'authenticated' && session?.user) {
+            loadData(true, false)
+        }
+    }, [status, session, loadData, router])
 
     // Auto-refresh interval
     useEffect(() => {
+        if (status !== 'authenticated') return
+
         const interval = setInterval(() => {
             loadData(true, true)
         }, 30000)
         return () => clearInterval(interval)
-    }, [loadData])
+    }, [loadData, status])
 
     return {
         data,
-        loading,
+        loading: loading || status === 'loading',
         refreshing,
         lastRefreshTime,
         refresh: () => loadData(true, false),
     }
 }
-
-
-
-

@@ -19,7 +19,18 @@ interface RefreshTokenPayload {
   exp?: number
 }
 
-const JWT_SECRET = process.env.NEXTAUTH_SECRET || 'default-secret-change-in-production'
+// JWT Secret validation - fail hard in production if not set
+const JWT_SECRET = (() => {
+  const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('[SECURITY] NEXTAUTH_SECRET environment variable is required in production!')
+    }
+    console.warn('[SECURITY] Using development-only JWT secret. Set NEXTAUTH_SECRET in production.')
+    return 'development-only-secret-do-not-use-in-production'
+  }
+  return secret
+})()
 const JWT_EXPIRES_IN = '15m' // 15 menit untuk access token
 const REFRESH_TOKEN_EXPIRES_IN = '7d' // 7 hari untuk refresh token
 

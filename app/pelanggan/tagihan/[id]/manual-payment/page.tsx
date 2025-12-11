@@ -45,7 +45,7 @@ export default function ManualPaymentPage({ params }: { params: Promise<{ id: st
     useEffect(() => {
         fetchTagihan()
         fetchBankAccounts()
-        // eslint-disable-line react-hooks/exhaustive-deps
+         
     }, [resolvedParams.id])
 
     const fetchTagihan = async () => {

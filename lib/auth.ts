@@ -151,12 +151,13 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
         credentials: {
           username: { label: 'Email or Employee ID', type: 'text' },
           email: { label: 'Email', type: 'email' },
+          identifier: { label: 'Identifier', type: 'text' }, // Added for finance portal
           password: { label: 'Password', type: 'password' },
         },
         async authorize(credentials) {
           try {
-            // Support both 'email' field (for admin) and 'username' field (for employees)
-            const identifier = (credentials?.username || credentials?.email)?.toLowerCase().trim()
+            // Support 'identifier', 'email', or 'username' fields
+            const identifier = (credentials?.identifier || credentials?.username || credentials?.email)?.toLowerCase().trim()
             const password = credentials?.password ?? ''
 
             console.log('[AUTH] Login attempt with identifier:', identifier?.substring(0, 3) + '***')
@@ -473,12 +474,13 @@ export const authConfig: NextAuthOptions = {
       credentials: {
         username: { label: 'Email or Employee ID', type: 'text' },
         email: { label: 'Email', type: 'email' },
+        identifier: { label: 'Identifier', type: 'text' }, // Added for finance portal
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
         try {
-          // Support both 'email' field (for admin) and 'username' field (for employees)
-          const identifier = (credentials?.username || credentials?.email)?.toLowerCase().trim()
+          // Support 'identifier', 'email', or 'username' fields
+          const identifier = (credentials?.identifier || credentials?.username || credentials?.email)?.toLowerCase().trim()
           const password = credentials?.password ?? ''
 
           console.log('[AUTH] Login attempt with identifier:', identifier?.substring(0, 3) + '***')
@@ -569,7 +571,16 @@ export const authConfig: NextAuthOptions = {
             return null
           }
 
-          console.log('[AUTH] Login successful for:', user.email)
+          console.log('[AUTH] Login successful for:', user.email, 'Role:', user.role)
+
+          // Get granular permissions (same as createAuthConfig)
+          let permissions: string[] = []
+          if (employee) {
+            const perms = await getEmployeePermissions(employee.employeeId, user.role)
+            if (perms) {
+              permissions = perms.allowedFeatures
+            }
+          }
 
           return {
             id: user.id,
@@ -585,6 +596,7 @@ export const authConfig: NextAuthOptions = {
               department: employee.department,
               position: employee.position,
             } : null,
+            permissions,
           } as any
         } catch (error) {
           console.error('[AUTH] Error in authorize:', error)
@@ -623,8 +635,9 @@ export const authConfig: NextAuthOptions = {
         token.role = (user as any).role || 'USER' // Default to USER for OAuth users
         token.employeeId = (user as any).employeeId
         token.employee = (user as any).employee
+        token.permissions = (user as any).permissions || []
 
-        // For OAuth sign in, fetch role from database
+        // For OAuth sign in, fetch role and permissions from database
         if (account?.provider !== 'credentials') {
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
@@ -632,6 +645,29 @@ export const authConfig: NextAuthOptions = {
 
           if (dbUser) {
             token.role = dbUser.role as any
+
+            // Fetch employee info for OAuth users
+            const employee = await prisma.employee.findUnique({
+              where: { userId: dbUser.id },
+              include: {
+                department: true,
+                position: true,
+              }
+            })
+
+            if (employee) {
+              token.employeeId = employee.employeeId
+              token.employee = {
+                id: employee.id,
+                employeeId: employee.employeeId,
+                fullName: employee.fullName,
+                department: employee.department,
+                position: employee.position,
+              }
+
+              const perms = await getEmployeePermissions(employee.employeeId, dbUser.role)
+              token.permissions = perms?.allowedFeatures || []
+            }
           }
         }
       }
@@ -648,6 +684,15 @@ export const authConfig: NextAuthOptions = {
           token.name = dbUser.name
           token.email = dbUser.email
           token.picture = dbUser.image
+
+          // Update permissions on session refresh
+          const employee = await prisma.employee.findUnique({
+            where: { userId: dbUser.id }
+          })
+          if (employee) {
+            const perms = await getEmployeePermissions(employee.employeeId, dbUser.role)
+            token.permissions = perms?.allowedFeatures || []
+          }
         }
       }
 
@@ -660,6 +705,7 @@ export const authConfig: NextAuthOptions = {
         (session.user as any).role = token.role;
         (session.user as any).employeeId = token.employeeId;
         (session.user as any).employee = token.employee;
+        (session.user as any).permissions = token.permissions || [];
       }
       return session
     },
