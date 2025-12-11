@@ -25,7 +25,8 @@ interface User {
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'ALL' | 'EMPLOYEE' | 'SYSTEM'>('ALL')
+
+  // const [filter, setFilter] = useState<'ALL' | 'EMPLOYEE' | 'SYSTEM'>('ALL') // Removed filter state
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
@@ -48,9 +49,7 @@ export default function UsersPage() {
   }
 
   const filteredUsers = users.filter(user => {
-    const matchesFilter = filter === 'ALL' ||
-      (filter === 'EMPLOYEE' && user.employee) ||
-      (filter === 'SYSTEM' && !user.employee)
+    // const matchesFilter = filter === 'ALL' || ... // Removed filter logic
 
     const matchesSearch = searchTerm === '' ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -58,13 +57,12 @@ export default function UsersPage() {
       user.employee?.employeeId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.employee?.department?.name?.toLowerCase().includes(searchTerm.toLowerCase())
 
-    return matchesFilter && matchesSearch
+    return matchesSearch
   })
 
   // Statistics for cards
   const totalUsers = users.length
-  const totalEmployees = users.filter(u => u.employee).length
-  const totalSystemUsers = users.filter(u => !u.employee).length
+  // Stats for cards removed
 
   return (
     <div className="space-y-6">
@@ -86,7 +84,8 @@ export default function UsersPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
         <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-500/10 rounded-lg">
@@ -98,84 +97,26 @@ export default function UsersPage() {
             </div>
           </div>
         </div>
-
-        <div className="bg-gradient-to-r from-indigo-50 to-indigo-100 dark:from-indigo-900/30 dark:to-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-5">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-indigo-500/10 rounded-lg">
-              <HiOutlineUserGroup className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalEmployees}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Pegawai</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-900/20 border border-gray-200 dark:border-gray-800 rounded-xl p-5">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gray-500/10 rounded-lg">
-              <HiOutlineUserCircle className="w-7 h-7 text-gray-600 dark:text-gray-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalSystemUsers}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Pengguna Sistem</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Filters and Search */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Search Input */}
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <HiMagnifyingGlass className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Cari pengguna berdasarkan email, nama, ID pegawai, atau departemen..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+        {/* Search Input */}
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <HiMagnifyingGlass className="h-5 w-5 text-gray-400" />
           </div>
-
-          {/* Filter Tabs */}
-          <div className="flex rounded-lg bg-gray-100 dark:bg-gray-700/50 p-1">
-            <button
-              onClick={() => setFilter('ALL')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${filter === 'ALL'
-                ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-            >
-              <HiOutlineUserCircle className="w-4 h-4" />
-              Semua ({users.length})
-            </button>
-            <button
-              onClick={() => setFilter('EMPLOYEE')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${filter === 'EMPLOYEE'
-                ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-            >
-              <HiOutlineBriefcase className="w-4 h-4" />
-              Pegawai ({users.filter(u => u.employee).length})
-            </button>
-            <button
-              onClick={() => setFilter('SYSTEM')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${filter === 'SYSTEM'
-                ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-            >
-              <HiOutlineUserCircle className="w-4 h-4" />
-              Sistem ({users.filter(u => !u.employee).length})
-            </button>
-          </div>
+          <input
+            type="text"
+            placeholder="Cari pengguna berdasarkan email, nama, ID pegawai, atau departemen..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
         </div>
+
       </div>
+
 
       {/* Users List */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -209,9 +150,7 @@ export default function UsersPage() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Peran
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Tipe
-                  </th>
+                  {/* Tipe column removed */}
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     ID Pegawai
                   </th>
@@ -253,17 +192,7 @@ export default function UsersPage() {
                         {user.employee?.customRoleName || 'Belum ada role'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.employee ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400">
-                          Pegawai
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
-                          Sistem
-                        </span>
-                      )}
-                    </td>
+                    {/* Tipe cell removed */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                       {user.employee?.employeeId || '-'}
                     </td>
@@ -299,6 +228,6 @@ export default function UsersPage() {
           </div>
         )}
       </div>
-    </div>
+    </div >
   )
 }
