@@ -48,11 +48,15 @@ import {
   FiFileText,
 } from 'react-icons/fi'
 import { useSettings } from '@/hooks/useSettings'
+import { useSession } from 'next-auth/react'
+import { useEmployeePermissions } from '@/components/providers/EmployeePermissionContext'
+import { getAllFeatures } from '@/lib/utils/permissions'
 
 type NavItem = {
   href: string
   label: string
   icon: ReactNode
+  permission?: string
   children?: NavItem[]
 }
 
@@ -60,144 +64,229 @@ export default function Sidebar() {
   const pathname = usePathname()
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set())
   const { settings } = useSettings()
+  const { data: session } = useSession()
+  const { permissions, isAdmin } = useEmployeePermissions()
   const appName = settings?.namaAplikasi || 'NetManager'
 
-  const navItems: NavItem[] = useMemo(() => [
-    { href: '/admin', label: 'Dashboard', icon: <FiBarChart className="w-5 h-5" /> },
+  // Get user permissions from EmployeePermissionContext
+  const userPermissions = useMemo(() => {
+    // ADMIN users get all features
+    if (isAdmin()) {
+      return getAllFeatures()
+    }
+
+    // Use permissions from EmployeePermissionContext (includes custom roles)
+    if (permissions?.allowedFeatures && permissions.allowedFeatures.length > 0) {
+      return permissions.allowedFeatures
+    }
+
+    // Fallback for base roles without custom role assignments
+    if (session?.user?.role === 'HR') {
+      return ['DASHBOARD', 'USERS', 'HELPDESK', 'HRIS']
+    }
+    if (session?.user?.role === 'FINANCE') {
+      return ['DASHBOARD', 'FINANCE']
+    }
+
+    return ['DASHBOARD'] // Default permissions
+  }, [permissions, session, isAdmin])
+
+  // Filter menu items based on permissions
+  const filterNavItem = (item: NavItem): NavItem | null => {
+    // If item has no permission requirement, show it
+    if (!item.permission) {
+      // Filter children if exist
+      if (item.children) {
+        const filteredChildren = item.children
+          .map(filterNavItem)
+          .filter((child): child is NavItem => child !== null)
+
+        // Only show parent if it has visible children or no permission requirement
+        if (filteredChildren.length > 0) {
+          return { ...item, children: filteredChildren }
+        }
+      }
+      return item
+    }
+
+    // Check if user has permission for this menu
+    if (userPermissions.includes(item.permission)) {
+      // Filter children if exist
+      if (item.children) {
+        const filteredChildren = item.children
+          .map(filterNavItem)
+          .filter((child): child is NavItem => child !== null)
+
+        return { ...item, children: filteredChildren }
+      }
+      return item
+    }
+
+    return null
+  }
+
+  const allNavItems: NavItem[] = [
+    { href: '/admin', label: 'Dashboard', icon: <FiBarChart className="w-5 h-5" />, permission: 'DASHBOARD' },
+    { href: '/admin/roles', label: 'Roles', icon: <FiShield className="w-5 h-5" />, permission: 'ROLES' },
     {
       href: '/admin/network',
       label: 'Network',
       icon: <FiGlobe className="w-5 h-5" />,
+      permission: 'NETWORK',
       children: [
-        { href: '/admin/network/mikrotik', label: 'MikroTik', icon: <FiServer className="w-4 h-4" /> },
-        { href: '/admin/radius', label: 'RADIUS', icon: <FiKey className="w-4 h-4" /> },
-        { href: '/admin/network/olt', label: 'OLT', icon: <FiActivity className="w-4 h-4" /> },
-        { href: '/admin/network/onu', label: 'All ONU', icon: <FiSmartphone className="w-4 h-4" /> },
-        { href: '/admin/network/onu/new', label: 'Add ONU', icon: <FiPlus className="w-4 h-4" /> },
-        { href: '/admin/network/onutype', label: 'Onu Type', icon: <FiClipboard className="w-4 h-4" /> },
-        { href: '/admin/network/speedprofiles', label: 'Speed Profiles', icon: <FiZap className="w-4 h-4" /> },
-        { href: '/admin/network/vlan', label: 'VLAN', icon: <FiLink className="w-4 h-4" /> },
+        { href: '/admin/network/mikrotik', label: 'MikroTik', icon: <FiServer className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/radius', label: 'RADIUS', icon: <FiKey className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/network/olt', label: 'OLT', icon: <FiActivity className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/network/onu', label: 'All ONU', icon: <FiSmartphone className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/network/onu/new', label: 'Add ONU', icon: <FiPlus className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/network/onutype', label: 'Onu Type', icon: <FiClipboard className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/network/speedprofiles', label: 'Speed Profiles', icon: <FiZap className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/network/vlan', label: 'VLAN', icon: <FiLink className="w-4 h-4" />, permission: 'NETWORK' },
       ],
     },
     {
       href: '/admin/ftth',
       label: 'FTTH',
       icon: <FiWifi className="w-5 h-5" />,
+      permission: 'FTTH',
       children: [
-        { href: '/admin/ftth/otb', label: 'OTB', icon: <FiServer className="w-4 h-4" /> },
-        { href: '/admin/ftth/odc', label: 'ODC', icon: <FiArchive className="w-4 h-4" /> },
-        { href: '/admin/ftth/odp', label: 'ODP', icon: <FiGrid className="w-4 h-4" /> },
-        { href: '/admin/ftth/closure', label: 'Join BOX/Closure', icon: <FiLayers className="w-4 h-4" /> },
-        { href: '/admin/ftth/pole', label: 'Pole/Tiang', icon: <FiZap className="w-4 h-4" /> },
-        { href: '/admin/ftth/kmz', label: 'KMZ', icon: <FiFile className="w-4 h-4" /> },
-        { href: '/admin/ftth/map', label: 'Topology Map', icon: <FiMap className="w-4 h-4" /> },
+        { href: '/admin/ftth/otb', label: 'OTB', icon: <FiServer className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/ftth/odc', label: 'ODC', icon: <FiArchive className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/ftth/odp', label: 'ODP', icon: <FiGrid className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/ftth/closure', label: 'Join BOX/Closure', icon: <FiLayers className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/ftth/pole', label: 'Pole/Tiang', icon: <FiZap className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/ftth/kmz', label: 'KMZ', icon: <FiFile className="w-4 h-4" />, permission: 'NETWORK' },
+        { href: '/admin/ftth/map', label: 'Topology Map', icon: <FiMap className="w-4 h-4" />, permission: 'NETWORK' },
       ],
     },
     {
       href: '/admin/paket',
       label: 'Paket',
       icon: <FiShoppingCart className="w-5 h-5" />,
+      permission: 'PAKET',
       children: [
-        { href: '/admin/paket/bandwidth', label: 'Bandwidth', icon: <FiDatabase className="w-4 h-4" /> },
-        { href: '/admin/paket/profileppp', label: 'Profile PPP', icon: <FiUser className="w-4 h-4" /> },
-        { href: '/admin/paket/harga', label: 'Harga Paket', icon: <FiDollarSign className="w-4 h-4" /> },
+        { href: '/admin/paket/bandwidth', label: 'Bandwidth', icon: <FiDatabase className="w-4 h-4" />, permission: 'PELANGGAN' },
+        { href: '/admin/paket/profileppp', label: 'Profile PPP', icon: <FiUser className="w-4 h-4" />, permission: 'PELANGGAN' },
+        { href: '/admin/paket/harga', label: 'Harga Paket', icon: <FiDollarSign className="w-4 h-4" />, permission: 'PELANGGAN' },
       ],
     },
     {
       href: '/admin/pelanggan',
       label: 'Pelanggan',
       icon: <FiUsers className="w-5 h-5" />,
+      permission: 'PELANGGAN',
       children: [
-        { href: '/admin/pelanggan/ppp', label: 'Pelanggan PPP', icon: <FiUser className="w-4 h-4" /> },
+        { href: '/admin/pelanggan/ppp', label: 'Pelanggan PPP', icon: <FiUser className="w-4 h-4" />, permission: 'PELANGGAN' },
       ],
     },
     {
       href: '/admin/inventory',
       label: 'Inventory',
       icon: <FiBox className="w-5 h-5" />,
+      permission: 'INVENTORY',
       children: [
-        { href: '/admin/inventory', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" /> },
-        { href: '/admin/inventory/barang', label: 'Barang', icon: <FiBox className="w-4 h-4" /> },
-        { href: '/admin/inventory/masuk', label: 'Barang Masuk', icon: <FiDownload className="w-4 h-4" /> },
-        { href: '/admin/inventory/keluar', label: 'Barang Keluar', icon: <FiUpload className="w-4 h-4" /> },
-        { href: '/admin/inventory/transfer', label: 'Transfer Antar Gudang', icon: <FiTruck className="w-4 h-4" /> },
-        { href: '/admin/inventory/restock', label: 'Restock Management', icon: <FiTrendingUp className="w-4 h-4" /> },
-        { href: '/admin/inventory/opname', label: 'Stock Opname', icon: <FiClipboard className="w-4 h-4" /> },
-        { href: '/admin/inventory/gudang', label: 'Gudang', icon: <FiHome className="w-4 h-4" /> },
+        { href: '/admin/inventory', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" />, permission: 'INVENTORY' },
+        { href: '/admin/inventory/barang', label: 'Barang', icon: <FiBox className="w-4 h-4" />, permission: 'INVENTORY' },
+        { href: '/admin/inventory/masuk', label: 'Barang Masuk', icon: <FiDownload className="w-4 h-4" />, permission: 'INVENTORY' },
+        { href: '/admin/inventory/keluar', label: 'Barang Keluar', icon: <FiUpload className="w-4 h-4" />, permission: 'INVENTORY' },
+        { href: '/admin/inventory/transfer', label: 'Transfer Antar Gudang', icon: <FiTruck className="w-4 h-4" />, permission: 'INVENTORY' },
+        { href: '/admin/inventory/restock', label: 'Restock Management', icon: <FiTrendingUp className="w-4 h-4" />, permission: 'INVENTORY' },
+        { href: '/admin/inventory/opname', label: 'Stock Opname', icon: <FiClipboard className="w-4 h-4" />, permission: 'INVENTORY' },
+        { href: '/admin/inventory/gudang', label: 'Gudang', icon: <FiHome className="w-4 h-4" />, permission: 'INVENTORY' },
       ],
     },
-    { href: '/admin/users', label: 'Users', icon: <FiUsers className="w-5 h-5" /> },
+    { href: '/admin/users', label: 'Users', icon: <FiUsers className="w-5 h-5" />, permission: 'USERS' },
     {
       href: '/admin/helpdesk',
       label: 'Helpdesk',
       icon: <FiHelpCircle className="w-5 h-5" />,
+      permission: 'HELPDESK',
       children: [
-        { href: '/admin/helpdesk', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" /> },
-        { href: '/admin/helpdesk/tiket', label: 'Semua Tiket', icon: <FiHelpCircle className="w-4 h-4" /> },
+        { href: '/admin/helpdesk', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" />, permission: 'HELPDESK' },
+        { href: '/admin/helpdesk/tiket', label: 'Semua Tiket', icon: <FiHelpCircle className="w-4 h-4" />, permission: 'HELPDESK' },
       ],
     },
     {
       href: '/admin/workorders',
       label: 'Work Orders',
       icon: <FiTool className="w-5 h-5" />,
+      permission: 'WORKORDERS',
       children: [
-        { href: '/admin/workorders', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" /> },
-        { href: '/admin/workorders/list', label: 'All Work Orders', icon: <FiClipboard className="w-4 h-4" /> },
+        { href: '/admin/workorders', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" />, permission: 'WORKORDERS' },
+        { href: '/admin/workorders/list', label: 'All Work Orders', icon: <FiClipboard className="w-4 h-4" />, permission: 'WORKORDERS' },
       ],
     },
     {
       href: '/admin/hris',
       label: 'HRIS',
       icon: <FiUserGroup className="w-5 h-5" />,
+      permission: 'HRIS',
       children: [
-        { href: '/admin/hris', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" /> },
-        { href: '/admin/hris/departments', label: 'Departments', icon: <FiHome className="w-4 h-4" /> },
-        { href: '/admin/hris/employees', label: 'Employees', icon: <FiUsers className="w-4 h-4" /> },
-        { href: '/admin/hris/attendance', label: 'Attendance', icon: <FiClock className="w-4 h-4" /> },
-        { href: '/admin/hris/leaves', label: 'Leave Management', icon: <FiCalendar className="w-4 h-4" /> },
-        { href: '/admin/hris/payroll', label: 'Payroll', icon: <FiTrendingUp className="w-4 h-4" /> },
+        { href: '/admin/hris', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" />, permission: 'HRIS' },
+        { href: '/admin/hris/departments', label: 'Departments & Roles', icon: <FiHome className="w-4 h-4" />, permission: 'HRIS' },
+        { href: '/admin/hris/employees', label: 'Employees', icon: <FiUsers className="w-4 h-4" />, permission: 'HRIS' },
+        { href: '/admin/hris/attendance', label: 'Attendance', icon: <FiClock className="w-4 h-4" />, permission: 'HRIS' },
+        { href: '/admin/hris/leaves', label: 'Leave Management', icon: <FiCalendar className="w-4 h-4" />, permission: 'HRIS' },
+        { href: '/admin/hris/payroll', label: 'Payroll', icon: <FiTrendingUp className="w-4 h-4" />, permission: 'HRIS' },
       ],
     },
     {
       href: '/admin/finance',
       label: 'Finance',
       icon: <FiDollarSign className="w-5 h-5" />,
+      permission: 'FINANCE',
       children: [
-        { href: '/admin/finance/tagihan', label: 'Tagihan', icon: <FiFileText className="w-4 h-4" /> },
-        { href: '/admin/finance/cashflow', label: 'Cashflow & Pengeluaran', icon: <FiTrendingUp className="w-4 h-4" /> },
-        { href: '/admin/finance/bank-accounts', label: 'Rekening Bank', icon: <FiTrendingUp className="w-4 h-4" /> },
+        { href: '/admin/finance/tagihan', label: 'Tagihan', icon: <FiFileText className="w-4 h-4" />, permission: 'FINANCE' },
+        { href: '/admin/finance/cashflow', label: 'Cashflow & Pengeluaran', icon: <FiTrendingUp className="w-4 h-4" />, permission: 'FINANCE' },
+        { href: '/admin/finance/bank-accounts', label: 'Rekening Bank', icon: <FiTrendingUp className="w-4 h-4" />, permission: 'FINANCE' },
       ]
     },
     {
       href: '/admin/pengaturan',
       label: 'Pengaturan',
       icon: <FiSettings className="w-5 h-5" />,
+      permission: 'PENGATURAN',
       children: [
-        { href: '/admin/pengaturan/umum', label: 'Umum', icon: <FiSettings className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/logo', label: 'Logo Perusahaan', icon: <FiImage className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/roles', label: 'Role Management', icon: <FiShield className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/email', label: 'Email', icon: <FiMail className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/whatsapp', label: 'WhatsApp', icon: <FiMessageSquare className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/oauth', label: 'OAuth', icon: <FiKey className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/payment-gateway', label: 'Payment Gateway', icon: <FiCreditCard className="w-4 h-4" /> },
-        { href: '/admin/pengaturan/api', label: 'API', icon: <FiCode className="w-4 h-4" /> },
+        { href: '/admin/pengaturan/umum', label: 'Umum', icon: <FiSettings className="w-4 h-4" />, permission: 'PENGATURAN' },
+        { href: '/admin/pengaturan/logo', label: 'Logo Perusahaan', icon: <FiImage className="w-4 h-4" />, permission: 'PENGATURAN' },
+        { href: '/admin/pengaturan/email', label: 'Email', icon: <FiMail className="w-4 h-4" />, permission: 'PENGATURAN' },
+        { href: '/admin/pengaturan/whatsapp', label: 'WhatsApp', icon: <FiMessageSquare className="w-4 h-4" />, permission: 'PENGATURAN' },
+        { href: '/admin/pengaturan/oauth', label: 'OAuth', icon: <FiKey className="w-4 h-4" />, permission: 'PENGATURAN' },
+        { href: '/admin/pengaturan/payment-gateway', label: 'Payment Gateway', icon: <FiCreditCard className="w-4 h-4" />, permission: 'PENGATURAN' },
+        { href: '/admin/pengaturan/api', label: 'API', icon: <FiCode className="w-4 h-4" />, permission: 'PENGATURAN' },
       ]
     },
-  ], [])
+  ]
 
-  // Auto-expand menu jika pathname aktif
+  const navItems = useMemo(() => {
+    return allNavItems
+      .map(filterNavItem)
+      .filter((item): item is NavItem => item !== null)
+  }, [allNavItems, userPermissions])
+
+  // Auto-expand menu jika pathname aktif (only on pathname change)
   useEffect(() => {
+    const menusToExpand: string[] = []
     navItems.forEach((item) => {
       if (item.children) {
         const hasActiveChild = item.children.some(
           (child) => pathname === child.href || pathname?.startsWith(child.href + '/')
         )
-        if (hasActiveChild) {
-          setExpandedMenus((prev) => new Set(prev).add(item.href))
+        if (hasActiveChild && !expandedMenus.has(item.href)) {
+          menusToExpand.push(item.href)
         }
       }
     })
-  }, [pathname, navItems])
+    // Only update if there are new menus to expand
+    if (menusToExpand.length > 0) {
+      setExpandedMenus((prev) => {
+        const newSet = new Set(prev)
+        menusToExpand.forEach(href => newSet.add(href))
+        return newSet
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]) // Only depend on pathname, not navItems
 
   const toggleMenu = (href: string) => {
     setExpandedMenus((prev) => {

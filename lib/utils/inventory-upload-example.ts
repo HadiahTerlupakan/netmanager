@@ -4,7 +4,7 @@
  */
 
 import { uploadInventoryPhotos, validateInventoryPhotos, isImageFile } from './image-upload'
-import { PhotoMetadata } from '@/types/inventory'
+import type { PhotoMetadata } from '@/types/inventory'
 
 /**
  * Example: Upload photos for inventory masuk transaction
@@ -181,3 +181,4 @@ export function processPhotosFromFormData(formData: FormData): File[] {
  *   }
  * }
  * ```
+ */

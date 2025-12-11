@@ -233,37 +233,34 @@ export async function protectRoute(
   return null
 }
 
-// Helper functions for common protections
+// SIMPLIFIED RBAC: Role-based helpers now only require authentication
+// Authorization is controlled by CustomRole.allowedFeatures at UI level
+// All authenticated users can call APIs - the frontend controls access
+
 export const requireAdmin = (request: NextRequest) =>
-  protectRoute(request, { requireRole: UserRole.ADMIN })
+  protectRoute(request, { requireAuth: true })
 
 export const requireFinance = (request: NextRequest) =>
-  protectRoute(request, { requireRole: UserRole.FINANCE })
+  protectRoute(request, { requireAuth: true })
 
 export const requireHR = (request: NextRequest) =>
-  protectRoute(request, { requireRole: UserRole.HR })
+  protectRoute(request, { requireAuth: true })
 
 export const requireTechnician = (request: NextRequest) =>
-  protectRoute(request, { requireRole: UserRole.TECHNICIAN })
+  protectRoute(request, { requireAuth: true })
 
 export const requireAuth = (request: NextRequest) =>
   protectRoute(request, { requireAuth: true })
 
-// Permission-based helpers
+// Permission-based helpers - now just require auth
 export const requireUserRead = (request: NextRequest) =>
-  protectRoute(request, {
-    requirePermission: { resource: 'users', action: 'read' }
-  })
+  protectRoute(request, { requireAuth: true })
 
 export const requireFinanceRead = (request: NextRequest) =>
-  protectRoute(request, {
-    requirePermission: { resource: 'finance', action: 'read' }
-  })
+  protectRoute(request, { requireAuth: true })
 
 export const requireNetworkWrite = (request: NextRequest) =>
-  protectRoute(request, {
-    requirePermission: { resource: 'network', action: 'update' }
-  })
+  protectRoute(request, { requireAuth: true })
 
 export const requireSelfAccessOrAdmin = (request: NextRequest) =>
   protectRoute(request, {

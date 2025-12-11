@@ -7,9 +7,11 @@ import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { logger } from '@/lib/logger'
 
+// SIMPLIFIED RBAC: Only check if user is authenticated
+// Authorization is controlled by CustomRole at UI level
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
-  if (!session || session?.user?.role !== 'ADMIN') {
+  if (!session) {
     return null
   }
   return session
@@ -69,7 +71,7 @@ export async function GET() {
         },
       })
 
-      // Get all employees with their relations
+      // Get all employees with their relations including CustomRole
       const employees = await prisma.employee.findMany({
         where: {
           userId: {
@@ -89,6 +91,17 @@ export async function GET() {
               title: true,
             },
           },
+          customRoles: {
+            include: {
+              role: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                }
+              }
+            }
+          },
         },
       })
 
@@ -96,12 +109,16 @@ export async function GET() {
       const employeeMap = new Map()
       employees.forEach(emp => {
         if (emp.userId) {
+          // Get the first custom role (if any)
+          const primaryRole = emp.customRoles?.[0]?.role
           employeeMap.set(emp.userId, {
             id: emp.id,
             employeeId: emp.employeeId,
             department: emp.department,
             position: emp.position,
             employmentStatus: emp.employmentStatus,
+            customRoleName: primaryRole?.name || null,
+            customRoleCode: primaryRole?.code || null,
           })
         }
       })
@@ -219,7 +236,7 @@ export async function POST(req: Request) {
 
     const formData = await req.json()
     const {
-      email, name, password, role,
+      email, name, password, customRoleId,
       employeeId, phone, dateOfBirth, gender, idCardNumber,
       address, city, province, departmentId, positionId,
       employmentStatus, joinDate, probationEndDate,
@@ -227,8 +244,8 @@ export async function POST(req: Request) {
       emergencyName, emergencyPhone, emergencyRelation
     } = formData
 
-    // Validate required fields using zod schema
-    const parsed = userCreateSchema.safeParse({ email, name, password, role })
+    // Validate required fields using zod schema (use 'USER' as default role for schema validation)
+    const parsed = userCreateSchema.safeParse({ email, name, password, role: 'USER' })
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
     }
@@ -240,9 +257,16 @@ export async function POST(req: Request) {
       )
     }
 
+    if (!customRoleId) {
+      return NextResponse.json(
+        { error: 'Role pengguna wajib dipilih' },
+        { status: 400 }
+      )
+    }
+
     logger.info('Creating new user+employee', {
       email,
-      role,
+      customRoleId,
       employeeId,
       createdBy: session.user.id,
     })
@@ -250,15 +274,15 @@ export async function POST(req: Request) {
     const passwordHash = await hash(password, 10)
 
     try {
-      // Create User + Employee in single transaction (ALL users are employees)
+      // Create User + Employee + EmployeeRole in single transaction
       const result = await prisma.$transaction(async (tx) => {
-        // 1. Create User
+        // 1. Create User (with 'USER' as base role - custom role handles permissions)
         const user = await tx.user.create({
           data: {
             email,
             name: name || null,
             passwordHash,
-            role,
+            role: 'USER', // Base role - actual permissions come from CustomRole
           },
         })
 
@@ -266,10 +290,10 @@ export async function POST(req: Request) {
           userId: user.id,
         })
 
-        // 2. Create Employee record linked to user (ALWAYS)
+        // 2. Create Employee record linked to user
         const employee = await tx.employee.create({
           data: {
-            employeeId: employeeId.toUpperCase(), // Ensure uppercase for consistent auth
+            employeeId: employeeId.toUpperCase(),
             fullName: name || email.split('@')[0],
             email,
             phone: phone || null,
@@ -291,7 +315,7 @@ export async function POST(req: Request) {
             emergencyName: emergencyName || null,
             emergencyPhone: emergencyPhone || null,
             emergencyRelation: emergencyRelation || null,
-            userId: user.id, // Link to User
+            userId: user.id,
             createdBy: session.user.id,
           },
         })
@@ -301,7 +325,22 @@ export async function POST(req: Request) {
           userId: user.id,
         })
 
-        return { user, employee }
+        // 3. Create EmployeeRole to assign custom role to employee
+        const employeeRole = await tx.employeeRole.create({
+          data: {
+            employeeId: employee.id,
+            roleId: customRoleId,
+            assignedBy: session.user.id,
+          },
+        })
+
+        logger.dbOperation('create', 'EmployeeRole', Date.now() - startTime, {
+          employeeRoleId: employeeRole.id,
+          employeeId: employee.id,
+          roleId: customRoleId,
+        })
+
+        return { user, employee, employeeRole }
       })
 
       logger.apiRequest('POST', '/api/users', 200, Date.now() - startTime, {

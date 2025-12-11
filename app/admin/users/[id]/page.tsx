@@ -28,6 +28,13 @@ interface Department {
   name: string
 }
 
+interface Role {
+  id: string
+  name: string
+  permissions: string[]
+  isActive: boolean
+}
+
 export default function UserEditPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const { id } = use(params)
@@ -35,6 +42,7 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [user, setUser] = useState<any>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showSuccess, setShowSuccess] = useState(false)
@@ -44,7 +52,7 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
     // User fields
     name: '',
     password: '',
-    role: 'USER',
+    customRoleId: '', // Changed from role to customRoleId
     // Employee fields
     employeeId: '',
     phone: '',
@@ -71,7 +79,8 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
   useEffect(() => {
     Promise.all([
       fetchUserAndEmployee(),
-      fetchDepartments()
+      fetchDepartments(),
+      fetchRoles()
     ]).finally(() => setLoading(false))
   }, [id])
 
@@ -84,6 +93,18 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
       }
     } catch (error) {
       console.error('Error fetching departments:', error)
+    }
+  }
+
+  const fetchRoles = async () => {
+    try {
+      const res = await fetch('/api/roles')
+      const data = await res.json()
+      if (res.ok) {
+        setRoles(data.roles?.filter((role: Role) => role.isActive) || [])
+      }
+    } catch (error) {
+      console.error('Error fetching roles:', error)
     }
   }
 
@@ -101,7 +122,7 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
           ...prev,
           // User data
           name: usr.name || '',
-          role: usr.role,
+          customRoleId: emp.customRoleId || '', // Get from employee's assigned role
 
           // Employee data
           employeeId: emp.employeeId || '',
@@ -199,7 +220,7 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
       // 1. Update User
       const userUpdateBody: any = {
         name: formData.name,
-        role: formData.role,
+        customRoleId: formData.customRoleId,
       }
       if (formData.password) {
         userUpdateBody.password = formData.password
@@ -369,21 +390,29 @@ export default function UserEditPage({ params }: { params: Promise<{ id: string 
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Peran Pengguna <span className="text-red-500">*</span>
+                  Role Pengguna <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="role"
+                  name="customRoleId"
                   required
-                  value={formData.role}
+                  value={formData.customRoleId}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.role ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
+                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.customRoleId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
                     }`}
                 >
-                  <option value="USER">USER (Pegawai Biasa)</option>
-                  <option value="HR">HR (Admin HR)</option>
-                  <option value="ADMIN">ADMIN (Akses Penuh)</option>
-                  <option value="FINANCE">FINANCE (Admin Keuangan)</option>
+                  <option value="">Pilih Role</option>
+                  {roles.map(role => (
+                    <option key={role.id} value={role.id}>
+                      {role.name} ({role.permissions.length} permissions)
+                    </option>
+                  ))}
                 </select>
+                {errors.customRoleId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.customRoleId}</p>}
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <a href="/admin/roles" target="_blank" className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                    Kelola roles →
+                  </a>
+                </p>
               </div>
 
               <div className="md:col-span-2">

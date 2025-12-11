@@ -3,7 +3,7 @@ import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { isR2Enabled, uploadToR2, generateR2Key } from './r2-client'
 
-export type UploadType = 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar'
+export type UploadType = 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer'
 
 /**
  * Konversi dan simpan gambar ke WebP format
@@ -146,7 +146,7 @@ export function isImageFile(file: File): boolean {
 export async function uploadInventoryPhotos(
   files: File[],
   transactionId: string,
-  transactionType: 'inventory-masuk' | 'inventory-keluar',
+  transactionType: 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer',
   uploadDir: string
 ): Promise<string[]> {
   const uploadedUrls: string[] = []

@@ -85,7 +85,7 @@ npx prisma db push
 #### c. Jalankan Database Migrations
 
 ```bash
-npm run prisma:migrate
+npx prisma db push
 ```
 
 #### d. Seed Database (Recommended)

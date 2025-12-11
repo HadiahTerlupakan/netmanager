@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
             insurance: '0', // Adjust if you have insurance field
             deductions: p.deductions.toString(),
             netSalary: p.netSalary.toString(),
-            daysWorked: p.totalDays,
+            daysWorked: p.daysWorked,
             status: p.payroll.status,
         }))
 

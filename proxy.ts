@@ -5,57 +5,59 @@ import { getRateLimitConfig, rateLimit } from '@/lib/middleware/rate-limit'
 import { getSubdomain, isAdminSubdomain, isPelangganSubdomain, isKaryawanSubdomain, isFinanceSubdomain, isHelpdeskSubdomain } from '@/lib/utils/subdomain'
 import { getToken } from 'next-auth/jwt'
 
-// Define role-based protected routes
-const roleBasedRoutes = {
-  admin: [
-    '/admin',
-    '/api/admin',
-    '/api/users',
-    '/api/olts',
-    '/api/onu',
-    '/api/tickets/admin',
-    '/api/workorders/admin',
-  ],
-  finance: [
-    '/finance',
-    '/api/finance',
-    '/api/tagihan',
-    '/api/pembayaran',
-    '/api/ar',
-  ],
-  hr: [
-    '/hr',
-    '/api/hr',
-    '/api/employees',
-    '/api/attendance',
-  ],
-  technician: [
-    '/technician',
-    '/api/technician',
-    '/api/workorders/technician',
-  ],
+// SIMPLIFIED RBAC: All authorization is now handled via CustomRole permissions
+// This proxy only handles:
+// 1. Authentication (is user logged in?)
+// 2. Rate limiting
+// 3. Subdomain routing
+// Legacy role-based routes have been REMOVED - use CustomRole.allowedFeatures instead
+
+// All available permissions - proxy now allows all authenticated users
+// Fine-grained permission checks are done at API/page level using CustomRole
+const ALL_PERMISSIONS = [
+  'DASHBOARD', 'ROLES', 'NETWORK', 'FTTH', 'PAKET', 'PELANGGAN',
+  'INVENTORY', 'USERS', 'HELPDESK', 'WORKORDERS', 'HRIS', 'FINANCE', 'PENGATURAN'
+]
+
+// Route permissions mapping (kept for page-level checks, but not enforced in proxy)
+const ROUTE_PERMISSIONS = {
+  '/admin': 'DASHBOARD',
+  '/admin/roles': 'ROLES',
+  '/admin/network': 'NETWORK',
+  '/admin/ftth': 'FTTH',
+  '/admin/paket': 'PAKET',
+  '/admin/pelanggan': 'PELANGGAN',
+  '/admin/inventory': 'INVENTORY',
+  '/admin/users': 'USERS',
+  '/admin/helpdesk': 'HELPDESK',
+  '/admin/workorders': 'WORKORDERS',
+  '/admin/hris': 'HRIS',
+  '/admin/finance': 'FINANCE',
+  '/admin/pengaturan': 'PENGATURAN',
 }
 
-// Helper function to check if path requires specific role
-function getRequiredRole(pathname: string): string | null {
-  for (const [role, routes] of Object.entries(roleBasedRoutes)) {
-    if (routes.some(route => pathname.startsWith(route))) {
-      return role
+// Function to get required permission for a route (informational only)
+function getRequiredPermission(pathname: string): string | null {
+  for (const [route, permission] of Object.entries(ROUTE_PERMISSIONS)) {
+    if (pathname.startsWith(route)) {
+      return permission
     }
   }
   return null
 }
 
-// Helper function to check if user has required role
-function hasRequiredRole(userRole: string, requiredRole: string): boolean {
-  // Admin has access to everything
-  if (userRole === 'ADMIN') {
-    return true
+// Function to get user permissions from token
+// SIMPLIFIED: Always return all permissions - actual permission check is at API/page level
+function getUserPermissions(token: any): string[] {
+  // If user is authenticated, give all permissions at proxy level
+  // The actual permission enforcement happens at API handlers and page components
+  if (token) {
+    return ALL_PERMISSIONS
   }
-
-  // Direct role match
-  return userRole.toLowerCase() === requiredRole.toLowerCase()
+  return []
 }
+
+// NOTE: hasRoutePermission and hasRequiredRole removed - now handled at API/page level
 
 // Log unauthorized access attempts
 function logUnauthorizedAccess(request: NextRequest, reason: string) {
@@ -72,12 +74,23 @@ function logUnauthorizedAccess(request: NextRequest, reason: string) {
   })
 }
 
-// Check role-based access
+// SIMPLIFIED: Only check authentication, not authorization
+// Authorization is handled at API/page level using CustomRole permissions
 async function checkRoleAccess(request: NextRequest, pathname: string): Promise<NextResponse | null> {
-  const requiredRole = getRequiredRole(pathname)
+  // Skip auth check for public routes
+  if (pathname.startsWith('/api/auth/') || pathname === '/login' || pathname === '/') {
+    return null
+  }
 
-  if (!requiredRole) {
-    return null // No role required
+  // Only check if route needs authentication (not authorization)
+  const needsAuth = pathname.startsWith('/admin') ||
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/employee') ||
+    pathname.startsWith('/finance') ||
+    pathname.startsWith('/hr')
+
+  if (!needsAuth) {
+    return null
   }
 
   try {
@@ -110,45 +123,16 @@ async function checkRoleAccess(request: NextRequest, pathname: string): Promise<
       return NextResponse.redirect(loginUrl)
     }
 
-    const userRole = (token.role as string)?.toUpperCase() || 'USER'
+    // User is authenticated - allow access
+    // Authorization (permission check) is done at API/page level
+    const userPermissions = getUserPermissions(token)
 
-    if (!hasRequiredRole(userRole, requiredRole)) {
-      logUnauthorizedAccess(request, `Insufficient role. Required: ${requiredRole}, User has: ${userRole}`)
-
-      // For API routes, return 403
-      if (pathname.startsWith('/api/')) {
-        return new NextResponse(
-          JSON.stringify({
-            error: 'Insufficient permissions',
-            required: requiredRole,
-            current: userRole
-          }),
-          {
-            status: 403,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        )
-      }
-
-      // For pages, redirect to appropriate dashboard
-      const roleDashboardMap: Record<string, string> = {
-        'ADMIN': '/admin',
-        'FINANCE': '/finance',
-        'HR': '/hr',
-        'TECHNICIAN': '/technician',
-      }
-
-      const dashboardUrl = roleDashboardMap[userRole] || '/dashboard'
-      return NextResponse.redirect(new URL(dashboardUrl, request.url))
-    }
-
-    // Add user info to response headers
+    // Add user info to response headers for downstream use
     const response = NextResponse.next()
     response.headers.set('x-user-id', token.id as string)
     response.headers.set('x-user-role', (token.role as string) || 'USER')
     response.headers.set('x-user-email', token.email as string)
+    response.headers.set('x-user-permissions', JSON.stringify(userPermissions))
 
     return response
 

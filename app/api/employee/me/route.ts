@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getEmployeePermissions } from '@/lib/utils/permissions'
+import { getEmployeePermissions, getAllFeatures } from '@/lib/utils/permissions'
 
 /**
  * GET /api/employee/me
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
         })
 
         if (!employee) {
-            // If user is ADMIN, allow access with default permissions
+            // If user is ADMIN, allow access with all permissions
             if (session.user.role === 'ADMIN') {
                 return NextResponse.json({
                     employee: null,
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
                         employeeId: null,
                         departmentId: null,
                         departmentName: null,
-                        allowedFeatures: ['HRIS', 'WORKORDERS', 'INVENTORY'], // Admin has all features
+                        allowedFeatures: getAllFeatures(), // Use all features for ADMIN
                         role: session.user.role,
                     },
                     user: {

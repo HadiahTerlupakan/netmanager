@@ -2,6 +2,7 @@ import Sidebar from '@/components/layout/Sidebar'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import SessionProviderWrapper from '@/components/providers/SessionProviderWrapper'
+import { EmployeePermissionProvider } from '@/components/providers/EmployeePermissionContext'
 import ToastProvider from '@/components/common/ToastProvider'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
@@ -22,25 +23,26 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!session) {
     redirect('/login?callbackUrl=/admin')
   }
-  // Permitted roles: ADMIN, HR, FINANCE - these roles have access to different parts of the admin portal
-  const permittedRoles = ['ADMIN', 'HR', 'FINANCE'];
-  if (session?.user?.role && !permittedRoles.includes(session.user.role)) {
-    redirect('/')
-  }
+
+  // Akses ke admin portal diizinkan untuk semua user yang terautentikasi.
+  // Menu yang muncul diatur oleh Sidebar berdasarkan custom role permissions.
+  // Jika user tidak memiliki permission apapun, mereka akan melihat dashboard kosong.
   return (
     <SessionProviderWrapper session={session}>
-      <ToastProvider>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0">
-            <Navbar />
-            <main className="flex-1 overflow-y-auto">
-              <div className="p-6">{children}</div>
-            </main>
-            <Footer />
+      <EmployeePermissionProvider>
+        <ToastProvider>
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
+            <Sidebar />
+            <div className="flex-1 flex flex-col min-w-0">
+              <Navbar />
+              <main className="flex-1 overflow-y-auto">
+                <div className="p-6">{children}</div>
+              </main>
+              <Footer />
+            </div>
           </div>
-        </div>
-      </ToastProvider>
+        </ToastProvider>
+      </EmployeePermissionProvider>
     </SessionProviderWrapper>
   )
 }

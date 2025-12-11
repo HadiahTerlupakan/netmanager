@@ -3,6 +3,7 @@
 import { useState, useEffect, createContext, useContext } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useSession, signOut } from 'next-auth/react'
 import {
   HiOutlineHome,
   HiOutlineDocumentText,
@@ -32,8 +33,8 @@ export const useSidebar = () => useContext(SidebarContext)
 export default function FinanceSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { data: session } = useSession()
   const [isOpen, setIsOpen] = useState(false)
-  const [financeUser, setFinanceUser] = useState<any>(null)
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({})
 
   // Auto-expand menu based on active route
@@ -50,20 +51,8 @@ export default function FinanceSidebar() {
     setOpenMenus(newOpenMenus)
   }, [pathname])
 
-  useEffect(() => {
-    const financeData = localStorage.getItem('finance_data')
-    if (financeData) {
-      try {
-        setFinanceUser(JSON.parse(financeData))
-      } catch (error) {
-        console.error('Error parsing finance data:', error)
-      }
-    }
-  }, [])
-
-  const handleLogout = () => {
-    localStorage.removeItem('finance_token')
-    localStorage.removeItem('finance_data')
+  const handleLogout = async () => {
+    await signOut({ redirect: false })
     router.push('/finance/login')
   }
 
@@ -146,7 +135,7 @@ export default function FinanceSidebar() {
         },
       ],
     },
-      {
+    {
       href: '/finance/profil',
       label: 'Profil',
       icon: HiOutlineUser,
@@ -231,10 +220,10 @@ export default function FinanceSidebar() {
             </div>
 
             {/* User Info */}
-            {financeUser && (
+            {session?.user && (
               <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                <p className="text-sm font-medium truncate">{financeUser.name || financeUser.email}</p>
-                <p className="text-xs text-white/80 truncate">{financeUser.email}</p>
+                <p className="text-sm font-medium truncate">{session.user.name || session.user.email}</p>
+                <p className="text-xs text-white/80 truncate">{session.user.email}</p>
               </div>
             )}
           </div>

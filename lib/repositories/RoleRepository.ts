@@ -1,12 +1,15 @@
 import { prisma } from '@/lib/prisma'
 import type { CustomRole, EmployeeRole } from '@prisma/client'
+import type { PermissionMatrix } from '@/lib/types/permissions'
+import { serializePermissionMatrix, convertLegacyToMatrix } from '@/lib/utils/permissions'
 
 export interface CreateRoleInput {
     name: string
     code?: string // Auto-generate if not provided
     description?: string
     departmentId: string
-    allowedFeatures: string[] // Array of feature codes
+    allowedFeatures?: string[] // Legacy: Array of feature codes (deprecated)
+    permissionMatrix?: PermissionMatrix // New: Granular permissions
     priority?: number // Default 50
     createdBy: string
 }
@@ -14,7 +17,8 @@ export interface CreateRoleInput {
 export interface UpdateRoleInput {
     name?: string
     description?: string
-    allowedFeatures?: string[]
+    allowedFeatures?: string[] // Legacy format
+    permissionMatrix?: PermissionMatrix // New format
     priority?: number
     isActive?: boolean
 }
@@ -62,14 +66,25 @@ export class RoleRepository {
         }
 
         // Create the role
+        // Determine the features to store: new matrix format preferred, fallback to legacy
+        let featuresToStore: string
+        if (input.permissionMatrix) {
+            featuresToStore = serializePermissionMatrix(input.permissionMatrix)
+        } else if (input.allowedFeatures) {
+            // Convert legacy array to matrix format for storage
+            featuresToStore = serializePermissionMatrix(convertLegacyToMatrix(input.allowedFeatures))
+        } else {
+            featuresToStore = '{}'
+        }
+
         const role = await prisma.customRole.create({
             data: {
                 name: input.name,
                 code: code,
                 description: input.description,
                 departmentId: input.departmentId,
-                allowedFeatures: JSON.stringify(input.allowedFeatures),
-                priority: input.priority || 50,
+                allowedFeatures: featuresToStore,
+                priority: 0, // Priority concept removed, default to 0
                 createdBy: input.createdBy,
             },
             include: {
@@ -79,6 +94,7 @@ export class RoleRepository {
 
         return role
     }
+
 
     /**
      * Find all roles with optional filtering
@@ -166,12 +182,21 @@ export class RoleRepository {
 
         if (input.name !== undefined) updateData.name = input.name
         if (input.description !== undefined) updateData.description = input.description
-        if (input.priority !== undefined) updateData.priority = input.priority
         if (input.isActive !== undefined) updateData.isActive = input.isActive
 
-        if (input.allowedFeatures !== undefined) {
-            updateData.allowedFeatures = JSON.stringify(input.allowedFeatures)
+        // Priority concept removed - ignore input.priority
+        // if (input.priority !== undefined) updateData.priority = input.priority
+
+        // Handle permissions update - prefer new matrix format
+        if (input.permissionMatrix !== undefined) {
+            updateData.allowedFeatures = serializePermissionMatrix(input.permissionMatrix)
+        } else if (input.allowedFeatures !== undefined) {
+            // Convert legacy array to matrix format
+            updateData.allowedFeatures = serializePermissionMatrix(
+                convertLegacyToMatrix(input.allowedFeatures)
+            )
         }
+
 
         const role = await prisma.customRole.update({
             where: { id },

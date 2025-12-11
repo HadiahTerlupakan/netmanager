@@ -1,10 +1,11 @@
 "use client"
 
-import * as React from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 import { HiArrowPath, HiLockClosed, HiEye, HiEyeSlash, HiExclamationCircle } from 'react-icons/hi2'
 import Link from 'next/link'
 import { ErrorDisplay } from '@/components/auth/ErrorDisplay'
@@ -21,8 +22,8 @@ type FormValues = z.infer<typeof schema>
 
 export default function FinanceLoginPage() {
   const router = useRouter()
-  const [showPassword, setShowPassword] = React.useState(false)
-  const [apiError, setApiError] = React.useState<{
+  const [showPassword, setShowPassword] = useState(false)
+  const [apiError, setApiError] = useState<{
     message: string
     type: 'RATE_LIMIT' | 'CREDENTIAL' | 'GENERAL'
     retryAfter?: number
@@ -41,39 +42,20 @@ export default function FinanceLoginPage() {
     setApiError(null)
 
     try {
-      const res = await fetch('/api/finance/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: values.email.trim().toLowerCase(),
-          password: values.password,
-        }),
+      // Use NextAuth signIn (same as admin portal)
+      const res = await signIn('credentials', {
+        identifier: values.email.trim().toLowerCase(),
+        password: values.password,
+        redirect: false,
       })
 
-      const data = await res.json()
-
-      if (!res.ok) {
-        const errorMessage = data.error || 'Email atau password salah'
-        const errorType = data.errorType === 'RATE_LIMIT' ? 'RATE_LIMIT' :
-          res.status === 401 ? 'CREDENTIAL' : 'GENERAL'
-
+      if (res?.error) {
         setApiError({
-          message: errorMessage,
-          type: errorType,
-          retryAfter: data.retryAfter
+          message: 'Email atau password salah',
+          type: 'CREDENTIAL'
         })
-
-        // Only set form error for credential errors
-        if (errorType === 'CREDENTIAL') {
-          setError('password', { message: errorMessage })
-        }
+        setError('password', { message: 'Email atau password salah' })
         return
-      }
-
-      // Simpan token/session
-      if (data.token) {
-        localStorage.setItem('finance_token', data.token)
-        localStorage.setItem('finance_data', JSON.stringify(data.user))
       }
 
       // Redirect ke dashboard finance
@@ -97,9 +79,9 @@ export default function FinanceLoginPage() {
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 md:p-8">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Masuk Sebagai Finance</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Masuk</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Gunakan email dan password Anda untuk masuk
+              Gunakan akun karyawan Anda untuk masuk
             </p>
           </div>
 
@@ -198,7 +180,3 @@ export default function FinanceLoginPage() {
     </main>
   )
 }
-
-
-
-

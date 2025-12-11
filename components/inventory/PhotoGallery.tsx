@@ -212,9 +212,9 @@ export function PhotoGallery({
         <Modal
           isOpen={!!selectedPhoto}
           onClose={handleClose}
-          size="full"
+          size="4xl"
           showCloseButton={false}
-          title={null}
+          title={undefined}
         >
           <div className="relative w-full h-screen bg-black flex flex-col">
             {/* Header */}

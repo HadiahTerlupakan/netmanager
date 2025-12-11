@@ -116,11 +116,11 @@ export async function POST(req: NextRequest) {
                 data: {
                     employeeId,
                     date: startOfDay,
-                    checkIn: checkInTime,
+                    checkInTime: checkInTime,
                     status: isLate ? 'LATE' : 'PRESENT',
-                    checkInLatitude: latitude ? parseFloat(latitude) : null,
-                    checkInLongitude: longitude ? parseFloat(longitude) : null,
-                    checkInLocation: location || null,
+                    checkInLat: latitude ? parseFloat(latitude) : null,
+                    checkInLng: longitude ? parseFloat(longitude) : null,
+                    checkInNote: location || null,
                 }
             })
 
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
                 }, { status: 400 })
             }
 
-            if (attendance.checkOut) {
+            if (attendance.checkOutTime) {
                 return NextResponse.json({
                     error: 'Already checked out today',
                     success: false,
@@ -150,10 +150,10 @@ export async function POST(req: NextRequest) {
             attendance = await prisma.attendance.update({
                 where: { id: attendance.id },
                 data: {
-                    checkOut: checkOutTime,
-                    checkOutLatitude: latitude ? parseFloat(latitude) : null,
-                    checkOutLongitude: longitude ? parseFloat(longitude) : null,
-                    checkOutLocation: location || null,
+                    checkOutTime: checkOutTime,
+                    checkOutLat: latitude ? parseFloat(latitude) : null,
+                    checkOutLng: longitude ? parseFloat(longitude) : null,
+                    checkOutNote: location || null,
                 }
             })
 

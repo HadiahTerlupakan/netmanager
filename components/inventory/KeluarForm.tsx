@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { PhotoUpload, PhotoUploadRef } from './PhotoUpload'
+import { PhotoUpload } from './PhotoUpload'
+import type { PhotoUploadRef } from './PhotoUpload'
 
 interface KeluarFormProps {
   initialData?: any

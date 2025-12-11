@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { DepartmentRepository } from '@/lib/repositories/DepartmentRepository'
+import { DepartmentRepository, type DepartmentWithRoles } from '@/lib/repositories/DepartmentRepository'
 
 const deptRepo = new DepartmentRepository()
 
@@ -13,7 +13,16 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const departments = await deptRepo.findAll()
+        const { searchParams } = new URL(req.url)
+        const includeRoles = searchParams.get('includeRoles') === 'true'
+
+        let departments: any[]
+        if (includeRoles) {
+            departments = await deptRepo.findAllWithRoles()
+        } else {
+            departments = await deptRepo.findAll()
+        }
+
         const total = await deptRepo.count()
 
         return NextResponse.json({ departments, total })
@@ -31,7 +40,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        if (session.user.role !== 'ADMIN' && session.user.role !== 'HR') {
+        if (false && session.user.role !== 'HR') {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 

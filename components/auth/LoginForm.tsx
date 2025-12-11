@@ -92,16 +92,19 @@ export default function LoginForm() {
       targetPath = '/admin'
     }
 
-    // Jika sudah di admin subdomain, gunakan path relatif (akan tetap di subdomain yang sama)
-    if (subdomain === 'admin') {
+    // Di development, selalu gunakan path relatif (skip subdomain redirect)
+    // Ini karena cookies tidak shared antara localhost dan admin.localhost
+    const isDev = process.env.NODE_ENV === 'development' ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1'
+
+    if (isDev || subdomain === 'admin') {
       router.push(targetPath)
       return
     }
 
-    // Jika tidak di admin subdomain, redirect ke admin subdomain dengan URL lengkap
-    // Ini penting untuk memastikan user tetap di subdomain yang benar
+    // Di production, redirect ke admin subdomain dengan URL lengkap
     const adminUrl = getAdminUrl(targetPath)
-    // Selalu gunakan window.location.href untuk cross-subdomain redirect
     window.location.href = adminUrl
   }
 

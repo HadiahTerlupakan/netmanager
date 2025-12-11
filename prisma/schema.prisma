@@ -1252,18 +1252,17 @@ model CustomRole {
   name            String
   code            String         @unique
   description     String?
-  departmentId    String
+  departmentId    String?
   allowedFeatures String?
   priority        Int            @default(50)
   isActive        Boolean        @default(true)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   createdBy       String?
-  department      Department     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  department      Department?    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   employeeRoles   EmployeeRole[]
   auditLogs       RoleAuditLog[]
 
-  @@unique([departmentId, code])
   @@index([departmentId])
   @@index([isActive])
   @@index([priority])
@@ -2687,6 +2686,7 @@ model UsageAnalytics {
 
 enum Role {
   USER
+  TECHNICIAN
   ADMIN
   FINANCE
   HR
@@ -2861,4 +2861,25 @@ enum TaskStatus {
   IN_PROGRESS
   COMPLETED
   SKIPPED
+}
+
+// Menu Definition for granular role-based access control
+model MenuDefinition {
+  id           String   @id @default(cuid())
+  code         String   @unique // e.g. "PELANGGAN.TAGIHAN"
+  name         String // Display name e.g. "Tagihan Pelanggan"
+  parentCode   String? // null = top menu, "PELANGGAN" = submenu
+  path         String? // Route path e.g. "/admin/pelanggan/tagihan"
+  icon         String? // Icon name for menu
+  defaultPerms Json? // Default permissions: {"read":true,"create":true,...}
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  portal       String   @default("admin") // admin, employee, finance
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([parentCode])
+  @@index([portal])
+  @@index([sortOrder])
+  @@map("menu_definitions")
 }

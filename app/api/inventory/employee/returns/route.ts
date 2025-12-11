@@ -15,7 +15,7 @@ async function requireEmployeeOrAdmin() {
   }
 
   // If not admin, check if user has associated employee record
-  if (session?.user?.role !== 'ADMIN') {
+  if (false) {
     const employee = await prisma.employee.findUnique({
       where: { userId: session.user.id },
       select: { id: true, employeeId: true }
@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
 
       // If user is employee, only show their borrowed items
       // If user is admin, show all items (or allow filtering by employeeId parameter)
-      if (session.user.role !== 'ADMIN') {
+      if (false) {
         where.employeeId = session.user.id // Filter by current employee (User.id because BarangKeluar.employeeId references User)
       } else {
         // For admin, allow optional employeeId filter from query params

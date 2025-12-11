@@ -17,6 +17,8 @@ interface User {
     department: { id: string; name: string } | null
     position: { id: string; title: string } | null
     employmentStatus: string
+    customRoleName: string | null
+    customRoleCode: string | null
   } | null
 }
 
@@ -246,16 +248,9 @@ export default function UsersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${user.role === 'ADMIN'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          : user.role === 'HR'
-                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                            : user.role === 'FINANCE'
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                          }`}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400"
                       >
-                        {user.role}
+                        {user.employee?.customRoleName || 'Belum ada role'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
