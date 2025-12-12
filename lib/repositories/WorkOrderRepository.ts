@@ -40,10 +40,15 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     async create(data: CreateWorkOrderData): Promise<WorkOrder> {
         const workOrderNumber = await this.generateWorkOrderNumber();
 
+        // Destructure pelangganId to handle it separately
+        const { pelangganId, ...restData } = data;
+
         return this.prisma.workOrder.create({
             data: {
                 workOrderNumber,
-                ...data,
+                ...restData,
+                // Only include pelangganId if it's truthy (not null/undefined)
+                ...(pelangganId ? { pelangganId } : {}),
                 status: 'PENDING',
                 priority: data.priority || 'NORMAL',
             },
@@ -91,6 +96,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         noTelp: true,
                     },
                 },
+                site: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                    },
+                },
                 department: {
                     select: {
                         id: true,
@@ -128,6 +140,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     orderBy: { createdAt: 'desc' },
                 },
                 attachments: {
+                    include: {
+                        uploadedBy: {
+                            select: {
+                                fullName: true,
+                            },
+                        },
+                    },
                     orderBy: { uploadedAt: 'desc' },
                 },
             },
@@ -507,9 +526,38 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async addUpdate(data: AddUpdateData): Promise<WorkOrderUpdate> {
+        const createdById = await this.resolveEmployeeId(data.createdById);
         return this.prisma.workOrderUpdate.create({
-            data,
+            data: {
+                ...data,
+                createdById,
+            },
         });
+    }
+
+    private async resolveEmployeeId(userIdOrEmployeeId?: string | null): Promise<string | undefined> {
+        if (!userIdOrEmployeeId) return undefined;
+
+        // 1. Check if it's already a valid Employee ID
+        const employeeById = await this.prisma.employee.findUnique({
+            where: { id: userIdOrEmployeeId },
+            select: { id: true },
+        });
+        if (employeeById) return employeeById.id;
+
+        // 2. Check if it's a User ID linked to an Employee
+        // Note: Prisma schema must have userId unique in Employee for this to work efficiently
+        // If not unique in schema (though logic implies it is), findFirst might be safer, but findUnique is better if schema supports it.
+        // Checking schema: userId String? @unique in Employee. So findUnique is correct.
+        const employeeByUserId = await this.prisma.employee.findUnique({
+            where: { userId: userIdOrEmployeeId },
+            select: { id: true },
+        });
+        if (employeeByUserId) return employeeByUserId.id;
+
+        // 3. Keep as is if we can't resolve (though it might fail FK if it was a User ID and not Employee ID)
+        // But if we return undefined, we assume "System" or "Unknown" which is safer than crashing.
+        return undefined;
     }
 
     async getUpdates(workOrderId: string): Promise<WorkOrderUpdate[]> {
@@ -528,6 +576,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         caption?: string,
         uploadedById?: string
     ): Promise<WorkOrderAttachment> {
+        const employeeId = await this.resolveEmployeeId(uploadedById);
         const attachment = await this.prisma.workOrderAttachment.create({
             data: {
                 workOrderId,
@@ -536,7 +585,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 fileSize,
                 fileType,
                 caption,
-                uploadedById,
+                uploadedById: employeeId,
             },
         });
 
@@ -545,7 +594,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             workOrderId,
             updateType: 'PHOTO',
             message: `Photo uploaded: ${fileName}`,
-            createdById: uploadedById,
+            createdById: employeeId,
         });
 
         return attachment;

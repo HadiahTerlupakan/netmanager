@@ -10,6 +10,9 @@ import {
     HiPlus,
     HiMagnifyingGlass,
     HiAdjustmentsHorizontal,
+    HiCheckCircle,
+    HiXMark,
+    HiTrash,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
@@ -21,13 +24,13 @@ interface WorkOrder {
     status: string
     priority: string
     scheduledDate: string | null
-    pelanggan: {
+    contactName?: string | null
+    pelanggan?: {
         nama: string
         idPelanggan: string
-    }
+    } | null
     assignedTo?: {
-        firstName: string
-        lastName: string
+        fullName: string
     } | null
     department?: {
         name: string
@@ -82,6 +85,14 @@ export default function WorkOrderListPage() {
     const [filterType, setFilterType] = useState('')
     const [unassignedOnly, setUnassignedOnly] = useState(false)
 
+    // Approval states
+    const [showRejectModal, setShowRejectModal] = useState(false)
+    const [rejectReason, setRejectReason] = useState('')
+    const [processingApproval, setProcessingApproval] = useState(false)
+    const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null)
+    const [showCancelModal, setShowCancelModal] = useState(false)
+    const [cancelReason, setCancelReason] = useState('')
+
     useEffect(() => {
         if (status === 'unauthenticated') {
             router.push('/login')
@@ -119,6 +130,108 @@ export default function WorkOrderListPage() {
             console.error('Error fetching work orders:', error)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleVerify = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (!confirm('Are you sure you want to verify this work order?')) return
+
+        setProcessingApproval(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'VERIFIED' }),
+            })
+
+            if (response.ok) {
+                fetchWorkOrders()
+            } else {
+                alert('Failed to verify work order')
+            }
+        } catch (error) {
+            console.error('Error verifying:', error)
+            alert('An error occurred')
+        } finally {
+            setProcessingApproval(false)
+        }
+    }
+
+    const openRejectModal = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        setSelectedWorkOrderId(id)
+        setShowRejectModal(true)
+    }
+
+    const handleReject = async () => {
+        if (!rejectReason.trim()) {
+            alert('Please provide a rejection reason')
+            return
+        }
+
+        if (!selectedWorkOrderId) return
+
+        setProcessingApproval(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/${selectedWorkOrderId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'IN_PROGRESS',
+                    rejectionReason: rejectReason
+                }),
+            })
+
+            if (response.ok) {
+                setShowRejectModal(false)
+                setRejectReason('')
+                setSelectedWorkOrderId(null)
+                fetchWorkOrders()
+            } else {
+                alert('Failed to reject work order')
+            }
+        } catch (error) {
+            console.error('Error rejecting:', error)
+            alert('An error occurred')
+        } finally {
+            setProcessingApproval(false)
+        }
+    }
+
+    const openCancelModal = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        setSelectedWorkOrderId(id)
+        setShowCancelModal(true)
+    }
+
+    const handleCancel = async () => {
+        if (!cancelReason.trim()) {
+            alert('Please provide a cancellation reason')
+            return
+        }
+
+        if (!selectedWorkOrderId) return
+
+        setProcessingApproval(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/${selectedWorkOrderId}?reason=${encodeURIComponent(cancelReason)}`, {
+                method: 'DELETE',
+            })
+
+            if (response.ok) {
+                setShowCancelModal(false)
+                setCancelReason('')
+                setSelectedWorkOrderId(null)
+                fetchWorkOrders()
+            } else {
+                alert('Failed to cancel work order')
+            }
+        } catch (error) {
+            console.error('Error cancelling:', error)
+            alert('An error occurred')
+        } finally {
+            setProcessingApproval(false)
         }
     }
 
@@ -273,6 +386,7 @@ export default function WorkOrderListPage() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -295,8 +409,12 @@ export default function WorkOrderListPage() {
                                             <div className="text-xs text-gray-500">{wo.type}</div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="text-sm text-gray-900">{wo.pelanggan.nama}</div>
-                                            <div className="text-xs text-gray-500">{wo.pelanggan.idPelanggan}</div>
+                                            <div className="text-sm text-gray-900">
+                                                {wo.pelanggan?.nama || wo.contactName || <span className="text-gray-400">Guest</span>}
+                                            </div>
+                                            {wo.pelanggan?.idPelanggan && (
+                                                <div className="text-xs text-gray-500">{wo.pelanggan.idPelanggan}</div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statusColors[wo.status]}`}>
@@ -309,12 +427,43 @@ export default function WorkOrderListPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-900">
-                                            {wo.assignedTo ? `${wo.assignedTo.firstName} ${wo.assignedTo.lastName}` : (
+                                            {wo.assignedTo ? wo.assignedTo.fullName : (
                                                 <span className="text-gray-400">Unassigned</span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-500">
                                             {formatDistanceToNow(new Date(wo.createdAt), { addSuffix: true, locale: localeId })}
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {wo.status !== 'CANCELLED' && wo.status !== 'CLOSED' && wo.status !== 'COMPLETED' && (
+                                                    <button
+                                                        onClick={(e) => openCancelModal(wo.id, e)}
+                                                        className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                                                        title="Batalkan"
+                                                    >
+                                                        <HiTrash className="w-5 h-5" />
+                                                    </button>
+                                                )}
+                                                {wo.status === 'COMPLETED' && (
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={(e) => openRejectModal(wo.id, e)}
+                                                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                                            title="Tolak"
+                                                        >
+                                                            <HiXMark className="w-5 h-5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => handleVerify(wo.id, e)}
+                                                            className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                                                            title="Verifikasi"
+                                                        >
+                                                            <HiCheckCircle className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -345,6 +494,82 @@ export default function WorkOrderListPage() {
                         >
                             Next
                         </button>
+                    </div>
+                </div>
+            )}
+            {/* Reject Modal */}
+            {showRejectModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Tolak Hasil Pekerjaan</h3>
+                            <p className="text-sm text-gray-500 mb-4">
+                                Work order akan dikembalikan ke status In Progress. Silakan berikan alasan penolakan.
+                            </p>
+                            <textarea
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                placeholder="Alasan penolakan (wajib diisi)..."
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px]"
+                            />
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => {
+                                        setShowRejectModal(false)
+                                        setRejectReason('')
+                                        setSelectedWorkOrderId(null)
+                                    }}
+                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={handleReject}
+                                    disabled={processingApproval || !rejectReason.trim()}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                                >
+                                    {processingApproval ? 'Memproses...' : 'Tolak & Kembalikan'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Cancel Modal */}
+            {showCancelModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Batalkan Work Order</h3>
+                            <p className="text-sm text-gray-500 mb-4">
+                                Tindakan ini tidak dapat dibatalkan. Work order akan ditandai sebagai Cancelled.
+                            </p>
+                            <textarea
+                                value={cancelReason}
+                                onChange={(e) => setCancelReason(e.target.value)}
+                                placeholder="Alasan pembatalan (wajib diisi)..."
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px]"
+                            />
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => {
+                                        setShowCancelModal(false)
+                                        setCancelReason('')
+                                        setSelectedWorkOrderId(null)
+                                    }}
+                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                >
+                                    Kembali
+                                </button>
+                                <button
+                                    onClick={handleCancel}
+                                    disabled={processingApproval || !cancelReason.trim()}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                                >
+                                    {processingApproval ? 'Memproses...' : 'Batalkan WO'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

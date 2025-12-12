@@ -35,6 +35,13 @@ export class EmployeeRepository implements IEmployeeRepository {
                         name: true,
                     },
                 },
+                site: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                    },
+                },
                 position: {
                     select: {
                         id: true,
@@ -61,6 +68,13 @@ export class EmployeeRepository implements IEmployeeRepository {
                         name: true,
                     },
                 },
+                site: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                    },
+                },
                 position: {
                     select: {
                         id: true,
@@ -81,6 +95,13 @@ export class EmployeeRepository implements IEmployeeRepository {
                 department: {
                     select: {
                         id: true,
+                        name: true,
+                    },
+                },
+                site: {
+                    select: {
+                        id: true,
+                        code: true,
                         name: true,
                     },
                 },

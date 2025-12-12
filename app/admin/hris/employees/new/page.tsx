@@ -10,10 +10,17 @@ interface Department {
     name: string
 }
 
+interface Site {
+    id: string
+    code: string
+    name: string
+}
+
 export default function NewEmployeePage() {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [departments, setDepartments] = useState<Department[]>([])
+    const [sites, setSites] = useState<Site[]>([])
     const [formData, setFormData] = useState({
         employeeId: '',
         fullName: '',
@@ -26,6 +33,7 @@ export default function NewEmployeePage() {
         city: '',
         province: '',
         departmentId: '',
+        siteId: '',
         positionId: '',
         employmentStatus: 'PROBATION',
         joinDate: new Date().toISOString().split('T')[0],
@@ -51,6 +59,7 @@ export default function NewEmployeePage() {
 
     useEffect(() => {
         fetchDepartments()
+        fetchSites()
     }, [])
 
     const fetchDepartments = async () => {
@@ -65,6 +74,18 @@ export default function NewEmployeePage() {
         }
     }
 
+    const fetchSites = async () => {
+        try {
+            const res = await fetch('/api/admin/sites?activeOnly=true')
+            const data = await res.json()
+            if (res.ok) {
+                setSites(data.data || [])
+            }
+        } catch (error) {
+            console.error('Error fetching sites:', error)
+        }
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
@@ -75,6 +96,7 @@ export default function NewEmployeePage() {
                 dateOfBirth: formData.dateOfBirth || null,
                 probationEndDate: formData.probationEndDate || null,
                 departmentId: formData.departmentId || null,
+                siteId: formData.siteId || null,
                 positionId: formData.positionId || null,
                 // Add login data if enabled
                 ...(createLoginAccess && {
@@ -323,6 +345,23 @@ export default function NewEmployeePage() {
                                     <option key={dept.id} value={dept.id}>{dept.name}</option>
                                 ))}
                             </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Site / Area
+                            </label>
+                            <select
+                                name="siteId"
+                                value={formData.siteId}
+                                onChange={handleChange}
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="">Select Site</option>
+                                {sites.map(site => (
+                                    <option key={site.id} value={site.id}>{site.code} - {site.name}</option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Diperlukan untuk melihat work order yang tersedia</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

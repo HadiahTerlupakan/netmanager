@@ -6,13 +6,18 @@ export interface WorkOrderWithRelations extends WorkOrder {
         ticketNumber: string;
         subject: string;
     } | null;
-    pelanggan: {
+    pelanggan?: {
         id: string;
         idPelanggan: string;
         nama: string;
         email: string | null;
         noTelp: string | null;
-    };
+    } | null;
+    site?: {
+        id: string;
+        code: string;
+        name: string;
+    } | null;
     department?: {
         id: string;
         name: string;
@@ -40,6 +45,7 @@ export interface WorkOrderWithRelations extends WorkOrder {
 export interface CreateWorkOrderData {
     pelangganId: string;
     ticketId?: string;
+    siteId?: string;
     type: WorkOrderType;
     title: string;
     description: string;
@@ -65,6 +71,7 @@ export interface UpdateWorkOrderData {
     description?: string;
     status?: WorkOrderStatus;
     priority?: WorkOrderPriority;
+    siteId?: string | null;
     departmentId?: string | null;
     assignedToId?: string | null;
     locationAddress?: string;
@@ -115,6 +122,7 @@ export interface WorkOrderFilters {
     status?: WorkOrderStatus | WorkOrderStatus[];
     priority?: WorkOrderPriority | WorkOrderPriority[];
     type?: WorkOrderType | WorkOrderType[];
+    siteId?: string;
     departmentId?: string;
     assignedToId?: string | null;
     pelangganId?: string;

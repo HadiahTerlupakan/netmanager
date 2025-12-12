@@ -11,7 +11,8 @@ import {
     HiOutlineBuildingOffice,
     HiOutlineBriefcase,
     HiOutlineCalendar,
-    HiOutlineBanknotes
+    HiOutlineBanknotes,
+    HiOutlineMapPin
 } from 'react-icons/hi2'
 
 interface Employee {
@@ -38,6 +39,7 @@ interface Employee {
     emergencyRelation: string | null
     isActive: boolean
     department?: { id: string; name: string } | null
+    site?: { id: string; code: string; name: string } | null
     position?: { id: string; title: string; level: string | null } | null
 }
 
@@ -208,6 +210,13 @@ export default function EmployeeDetailPage() {
                                     <HiOutlineBriefcase className="w-4 h-4" />
                                     {employee.position?.title || '-'}
                                     {employee.position?.level && ` (${employee.position.level})`}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Site / Area</dt>
+                                <dd className="mt-1 text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                                    <HiOutlineMapPin className="w-4 h-4" />
+                                    {employee.site ? `${employee.site.code} - ${employee.site.name}` : '-'}
                                 </dd>
                             </div>
                             <div>

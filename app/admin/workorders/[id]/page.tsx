@@ -14,6 +14,9 @@ import {
     HiUserCircle,
     HiCalendar,
     HiMapPin,
+    HiPhoto,
+    HiXMark,
+    HiCheckCircle,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
@@ -49,8 +52,7 @@ interface WorkOrderDetail {
     } | null
     assignedTo?: {
         id: string
-        firstName: string
-        lastName: string
+        fullName: string
     } | null
     department?: {
         name: string
@@ -69,6 +71,17 @@ interface WorkOrderDetail {
         createdBy?: {
             firstName: string
             lastName: string
+        } | null
+    }>
+    attachments?: Array<{
+        id: string
+        fileName: string
+        filePath: string
+        fileType: string
+        caption: string | null
+        uploadedAt: string
+        uploadedBy?: {
+            fullName: string
         } | null
     }>
 }
@@ -100,6 +113,11 @@ export default function WorkOrderDetailPage() {
     })
     const [newTask, setNewTask] = useState('')
     const [addingTask, setAddingTask] = useState(false)
+    const [showRejectModal, setShowRejectModal] = useState(false)
+    const [rejectReason, setRejectReason] = useState('')
+    const [showCancelModal, setShowCancelModal] = useState(false)
+    const [cancelReason, setCancelReason] = useState('')
+    const [processingApproval, setProcessingApproval] = useState(false)
 
     useEffect(() => {
         if (status === 'unauthenticated') {
@@ -157,6 +175,89 @@ export default function WorkOrderDetailPage() {
         }
     }
 
+    const handleVerify = async () => {
+        if (!confirm('Are you sure you want to verify this work order?')) return
+
+        setProcessingApproval(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/${workOrderId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'VERIFIED' }),
+            })
+
+            if (response.ok) {
+                fetchWorkOrder()
+            } else {
+                alert('Failed to verify work order')
+            }
+        } catch (error) {
+            console.error('Error verifying:', error)
+            alert('An error occurred')
+        } finally {
+            setProcessingApproval(false)
+        }
+    }
+
+    const handleReject = async () => {
+        if (!rejectReason.trim()) {
+            alert('Please provide a rejection reason')
+            return
+        }
+
+        setProcessingApproval(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/${workOrderId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'IN_PROGRESS',
+                    rejectionReason: rejectReason
+                }),
+            })
+
+            if (response.ok) {
+                setShowRejectModal(false)
+                setRejectReason('')
+                fetchWorkOrder()
+            } else {
+                alert('Failed to reject work order')
+            }
+        } catch (error) {
+            console.error('Error rejecting:', error)
+            alert('An error occurred')
+        } finally {
+            setProcessingApproval(false)
+        }
+    }
+
+    const handleCancel = async () => {
+        if (!cancelReason.trim()) {
+            alert('Please provide a cancellation reason')
+            return
+        }
+
+        setProcessingApproval(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/${workOrderId}?reason=${encodeURIComponent(cancelReason)}`, {
+                method: 'DELETE',
+            })
+
+            if (response.ok) {
+                setShowCancelModal(false)
+                setCancelReason('')
+                fetchWorkOrder()
+            } else {
+                alert('Failed to cancel work order')
+            }
+        } catch (error) {
+            console.error('Error cancelling:', error)
+            alert('An error occurred')
+        } finally {
+            setProcessingApproval(false)
+        }
+    }
+
     const handleAddTask = async () => {
         if (!newTask.trim()) return
 
@@ -199,6 +300,17 @@ export default function WorkOrderDetailPage() {
     const totalTasks = workOrder.tasks?.length || 0
     const progressPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
 
+    // Process timeline items
+    const timelineItems = [
+        ...(workOrder.updates || []).map(u => ({ type: 'update' as const, date: new Date(u.createdAt), id: u.id, data: u })),
+        ...(workOrder.attachments || [])
+            .filter(a => !a.caption?.startsWith('[COMPLETION]'))
+            .map(a => ({ type: 'attachment' as const, date: new Date(a.uploadedAt), id: a.id, data: a }))
+    ].sort((a, b) => b.date.getTime() - a.date.getTime())
+
+    // Filter completion photos
+    const completionAttachments = workOrder.attachments?.filter(a => a.caption?.startsWith('[COMPLETION]')) || []
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -213,6 +325,36 @@ export default function WorkOrderDetailPage() {
                     <h1 className="text-2xl font-bold text-gray-900">{workOrder.workOrderNumber}</h1>
                     <p className="text-gray-600 mt-1">{workOrder.title}</p>
                 </div>
+                {workOrder.status !== 'CANCELLED' && workOrder.status !== 'CLOSED' && workOrder.status !== 'COMPLETED' && (
+                    <button
+                        onClick={() => setShowCancelModal(true)}
+                        disabled={processingApproval}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                    >
+                        <HiXMark className="w-5 h-5" />
+                        Batalkan
+                    </button>
+                )}
+                {workOrder.status === 'COMPLETED' && (
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowRejectModal(true)}
+                            disabled={processingApproval}
+                            className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                        >
+                            <HiXMark className="w-5 h-5" />
+                            Tolak
+                        </button>
+                        <button
+                            onClick={handleVerify}
+                            disabled={processingApproval}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
+                        >
+                            <HiCheckCircle className="w-5 h-5" />
+                            Verifikasi
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -373,17 +515,53 @@ export default function WorkOrderDetailPage() {
                     <div className="bg-white rounded-lg shadow p-6">
                         <h3 className="font-semibold text-gray-900 mb-4">Activity Timeline</h3>
                         <div className="space-y-4">
-                            {workOrder.updates && workOrder.updates.length > 0 ? (
-                                workOrder.updates.map((update) => (
-                                    <div key={update.id} className="flex gap-3">
-                                        <div className="w-8 h-8 bg-sky-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                            <HiClock className="w-4 h-4 text-sky-600" />
+                            {timelineItems.length > 0 ? (
+                                timelineItems.map((item) => (
+                                    <div key={item.id} className="flex gap-3">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${item.type === 'update' ? 'bg-sky-100' : 'bg-orange-100'
+                                            }`}>
+                                            {item.type === 'update' ? (
+                                                <HiClock className="w-4 h-4 text-sky-600" />
+                                            ) : (
+                                                <HiPhoto className="w-4 h-4 text-orange-600" />
+                                            )}
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-sm text-gray-900">{update.message}</p>
+                                            {item.type === 'update' ? (
+                                                <p className="text-sm text-gray-900">{(item.data as any).message}</p>
+                                            ) : (
+                                                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-1 inline-block">
+                                                    <a
+                                                        href={(item.data as any).filePath}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="block"
+                                                    >
+                                                        <img
+                                                            src={(item.data as any).filePath}
+                                                            alt={(item.data as any).caption || 'Attachment'}
+                                                            className="h-40 rounded-lg object-cover mb-2"
+                                                        />
+                                                    </a>
+                                                    {(item.data as any).caption && (
+                                                        <p className="text-xs text-gray-600 italic">
+                                                            {(item.data as any).caption.replace(/^\[(HOLD|NOTE)\]\s*/, '')}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
                                             <p className="text-xs text-gray-500 mt-1">
-                                                {update.createdBy && `${update.createdBy.firstName} ${update.createdBy.lastName} · `}
-                                                {format(new Date(update.createdAt), 'dd MMM yyyy HH:mm', { locale: localeId })}
+                                                {item.type === 'update' ? (
+                                                    <>
+                                                        {(item.data as any).createdBy && `${(item.data as any).createdBy.firstName} ${(item.data as any).createdBy.lastName} · `}
+                                                        {format(item.date, 'dd MMM yyyy HH:mm', { locale: localeId })}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        {(item.data as any).uploadedBy && `${(item.data as any).uploadedBy.fullName} · `}
+                                                        {format(item.date, 'dd MMM yyyy HH:mm', { locale: localeId })}
+                                                    </>
+                                                )}
                                             </p>
                                         </div>
                                     </div>
@@ -402,26 +580,37 @@ export default function WorkOrderDetailPage() {
                         <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                             <HiUserCircle className="w-5 h-5" />
                             Customer Info
+                            {!workOrder.pelanggan && (
+                                <span className="text-xs font-normal bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Guest</span>
+                            )}
                         </h3>
                         <div className="space-y-3 text-sm">
                             <div>
                                 <p className="text-gray-600">Name</p>
-                                <p className="font-medium">{workOrder.pelanggan.nama}</p>
+                                <p className="font-medium">{workOrder.pelanggan?.nama || workOrder.contactName || '-'}</p>
                             </div>
-                            <div>
-                                <p className="text-gray-600">ID</p>
-                                <p className="font-medium">{workOrder.pelanggan.idPelanggan}</p>
-                            </div>
-                            {workOrder.pelanggan.email && (
+                            {workOrder.pelanggan?.idPelanggan && (
+                                <div>
+                                    <p className="text-gray-600">ID</p>
+                                    <p className="font-medium">{workOrder.pelanggan.idPelanggan}</p>
+                                </div>
+                            )}
+                            {(workOrder.pelanggan?.email) && (
                                 <div>
                                     <p className="text-gray-600">Email</p>
                                     <p className="font-medium">{workOrder.pelanggan.email}</p>
                                 </div>
                             )}
-                            {workOrder.pelanggan.noTelp && (
+                            {(workOrder.pelanggan?.noTelp || workOrder.contactPhone) && (
                                 <div>
                                     <p className="text-gray-600">Phone</p>
-                                    <p className="font-medium">{workOrder.pelanggan.noTelp}</p>
+                                    <p className="font-medium">{workOrder.pelanggan?.noTelp || workOrder.contactPhone}</p>
+                                </div>
+                            )}
+                            {workOrder.locationAddress && (
+                                <div>
+                                    <p className="text-gray-600">Address</p>
+                                    <p className="font-medium">{workOrder.locationAddress}</p>
                                 </div>
                             )}
                         </div>
@@ -434,7 +623,7 @@ export default function WorkOrderDetailPage() {
                             <div className="text-sm">
                                 <p className="text-gray-600">Assigned to:</p>
                                 <p className="font-medium text-gray-900">
-                                    {workOrder.assignedTo.firstName} {workOrder.assignedTo.lastName}
+                                    {workOrder.assignedTo.fullName}
                                 </p>
                             </div>
                         ) : (
@@ -494,8 +683,120 @@ export default function WorkOrderDetailPage() {
                             )}
                         </div>
                     )}
+
+                    {/* Completion Photos */}
+                    {completionAttachments.length > 0 && (
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <HiPhoto className="w-5 h-5" />
+                                Bukti Penyelesaian ({completionAttachments.length} foto)
+                            </h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                {completionAttachments.map((attachment) => (
+                                    <a
+                                        key={attachment.id}
+                                        href={attachment.filePath}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block relative group"
+                                    >
+                                        <img
+                                            src={attachment.filePath}
+                                            alt={attachment.caption || 'Bukti Penyelesaian'}
+                                            className="w-full h-32 object-cover rounded-lg border border-gray-200 group-hover:opacity-90 transition-opacity"
+                                        />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-lg transition-colors flex items-center justify-center">
+                                            <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-medium transition-opacity">
+                                                Lihat
+                                            </span>
+                                        </div>
+                                        {attachment.caption && (
+                                            <p className="text-xs text-gray-500 mt-1 text-center truncate">
+                                                {attachment.caption.replace(/^\[COMPLETION\]\s*/, '')}
+                                            </p>
+                                        )}
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {/* Reject Modal */}
+            {showRejectModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Tolak Hasil Pekerjaan</h3>
+                            <p className="text-sm text-gray-500 mb-4">
+                                Work order akan dikembalikan ke status In Progress. Silakan berikan alasan penolakan untuk petugas.
+                            </p>
+                            <textarea
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                placeholder="Alasan penolakan (wajib diisi)..."
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px]"
+                            />
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => {
+                                        setShowRejectModal(false)
+                                        setRejectReason('')
+                                    }}
+                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={handleReject}
+                                    disabled={processingApproval || !rejectReason.trim()}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                                >
+                                    {processingApproval ? 'Memproses...' : 'Tolak & Kembalikan'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Cancel Modal */}
+            {showCancelModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Batalkan Work Order</h3>
+                            <p className="text-sm text-gray-500 mb-4">
+                                Tindakan ini tidak dapat dibatalkan. Work order akan ditandai sebagai Cancelled.
+                            </p>
+                            <textarea
+                                value={cancelReason}
+                                onChange={(e) => setCancelReason(e.target.value)}
+                                placeholder="Alasan pembatalan (wajib diisi)..."
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px]"
+                            />
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => {
+                                        setShowCancelModal(false)
+                                        setCancelReason('')
+                                    }}
+                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                >
+                                    Kembali
+                                </button>
+                                <button
+                                    onClick={handleCancel}
+                                    disabled={processingApproval || !cancelReason.trim()}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                                >
+                                    {processingApproval ? 'Memproses...' : 'Batalkan WO'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

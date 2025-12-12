@@ -9,8 +9,9 @@ import {
     HiMapPin,
     HiClock,
     HiCheckCircle,
-    HiExclamationCircle,
-    HiChevronRight
+    HiChevronRight,
+    HiClipboardDocumentList,
+    HiHandRaised,
 } from 'react-icons/hi2'
 
 type WorkOrder = {
@@ -21,25 +22,25 @@ type WorkOrder = {
     type: string
     status: string
     priority: string
-    pelanggan: {
+    pelanggan?: {
         nama: string
         noTelp: string | null
-    }
+    } | null
+    site?: {
+        code: string
+        name: string
+    } | null
     assignedTo: {
         fullName: string
     } | null
-    department: {
-        name: string
-    } | null
     locationAddress: string | null
-    scheduledDate: string | null
+    contactName: string | null
     createdAt: string
 }
 
 type Stats = {
-    assigned: number
-    inProgress: number
-    completed: number
+    available: number
+    myTickets: number
 }
 
 type APIResponse = {
@@ -52,41 +53,40 @@ type APIResponse = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-    PENDING: 'bg-gray-100 text-gray-800',
-    ASSIGNED: 'bg-yellow-100 text-yellow-800',
-    IN_PROGRESS: 'bg-blue-100 text-blue-800',
-    COMPLETED: 'bg-green-100 text-green-800',
-    VERIFIED: 'bg-green-100 text-green-800',
+    PENDING: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+    ASSIGNED: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+    IN_PROGRESS: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    ON_HOLD: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+    COMPLETED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+    VERIFIED: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
-    LOW: 'bg-gray-100 text-gray-600',
-    NORMAL: 'bg-blue-100 text-blue-600',
-    HIGH: 'bg-orange-100 text-orange-600',
-    URGENT: 'bg-red-100 text-red-600',
-    CRITICAL: 'bg-red-200 text-red-800',
+    LOW: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+    NORMAL: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+    HIGH: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
+    URGENT: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
+    CRITICAL: 'bg-red-200 text-red-800 dark:bg-red-900/50 dark:text-red-300',
 }
 
 export default function WorkOrdersPage() {
     const { data: session } = useSession()
     const router = useRouter()
     const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
-    const [stats, setStats] = useState<Stats>({ assigned: 0, inProgress: 0, completed: 0 })
+    const [stats, setStats] = useState<Stats>({ available: 0, myTickets: 0 })
     const [loading, setLoading] = useState(true)
-    const [filter, setFilter] = useState('all')
+    const [tab, setTab] = useState('available') // 'available', 'my', 'all'
     const [searchQuery, setSearchQuery] = useState('')
 
     useEffect(() => {
         loadWorkOrders()
-    }, [filter])
+    }, [tab])
 
     const loadWorkOrders = async () => {
         setLoading(true)
         try {
             const params = new URLSearchParams()
-            if (filter !== 'all') {
-                params.append('status', filter.toUpperCase())
-            }
+            params.append('tab', tab)
             if (searchQuery) {
                 params.append('search', searchQuery)
             }
@@ -108,9 +108,6 @@ export default function WorkOrdersPage() {
         loadWorkOrders()
     }
 
-    const employee = (session?.user as any)?.employee
-    const departmentName = employee?.department?.name || 'Your Department'
-
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('id-ID', {
             day: 'numeric',
@@ -127,121 +124,87 @@ export default function WorkOrdersPage() {
                     Work Orders
                 </h1>
                 <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400">
-                    Work orders assigned to {departmentName}
+                    Ambil dan kerjakan tiket work order
                 </p>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6">
-                    <div className="flex items-center justify-between mb-3 sm:mb-2">
-                        <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">Assigned</h3>
-                        <HiClock className="w-6 h-6 sm:w-5 sm:h-5 text-yellow-600 flex-shrink-0" />
+            <div className="grid grid-cols-2 gap-4">
+                <button
+                    onClick={() => setTab('available')}
+                    className={`bg-white dark:bg-gray-800 rounded-xl shadow p-5 text-left transition-all ${tab === 'available' ? 'ring-2 ring-indigo-500' : 'hover:shadow-md'
+                        }`}
+                >
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Tersedia</h3>
+                        <HiClipboardDocumentList className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     {loading ? (
-                        <div className="h-10 sm:h-8 w-16 sm:w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        <div className="h-8 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
                     ) : (
-                        <p className="text-3xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.assigned}</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.available}</p>
                     )}
-                </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tiket di area Anda</p>
+                </button>
 
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6">
-                    <div className="flex items-center justify-between mb-3 sm:mb-2">
-                        <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">In Progress</h3>
-                        <HiMapPin className="w-6 h-6 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
+                <button
+                    onClick={() => setTab('my')}
+                    className={`bg-white dark:bg-gray-800 rounded-xl shadow p-5 text-left transition-all ${tab === 'my' ? 'ring-2 ring-indigo-500' : 'hover:shadow-md'
+                        }`}
+                >
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Tiket Saya</h3>
+                        <HiHandRaised className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
                     {loading ? (
-                        <div className="h-10 sm:h-8 w-16 sm:w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        <div className="h-8 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
                     ) : (
-                        <p className="text-3xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.inProgress}</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.myTickets}</p>
                     )}
-                </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Yang Anda ambil</p>
+                </button>
+            </div>
 
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 sm:p-6">
-                    <div className="flex items-center justify-between mb-3 sm:mb-2">
-                        <h3 className="text-base sm:text-sm font-medium text-gray-600 dark:text-gray-400">Completed</h3>
-                        <HiCheckCircle className="w-6 h-6 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
+            {/* Search */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+                <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                        <HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            placeholder="Cari work order..."
+                            className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                        />
                     </div>
-                    {loading ? (
-                        <div className="h-10 sm:h-8 w-16 sm:w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                    ) : (
-                        <p className="text-3xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.completed}</p>
-                    )}
+                    <button
+                        onClick={handleSearch}
+                        className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                    >
+                        Cari
+                    </button>
                 </div>
             </div>
 
-            {/* Search & Filter */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 sm:p-5">
-                <div className="flex flex-col gap-4">
-                    {/* Search */}
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
-                        <div className="flex-1 relative">
-                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                                <HiMagnifyingGlass className="w-5 h-5 sm:w-4 sm:h-4" />
-                            </div>
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                placeholder="Search work orders..."
-                                className="w-full pl-12 sm:pl-10 pr-4 py-3 sm:py-2 min-h-[48px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-base sm:text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent touch-manipulation"
-                            />
-                        </div>
-                        <button
-                            onClick={handleSearch}
-                            className="w-full sm:w-auto px-6 py-3 sm:py-2 min-h-[48px] bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors touch-manipulation font-medium text-base sm:text-sm"
-                        >
-                            Search
-                        </button>
-                    </div>
-
-                    {/* Filter */}
-                    <div className="flex gap-2 flex-wrap">
-                        <button
-                            onClick={() => setFilter('all')}
-                            className={`px-4 py-2.5 sm:py-2 min-h-[44px] rounded-lg font-medium transition-colors touch-manipulation text-base sm:text-sm ${filter === 'all'
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                }`}
-                        >
-                            All
-                        </button>
-                        <button
-                            onClick={() => setFilter('assigned')}
-                            className={`px-4 py-2.5 sm:py-2 min-h-[44px] rounded-lg font-medium transition-colors touch-manipulation text-base sm:text-sm ${filter === 'assigned'
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                }`}
-                        >
-                            Assigned
-                        </button>
-                        <button
-                            onClick={() => setFilter('in_progress')}
-                            className={`px-4 py-2.5 sm:py-2 min-h-[44px] rounded-lg font-medium transition-colors touch-manipulation text-base sm:text-sm ${filter === 'in_progress'
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                }`}
-                        >
-                            In Progress
-                        </button>
-                        <button
-                            onClick={() => setFilter('completed')}
-                            className={`px-4 py-2.5 sm:py-2 min-h-[44px] rounded-lg font-medium transition-colors touch-manipulation text-base sm:text-sm ${filter === 'completed'
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                }`}
-                        >
-                            Completed
-                        </button>
-                    </div>
-                </div>
+            {/* Tab Header */}
+            <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {tab === 'available' ? 'Tiket Tersedia' : tab === 'my' ? 'Tiket Saya' : 'Semua Tiket'}
+                </h2>
+                <button
+                    onClick={() => setTab('all')}
+                    className={`text-sm ${tab === 'all' ? 'text-indigo-600 font-medium' : 'text-gray-500 hover:text-indigo-600'
+                        }`}
+                >
+                    Lihat Semua
+                </button>
             </div>
 
             {/* Work Orders List */}
             <div className="space-y-4">
                 {loading ? (
-                    // Loading skeletons
                     Array.from({ length: 3 }).map((_, i) => (
                         <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 animate-pulse">
                             <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded mb-3"></div>
@@ -250,63 +213,82 @@ export default function WorkOrdersPage() {
                         </div>
                     ))
                 ) : workOrders.length === 0 ? (
-                    // Empty state
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-12 text-center">
                         <div className="inline-block p-4 bg-gray-100 dark:bg-gray-700 rounded-full mb-4">
                             <HiMapPin className="w-12 h-12 text-gray-400" />
                         </div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                            No work orders found
+                            {tab === 'available'
+                                ? 'Tidak ada tiket tersedia'
+                                : tab === 'my'
+                                    ? 'Belum ada tiket yang Anda ambil'
+                                    : 'Tidak ada work order'}
                         </h3>
                         <p className="text-gray-600 dark:text-gray-400">
-                            {filter === 'all'
-                                ? `No work orders assigned to ${departmentName} yet.`
-                                : `No ${filter.replace('_', ' ')} work orders at the moment.`}
+                            {tab === 'available'
+                                ? 'Semua tiket di area Anda sudah diambil.'
+                                : tab === 'my'
+                                    ? 'Ambil tiket dari tab "Tersedia" untuk mulai bekerja.'
+                                    : 'Belum ada work order yang tersedia.'}
                         </p>
                     </div>
                 ) : (
-                    // Work order cards
                     workOrders.map((wo) => (
                         <Link
                             key={wo.id}
                             href={`/employee/workorders/${wo.id}`}
-                            className="block bg-white dark:bg-gray-800 rounded-xl shadow hover:shadow-md transition-shadow p-5 sm:p-6 touch-manipulation"
+                            className="block bg-white dark:bg-gray-800 rounded-xl shadow hover:shadow-md transition-shadow p-5"
                         >
-                            <div className="flex items-start justify-between mb-4 sm:mb-3 gap-3">
+                            <div className="flex items-start justify-between gap-3 mb-3">
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2 mb-2 sm:mb-2">
-                                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white break-words">
+                                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                                        <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
                                             {wo.workOrderNumber}
-                                        </h3>
-                                        <span className={`px-2.5 py-1 sm:px-2 sm:py-0.5 text-xs sm:text-[10px] font-medium rounded ${STATUS_COLORS[wo.status] || 'bg-gray-100 text-gray-800'}`}>
+                                        </span>
+                                        <span className={`px-2 py-0.5 text-xs font-medium rounded ${STATUS_COLORS[wo.status]}`}>
                                             {wo.status.replace('_', ' ')}
                                         </span>
-                                        <span className={`px-2.5 py-1 sm:px-2 sm:py-0.5 text-xs sm:text-[10px] font-medium rounded ${PRIORITY_COLORS[wo.priority] || 'bg-gray-100 text-gray-600'}`}>
+                                        <span className={`px-2 py-0.5 text-xs font-medium rounded ${PRIORITY_COLORS[wo.priority]}`}>
                                             {wo.priority}
                                         </span>
                                     </div>
-                                    <p className="text-base sm:text-sm text-gray-900 dark:text-white font-medium mb-2 sm:mb-1 break-words">{wo.title}</p>
-                                    <p className="text-base sm:text-sm text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed">
+                                    <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+                                        {wo.title}
+                                    </h3>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                                         {wo.description}
                                     </p>
                                 </div>
-                                <HiChevronRight className="w-6 h-6 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0 mt-1" />
+                                <HiChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 mt-1" />
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-3 text-base sm:text-sm pt-4 border-t border-gray-200 dark:border-gray-700">
-                                <div>
-                                    <p className="text-gray-500 dark:text-gray-400 mb-1">Customer</p>
-                                    <p className="text-gray-900 dark:text-white font-medium break-words">{wo.pelanggan.nama}</p>
-                                </div>
-                                {wo.assignedTo && (
+                            <div className="flex flex-wrap gap-4 text-sm pt-3 border-t border-gray-200 dark:border-gray-700">
+                                {wo.pelanggan && (
                                     <div>
-                                        <p className="text-gray-500 dark:text-gray-400 mb-1">Assigned To</p>
-                                        <p className="text-gray-900 dark:text-white font-medium break-words">{wo.assignedTo.fullName}</p>
+                                        <span className="text-gray-500 dark:text-gray-400">Customer: </span>
+                                        <span className="text-gray-900 dark:text-white font-medium">{wo.pelanggan.nama}</span>
                                     </div>
                                 )}
-                                <div>
-                                    <p className="text-gray-500 dark:text-gray-400 mb-1">Created</p>
-                                    <p className="text-gray-900 dark:text-white font-medium">{formatDate(wo.createdAt)}</p>
+                                {wo.contactName && !wo.pelanggan && (
+                                    <div>
+                                        <span className="text-gray-500 dark:text-gray-400">Contact: </span>
+                                        <span className="text-gray-900 dark:text-white font-medium">{wo.contactName}</span>
+                                    </div>
+                                )}
+                                {wo.site && (
+                                    <div>
+                                        <span className="text-gray-500 dark:text-gray-400">Site: </span>
+                                        <span className="text-gray-900 dark:text-white font-medium">{wo.site.code}</span>
+                                    </div>
+                                )}
+                                {wo.assignedTo && (
+                                    <div>
+                                        <span className="text-gray-500 dark:text-gray-400">Diambil: </span>
+                                        <span className="text-gray-900 dark:text-white font-medium">{wo.assignedTo.fullName}</span>
+                                    </div>
+                                )}
+                                <div className="ml-auto">
+                                    <span className="text-gray-500 dark:text-gray-400">{formatDate(wo.createdAt)}</span>
                                 </div>
                             </div>
                         </Link>

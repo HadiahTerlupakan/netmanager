@@ -2,6 +2,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { signOut, useSession } from 'next-auth/react'
+import { HiBars3 } from 'react-icons/hi2'
 
 export default function Navbar() {
   const { data: session } = useSession()
@@ -10,6 +11,12 @@ export default function Navbar() {
     <header className="h-16 bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-10">
       <div className="h-full flex items-center justify-between px-6">
         <div className="flex items-center">
+          <button
+            onClick={() => (window as any).toggleAdminSidebar?.()}
+            className="mr-4 p-2 -ml-2 text-gray-500 rounded-md md:hidden hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <HiBars3 className="w-6 h-6" />
+          </button>
           <h1 className="text-base font-semibold text-gray-900 dark:text-white">Dashboard</h1>
         </div>
         <div className="flex items-center gap-3">

@@ -36,12 +36,19 @@ interface Role {
   isActive: boolean
 }
 
+interface Site {
+  id: string
+  code: string
+  name: string
+}
+
 export default function UserNewPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [generatingEmployeeId, setGeneratingEmployeeId] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
+  const [sites, setSites] = useState<Site[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showSuccess, setShowSuccess] = useState(false)
@@ -63,6 +70,7 @@ export default function UserNewPage() {
     city: '',
     province: '',
     departmentId: '',
+    siteId: '',
     positionId: '',
     employmentStatus: 'PROBATION',
     joinDate: new Date().toISOString().split('T')[0],
@@ -78,6 +86,7 @@ export default function UserNewPage() {
 
   useEffect(() => {
     fetchDepartments()
+    fetchSites()
     fetchRoles()
   }, [])
 
@@ -102,6 +111,18 @@ export default function UserNewPage() {
       }
     } catch (error) {
       console.error('Error fetching roles:', error)
+    }
+  }
+
+  const fetchSites = async () => {
+    try {
+      const res = await fetch('/api/admin/sites?activeOnly=true')
+      const data = await res.json()
+      if (res.ok) {
+        setSites(data.data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching sites:', error)
     }
   }
 
@@ -534,6 +555,29 @@ export default function UserNewPage() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Site / Area Kerja
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <HiOutlineMap className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <select
+                    name="siteId"
+                    value={formData.siteId}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="">Pilih Site</option>
+                    {sites.map(site => (
+                      <option key={site.id} value={site.id}>{site.code} - {site.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Site diperlukan untuk melihat work order di area tersebut</p>
               </div>
             </div>
 

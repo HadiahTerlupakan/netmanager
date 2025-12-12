@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
 
-        if (!body.pelangganId || !body.type || !body.title || !body.description) {
+        if (!body.type || !body.title || !body.description) {
             return NextResponse.json(
-                { error: 'Pelanggan ID, type, title, and description are required' },
+                { error: 'Type, title, and description are required' },
                 { status: 400 }
             );
         }

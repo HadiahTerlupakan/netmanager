@@ -47,6 +47,17 @@ export async function PATCH(
         const { id } = await params;
         const body = await request.json();
 
+        // Handle rejection reason or explicitly provided reason
+        if (body.rejectionReason) {
+            await workOrderRepo.addUpdate({
+                workOrderId: id,
+                updateType: 'NOTE',
+                message: `[REJECTED] ${body.rejectionReason}`,
+                createdById: user.id,
+            });
+            delete body.rejectionReason;
+        }
+
         // Handle status change separately if provided
         if (body.status) {
             await workOrderRepo.updateStatus(id, body.status, user.id);

@@ -1229,6 +1229,24 @@ model Department {
   @@map("departments")
 }
 
+model Site {
+  id          String      @id @default(cuid())
+  code        String      @unique
+  name        String
+  description String?
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  employees   Employee[]
+  workOrders  WorkOrder[]
+
+  @@index([isActive])
+  @@map("sites")
+}
+
 model Position {
   id           String      @id @default(cuid())
   title        String      @unique
@@ -1325,6 +1343,7 @@ model Employee {
   postalCode           String?
   departmentId         String?
   positionId           String?
+  siteId               String?
   employmentStatus     EmploymentStatus      @default(PROBATION)
   joinDate             DateTime
   endDate              DateTime?
@@ -1351,6 +1370,7 @@ model Employee {
   employeeSkills       EmployeeSkill[]
   department           Department?           @relation(fields: [departmentId], references: [id])
   position             Position?             @relation(fields: [positionId], references: [id])
+  site                 Site?                 @relation(fields: [siteId], references: [id])
   leaveBalances        LeaveBalance[]
   leaveRequests        LeaveRequest[]
   overtimes            Overtime[]
@@ -1366,6 +1386,7 @@ model Employee {
 
   @@index([departmentId])
   @@index([positionId])
+  @@index([siteId])
   @@index([employmentStatus])
   @@index([isActive])
   @@index([email])
@@ -2031,7 +2052,8 @@ model WorkOrder {
   id                 String                @id @default(cuid())
   workOrderNumber    String                @unique
   ticketId           String?
-  pelangganId        String
+  pelangganId        String?
+  siteId             String?
   type               WorkOrderType
   title              String
   description        String
@@ -2069,11 +2091,13 @@ model WorkOrder {
   updates            WorkOrderUpdate[]
   assignedTo         Employee?             @relation(fields: [assignedToId], references: [id])
   department         Department?           @relation(fields: [departmentId], references: [id])
-  pelanggan          Pelanggan             @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  pelanggan          Pelanggan?            @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  site               Site?                 @relation(fields: [siteId], references: [id])
   ticket             Ticket?               @relation(fields: [ticketId], references: [id])
 
   @@index([ticketId])
   @@index([pelangganId])
+  @@index([siteId])
   @@index([status])
   @@index([assignedToId])
   @@index([departmentId])
