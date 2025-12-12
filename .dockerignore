@@ -1,7 +1,54 @@
+# Dependencies
 node_modules
+
+# Build output
 .next
-npm-debug.log*
-.DS_Store
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Environment files (will be mounted separately)
 .env
+.env.*
+!.env.example
+!.env.production.example
 
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+tests
+testsprite_tests
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+vitest.config.ts
+test-*.js
+
+# Documentation (not needed in container)
+docs
+*.md
+!README.md
+
+# Backups
+backups
+
+# Artifacts
+*.txt
+*.html
+
+# Development tools
+.eslintcache
+tsconfig.tsbuildinfo

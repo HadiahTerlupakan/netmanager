@@ -3,6 +3,9 @@ import { getJoinboxRepository } from '@/lib/repositories'
 import { JoinboxActions } from '@/components/closure/JoinboxActions'
 import { StatusBadge } from '@/components/common/StatusBadge'
 
+// Force dynamic rendering to avoid database queries during build
+export const dynamic = 'force-dynamic'
+
 type Joinbox = {
   id: string
   name: string

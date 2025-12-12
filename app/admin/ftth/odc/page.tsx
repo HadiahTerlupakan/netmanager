@@ -3,6 +3,9 @@ import { getOdcRepository } from '@/lib/repositories'
 import { OdcActions } from '@/components/odc/OdcActions'
 import { StatusBadge } from '@/components/common/StatusBadge'
 
+// Force dynamic rendering to avoid database queries during build
+export const dynamic = 'force-dynamic'
+
 type Odc = {
   id: string
   name: string

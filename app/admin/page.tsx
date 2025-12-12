@@ -3,6 +3,9 @@ import { Role } from '@prisma/client'
 import { HiOutlineUsers } from 'react-icons/hi2'
 import { HiOutlineServer } from 'react-icons/hi2'
 
+// Force dynamic rendering to avoid database queries during build
+export const dynamic = 'force-dynamic'
+
 export default async function AdminHome() {
   const userRepository = getUserRepository()
   const totalUsers = await userRepository.count()

@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Enable standalone output for Docker deployment
+  output: 'standalone',
   reactStrictMode: true,
   experimental: {
     // App Router is default; ensure serverActions available when needed

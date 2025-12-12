@@ -3,6 +3,9 @@ import { getPoleRepository } from '@/lib/repositories'
 import { PoleActions } from '@/components/pole/PoleActions'
 import { StatusBadge } from '@/components/common/StatusBadge'
 
+// Force dynamic rendering to avoid database queries during build
+export const dynamic = 'force-dynamic'
+
 type Pole = {
   id: string
   name: string
@@ -80,11 +83,10 @@ export default async function PolePage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      o.cableSlack 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${o.cableSlack
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                         : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
-                    }`}>
+                      }`}>
                       {o.cableSlack ? 'Ada' : 'Tidak'}
                     </span>
                   </td>

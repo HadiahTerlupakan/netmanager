@@ -76,9 +76,10 @@ export async function GET(
   try {
     const { id } = await params
 
-    // Cek apakah ini request dari admin
+    // Cek apakah ini request dari admin (user dengan session valid)
     const session: any = await getServerSession(authConfig as any)
-    const isAdmin = session && session.user?.role === 'ADMIN'
+    // User dengan session valid dianggap admin (bisa akses dari admin portal)
+    const isAdmin = session && session.user
 
     // Jika bukan admin, cek token pelanggan
     if (!isAdmin) {

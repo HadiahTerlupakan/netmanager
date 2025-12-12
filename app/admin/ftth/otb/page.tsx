@@ -3,6 +3,9 @@ import { getOtbRepository } from '@/lib/repositories'
 import { OtbActions } from '@/components/otb/OtbActions'
 import { StatusBadge } from '@/components/common/StatusBadge'
 
+// Force dynamic rendering to avoid database queries during build
+export const dynamic = 'force-dynamic'
+
 type Otb = {
   id: string
   name: string

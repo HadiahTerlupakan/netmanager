@@ -3,6 +3,9 @@ import { getOdpRepository } from '@/lib/repositories'
 import { OdpActions } from '@/components/odp/OdpActions'
 import { StatusBadge } from '@/components/common/StatusBadge'
 
+// Force dynamic rendering to avoid database queries during build
+export const dynamic = 'force-dynamic'
+
 type Odp = {
   id: string
   name: string
