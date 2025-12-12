@@ -223,8 +223,8 @@ export default function Sidebar() {
       permission: 'HRIS',
       children: [
         { href: '/admin/hris', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" />, permission: 'HRIS' },
-        { href: '/admin/hris/departments', label: 'Departments & Roles', icon: <FiHome className="w-4 h-4" />, permission: 'HRIS' },
-        { href: '/admin/hris/employees', label: 'Employees', icon: <FiUsers className="w-4 h-4" />, permission: 'HRIS' },
+        { href: '/admin/hris/departments', label: 'Departments', icon: <FiHome className="w-4 h-4" />, permission: 'HRIS' },
+
         { href: '/admin/hris/attendance', label: 'Attendance', icon: <FiClock className="w-4 h-4" />, permission: 'HRIS' },
         { href: '/admin/hris/leaves', label: 'Leave Management', icon: <FiCalendar className="w-4 h-4" />, permission: 'HRIS' },
         { href: '/admin/hris/payroll', label: 'Payroll', icon: <FiTrendingUp className="w-4 h-4" />, permission: 'HRIS' },

@@ -7,7 +7,6 @@ import {
     HiOutlineBuildingOffice,
     HiOutlineShieldCheck,
     HiOutlinePlus,
-    HiXMark
 } from 'react-icons/hi2'
 import {
     FiBarChart,
@@ -56,20 +55,22 @@ interface DepartmentModalProps {
 }
 
 const AVAILABLE_FEATURES = [
-    { value: 'DASHBOARD', label: 'Dashboard', icon: <FiBarChart className="w-5 h-5" />, color: 'blue' },
-    { value: 'ROLES', label: 'Roles', icon: <FiShield className="w-5 h-5" />, color: 'purple' },
-    { value: 'NETWORK', label: 'Network', icon: <FiGlobe className="w-5 h-5" />, color: 'indigo' },
-    { value: 'FTTH', label: 'FTTH', icon: <FiWifi className="w-5 h-5" />, color: 'cyan' },
-    { value: 'PAKET', label: 'Package Management', icon: <FiShoppingCart className="w-5 h-5" />, color: 'emerald' },
-    { value: 'PELANGGAN', label: 'Customer Management', icon: <FiUsers className="w-5 h-5" />, color: 'purple' },
-    { value: 'INVENTORY', label: 'Inventory', icon: <FiBox className="w-5 h-5" />, color: 'blue' },
-    { value: 'USERS', label: 'User Management', icon: <FiUser className="w-5 h-5" />, color: 'green' },
-    { value: 'HELPDESK', label: 'Helpdesk & Support', icon: <FiHelpCircle className="w-5 h-5" />, color: 'orange' },
-    { value: 'WORKORDERS', label: 'Work Orders', icon: <FiTool className="w-5 h-5" />, color: 'amber' },
-    { value: 'HRIS', label: 'HR & Payroll', icon: <FiUserGroup className="w-5 h-5" />, color: 'blue' },
-    { value: 'FINANCE', label: 'Finance & Billing', icon: <FiDollarSign className="w-5 h-5" />, color: 'emerald' },
-    { value: 'PENGATURAN', label: 'Pengaturan', icon: <FiSettings className="w-5 h-5" />, color: 'gray' }
+    { value: 'DASHBOARD', label: 'Dashboard', icon: <FiBarChart className="w-4 h-4" />, category: 'Core' },
+    { value: 'ROLES', label: 'Roles', icon: <FiShield className="w-4 h-4" />, category: 'Core' },
+    { value: 'NETWORK', label: 'Network', icon: <FiGlobe className="w-4 h-4" />, category: 'Operasional' },
+    { value: 'FTTH', label: 'FTTH', icon: <FiWifi className="w-4 h-4" />, category: 'Operasional' },
+    { value: 'PAKET', label: 'Paket', icon: <FiShoppingCart className="w-4 h-4" />, category: 'Operasional' },
+    { value: 'PELANGGAN', label: 'Pelanggan', icon: <FiUsers className="w-4 h-4" />, category: 'Operasional' },
+    { value: 'INVENTORY', label: 'Inventory', icon: <FiBox className="w-4 h-4" />, category: 'Operasional' },
+    { value: 'USERS', label: 'Users', icon: <FiUser className="w-4 h-4" />, category: 'Admin' },
+    { value: 'HELPDESK', label: 'Helpdesk', icon: <FiHelpCircle className="w-4 h-4" />, category: 'Support' },
+    { value: 'WORKORDERS', label: 'Work Orders', icon: <FiTool className="w-4 h-4" />, category: 'Support' },
+    { value: 'HRIS', label: 'HRIS', icon: <FiUserGroup className="w-4 h-4" />, category: 'Admin' },
+    { value: 'FINANCE', label: 'Finance', icon: <FiDollarSign className="w-4 h-4" />, category: 'Admin' },
+    { value: 'PENGATURAN', label: 'Pengaturan', icon: <FiSettings className="w-4 h-4" />, category: 'Core' }
 ]
+
+const FEATURE_CATEGORIES = ['Core', 'Operasional', 'Admin', 'Support']
 
 export default function DepartmentModal({
     isOpen,
@@ -142,10 +143,20 @@ export default function DepartmentModal({
         setLoading(true)
 
         try {
-            await onSave({
-                ...formData,
-                allowedFeatures: JSON.stringify(formData.allowedFeatures),
-            })
+            // When creating a new department, don't include allowedFeatures
+            // When editing, include all fields including permissions
+            const saveData = department
+                ? {
+                    ...formData,
+                    allowedFeatures: JSON.stringify(formData.allowedFeatures),
+                }
+                : {
+                    name: formData.name,
+                    description: formData.description,
+                    jobDescription: formData.jobDescription,
+                }
+
+            await onSave(saveData)
             onClose()
         } catch (error) {
             console.error('Error saving department:', error)
@@ -229,6 +240,22 @@ export default function DepartmentModal({
         }
     }
 
+    const toggleAllFeatures = (isRole = false) => {
+        if (isRole) {
+            const allSelected = roleFormData.allowedFeatures.length === AVAILABLE_FEATURES.length
+            setRoleFormData(prev => ({
+                ...prev,
+                allowedFeatures: allSelected ? [] : AVAILABLE_FEATURES.map(f => f.value)
+            }))
+        } else {
+            const allSelected = formData.allowedFeatures.length === AVAILABLE_FEATURES.length
+            setFormData(prev => ({
+                ...prev,
+                allowedFeatures: allSelected ? [] : AVAILABLE_FEATURES.map(f => f.value)
+            }))
+        }
+    }
+
     const openRoleModal = () => {
         setEditingRole(null)
         setRoleFormData({
@@ -243,38 +270,44 @@ export default function DepartmentModal({
 
     const departmentFeatures = formData.allowedFeatures
 
+    const tabs = [
+        { key: 'info', label: 'Info', icon: HiOutlineBuildingOffice },
+        { key: 'permissions', label: 'Permissions', icon: HiOutlineShieldCheck },
+        { key: 'roles', label: 'Roles', icon: HiOutlineShieldCheck, count: roles.length },
+    ]
+
     return (
         <>
             <Modal
                 isOpen={isOpen && !showRoleModal}
                 onClose={onClose}
-                title={department ? 'Edit Department' : 'Create New Department'}
-                description={department ? 'Update department information and manage roles' : 'Add a new department to your organization'}
+                title={department ? `Edit: ${department.name}` : 'Department Baru'}
+                description={department ? 'Update informasi dan kelola roles' : 'Tambah department baru ke organisasi'}
                 size="4xl"
             >
                 {/* Tabs */}
-                <div className="border-b border-gray-200 dark:border-gray-700">
-                    <nav className="flex space-x-8 px-6" aria-label="Tabs">
-                        {[
-                            { key: 'info', label: 'Department Info', icon: HiOutlineBuildingOffice },
-                            { key: 'permissions', label: 'Base Permissions', icon: HiOutlineShieldCheck },
-                            { key: 'roles', label: 'Custom Roles', icon: HiOutlineShieldCheck },
-                        ].map((tab) => (
+                <div className="border-b border-gray-200 dark:border-gray-700 px-6">
+                    <nav className="flex gap-1" aria-label="Tabs">
+                        {(department ? tabs : [tabs[0]]).map((tab) => (
                             <button
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key as any)}
-                                className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
-                                    activeTab === tab.key
-                                        ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                                }`}
+                                className={`relative py-3 px-4 text-sm font-medium rounded-t-lg transition-all ${activeTab === tab.key
+                                        ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20'
+                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800'
+                                    }`}
                             >
-                                <tab.icon className="w-5 h-5" />
-                                {tab.label}
-                                {tab.key === 'roles' && roles.length > 0 && (
-                                    <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full text-xs font-medium">
-                                        {roles.length}
-                                    </span>
+                                <span className="flex items-center gap-2">
+                                    <tab.icon className="w-4 h-4" />
+                                    {tab.label}
+                                    {tab.count !== undefined && tab.count > 0 && (
+                                        <span className="bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded text-xs font-medium">
+                                            {tab.count}
+                                        </span>
+                                    )}
+                                </span>
+                                {activeTab === tab.key && (
+                                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400"></span>
                                 )}
                             </button>
                         ))}
@@ -284,61 +317,61 @@ export default function DepartmentModal({
                 {/* Tab Content */}
                 <div className="p-6">
                     {activeTab === 'info' && (
-                        <form onSubmit={handleSaveDepartment} className="space-y-6">
+                        <form onSubmit={handleSaveDepartment} className="space-y-5">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Department Name <span className="text-red-500">*</span>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                    Nama Department <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     required
                                     value={formData.name}
                                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    placeholder="e.g., IT Department, Human Resources"
+                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                    placeholder="IT Department, Human Resources, dll."
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Description
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                    Deskripsi
                                 </label>
                                 <textarea
                                     value={formData.description}
                                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                    rows={3}
-                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    placeholder="Brief description of this department..."
+                                    rows={2}
+                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
+                                    placeholder="Deskripsi singkat tentang department..."
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                     Job Description
                                 </label>
                                 <textarea
                                     value={formData.jobDescription}
                                     onChange={(e) => setFormData(prev => ({ ...prev, jobDescription: e.target.value }))}
-                                    rows={4}
-                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    placeholder="Detailed job description and responsibilities..."
+                                    rows={3}
+                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
+                                    placeholder="Detail tugas dan tanggung jawab..."
                                 />
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                    className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                 >
-                                    Cancel
+                                    Batal
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                    className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50"
                                 >
-                                    {loading ? 'Saving...' : 'Save Department'}
+                                    {loading ? 'Menyimpan...' : 'Simpan'}
                                 </button>
                             </div>
                         </form>
@@ -346,56 +379,69 @@ export default function DepartmentModal({
 
                     {activeTab === 'permissions' && (
                         <div className="space-y-6">
-                            <div>
-                                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                                    Department Base Permissions
-                                </h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                                    These permissions apply to ALL employees in this department. Custom roles can add or remove permissions from this baseline.
-                                </p>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                                        Base Permissions
+                                    </h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Akses fitur untuk semua karyawan di department ini
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => toggleAllFeatures(false)}
+                                    className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                                >
+                                    {formData.allowedFeatures.length === AVAILABLE_FEATURES.length ? 'Hapus Semua' : 'Pilih Semua'}
+                                </button>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                {AVAILABLE_FEATURES.map((feature) => {
-                                    const isSelected = formData.allowedFeatures.includes(feature.value)
+                            {/* Features by Category */}
+                            <div className="space-y-6">
+                                {FEATURE_CATEGORIES.map(category => {
+                                    const categoryFeatures = AVAILABLE_FEATURES.filter(f => f.category === category)
                                     return (
-                                        <button
-                                            key={feature.value}
-                                            type="button"
-                                            onClick={() => toggleFeature(feature.value)}
-                                            className={`relative flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
-                                                isSelected
-                                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
-                                                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                                            }`}
-                                        >
-                                            <div className={`flex-shrink-0 ${isSelected ? 'text-indigo-600' : 'text-gray-400'}`}>
-                                                {feature.icon}
+                                        <div key={category}>
+                                            <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                                {category}
+                                            </h4>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                                {categoryFeatures.map((feature) => {
+                                                    const isSelected = formData.allowedFeatures.includes(feature.value)
+                                                    return (
+                                                        <button
+                                                            key={feature.value}
+                                                            type="button"
+                                                            onClick={() => toggleFeature(feature.value)}
+                                                            className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all text-left ${isSelected
+                                                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
+                                                                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-700 dark:text-gray-300'
+                                                                }`}
+                                                        >
+                                                            <span className={isSelected ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'}>
+                                                                {feature.icon}
+                                                            </span>
+                                                            <span className="text-sm font-medium">{feature.label}</span>
+                                                        </button>
+                                                    )
+                                                })}
                                             </div>
-                                            <div className="flex-1 text-left">
-                                                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                                    {feature.label}
-                                                </div>
-                                            </div>
-                                            {isSelected && (
-                                                <div className="w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center">
-                                                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                                    </svg>
-                                                </div>
-                                            )}
-                                        </button>
+                                        </div>
                                     )
                                 })}
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                    {formData.allowedFeatures.length} dari {AVAILABLE_FEATURES.length} fitur dipilih
+                                </span>
                                 <button
                                     type="button"
-                                    onClick={onClose}
-                                    className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                    onClick={handleSaveDepartment}
+                                    disabled={loading}
+                                    className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50"
                                 >
-                                    Done
+                                    {loading ? 'Menyimpan...' : 'Simpan Permissions'}
                                 </button>
                             </div>
                         </div>
@@ -405,37 +451,39 @@ export default function DepartmentModal({
                         <div className="space-y-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+                                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                                         Custom Roles
                                     </h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        Create specific roles with customized permissions for this department
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Buat role khusus dengan permission berbeda
                                     </p>
                                 </div>
                                 <button
                                     onClick={openRoleModal}
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm"
                                 >
                                     <HiOutlinePlus className="w-4 h-4" />
-                                    Create Role
+                                    Tambah Role
                                 </button>
                             </div>
 
                             {roles.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <HiOutlineShieldCheck className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                                        No Custom Roles Yet
+                                <div className="text-center py-12 bg-gray-50 dark:bg-gray-900/30 rounded-xl">
+                                    <div className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mx-auto mb-4">
+                                        <HiOutlineShieldCheck className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+                                    </div>
+                                    <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+                                        Belum Ada Custom Role
                                     </h3>
-                                    <p className="text-gray-500 dark:text-gray-400 mb-6">
-                                        Create custom roles to provide specific permissions for different job functions within this department.
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 max-w-sm mx-auto">
+                                        Buat role khusus untuk memberikan permission yang berbeda dari base department
                                     </p>
                                     <button
                                         onClick={openRoleModal}
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors"
                                     >
                                         <HiOutlinePlus className="w-4 h-4" />
-                                        Create First Role
+                                        Buat Role Pertama
                                     </button>
                                 </div>
                             ) : (
@@ -451,16 +499,6 @@ export default function DepartmentModal({
                                     ))}
                                 </div>
                             )}
-
-                            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
-                                <button
-                                    type="button"
-                                    onClick={onClose}
-                                    className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                >
-                                    Done
-                                </button>
-                            </div>
                         </div>
                     )}
                 </div>
@@ -473,83 +511,92 @@ export default function DepartmentModal({
                     setShowRoleModal(false)
                     setEditingRole(null)
                 }}
-                title={editingRole ? 'Edit Role' : 'Create New Role'}
-                description={editingRole ? 'Update role permissions and settings' : 'Create a custom role for this department'}
+                title={editingRole ? `Edit: ${editingRole.name}` : 'Role Baru'}
+                description={editingRole ? 'Update permissions dan pengaturan role' : 'Buat role khusus untuk department ini'}
                 size="2xl"
             >
-                <form onSubmit={handleSaveRole} className="space-y-6">
+                <form onSubmit={handleSaveRole} className="p-6 space-y-5">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Role Name <span className="text-red-500">*</span>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                Nama Role <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
                                 required
                                 value={roleFormData.name}
                                 onChange={(e) => setRoleFormData(prev => ({ ...prev, name: e.target.value }))}
-                                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                placeholder="e.g., Field Technician"
+                                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                placeholder="Field Technician, dll."
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Role Code
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                Kode Role
                             </label>
                             <input
                                 type="text"
                                 value={roleFormData.code}
                                 onChange={(e) => setRoleFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono"
-                                placeholder="AUTO-GENERATED"
+                                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                placeholder="AUTO"
                                 disabled={!!editingRole}
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Description
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            Deskripsi
                         </label>
                         <textarea
                             value={roleFormData.description}
                             onChange={(e) => setRoleFormData(prev => ({ ...prev, description: e.target.value }))}
-                            rows={3}
-                            className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            placeholder="Describe this role..."
+                            rows={2}
+                            className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
+                            placeholder="Deskripsi role..."
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                            Role Permissions
-                        </label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                            Select features this role can access. Empty selection inherits all department permissions.
-                        </p>
-                        <div className="grid grid-cols-2 gap-2">
-                            {AVAILABLE_FEATURES.map((feature) => (
-                                <label
-                                    key={feature.value}
-                                    className="flex items-center gap-2 p-3 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={roleFormData.allowedFeatures.includes(feature.value)}
-                                        onChange={() => toggleFeature(feature.value, true)}
-                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-gray-600 dark:text-gray-400">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Role Permissions
+                                </label>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Kosongkan untuk mewarisi semua permission department
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => toggleAllFeatures(true)}
+                                className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                            >
+                                {roleFormData.allowedFeatures.length === AVAILABLE_FEATURES.length ? 'Hapus Semua' : 'Pilih Semua'}
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-64 overflow-y-auto p-1">
+                            {AVAILABLE_FEATURES.map((feature) => {
+                                const isSelected = roleFormData.allowedFeatures.includes(feature.value)
+                                return (
+                                    <button
+                                        key={feature.value}
+                                        type="button"
+                                        onClick={() => toggleFeature(feature.value, true)}
+                                        className={`flex items-center gap-2 p-2.5 rounded-lg border transition-all text-left ${isSelected
+                                                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
+                                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-400'
+                                            }`}
+                                    >
+                                        <span className={isSelected ? 'text-indigo-600 dark:text-indigo-400' : ''}>
                                             {feature.icon}
                                         </span>
-                                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                                            {feature.label}
-                                        </span>
-                                    </div>
-                                </label>
-                            ))}
+                                        <span className="text-sm">{feature.label}</span>
+                                    </button>
+                                )
+                            })}
                         </div>
                     </div>
 
@@ -557,16 +604,16 @@ export default function DepartmentModal({
                         <button
                             type="button"
                             onClick={() => setShowRoleModal(false)}
-                            className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
-                            Cancel
+                            Batal
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                            className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50"
                         >
-                            {loading ? 'Saving...' : (editingRole ? 'Update Role' : 'Create Role')}
+                            {loading ? 'Menyimpan...' : (editingRole ? 'Update Role' : 'Buat Role')}
                         </button>
                     </div>
                 </form>

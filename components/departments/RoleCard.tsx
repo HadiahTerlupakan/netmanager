@@ -6,7 +6,6 @@ import {
     HiOutlineUsers,
     HiOutlineCheckCircle,
     HiOutlineXCircle,
-    HiOutlineShieldCheck
 } from 'react-icons/hi2'
 
 interface RoleCardProps {
@@ -27,19 +26,19 @@ interface RoleCardProps {
 }
 
 const AVAILABLE_FEATURES = [
-    { value: 'DASHBOARD', label: 'Dashboard', icon: '📊', color: 'slate' },
-    { value: 'ROLES', label: 'Roles Management', icon: '🛡️', color: 'purple' },
-    { value: 'NETWORK', label: 'Network Management', icon: '🔌', color: 'indigo' },
-    { value: 'FTTH', label: 'FTTH Infrastructure', icon: '🌐', color: 'cyan' },
-    { value: 'PAKET', label: 'Paket & Bandwidth', icon: '📦', color: 'teal' },
-    { value: 'PELANGGAN', label: 'Customer Management', icon: '👤', color: 'purple' },
-    { value: 'INVENTORY', label: 'Inventory', icon: '📦', color: 'lime' },
-    { value: 'USERS', label: 'User Management', icon: '👥', color: 'sky' },
-    { value: 'HELPDESK', label: 'Helpdesk & Support', icon: '🎫', color: 'orange' },
-    { value: 'WORKORDERS', label: 'Work Orders', icon: '🔧', color: 'amber' },
-    { value: 'HRIS', label: 'HR & Payroll', icon: '👥', color: 'blue' },
-    { value: 'FINANCE', label: 'Finance & Billing', icon: '💰', color: 'emerald' },
-    { value: 'PENGATURAN', label: 'Settings', icon: '⚙️', color: 'gray' },
+    { value: 'DASHBOARD', label: 'Dashboard', icon: '📊' },
+    { value: 'ROLES', label: 'Roles', icon: '🛡️' },
+    { value: 'NETWORK', label: 'Network', icon: '🔌' },
+    { value: 'FTTH', label: 'FTTH', icon: '🌐' },
+    { value: 'PAKET', label: 'Paket', icon: '📦' },
+    { value: 'PELANGGAN', label: 'Pelanggan', icon: '👤' },
+    { value: 'INVENTORY', label: 'Inventory', icon: '📦' },
+    { value: 'USERS', label: 'Users', icon: '👥' },
+    { value: 'HELPDESK', label: 'Helpdesk', icon: '🎫' },
+    { value: 'WORKORDERS', label: 'Work Orders', icon: '🔧' },
+    { value: 'HRIS', label: 'HRIS', icon: '👥' },
+    { value: 'FINANCE', label: 'Finance', icon: '💰' },
+    { value: 'PENGATURAN', label: 'Pengaturan', icon: '⚙️' },
 ]
 
 export default function RoleCard({
@@ -61,151 +60,128 @@ export default function RoleCard({
     // Calculate permission changes
     const addedFeatures = roleFeatures.filter(f => !departmentFeatures.includes(f))
     const removedFeatures = departmentFeatures.filter(f => !roleFeatures.includes(f))
+    const inheritsAll = addedFeatures.length === 0 && removedFeatures.length === 0
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all">
-            {/* Role Header */}
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+        <div className={`bg-white dark:bg-gray-800 rounded-xl border transition-all hover:shadow-md ${role.isActive
+                ? 'border-gray-200 dark:border-gray-700'
+                : 'border-gray-200 dark:border-gray-700 opacity-60'
+            }`}>
+            {/* Header */}
+            <div className="p-4">
                 <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                        <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                            <HiOutlineShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                            {role.name}
-                        </h3>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+                                {role.name}
+                            </h3>
+                            {role.isActive ? (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded">
+                                    <HiOutlineCheckCircle className="w-3 h-3" />
+                                    Aktif
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 text-xs font-medium rounded">
+                                    <HiOutlineXCircle className="w-3 h-3" />
+                                    Nonaktif
+                                </span>
+                            )}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">
                             {role.code}
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        {role.isActive ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
-                                <HiOutlineCheckCircle className="w-4 h-4" />
-                                Active
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1 text-xs text-gray-500">
-                                <HiOutlineXCircle className="w-4 h-4" />
-                                Inactive
-                            </span>
-                        )}
+                    <div className="flex items-center gap-1.5 ml-2">
+                        <button
+                            onClick={() => onEdit(role)}
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                            title="Edit Role"
+                        >
+                            <HiOutlinePencil className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => onDelete(role.id, role.name, role._count.employeeRoles)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            title="Delete Role"
+                        >
+                            <HiOutlineTrash className="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
 
                 {role.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
                         {role.description}
                     </p>
                 )}
 
-                <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center gap-1">
+                {/* Stats Row */}
+                <div className="flex items-center gap-3 text-sm">
+                    <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
                         <HiOutlineUsers className="w-4 h-4" />
-                        <span>{role._count.employeeRoles} assigned</span>
+                        <span className="font-medium">{role._count.employeeRoles}</span>
+                        <span className="text-gray-400 dark:text-gray-500">assigned</span>
                     </div>
+                    <span className="text-gray-300 dark:text-gray-600">•</span>
+                    <span className="text-gray-500 dark:text-gray-400">
+                        {roleFeatures.length} permissions
+                    </span>
                 </div>
             </div>
 
-            {/* Permission Changes */}
-            <div className="p-4">
-                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                    Permission Changes
-                </h4>
-
-                {addedFeatures.length === 0 && removedFeatures.length === 0 ? (
-                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-                        Inherits all department permissions
-                    </p>
+            {/* Permission Summary */}
+            <div className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-gray-700/50">
+                {inheritsAll ? (
+                    <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+                        ✓ Mewarisi semua permission department
+                    </div>
                 ) : (
                     <div className="space-y-2">
                         {addedFeatures.length > 0 && (
-                            <div>
-                                <span className="text-xs font-medium text-green-700 dark:text-green-400 mb-1 block">
-                                    + Added Features
-                                </span>
-                                <div className="flex flex-wrap gap-1">
-                                    {addedFeatures.map(feature => {
-                                        const featureConfig = AVAILABLE_FEATURES.find(f => f.value === feature)
-                                        return (
-                                            <span
-                                                key={feature}
-                                                className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 text-xs rounded-full"
-                                            >
-                                                <span>{featureConfig?.icon}</span>
-                                                {featureConfig?.label || feature}
-                                            </span>
-                                        )
-                                    })}
-                                </div>
+                            <div className="flex flex-wrap items-center gap-1">
+                                <span className="text-xs font-medium text-green-600 dark:text-green-400 mr-1">+</span>
+                                {addedFeatures.slice(0, 3).map(feature => {
+                                    const featureConfig = AVAILABLE_FEATURES.find(f => f.value === feature)
+                                    return (
+                                        <span
+                                            key={feature}
+                                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-xs rounded"
+                                        >
+                                            {featureConfig?.icon} {featureConfig?.label || feature}
+                                        </span>
+                                    )
+                                })}
+                                {addedFeatures.length > 3 && (
+                                    <span className="text-xs text-green-600 dark:text-green-400">
+                                        +{addedFeatures.length - 3}
+                                    </span>
+                                )}
                             </div>
                         )}
 
                         {removedFeatures.length > 0 && (
-                            <div>
-                                <span className="text-xs font-medium text-red-700 dark:text-red-400 mb-1 block">
-                                    - Removed Features
-                                </span>
-                                <div className="flex flex-wrap gap-1">
-                                    {removedFeatures.map(feature => {
-                                        const featureConfig = AVAILABLE_FEATURES.find(f => f.value === feature)
-                                        return (
-                                            <span
-                                                key={feature}
-                                                className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 text-xs rounded-full"
-                                            >
-                                                <span>{featureConfig?.icon}</span>
-                                                {featureConfig?.label || feature}
-                                            </span>
-                                        )
-                                    })}
-                                </div>
+                            <div className="flex flex-wrap items-center gap-1">
+                                <span className="text-xs font-medium text-red-600 dark:text-red-400 mr-1">−</span>
+                                {removedFeatures.slice(0, 3).map(feature => {
+                                    const featureConfig = AVAILABLE_FEATURES.find(f => f.value === feature)
+                                    return (
+                                        <span
+                                            key={feature}
+                                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs rounded line-through"
+                                        >
+                                            {featureConfig?.icon} {featureConfig?.label || feature}
+                                        </span>
+                                    )
+                                })}
+                                {removedFeatures.length > 3 && (
+                                    <span className="text-xs text-red-600 dark:text-red-400">
+                                        +{removedFeatures.length - 3}
+                                    </span>
+                                )}
                             </div>
                         )}
                     </div>
                 )}
-
-                {/* Current Features Summary */}
-                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">
-                        Final Permissions ({roleFeatures.length} total)
-                    </span>
-                    <div className="flex flex-wrap gap-1">
-                        {roleFeatures.slice(0, 4).map(feature => {
-                            const featureConfig = AVAILABLE_FEATURES.find(f => f.value === feature)
-                            return (
-                                <span
-                                    key={feature}
-                                    className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs rounded-full"
-                                >
-                                    <span>{featureConfig?.icon}</span>
-                                    {featureConfig?.label || feature}
-                                </span>
-                            )
-                        })}
-                        {roleFeatures.length > 4 && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                                +{roleFeatures.length - 4} more
-                            </span>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Actions */}
-            <div className="px-4 pb-4 flex items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
-                <button
-                    onClick={() => onEdit(role)}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                    <HiOutlinePencil className="w-4 h-4" />
-                    Edit Role
-                </button>
-                <button
-                    onClick={() => onDelete(role.id, role.name, role._count.employeeRoles)}
-                    className="inline-flex items-center justify-center gap-2 px-3 py-2 border border-red-300 dark:border-red-800 rounded-lg text-sm font-medium text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                >
-                    <HiOutlineTrash className="w-4 h-4" />
-                    Delete
-                </button>
             </div>
         </div>
     )
