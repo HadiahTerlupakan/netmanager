@@ -26,11 +26,26 @@ export default function NewWorkOrderPage() {
         contactPhone: '', scheduledDate: '', scheduledTimeStart: '', scheduledTimeEnd: '',
     })
 
-    useEffect(() => { if (status === 'unauthenticated') router.push('/login') }, [status, router])
+    useEffect(() => {
+        if (status === 'unauthenticated') router.push('/login')
+    }, [status, router])
 
     useEffect(() => {
-        if (searchQuery.length > 2) searchPelanggan()
-        else setPelangganList([])
+        let isMounted = true
+
+        const performSearch = async () => {
+            if (searchQuery.length > 2 && isMounted) {
+                await searchPelanggan()
+            } else if (isMounted) {
+                setPelangganList([])
+            }
+        }
+
+        performSearch()
+
+        return () => {
+            isMounted = false
+        }
     }, [searchQuery])
 
     const searchPelanggan = async () => {

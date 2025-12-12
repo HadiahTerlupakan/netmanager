@@ -79,7 +79,7 @@ describe('Upload Path Generation', () => {
     // This would test the generateR2Key function from r2-client
     // Since we're importing it, we can test the path structure
 
-    const { generateR2Key } = require('../../r2-client')
+    const { generateR2Key } = require('../r2-client')
 
     // Test inventory-masuk with subfolder
     const masukPath = generateR2Key(

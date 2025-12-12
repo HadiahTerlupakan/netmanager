@@ -110,8 +110,18 @@ async function main() {
   })
 
   if (!employee) {
-    employee = await prisma.employee.create({
-      data: {
+    // Use upsert to handle potential duplicate employeeId
+    employee = await prisma.employee.upsert({
+      where: { employeeId: 'EMP-ADMIN' },
+      update: {
+        fullName: 'Administrator',
+        email: adminEmail,
+        userId: user.id,
+        employmentStatus: 'PERMANENT',
+        joinDate: new Date(),
+        createdBy: user.id,
+      },
+      create: {
         employeeId: 'EMP-ADMIN',
         fullName: 'Administrator',
         email: adminEmail,
@@ -121,7 +131,7 @@ async function main() {
         createdBy: user.id,
       },
     })
-    console.log(`✓ Employee created: ${employee.employeeId}`)
+    console.log(`✓ Employee created/updated: ${employee.employeeId}`)
   } else {
     console.log(`⚠️  Employee already exists: ${employee.employeeId}`)
   }

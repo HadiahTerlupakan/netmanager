@@ -4,13 +4,7 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
   reactStrictMode: true,
-  experimental: {
-    // App Router is default; ensure serverActions available when needed
-    // Suppress middleware deprecation warning (middleware.ts is still supported)
-    serverActions: {
-      bodySizeLimit: '2mb',
-    },
-  },
+  // Next.js 16: serverActions configuration is now handled differently
   // CORS Configuration
   async headers() {
     return [

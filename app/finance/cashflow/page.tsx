@@ -917,7 +917,7 @@ export default function FinanceCashflowPage() {
                     cy="50%"
                     outerRadius={80}
                     dataKey="value"
-                    label={({ name, value, percent }: { name: string; value: number; percent: number }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                    label={({ name, percent }: { name?: string; value?: number; percent?: number }) => `${name || ''}: ${((percent || 0) * 100).toFixed(1)}%`}
                   >
                     <Cell fill="#22c55e" />
                     <Cell fill="#ef4444" />
