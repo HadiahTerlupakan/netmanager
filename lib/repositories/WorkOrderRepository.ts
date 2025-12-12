@@ -619,7 +619,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             if (filters.dateTo) where.createdAt.lte = filters.dateTo;
         }
 
-        const [total, statusCounts, completedOrders, ratingData] = await Promise.all([
+        const [total, statusCounts, completedOrders, ratingData, urgentOpen] = await Promise.all([
             this.prisma.workOrder.count({ where }),
             this.prisma.workOrder.groupBy({
                 by: ['status'],
@@ -648,6 +648,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 },
                 _count: {
                     rating: true,
+                },
+            }),
+            this.prisma.workOrder.count({
+                where: {
+                    ...where,
+                    priority: { in: ['HIGH', 'URGENT', 'CRITICAL'] },
+                    status: { notIn: ['COMPLETED', 'VERIFIED', 'CLOSED', 'CANCELLED'] },
                 },
             }),
         ]);
@@ -680,11 +687,71 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             verified: statusMap['VERIFIED'] || 0,
             closed: statusMap['CLOSED'] || 0,
             cancelled: statusMap['CANCELLED'] || 0,
+            urgentOpen,
             avgCompletionTimeHours: completedOrders.length > 0 ? totalCompletionHours / completedOrders.length : 0,
             totalCost,
             avgRating: ratingData._avg.rating || null,
             totalWithRating: ratingData._count.rating || 0,
         };
+    }
+
+    /**
+     * Get top performers based on completed tasks and average completion time
+     */
+    async getTopPerformers(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<Array<{ employeeName: string; count: number; avgCompletionTime: number }>> {
+        const where: any = {
+            status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
+            assignedToId: { not: null },
+            completedAt: { not: null },
+            startedAt: { not: null },
+        };
+
+        if (dateFrom || dateTo) {
+            where.completedAt = {};
+            if (dateFrom) where.completedAt.gte = dateFrom;
+            if (dateTo) where.completedAt.lte = dateTo;
+        }
+
+        const completedWorkOrders = await this.prisma.workOrder.findMany({
+            where,
+            select: {
+                assignedTo: {
+                    select: {
+                        fullName: true,
+                    },
+                },
+                startedAt: true,
+                completedAt: true,
+            },
+        });
+
+        const employeeStats: Record<string, { count: number; totalHours: number }> = {};
+
+        completedWorkOrders.forEach((wo) => {
+            if (wo.assignedTo && wo.startedAt && wo.completedAt) {
+                const name = wo.assignedTo.fullName;
+                const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
+
+                if (!employeeStats[name]) {
+                    employeeStats[name] = { count: 0, totalHours: 0 };
+                }
+
+                employeeStats[name].count += 1;
+                employeeStats[name].totalHours += hours;
+            }
+        });
+
+        const topPerformers = Object.entries(employeeStats).map(([name, stats]) => ({
+            employeeName: name,
+            count: stats.count,
+            avgCompletionTime: stats.totalHours / stats.count,
+        }));
+
+        // Sort by count (desc) then by avgCompletionTime (asc)
+        return topPerformers.sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            return a.avgCompletionTime - b.avgCompletionTime;
+        }).slice(0, limit);
     }
 
     /**
@@ -915,5 +982,170 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 completed,
             },
         };
+    }
+    /**
+     * Helper to classify work order based on title
+     */
+    private classifyIssue(title: string): string {
+        const lowerTitle = title.toLowerCase();
+
+        if (lowerTitle.includes('mati') || lowerTitle.includes('focut') || lowerTitle.includes('los') || lowerTitle.includes('merah')) {
+            return 'Internet Mati / FOCUT';
+        }
+        if (lowerTitle.includes('lambat') || lowerTitle.includes('lemot') || lowerTitle.includes('slow') || lowerTitle.includes('lag')) {
+            return 'Koneksi Lambat';
+        }
+        if (lowerTitle.includes('tarik') || lowerTitle.includes('ambil') || lowerTitle.includes('dismantle') || lowerTitle.includes('cabut')) {
+            return 'Penarikan Perangkat';
+        }
+        if (lowerTitle.includes('pasang baru') || lowerTitle.includes('psb') || lowerTitle.includes('install')) {
+            return 'Pasang Baru';
+        }
+        if (lowerTitle.includes('relokasi') || lowerTitle.includes('pindah') || lowerTitle.includes('geser')) {
+            return 'Relokasi Perangkat';
+        }
+
+        return 'Other';
+    }
+
+    /**
+     * Get statistics on most common issues (based on Title keywords)
+     */
+    async getIssueStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<Array<{ issue: string; count: number }>> {
+        const where: any = {};
+        if (dateFrom || dateTo) {
+            where.createdAt = {};
+            if (dateFrom) where.createdAt.gte = dateFrom;
+            if (dateTo) where.createdAt.lte = dateTo;
+        }
+
+        // Fetch all work orders for the period
+        const workOrders = await this.prisma.workOrder.findMany({
+            where,
+            select: { title: true }
+        });
+
+        // Categorize and count
+        const counts: Record<string, number> = {
+            'Internet Mati / FOCUT': 0,
+            'Koneksi Lambat': 0,
+            'Penarikan Perangkat': 0,
+            'Pasang Baru': 0,
+            'Relokasi Perangkat': 0,
+            'Other': 0
+        };
+
+        workOrders.forEach(wo => {
+            const category = this.classifyIssue(wo.title);
+            counts[category]++;
+        });
+
+        // Convert to array and sort
+        return Object.entries(counts)
+            .filter(([_, count]) => count > 0)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, limit)
+            .map(([issue, count]) => ({ issue, count }));
+    }
+
+    /**
+     * Get statistics on sites with most work orders and their most common issue
+     */
+    async getSiteStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<Array<{ siteName: string; count: number; mostCommonIssue: string }>> {
+        const where: any = {};
+
+        if (dateFrom || dateTo) {
+            where.createdAt = {};
+            if (dateFrom) where.createdAt.gte = dateFrom;
+            if (dateTo) where.createdAt.lte = dateTo;
+        }
+
+        // 1. Find top sites (Group by pelangganId)
+        const topSites = await this.prisma.workOrder.groupBy({
+            by: ['pelangganId'],
+            where: {
+                ...where,
+                pelangganId: { not: null },
+            },
+            _count: {
+                pelangganId: true,
+            },
+            orderBy: {
+                _count: {
+                    pelangganId: 'desc',
+                },
+            },
+            take: limit,
+        });
+
+        const results = await Promise.all(topSites.map(async (site) => {
+            if (!site.pelangganId) return null;
+
+            const pelanggan = await this.prisma.pelanggan.findUnique({
+                where: { id: site.pelangganId },
+                select: { nama: true },
+            });
+
+            // 2. Fetch all work orders for this site within the period
+            const siteWorkOrders = await this.prisma.workOrder.findMany({
+                where: {
+                    ...where,
+                    pelangganId: site.pelangganId,
+                },
+                select: { title: true }
+            });
+
+            // 3. Find most common issue for this site
+            const issueCounts: Record<string, number> = {};
+            siteWorkOrders.forEach(wo => {
+                const category = this.classifyIssue(wo.title);
+                issueCounts[category] = (issueCounts[category] || 0) + 1;
+            });
+
+            const mostCommonIssue = Object.entries(issueCounts)
+                .sort((a, b) => b[1] - a[1])[0];
+
+            return {
+                siteName: pelanggan?.nama || 'Unknown Site',
+                count: site._count.pelangganId,
+                mostCommonIssue: mostCommonIssue ? mostCommonIssue[0] : 'N/A',
+            };
+        }));
+
+        return results.filter((r): r is { siteName: string; count: number; mostCommonIssue: string } => r !== null);
+    }
+
+    /**
+     * Get statistics on disconnection reasons
+     */
+    async getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date): Promise<Array<{ reason: string; count: number }>> {
+        const where: any = {
+            type: 'DISCONNECTION',
+            disconnectionReason: { not: null }
+        };
+
+        if (dateFrom || dateTo) {
+            where.createdAt = {};
+            if (dateFrom) where.createdAt.gte = dateFrom;
+            if (dateTo) where.createdAt.lte = dateTo;
+        }
+
+        const stats = await this.prisma.workOrder.groupBy({
+            by: ['disconnectionReason'],
+            where,
+            _count: {
+                disconnectionReason: true,
+            },
+            orderBy: {
+                _count: {
+                    disconnectionReason: 'desc',
+                },
+            },
+        });
+
+        return stats.map(stat => ({
+            reason: stat.disconnectionReason as string,
+            count: stat._count.disconnectionReason,
+        }));
     }
 }

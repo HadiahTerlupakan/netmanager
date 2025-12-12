@@ -63,6 +63,7 @@ export interface CreateWorkOrderData {
     estimatedHours?: number;
     estimatedCost?: number;
     internalNotes?: string;
+    disconnectionReason?: string;
 }
 
 export interface UpdateWorkOrderData {
@@ -92,6 +93,7 @@ export interface UpdateWorkOrderData {
     resolutionNotes?: string;
     customerFeedback?: string;
     rating?: number;
+    disconnectionReason?: string;
 }
 
 export interface CreateTaskData {
@@ -145,10 +147,28 @@ export interface WorkOrderStatistics {
     verified: number;
     closed: number;
     cancelled: number;
+    urgentOpen: number;
     avgCompletionTimeHours: number;
     totalCost: number;
     avgRating: number | null;
     totalWithRating: number;
+}
+
+export interface TopPerformer {
+    employeeName: string;
+    count: number;
+    avgCompletionTime: number;
+}
+
+export interface IssueStatistic {
+    issue: string;
+    count: number;
+}
+
+export interface SiteStatistic {
+    siteName: string;
+    count: number;
+    mostCommonIssue: string;
 }
 
 export interface IWorkOrderRepository {
@@ -196,6 +216,10 @@ export interface IWorkOrderRepository {
 
     // Statistics
     getStatistics(filters?: Omit<WorkOrderFilters, 'search'>): Promise<WorkOrderStatistics>;
+    getTopPerformers(limit?: number, dateFrom?: Date, dateTo?: Date): Promise<TopPerformer[]>;
+    getIssueStatistics(limit?: number, dateFrom?: Date, dateTo?: Date): Promise<IssueStatistic[]>;
+    getSiteStatistics(limit?: number, dateFrom?: Date, dateTo?: Date): Promise<SiteStatistic[]>;
+    getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date): Promise<Array<{ reason: string; count: number }>>;
 
     // Utilities
     generateWorkOrderNumber(): Promise<string>;

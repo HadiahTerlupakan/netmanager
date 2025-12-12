@@ -51,6 +51,7 @@ export default function NewWorkOrderPage() {
         scheduledDate: '',
         scheduledTimeStart: '',
         scheduledTimeEnd: '',
+        disconnectionReason: '',
     })
 
     useEffect(() => {
@@ -132,7 +133,8 @@ export default function NewWorkOrderPage() {
                     title: 'Internet Mati / FOCUT',
                     description: 'Internet mati total, kemungkinan kabel putus atau LOS merah.',
                     type: 'TROUBLESHOOT',
-                    priority: 'HIGH'
+                    priority: 'HIGH',
+                    disconnectionReason: ''
                 }))
                 break;
             case 'WIFI_NO_CONNECT':
@@ -141,7 +143,8 @@ export default function NewWorkOrderPage() {
                     title: 'Tidak Bisa Connect WiFi',
                     description: 'Perangkat tidak bisa terhubung ke WiFi, atau password salah terus.',
                     type: 'TROUBLESHOOT',
-                    priority: 'NORMAL'
+                    priority: 'NORMAL',
+                    disconnectionReason: ''
                 }))
                 break;
             case 'LAMBAT':
@@ -150,7 +153,8 @@ export default function NewWorkOrderPage() {
                     title: 'Koneksi Lambat',
                     description: 'Koneksi internet terasa lambat tidak sesuai paket.',
                     type: 'TROUBLESHOOT',
-                    priority: 'NORMAL'
+                    priority: 'NORMAL',
+                    disconnectionReason: ''
                 }))
                 break;
             case 'PENARIKAN':
@@ -159,7 +163,8 @@ export default function NewWorkOrderPage() {
                     title: 'Penarikan Perangkat',
                     description: 'Pengambilan perangkat dari lokasi pelanggan (Modem/Router).',
                     type: 'DISCONNECTION',
-                    priority: 'NORMAL'
+                    priority: 'NORMAL',
+                    disconnectionReason: ''
                 }))
                 break;
             case 'PASANG_BARU':
@@ -168,7 +173,8 @@ export default function NewWorkOrderPage() {
                     title: 'Instalasi Baru',
                     description: 'Pemasangan perangkat baru untuk pelanggan baru.',
                     type: 'INSTALLATION',
-                    priority: 'NORMAL'
+                    priority: 'NORMAL',
+                    disconnectionReason: ''
                 }))
                 break;
             case 'RELOKASI':
@@ -177,7 +183,8 @@ export default function NewWorkOrderPage() {
                     title: 'Relokasi Perangkat',
                     description: 'Pemindahan lokasi perangkat di alamat yang sama atau baru.',
                     type: 'RELOCATION',
-                    priority: 'NORMAL'
+                    priority: 'NORMAL',
+                    disconnectionReason: ''
                 }))
                 break;
         }
@@ -188,6 +195,7 @@ export default function NewWorkOrderPage() {
         // If Guest mode, only title and description required. If Customer mode, pelangganId required.
         if (!isGuest && !formData.pelangganId) { alert('Please select a customer or switch to Manual Ticket mode'); return }
         if (!formData.title || !formData.description) { alert('Please fill in title and description'); return }
+        if (formData.type === 'DISCONNECTION' && !formData.disconnectionReason) { alert('Please select a reason for disconnection'); return }
 
         setLoading(true)
 
@@ -205,6 +213,7 @@ export default function NewWorkOrderPage() {
             scheduledDate: formData.scheduledDate ? new Date(formData.scheduledDate) : undefined,
             scheduledTimeStart: formData.scheduledTimeStart || undefined,
             scheduledTimeEnd: formData.scheduledTimeEnd || undefined,
+            disconnectionReason: formData.disconnectionReason || undefined,
         }
 
         try {
@@ -422,6 +431,30 @@ export default function NewWorkOrderPage() {
                             <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Detailed description..." rows={5} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 resize-none" required />
                         </div>
                     </div>
+
+                    {/* Disconnection Reason Dropdown */}
+                    {(formData.type === 'DISCONNECTION' || formData.title.includes('Penarikan Perangkat')) && (
+                        <div className="space-y-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                            <label className="block text-sm font-medium text-red-900">Alasan Penarikan <span className='text-red-500'>*</span></label>
+                            <select
+                                value={formData.disconnectionReason}
+                                onChange={(e) => setFormData({ ...formData, disconnectionReason: e.target.value })}
+                                className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 text-gray-900"
+                                required={formData.type === 'DISCONNECTION'}
+                            >
+                                <option value="">Pilih Alasan...</option>
+                                <option value="Telat Bayar">Telat Bayar</option>
+                                <option value="Pindah Rumah">Pindah Rumah</option>
+                                <option value="Pindah ke Provider Lain">Pindah ke Provider Lain</option>
+                                <option value="Sering Gangguan">Sering Gangguan</option>
+                                <option value="Pelayanan Pelanggan Buruk">Pelayanan Pelanggan Buruk</option>
+                                <option value="Kebutuhan Menurun">Kebutuhan Menurun</option>
+                                <option value="Harga Terlalu Mahal">Harga Terlalu Mahal</option>
+                                <option value="Kecepatan Tidak Sesuai Janji">Kecepatan Tidak Sesuai Janji</option>
+                                <option value="Tidak Ada Keterangan">Tidak Ada Keterangan</option>
+                            </select>
+                        </div>
+                    )}
 
                     {/* Detailed Actions (Hidden in Simple Mode) */}
                     <div className={`space-y-6 pt-6 border-t border-gray-100 ${simpleMode ? 'hidden' : 'block'}`}>
