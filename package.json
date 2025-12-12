@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "next build --webpack",
+    "dev:sync": "tsx scripts/sync-menu-definitions.ts && next dev --webpack",
+    "sync:menus": "tsx scripts/sync-menu-definitions.ts",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

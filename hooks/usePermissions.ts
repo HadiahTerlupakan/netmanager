@@ -37,12 +37,22 @@ export function useMenuDefinitions(portal?: string): UseMenuDefinitionsResult {
         setError(null)
 
         try {
-            const url = portal
-                ? `/api/menu-definitions?portal=${portal}`
-                : '/api/menu-definitions'
+            // Try runtime discovery first (no database needed)
+            const discoveryUrl = portal
+                ? `/api/menu-discovery?portal=${portal}`
+                : '/api/menu-discovery'
 
-            const response = await fetch(url)
-            const data = await response.json()
+            let response = await fetch(discoveryUrl)
+            let data = await response.json()
+
+            // If discovery fails, fallback to database
+            if (!data.success) {
+                const dbUrl = portal
+                    ? `/api/menu-definitions?portal=${portal}`
+                    : '/api/menu-definitions'
+                response = await fetch(dbUrl)
+                data = await response.json()
+            }
 
             if (data.success) {
                 setMenus(data.data)

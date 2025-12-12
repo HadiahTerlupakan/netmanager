@@ -1362,6 +1362,7 @@ model Employee {
   updatedAt            DateTime              @updatedAt
   createdBy            String?
   updatedBy            String?
+  workOrdersCreated    WorkOrder[]           @relation("WorkOrderCreatedBy")
   attendances          Attendance[]
   documents            EmployeeDocument[]
   customRoles          EmployeeRole[]
@@ -2083,8 +2084,10 @@ model WorkOrder {
   customerFeedback   String?
   rating             Int?
   disconnectionReason String?
+  createdById        String?
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
+  createdBy          Employee?             @relation("WorkOrderCreatedBy", fields: [createdById], references: [id])
   assignments        WorkOrderAssignment[]
   attachments        WorkOrderAttachment[]
   tasks              WorkOrderTask[]

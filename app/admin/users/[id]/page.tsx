@@ -149,6 +149,13 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
         setUser(usr)
         const emp = usr.employee || {}
 
+        console.log('[USER-EDIT] Employee data loaded:', {
+          employeeId: emp.employeeId,
+          customRoleId: emp.customRoleId,
+          customRoleName: emp.customRoleName,
+          formDataRoleBefore: formData.roleId
+        })
+
         setFormData(prev => ({
           ...prev,
           // User data
@@ -178,6 +185,11 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
           emergencyPhone: emp.emergencyPhone || '',
           emergencyRelation: emp.emergencyRelation || '',
         }))
+
+        console.log('[USER-EDIT] Form data after update:', {
+          roleId: formData.roleId,
+          employeeId: emp.employeeId
+        })
       }
     } catch (error) {
       console.error('Error fetching user:', error)
@@ -235,6 +247,10 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
       newErrors.joinDate = 'Tanggal bergabung wajib diisi'
     }
 
+    if (!formData.roleId) {
+      newErrors.roleId = 'Role name is required'
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -249,6 +265,12 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     setSubmitting(true)
 
     try {
+      console.log('[USER-EDIT] Submitting form data:', {
+        name: formData.name,
+        roleId: formData.roleId,
+        employeeId: formData.employeeId
+      })
+
       // 1. Update User
       const userUpdateBody: any = {
         name: formData.name,

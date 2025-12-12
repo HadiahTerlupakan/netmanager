@@ -113,6 +113,8 @@ export default function WorkOrderDetailPage() {
     })
     const [newTask, setNewTask] = useState('')
     const [addingTask, setAddingTask] = useState(false)
+    const [newComment, setNewComment] = useState('')
+    const [addingComment, setAddingComment] = useState(false)
     const [showRejectModal, setShowRejectModal] = useState(false)
     const [rejectReason, setRejectReason] = useState('')
     const [showCancelModal, setShowCancelModal] = useState(false)
@@ -303,16 +305,46 @@ export default function WorkOrderDetailPage() {
         )
     }
 
+    const handleAddComment = async () => {
+        if (!newComment.trim()) return
+
+        setAddingComment(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/${workOrderId}/comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: newComment }),
+            })
+
+            if (response.ok) {
+                setNewComment('')
+                fetchWorkOrder()
+            } else {
+                alert('Failed to add comment')
+            }
+        } catch (error) {
+            console.error('Error adding comment:', error)
+            alert('Error adding comment')
+        } finally {
+            setAddingComment(false)
+        }
+    }
+
     const completedTasks = workOrder.tasks?.filter(t => t.status === 'COMPLETED').length || 0
     const totalTasks = workOrder.tasks?.length || 0
     const progressPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
 
     // Process timeline items
     const timelineItems = [
-        ...(workOrder.updates || []).map(u => ({ type: 'update' as const, date: new Date(u.createdAt), id: u.id, data: u })),
+        ...(workOrder.updates || []).map(u => ({
+            type: u.updateType === 'COMMENT' ? 'comment' : 'update',
+            date: new Date(u.createdAt),
+            id: u.id,
+            data: u
+        })),
         ...(workOrder.attachments || [])
             .filter(a => !a.caption?.startsWith('[COMPLETION]'))
-            .map(a => ({ type: 'attachment' as const, date: new Date(a.uploadedAt), id: a.id, data: a }))
+            .map(a => ({ type: 'attachment', date: new Date(a.uploadedAt), id: a.id, data: a }))
     ].sort((a, b) => b.date.getTime() - a.date.getTime())
 
     // Filter completion photos
@@ -521,42 +553,81 @@ export default function WorkOrderDetailPage() {
                     {/* Timeline */}
                     <div className="bg-white rounded-lg shadow p-6">
                         <h3 className="font-semibold text-gray-900 mb-4">Activity Timeline</h3>
+
+                        {/* New Comment Input */}
+                        <div className="mb-6 flex gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 flex-shrink-0">
+                                <HiUserCircle className="w-6 h-6" />
+                            </div>
+                            <div className="flex-1">
+                                <textarea
+                                    value={newComment}
+                                    onChange={(e) => setNewComment(e.target.value)}
+                                    placeholder="Write a comment or ask a question..."
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 min-h-[80px]"
+                                />
+                                <div className="flex justify-end mt-2">
+                                    <button
+                                        onClick={handleAddComment}
+                                        disabled={addingComment || !newComment.trim()}
+                                        className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700 disabled:opacity-50"
+                                    >
+                                        {addingComment ? 'Posting...' : 'Post Comment'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="space-y-4">
                             {timelineItems.length > 0 ? (
                                 timelineItems.map((item) => (
                                     <div key={item.id} className="flex gap-3">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${item.type === 'update' ? 'bg-sky-100' : 'bg-orange-100'
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                            // @ts-ignore
+                                            item.type === 'comment' ? 'bg-indigo-100' :
+                                                // @ts-ignore
+                                                item.type === 'update' ? 'bg-sky-100' : 'bg-orange-100'
                                             }`}>
-                                            {item.type === 'update' ? (
-                                                <HiClock className="w-4 h-4 text-sky-600" />
-                                            ) : (
-                                                <HiPhoto className="w-4 h-4 text-orange-600" />
-                                            )}
+                                            {
+                                                // @ts-ignore
+                                                item.type === 'comment' ? (
+                                                    <HiBriefcase className="w-4 h-4 text-indigo-600" />
+                                                ) :
+                                                    // @ts-ignore
+                                                    item.type === 'update' ? (
+                                                        <HiClock className="w-4 h-4 text-sky-600" />
+                                                    ) : (
+                                                        <HiPhoto className="w-4 h-4 text-orange-600" />
+                                                    )}
                                         </div>
                                         <div className="flex-1">
-                                            {item.type === 'update' ? (
-                                                <p className="text-sm text-gray-900">{(item.data as any).message}</p>
-                                            ) : (
-                                                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-1 inline-block">
-                                                    <a
-                                                        href={(item.data as any).filePath}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="block"
-                                                    >
-                                                        <img
-                                                            src={(item.data as any).filePath}
-                                                            alt={(item.data as any).caption || 'Attachment'}
-                                                            className="h-40 rounded-lg object-cover mb-2"
-                                                        />
-                                                    </a>
-                                                    {(item.data as any).caption && (
-                                                        <p className="text-xs text-gray-600 italic">
-                                                            {(item.data as any).caption.replace(/^\[(HOLD|NOTE)\]\s*/, '')}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
+                                            {
+                                                // @ts-ignore
+                                                item.type === 'update' || item.type === 'comment' ? (
+                                                    <div className={`${(item.data as any).updateType === 'COMMENT' ? 'bg-gray-50 p-3 rounded-lg border border-gray-100' : ''}`}>
+                                                        <p className="text-sm text-gray-900 whitespace-pre-wrap">{(item.data as any).message}</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-1 inline-block">
+                                                        <a
+                                                            href={(item.data as any).filePath}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="block"
+                                                        >
+                                                            <img
+                                                                src={(item.data as any).filePath}
+                                                                alt={(item.data as any).caption || 'Attachment'}
+                                                                className="h-40 rounded-lg object-cover mb-2"
+                                                            />
+                                                        </a>
+                                                        {(item.data as any).caption && (
+                                                            <p className="text-xs text-gray-600 italic">
+                                                                {(item.data as any).caption.replace(/^\[(HOLD|NOTE)\]\s*/, '')}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
                                             <p className="text-xs text-gray-500 mt-1">
                                                 {item.type === 'update' ? (
                                                     <>

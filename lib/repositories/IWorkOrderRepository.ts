@@ -43,12 +43,14 @@ export interface WorkOrderWithRelations extends WorkOrder {
 }
 
 export interface CreateWorkOrderData {
-    pelangganId: string;
+    workOrderNumber?: string;
+    pelangganId?: string;
     ticketId?: string;
     siteId?: string;
     type: WorkOrderType;
     title: string;
     description: string;
+    status?: WorkOrderStatus;
     priority?: WorkOrderPriority;
     departmentId?: string;
     assignedToId?: string;
@@ -62,8 +64,10 @@ export interface CreateWorkOrderData {
     scheduledTimeEnd?: string;
     estimatedHours?: number;
     estimatedCost?: number;
+    requiredMaterials?: any;
     internalNotes?: string;
     disconnectionReason?: string;
+    createdById?: string;
 }
 
 export interface UpdateWorkOrderData {
@@ -220,6 +224,9 @@ export interface IWorkOrderRepository {
     getIssueStatistics(limit?: number, dateFrom?: Date, dateTo?: Date): Promise<IssueStatistic[]>;
     getSiteStatistics(limit?: number, dateFrom?: Date, dateTo?: Date): Promise<SiteStatistic[]>;
     getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date): Promise<Array<{ reason: string; count: number }>>;
+
+    // Comments
+    addComment(workOrderId: string, message: string, userId: string): Promise<any>;
 
     // Utilities
     generateWorkOrderNumber(): Promise<string>;

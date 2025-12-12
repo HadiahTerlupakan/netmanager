@@ -266,6 +266,7 @@ export default function Sidebar() {
       permission: 'HRIS',
       children: [
         { href: '/admin/hris', label: 'Dashboard', icon: <HiOutlineChartBar className="w-4 h-4" />, permission: 'HRIS', exact: true },
+        { href: '/admin/kpi', label: 'KPI Dashboard', icon: <HiOutlinePresentationChartLine className="w-4 h-4" />, permission: 'HRIS' },
         { href: '/admin/hris/departments', label: 'Departments', icon: <HiOutlineHome className="w-4 h-4" />, permission: 'HRIS' },
         { href: '/admin/hris/sites', label: 'Sites / Area', icon: <HiOutlineMap className="w-4 h-4" />, permission: 'HRIS' },
         { href: '/admin/hris/attendance', label: 'Attendance', icon: <HiOutlineClock className="w-4 h-4" />, permission: 'HRIS' },

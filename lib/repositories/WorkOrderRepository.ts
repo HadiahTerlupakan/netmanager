@@ -51,6 +51,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 ...(pelangganId ? { pelangganId } : {}),
                 status: 'PENDING',
                 priority: data.priority || 'NORMAL',
+                createdById: data.createdById,
             },
         });
     }
@@ -1121,31 +1122,46 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     async getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date): Promise<Array<{ reason: string; count: number }>> {
         const where: any = {
             type: 'DISCONNECTION',
-            disconnectionReason: { not: null }
+            status: 'COMPLETED',
         };
 
-        if (dateFrom || dateTo) {
-            where.createdAt = {};
-            if (dateFrom) where.createdAt.gte = dateFrom;
-            if (dateTo) where.createdAt.lte = dateTo;
+        if (dateFrom) {
+            where.completedAt = { gte: dateFrom };
+        }
+        if (dateTo) {
+            where.completedAt = { ...where.completedAt, lte: dateTo };
         }
 
-        const stats = await this.prisma.workOrder.groupBy({
+        const groupBy = await this.prisma.workOrder.groupBy({
             by: ['disconnectionReason'],
-            where,
-            _count: {
-                disconnectionReason: true,
+            where: {
+                ...where,
+                disconnectionReason: { not: null },
             },
-            orderBy: {
-                _count: {
-                    disconnectionReason: 'desc',
-                },
+            _count: {
+                _all: true,
             },
         });
 
-        return stats.map(stat => ({
-            reason: stat.disconnectionReason as string,
-            count: stat._count.disconnectionReason,
+        return groupBy.map((item) => ({
+            reason: item.disconnectionReason!,
+            count: item._count._all,
         }));
+    }
+
+    async addComment(workOrderId: string, message: string, userId: string): Promise<any> {
+        // Find employee ID for the user
+        const employee = await this.prisma.employee.findUnique({
+            where: { userId },
+        });
+
+        return this.prisma.workOrderUpdate.create({
+            data: {
+                workOrderId,
+                updateType: 'COMMENT',
+                message,
+                createdById: employee?.id,
+            },
+        });
     }
 }

@@ -62,7 +62,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const workOrder = await workOrderRepo.create(body);
+        // Get employee ID if available
+        const employee = await prisma.employee.findUnique({
+            where: { userId: user.id },
+        });
+
+        const workOrder = await workOrderRepo.create({
+            ...body,
+            createdById: employee?.id,
+        });
 
         return NextResponse.json({
             success: true,
