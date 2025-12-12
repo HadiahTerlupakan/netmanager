@@ -19,7 +19,29 @@ import {
 import { useFinance } from '@/hooks/useFinance'
 import TransaksiModal from '@/components/finance/TransaksiModal'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
-import { Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, PieChart, Pie, Cell } from 'recharts'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+} from 'chart.js'
+import { Line, Pie } from 'react-chartjs-2'
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+)
 import PageLoader from '@/components/ui/PageLoader'
 
 const formatRupiah = (amount: number | string) => {
@@ -850,52 +872,66 @@ export default function FinanceCashflowPage() {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Trend Cash Flow (6 Bulan Terakhir)</h3>
 
             <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={cashflowData.perBulan.map((item: any) => ({
-                    month: `${item.bulan} ${item.tahun}`,
-                    pemasukan: Number(item.pemasukan),
-                    pengeluaran: Number(item.pengeluaran),
-                    saldo: Number(item.saldo)
-                  }))}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 12 }}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value: number) => formatRupiah(Number(value))}
-                  />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.8)', color: '#fff', borderRadius: '4px' }}
-                    formatter={(value: number, name: string) => [formatRupiah(Number(value)), name === 'saldo' ? 'Saldo' : name === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran']}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="saldo"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    dot={{ fill: "#10b981", r: 4 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="pemasukan"
-                    stroke="#22c55e"
-                    strokeWidth={2}
-                    dot={{ fill: "#22c55e", r: 4 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="pengeluaran"
-                    stroke="#ef4444"
-                    strokeWidth={2}
-                    dot={{ fill: "#ef4444", r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <Line
+                data={{
+                  labels: cashflowData.perBulan.map((item: any) => `${item.bulan} ${item.tahun}`),
+                  datasets: [
+                    {
+                      label: 'Saldo',
+                      data: cashflowData.perBulan.map((item: any) => Number(item.saldo)),
+                      borderColor: '#10b981',
+                      backgroundColor: '#10b981',
+                      borderWidth: 2,
+                      pointRadius: 4,
+                      tension: 0.1
+                    },
+                    {
+                      label: 'Pemasukan',
+                      data: cashflowData.perBulan.map((item: any) => Number(item.pemasukan)),
+                      borderColor: '#22c55e',
+                      backgroundColor: '#22c55e',
+                      borderWidth: 2,
+                      pointRadius: 4,
+                      tension: 0.1
+                    },
+                    {
+                      label: 'Pengeluaran',
+                      data: cashflowData.perBulan.map((item: any) => Number(item.pengeluaran)),
+                      borderColor: '#ef4444',
+                      backgroundColor: '#ef4444',
+                      borderWidth: 2,
+                      pointRadius: 4,
+                      tension: 0.1
+                    }
+                  ]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'top' as const,
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: (context: any) => {
+                          const label = context.dataset.label || ''
+                          const value = formatRupiah(context.parsed.y)
+                          return `${label}: ${value}`
+                        }
+                      }
+                    }
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        callback: (value: string | number) => formatRupiah(Number(value))
+                      }
+                    }
+                  }
+                }}
+              />
             </div>
           </div>
         )}
@@ -906,26 +942,41 @@ export default function FinanceCashflowPage() {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Komposisi Cash Flow</h3>
 
             <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: 'Pemasukan', value: cashflowData.summary.totalPemasukan, fill: '#22c55e' },
-                      { name: 'Pengeluaran', value: cashflowData.summary.totalPengeluaran, fill: '#ef4444' },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey="value"
-                    label={({ name, percent }: { name?: string; value?: number; percent?: number }) => `${name || ''}: ${((percent || 0) * 100).toFixed(1)}%`}
-                  >
-                    <Cell fill="#22c55e" />
-                    <Cell fill="#ef4444" />
-                  </Pie>
-                  <Tooltip formatter={(value: number) => formatRupiah(Number(value))} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              <Pie
+                data={{
+                  labels: ['Pemasukan', 'Pengeluaran'],
+                  datasets: [
+                    {
+                      data: [
+                        cashflowData.summary.totalPemasukan,
+                        cashflowData.summary.totalPengeluaran
+                      ],
+                      backgroundColor: ['#22c55e', '#ef4444'],
+                      borderWidth: 1
+                    }
+                  ]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'top' as const,
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: (context: any) => {
+                          const label = context.label || ''
+                          const value = formatRupiah(context.parsed)
+                          const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
+                          const percentage = ((context.parsed / total) * 100).toFixed(1)
+                          return `${label}: ${value} (${percentage}%)`
+                        }
+                      }
+                    }
+                  }
+                }}
+              />
             </div>
           </div>
         )}

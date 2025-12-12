@@ -74,6 +74,10 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma ./prisma
 
+# Copy Chart.js modules needed for finance dashboard
+COPY --from=builder /app/node_modules/chart.js ./node_modules/chart.js
+COPY --from=builder /app/node_modules/react-chartjs-2 ./node_modules/react-chartjs-2
+
 # Switch to non-root user
 USER nextjs
 
