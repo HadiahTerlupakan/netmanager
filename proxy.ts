@@ -37,7 +37,7 @@ function getRequiredPermission(pathname: string): string | null {
   return null
 }
 
-// Check if user has permission (with hierarchy support)
+// Check if user has permission (with hierarchy and suffix match support)
 function hasPermission(userPermissions: string[] | undefined, requiredFeature: string): boolean {
   if (!userPermissions || !Array.isArray(userPermissions)) return false
 
@@ -50,6 +50,14 @@ function hasPermission(userPermissions: string[] | undefined, requiredFeature: s
     parts.pop()
     const parent = parts.join('.')
     if (userPermissions.includes(parent)) return true
+  }
+
+  // 3. Suffix/Base match - if route needs 'EMPLOYEE.INVENTORY' and user has 'INVENTORY'
+  // This allows admin-defined features (INVENTORY) to work for employee portal routes (EMPLOYEE.INVENTORY)
+  const baseParts = requiredFeature.split('.')
+  if (baseParts.length > 1) {
+    const lastPart = baseParts[baseParts.length - 1] // e.g. 'INVENTORY'
+    if (userPermissions.includes(lastPart)) return true
   }
 
   return false
