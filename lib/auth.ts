@@ -252,18 +252,37 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
 
             // Get granular permissions
             let permissions: string[] = []
+            console.log('[AUTH LOGIN] Checking permissions for user:', {
+              userId: user.id,
+              email: user.email,
+              hasEmployee: !!employee,
+              singleRoleSystem: true,
+            })
+
             if (employee) {
-              const perms = await getEmployeePermissions(employee.employeeId, user.role)
+              console.log('[AUTH LOGIN] Employee found:', {
+                employeeId: employee.employeeId,
+                department: employee.department?.name,
+              })
+
+              const perms = await getEmployeePermissions(employee.employeeId)
+              console.log('[AUTH LOGIN] Permissions result:', {
+                hasPermissions: !!perms,
+                allowedFeaturesCount: perms?.allowedFeatures?.length || 0,
+                allowedFeatures: perms?.allowedFeatures || [],
+              })
+
               if (perms) {
                 permissions = perms.allowedFeatures
               }
+            } else {
+              console.log('[AUTH LOGIN] WARNING: No employee found for user')
             }
 
             return {
               id: user.id,
               email: user.email,
               name: user.name ?? employee?.fullName ?? null,
-              role: user.role,
               image: null,
               employeeId: employee?.employeeId,
               employee: employee ? {
@@ -370,7 +389,7 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
             })
 
             if (dbUser) {
-              token.role = dbUser.role as any
+              // Base role system removed - token.role no longer needed
 
               // Also fetch employee info for OAuth users
               const employee = await prisma.employee.findUnique({
@@ -391,8 +410,25 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
                   position: employee.position,
                 }
 
-                const perms = await getEmployeePermissions(employee.employeeId, dbUser.role)
+                console.log('[AUTH JWT] OAuth user permissions check:', {
+                  userId: dbUser.id,
+                  email: dbUser.email,
+                  employeeId: employee.employeeId,
+                  singleRoleSystem: true,
+                })
+
+                const perms = await getEmployeePermissions(employee.employeeId)
+                console.log('[AUTH JWT] OAuth permissions result:', {
+                  hasPermissions: !!perms,
+                  allowedFeaturesCount: perms?.allowedFeatures?.length || 0,
+                  allowedFeatures: perms?.allowedFeatures || [],
+                })
                 token.permissions = perms?.allowedFeatures || []
+              } else {
+                console.log('[AUTH JWT] OAuth user has no employee linked:', {
+                  userId: dbUser.id,
+                  email: dbUser.email,
+                })
               }
             }
           }
@@ -400,13 +436,15 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
 
         // Handle session updates
         if (trigger === 'update') {
+          console.log('[AUTH JWT] Session update for user:', token.id)
+
           // Refresh user data from database
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
           })
 
           if (dbUser) {
-            token.role = dbUser.role as any
+            // Base role system removed - token.role no longer needed
             token.name = dbUser.name
             token.email = dbUser.email
             token.picture = dbUser.image
@@ -416,8 +454,18 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
               where: { userId: dbUser.id }
             })
             if (employee) {
-              const perms = await getEmployeePermissions(employee.employeeId, dbUser.role)
+              console.log('[AUTH JWT] Session update - refreshing permissions:', {
+                userId: dbUser.id,
+                employeeId: employee.employeeId,
+              })
+              const perms = await getEmployeePermissions(employee.employeeId)
+              console.log('[AUTH JWT] Session update - new permissions:', {
+                hasPermissions: !!perms,
+                allowedFeaturesCount: perms?.allowedFeatures?.length || 0,
+              })
               token.permissions = perms?.allowedFeatures || []
+            } else {
+              console.log('[AUTH JWT] Session update - no employee found for user:', dbUser.id)
             }
           }
         }
@@ -571,22 +619,41 @@ export const authConfig: NextAuthOptions = {
             return null
           }
 
-          console.log('[AUTH] Login successful for:', user.email, 'Role:', user.role)
+          console.log('[AUTH] Login successful for:', user.email, 'Single Role System: true')
 
           // Get granular permissions (same as createAuthConfig)
           let permissions: string[] = []
+          console.log('[AUTH CREDENTIALS] Checking permissions for user:', {
+            userId: user.id,
+            email: user.email,
+            singleRoleSystem: true,
+            hasEmployee: !!employee,
+          })
+
           if (employee) {
-            const perms = await getEmployeePermissions(employee.employeeId, user.role)
+            console.log('[AUTH CREDENTIALS] Employee found:', {
+              employeeId: employee.employeeId,
+              department: employee.department?.name,
+            })
+
+            const perms = await getEmployeePermissions(employee.employeeId)
+            console.log('[AUTH CREDENTIALS] Permissions result:', {
+              hasPermissions: !!perms,
+              allowedFeaturesCount: perms?.allowedFeatures?.length || 0,
+              allowedFeatures: perms?.allowedFeatures || [],
+            })
+
             if (perms) {
               permissions = perms.allowedFeatures
             }
+          } else {
+            console.log('[AUTH CREDENTIALS] WARNING: No employee found for user')
           }
 
           return {
             id: user.id,
             email: user.email,
             name: user.name ?? employee?.fullName ?? null,
-            role: user.role,
             image: null,
             employeeId: employee?.employeeId,
             employee: employee ? {
@@ -639,12 +706,13 @@ export const authConfig: NextAuthOptions = {
 
         // For OAuth sign in, fetch role and permissions from database
         if (account?.provider !== 'credentials') {
+          console.log('[AUTH JWT OAuth] Fetching data for user:', user.id)
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
           })
 
           if (dbUser) {
-            token.role = dbUser.role as any
+            // Base role system removed - token.role no longer needed
 
             // Fetch employee info for OAuth users
             const employee = await prisma.employee.findUnique({
@@ -665,8 +733,24 @@ export const authConfig: NextAuthOptions = {
                 position: employee.position,
               }
 
-              const perms = await getEmployeePermissions(employee.employeeId, dbUser.role)
+              console.log('[AUTH JWT OAuth] OAuth user found, checking permissions:', {
+                userId: dbUser.id,
+                email: dbUser.email,
+                employeeId: employee.employeeId,
+              })
+
+              const perms = await getEmployeePermissions(employee.employeeId)
+              console.log('[AUTH JWT OAuth] OAuth permissions result:', {
+                hasPermissions: !!perms,
+                allowedFeaturesCount: perms?.allowedFeatures?.length || 0,
+                allowedFeatures: perms?.allowedFeatures || [],
+              })
               token.permissions = perms?.allowedFeatures || []
+            } else {
+              console.log('[AUTH JWT OAuth] OAuth user has no employee linked:', {
+                userId: dbUser.id,
+                email: dbUser.email,
+              })
             }
           }
         }
@@ -680,7 +764,7 @@ export const authConfig: NextAuthOptions = {
         })
 
         if (dbUser) {
-          token.role = dbUser.role as any
+          // Base role system removed - token.role no longer needed
           token.name = dbUser.name
           token.email = dbUser.email
           token.picture = dbUser.image
@@ -690,7 +774,7 @@ export const authConfig: NextAuthOptions = {
             where: { userId: dbUser.id }
           })
           if (employee) {
-            const perms = await getEmployeePermissions(employee.employeeId, dbUser.role)
+            const perms = await getEmployeePermissions(employee.employeeId)
             token.permissions = perms?.allowedFeatures || []
           }
         }

@@ -82,28 +82,55 @@ export default function Sidebar() {
   const appName = settings?.namaAplikasi || 'NetManager'
   const [isOpen, setIsOpen] = useState(false)
 
-  // Get user permissions from EmployeePermissionContext
+  // Get user permissions from EmployeePermissionContext (Single Role System)
   const userPermissions = useMemo(() => {
-    // ADMIN users get all features
-    if (isAdmin()) {
-      return getAllFeatures()
-    }
-
-    // Use permissions from EmployeePermissionContext (includes custom roles)
+    // Use permissions from EmployeePermissionContext (custom role only)
     if (permissions?.allowedFeatures && permissions.allowedFeatures.length > 0) {
+      console.log('[SIDEBAR] Using role permissions:', {
+        count: permissions.allowedFeatures.length,
+        features: permissions.allowedFeatures,
+        permissionsObject: permissions,
+      })
       return permissions.allowedFeatures
     }
 
-    // Fallback for base roles without custom role assignments
-    if (session?.user?.role === 'HR') {
-      return ['DASHBOARD', 'USERS', 'HELPDESK', 'HRIS']
-    }
-    if (session?.user?.role === 'FINANCE') {
-      return ['DASHBOARD', 'FINANCE']
+    // If no permissions, no menu access
+    console.log('[SIDEBAR] No permissions - no menu access')
+    return []
+  }, [permissions])
+
+  // Helper function with suffix match (same logic as EmployeePermissionContext.hasFeature)
+  const checkPermission = (feature: string): boolean => {
+    if (!userPermissions || userPermissions.length === 0) {
+      return false
     }
 
-    return ['DASHBOARD'] // Default permissions
-  }, [permissions, session, isAdmin])
+    // 1. Exact match
+    if (userPermissions.includes(feature)) {
+      return true
+    }
+
+    // 2. Parent match - if user has 'HRIS', they also have 'HRIS.EMPLOYEES'
+    const parts = feature.split('.')
+    while (parts.length > 1) {
+      parts.pop()
+      const parent = parts.join('.')
+      if (userPermissions.includes(parent)) {
+        return true
+      }
+    }
+
+    // 3. Suffix/Base match - if menu needs 'FINANCE.TAGIHAN' and user has 'TAGIHAN'
+    const baseParts = feature.split('.')
+    if (baseParts.length > 1) {
+      const lastPart = baseParts[baseParts.length - 1]
+      if (userPermissions.includes(lastPart)) {
+        return true
+      }
+    }
+
+    return false
+  }
 
   // Filter menu items based on permissions
   const filterNavItem = (item: NavItem): NavItem | null => {
@@ -123,8 +150,10 @@ export default function Sidebar() {
       return item
     }
 
-    // Check if user has permission for this menu
-    if (userPermissions.includes(item.permission)) {
+    // Check if user has permission for this menu using suffix match
+    const hasPermission = checkPermission(item.permission)
+
+    if (hasPermission) {
       // Filter children if exist
       if (item.children) {
         const filteredChildren = item.children

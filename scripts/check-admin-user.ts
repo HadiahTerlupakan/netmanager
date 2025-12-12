@@ -1,59 +1,59 @@
 import { PrismaClient } from '@prisma/client'
-import { hash } from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
 async function checkAndCreateAdminUser() {
     try {
-        console.log('🔍 Checking for ADMIN/FINANCE users...')
+        console.log('🔍 Checking for admin users with CustomRole...')
 
-        // Check existing users with ADMIN or FINANCE role
-        const adminUsers = await prisma.user.findMany({
+        // Check employees with Administrator custom role
+        const adminEmployees = await prisma.employee.findMany({
             where: {
-                OR: [
-                    { role: 'ADMIN' },
-                    { role: 'FINANCE' },
-                ],
+                customRoles: {
+                    some: {
+                        role: {
+                            code: {
+                                in: ['ADMINISTRATOR', 'ADMIN']
+                            },
+                            isActive: true
+                        }
+                    }
+                }
             },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                role: true,
-            },
+            include: {
+                customRoles: {
+                    include: {
+                        role: {
+                            select: {
+                                name: true,
+                                code: true,
+                            }
+                        }
+                    }
+                }
+            }
         })
 
-        console.log(`\nFound ${adminUsers.length} admin/finance users:`)
-        adminUsers.forEach((user) => {
-            console.log(`  - ${user.email} (${user.role}) - ID: ${user.id}`)
+        console.log(`\nFound ${adminEmployees.length} admin users:`)
+        adminEmployees.forEach((emp) => {
+            const roles = emp.customRoles.map(r => r.role.name).join(', ')
+            console.log(`  - ${emp.email || emp.fullName} (${roles}) - Employee ID: ${emp.employeeId}`)
         })
 
-        if (adminUsers.length === 0) {
-            console.log('\n⚠️  No ADMIN/FINANCE users found!')
-            console.log('Creating default admin user...\n')
-
-            const passwordHash = await hash('admin123', 10)
-
-            const adminUser = await prisma.user.create({
-                data: {
-                    email: 'admin@netmanager.local',
-                    name: 'Administrator',
-                    passwordHash,
-                    role: 'ADMIN',
-                },
-            })
-
-            console.log('✅ Admin user created successfully!')
-            console.log(`   Email: ${adminUser.email}`)
-            console.log(`   Password: admin123`)
-            console.log(`   ID: ${adminUser.id}`)
+        if (adminEmployees.length === 0) {
+            console.log('\n⚠️  No admin users found!')
+            console.log('Please run "npm run db:seed" to create an admin user.')
+            console.log('\nAlternatively, you can:')
+            console.log('1. Create a user via the registration form')
+            console.log('2. Create a CustomRole with Administrator permissions')
+            console.log('3. Assign the role to the employee')
         } else {
-            console.log('\n✅ Admin users already exist')
+            console.log('\n✅ Admin users exist')
             console.log('\nYou can login with one of the users above.')
-            console.log('If you forgot the password, you can reset it manually.')
         }
 
-        console.log('\n🔐 Login URL: http://finance.localhost:3000/finance/login')
+        console.log('\n🔐 Login URL: http://admin.localhost:3000/admin/login')
+        console.log('            http://finance.localhost:3000/finance/login')
     } catch (error) {
         console.error('Error:', error)
     } finally {

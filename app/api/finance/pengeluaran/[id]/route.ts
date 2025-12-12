@@ -20,9 +20,11 @@ export async function GET(
       }, { status: 401 })
     }
 
-    // Verify user has FINANCE or ADMIN role
-    const allowedRoles = ['FINANCE', 'ADMIN'] as const
-    if (!allowedRoles.includes(authResult.user.role as any)) {
+    // Verify user has FINANCE or ADMIN permissions
+    const hasFinanceAccess = authResult.user?.permissions?.includes('FINANCE') ||
+                            authResult.user?.permissions?.includes('ADMIN') ||
+                            false
+    if (!hasFinanceAccess) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -83,13 +85,15 @@ export async function PUT(
         return NextResponse.json({ error: 'Token expired' }, { status: 401 })
       }
 
-      // Verify user exists and has FINANCE or ADMIN role
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-      })
+      // Verify user has FINANCE or ADMIN permissions
+      const { getEmployeePermissions } = await import('@/lib/utils/permissions')
+      const permissions = await getEmployeePermissions(userId)
 
-      const allowedRoles = ['FINANCE', 'ADMIN'] as const
-      if (!user || !allowedRoles.includes(user.role as any)) {
+      const hasFinanceAccess = permissions?.allowedFeatures?.includes('FINANCE') ||
+                              permissions?.allowedFeatures?.includes('ADMIN') ||
+                              false
+
+      if (!hasFinanceAccess) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
       }
     } catch (parseError) {
@@ -156,9 +160,11 @@ export async function DELETE(
       }, { status: 401 })
     }
 
-    // Verify user has FINANCE or ADMIN role
-    const allowedRoles = ['FINANCE', 'ADMIN'] as const
-    if (!allowedRoles.includes(authResult.user.role as any)) {
+    // Verify user has FINANCE or ADMIN permissions
+    const hasFinanceAccess = authResult.user?.permissions?.includes('FINANCE') ||
+                            authResult.user?.permissions?.includes('ADMIN') ||
+                            false
+    if (!hasFinanceAccess) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

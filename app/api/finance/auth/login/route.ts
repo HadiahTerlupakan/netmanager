@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { checkRateLimit } from '@/lib/redis'
 import { compare } from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { getEmployeePermissions } from '@/lib/utils/permissions'
 
 /**
  * Login finance menggunakan email dan password
@@ -91,9 +92,15 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Cek role - FINANCE atau ADMIN bisa login
-      const allowedRoles = ['FINANCE', 'ADMIN'] as const
-      if (!allowedRoles.includes(user.role as any)) {
+      // Cek permissions melalui custom role system
+      const permissions = await getEmployeePermissions(user.id)
+
+      // Cek apakah user memiliki akses finance atau admin
+      const hasFinanceAccess = permissions?.allowedFeatures?.includes('FINANCE') ||
+                              permissions?.allowedFeatures?.includes('ADMIN') ||
+                              false
+
+      if (!hasFinanceAccess) {
         return NextResponse.json(
           { error: 'Anda tidak memiliki akses ke portal finance' },
           { status: 403 }
@@ -114,7 +121,7 @@ export async function POST(req: NextRequest) {
       const tokenPayload = {
         userId: user.id,
         email: user.email,
-        role: user.role,
+        permissions: permissions?.allowedFeatures || [],
         type: 'FINANCE_ACCESS',
         timestamp: Date.now()
       }

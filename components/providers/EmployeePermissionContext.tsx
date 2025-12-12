@@ -25,7 +25,11 @@ interface EmployeePermissions {
     departmentId: string | null
     departmentName: string | null
     allowedFeatures: string[]
-    role: string | null
+    customRoles?: Array<{
+        id: string
+        name: string
+        code: string
+    }>
 }
 
 interface EmployeePermissionContextType {
@@ -75,6 +79,13 @@ export function EmployeePermissionProvider({ children }: { children: ReactNode }
             }
 
             const data = await response.json()
+            console.log('[EMPLOYEE-CONTEXT] Received data:', {
+                hasEmployee: !!data.employee,
+                hasPermissions: !!data.permissions,
+                allowedFeaturesCount: data.permissions?.allowedFeatures?.length || 0,
+                allowedFeatures: data.permissions?.allowedFeatures || [],
+                customRoles: data.permissions?.customRoles?.map((r: any) => r.name) || [],
+            })
             setEmployee(data.employee)
             setPermissions(data.permissions)
         } catch (err: any) {
@@ -92,11 +103,6 @@ export function EmployeePermissionProvider({ children }: { children: ReactNode }
     }, [session, status])
 
     const hasFeature = (feature: string): boolean => {
-        // ADMIN users have all features
-        if (session?.user?.role === 'ADMIN') {
-            return true
-        }
-
         if (!permissions) {
             return false
         }
@@ -116,11 +122,29 @@ export function EmployeePermissionProvider({ children }: { children: ReactNode }
             }
         }
 
+        // 3. Suffix/Base match - if menu needs 'EMPLOYEE.INVENTORY' and user has 'INVENTORY'
+        // This handles the case where admin portal uses 'INVENTORY' but employee portal uses 'EMPLOYEE.INVENTORY'
+        const baseParts = feature.split('.')
+        if (baseParts.length > 1) {
+            const lastPart = baseParts[baseParts.length - 1] // e.g. 'INVENTORY'
+            if (permissions.allowedFeatures.includes(lastPart)) {
+                return true
+            }
+        }
+
         return false
     }
 
     const isAdmin = (): boolean => {
-        return session?.user?.role === 'ADMIN'
+        // Check if user has administrative permissions
+        if (!permissions) {
+            return false
+        }
+
+        // Consider user as admin if they have high-level permissions
+        return permissions.allowedFeatures.includes('USERS') ||
+            permissions.allowedFeatures.includes('SETTINGS') ||
+            permissions.allowedFeatures.includes('ROLES')
     }
 
     const refetch = async () => {

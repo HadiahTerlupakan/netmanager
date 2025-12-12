@@ -39,9 +39,12 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Cek role - FINANCE atau ADMIN bisa akses
-    const allowedRoles = ['FINANCE', 'ADMIN'] as const
-    if (!allowedRoles.includes(authResult.user.role as any)) {
+    // Cek permissions melalui custom role system
+    const hasFinanceAccess = authResult.user?.permissions?.includes('FINANCE') ||
+                            authResult.user?.permissions?.includes('ADMIN') ||
+                            false
+
+    if (!hasFinanceAccess) {
       return NextResponse.json(
         { error: 'Anda tidak memiliki akses ke portal finance' },
         { status: 403 }
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
     console.log('[Finance Me] User authenticated:', {
       id: authResult.user.id,
       email: authResult.user.email,
-      role: authResult.user.role
+      permissions: authResult.user.permissions
     })
 
     // Return data user

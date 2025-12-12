@@ -9,7 +9,7 @@ export async function GET(
 ) {
     try {
         const user = await verifyAuth(request);
-        if (!user || user.role === 'USER') {
+        if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -57,7 +57,7 @@ export async function PATCH(
 ) {
     try {
         const user = await verifyAuth(request);
-        if (!user || user.role === 'USER') {
+        if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -119,7 +119,7 @@ export async function DELETE(
 ) {
     try {
         const user = await verifyAuth(request);
-        if (!user || user.role === 'USER') {
+        if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 

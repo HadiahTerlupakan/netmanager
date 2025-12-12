@@ -60,17 +60,15 @@ async function main() {
     where: { email: adminEmail },
     update: {
       passwordHash,
-      role: 'ADMIN', // Admin user needs ADMIN role for full access
       name: 'Administrator',
     },
     create: {
       email: adminEmail,
       name: 'Administrator',
       passwordHash,
-      role: 'ADMIN', // Admin user needs ADMIN role for full access
     },
   })
-  console.log(`✓ User created/updated: ${user.email} (Role: ADMIN)`)
+  console.log(`✓ User created/updated: ${user.email}`)
 
   // ============================================
   // STEP 2: Create Administrator CustomRole
@@ -87,6 +85,7 @@ async function main() {
       description: 'Full access to all features',
       allowedFeatures: allowedFeaturesJson,
       isActive: true,
+      departmentId: null, // Global role, not department-specific
     },
     create: {
       code: 'ADMINISTRATOR',
@@ -94,6 +93,7 @@ async function main() {
       description: 'Full access to all features',
       allowedFeatures: allowedFeaturesJson,
       isActive: true,
+      departmentId: null, // Global role, not department-specific
     },
   })
   console.log(`✓ CustomRole created/updated: ${adminRole.name}`)
@@ -154,6 +154,59 @@ async function main() {
     },
   })
   console.log(`✓ Role assigned: ${adminRole.name} → ${employee.fullName}`)
+
+  // ============================================
+  // STEP 5: Seed Menu Definitions
+  // ============================================
+  console.log('\n📦 Step 5: Creating menu definitions...')
+
+  const menuDefinitions = [
+    // Admin Portal Top-Level Menus
+    { code: 'DASHBOARD', name: 'Dashboard', path: '/admin', icon: 'HomeIcon', sortOrder: 1, portal: 'admin' },
+    { code: 'PELANGGAN', name: 'Pelanggan', path: '/admin/pelanggan', icon: 'UsersIcon', sortOrder: 2, portal: 'admin' },
+    { code: 'NETWORK', name: 'Network', path: null, icon: 'ServerIcon', sortOrder: 3, portal: 'admin' },
+    { code: 'FTTH', name: 'FTTH', path: null, icon: 'SignalIcon', sortOrder: 4, portal: 'admin' },
+    { code: 'PAKET', name: 'Paket Internet', path: '/admin/paket', icon: 'CubeIcon', sortOrder: 5, portal: 'admin' },
+    { code: 'INVENTORY', name: 'Inventory', path: '/admin/inventory', icon: 'ArchiveBoxIcon', sortOrder: 6, portal: 'admin' },
+    { code: 'HELPDESK', name: 'Helpdesk', path: '/admin/helpdesk', icon: 'TicketIcon', sortOrder: 7, portal: 'admin' },
+    { code: 'WORKORDERS', name: 'Work Orders', path: '/admin/workorders', icon: 'WrenchIcon', sortOrder: 8, portal: 'admin' },
+    { code: 'HRIS', name: 'HRIS', path: null, icon: 'UserGroupIcon', sortOrder: 9, portal: 'admin' },
+    { code: 'FINANCE', name: 'Keuangan', path: null, icon: 'BanknotesIcon', sortOrder: 10, portal: 'admin' },
+    { code: 'USERS', name: 'Pengguna', path: '/admin/users', icon: 'UserCircleIcon', sortOrder: 11, portal: 'admin' },
+    { code: 'ROLES', name: 'Manajemen Role', path: '/admin/roles', icon: 'ShieldCheckIcon', sortOrder: 12, portal: 'admin' },
+    { code: 'PENGATURAN', name: 'Pengaturan', path: '/admin/pengaturan', icon: 'Cog6ToothIcon', sortOrder: 13, portal: 'admin' },
+
+    // Employee Portal Menus
+    { code: 'EMPLOYEE.DASHBOARD', name: 'Dashboard', path: '/employee', icon: 'HomeIcon', sortOrder: 1, portal: 'employee' },
+    { code: 'EMPLOYEE.ABSENSI', name: 'Absensi', path: '/employee/attendance', icon: 'ClockIcon', sortOrder: 2, portal: 'employee' },
+    { code: 'EMPLOYEE.CUTI', name: 'Cuti', path: '/employee/leaves', icon: 'CalendarIcon', sortOrder: 3, portal: 'employee' },
+    { code: 'EMPLOYEE.INVENTORY', name: 'Inventory', path: '/employee/inventory', icon: 'ArchiveBoxIcon', sortOrder: 4, portal: 'employee' },
+    { code: 'EMPLOYEE.WORKORDERS', name: 'Work Orders', path: '/employee/workorders', icon: 'WrenchIcon', sortOrder: 5, portal: 'employee' },
+    { code: 'EMPLOYEE.PAYSLIPS', name: 'Slip Gaji', path: '/employee/payslips', icon: 'DocumentTextIcon', sortOrder: 6, portal: 'employee' },
+    { code: 'EMPLOYEE.PROFILE', name: 'Profil', path: '/employee/profile', icon: 'UserIcon', sortOrder: 7, portal: 'employee' },
+
+    // Finance Portal Menus  
+    { code: 'FINANCE.DASHBOARD', name: 'Dashboard', path: '/finance', icon: 'HomeIcon', sortOrder: 1, portal: 'finance' },
+    { code: 'FINANCE.TAGIHAN', name: 'Tagihan', path: '/finance/tagihan', icon: 'DocumentTextIcon', sortOrder: 2, portal: 'finance' },
+    { code: 'FINANCE.PENGELUARAN', name: 'Pengeluaran', path: '/finance/pengeluaran', icon: 'ArrowDownTrayIcon', sortOrder: 3, portal: 'finance' },
+    { code: 'FINANCE.TAX', name: 'Pajak', path: '/finance/tax', icon: 'ReceiptPercentIcon', sortOrder: 4, portal: 'finance' },
+    { code: 'FINANCE.CASHFLOW', name: 'Cashflow', path: '/finance/cashflow', icon: 'ArrowsRightLeftIcon', sortOrder: 5, portal: 'finance' },
+  ]
+
+  for (const menu of menuDefinitions) {
+    await prisma.menuDefinition.upsert({
+      where: { code: menu.code },
+      update: {
+        name: menu.name,
+        path: menu.path,
+        icon: menu.icon,
+        sortOrder: menu.sortOrder,
+        portal: menu.portal,
+      },
+      create: menu,
+    })
+  }
+  console.log(`✓ Created ${menuDefinitions.length} menu definitions`)
 
   // ============================================
   // Summary

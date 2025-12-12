@@ -42,13 +42,15 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Verify user exists and has FINANCE or ADMIN role
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-        })
+        // Verify user exists and has FINANCE or ADMIN permissions
+        const { getEmployeePermissions } = await import('@/lib/utils/permissions')
+        const permissions = await getEmployeePermissions(userId)
 
-        const allowedRoles = ['FINANCE', 'ADMIN'] as const
-        if (!user || !allowedRoles.includes(user.role as any)) {
+        const hasFinanceAccess = permissions?.allowedFeatures?.includes('FINANCE') ||
+                                permissions?.allowedFeatures?.includes('ADMIN') ||
+                                false
+
+        if (!hasFinanceAccess) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
         }
 

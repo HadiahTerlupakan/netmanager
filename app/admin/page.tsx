@@ -1,5 +1,4 @@
 import { getUserRepository, getMikroTikRouterRepository } from '@/lib/repositories'
-import { Role } from '@prisma/client'
 import { HiOutlineUsers } from 'react-icons/hi2'
 import { HiOutlineServer } from 'react-icons/hi2'
 
@@ -9,8 +8,6 @@ export const dynamic = 'force-dynamic'
 export default async function AdminHome() {
   const userRepository = getUserRepository()
   const totalUsers = await userRepository.count()
-  const totalAdmins = await userRepository.countByRole(Role.ADMIN)
-  const totalRegularUsers = await userRepository.countByRole(Role.USER)
 
   const routerRepository = getMikroTikRouterRepository()
   const routerStats = await routerRepository.getStatistics()
@@ -22,16 +19,16 @@ export default async function AdminHome() {
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Overview sistem dan statistik pengguna</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total Users</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalUsers}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Semua pengguna</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Semua pengguna terdaftar</p>
             </div>
             <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <HiOutlineUsers className="text-2xl" />
+              <HiOutlineUsers className="text-2xl text-blue-600 dark:text-blue-400" />
             </div>
           </div>
         </div>
@@ -39,25 +36,12 @@ export default async function AdminHome() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Administrators</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalAdmins}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Admin aktif</p>
-            </div>
-            <div className="p-2.5 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <span className="text-2xl">🔐</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Regular Users</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalRegularUsers}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Pengguna biasa</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total Router</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{routerStats.total}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Semua router terdaftar</p>
             </div>
             <div className="p-2.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-              <span className="text-2xl">👤</span>
+              <HiOutlineServer className="text-2xl text-purple-600 dark:text-purple-400" />
             </div>
           </div>
         </div>
@@ -65,20 +49,7 @@ export default async function AdminHome() {
 
       <div className="mt-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Status MikroTik Routers</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total Router</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{routerStats.total}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Semua router</p>
-              </div>
-              <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <HiOutlineServer className="text-2xl text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
             <div className="flex items-center justify-between">
               <div className="flex-1">
@@ -122,5 +93,3 @@ export default async function AdminHome() {
     </div>
   )
 }
-
-

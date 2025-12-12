@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, createContext, useContext } from 'react'
+import { useState, useEffect, useMemo, createContext, useContext } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
@@ -18,6 +18,7 @@ import {
   HiChevronDown,
   HiChevronRight,
 } from 'react-icons/hi2'
+import { useEmployeePermissions } from '@/components/providers/EmployeePermissionContext'
 
 // Context for sidebar state
 const SidebarContext = createContext<{
@@ -30,12 +31,59 @@ const SidebarContext = createContext<{
 
 export const useSidebar = () => useContext(SidebarContext)
 
+type MenuItem = {
+  href?: string
+  label: string
+  icon: any
+  permission?: string
+  submenu?: { href: string; label: string; permission?: string }[]
+}
+
 export default function FinanceSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
+  const { permissions } = useEmployeePermissions()
   const [isOpen, setIsOpen] = useState(false)
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({})
+
+  // Get user permissions
+  const userPermissions = useMemo(() => {
+    return permissions?.allowedFeatures || []
+  }, [permissions])
+
+  // Helper function with suffix match
+  const checkPermission = (feature: string): boolean => {
+    if (!userPermissions || userPermissions.length === 0) {
+      return false
+    }
+
+    // 1. Exact match
+    if (userPermissions.includes(feature)) {
+      return true
+    }
+
+    // 2. Parent match - if user has 'FINANCE', they have 'FINANCE.TAGIHAN'
+    const parts = feature.split('.')
+    while (parts.length > 1) {
+      parts.pop()
+      const parent = parts.join('.')
+      if (userPermissions.includes(parent)) {
+        return true
+      }
+    }
+
+    // 3. Suffix/Base match - if menu needs 'FINANCE.TAGIHAN' and user has 'TAGIHAN'
+    const baseParts = feature.split('.')
+    if (baseParts.length > 1) {
+      const lastPart = baseParts[baseParts.length - 1]
+      if (userPermissions.includes(lastPart)) {
+        return true
+      }
+    }
+
+    return false
+  }
 
   // Auto-expand menu based on active route
   useEffect(() => {
@@ -56,96 +104,89 @@ export default function FinanceSidebar() {
     router.push('/finance/login')
   }
 
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     {
       href: '/finance',
       label: 'Beranda',
       icon: HiOutlineHome,
+      permission: 'FINANCE', // Home requires finance access
     },
     {
       href: '/finance/tagihan',
       label: 'Tagihan',
       icon: HiOutlineDocumentText,
+      permission: 'FINANCE',
     },
     {
       href: '/finance/cashflow',
       label: 'Cashflow & Pengeluaran',
       icon: HiOutlineBanknotes,
+      permission: 'FINANCE',
     },
     {
       href: '/finance/ar',
       label: 'Accounts Receivable',
       icon: HiOutlineCurrencyDollar,
+      permission: 'FINANCE',
     },
     {
       href: '/finance/bank-reconciliation',
       label: 'Bank Reconciliation',
       icon: HiOutlineBanknotes,
+      permission: 'FINANCE',
     },
     {
       href: '/finance/mrr-dashboard',
       label: 'MRR/ARR Dashboard',
       icon: HiOutlineChartBar,
+      permission: 'FINANCE',
     },
     {
       label: 'Tax Management',
       icon: HiOutlineDocumentChartBar,
+      permission: 'FINANCE',
       submenu: [
-        {
-          href: '/finance/tax',
-          label: 'Dashboard',
-        },
-        {
-          href: '/finance/tax/reports/ppn',
-          label: 'Laporan PPN',
-        },
-        {
-          href: '/finance/tax/reports/pph',
-          label: 'Laporan PPh',
-        },
-        {
-          href: '/finance/tax/deadlines',
-          label: 'Filing Deadlines',
-        },
-        {
-          href: '/finance/uso',
-          label: 'BHP & USO',
-        },
+        { href: '/finance/tax', label: 'Dashboard' },
+        { href: '/finance/tax/reports/ppn', label: 'Laporan PPN' },
+        { href: '/finance/tax/reports/pph', label: 'Laporan PPh' },
+        { href: '/finance/tax/deadlines', label: 'Filing Deadlines' },
+        { href: '/finance/uso', label: 'BHP & USO' },
       ],
     },
     {
       label: 'Budget Management',
       icon: HiOutlineChartBar,
+      permission: 'FINANCE',
       submenu: [
-        {
-          href: '/finance/budget',
-          label: 'Dashboard',
-        },
-        {
-          href: '/finance/budget/planning',
-          label: 'Budget Planning',
-        },
-        {
-          href: '/finance/deferred',
-          label: 'Deferred Revenue',
-        },
-        {
-          href: '/finance/budget/analysis',
-          label: 'Budget Analysis',
-        },
+        { href: '/finance/budget', label: 'Dashboard' },
+        { href: '/finance/budget/planning', label: 'Budget Planning' },
+        { href: '/finance/deferred', label: 'Deferred Revenue' },
+        { href: '/finance/budget/analysis', label: 'Budget Analysis' },
       ],
     },
     {
       href: '/finance/profil',
       label: 'Profil',
       icon: HiOutlineUser,
+      // No permission - always visible
     },
     {
       href: '/finance/bantuan',
       label: 'Bantuan',
       icon: HiOutlineInformationCircle,
+      // No permission - always visible
     },
   ]
+
+  // Filter menu items based on permissions
+  const filteredMenuItems = useMemo(() => {
+    return menuItems.filter(item => {
+      // Items without permission requirement are always visible
+      if (!item.permission) return true
+      // Check if user has permission using suffix match
+      return checkPermission(item.permission)
+    })
+  }, [userPermissions])
 
   const isActive = (href: string) => {
     if (href === '/finance') {
@@ -231,7 +272,7 @@ export default function FinanceSidebar() {
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto p-3 md:p-4 safe-area-inset-top">
             <div className="space-y-1">
-              {menuItems.map((item, index) => {
+              {filteredMenuItems.map((item, index) => {
                 const isActive = item.href ? pathname === item.href : false
                 const hasActiveSubmenu = item.submenu?.some(sub => pathname === sub.href)
 

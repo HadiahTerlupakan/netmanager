@@ -31,12 +31,12 @@ export const testPrisma = new PrismaClient({
  */
 export async function cleanupTestDatabase() {
   const dbUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL
-  
+
   // Safety check: Jangan hapus data development database tanpa konfirmasi
   if (!process.env.TEST_DATABASE_URL) {
     const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
     const isCI = process.env.CI === 'true'
-    
+
     if (!isTestEnv && !isCI) {
       console.error('')
       console.error('⚠️  ⚠️  ⚠️  WARNING: TEST_DATABASE_URL tidak di-set! ⚠️  ⚠️  ⚠️')
@@ -55,12 +55,12 @@ export async function cleanupTestDatabase() {
         'Lihat docs/DATABASE_DATA_LOSS_FIX.md untuk instruksi lengkap.'
       )
     }
-    
+
     // Di test environment atau CI, tetap warn tapi lanjutkan
     console.warn('⚠️  WARNING: TEST_DATABASE_URL tidak di-set, menggunakan DATABASE_URL')
     console.warn('⚠️  Cleanup akan menghapus data di development database!')
   }
-  
+
   // Delete dalam urutan yang benar (menghindari foreign key constraint)
   await testPrisma.onu.deleteMany()
   await testPrisma.onuType.deleteMany()
@@ -84,12 +84,13 @@ export async function cleanupTestDatabase() {
 
 /**
  * Create test user
+ * Note: Role assignment is now done via CustomRole, not User.role field
+ * This function creates a basic user without role assignment
  */
 export async function createTestUser(overrides?: {
   email?: string
   password?: string
   name?: string
-  role?: 'USER' | 'ADMIN'
 }) {
   const email = overrides?.email || `test-${Date.now()}@example.com`
   const password = overrides?.password || 'TestPassword123!'
@@ -100,7 +101,6 @@ export async function createTestUser(overrides?: {
       email,
       passwordHash,
       name: overrides?.name || 'Test User',
-      role: overrides?.role || 'ADMIN',
     },
   })
 
@@ -109,12 +109,12 @@ export async function createTestUser(overrides?: {
 
 /**
  * Create test admin user
+ * Note: This now just creates a user - admin role should be assigned via CustomRole
  */
 export async function createTestAdmin() {
   return createTestUser({
     email: `admin-${Date.now()}@example.com`,
     password: 'AdminPassword123!',
-    role: 'ADMIN',
   })
 }
 
@@ -157,13 +157,14 @@ export async function createTestMikroTikRouter(overrides?: {
 
 /**
  * Mock NextAuth session untuk testing
+ * Note: role is kept for backward compatibility but permissions should be used instead
  */
-export function createMockSession(user: { id: string; email: string; role: string }) {
+export function createMockSession(user: { id: string; email: string; permissions?: string[] }) {
   return {
     user: {
       id: user.id,
       email: user.email,
-      role: user.role,
+      permissions: user.permissions || [],
     },
     expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   }
@@ -177,11 +178,10 @@ export function createAuthHeaders(token?: string) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
-  
+
   return headers
 }
-

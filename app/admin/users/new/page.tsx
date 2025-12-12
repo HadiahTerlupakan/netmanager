@@ -59,7 +59,7 @@ export default function UserNewPage() {
     email: '',
     name: '',
     password: '',
-    customRoleId: '', // Use customRoleId instead of role
+    roleId: '', // Single role selection - custom role only
     // Employee fields (required for all users)
     employeeId: '',
     phone: '',
@@ -88,7 +88,22 @@ export default function UserNewPage() {
     fetchDepartments()
     fetchSites()
     fetchRoles()
+    // Auto-generate employee ID on page load
+    generateEmployeeIdOnLoad()
   }, [])
+
+  // Separate function for auto-generate on load (doesn't show loading state)
+  const generateEmployeeIdOnLoad = async () => {
+    try {
+      const res = await fetch('/api/hris/employees/next-id')
+      const data = await res.json()
+      if (res.ok && data.nextId) {
+        setFormData(prev => ({ ...prev, employeeId: data.nextId }))
+      }
+    } catch (error) {
+      console.error('Error auto-generating employee ID:', error)
+    }
+  }
 
   const fetchDepartments = async () => {
     try {
@@ -191,8 +206,8 @@ export default function UserNewPage() {
       newErrors.name = 'Nama wajib diisi'
     }
 
-    if (!formData.customRoleId) {
-      newErrors.customRoleId = 'Role pengguna wajib dipilih'
+    if (!formData.roleId) {
+      newErrors.roleId = 'Role pengguna wajib dipilih'
     }
 
     if (!formData.password) {
@@ -341,16 +356,16 @@ export default function UserNewPage() {
                 {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Role Pengguna <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="customRoleId"
+                  name="roleId"
                   required
-                  value={formData.customRoleId}
+                  value={formData.roleId}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.customRoleId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
+                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.roleId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
                     }`}
                 >
                   <option value="">Pilih Role</option>
@@ -360,9 +375,10 @@ export default function UserNewPage() {
                     </option>
                   ))}
                 </select>
-                {errors.customRoleId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.customRoleId}</p>}
+                {errors.roleId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.roleId}</p>}
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  <a href="/admin/roles" target="_blank" className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                  Role ini akan menentukan semua hak akses pengguna.
+                  <a href="/admin/roles" target="_blank" className="text-indigo-600 dark:text-indigo-400 hover:underline ml-1">
                     Kelola roles →
                   </a>
                 </p>
@@ -440,26 +456,14 @@ export default function UserNewPage() {
                       name="employeeId"
                       required
                       value={formData.employeeId}
-                      onChange={handleChange}
-                      className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.employeeId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
+                      readOnly
+                      className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-gray-50 dark:bg-gray-600 text-gray-700 dark:text-gray-300 focus:outline-none cursor-not-allowed ${errors.employeeId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
                         }`}
-                      placeholder="EMP-001"
+                      placeholder="Auto-generated..."
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={generateEmployeeId}
-                    disabled={generatingEmployeeId}
-                    className="flex items-center gap-2 px-4 py-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {generatingEmployeeId ? (
-                      <HiArrowPath className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <HiCheckBadge className="w-5 h-5" />
-                    )}
-                    Generate
-                  </button>
                 </div>
+                {formData.employeeId && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">ID Karyawan dibuat otomatis</p>}
                 {errors.employeeId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.employeeId}</p>}
               </div>
 

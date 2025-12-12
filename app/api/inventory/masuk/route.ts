@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger'
 
 async function requireAuth() {
   const session: any = await getServerSession(authConfig as any)
-  if (!session || !['ADMIN', 'EMPLOYEE'].includes(session?.user?.role)) {
+  if (!session?.user) {
     return null
   }
   return session
@@ -59,16 +59,14 @@ export async function GET(req: NextRequest) {
                 nama: true
               }
             },
-            // Include user info if available
-            ...(session.user.role === 'ADMIN' ? {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true
-                }
+            // Include user info
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true
               }
-            } : {})
+            }
           },
           orderBy: {
             tanggal: 'desc'

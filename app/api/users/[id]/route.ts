@@ -46,7 +46,8 @@ async function requireAdmin() {
  *                 minLength: 8
  *               role:
  *                 type: string
- *                 enum: [USER, ADMIN]
+ *                 enum: [USER, ADMIN, TECHNICIAN, HR, FINANCE]
+ *                 description: Base role that determines default access level
  *     responses:
  *       200:
  *         description: Pengguna berhasil diupdate
@@ -71,19 +72,29 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params
   const body = await _req.json()
 
+  console.log('[USER-UPDATE] Updating user:', { id, body })
+
   // Handle user data update
   const data: any = {}
   if (body.name !== undefined) data.name = body.name
   if (body.password) data.passwordHash = await hash(body.password, 10)
+  // No base role update in single role system
+
+  console.log('[USER-UPDATE] Data to update:', data)
 
   // Update user
-  await prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { id },
     data,
   })
 
-  // Handle customRoleId update - update EmployeeRole
-  if (body.customRoleId) {
+  console.log('[USER-UPDATE] User updated successfully:', {
+    id: updatedUser.id,
+    email: updatedUser.email,
+  })
+
+  // Handle roleId update - update EmployeeRole
+  if (body.roleId) {
     // Find employee by userId
     const employee = await prisma.employee.findFirst({
       where: { userId: id },
@@ -98,7 +109,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
       await prisma.employeeRole.create({
         data: {
           employeeId: employee.id,
-          roleId: body.customRoleId,
+          roleId: body.roleId,
           assignedBy: session.user.id,
         },
       })
@@ -121,14 +132,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         id: true,
         name: true,
         email: true,
-        role: true,
         createdAt: true,
       },
     })
 
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
-    // Fetch linked employee if exists with custom roles
+    // Fetch linked employee if exists with all fields needed for edit form
     const emp = await prisma.employee.findFirst({
       where: { userId: id },
       include: {
@@ -137,6 +147,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         },
         position: {
           select: { id: true, title: true },
+        },
+        site: {
+          select: { id: true, code: true, name: true },
         },
         customRoles: {
           include: {
@@ -152,9 +165,34 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       ? {
         id: emp.id,
         employeeId: emp.employeeId,
+        // Personal info
+        phone: emp.phone,
+        dateOfBirth: emp.dateOfBirth,
+        gender: emp.gender,
+        idCardNumber: emp.idCardNumber,
+        address: emp.address,
+        city: emp.city,
+        province: emp.province,
+        // Employment info
+        departmentId: emp.departmentId,
+        positionId: emp.positionId,
+        siteId: emp.siteId,
+        employmentStatus: emp.employmentStatus,
+        joinDate: emp.joinDate,
+        probationEndDate: emp.probationEndDate,
+        // Bank info
+        bankName: emp.bankName,
+        bankAccountNumber: emp.bankAccountNumber,
+        bankAccountName: emp.bankAccountName,
+        npwp: emp.npwp,
+        // Emergency contact
+        emergencyName: emp.emergencyName,
+        emergencyPhone: emp.emergencyPhone,
+        emergencyRelation: emp.emergencyRelation,
+        // Relations
         department: emp.department,
         position: emp.position,
-        employmentStatus: emp.employmentStatus,
+        site: emp.site,
         // Get the first custom role id if exists
         customRoleId: emp.customRoles[0]?.roleId || '',
         customRoleName: emp.customRoles[0]?.role?.name || '',

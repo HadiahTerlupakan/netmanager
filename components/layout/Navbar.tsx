@@ -29,9 +29,7 @@ export default function Navbar() {
                 <div className="text-sm">
                   <div className="font-medium text-gray-900 dark:text-white text-xs leading-tight">{session.user.name || session.user.email}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 leading-tight">
-                    {session.user.role === 'ADMIN'
-                      ? 'Administrator'
-                      : (session.user as any).employee?.position?.name || (session.user as any).employee?.department?.name || 'Staff'}
+                    {(session.user as any).employee?.position?.name || (session.user as any).employee?.department?.name || 'Staff'}
                   </div>
                 </div>
               </div>

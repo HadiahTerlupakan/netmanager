@@ -178,14 +178,13 @@ async function seedEmployees() {
                 continue
             }
 
-            // Create User account first
+            // Create User account first (role will be assigned via CustomRole)
             const passwordHash = await hash(emp.password, 10)
             const user = await prisma.user.create({
                 data: {
                     email: emp.email,
                     name: emp.fullName,
                     passwordHash,
-                    role: 'USER', // Default role for employees
                 },
             })
 

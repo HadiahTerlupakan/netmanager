@@ -1,9 +1,9 @@
-import { PrismaClient, Role } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
 import type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
 import { prisma } from '@/lib/prisma'
 
 export class UserRepository implements IUserRepository {
-  constructor(private client: PrismaClient = prisma) {}
+  constructor(private client: PrismaClient = prisma) { }
 
   async findAll(): Promise<UserPublic[]> {
     const users = await this.client.user.findMany({
@@ -12,7 +12,6 @@ export class UserRepository implements IUserRepository {
         id: true,
         name: true,
         email: true,
-        role: true,
         createdAt: true,
       },
     })
@@ -26,7 +25,6 @@ export class UserRepository implements IUserRepository {
         id: true,
         name: true,
         email: true,
-        role: true,
         createdAt: true,
       },
     })
@@ -43,7 +41,6 @@ export class UserRepository implements IUserRepository {
         id: true,
         name: true,
         email: true,
-        role: true,
         createdAt: true,
         passwordHash: true,
       },
@@ -81,11 +78,4 @@ export class UserRepository implements IUserRepository {
   async count(): Promise<number> {
     return await this.client.user.count()
   }
-
-  async countByRole(role: Role): Promise<number> {
-    return await this.client.user.count({
-      where: { role },
-    })
-  }
 }
-

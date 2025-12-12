@@ -26,26 +26,6 @@ export async function GET(req: NextRequest) {
         })
 
         if (!employee) {
-            // If user is ADMIN, allow access with all permissions
-            if (session.user.role === 'ADMIN') {
-                return NextResponse.json({
-                    employee: null,
-                    permissions: {
-                        employeeId: null,
-                        departmentId: null,
-                        departmentName: null,
-                        allowedFeatures: getAllFeatures(), // Use all features for ADMIN
-                        role: session.user.role,
-                    },
-                    user: {
-                        id: session.user.id,
-                        name: session.user.name,
-                        email: session.user.email,
-                        role: session.user.role,
-                    },
-                })
-            }
-
             return NextResponse.json(
                 { error: 'Employee profile not found' },
                 { status: 404 }
@@ -53,10 +33,20 @@ export async function GET(req: NextRequest) {
         }
 
         // Get employee permissions
+        console.log('[EMPLOYEE-ME] Getting permissions for:', {
+            employeeId: employee.employeeId,
+            employeeName: employee.fullName,
+        })
+
         const permissions = await getEmployeePermissions(
-            employee.employeeId,
-            session.user.role
+            employee.employeeId
         )
+
+        console.log('[EMPLOYEE-ME] Permissions result:', {
+            hasPermissions: !!permissions,
+            allowedFeaturesCount: permissions?.allowedFeatures?.length || 0,
+            allowedFeatures: permissions?.allowedFeatures || [],
+        })
 
         // Return employee data with permissions
         return NextResponse.json({
@@ -85,13 +75,11 @@ export async function GET(req: NextRequest) {
                 departmentId: null,
                 departmentName: null,
                 allowedFeatures: [],
-                role: session.user.role,
             },
             user: {
                 id: session.user.id,
                 name: session.user.name,
                 email: session.user.email,
-                role: session.user.role,
             },
         })
     } catch (error: any) {

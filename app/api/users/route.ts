@@ -236,7 +236,7 @@ export async function POST(req: Request) {
 
     const formData = await req.json()
     const {
-      email, name, password, customRoleId,
+      email, name, password, roleId,
       employeeId, phone, dateOfBirth, gender, idCardNumber,
       address, city, province, departmentId, positionId,
       employmentStatus, joinDate, probationEndDate,
@@ -257,16 +257,86 @@ export async function POST(req: Request) {
       )
     }
 
-    if (!customRoleId) {
+    if (!roleId) {
       return NextResponse.json(
         { error: 'Role pengguna wajib dipilih' },
         { status: 400 }
       )
     }
 
+    // Validate and fetch the custom role before proceeding
+    const customRole = await prisma.customRole.findUnique({
+      where: { id: roleId },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        isActive: true,
+        allowedFeatures: true,
+        priority: true,
+      }
+    })
+
+    if (!customRole) {
+      console.error('Custom role not found:', { roleId })
+      return NextResponse.json(
+        { error: 'Role yang dipilih tidak ditemukan' },
+        { status: 400 }
+      )
+    }
+
+    console.log('[USER-CREATION] Custom role found:', {
+      id: customRole.id,
+      name: customRole.name,
+      code: customRole.code,
+      isActive: customRole.isActive,
+      hasAllowedFeatures: !!customRole.allowedFeatures,
+    })
+
+    console.log('[USER-CREATION] Single Role System - Using custom role only:', {
+      customRoleName: customRole.name,
+      customRoleCode: customRole.code,
+      isActive: customRole.isActive,
+      hasPermissions: !!customRole.allowedFeatures
+    })
+
+    // Base role system removed - only custom roles are used now
+
+    if (!customRole.isActive) {
+      console.log('[USER-CREATION] WARNING: Custom role is inactive, activating it automatically')
+      // Auto-activate the role if it's inactive
+      await prisma.customRole.update({
+        where: { id: roleId },
+        data: { isActive: true }
+      })
+      console.log('[USER-CREATION] Custom role activated successfully')
+    }
+
+    // Validate allowedFeatures format
+    if (customRole.allowedFeatures) {
+      try {
+        const parsed = JSON.parse(customRole.allowedFeatures)
+        console.log('[USER-CREATION] Role allowedFeatures parsed successfully:', {
+          type: typeof parsed,
+          isArray: Array.isArray(parsed),
+          keys: Array.isArray(parsed) ? null : Object.keys(parsed || {}),
+        })
+      } catch (e) {
+        console.error('[USER-CREATION] ERROR: Invalid JSON in allowedFeatures:', customRole.allowedFeatures)
+        return NextResponse.json(
+          { error: 'Role yang dipilih memiliki format permission yang tidak valid' },
+          { status: 400 }
+        )
+      }
+    } else {
+      console.log('[USER-CREATION] WARNING: Custom role has no allowedFeatures')
+    }
+
     logger.info('Creating new user+employee', {
       email,
-      customRoleId,
+      customRoleId: customRole.id,
+      customRoleName: customRole.name,
+      customRoleCode: customRole.code,
       employeeId,
       createdBy: session.user.id,
     })
@@ -276,19 +346,20 @@ export async function POST(req: Request) {
     try {
       // Create User + Employee + EmployeeRole in single transaction
       const result = await prisma.$transaction(async (tx) => {
-        // 1. Create User (with 'USER' as base role - custom role handles permissions)
+        console.log('[USER-CREATION] Starting transaction...')
+        // 1. Create User (no base role - single role system)
         const user = await tx.user.create({
           data: {
             email,
             name: name || null,
             passwordHash,
-            role: 'USER', // Base role - actual permissions come from CustomRole
           },
         })
 
         logger.dbOperation('create', 'User', Date.now() - startTime, {
           userId: user.id,
         })
+        console.log('[USER-CREATION] User created successfully:', { userId: user.id, email: user.email })
 
         // 2. Create Employee record linked to user
         const employee = await tx.employee.create({
@@ -324,12 +395,17 @@ export async function POST(req: Request) {
           employeeId: employee.id,
           userId: user.id,
         })
+        console.log('[USER-CREATION] Employee created successfully:', {
+          employeeId: employee.id,
+          employeeNumber: employee.employeeId,
+          userId: user.id
+        })
 
-        // 3. Create EmployeeRole to assign custom role to employee
+        // 3. Create EmployeeRole to assign role to employee
         const employeeRole = await tx.employeeRole.create({
           data: {
             employeeId: employee.id,
-            roleId: customRoleId,
+            roleId: roleId,
             assignedBy: session.user.id,
           },
         })
@@ -337,7 +413,13 @@ export async function POST(req: Request) {
         logger.dbOperation('create', 'EmployeeRole', Date.now() - startTime, {
           employeeRoleId: employeeRole.id,
           employeeId: employee.id,
-          roleId: customRoleId,
+          roleId: roleId,
+        })
+        console.log('[USER-CREATION] EmployeeRole created successfully:', {
+          employeeRoleId: employeeRole.id,
+          employeeId: employee.id,
+          roleId: roleId,
+          roleName: customRole.name
         })
 
         return { user, employee, employeeRole }
@@ -348,6 +430,12 @@ export async function POST(req: Request) {
         newUserId: result.user.id,
         employeeId: result.employee.id,
       })
+      console.log('[USER-CREATION] Transaction completed successfully:', {
+        userId: result.user.id,
+        employeeId: result.employee.id,
+        employeeNumber: result.employee.employeeId,
+        customRoleName: customRole.name,
+      })
 
       return NextResponse.json({
         id: result.user.id,
@@ -355,6 +443,15 @@ export async function POST(req: Request) {
         message: 'User & Employee created successfully',
       })
     } catch (e: any) {
+      console.error('[USER-CREATION] ERROR:', {
+        error: e.message,
+        code: e.code,
+        meta: e.meta,
+        cause: e.cause,
+        roleId: roleId,
+        email: email,
+        employeeId: employeeId,
+      })
       logger.error('Error creating user', e, {
         path: '/api/users',
         method: 'POST',

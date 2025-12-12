@@ -16,9 +16,11 @@ export async function GET(request: NextRequest) {
       }, { status: 401 })
     }
 
-    // Verify user has FINANCE or ADMIN role
-    const allowedRoles = ['FINANCE', 'ADMIN'] as const
-    if (!allowedRoles.includes(authResult.user.role as any)) {
+    // Verify user has FINANCE or ADMIN permissions
+    const hasFinanceAccess = authResult.user?.permissions?.includes('FINANCE') ||
+                            authResult.user?.permissions?.includes('ADMIN') ||
+                            false
+    if (!hasFinanceAccess) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

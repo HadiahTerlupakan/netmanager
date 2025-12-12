@@ -8,11 +8,11 @@ import type { ReturnPhotoUploadResponse } from '@/types/inventory-returns'
 import * as path from 'path'
 
 /**
- * Authentication helper - requires ADMIN or EMPLOYEE role
+ * Authentication helper - requires valid session
  */
 async function requireAuth() {
   const session: any = await getServerSession(authConfig as any)
-  if (!session || !['ADMIN', 'EMPLOYEE'].includes(session?.user?.role)) {
+  if (!session?.user) {
     return null
   }
   return session
@@ -22,14 +22,8 @@ async function requireAuth() {
  * Helper function to check if user can access this return
  */
 async function canAccessReturn(returnId: string, session: any): Promise<boolean> {
-  if (session.user.role === 'ADMIN') {
-    return true // Admin can access all
-  }
-
-  // Employee can only access their own return records
-  // This would query from BarangReturn table when implemented
-  // For now, we'll allow all employees to upload photos
-  return true
+  // All authenticated users can access (role-based access handled at UI level)
+  return !!session?.user
 }
 
 /**
@@ -102,7 +96,6 @@ export async function POST(request: NextRequest) {
       logger.warn('Access denied to return for photo upload', {
         userId: session.user.id,
         returnId,
-        role: session.user.role
       })
       return NextResponse.json(
         { error: 'Access denied - You can only upload photos for your own returns' },
@@ -265,7 +258,6 @@ export async function GET(request: NextRequest) {
       logger.warn('Access denied to return photo info', {
         userId: session.user.id,
         returnId,
-        role: session.user.role
       })
       return NextResponse.json(
         { error: 'Access denied - You can only view photos for your own returns' },
@@ -279,9 +271,9 @@ export async function GET(request: NextRequest) {
       // Get return transaction information
       const barangMasuk = await prisma.barangMasuk.findUnique({
         where: { id: returnId },
-        select: { 
-          id: true, 
-          barangId: true, 
+        select: {
+          id: true,
+          barangId: true,
           gudangId: true,
           fotoBukti: true,
           createdAt: true

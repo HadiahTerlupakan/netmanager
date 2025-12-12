@@ -30,8 +30,7 @@ export async function GET(request: NextRequest) {
         // Check if employee has permission to access work orders
         const hasAccess = await checkEmployeeFeatureAccess(
             employee.employeeId,
-            'WORKORDERS',
-            user.role
+            'WORKORDERS'
         );
 
         if (!hasAccess) {

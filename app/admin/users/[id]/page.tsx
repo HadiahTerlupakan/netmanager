@@ -69,7 +69,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     // User fields
     name: '',
     password: '',
-    customRoleId: '', // Changed from role to customRoleId
+    roleId: '', // Single role system
     // Employee fields
     employeeId: '',
     phone: '',
@@ -153,7 +153,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
           ...prev,
           // User data
           name: usr.name || '',
-          customRoleId: emp.customRoleId || '', // Get from employee's assigned role
+          roleId: emp.customRoleId || '', // Get from employee's assigned role
 
           // Employee data
           employeeId: emp.employeeId || '',
@@ -252,7 +252,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
       // 1. Update User
       const userUpdateBody: any = {
         name: formData.name,
-        customRoleId: formData.customRoleId,
+        roleId: formData.roleId,
       }
       if (formData.password) {
         userUpdateBody.password = formData.password
@@ -349,7 +349,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
 
   // --- CV / DETAIL VIEW MODE ---
   if (isViewMode) {
-    const roleName = roles.find(r => r.id === formData.customRoleId)?.name || 'No Role'
+    const roleName = roles.find(r => r.id === formData.roleId)?.name || 'No Role'
     const departmentName = departments.find(d => d.id === formData.departmentId)?.name || '-'
 
     return (
@@ -658,11 +658,11 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                   Role Pengguna <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="customRoleId"
+                  name="roleId"
                   required
-                  value={formData.customRoleId}
+                  value={formData.roleId}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.customRoleId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
+                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.roleId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
                     }`}
                 >
                   <option value="">Pilih Role</option>
@@ -672,9 +672,10 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                     </option>
                   ))}
                 </select>
-                {errors.customRoleId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.customRoleId}</p>}
+                {errors.roleId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.roleId}</p>}
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  <a href="/admin/roles" target="_blank" className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                  Role ini akan menentukan semua hak akses pengguna.
+                  <a href="/admin/roles" target="_blank" className="text-indigo-600 dark:text-indigo-400 hover:underline ml-1">
                     Kelola roles →
                   </a>
                 </p>

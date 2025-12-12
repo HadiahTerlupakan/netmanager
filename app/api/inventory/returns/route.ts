@@ -6,11 +6,11 @@ import { logger } from '@/lib/logger'
 import type { CreateReturnRequest, CreateReturnResponse } from '@/types/inventory-returns'
 
 /**
- * Authentication helper - requires ADMIN or EMPLOYEE role
+ * Authentication helper - requires valid session
  */
 async function requireAuth() {
   const session: any = await getServerSession(authConfig as any)
-  if (!session || !['ADMIN', 'EMPLOYEE'].includes(session?.user?.role)) {
+  if (!session?.user) {
     return null
   }
   return session
@@ -60,17 +60,8 @@ function validateReturnRequest(body: any): { isValid: boolean; errors: string[] 
  * Helper function to check if user can access this BarangKeluar
  */
 async function canAccessBarangKeluar(barangKeluarId: string, session: any): Promise<boolean> {
-  if (session.user.role === 'ADMIN') {
-    return true // Admin can access all
-  }
-
-  // Employee can only access their own BarangKeluar records
-  const barangKeluar = await prisma.barangKeluar.findUnique({
-    where: { id: barangKeluarId },
-    select: { employeeId: true }
-  })
-
-  return barangKeluar?.employeeId === session.user.id
+  // All authenticated users can access (role-based access handled at UI level)
+  return !!session?.user
 }
 
 /**
@@ -129,9 +120,9 @@ export async function POST(req: NextRequest) {
     const validation = validateReturnRequest(body)
     if (!validation.isValid) {
       return NextResponse.json(
-        { 
+        {
           error: 'Validation failed',
-          details: validation.errors 
+          details: validation.errors
         },
         { status: 400 }
       )
@@ -156,7 +147,6 @@ export async function POST(req: NextRequest) {
         logger.warn('Access denied to BarangKeluar for return', {
           userId: session.user.id,
           barangKeluarId,
-          role: session.user.role
         })
         return NextResponse.json(
           { error: 'Access denied - You can only return your own borrowed items' },
@@ -183,7 +173,7 @@ export async function POST(req: NextRequest) {
       const returnableQuantity = await getReturnableQuantity(barangKeluarId)
       if (jumlahDikembalikan > returnableQuantity) {
         return NextResponse.json(
-          { 
+          {
             error: 'Jumlah pengembalian melebihi jumlah yang dapat dikembalikan',
             maxReturnable: returnableQuantity,
             requested: jumlahDikembalikan
@@ -199,7 +189,7 @@ export async function POST(req: NextRequest) {
           keterangan || `Pengembalian dari transaksi keluar ${barangKeluarId}`,
           purpose ? `Keperluan: ${purpose}` : null
         ].filter(Boolean).join(' | ')
-        
+
         const barangMasuk = await tx.barangMasuk.create({
           data: {
             barangId: barangKeluar.barangId,
@@ -215,25 +205,25 @@ export async function POST(req: NextRequest) {
 
         // Update stock in BarangGudang
         const existingStock = await tx.barangGudang.findUnique({
-          where: { 
-            barangId_gudangId: { 
-              barangId: barangKeluar.barangId, 
-              gudangId: barangKeluar.gudangId 
-            } 
+          where: {
+            barangId_gudangId: {
+              barangId: barangKeluar.barangId,
+              gudangId: barangKeluar.gudangId
+            }
           }
         })
 
         if (existingStock) {
           // Update existing stock
           await tx.barangGudang.update({
-            where: { 
-              barangId_gudangId: { 
-                barangId: barangKeluar.barangId, 
-                gudangId: barangKeluar.gudangId 
-              } 
+            where: {
+              barangId_gudangId: {
+                barangId: barangKeluar.barangId,
+                gudangId: barangKeluar.gudangId
+              }
             },
-            data: { 
-              stok: existingStock.stok + jumlahDikembalikan 
+            data: {
+              stok: existingStock.stok + jumlahDikembalikan
             }
           })
         } else {

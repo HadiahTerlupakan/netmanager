@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma';
 export interface FinanceJwtPayload {
   userId: string;
   email: string;
-  role: string;
+  permissions: string[];
   type: 'FINANCE_ACCESS';
   timestamp: number;
 }
@@ -16,7 +16,7 @@ export interface FinanceUser {
   id: string;
   email: string;
   name: string | null;
-  role: string;
+  permissions: string[];
 }
 
 // Authentication result interface
@@ -54,7 +54,7 @@ class FinanceAuthService {
     const payload: FinanceJwtPayload = {
       userId: user.id,
       email: user.email,
-      role: user.role,
+      permissions: user.permissions,
       type: 'FINANCE_ACCESS',
       timestamp: Date.now(),
     };
@@ -128,7 +128,6 @@ class FinanceAuthService {
           id: true,
           email: true,
           name: true,
-          role: true,
         },
       });
 
@@ -140,8 +139,11 @@ class FinanceAuthService {
         };
       }
 
-      // Check role authorization
-      if (!this.isFinanceAuthorized(user.role)) {
+      // Use permissions from JWT token (since role column no longer exists)
+      const userPermissions = decoded.permissions || [];
+
+      // Check permissions authorization
+      if (!this.isFinanceAuthorized(userPermissions)) {
         return {
           success: false,
           error: 'Insufficient permissions for finance access',
@@ -155,7 +157,7 @@ class FinanceAuthService {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          permissions: userPermissions,
         },
       };
     } catch (error) {
@@ -209,7 +211,6 @@ class FinanceAuthService {
               id: true,
               email: true,
               name: true,
-              role: true,
             },
           },
         },
@@ -223,8 +224,13 @@ class FinanceAuthService {
         };
       }
 
-      // Check role authorization
-      if (!this.isFinanceAuthorized(session.user.role)) {
+      // Get permissions from custom role system
+      const { getEmployeePermissions } = await import('@/lib/utils/permissions');
+      const permissions = await getEmployeePermissions(session.user.id);
+      const userPermissions = permissions?.allowedFeatures || [];
+
+      // Check permissions authorization
+      if (!this.isFinanceAuthorized(userPermissions)) {
         return {
           success: false,
           error: 'Insufficient permissions for finance access',
@@ -238,7 +244,7 @@ class FinanceAuthService {
           id: session.user.id,
           email: session.user.email,
           name: session.user.name,
-          role: session.user.role,
+          permissions: userPermissions,
         },
       };
     } catch (error) {
@@ -342,16 +348,27 @@ class FinanceAuthService {
           id: true,
           email: true,
           name: true,
-          role: true,
         },
       });
 
-      if (!user || !this.isFinanceAuthorized(user.role)) {
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+
+      // Use permissions from old token
+      const userPermissions = decoded.permissions || [];
+
+      if (!this.isFinanceAuthorized(userPermissions)) {
         return { success: false, error: 'User not authorized' };
       }
 
       // Generate new token
-      const { token } = this.generateFinanceToken(user);
+      const { token } = this.generateFinanceToken({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        permissions: userPermissions
+      });
 
       return { success: true, token };
     } catch (error) {
@@ -361,11 +378,10 @@ class FinanceAuthService {
   }
 
   /**
-   * Check if role is authorized for finance access
+   * Check if permissions are authorized for finance access
    */
-  private static isFinanceAuthorized(role: string): boolean {
-    const authorizedRoles = ['ADMIN', 'FINANCE'];
-    return authorizedRoles.includes(role);
+  private static isFinanceAuthorized(permissions: string[]): boolean {
+    return permissions?.includes('FINANCE') || permissions?.includes('ADMIN') || false;
   }
 
   /**
@@ -458,7 +474,8 @@ class FinanceAuthService {
       return result;
     }
 
-    if (result.user?.role !== 'ADMIN') {
+    const hasAdminAccess = result.user?.permissions?.includes('ADMIN') || false;
+    if (!hasAdminAccess) {
       return {
         success: false,
         error: 'Admin access required',
@@ -514,7 +531,7 @@ class FinanceAuthService {
       timestamp: new Date().toISOString(),
       userId: user.id,
       userEmail: user.email,
-      userRole: user.role,
+      userPermissions: user.permissions,
       action,
       resource,
       ipAddress,

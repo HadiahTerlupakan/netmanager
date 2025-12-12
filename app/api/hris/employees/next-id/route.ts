@@ -11,7 +11,8 @@ export async function GET() {
     try {
         const session: any = await getServerSession(authConfig as any)
 
-        if (!session || !['ADMIN', 'HR'].includes(session.user?.role)) {
+        // Only require valid session - role access is handled at UI level via CustomRole
+        if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 

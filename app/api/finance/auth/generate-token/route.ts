@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import FinanceAuthService from '@/lib/services/FinanceAuthService'
+import { getEmployeePermissions } from '@/lib/utils/permissions'
 
 /**
  * Generate finance token untuk admin user dengan role FINANCE atau ADMIN
@@ -69,9 +70,15 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Cek role - FINANCE atau ADMIN bisa generate token
-      const allowedRoles = ['FINANCE', 'ADMIN']
-      if (!allowedRoles.includes(user.role as any)) {
+      // Cek permissions melalui custom role system
+      const permissions = await getEmployeePermissions(user.id)
+
+      // Cek apakah user memiliki akses finance atau admin
+      const hasFinanceAccess = permissions?.allowedFeatures?.includes('FINANCE') ||
+                              permissions?.allowedFeatures?.includes('ADMIN') ||
+                              false
+
+      if (!hasFinanceAccess) {
         return NextResponse.json(
           { error: 'User tidak memiliki akses ke portal finance' },
           { status: 403 }
@@ -83,11 +90,11 @@ export async function POST(req: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role
+        permissions: permissions?.allowedFeatures || []
       });
 
       // Log untuk audit trail (tanpa sensitive data)
-      console.log(`[Finance Token Generated] User: ${user.email}, Role: ${user.role}, Expires: ${expiresAt.toISOString()}`);
+      console.log(`[Finance Token Generated] User: ${user.email}, Permissions: [${permissions?.allowedFeatures?.join(', ')}], Expires: ${expiresAt.toISOString()}`);
 
       // Return token dengan informasi expiry
       return NextResponse.json({
@@ -97,7 +104,7 @@ export async function POST(req: NextRequest) {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role
+          permissions: permissions?.allowedFeatures || []
         },
       });
     } catch (error: any) {

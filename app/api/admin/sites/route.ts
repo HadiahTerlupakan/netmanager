@@ -6,7 +6,7 @@ import { verifyAuth } from '@/lib/auth';
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
-        if (!user || user.role === 'USER') {
+        if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
-        if (!user || user.role === 'USER') {
+        if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 

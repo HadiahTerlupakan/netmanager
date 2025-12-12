@@ -13,7 +13,7 @@
  * Usage: npx tsx scripts/seed-all.ts
  */
 
-import { PrismaClient, Role, Status, TipePelanggan, TagihanStatus, TipePengeluaran, EmploymentStatus, AttendanceStatus, LeaveType, LeaveStatus, SalaryComponentType, PayrollStatus, TicketStatus, TicketPriority, WorkOrderStatus, WorkOrderPriority, WorkOrderType, TaskStatus } from '@prisma/client'
+import { PrismaClient, Status, TipePelanggan, TagihanStatus, TipePengeluaran, EmploymentStatus, AttendanceStatus, LeaveType, LeaveStatus, SalaryComponentType, PayrollStatus, TicketStatus, TicketPriority, WorkOrderStatus, WorkOrderPriority, WorkOrderType, TaskStatus } from '@prisma/client'
 import { hash } from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -42,38 +42,35 @@ async function main() {
 
     const adminUser = await prisma.user.upsert({
         where: { email: 'admin@netmanager.com' },
-        update: { passwordHash, role: Role.ADMIN },
+        update: { passwordHash },
         create: {
             email: 'admin@netmanager.com',
             name: 'Admin NetManager',
             passwordHash,
-            role: Role.ADMIN,
         },
     })
 
     const financeUser = await prisma.user.upsert({
         where: { email: 'finance@netmanager.com' },
-        update: { passwordHash, role: Role.FINANCE },
+        update: { passwordHash },
         create: {
             email: 'finance@netmanager.com',
             name: 'Finance Manager',
             passwordHash,
-            role: Role.FINANCE,
         },
     })
 
     const hrUser = await prisma.user.upsert({
         where: { email: 'hr@netmanager.com' },
-        update: { passwordHash, role: Role.HR },
+        update: { passwordHash },
         create: {
             email: 'hr@netmanager.com',
             name: 'HR Manager',
             passwordHash,
-            role: Role.HR,
         },
     })
 
-    console.log(`✓ Created ${3} users\n`)
+    console.log(`✓ Created 3 users (roles will be assigned via CustomRole)\n`)
 
     // ============================================
     // 2. NETWORK INFRASTRUCTURE

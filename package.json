@@ -27,6 +27,8 @@
     "prisma:sync": "prisma db push && prisma migrate resolve --applied 20251105130408_init",
     "prisma:fix-drift": "prisma migrate resolve --rolled-back 20251105130408_init && prisma migrate dev --name complete_schema",
     "security:migrate-passwords": "tsx scripts/migrate-pelanggan-password.ts",
+    "check:roles": "node scripts/check-role-data.js",
+    "fix:roles": "node scripts/fix-roles.js",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",

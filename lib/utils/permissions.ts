@@ -14,7 +14,6 @@ export interface EmployeePermissions {
     departmentName: string | null
     allowedFeatures: string[] // For backward compatibility
     permissionMatrix: PermissionMatrix // New granular permissions
-    role: string | null
     customRoles?: Array<{
         id: string
         name: string
@@ -206,29 +205,9 @@ export function filterNavigationByPermissions<T extends { feature?: string }>(
  * ADMIN users get all features regardless of department/roles
  */
 export async function getEmployeePermissions(
-    employeeId: string,
-    userRole?: string
+    employeeId: string
 ): Promise<EmployeePermissions | null> {
     try {
-        // If user is ADMIN, return all features with full access
-        if (userRole === 'ADMIN') {
-            const allFeatures = getAllFeatures()
-            const fullMatrix: PermissionMatrix = {}
-            allFeatures.forEach(f => {
-                fullMatrix[f] = { read: true, create: true, update: true, delete: true }
-            })
-
-            return {
-                employeeId,
-                departmentId: null,
-                departmentName: null,
-                allowedFeatures: allFeatures,
-                permissionMatrix: fullMatrix,
-                role: userRole,
-                customRoles: [],
-            }
-        }
-
         const employee = await prisma.employee.findUnique({
             where: { employeeId },
             include: {
@@ -289,7 +268,6 @@ export async function getEmployeePermissions(
             departmentName: employee.department?.name || null,
             allowedFeatures: matrixToLegacyArray(finalMatrix),
             permissionMatrix: finalMatrix,
-            role: userRole || null,
             customRoles: customRolesInfo,
         }
     } catch (error) {
@@ -315,15 +293,9 @@ export function hasPermission(features: string[], requiredFeature: string): bool
 export async function checkEmployeeFeatureAccess(
     employeeId: string,
     requiredFeature: string,
-    userRole?: string,
     action: PermissionAction = 'read'
 ): Promise<boolean> {
-    // ADMIN always has access
-    if (userRole === 'ADMIN') {
-        return true
-    }
-
-    const permissions = await getEmployeePermissions(employeeId, userRole)
+    const permissions = await getEmployeePermissions(employeeId)
     if (!permissions) {
         return false
     }

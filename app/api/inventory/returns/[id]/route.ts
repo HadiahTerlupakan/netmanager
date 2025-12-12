@@ -6,11 +6,11 @@ import { logger } from '@/lib/logger'
 import type { ReturnDetailResponse, BarangKeluarWithRelations } from '@/types/inventory-returns'
 
 /**
- * Authentication helper - requires ADMIN or EMPLOYEE role
+ * Authentication helper - requires valid session
  */
 async function requireAuth() {
   const session: any = await getServerSession(authConfig as any)
-  if (!session || !['ADMIN', 'EMPLOYEE'].includes(session?.user?.role)) {
+  if (!session?.user) {
     return null
   }
   return session
@@ -42,17 +42,8 @@ async function getReturnableQuantity(barangKeluarId: string): Promise<number> {
  * Helper function to check if user can access this BarangKeluar
  */
 async function canAccessBarangKeluar(barangKeluarId: string, session: any): Promise<boolean> {
-  if (session.user.role === 'ADMIN') {
-    return true // Admin can access all
-  }
-
-  // Employee can only access their own BarangKeluar records
-  const barangKeluar = await prisma.barangKeluar.findUnique({
-    where: { id: barangKeluarId },
-    select: { employeeId: true }
-  })
-
-  return barangKeluar?.employeeId === session.user.id
+  // All authenticated users can access (role-based access handled at UI level)
+  return !!session?.user
 }
 
 /**
@@ -98,7 +89,6 @@ export async function GET(
       logger.warn('Access denied to BarangKeluar', {
         userId: session.user.id,
         barangKeluarId: id,
-        role: session.user.role
       })
       return NextResponse.json(
         { error: 'Access denied - You can only access your own borrowed items' },
@@ -131,16 +121,14 @@ export async function GET(
               nama: true
             }
           },
-          // Include user info if admin
-          ...(session.user.role === 'ADMIN' ? {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
+          // Include user info
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
             }
-          } : {})
+          }
         }
       })
 
@@ -309,25 +297,25 @@ export async function DELETE(
 
       // Restore stock to BarangGudang
       const existingStock = await tx.barangGudang.findUnique({
-        where: { 
-          barangId_gudangId: { 
-            barangId: barangKeluar.barangId, 
-            gudangId: barangKeluar.gudangId 
-          } 
+        where: {
+          barangId_gudangId: {
+            barangId: barangKeluar.barangId,
+            gudangId: barangKeluar.gudangId
+          }
         }
       })
 
       if (existingStock) {
         // Update existing stock
         await tx.barangGudang.update({
-          where: { 
-            barangId_gudangId: { 
-              barangId: barangKeluar.barangId, 
-              gudangId: barangKeluar.gudangId 
-            } 
+          where: {
+            barangId_gudangId: {
+              barangId: barangKeluar.barangId,
+              gudangId: barangKeluar.gudangId
+            }
           },
-          data: { 
-            stok: existingStock.stok + barangKeluar.jumlah 
+          data: {
+            stok: existingStock.stok + barangKeluar.jumlah
           }
         })
       } else {
