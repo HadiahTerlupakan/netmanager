@@ -175,9 +175,10 @@ export default function WorkOrderDetailPage() {
         }
     }
 
-    const handleVerify = async () => {
-        if (!confirm('Are you sure you want to verify this work order?')) return
+    const [showVerifyModal, setShowVerifyModal] = useState(false)
 
+    // Original handleVerify logic moved here
+    const processVerify = async () => {
         setProcessingApproval(true)
         try {
             const response = await fetch(`/api/admin/workorders/${workOrderId}`, {
@@ -187,6 +188,7 @@ export default function WorkOrderDetailPage() {
             })
 
             if (response.ok) {
+                setShowVerifyModal(false)
                 fetchWorkOrder()
             } else {
                 alert('Failed to verify work order')
@@ -197,6 +199,11 @@ export default function WorkOrderDetailPage() {
         } finally {
             setProcessingApproval(false)
         }
+    }
+
+    // New handler just opens the modal
+    const handleVerify = async () => {
+        setShowVerifyModal(true)
     }
 
     const handleReject = async () => {
@@ -791,6 +798,52 @@ export default function WorkOrderDetailPage() {
                                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                                 >
                                     {processingApproval ? 'Memproses...' : 'Batalkan WO'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Verify Confirm Modal */}
+            {showVerifyModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200">
+                        <div className="p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                    <HiCheckCircle className="w-6 h-6 text-emerald-600" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900">Verifikasi Work Order</h3>
+                            </div>
+
+                            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                                Apakah Anda yakin ingin memverifikasi work order ini?
+                                <br />
+                                <span className="font-medium text-gray-900">Status akan berubah menjadi VERIFIED dan stok barang akan terpotong secara permanen.</span>
+                            </p>
+
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={() => setShowVerifyModal(false)}
+                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition-colors"
+                                    disabled={processingApproval}
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={processVerify}
+                                    disabled={processingApproval}
+                                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 font-medium transition-colors flex items-center gap-2"
+                                >
+                                    {processingApproval ? (
+                                        <>
+                                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Memproses...
+                                        </>
+                                    ) : (
+                                        'Ya, Verifikasi'
+                                    )}
                                 </button>
                             </div>
                         </div>
