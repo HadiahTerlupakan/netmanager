@@ -32,7 +32,7 @@ export default function BankAccountsPage() {
         try {
             setLoading(true)
             const res = await fetch('/api/finance/bank/accounts', {
-                headers: { 'x-finance-token': 'admin' }, // TODO: Use proper admin token
+                credentials: 'include', // Ensure cookies are sent
             })
             if (res.ok) {
                 const data = await res.json()
@@ -59,8 +59,8 @@ export default function BankAccountsPage() {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-finance-token': 'admin',
                     },
+                    credentials: 'include',
                     body: JSON.stringify(formData),
                 })
 
@@ -75,8 +75,8 @@ export default function BankAccountsPage() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-finance-token': 'admin',
                     },
+                    credentials: 'include',
                     body: JSON.stringify(formData),
                 })
 
@@ -113,7 +113,7 @@ export default function BankAccountsPage() {
         try {
             const res = await fetch(`/api/finance/bank/accounts/${id}`, {
                 method: 'DELETE',
-                headers: { 'x-finance-token': 'admin' },
+                credentials: 'include',
             })
 
             if (res.ok) {

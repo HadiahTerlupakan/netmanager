@@ -105,7 +105,7 @@ export default function USODashboardPage() {
     const markAsFiled = async (id: string) => {
         try {
             const response = await fetch(`/api/finance/uso/${id}/file`, {
-                method: ' PATCH',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ filedBy: 'admin' }), // TODO: get from auth
             })

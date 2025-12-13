@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
+import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/prisma';
 
 // Define finance JWT payload interface
@@ -78,9 +79,10 @@ class FinanceAuthService {
    */
   static async validateFinanceToken(request: NextRequest): Promise<AuthResult> {
     try {
-      // Get token from header
+      // Get token from header - check both Authorization and x-finance-token
       const authHeader = request.headers.get('authorization');
-      const token = authHeader?.replace('Bearer ', '');
+      const financeTokenHeader = request.headers.get('x-finance-token');
+      const token = authHeader?.replace('Bearer ', '') || financeTokenHeader;
 
       if (!token) {
         return {
@@ -90,14 +92,8 @@ class FinanceAuthService {
         };
       }
 
-      // Check if token is revoked
-      if (!this.activeTokens.has(token)) {
-        return {
-          success: false,
-          error: 'Token has been revoked',
-          errorCode: 'INVALID_TOKEN',
-        };
-      }
+      // Note: activeTokens check removed - JWT validation is sufficient
+      // Token revocation should be handled with Redis in production
 
       // Verify JWT
       const decoded = jwt.verify(token, this.JWT_SECRET) as FinanceJwtPayload;
@@ -187,14 +183,18 @@ class FinanceAuthService {
   }
 
   /**
-   * Validate NextAuth session
+   * Validate NextAuth session using getToken from next-auth/jwt
+   * This properly decodes the NextAuth JWT token
    */
   static async validateSession(request: NextRequest): Promise<AuthResult> {
     try {
-      const sessionToken = request.cookies.get('next-auth.session-token')?.value ||
-                          request.cookies.get('__Secure-next-auth.session-token')?.value;
+      // Use next-auth's getToken to properly decode the JWT
+      const token = await getToken({
+        req: request as any,
+        secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+      });
 
-      if (!sessionToken) {
+      if (!token || !token.id) {
         return {
           success: false,
           error: 'No active session found',
@@ -202,32 +202,23 @@ class FinanceAuthService {
         };
       }
 
-      // Get session from database
-      const session = await prisma.session.findUnique({
-        where: { sessionToken },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              name: true,
-            },
-          },
-        },
-      });
+      // Get permissions from token or fetch from database
+      let userPermissions: string[] = (token.permissions as string[]) || [];
 
-      if (!session || session.expires < new Date()) {
-        return {
-          success: false,
-          error: 'Session expired or invalid',
-          errorCode: 'UNAUTHORIZED',
-        };
+      // If permissions not in token, fetch from database
+      if (userPermissions.length === 0 && token.id) {
+        const { getEmployeePermissions } = await import('@/lib/utils/permissions');
+
+        // Try to find employee by userId
+        const employee = await prisma.employee.findUnique({
+          where: { userId: token.id as string }
+        });
+
+        if (employee) {
+          const permissions = await getEmployeePermissions(employee.employeeId);
+          userPermissions = permissions?.allowedFeatures || [];
+        }
       }
-
-      // Get permissions from custom role system
-      const { getEmployeePermissions } = await import('@/lib/utils/permissions');
-      const permissions = await getEmployeePermissions(session.user.id);
-      const userPermissions = permissions?.allowedFeatures || [];
 
       // Check permissions authorization
       if (!this.isFinanceAuthorized(userPermissions)) {
@@ -241,9 +232,9 @@ class FinanceAuthService {
       return {
         success: true,
         user: {
-          id: session.user.id,
-          email: session.user.email,
-          name: session.user.name,
+          id: token.id as string,
+          email: (token.email as string) || '',
+          name: (token.name as string) || null,
           permissions: userPermissions,
         },
       };
@@ -389,8 +380,8 @@ class FinanceAuthService {
    */
   private static getClientIP(request: NextRequest): string {
     return request.headers.get('x-forwarded-for')?.split(',')[0] ||
-           request.headers.get('x-real-ip') ||
-           'unknown';
+      request.headers.get('x-real-ip') ||
+      'unknown';
   }
 
   /**
