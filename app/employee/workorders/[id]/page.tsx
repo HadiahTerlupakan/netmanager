@@ -395,307 +395,318 @@ export default function EmployeeWorkOrderDetail() {
 
     return (
         <>
-            <div className="bg-gray-50 dark:bg-gray-900 min-h-screen pb-32">
-                {/* Header */}
-                <div className="bg-white dark:bg-gray-800 px-4 py-4 sticky top-0 z-10 border-b border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-3">
-                    <Link href="/employee/workorders" className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-                        <HiArrowLeft className="w-6 h-6" />
-                    </Link>
-                    <div className="flex-1">
-                        <h1 className="text-lg font-bold text-gray-900 dark:text-white">{workOrder.workOrderNumber}</h1>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {workOrder.site ? `Site: ${workOrder.site.code}` : 'Detail Pekerjaan'}
-                        </p>
-                    </div>
-                    <div className={`px-3 py-1 text-xs font-bold rounded-full border ${STATUS_COLORS[workOrder.status]}`}>
-                        {workOrder.status.replace('_', ' ')}
+            <div className="h-[100dvh] flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+                {/* Header - Sticky */}
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md px-4 py-4 sticky top-0 z-30 border-b border-gray-200 dark:border-gray-700 shadow-sm supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-800/60">
+                    <div className="flex items-center gap-3">
+                        <Link href="/employee/workorders" className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+                            <HiArrowLeft className="w-6 h-6" />
+                        </Link>
+                        <div className="flex-1">
+                            <h1 className="text-lg font-bold text-gray-900 dark:text-white">{workOrder.workOrderNumber}</h1>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {workOrder.site ? `Site: ${workOrder.site.code}` : 'Detail Pekerjaan'}
+                            </p>
+                        </div>
+                        <div className={`px-3 py-1 text-xs font-bold rounded-full border ${STATUS_COLORS[workOrder.status]}`}>
+                            {workOrder.status.replace('_', ' ')}
+                        </div>
                     </div>
                 </div>
 
-                <div className="p-4 space-y-4">
-                    {/* Main Info Card */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-100 dark:border-gray-700">
-                        <div className="mb-4">
-                            <span className="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">{workOrder.type}</span>
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-white mt-1">{workOrder.title}</h2>
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
-                            {workOrder.description}
-                        </div>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-sm font-medium ${workOrder.priority === 'URGENT' || workOrder.priority === 'CRITICAL'
-                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-                                }`}>
-                                <HiExclamationCircle className="w-4 h-4" />
-                                {workOrder.priority}
-                            </span>
-                            {workOrder.scheduledDate && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-sm font-medium">
-                                    <HiClock className="w-4 h-4" />
-                                    {new Date(workOrder.scheduledDate).toLocaleDateString('id-ID')}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Task Checklist */}
-                    {workOrder.tasks && workOrder.tasks.length > 0 && (
+                {/* Scrollable Content */}
+                <div className="flex-1 overflow-y-auto">
+                    <div className="p-4 space-y-4">
+                        {/* Main Info Card */}
                         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-100 dark:border-gray-700">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
-                                    <HiListBullet className="w-5 h-5" />
-                                    Task Checklist
-                                </h3>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">
-                                    {completedTasks}/{totalTasks} selesai
+                            <div className="mb-4">
+                                <span className="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">{workOrder.type}</span>
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white mt-1">{workOrder.title}</h2>
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+                                {workOrder.description}
+                            </div>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-sm font-medium ${workOrder.priority === 'URGENT' || workOrder.priority === 'CRITICAL'
+                                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                                    }`}>
+                                    <HiExclamationCircle className="w-4 h-4" />
+                                    {workOrder.priority}
                                 </span>
-                            </div>
-                            {/* Progress bar */}
-                            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full mb-4 overflow-hidden">
-                                <div
-                                    className="h-full bg-green-500 transition-all duration-300"
-                                    style={{ width: `${totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0}%` }}
-                                />
-                            </div>
-                            <div className="space-y-3">
-                                {workOrder.tasks.map((task) => (
-                                    <label
-                                        key={task.id}
-                                        className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${task.status === 'COMPLETED'
-                                            ? 'bg-green-50 dark:bg-green-900/20'
-                                            : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                            }`}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={task.status === 'COMPLETED'}
-                                            onChange={(e) => toggleTask(task.id, e.target.checked)}
-                                            disabled={!isMyTicket || workOrder.status === 'COMPLETED'}
-                                            className="w-5 h-5 mt-0.5 rounded border-gray-300 text-green-600 focus:ring-green-500 disabled:opacity-50"
-                                        />
-                                        <div className="flex-1">
-                                            <p className={`font-medium ${task.status === 'COMPLETED'
-                                                ? 'text-gray-500 dark:text-gray-400 line-through'
-                                                : 'text-gray-900 dark:text-white'
-                                                }`}>
-                                                {task.title}
-                                            </p>
-                                            {task.description && (
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{task.description}</p>
-                                            )}
-                                        </div>
-                                    </label>
-                                ))}
+                                {workOrder.scheduledDate && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-sm font-medium">
+                                        <HiClock className="w-4 h-4" />
+                                        {new Date(workOrder.scheduledDate).toLocaleDateString('id-ID')}
+                                    </span>
+                                )}
                             </div>
                         </div>
-                    )}
 
-                    {/* Customer & Location */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-100 dark:border-gray-700 space-y-4">
-                        <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide border-b dark:border-gray-700 pb-2">Informasi Pelanggan</h3>
-                        <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 font-bold text-lg">
-                                {customerName.charAt(0)}
-                            </div>
-                            <div className="flex-1">
-                                <h4 className="font-bold text-gray-900 dark:text-white">{customerName}</h4>
-                                {workOrder.pelanggan ? (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">{workOrder.pelanggan.idPelanggan}</p>
-                                ) : (
-                                    <p className="text-sm text-orange-500 bg-orange-50 dark:bg-orange-900/30 inline-block px-1.5 rounded mt-0.5">Guest</p>
-                                )}
-                                {customerPhone && (
-                                    <button
-                                        onClick={() => handleCall(customerPhone)}
-                                        className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-sm font-medium rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
-                                    >
-                                        <HiPhone className="w-4 h-4" />
-                                        Hubungi
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                        {customerAddress && (
-                            <div className="pt-2">
-                                <div className="flex gap-2 text-gray-700 dark:text-gray-300 mb-2">
-                                    <HiMapPin className="w-5 h-5 text-gray-400 shrink-0" />
-                                    <p className="text-sm">{customerAddress}</p>
+                        {/* Task Checklist */}
+                        {workOrder.tasks && workOrder.tasks.length > 0 && (
+                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-100 dark:border-gray-700">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
+                                        <HiListBullet className="w-5 h-5" />
+                                        Task Checklist
+                                    </h3>
+                                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                                        {completedTasks}/{totalTasks} selesai
+                                    </span>
                                 </div>
-                                <button
-                                    onClick={() => handleMaps(customerAddress)}
-                                    className="w-full py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center justify-center gap-2 text-sm"
-                                >
-                                    <HiMapPin className="w-4 h-4" />
-                                    Buka di Maps
-                                </button>
+                                {/* Progress bar */}
+                                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full mb-4 overflow-hidden">
+                                    <div
+                                        className="h-full bg-green-500 transition-all duration-300"
+                                        style={{ width: `${totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0}%` }}
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    {workOrder.tasks.map((task) => (
+                                        <label
+                                            key={task.id}
+                                            className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${task.status === 'COMPLETED'
+                                                ? 'bg-green-50 dark:bg-green-900/20'
+                                                : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={task.status === 'COMPLETED'}
+                                                onChange={(e) => toggleTask(task.id, e.target.checked)}
+                                                disabled={!isMyTicket || workOrder.status === 'COMPLETED'}
+                                                className="w-5 h-5 mt-0.5 rounded border-gray-300 text-green-600 focus:ring-green-500 disabled:opacity-50"
+                                            />
+                                            <div className="flex-1">
+                                                <p className={`font-medium ${task.status === 'COMPLETED'
+                                                    ? 'text-gray-500 dark:text-gray-400 line-through'
+                                                    : 'text-gray-900 dark:text-white'
+                                                    }`}>
+                                                    {task.title}
+                                                </p>
+                                                {task.description && (
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{task.description}</p>
+                                                )}
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
                         )}
-                    </div>
 
-                    {/* Activity Timeline */}
-                    {workOrder.updates && workOrder.updates.length > 0 && (
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-100 dark:border-gray-700">
-                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Aktivitas</h3>
-                            <div className="space-y-3">
-                                {workOrder.updates.slice(0, 5).map((update) => (
-                                    <div key={update.id} className="flex gap-3 text-sm">
-                                        <div className="w-2 h-2 rounded-full bg-indigo-500 mt-2 shrink-0" />
-                                        <div className="flex-1">
-                                            <p className="text-gray-900 dark:text-white">{update.message}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                                {update.createdBy?.fullName || 'System'} • {new Date(update.createdAt).toLocaleString('id-ID')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Add Note Form */}
-                    {showNoteForm && (
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-100 dark:border-gray-700">
-                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide mb-3">Tambah Catatan</h3>
-                            <textarea
-                                value={noteText}
-                                onChange={(e) => setNoteText(e.target.value)}
-                                placeholder="Tulis catatan progress..."
-                                rows={3}
-                                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 resize-none"
-                            />
-                            {/* Optional Photo */}
-                            <div className="mt-3">
-                                <label className="text-xs text-gray-500 mb-1 block">Foto (opsional)</label>
-                                {notePhotoPreview ? (
-                                    <div className="relative w-20 h-20">
-                                        <img src={notePhotoPreview} alt="Preview" className="w-full h-full object-cover rounded-lg border" />
+                        {/* Customer & Location */}
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-100 dark:border-gray-700 space-y-4">
+                            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide border-b dark:border-gray-700 pb-2">Informasi Pelanggan</h3>
+                            <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 font-bold text-lg">
+                                    {customerName.charAt(0)}
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-gray-900 dark:text-white">{customerName}</h4>
+                                    {workOrder.pelanggan ? (
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">{workOrder.pelanggan.idPelanggan}</p>
+                                    ) : (
+                                        <p className="text-sm text-orange-500 bg-orange-50 dark:bg-orange-900/30 inline-block px-1.5 rounded mt-0.5">Guest</p>
+                                    )}
+                                    {customerPhone && (
                                         <button
-                                            onClick={() => { setNotePhoto(null); setNotePhotoPreview(null); }}
-                                            className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full"
+                                            onClick={() => handleCall(customerPhone)}
+                                            className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-sm font-medium rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
                                         >
-                                            <HiXMark className="w-3 h-3" />
+                                            <HiPhone className="w-4 h-4" />
+                                            Hubungi
                                         </button>
+                                    )}
+                                </div>
+                            </div>
+                            {customerAddress && (
+                                <div className="pt-2">
+                                    <div className="flex gap-2 text-gray-700 dark:text-gray-300 mb-2">
+                                        <HiMapPin className="w-5 h-5 text-gray-400 shrink-0" />
+                                        <p className="text-sm">{customerAddress}</p>
                                     </div>
-                                ) : (
-                                    <label className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-500">
-                                        <HiCamera className="w-4 h-4" />
-                                        Tambah Foto
-                                        <input type="file" accept="image/*" capture="environment" onChange={handleNotePhotoSelect} className="hidden" />
-                                    </label>
+                                    <button
+                                        onClick={() => handleMaps(customerAddress)}
+                                        className="w-full py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center justify-center gap-2 text-sm"
+                                    >
+                                        <HiMapPin className="w-4 h-4" />
+                                        Buka di Maps
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Action Buttons - Inline */}
+                        <div className="space-y-3">
+                            {/* Main Actions - Full Width Primary Actions */}
+                            <div className="space-y-3">
+                                {canClaim && (
+                                    <button
+                                        onClick={() => performAction('claim')}
+                                        disabled={actionLoading}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg active:scale-95 disabled:opacity-50 text-base"
+                                    >
+                                        <HiHandRaised className="w-5 h-5" />
+                                        Ambil Tiket
+                                    </button>
+                                )}
+
+                                {canStart && (
+                                    <button
+                                        onClick={() => performAction('start')}
+                                        disabled={actionLoading}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all shadow-lg active:scale-95 disabled:opacity-50 text-base"
+                                    >
+                                        <HiPlay className="w-5 h-5" />
+                                        Mulai Kerjakan
+                                    </button>
+                                )}
+
+                                {canResume && (
+                                    <button
+                                        onClick={() => performAction('resume')}
+                                        disabled={actionLoading}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg active:scale-95 disabled:opacity-50 text-base"
+                                    >
+                                        <HiPlay className="w-5 h-5" />
+                                        Lanjutkan Kerja
+                                    </button>
+                                )}
+
+                                {workOrder.status === 'COMPLETED' && (
+                                    <div className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-bold rounded-xl">
+                                        <HiCheckCircle className="w-5 h-5" />
+                                        Selesai - Menunggu Verifikasi
+                                    </div>
                                 )}
                             </div>
-                            <div className="flex gap-3 mt-3">
-                                <button
-                                    onClick={() => { setShowNoteForm(false); setNotePhoto(null); setNotePhotoPreview(null); }}
-                                    className="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    onClick={handleAddNoteWithPhoto}
-                                    disabled={!noteText.trim() || actionLoading}
-                                    className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                    <HiPaperAirplane className="w-4 h-4" />
-                                    Kirim
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
 
-                {/* Action Buttons Footer */}
-                <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 pb-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                    <div className="max-w-md mx-auto space-y-3">
-                        {/* Main Actions */}
-                        <div className="grid grid-cols-2 gap-3">
-                            {canClaim && (
-                                <button
-                                    onClick={() => performAction('claim')}
-                                    disabled={actionLoading}
-                                    className="col-span-2 flex items-center justify-center gap-2 px-4 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 disabled:opacity-50"
-                                >
-                                    <HiHandRaised className="w-5 h-5" />
-                                    Ambil Tiket
-                                </button>
-                            )}
-
-                            {canStart && (
-                                <button
-                                    onClick={() => performAction('start')}
-                                    disabled={actionLoading}
-                                    className="col-span-2 flex items-center justify-center gap-2 px-4 py-3.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors shadow-lg disabled:opacity-50"
-                                >
-                                    <HiPlay className="w-5 h-5" />
-                                    Mulai Kerjakan
-                                </button>
-                            )}
-
+                            {/* Secondary Actions - Split Layout */}
                             {canComplete && (
-                                <>
+                                <div className="grid grid-cols-2 gap-3">
                                     <button
                                         onClick={() => setShowHoldModal(true)}
                                         disabled={actionLoading}
-                                        className="flex items-center justify-center gap-2 px-4 py-3 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 font-bold rounded-xl hover:bg-orange-200 dark:hover:bg-orange-900/50 disabled:opacity-50"
+                                        className="flex items-center justify-center gap-2 px-4 py-3 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 font-bold rounded-xl hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-all active:scale-95 disabled:opacity-50"
                                     >
                                         <HiPause className="w-5 h-5" />
-                                        Tunda
+                                        <span className="hidden sm:inline">Tunda</span>
+                                        <span className="sm:hidden">Tunda</span>
                                     </button>
                                     <button
                                         onClick={() => setShowCompleteModal(true)}
                                         disabled={actionLoading}
-                                        className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg disabled:opacity-50"
+                                        className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
                                     >
                                         <HiCheckCircle className="w-5 h-5" />
-                                        Selesaikan
+                                        <span className="hidden sm:inline">Selesaikan</span>
+                                        <span className="sm:hidden">Selesai</span>
                                     </button>
-                                </>
+                                </div>
                             )}
 
-                            {canResume && (
-                                <button
-                                    onClick={() => performAction('resume')}
-                                    disabled={actionLoading}
-                                    className="col-span-2 flex items-center justify-center gap-2 px-4 py-3.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-lg disabled:opacity-50"
-                                >
-                                    <HiPlay className="w-5 h-5" />
-                                    Lanjutkan Kerja
-                                </button>
-                            )}
-
-                            {workOrder.status === 'COMPLETED' && (
-                                <div className="col-span-2 flex items-center justify-center gap-2 px-4 py-3.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-bold rounded-xl">
-                                    <HiCheckCircle className="w-5 h-5" />
-                                    Selesai - Menunggu Verifikasi
+                            {/* Additional Actions - Note & Release */}
+                            {isMyTicket && !['COMPLETED', 'VERIFIED'].includes(workOrder.status) && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => setShowNoteForm(!showNoteForm)}
+                                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-95"
+                                    >
+                                        <HiChatBubbleLeftEllipsis className="w-5 h-5" />
+                                        <span className="hidden sm:inline">Catatan</span>
+                                        <span className="sm:hidden">Catat</span>
+                                    </button>
+                                    {canRelease && (
+                                        <button
+                                            onClick={() => performAction('release')}
+                                            disabled={actionLoading}
+                                            className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-95 disabled:opacity-50"
+                                        >
+                                            <HiArrowUturnLeft className="w-5 h-5" />
+                                            <span className="hidden sm:inline">Lepas Tiket</span>
+                                            <span className="sm:hidden">Lepas</span>
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
 
-                        {/* Secondary Actions */}
-                        {isMyTicket && !['COMPLETED', 'VERIFIED'].includes(workOrder.status) && (
-                            <div className="grid grid-cols-2 gap-3">
-                                <button
-                                    onClick={() => setShowNoteForm(!showNoteForm)}
-                                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600"
-                                >
-                                    <HiChatBubbleLeftEllipsis className="w-5 h-5" />
-                                    Catatan
-                                </button>
-                                {canRelease && (
+                        {/* Activity Timeline */}
+                        {workOrder.updates && workOrder.updates.length > 0 && (
+                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-100 dark:border-gray-700">
+                                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Aktivitas</h3>
+                                <div className="space-y-3">
+                                    {workOrder.updates.slice(0, 5).map((update) => (
+                                        <div key={update.id} className="flex gap-3 text-sm">
+                                            <div className="w-2 h-2 rounded-full bg-indigo-500 mt-2 shrink-0" />
+                                            <div className="flex-1">
+                                                <p className="text-gray-900 dark:text-white">{update.message}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                    {update.createdBy?.fullName || 'System'} • {new Date(update.createdAt).toLocaleString('id-ID')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Add Note Form */}
+                        {showNoteForm && (
+                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-100 dark:border-gray-700">
+                                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide mb-3">Tambah Catatan</h3>
+                                <textarea
+                                    value={noteText}
+                                    onChange={(e) => setNoteText(e.target.value)}
+                                    placeholder="Tulis catatan progress..."
+                                    rows={3}
+                                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 resize-none"
+                                />
+                                {/* Optional Photo */}
+                                <div className="mt-3">
+                                    <label className="text-xs text-gray-500 mb-1 block">Foto (opsional)</label>
+                                    {notePhotoPreview ? (
+                                        <div className="relative w-20 h-20">
+                                            <img src={notePhotoPreview} alt="Preview" className="w-full h-full object-cover rounded-lg border" />
+                                            <button
+                                                onClick={() => { setNotePhoto(null); setNotePhotoPreview(null); }}
+                                                className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full"
+                                            >
+                                                <HiXMark className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-500">
+                                            <HiCamera className="w-4 h-4" />
+                                            Tambah Foto
+                                            <input type="file" accept="image/*" capture="environment" onChange={handleNotePhotoSelect} className="hidden" />
+                                        </label>
+                                    )}
+                                </div>
+                                <div className="flex gap-3 mt-3">
                                     <button
-                                        onClick={() => performAction('release')}
-                                        disabled={actionLoading}
-                                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
+                                        onClick={() => { setShowNoteForm(false); setNotePhoto(null); setNotePhotoPreview(null); }}
+                                        className="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium"
                                     >
-                                        <HiArrowUturnLeft className="w-5 h-5" />
-                                        Lepas Tiket
+                                        Batal
                                     </button>
-                                )}
+                                    <button
+                                        onClick={handleAddNoteWithPhoto}
+                                        disabled={!noteText.trim() || actionLoading}
+                                        className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        <HiPaperAirplane className="w-4 h-4" />
+                                        Kirim
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
                 </div>
+
+                {/* Action Buttons Footer - Mobile Optimized */}
+
             </div>
 
             {/* Completion Photo Modal */}

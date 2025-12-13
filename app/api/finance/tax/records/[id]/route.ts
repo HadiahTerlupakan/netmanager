@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'
 import { TaxRepository } from '@/lib/repositories/TaxRepository';
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const taxRepo = new TaxRepository(prisma);
 
 interface RouteContext {
@@ -14,6 +15,12 @@ export async function GET(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const taxRecord = await taxRepo.getTaxRecordById(id);
 
@@ -43,6 +50,12 @@ export async function PUT(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const body = await request.json();
 
@@ -80,6 +93,12 @@ export async function DELETE(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         await taxRepo.deleteTaxRecord(id);
         return NextResponse.json({ message: 'Tax record deleted successfully' });

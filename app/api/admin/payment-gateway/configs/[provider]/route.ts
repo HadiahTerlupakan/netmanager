@@ -3,11 +3,18 @@ import { prisma } from '@/lib/prisma'
 import { encryptApiKey } from '@/lib/utils/encryption'
 
 
+import { verifyAuth } from '@/lib/auth'
 export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ provider: string }> }
 ) {
     try {
+        // Authentication check
+        const user = await verifyAuth(request);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { provider } = await params;
         const body = await request.json()
 

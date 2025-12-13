@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/lib/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
+import { onWorkOrderCreated } from '@/lib/services/WorkOrderNotifications';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -72,6 +73,18 @@ export async function POST(request: NextRequest) {
             createdById: employee?.id,
         });
 
+        // Trigger notification for new Work Order
+        // This notifies all employees in the department
+        await onWorkOrderCreated({
+            id: workOrder.id,
+            workOrderNumber: workOrder.workOrderNumber,
+            title: workOrder.title,
+            type: workOrder.type,
+            priority: workOrder.priority,
+            departmentId: workOrder.departmentId,
+            assignedToId: workOrder.assignedToId,
+        });
+
         return NextResponse.json({
             success: true,
             data: workOrder,
@@ -82,3 +95,4 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to create work order' }, { status: 500 });
     }
 }
+

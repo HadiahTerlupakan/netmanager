@@ -3,11 +3,18 @@ import { prisma } from '@/lib/prisma'
 import { formatISO } from 'date-fns'
 import { TaxRepository } from '@/lib/repositories/TaxRepository'
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const taxRepo = new TaxRepository(prisma);
 
 // GET /api/finance/tax/reports/ppn
 export async function GET(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const searchParams = request.nextUrl.searchParams;
 
         const month = searchParams.get('month') ? parseInt(searchParams.get('month')!) : new Date().getMonth() + 1;

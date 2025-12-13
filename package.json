@@ -7,6 +7,7 @@
     "dev": "next dev --webpack",
     "dev:sync": "tsx scripts/sync-menu-definitions.ts && next dev --webpack",
     "sync:menus": "tsx scripts/sync-menu-definitions.ts",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -80,6 +81,7 @@
     "swagger-jsdoc": "^6.2.8",
     "tailwind-merge": "^3.4.0",
     "telnet-client": "^2.2.9",
+    "web-push": "^3.6.7",
     "xendit-node": "^7.0.0",
     "zod": "^4.1.13"
   },
@@ -93,6 +95,7 @@
     "@types/node": "^25.0.0",
     "@types/react": "^19.2.7",
     "@types/supertest": "^6.0.3",
+    "@types/web-push": "^3.6.4",
     "@vitest/ui": "^4.0.15",
     "autoprefixer": "^10.4.22",
     "baseline-browser-mapping": "^2.9.6",

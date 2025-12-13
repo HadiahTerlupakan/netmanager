@@ -21,6 +21,11 @@ interface Site {
     name: string
 }
 
+interface Department {
+    id: string
+    name: string
+}
+
 export default function NewWorkOrderPage() {
     const { data: session, status } = useSession()
     const router = useRouter()
@@ -28,8 +33,9 @@ export default function NewWorkOrderPage() {
     const [simpleMode, setSimpleMode] = useState(true)
     const [isGuest, setIsGuest] = useState(true) // Default to Guest Mode
 
-    // Sites state
+    // Sites and Departments state
     const [sites, setSites] = useState<Site[]>([])
+    const [departments, setDepartments] = useState<Department[]>([])
 
     // Search states
     const [searchingPelanggan, setSearchingPelanggan] = useState(false)
@@ -41,6 +47,7 @@ export default function NewWorkOrderPage() {
         pelangganId: '',
         pelangganDisplay: '',
         siteId: '',
+        departmentId: '',
         type: 'TROUBLESHOOT',
         title: '',
         description: '',
@@ -56,7 +63,10 @@ export default function NewWorkOrderPage() {
 
     useEffect(() => {
         if (status === 'unauthenticated') router.push('/login')
-        if (status === 'authenticated') fetchSites()
+        if (status === 'authenticated') {
+            fetchSites()
+            fetchDepartments()
+        }
     }, [status, router])
 
     const fetchSites = async () => {
@@ -68,6 +78,18 @@ export default function NewWorkOrderPage() {
             }
         } catch (error) {
             console.error('Error fetching sites:', error)
+        }
+    }
+
+    const fetchDepartments = async () => {
+        try {
+            const response = await fetch('/api/hris/departments')
+            if (response.ok) {
+                const result = await response.json()
+                setDepartments(result.departments || [])
+            }
+        } catch (error) {
+            console.error('Error fetching departments:', error)
         }
     }
 
@@ -203,6 +225,7 @@ export default function NewWorkOrderPage() {
         const payload = {
             pelangganId: isGuest ? null : formData.pelangganId,
             siteId: formData.siteId || undefined,
+            departmentId: formData.departmentId || undefined,
             type: formData.type,
             title: formData.title,
             description: formData.description,
@@ -405,6 +428,25 @@ export default function NewWorkOrderPage() {
                             ))}
                         </select>
                         <p className="text-xs text-gray-500">Work order will be available to employees assigned to this site</p>
+                    </div>
+
+                    {/* Department Selection - Required for notifications */}
+                    <div className="space-y-4">
+                        <label className="block text-sm font-medium text-gray-900 uppercase tracking-wide">Department <span className="text-red-500">*</span></label>
+                        <select
+                            value={formData.departmentId}
+                            onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-shadow"
+                            required
+                        >
+                            <option value="">Select Department</option>
+                            {departments.map((dept) => (
+                                <option key={dept.id} value={dept.id}>
+                                    {dept.name}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-gray-500">Semua employee di department ini akan menerima notifikasi work order baru</p>
                     </div>
 
                     {/* Basic Info */}

@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { BankStatementRepository } from '@/lib/repositories/BankStatementRepository'
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 
 const bankStatementRepo = new BankStatementRepository(prisma)
 
 export async function GET(request: NextRequest) {
     try {
-        // Auth check
-        const token = request.headers.get('x-finance-token')
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request)
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
         }
 
         const { searchParams } = new URL(request.url)

@@ -42,7 +42,11 @@
       "Bash(npm run test:*)",
       "Bash(Get-Content \"c:\\Users\\ASUS\\Documents\\projeck\\netmanager\\prisma\\schema.prisma\")",
       "Bash(Select-Object:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(npm start)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(npx next lint:*)"
     ],
     "deny": [],
     "ask": []

@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { encryptApiKey, decryptApiKey } from '@/lib/utils/encryption'
 
+import { verifyAuth } from '@/lib/auth'
 export async function GET(request: NextRequest) {
     try {
+        // Authentication check
+        const user = await verifyAuth(request);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         // Get WhatsApp settings from Settings table
         const settings = await prisma.settings.findMany({
             where: {
@@ -45,6 +52,12 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     try {
+        // Authentication check
+        const user = await verifyAuth(request);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json()
         const { whatsappProvider, whatsappApiKey, whatsappDeviceId, whatsappDomain } = body
 

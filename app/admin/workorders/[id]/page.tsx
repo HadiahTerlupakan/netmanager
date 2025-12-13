@@ -17,6 +17,7 @@ import {
     HiPhoto,
     HiXMark,
     HiCheckCircle,
+    HiChatBubbleLeft,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
@@ -591,7 +592,7 @@ export default function WorkOrderDetailPage() {
                                             {
                                                 // @ts-ignore
                                                 item.type === 'comment' ? (
-                                                    <HiBriefcase className="w-4 h-4 text-indigo-600" />
+                                                    <HiChatBubbleLeft className="w-4 h-4 text-indigo-600" />
                                                 ) :
                                                     // @ts-ignore
                                                     item.type === 'update' ? (

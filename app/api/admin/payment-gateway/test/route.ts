@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { PaymentGatewayManager } from '@/lib/services/payment-gateway/gateway-manager'
 
+import { verifyAuth } from '@/lib/auth'
 const gatewayManager = new PaymentGatewayManager(prisma)
 
 export async function POST(request: NextRequest) {
     try {
+        // Authentication check
+        const user = await verifyAuth(request);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json()
         const { provider, apiKey, apiSecret, clientKey, isProduction } = body
 

@@ -99,15 +99,10 @@ function logUnauthorizedAccess(request: NextRequest, reason: string) {
 // SIMPLIFIED: Only check authentication, not authorization
 // Authorization is handled at API/page level using CustomRole permissions
 async function checkRoleAccess(request: NextRequest, pathname: string): Promise<NextResponse | null> {
-  // Skip auth check for public routes
-  if (pathname.startsWith('/api/auth/') || pathname === '/login' || pathname === '/') {
-    return null
-  }
-
   // Only check if route needs authentication (not authorization)
   const needsAuth = pathname.startsWith('/admin') ||
     pathname.startsWith('/api/') ||
-    pathname.startsWith('/employee') ||
+    (pathname.startsWith('/employee') && !pathname.startsWith('/employee/login')) ||
     pathname.startsWith('/finance') ||
     pathname.startsWith('/hr')
 
@@ -120,7 +115,14 @@ async function checkRoleAccess(request: NextRequest, pathname: string): Promise<
     const token = await getToken({
       req: request,
       secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === 'production',
+      secureCookie: false, // Always use false for localhost development
+    })
+
+    // Debug logging
+    console.log(`[PROXY] Token check for ${pathname}:`, {
+      hasToken: !!token,
+      tokenEmail: token?.email,
+      userAgent: request.headers.get('user-agent')?.substring(0, 50)
     })
 
     if (!token) {
@@ -139,8 +141,10 @@ async function checkRoleAccess(request: NextRequest, pathname: string): Promise<
         )
       }
 
-      // For pages, redirect to login
-      const loginUrl = new URL('/login', request.url)
+      // For pages, redirect to appropriate login page
+      // If accessing /employee routes, redirect to /employee/login, else /login
+      const loginPath = pathname.startsWith('/employee') ? '/employee/login' : '/login'
+      const loginUrl = new URL(loginPath, request.url)
       loginUrl.searchParams.set('callbackUrl', pathname)
       return NextResponse.redirect(loginUrl)
     }
@@ -272,8 +276,10 @@ export default async function proxy(request: NextRequest) {
     }
 
     // Jika tidak ada subdomain tapi mengakses /admin, /pelanggan, /employee atau /finance
-    // Redirect ke subdomain yang sesuai
-    if (!subdomain) {
+    // Redirect ke subdomain yang sesuai (kecuali di localhost untuk memudahkan dev tanpa setup proxy)
+    const isLocalhost = request.nextUrl.hostname === 'localhost' || request.nextUrl.hostname === '127.0.0.1';
+
+    if (!subdomain && !isLocalhost) {
       // Redirect root domain login & home ke admin subdomain
       if (pathname === '/' || pathname === '/login') {
         const url = request.nextUrl.clone()
@@ -336,6 +342,11 @@ export default async function proxy(request: NextRequest) {
       }
     }
 
+    // Skip auth check for public routes
+    if (pathname.startsWith('/api/auth/') || pathname === '/login' || pathname === '/' || pathname.startsWith('/employee/login')) {
+      return NextResponse.next({ request })
+    }
+
     // Check role-based access for protected routes
     const roleCheckResponse = await checkRoleAccess(request, pathname)
     if (roleCheckResponse) {
@@ -363,27 +374,27 @@ export default async function proxy(request: NextRequest) {
       return response
     }
 
-    // Auth middleware untuk employee routes (baik dari subdomain atau path)
-    if (pathname.startsWith('/employee') || isKaryawanSubdomain(request)) {
-      // Skip auth check untuk login page
-      if (pathname === '/employee/login' || pathname === '/login') {
-        return NextResponse.next({ request })
-      }
+    // Skip auth middleware for employee routes since we already handle auth in checkRoleAccess
+    // if (pathname.startsWith('/employee') || isKaryawanSubdomain(request)) {
+    //   // Skip auth check untuk login page
+    //   if (pathname.startsWith('/employee/login') || pathname === '/login') {
+    //     return NextResponse.next({ request })
+    //   }
 
-      const response = await authMiddleware(request as any, {} as any)
+    //   const response = await authMiddleware(request as any, {} as any)
 
-      // Jika redirect ke login, redirect ke employee login page
-      if (response && response.status === 307) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/employee/login'
-        if (pathname !== '/employee') {
-          url.searchParams.set('callbackUrl', pathname)
-        }
-        return NextResponse.redirect(url)
-      }
+    //   // Jika redirect ke login, redirect ke employee login page
+    //   if (response && response.status === 307) {
+    //     const url = request.nextUrl.clone()
+    //     url.pathname = '/employee/login'
+    //     if (pathname !== '/employee') {
+    //       url.searchParams.set('callbackUrl', pathname)
+    //     }
+    //     return NextResponse.redirect(url)
+    //   }
 
-      return response
-    }
+    //   return response
+    // }
 
     // Auth middleware untuk helpdesk routes (baik dari subdomain atau path)
     if (pathname.startsWith('/helpdesk') || isHelpdeskSubdomain(request)) {

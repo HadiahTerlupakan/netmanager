@@ -10,8 +10,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getOnuRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 
+import { verifyAuth } from '@/lib/auth'
 export async function GET(req: NextRequest) {
   try {
+        // Authentication check
+        const user = await verifyAuth(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
     const { searchParams } = new URL(req.url)
 
     // Pagination parameters
@@ -84,6 +91,12 @@ export async function GET(req: NextRequest) {
 // POST untuk clear cache
 export async function POST(req: NextRequest) {
   try {
+        // Authentication check
+        const user = await verifyAuth(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
     const { action } = await req.json()
 
     if (action === 'clear-cache') {

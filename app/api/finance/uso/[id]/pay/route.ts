@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'
 import { USORepository } from '@/lib/repositories/USORepository';
 import { PengeluaranRepository } from '@/lib/repositories/PengeluaranRepository';
+import FinanceAuthService from '@/lib/services/FinanceAuthService';
 
 const usoRepo = new USORepository(prisma);
 const pengeluaranRepo = new PengeluaranRepository(prisma);
@@ -16,16 +17,16 @@ export async function PATCH(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const body = await request.json();
-        const { paidBy, paymentDate } = body;
-
-        if (!paidBy) {
-            return NextResponse.json(
-                { error: 'paidBy is required' },
-                { status: 400 }
-            );
-        }
+        const { paymentDate } = body;
+        const paidBy = authResult.user?.name || authResult.user?.email || 'Unknown';
 
         // Get USO contribution
         const uso = await usoRepo.findById(id);

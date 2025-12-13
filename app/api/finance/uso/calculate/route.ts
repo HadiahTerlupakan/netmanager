@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'
 import { USORepository } from '@/lib/repositories/USORepository';
+import FinanceAuthService from '@/lib/services/FinanceAuthService';
 
 const usoRepo = new USORepository(prisma);
 
 // POST /api/finance/uso/calculate - Calculate USO for quarter
 export async function POST(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json();
-        const { quarter, year, createdBy } = body;
+        const { quarter, year } = body;
 
         if (!quarter || !year) {
             return NextResponse.json(
@@ -27,7 +34,7 @@ export async function POST(request: NextRequest) {
         const contribution = await usoRepo.calculateForQuarter(
             quarter,
             year,
-            createdBy
+            authResult.user?.name || authResult.user?.email
         );
 
         return NextResponse.json(contribution);

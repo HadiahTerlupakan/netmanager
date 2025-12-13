@@ -3,12 +3,19 @@ import { RoleRepository } from '@/lib/repositories/RoleRepository'
 import { RoleAuditService } from '@/lib/services/RoleAuditService'
 import { requireAdmin } from '@/lib/route-protection'
 
+import { verifyAuth } from '@/lib/auth'
 const roleRepo = new RoleRepository()
 const auditService = new RoleAuditService()
 
 // GET /api/admin/roles - List all custom roles
 export async function GET(req: NextRequest) {
     try {
+        // Authentication check
+        const user = await verifyAuth(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         // Check authorization using our protection system
         const authCheck = await requireAdmin(req)
         if (authCheck) return authCheck
@@ -41,6 +48,12 @@ export async function GET(req: NextRequest) {
 // POST /api/admin/roles - Create new custom role
 export async function POST(req: NextRequest) {
     try {
+        // Authentication check
+        const user = await verifyAuth(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         // Check authorization using our protection system
         const authCheck = await requireAdmin(req)
         if (authCheck) return authCheck

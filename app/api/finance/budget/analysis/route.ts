@@ -2,11 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { BudgetRepository } from '@/lib/repositories/BudgetRepository';
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const budgetRepo = new BudgetRepository(prisma);
 
 // GET /api/finance/budget/analysis
 export async function GET(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const searchParams = request.nextUrl.searchParams;
 
         const month = searchParams.get('month')

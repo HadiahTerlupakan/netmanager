@@ -2,11 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'
 import { DeferredRevenueRepository } from '@/lib/repositories/DeferredRevenueRepository';
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const deferredRepo = new DeferredRevenueRepository(prisma);
 
 // GET /api/finance/deferred - List deferred revenues
 export async function GET(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const searchParams = request.nextUrl.searchParams;
         const status = searchParams.get('status');
         const customerId = searchParams.get('customerId');
@@ -32,6 +39,12 @@ export async function GET(request: NextRequest) {
 // POST /api/finance/deferred - Create deferred revenue
 export async function POST(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json();
         const {
             tagihanId,

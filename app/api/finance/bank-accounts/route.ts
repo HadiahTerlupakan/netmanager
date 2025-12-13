@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import { protectRoute, UserRole } from '@/lib/route-protection'
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const prisma = new PrismaClient()
 
 // Schema validasi untuk bank account
@@ -18,6 +19,12 @@ const bankAccountSchema = z.object({
 // GET - Mendapatkan semua rekening bank
 export async function GET(request: NextRequest) {
   try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
     // Check authorization - Finance and Admin roles can access
     const authCheck = await protectRoute(request, {
       requirePermission: {
@@ -56,6 +63,12 @@ export async function GET(request: NextRequest) {
 // POST - Membuat rekening bank baru
 export async function POST(request: NextRequest) {
   try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
     // Check authorization - Finance and Admin roles can create
     const authCheck = await protectRoute(request, {
       requirePermission: {

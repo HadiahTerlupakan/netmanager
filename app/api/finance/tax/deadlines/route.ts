@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 export async function GET(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const searchParams = request.nextUrl.searchParams;
         const month = searchParams.get('month') ? parseInt(searchParams.get('month')!) : undefined;
         const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : new Date().getFullYear();
@@ -44,6 +51,12 @@ export async function GET(request: NextRequest) {
 // POST /api/finance/tax/deadlines - Create new tax filing deadline
 export async function POST(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json();
         const { taxType, period, year, deadline, notes } = body;
 

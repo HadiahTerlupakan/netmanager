@@ -1224,6 +1224,7 @@ model Department {
   employees       Employee[]
   positions       Position[]
   workOrders      WorkOrder[]
+  notifications   Notification[]
 
   @@map("departments")
 }
@@ -1383,6 +1384,8 @@ model Employee {
   taskCompletions      WorkOrderTask[]
   workOrderUpdates     WorkOrderUpdate[]
   workOrders           WorkOrder[]
+  notifications        Notification[]
+  pushSubscriptions    PushSubscription[]
 
   @@index([departmentId])
   @@index([positionId])
@@ -2911,4 +2914,59 @@ model MenuDefinition {
   @@index([portal])
   @@index([sortOrder])
   @@map("menu_definitions")
+}
+
+// ===================================================================
+// Notification System
+// ===================================================================
+
+model Notification {
+  id           String      @id @default(cuid())
+  type         String      // 'WORK_ORDER', 'SYSTEM', 'TICKET', 'ALERT'
+  priority     String      @default("NORMAL") // 'LOW', 'NORMAL', 'HIGH', 'URGENT'
+  title        String
+  message      String
+  link         String?     // URL for navigation
+  isRead       Boolean     @default(false)
+  
+  // Target notification
+  employeeId   String?     // Specific employee
+  departmentId String?     // All employees in department
+  
+  // Reference to source
+  sourceType   String?     // 'WORK_ORDER', 'TICKET', etc.
+  sourceId     String?     // ID of the source entity
+  
+  createdAt    DateTime    @default(now())
+  readAt       DateTime?
+  
+  employee     Employee?   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  
+  @@index([employeeId])
+  @@index([departmentId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([type])
+  @@map("notifications")
+}
+
+model PushSubscription {
+  id           String   @id @default(cuid())
+  employeeId   String
+  endpoint     String   @unique
+  p256dh       String   // Public key for encryption
+  auth         String   // Auth secret
+  userAgent    String?  // Device/browser info
+  isActive     Boolean  @default(true)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastUsedAt   DateTime?
+  
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  @@index([employeeId])
+  @@index([isActive])
+  @@map("push_subscriptions")
 }

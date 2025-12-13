@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+import { verifyAuth } from '@/lib/auth'
 interface RouteContext {
     params: Promise<{ id: string }>
 }
@@ -12,6 +13,12 @@ export async function PUT(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const user = await verifyAuth(request);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const body = await request.json()
         const { bankName, accountNumber, accountName, description, isActive, priority } = body
@@ -44,6 +51,12 @@ export async function DELETE(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const user = await verifyAuth(request);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
 
         // Check if account has any manual payments

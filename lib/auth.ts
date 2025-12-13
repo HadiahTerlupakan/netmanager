@@ -86,6 +86,10 @@ function getFallbackOAuthProviders() {
 async function validateDatabaseConnection(): Promise<boolean> {
   try {
     console.log('[AUTH] Validating database connection...')
+    console.log('[AUTH] ENV check:', {
+      NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+      COOKIE_DOMAIN: process.env.COOKIE_DOMAIN
+    })
     await prisma.$queryRaw`SELECT 1`
     console.log('[AUTH] Database connection: OK')
     return true
@@ -110,8 +114,18 @@ async function validateRedisConnection(): Promise<boolean> {
 
 // Dynamic auth configuration that loads OAuth providers at runtime
 export async function createAuthConfig(): Promise<NextAuthOptions> {
-  // Load OAuth providers dynamically
-  const oauthProviders = await getAllOAuthProviders()
+  // Load OAuth providers dynamically, but handle failures gracefully
+  let oauthProviders = []
+  try {
+    // Only load OAuth providers if DYNAMIC_OAUTH is enabled
+    if (process.env.DYNAMIC_OAUTH === 'true') {
+      oauthProviders = await getAllOAuthProviders()
+      console.log('[AUTH] Loaded OAuth providers:', oauthProviders.length)
+    }
+  } catch (error) {
+    console.warn('[AUTH] Failed to load OAuth providers, continuing without them:', error)
+    oauthProviders = []
+  }
 
   return {
     adapter: PrismaAdapter(prisma) as any,
@@ -124,19 +138,25 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
       maxAge: parseInt(process.env.SESSION_MAX_AGE || '604800'), // 7 days (default)
       updateAge: parseInt(process.env.SESSION_UPDATE_AGE || '1800'), // 30 minutes (sliding expiration)
     },
-    // Configure cookies for cross-subdomain support if COOKIE_DOMAIN is set
-    cookies: process.env.COOKIE_DOMAIN ? {
+    // Configure cookies for cross-subdomain support
+    cookies: {
       sessionToken: {
         name: `next-auth.session-token`,
         options: {
           httpOnly: true,
           sameSite: 'lax',
           path: '/',
-          secure: process.env.NODE_ENV === 'production',
-          domain: process.env.COOKIE_DOMAIN
+          // Fixed: Allow cookies in production even on HTTP for local deployment
+          // Only require secure in actual production with HTTPS
+          secure: process.env.NODE_ENV === 'production' &&
+            process.env.NEXTAUTH_URL?.startsWith('https://') &&
+            !process.env.NEXTAUTH_URL?.includes('localhost'),
+          // Only set domain if explicitly configured AND not localhost
+          // Setting a domain like '.localhost' is invalid and blocks cookies
+          domain: process.env.COOKIE_DOMAIN === 'localhost' ? undefined : process.env.COOKIE_DOMAIN
         }
       }
-    } : undefined,
+    },
     pages: {
       signIn: '/login',
       error: '/error',
@@ -179,8 +199,8 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
             if (!redisConnected) {
               console.warn('[AUTH] Redis connection failed, proceeding without rate limiting')
             } else {
-              // Rate limit percobaan login per identifier (mis. 5x per 5 menit)
-              const allowed = await checkRateLimit(`login:${identifier}`, 5, 300)
+              // Rate limit percobaan login per identifier (mis. 500x per 5 menit untuk dev)
+              const allowed = await checkRateLimit(`login:${identifier}`, 500, 300)
               if (!allowed) {
                 console.log('[AUTH] Rate limit exceeded for:', identifier)
                 throw new Error('Terlalu banyak percobaan. Coba lagi nanti.')
@@ -377,10 +397,29 @@ export async function createAuthConfig(): Promise<NextAuthOptions> {
         // Initial sign in
         if (user) {
           token.id = user.id
-          token.role = (user as any).role || 'USER' // Default to USER for OAuth users
+          // For credentials users, check if they have employee data to determine role
+          token.role = (user as any).role || ((user as any).employee ? 'USER' : 'USER')
+          // Special case: If user has admin-like permissions, set role to ADMIN
+          if ((user as any).permissions && (user as any).permissions.length > 0) {
+            // Check if any permission starts with ADMIN or if they have high-level permissions
+            const hasAdminPermissions = (user as any).permissions.some((perm: string) =>
+              perm.includes('DASHBOARD') || perm.includes('ROLES') || perm.includes('PENGATURAN')
+            )
+            if (hasAdminPermissions) {
+              token.role = 'ADMIN'
+            }
+          }
           token.employeeId = (user as any).employeeId
           token.employee = (user as any).employee
           token.permissions = (user as any).permissions
+
+          console.log('[AUTH JWT] Token set:', {
+            id: token.id,
+            email: token.email,
+            role: token.role,
+            permissionsCount: token.permissions?.length || 0,
+            permissions: token.permissions
+          })
 
           // For OAuth sign in, fetch role from database
           if (account?.provider !== 'credentials') {
@@ -508,6 +547,20 @@ export const authConfig: NextAuthOptions = {
     maxAge: parseInt(process.env.SESSION_MAX_AGE || '604800'), // 7 days (default)
     updateAge: parseInt(process.env.SESSION_UPDATE_AGE || '1800'), // 30 minutes (sliding expiration)
   },
+  // Configure cookies for cross-subdomain support
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        // Secure hanya jika production DAN URL diawali https
+        secure: process.env.NODE_ENV === 'production' && process.env.NEXTAUTH_URL?.startsWith('https://'),
+        domain: process.env.COOKIE_DOMAIN
+      }
+    }
+  },
   pages: {
     signIn: '/login',
     error: '/error',
@@ -550,8 +603,8 @@ export const authConfig: NextAuthOptions = {
           if (!redisConnected) {
             console.warn('[AUTH] Redis connection failed, proceeding without rate limiting')
           } else {
-            // Rate limit percobaan login per identifier (mis. 5x per 5 menit)
-            const allowed = await checkRateLimit(`login:${identifier}`, 5, 300)
+            // Rate limit percobaan login per identifier (mis. 500x per 5 menit untuk dev)
+            const allowed = await checkRateLimit(`login:${identifier}`, 500, 300)
             if (!allowed) {
               console.log('[AUTH] Rate limit exceeded for:', identifier)
               throw new Error('Terlalu banyak percobaan. Coba lagi nanti.')

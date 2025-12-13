@@ -3,8 +3,15 @@ import { prisma } from '@/lib/prisma'
 import { WhatsAppService } from '@/lib/services/whatsapp/whatsapp-service'
 
 
+import { verifyAuth } from '@/lib/auth'
 export async function POST(request: NextRequest) {
     try {
+        // Authentication check
+        const user = await verifyAuth(request);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json()
         const { phone } = body
 

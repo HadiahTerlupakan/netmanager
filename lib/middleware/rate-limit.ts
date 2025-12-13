@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { checkRateLimit } from '@/lib/redis'
+// NOTE: checkRateLimit uses ioredis which is NOT compatible with Edge Runtime
+// For middleware rate limiting, we need to use a different approach
+// For now, we'll skip Redis-based rate limiting in middleware
+// import { checkRateLimit } from '@/lib/redis'
 
 export interface RateLimitOptions {
   maxRequests: number
@@ -11,72 +14,20 @@ export interface RateLimitOptions {
 /**
  * Rate Limiting Middleware
  * 
+ * NOTE: This function is disabled because it runs in Edge Runtime
+ * but ioredis requires Node.js runtime. Rate limiting should be
+ * implemented at the API route level instead (which runs in Node.js).
+ * 
  * @param options - Konfigurasi rate limiting
- * @returns Middleware function atau null jika rate limit tidak dilanggar
+ * @returns null (rate limiting disabled in middleware)
  */
 export async function rateLimit(
   req: NextRequest,
   options: RateLimitOptions
 ): Promise<NextResponse | null> {
-  try {
-    const {
-      maxRequests,
-      windowSeconds,
-      keyGenerator = (req) => {
-        // Default: gunakan IP address
-        const forwardedFor = req.headers.get('x-forwarded-for')
-        const realIp = req.headers.get('x-real-ip')
-
-        let ip = 'unknown'
-        if (forwardedFor) {
-          const ips = String(forwardedFor).split(',')
-          ip = ips[0]?.trim() || 'unknown'
-        } else if (realIp) {
-          ip = String(realIp).trim() || 'unknown'
-        }
-
-        return `ratelimit:${ip}`
-      },
-      message = 'Terlalu banyak permintaan. Silakan coba lagi nanti.',
-    } = options
-
-    const key = keyGenerator(req)
-    if (!key || typeof key !== 'string' || key.length === 0) {
-      // Jika key generator gagal, skip rate limiting
-      return null
-    }
-
-    // Pastikan key adalah string yang valid
-    const safeKey = String(key).trim()
-    if (!safeKey || safeKey === 'undefined' || safeKey === 'null') {
-      return null
-    }
-
-    const allowed = await checkRateLimit(safeKey, maxRequests, windowSeconds)
-
-    if (!allowed) {
-      return NextResponse.json(
-        {
-          error: message,
-          retryAfter: windowSeconds,
-        },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': String(windowSeconds),
-            'X-RateLimit-Limit': String(maxRequests),
-            'X-RateLimit-Window': String(windowSeconds),
-          },
-        }
-      )
-    }
-
-    return null
-  } catch (error: any) {
-    // Jika ada error di rate limiting, skip rate limiting (fail open)
-    console.error('Rate limit error:', error)
-    return null
-  }
+  // Skip rate limiting in middleware - ioredis is not Edge-compatible
+  // Rate limiting should be done at API route level instead
+  return null
 }
 
 /**

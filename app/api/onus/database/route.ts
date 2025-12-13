@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOnuRepository } from '@/lib/repositories'
 
+import { verifyAuth } from '@/lib/auth'
 /**
  * API endpoint untuk mengambil data ONU dari database (bukan dari SNMP langsung)
  * Digunakan untuk melihat data yang sudah tersimpan di database
  */
 export async function GET(req: NextRequest) {
   try {
+        // Authentication check
+        const user = await verifyAuth(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
     const searchParams = req.nextUrl.searchParams
     const oltId = searchParams.get('oltId')
     const limit = parseInt(searchParams.get('limit') || '100', 10)

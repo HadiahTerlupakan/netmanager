@@ -2,11 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'
 import { TaxRepository } from '@/lib/repositories/TaxRepository';
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const taxRepo = new TaxRepository(prisma);
 
 // GET /api/finance/tax/records - List tax records with filters
 export async function GET(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const searchParams = request.nextUrl.searchParams;
 
         const filters = {
@@ -44,6 +51,12 @@ export async function GET(request: NextRequest) {
 // POST /api/finance/tax/records - Create new tax record
 export async function POST(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json();
 
         // Validate required fields

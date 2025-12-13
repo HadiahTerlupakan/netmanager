@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 interface RouteContext {
     params: Promise<{ id: string }>
 }
@@ -12,6 +13,12 @@ export async function GET(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
 
         const deadline = await prisma.taxFilingDeadline.findUnique({
@@ -38,6 +45,12 @@ export async function PUT(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const body = await request.json();
         const { status, filedAt, filedBy, notes } = body;
@@ -68,6 +81,12 @@ export async function PATCH(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const body = await request.json();
         const { filedBy, notes } = body;

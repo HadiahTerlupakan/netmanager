@@ -8,8 +8,15 @@ import { getOLTRepository } from '@/lib/repositories'
 import { updateMultipleOnusViaGetWithOids } from '@/lib/services/onu-update-snmp-get'
 import { getOnuRepository } from '@/lib/repositories'
 
+import { verifyAuth } from '@/lib/auth'
 export async function POST(req: NextRequest) {
   try {
+        // Authentication check
+        const user = await verifyAuth(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
     const body = await req.json()
     const { onuList } = body // Array of { gponOnu: string, oltId: string }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 interface RouteContext {
     params: Promise<{ id: string }>
 }
@@ -11,6 +12,12 @@ export async function POST(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const body = await request.json();
         const { approvedBy, notes } = body;

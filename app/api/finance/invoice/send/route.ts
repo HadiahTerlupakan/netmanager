@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { InvoiceDeliveryService } from '@/lib/services/invoice-delivery-service'
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const deliveryService = new InvoiceDeliveryService(prisma)
 
 export async function POST(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json()
         const { tagihanId, channel, recipient } = body
 

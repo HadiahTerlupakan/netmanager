@@ -51,11 +51,16 @@ const desktopNavigationConfig = [
 
 import { useSettings } from '@/hooks/useSettings'
 
-function EmployeeLayoutContent({ children }: { children: React.ReactNode }) {
+function EmployeeLayoutWithSettings({ children }: { children: React.ReactNode }) {
+    const { settings } = useSettings()
     const pathname = usePathname()
     const router = useRouter()
     const { hasFeature } = useEmployeePermissions()
-    const { settings } = useSettings()
+
+    // Don't render layout for login, offline, or install pages
+    if (pathname === '/employee/login' || pathname === '/employee/offline' || pathname === '/employee/install') {
+        return <>{children}</>
+    }
 
     // Filter navigation based on permissions
     const navigation = useMemo(() => {
@@ -67,6 +72,7 @@ function EmployeeLayoutContent({ children }: { children: React.ReactNode }) {
         })
     }, [hasFeature])
 
+    // Filter navigation based on permissions
     const desktopNavigation = useMemo(() => {
         return desktopNavigationConfig.filter(item => {
             // No feature requirement = always show
@@ -76,27 +82,30 @@ function EmployeeLayoutContent({ children }: { children: React.ReactNode }) {
         })
     }, [hasFeature])
 
-    // Automatic Service Worker Cleanup (Fix for "Failed to fetch" / 404 errors in dev)
-    useEffect(() => {
-        if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then((registrations) => {
-                for (const registration of registrations) {
-                    console.log('Unregistering Service Worker:', registration)
-                    registration.unregister()
-                }
-            })
-        }
-    }, [])
+    // Service worker cleanup - DISABLED as it's interfering with login
+    // useEffect(() => {
+    //     const timer = setTimeout(() => {
+    //         if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    //             // Unregister all service workers for both dev and production
+    //             navigator.serviceWorker.getRegistrations().then((registrations) => {
+    //                 for (const registration of registrations) {
+    //                     console.log('Unregistering Service Worker:', registration)
+    //                     registration.unregister()
+    //                 }
+    //             })
+    //         }
+    //     }, 2000) // 2 second delay
+
+    //     return () => clearTimeout(timer)
+    // }, [])
 
     const handleSignOut = async () => {
         await signOut({ redirect: false })
-        router.push('/employee/login')
+        // Use window.location.href instead of router.push to force full page reload
+        // This ensures the browser properly clears the session state
+        window.location.href = '/employee/login'
     }
 
-    // Don't render layout for login, offline, or install pages
-    if (pathname === '/employee/login' || pathname === '/employee/offline' || pathname === '/employee/install') {
-        return <>{children}</>
-    }
 
     return (
         <ToastProvider>
@@ -244,7 +253,7 @@ function EmployeeLayoutContent({ children }: { children: React.ReactNode }) {
                                         href={item.href}
                                         className={`group flex flex-col items-center justify-center gap-1.5 touch-manipulation transition-all duration-300 ${isActive
                                             ? ''
-                                            : 'hover:bg-gray-50/50 dark:hover:bg-white/5'
+                                            : 'hover:bg-gray-50/50 dark:hover:white/5'
                                             }`}
                                         aria-label={item.name}
                                     >
@@ -274,6 +283,24 @@ function EmployeeLayoutContent({ children }: { children: React.ReactNode }) {
             </div>
         </ToastProvider>
     )
+}
+
+// Main layout content wrapper that conditionally uses settings
+function EmployeeLayoutContent({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname()
+
+    // Check if we're on a page that doesn't need the full layout
+    const isSimplePage = pathname === '/employee/login' ||
+        pathname === '/employee/offline' ||
+        pathname === '/employee/install'
+
+    // For simple pages, render children directly without the layout
+    if (isSimplePage) {
+        return <>{children}</>
+    }
+
+    // For full layout pages, use the component that requires settings
+    return <EmployeeLayoutWithSettings>{children}</EmployeeLayoutWithSettings>
 }
 
 // Main export with EmployeePermissionProvider

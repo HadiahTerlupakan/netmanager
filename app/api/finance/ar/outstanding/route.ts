@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ARRepository } from '@/lib/repositories/ARRepository'
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const arRepo = new ARRepository(prisma)
 
 export async function GET(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         // Auth check - verify Finance user
         const token = request.headers.get('x-finance-token')
         if (!token) {

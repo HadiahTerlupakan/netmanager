@@ -2,9 +2,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+import { verifyAuth } from '@/lib/auth'
 // GET - List all company bank accounts
 export async function GET(request: NextRequest) {
     try {
+        // Authentication check
+        const user = await verifyAuth(request);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const accounts = await prisma.companyBankAccount.findMany({
             orderBy: [
                 { priority: 'desc' },
@@ -25,6 +32,12 @@ export async function GET(request: NextRequest) {
 // POST - Create new bank account
 export async function POST(request: NextRequest) {
     try {
+        // Authentication check
+        const user = await verifyAuth(request);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json()
         const { bankName, accountNumber, accountName, description, isActive, priority } = body
 

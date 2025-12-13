@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
 
+import { verifyAuth } from '@/lib/auth'
 // Simple in-memory cache untuk ONU data
 // Cache key: kombinasi filter parameters
 // Cache TTL: 30 detik (data tetap fresh tapi tidak fetch ulang setiap pagination)
@@ -145,6 +146,12 @@ function getCachedAggregate(key: string): AggregateCacheEntry | null {
 
 export async function GET(req: NextRequest) {
   try {
+        // Authentication check
+        const user = await verifyAuth(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
     const searchParams = req.nextUrl.searchParams
     
     const limit = parseInt(searchParams.get('limit') || '10', 10)
@@ -555,6 +562,12 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+        // Authentication check
+        const user = await verifyAuth(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
     const searchParams = req.nextUrl.searchParams
     const oltId = searchParams.get('oltId')
     

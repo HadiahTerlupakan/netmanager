@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'
 import { USORepository } from '@/lib/repositories/USORepository';
+import FinanceAuthService from '@/lib/services/FinanceAuthService';
 
 const usoRepo = new USORepository(prisma);
 
@@ -14,18 +15,16 @@ export async function PATCH(
     context: RouteContext
 ) {
     try {
-        const { id } = await context.params
-        const body = await request.json();
-        const { filedBy } = body;
-
-        if (!filedBy) {
-            return NextResponse.json(
-                { error: 'filedBy is required' },
-                { status: 400 }
-            );
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
         }
 
-        const contribution = await usoRepo.markAsFiled(id, filedBy);
+        const { id } = await context.params
+        const filedBy = authResult.user?.name || authResult.user?.email;
+
+        const contribution = await usoRepo.markAsFiled(id, filedBy || 'Unknown');
 
         return NextResponse.json(contribution);
     } catch (error: any) {

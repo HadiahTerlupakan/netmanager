@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'
 import { DeferredRevenueRepository } from '@/lib/repositories/DeferredRevenueRepository';
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const deferredRepo = new DeferredRevenueRepository(prisma);
 
 interface RouteContext {
@@ -14,6 +15,12 @@ export async function GET(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const deferral = await deferredRepo.findById(id);
 
@@ -40,6 +47,12 @@ export async function PUT(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const body = await request.json();
 
@@ -61,6 +74,12 @@ export async function DELETE(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const deferral = await deferredRepo.cancel(id);
 

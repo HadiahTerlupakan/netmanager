@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { HiBell } from 'react-icons/hi2'
 
@@ -8,26 +8,26 @@ export function NotificationBell() {
     const [unreadCount, setUnreadCount] = useState(0)
     const [loading, setLoading] = useState(true)
 
+    const loadUnreadCount = useCallback(async () => {
+        try {
+            const response = await fetch('/api/notifications/unread-count')
+            if (response.ok) {
+                const data = await response.json()
+                setUnreadCount(data.count || 0)
+            }
+        } catch (error) {
+            console.error('Error loading notification count:', error)
+        } finally {
+            setLoading(false)
+        }
+    }, [])
+
     useEffect(() => {
         loadUnreadCount()
         // Poll for new notifications every 30 seconds
         const interval = setInterval(loadUnreadCount, 30000)
         return () => clearInterval(interval)
-    }, [])
-
-    const loadUnreadCount = async () => {
-        try {
-            // TODO: Replace with actual API call
-            // Simulated data for now
-            setTimeout(() => {
-                setUnreadCount(0) // Reset to 0 until real API is ready
-                setLoading(false)
-            }, 100)
-        } catch (error) {
-            console.error('Error loading notification count:', error)
-            setLoading(false)
-        }
-    }
+    }, [loadUnreadCount])
 
     return (
         <Link

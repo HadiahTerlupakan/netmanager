@@ -4,6 +4,7 @@ import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 // Schema validasi untuk transaksi bank
 const bankTransactionSchema = z.object({
   bankAccountId: z.string().min(1, 'ID rekening bank harus diisi'),
@@ -18,6 +19,12 @@ const bankTransactionSchema = z.object({
 // GET - Mendapatkan semua transaksi bank
 export async function GET(request: NextRequest) {
   try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
     const session = await getServerSession(authConfig)
 
     if (!session) {
@@ -82,6 +89,12 @@ export async function GET(request: NextRequest) {
 // POST - Membuat transaksi bank baru
 export async function POST(request: NextRequest) {
   try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
     const session = await getServerSession(authConfig)
 
     if (!session) {

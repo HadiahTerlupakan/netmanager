@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { BankAccountRepository } from '@/lib/repositories/BankAccountRepository'
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 
-const prisma = new PrismaClient()
 const bankAccountRepo = new BankAccountRepository(prisma)
 
 type RouteContext = {
@@ -11,9 +11,10 @@ type RouteContext = {
 
 export async function GET(request: NextRequest, context: RouteContext) {
     try {
-        const token = request.headers.get('x-finance-token')
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request)
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
         }
 
         const { id } = await context.params
@@ -39,9 +40,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
     try {
-        const token = request.headers.get('x-finance-token')
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request)
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
         }
 
         const { id } = await context.params
@@ -64,9 +66,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
     try {
-        const token = request.headers.get('x-finance-token')
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request)
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
         }
 
         const { id } = await context.params

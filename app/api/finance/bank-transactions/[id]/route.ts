@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { PrismaClient } from '@prisma/client'
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const prisma = new PrismaClient()
 
 interface RouteContext {
@@ -15,6 +16,12 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
     const session = await getServerSession(authConfig)
 
     if (!session) {

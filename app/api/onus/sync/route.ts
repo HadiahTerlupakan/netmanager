@@ -5,6 +5,7 @@ import { ONU_OIDS } from '@/lib/utils/onu-oids'
 import type { OnuSyncData } from '@/lib/types/onu-sync'
 import { buildGponPortMap, buildCompositeIndex, parseCompositeIndex, parseGponOnu, decodeCompositeIndex } from '@/lib/services/onu-sync-helpers'
 import { clearOnuCache } from '../route'
+import { verifyAuth } from '@/lib/auth'
 import {
   isValidName,
   isTimestamp,
@@ -2185,6 +2186,12 @@ export async function getC300GponOnuDataViaSNMP(
 
 export async function POST(req: NextRequest) {
   try {
+        // Authentication check
+        const user = await verifyAuth(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
     const body = await req.json()
     const { oltId, clear = false, forceRefresh = false } = body
 

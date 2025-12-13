@@ -7,9 +7,10 @@ const workOrderRepo = new WorkOrderRepository(prisma);
 
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -25,7 +26,7 @@ export async function POST(
             );
         }
 
-        const comment = await workOrderRepo.addComment(params.id, message, user.id);
+        const comment = await workOrderRepo.addComment(id, message, user.id);
 
         return NextResponse.json({
             success: true,

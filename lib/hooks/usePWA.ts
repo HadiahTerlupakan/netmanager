@@ -1,70 +1,106 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+
+interface BeforeInstallPromptEvent extends Event {
+    prompt: () => Promise<void>;
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
 
 export function usePWA() {
     const [isInstalled, setIsInstalled] = useState(false)
-    const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+    const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+    const [isReady, setIsReady] = useState(false)
 
     useEffect(() => {
+        // Debug log
+        console.log('[PWA] Initializing PWA hook...')
+        console.log('[PWA] Environment:', process.env.NODE_ENV)
+        console.log('[PWA] Pathname:', window.location.pathname)
+
         // Check if already installed
-        if (window.matchMedia('(display-mode: standalone)').matches) {
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+        console.log('[PWA] Is standalone mode:', isStandalone)
+
+        if (isStandalone) {
             setIsInstalled(true)
+            return
         }
 
-        // Only register service worker in production (PWA is disabled in development)
-        if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
+        // Register service worker IMMEDIATELY (not delayed)
+        const isLoginPage = window.location.pathname.includes('/login')
+
+        if ('serviceWorker' in navigator && !isLoginPage) {
+            console.log('[PWA] Registering service worker...')
             navigator.serviceWorker
                 .register('/sw.js')
                 .then((registration) => {
-                    console.log('Service Worker registered:', registration)
+                    console.log('[PWA] Service Worker registered successfully:', registration.scope)
+                    setIsReady(true)
                 })
                 .catch((error) => {
-                    console.error('Service Worker registration failed:', error)
+                    console.error('[PWA] Service Worker registration failed:', error)
                 })
+        } else {
+            console.log('[PWA] Service worker not available or on login page')
+            setIsReady(true)
         }
 
-        // Listen for install prompt (only in production)
+        // Listen for install prompt - this must be attached IMMEDIATELY
         const handleBeforeInstallPrompt = (e: Event) => {
-            // Only prevent default if we're going to use the prompt
-            // In development, let browser handle it naturally to avoid warnings
-            if (process.env.NODE_ENV === 'production') {
-                e.preventDefault()
-                setDeferredPrompt(e)
-            }
-            // In development, don't prevent default - let browser show native prompt
+            console.log('[PWA] beforeinstallprompt event fired!')
+            e.preventDefault()
+            setDeferredPrompt(e as BeforeInstallPromptEvent)
         }
 
+        // Attach listener immediately
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+        console.log('[PWA] beforeinstallprompt listener attached')
 
         // Listen for app installed
-        window.addEventListener('appinstalled', () => {
+        const handleAppInstalled = () => {
+            console.log('[PWA] App was installed!')
             setIsInstalled(true)
             setDeferredPrompt(null)
-        })
+        }
+        window.addEventListener('appinstalled', handleAppInstalled)
 
         return () => {
             window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+            window.removeEventListener('appinstalled', handleAppInstalled)
         }
     }, [])
 
-    const installPWA = async () => {
-        if (!deferredPrompt) return false
+    const installPWA = useCallback(async () => {
+        console.log('[PWA] Install button clicked, deferredPrompt:', !!deferredPrompt)
 
-        deferredPrompt.prompt()
-        const { outcome } = await deferredPrompt.userChoice
+        if (!deferredPrompt) {
+            console.log('[PWA] No deferred prompt available')
+            return false
+        }
 
-        if (outcome === 'accepted') {
-            setDeferredPrompt(null)
-            return true
+        try {
+            console.log('[PWA] Showing install prompt...')
+            await deferredPrompt.prompt()
+            const { outcome } = await deferredPrompt.userChoice
+            console.log('[PWA] User choice:', outcome)
+
+            if (outcome === 'accepted') {
+                setDeferredPrompt(null)
+                return true
+            }
+        } catch (error) {
+            console.error('[PWA] Error during install:', error)
         }
 
         return false
-    }
+    }, [deferredPrompt])
 
     return {
         isInstalled,
         canInstall: !!deferredPrompt,
+        isReady,
         installPWA,
     }
 }
+

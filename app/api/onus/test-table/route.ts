@@ -3,12 +3,19 @@ import { snmpTable } from '@/lib/utils/snmp-helpers'
 import { SNMPMIBHelper, ONU_MIB_TABLES } from '@/lib/utils/snmp-mib-helper'
 import { getOLTRepository } from '@/lib/repositories'
 
+import { verifyAuth } from '@/lib/auth'
 /**
  * POST /api/onus/test-table
  * Test SNMP TABLE untuk ONU tertentu menggunakan OID yang sudah tersimpan
  */
 export async function POST(req: NextRequest) {
   try {
+        // Authentication check
+        const user = await verifyAuth(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
     const body = await req.json()
     // Frontend mengirim onuId yang sebenarnya adalah gponOnu (karena API /api/onus mengembalikan id: gponOnu)
     // Jadi kita terima baik onuId (gponOnu) atau gponOnu langsung

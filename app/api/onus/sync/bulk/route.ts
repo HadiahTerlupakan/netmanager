@@ -8,8 +8,15 @@ import { onuBulkSyncService } from '@/lib/services/onu-sync-bulk-optimized'
 import { onuIncrementalSyncService } from '@/lib/services/onu-sync-incremental'
 import { logger } from '@/lib/logger'
 
+import { verifyAuth } from '@/lib/auth'
 export async function POST(req: NextRequest) {
     try {
+        // Authentication check
+        const user = await verifyAuth(req);
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await req.json()
         const { oltId, mode = 'full', deleteRemovedOnus = false } = body
 

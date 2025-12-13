@@ -4,6 +4,7 @@ import { authConfig } from '@/lib/auth'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const prisma = new PrismaClient()
 
 // Schema validasi untuk update bank account
@@ -26,6 +27,12 @@ export async function GET(
   context: RouteContext
 ) {
   try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
     const session = await getServerSession(authConfig)
 
     if (!session) {
@@ -82,6 +89,12 @@ export async function PUT(
   context: RouteContext
 ) {
   try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
     const session = await getServerSession(authConfig)
 
     if (!session) {
@@ -126,6 +139,12 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
     const session = await getServerSession(authConfig)
 
     if (!session) {

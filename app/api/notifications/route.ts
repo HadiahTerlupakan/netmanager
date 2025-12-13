@@ -1,95 +1,88 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authConfig } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import {
+    getNotificationsForEmployee,
+    getUnreadCount,
+    markAllAsRead,
+} from '@/lib/services/NotificationService';
 
-// Mock notifications data (replace with database queries later)
-const mockNotifications = [
-    {
-        id: '1',
-        type: 'work_order',
-        priority: 'high',
-        title: 'New Work Order Assigned',
-        message: 'Work Order #WO-20241130-001 has been assigned to your department (IT)',
-        read: false,
-        link: '/employee/workorders',
-        createdAt: new Date(Date.now() - 3600000).toISOString() // 1 hour ago
-    },
-    {
-        id: '2',
-        type: 'work_order',
-        priority: 'urgent',
-        title: 'Urgent: Installation Required',
-        message: 'Customer installation at Jl. Sudirman requires immediate attention',
-        read: false,
-        link: '/employee/workorders',
-        createdAt: new Date(Date.now() - 7200000).toISOString() // 2 hours ago
-    },
-    {
-        id: '3',
-        type: 'system',
-        priority: 'normal',
-        title: 'Attendance Reminder',
-        message: 'Don\'t forget to check out at the end of your shift',
-        read: true,
-        link: '/employee/attendance',
-        createdAt: new Date(Date.now() - 86400000).toISOString() // 1 day ago
-    },
-]
-
-// GET /api/notifications - Get all notifications for current user
+// GET /api/notifications - Get notifications for current user
 export async function GET(request: NextRequest) {
     try {
-        const session = await getServerSession(authConfig)
+        const session = await getServerSession(authConfig);
 
         if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // TODO: Replace with actual database query
-        // const notifications = await prisma.notification.findMany({
-        //     where: {
-        //         userId: session.user.id,
-        //     },
-        //     orderBy: {
-        //         createdAt: 'desc',
-        //     },
-        // })
+        // Get employee ID from session
+        const employee = await prisma.employee.findUnique({
+            where: { userId: session.user.id },
+            select: { id: true },
+        });
 
-        return NextResponse.json(mockNotifications)
+        if (!employee) {
+            return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const unreadOnly = searchParams.get('unread') === 'true';
+        const limit = parseInt(searchParams.get('limit') || '50');
+        const offset = parseInt(searchParams.get('offset') || '0');
+
+        const { notifications, total } = await getNotificationsForEmployee(
+            employee.id,
+            { unreadOnly, limit, offset }
+        );
+
+        const unreadCount = await getUnreadCount(employee.id);
+
+        return NextResponse.json({
+            success: true,
+            notifications,
+            total,
+            unreadCount,
+        });
     } catch (error) {
-        console.error('Error fetching notifications:', error)
+        console.error('Error fetching notifications:', error);
         return NextResponse.json(
             { error: 'Failed to fetch notifications' },
             { status: 500 }
-        )
+        );
     }
 }
 
-// GET /api/notifications/unread-count - Get unread count
-export async function HEAD(request: NextRequest) {
+// PATCH /api/notifications - Mark all as read
+export async function PATCH(request: NextRequest) {
     try {
-        const session = await getServerSession(authConfig)
+        const session = await getServerSession(authConfig);
 
         if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // TODO: Replace with actual database query
-        // const count = await prisma.notification.count({
-        //     where: {
-        //         userId: session.user.id,
-        //         read: false,
-        //     },
-        // })
+        const employee = await prisma.employee.findUnique({
+            where: { userId: session.user.id },
+            select: { id: true },
+        });
 
-        const count = mockNotifications.filter(n => !n.read).length
+        if (!employee) {
+            return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
+        }
 
-        return NextResponse.json({ count })
+        await markAllAsRead(employee.id);
+
+        return NextResponse.json({
+            success: true,
+            message: 'All notifications marked as read',
+        });
     } catch (error) {
-        console.error('Error fetching unread count:', error)
+        console.error('Error marking notifications as read:', error);
         return NextResponse.json(
-            { error: 'Failed to fetch unread count' },
+            { error: 'Failed to mark notifications as read' },
             { status: 500 }
-        )
+        );
     }
 }

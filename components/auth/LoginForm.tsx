@@ -19,7 +19,10 @@ type FormValues = z.infer<typeof schema>
 export default function LoginForm() {
   const router = useRouter()
   const search = useSearchParams()
-  const callbackUrlParam = search.get('callbackUrl') || '/admin'
+  // Check if we're on employee portal - if so, default callback to /employee
+  const isEmployeePortal = typeof window !== 'undefined' && window.location.pathname.startsWith('/employee')
+  const defaultCallback = isEmployeePortal ? '/employee' : '/admin'
+  const callbackUrlParam = search.get('callbackUrl') || defaultCallback
   const [hasOAuthProviders, setHasOAuthProviders] = React.useState<boolean | null>(null)
 
   // Check if there are OAuth providers configured
@@ -61,51 +64,104 @@ export default function LoginForm() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
   const onSubmit = async (values: FormValues) => {
-    const res = await signIn('credentials', {
-      redirect: false,
-      email: values.email,
-      password: values.password,
-      callbackUrl: callbackUrlParam, // Kirim path relatif ke NextAuth
-    })
-    if (!res) return
-    if (res.error) {
-      // Jika error terkait rate limiting, redirect ke halaman error
-      if (res.error.includes('Terlalu banyak percobaan') || res.error.includes('rate limit')) {
-        const errorUrl = `/error?error=${encodeURIComponent(res.error)}`
-        router.push(errorUrl)
+    try {
+      const res = await signIn('credentials', {
+        redirect: false,
+        email: values.email,
+        password: values.password,
+        callbackUrl: callbackUrlParam, // Kirim path relatif ke NextAuth
+      })
+
+      if (!res) {
+        setError('password', { message: 'Terjadi kesalahan saat login. Silakan coba lagi.' })
         return
       }
-      // Error lainnya (email/password salah)
-      setError('password', { message: 'Email atau password salah' })
-      return
-    }
 
-    // Cek apakah kita sudah di admin subdomain
-    const subdomain = getSubdomainFromWindow()
+      if (res.error) {
+        console.error('[LoginForm] Login error:', res.error)
+
+        // Jika error terkait rate limiting, redirect ke halaman error
+        if (res.error.includes('Terlalu banyak percobaan') || res.error.includes('rate limit')) {
+          const errorUrl = `/error?error=${encodeURIComponent(res.error)}`
+          router.push(errorUrl)
+          return
+        }
+
+        // Error database connection
+        if (res.error.includes('Database connection error')) {
+          setError('password', { message: 'Tidak dapat terhubung ke database. Silakan coba lagi beberapa saat.' })
+          return
+        }
+
+        // Error lainnya (email/password salah atau error umum)
+        if (res.error.includes('credentials') || res.error.includes('password')) {
+          setError('password', { message: 'Email atau password salah' })
+        } else {
+          setError('password', { message: res.error || 'Login gagal. Silakan periksa kredensial Anda.' })
+        }
+        return
+      }
+
+      // Cek apakah kita sudah di admin subdomain
+      const subdomain = getSubdomainFromWindow()
     // Extract path dari res.url (bisa berisi URL lengkap atau path relatif)
     let targetPath = res.url
       ? (res.url.startsWith('http') ? new URL(res.url).pathname : res.url)
       : callbackUrlParam
 
-    // Pastikan targetPath adalah path admin
-    if (!targetPath.startsWith('/admin')) {
-      targetPath = '/admin'
+    // Use the appropriate callback based on portal type
+    if (isEmployeePortal) {
+      // For employee portal, ensure we stay on employee routes
+      if (!targetPath.startsWith('/employee')) {
+        targetPath = '/employee'
+      }
+    } else {
+      // For admin portal, ensure we stay on admin routes
+      if (!targetPath.startsWith('/admin')) {
+        targetPath = '/admin'
+      }
     }
 
-    // Di development, selalu gunakan path relatif (skip subdomain redirect)
-    // Ini karena cookies tidak shared antara localhost dan admin.localhost
-    const isDev = process.env.NODE_ENV === 'development' ||
+    // Di development atau localhost
+    const isLocalhost = typeof window !== 'undefined' && (
       window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1'
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.endsWith('.localhost')
+    )
 
-    if (isDev || subdomain === 'admin') {
+    console.log('[LoginForm] Login successful, redirecting...', {
+      targetPath,
+      subdomain,
+      isLocalhost,
+      isEmployeePortal,
+      hostname: window.location.hostname,
+      currentPath: window.location.pathname
+    })
+
+    // KASUS KHUSUS LOCALHOST:
+    // Kita tetap di localhost:3000 agar session cookie valid
+
+    if (isLocalhost) {
+      // Untuk localhost, gunakan window.location untuk memastikan redirect terjadi
+      // dan session cookie ter-set dengan benar
+      console.log('[LoginForm] Using window.location redirect for localhost')
+      window.location.href = targetPath
+      return
+    }
+
+    // Default behavior
+    if (subdomain === 'admin') {
       router.push(targetPath)
       return
     }
 
-    // Di production, redirect ke admin subdomain dengan URL lengkap
+    // Di production dengan subdomain, redirect ke admin subdomain dengan URL lengkap
     const adminUrl = getAdminUrl(targetPath)
     window.location.href = adminUrl
+    } catch (error) {
+      console.error('[LoginForm] Unexpected error:', error)
+      setError('password', { message: 'Terjadi kesalahan tak terduga. Silakan coba lagi.' })
+    }
   }
 
   return (

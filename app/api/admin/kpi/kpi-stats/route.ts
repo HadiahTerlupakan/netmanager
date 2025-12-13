@@ -67,10 +67,11 @@ export async function GET(request: NextRequest) {
 
 
         // --- Admin Stats ---
-        // 1. Dispatch Time (Ticket -> WO)
+        // 1. Dispatch Time (Ticket -> WO) - only for WOs from tickets
+        // 2. Count all work orders created by admins
         const adminWhere: any = {
             createdById: { not: null },
-            ticketId: { not: null },
+            // Removed ticketId requirement so we count ALL WOs created by admins
         };
         if (startDate) adminWhere.createdAt = { gte: startDate };
         if (endDate) adminWhere.createdAt = { ...adminWhere.createdAt, lte: endDate };

@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 // GET /api/finance/budget/forecast - Get cash flow forecast
 export async function GET(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const searchParams = request.nextUrl.searchParams;
         const months = parseInt(searchParams.get('months') || '3'); // Default 3 months
         const scenarioType = searchParams.get('scenarioType') || 'MOST_LIKELY';
@@ -55,6 +62,12 @@ export async function GET(request: NextRequest) {
 // POST /api/finance/budget/forecast - Create cash flow forecast
 export async function POST(request: NextRequest) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json();
         const {
             forecastDate,

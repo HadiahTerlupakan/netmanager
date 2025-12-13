@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { BudgetRepository } from '@/lib/repositories/BudgetRepository';
 
+import FinanceAuthService from '@/lib/services/FinanceAuthService'
 const budgetRepo = new BudgetRepository(prisma);
 
 interface RouteContext {
@@ -14,6 +15,12 @@ export async function GET(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const budget = await budgetRepo.getBudgetById(id);
 
@@ -45,6 +52,12 @@ export async function PUT(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         const body = await request.json();
 
@@ -74,6 +87,12 @@ export async function DELETE(
     context: RouteContext
 ) {
     try {
+        // Authentication check
+        const authResult = await FinanceAuthService.authenticate(request);
+        if (!authResult.success) {
+            return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await context.params
         await budgetRepo.deleteBudget(id);
         return NextResponse.json({ success: true, message: 'Budget deleted successfully' });
