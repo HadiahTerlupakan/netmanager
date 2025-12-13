@@ -46,6 +46,11 @@ lerna-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Data dumps and temporary files
+data/dumps/*.txt
+data/temp/*
+data/temp/**/*
+
 # Prisma
 prisma/migrations/**/migration.sql
 

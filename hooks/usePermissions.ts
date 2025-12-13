@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { PermissionMatrix, FeaturePermission } from '@/lib/types/permissions'
+import { ADMIN_MENU_CONFIG, toPermissionMenuFormat, type MenuConfig } from '@/lib/menu-config'
 
 interface MenuDefinition {
     id: string
@@ -24,59 +25,51 @@ interface UseMenuDefinitionsResult {
 }
 
 /**
- * Hook to fetch menu definitions from API
+ * Helper: Flatten menu definitions for permission matrix
+ */
+function flattenMenuDefinitions(menus: MenuDefinition[]): MenuDefinition[] {
+    const result: MenuDefinition[] = []
+    for (const menu of menus) {
+        const { children, ...rest } = menu
+        result.push(rest as MenuDefinition)
+        if (children && children.length > 0) {
+            result.push(...flattenMenuDefinitions(children))
+        }
+    }
+    return result
+}
+
+/**
+ * Hook to get menu definitions from shared config
+ * 
+ * Uses lib/menu-config.ts as single source of truth
+ * No API call needed - menus are loaded synchronously
  */
 export function useMenuDefinitions(portal?: string): UseMenuDefinitionsResult {
-    const [menus, setMenus] = useState<MenuDefinition[]>([])
-    const [flatMenus, setFlatMenus] = useState<MenuDefinition[]>([])
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-
-    const fetchMenus = useCallback(async () => {
-        setIsLoading(true)
-        setError(null)
-
-        try {
-            // Try runtime discovery first (no database needed)
-            const discoveryUrl = portal
-                ? `/api/menu-discovery?portal=${portal}`
-                : '/api/menu-discovery'
-
-            let response = await fetch(discoveryUrl)
-            let data = await response.json()
-
-            // If discovery fails, fallback to database
-            if (!data.success) {
-                const dbUrl = portal
-                    ? `/api/menu-definitions?portal=${portal}`
-                    : '/api/menu-definitions'
-                response = await fetch(dbUrl)
-                data = await response.json()
-            }
-
-            if (data.success) {
-                setMenus(data.data)
-                setFlatMenus(data.flat)
-            } else {
-                throw new Error(data.error || 'Failed to fetch menu definitions')
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Unknown error')
-        } finally {
-            setIsLoading(false)
+    // Use shared config - no API call needed
+    const menus = useMemo(() => {
+        if (portal === 'admin' || !portal) {
+            return toPermissionMenuFormat(ADMIN_MENU_CONFIG)
         }
+        // For other portals, return empty (can be extended later)
+        return []
     }, [portal])
 
-    useEffect(() => {
-        fetchMenus()
-    }, [fetchMenus])
+    const flatMenus = useMemo(() => {
+        return flattenMenuDefinitions(menus as MenuDefinition[])
+    }, [menus])
+
+    // Refetch is a no-op since we're using static config
+    const refetch = useCallback(async () => {
+        // No-op - config is static
+    }, [])
 
     return {
-        menus,
+        menus: menus as MenuDefinition[],
         flatMenus,
-        isLoading,
-        error,
-        refetch: fetchMenus,
+        isLoading: false, // Always false since config is synchronous
+        error: null,
+        refetch,
     }
 }
 
