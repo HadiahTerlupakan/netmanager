@@ -16,12 +16,36 @@ model User {
   updatedAt     DateTime       @updatedAt
   emailVerified DateTime?
   image         String?
+  phone         String?
+  departmentId  String?
+  siteId        String?
+  isActive      Boolean        @default(true)
   accounts      Account[]
   pelanggan     Pelanggan[]
   sessions      Session[]
-  employee      Employee?
-  barangKeluar  BarangKeluar[] @relation("EmployeeBarangKeluar")
-  barangMasuk   BarangMasuk[]  @relation("EmployeeBarangMasuk")
+  barangKeluar  BarangKeluar[] @relation("UserBarangKeluar")
+  barangMasuk   BarangMasuk[]  @relation("UserBarangMasuk")
+  department    Department?    @relation(fields: [departmentId], references: [id])
+  site          Site?          @relation(fields: [siteId], references: [id])
+  
+  // Work Order Relations
+  workOrdersCreated     WorkOrder[]           @relation("WorkOrderCreatedBy")
+  workOrdersAssigned    WorkOrder[]           @relation("UserWorkOrders")
+  workOrderTasks        WorkOrderTask[]       @relation("UserWorkOrderTasks")
+  workOrderAssignments  WorkOrderAssignment[] @relation("UserWorkOrderAssignments")
+  workOrderUpdates      WorkOrderUpdate[]     @relation("UserWorkOrderUpdates")
+  workOrderAttachments  WorkOrderAttachment[] @relation("UserWorkOrderAttachments")
+  workOrderTemplatesCreated WorkOrderTemplate[] @relation("WorkOrderTemplateCreatedBy")
+  slasCreated           SLA[]                 @relation("SLACreatedBy")
+  escalationsCreated    WorkOrderEscalation[] @relation("WorkOrderEscalationCreatedBy")
+  
+  // Notification Relations
+  notifications         Notification[]        @relation("UserNotifications")
+  pushSubscriptions     PushSubscription[]    @relation("UserPushSubscriptions")
+  
+  @@index([departmentId])
+  @@index([siteId])
+  @@index([isActive])
 }
 
 model Account {
@@ -775,7 +799,7 @@ model Department {
   jobDescription  String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
-  employees       Employee[]
+  users           User[]
   positions       Position[]
   workOrders      WorkOrder[]
   notifications   Notification[]
@@ -797,7 +821,7 @@ model Site {
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  employees   Employee[]
+  users       User[]
   workOrders  WorkOrder[]
 
   @@index([isActive])
@@ -814,7 +838,6 @@ model Position {
   isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  employees    Employee[]
   department   Department? @relation(fields: [departmentId], references: [id])
 
   @@index([isActive])
@@ -824,70 +847,7 @@ model Position {
 
 
 
-model Employee {
-  id                   String    @id @default(cuid())
-  employeeId           String    @unique
-  userId               String?   @unique
-  fullName             String
-  email                String?   @unique
-  phone                String?
-  departmentId         String?
-  positionId           String?
-  siteId               String?
-  joinDate             DateTime
-  status               String    @default("ACTIVE")
-  isActive             Boolean   @default(true)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  createdBy            String?
-  updatedBy            String?
-
-  // Personal Information
-  dateOfBirth          DateTime?
-  gender               String?   // MALE, FEMALE
-  idCardNumber         String?   // Nomor KTP
-  address              String?
-  city                 String?
-  province             String?
-
-  // Employment Details
-  employmentStatus     String    @default("PROBATION") // PROBATION, PERMANENT, CONTRACT
-  probationEndDate     DateTime?
-
-  // Bank Information
-  bankName             String?
-  bankAccountNumber    String?
-  bankAccountName      String?
-  npwp                 String?   // Nomor NPWP
-
-  // Emergency Contact
-  emergencyName        String?
-  emergencyPhone       String?
-  emergencyRelation    String?
-
-  // Relations for work orders and inventory
-  workOrdersCreated    WorkOrder[]           @relation("WorkOrderCreatedBy")
-  workOrderTemplatesCreated WorkOrderTemplate[] @relation("WorkOrderTemplateCreatedBy")
-  slasCreated          SLA[]                 @relation("SLACreatedBy")
-  escalationsCreated   WorkOrderEscalation[]  @relation("WorkOrderEscalationCreatedBy")
-
-  // Relations to organization structure
-  department           Department?           @relation(fields: [departmentId], references: [id])
-  position             Position?             @relation(fields: [positionId], references: [id])
-  site                 Site?                 @relation(fields: [siteId], references: [id])
-
-  // Back-references for related models
-  workOrdersAssigned   WorkOrder[]           @relation("EmployeeWorkOrders")
-  workOrderTasks       WorkOrderTask[]       @relation("EmployeeWorkOrderTasks")
-  workOrderAssignments WorkOrderAssignment[] @relation("EmployeeWorkOrderAssignments")
-  workOrderUpdates     WorkOrderUpdate[]     @relation("EmployeeWorkOrderUpdates")
-  workOrderAttachments WorkOrderAttachment[] @relation("EmployeeWorkOrderAttachments")
-  notifications        Notification[]        @relation("EmployeeNotifications")
-  pushSubscriptions    PushSubscription[]    @relation("EmployeePushSubscriptions")
-  user                 User?                 @relation(fields: [userId], references: [id])
-
-  @@map("employees")
-}
+// Model Employee telah dihapus - semua relasi dipindahkan ke User
 
 
 
@@ -1101,12 +1061,12 @@ model WorkOrder {
   createdById         String?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
-  createdBy           Employee?             @relation("WorkOrderCreatedBy", fields: [createdById], references: [id])
+  createdBy           User?                 @relation("WorkOrderCreatedBy", fields: [createdById], references: [id])
   assignments         WorkOrderAssignment[]
   attachments         WorkOrderAttachment[]
   tasks               WorkOrderTask[]
   updates             WorkOrderUpdate[]
-  assignedTo          Employee?             @relation("EmployeeWorkOrders", fields: [assignedToId], references: [id])
+  assignedTo          User?                 @relation("UserWorkOrders", fields: [assignedToId], references: [id])
   department          Department?           @relation(fields: [departmentId], references: [id])
   pelanggan           Pelanggan?            @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
   site                Site?                 @relation(fields: [siteId], references: [id])
@@ -1138,7 +1098,7 @@ model WorkOrderTask {
   completedAt   DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-  completedBy   Employee?  @relation("EmployeeWorkOrderTasks", fields: [completedById], references: [id])
+  completedBy   User?      @relation("UserWorkOrderTasks", fields: [completedById], references: [id])
   workOrder     WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
@@ -1149,15 +1109,15 @@ model WorkOrderTask {
 model WorkOrderAssignment {
   id           String    @id @default(cuid())
   workOrderId  String
-  employeeId   String
+  userId       String
   role         String?
   assignedAt   DateTime  @default(now())
   assignedById String?
-  employee     Employee  @relation("EmployeeWorkOrderAssignments", fields: [employeeId], references: [id], onDelete: Cascade)
+  user         User      @relation("UserWorkOrderAssignments", fields: [userId], references: [id], onDelete: Cascade)
   workOrder    WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
-  @@index([employeeId])
+  @@index([userId])
   @@map("work_order_assignments")
 }
 
@@ -1170,7 +1130,7 @@ model WorkOrderUpdate {
   newStatus   WorkOrderStatus?
   createdById String?
   createdAt   DateTime         @default(now())
-  createdBy   Employee?        @relation("EmployeeWorkOrderUpdates", fields: [createdById], references: [id])
+  createdBy   User?            @relation("UserWorkOrderUpdates", fields: [createdById], references: [id])
   workOrder   WorkOrder        @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
@@ -1188,7 +1148,7 @@ model WorkOrderAttachment {
   caption      String?
   uploadedById String?
   uploadedAt   DateTime  @default(now())
-  uploadedBy   Employee? @relation("EmployeeWorkOrderAttachments", fields: [uploadedById], references: [id])
+  uploadedBy   User?     @relation("UserWorkOrderAttachments", fields: [uploadedById], references: [id])
   workOrder    WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
@@ -1212,7 +1172,7 @@ model WorkOrderTemplate {
   createdById       String?
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
-  createdBy         Employee?             @relation("WorkOrderTemplateCreatedBy", fields: [createdById], references: [id])
+  createdBy         User?                 @relation("WorkOrderTemplateCreatedBy", fields: [createdById], references: [id])
   department        Department?           @relation(fields: [departmentId], references: [id])
   workOrders        WorkOrder[]
 
@@ -1236,7 +1196,7 @@ model SLA {
   createdById       String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
-  createdBy         Employee?         @relation("SLACreatedBy", fields: [createdById], references: [id])
+  createdBy         User?             @relation("SLACreatedBy", fields: [createdById], references: [id])
   department        Department?       @relation(fields: [departmentId], references: [id])
   workOrders        WorkOrder[]
   escalations       WorkOrderEscalation[]
@@ -1259,14 +1219,14 @@ model WorkOrderEscalation {
   triggerCondition  String            // JSON condition for triggering escalation
   escalationLevel   Int               @default(1)
   notifyRole        String?           // Role to notify
-  notifyEmployees    String[]          // Array of employee IDs to notify
+  notifyUsers       String[]          // Array of user IDs to notify
   notifyDepartments String[]          // Array of department IDs to notify
   delayMinutes      Int               @default(0) // Delay before triggering escalation
   isActive          Boolean           @default(true)
   createdById       String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
-  createdBy         Employee?         @relation("WorkOrderEscalationCreatedBy", fields: [createdById], references: [id])
+  createdBy         User?             @relation("WorkOrderEscalationCreatedBy", fields: [createdById], references: [id])
   sla               SLA?              @relation(fields: [slaId], references: [id])
   department        Department?       @relation(fields: [departmentId], references: [id])
 
@@ -1354,9 +1314,9 @@ model BarangMasuk {
   createdAt         DateTime             @default(now())
   fotoBukti         String[]
   fotoMetadata      Json?
-  employeeId        String?
+  userId            String?
   barang            Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  user              User?                @relation("EmployeeBarangMasuk", fields: [employeeId], references: [id])
+  user              User?                @relation("UserBarangMasuk", fields: [userId], references: [id])
   gudang            Gudang               @relation(fields: [gudangId], references: [id], onDelete: Cascade)
   transfer          TransferAntarGudang? @relation(fields: [transferId], references: [id])
 
@@ -1385,13 +1345,13 @@ model BarangKeluar {
   nomorBatch        String?
   customer          String?
   isHilang          Boolean              @default(false)
-  employeeId        String?
+  userId            String?
   purpose           String?
   createdAt         DateTime             @default(now())
   fotoBukti         String[]
   fotoMetadata      Json?
   barang            Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  user              User?                @relation("EmployeeBarangKeluar", fields: [employeeId], references: [id])
+  user              User?                @relation("UserBarangKeluar", fields: [userId], references: [id])
   gudang            Gudang               @relation(fields: [gudangId], references: [id], onDelete: Cascade)
   transfer          TransferAntarGudang? @relation(fields: [transferId], references: [id])
 
@@ -1675,8 +1635,8 @@ model Notification {
   isRead   Boolean @default(false)
 
   // Target notification
-  employeeId   String? // Specific employee
-  departmentId String? // All employees in department
+  userId       String? // Specific user
+  departmentId String? // All users in department
 
   // Reference to source
   sourceType String? // 'WORK_ORDER', 'TICKET', etc.
@@ -1685,10 +1645,10 @@ model Notification {
   createdAt DateTime  @default(now())
   readAt    DateTime?
 
-  employee   Employee?   @relation("EmployeeNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
+  user       User?       @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
   department Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
-  @@index([employeeId])
+  @@index([userId])
   @@index([departmentId])
   @@index([isRead])
   @@index([createdAt])
@@ -1698,7 +1658,7 @@ model Notification {
 
 model PushSubscription {
   id         String  @id @default(cuid())
-  employeeId String
+  userId     String
   endpoint   String  @unique
   p256dh     String // Public key for encryption
   auth       String // Auth secret
@@ -1709,9 +1669,9 @@ model PushSubscription {
   updatedAt  DateTime  @updatedAt
   lastUsedAt DateTime?
 
-  employee Employee @relation("EmployeePushSubscriptions", fields: [employeeId], references: [id], onDelete: Cascade)
+  user       User @relation("UserPushSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([employeeId])
+  @@index([userId])
   @@index([isActive])
   @@map("push_subscriptions")
 }

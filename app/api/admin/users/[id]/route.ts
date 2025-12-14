@@ -58,7 +58,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   const session = await requireAdmin(_req)
   if (session instanceof NextResponse) return session
   const { id } = await params
-  
+
   let body
   try {
     body = await _req.json()
@@ -78,7 +78,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
       { status: 400 }
     )
   }
-  
+
   if (body.password !== undefined) {
     if (typeof body.password !== 'string' || body.password.length < 6) {
       return NextResponse.json(
@@ -89,9 +89,13 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   }
 
   // Handle user data update
-  const data: any = {}
+  const data: Record<string, unknown> = {}
   if (body.name !== undefined) data.name = body.name
   if (body.password) data.passwordHash = await hash(body.password, 10)
+  if (body.phone !== undefined) data.phone = body.phone || null
+  if (body.departmentId !== undefined) data.departmentId = body.departmentId || null
+  if (body.siteId !== undefined) data.siteId = body.siteId || null
+  if (body.isActive !== undefined) data.isActive = body.isActive
 
   console.log('[USER-UPDATE] Data to update:', data)
 
@@ -110,14 +114,14 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ ok: true })
   } catch (error: any) {
     console.error('[USER-UPDATE] Error updating user:', error)
-    
+
     if (error.code === 'P2025') {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       )
     }
-    
+
     return NextResponse.json(
       { error: 'Failed to update user' },
       { status: 500 }
@@ -238,7 +242,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const session = await requireAdmin(_req)
   if (session instanceof NextResponse) return session
   const { id } = await params
-  
+
   // Validate ID
   if (!id || typeof id !== 'string') {
     return NextResponse.json(
@@ -246,30 +250,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       { status: 400 }
     )
   }
-  
+
   try {
-    // Fetch user
+    // Fetch user with related data
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
         name: true,
         email: true,
+        phone: true,
+        isActive: true,
         createdAt: true,
-      },
-    })
-
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
-
-    // Fetch linked employee if exists with all fields needed for edit form
-    const emp = await prisma.employee.findFirst({
-      where: { userId: id },
-      include: {
+        departmentId: true,
+        siteId: true,
         department: {
           select: { id: true, name: true },
-        },
-        position: {
-          select: { id: true, title: true },
         },
         site: {
           select: { id: true, code: true, name: true },
@@ -277,47 +273,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       },
     })
 
-    const employee = emp
-      ? {
-        id: emp.id,
-        employeeId: emp.employeeId,
-        fullName: emp.fullName,
-        email: emp.email,
-        phone: emp.phone,
-        departmentId: emp.departmentId,
-        positionId: emp.positionId,
-        siteId: emp.siteId,
-        joinDate: emp.joinDate,
-        status: emp.status,
-        department: emp.department,
-        position: emp.position,
-        site: emp.site,
-        // Personal Information
-        dateOfBirth: emp.dateOfBirth,
-        gender: emp.gender,
-        idCardNumber: emp.idCardNumber,
-        address: emp.address,
-        city: emp.city,
-        province: emp.province,
-        // Employment Details
-        employmentStatus: emp.employmentStatus,
-        probationEndDate: emp.probationEndDate,
-        // Bank Information
-        bankName: emp.bankName,
-        bankAccountNumber: emp.bankAccountNumber,
-        bankAccountName: emp.bankAccountName,
-        npwp: emp.npwp,
-        // Emergency Contact
-        emergencyName: emp.emergencyName,
-        emergencyPhone: emp.emergencyPhone,
-        emergencyRelation: emp.emergencyRelation,
-      }
-      : null
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
-    return NextResponse.json({ user: { ...user, employee } })
+    return NextResponse.json({ user })
   } catch (e: any) {
     console.error('[USER-GET] Error fetching user:', e)
-    
+
     // Handle specific database errors
     if (e.code === 'P1001') {
       return NextResponse.json(
@@ -325,14 +286,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         { status: 503 }
       )
     }
-    
+
     if (e.code === 'P2002') {
       return NextResponse.json(
         { error: 'Database constraint violation' },
         { status: 409 }
       )
     }
-    
+
     return NextResponse.json({ error: e.message || 'Gagal memuat pengguna' }, { status: 500 })
   }
 }
@@ -374,7 +335,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const session = await requireAdmin(_req)
   if (session instanceof NextResponse) return session
   const { id } = await params
-  
+
   // Validate ID
   if (!id || typeof id !== 'string') {
     return NextResponse.json(
@@ -382,21 +343,21 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       { status: 400 }
     )
   }
-  
+
   try {
     const userRepository = getUserRepository()
     await userRepository.delete(id)
     return NextResponse.json({ ok: true })
   } catch (error: any) {
     console.error('[USER-DELETE] Error deleting user:', error)
-    
+
     if (error.code === 'P2025') {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       )
     }
-    
+
     return NextResponse.json(
       { error: 'Failed to delete user' },
       { status: 500 }

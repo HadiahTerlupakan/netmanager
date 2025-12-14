@@ -2,17 +2,17 @@ import { prisma } from '@/lib/prisma'
 import type {
     IDepartmentRepository,
     DepartmentPublic,
-    DepartmentWithEmployeeCount,
+    DepartmentWithUserCount,
     DepartmentCreateData,
     DepartmentUpdateData,
 } from './IDepartmentRepository'
 
 export class DepartmentRepository implements IDepartmentRepository {
-    async findAll(): Promise<DepartmentWithEmployeeCount[]> {
+    async findAll(): Promise<DepartmentWithUserCount[]> {
         const departments = await prisma.department.findMany({
             include: {
                 _count: {
-                    select: { employees: true },
+                    select: { users: true },
                 },
             },
             orderBy: { name: 'asc' },

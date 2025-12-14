@@ -266,8 +266,8 @@ export async function POST(req: NextRequest) {
         const stockByKondisi = await getStockByCondition(barangId, dariGudangId)
         const availableStockForCondition = stockByKondisi[
           kondisi === 'BARU' ? 'stokBaru' :
-          kondisi === 'BEKAS' ? 'stokBekas' :
-          kondisi === 'RUSAK' ? 'stokRusak' : 'stokBaru'
+            kondisi === 'BEKAS' ? 'stokBekas' :
+              kondisi === 'RUSAK' ? 'stokRusak' : 'stokBaru'
         ] || 0
 
         if (availableStockForCondition < jumlah) {
@@ -307,7 +307,7 @@ export async function POST(req: NextRequest) {
             jumlah,
             kondisi: kondisi || 'BARU',
             keterangan: `Transfer ke ${keGudang.nama} (${keGudang.kode})${keterangan ? ` - ${keterangan}` : ''}`,
-            employeeId: session.user.id
+            userId: session.user.id
           }
         })
 
@@ -352,7 +352,7 @@ export async function POST(req: NextRequest) {
             jumlah,
             kondisi: kondisi || 'BARU',
             keterangan: `Transfer dari ${dariGudang.nama} (${dariGudang.kode})${keterangan ? ` - ${keterangan}` : ''}`,
-            employeeId: session.user.id
+            userId: session.user.id
           }
         })
 

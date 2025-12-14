@@ -11,7 +11,7 @@ export interface CreateNotificationData {
     title: string;
     message: string;
     link?: string;
-    employeeId?: string;
+    userId?: string;
     departmentId?: string;
     sourceType?: string;
     sourceId?: string;
@@ -38,7 +38,7 @@ export async function createNotification(data: CreateNotificationData) {
             title: data.title,
             message: data.message,
             link: data.link,
-            employeeId: data.employeeId,
+            userId: data.userId,
             departmentId: data.departmentId,
             sourceType: data.sourceType,
             sourceId: data.sourceId,
@@ -47,12 +47,12 @@ export async function createNotification(data: CreateNotificationData) {
 }
 
 /**
- * Send push notification to an employee
+ * Send push notification to a user
  */
-async function sendPushToEmployee(employeeId: string, payload: PushPayload) {
+async function sendPushToUser(userId: string, payload: PushPayload) {
     const subscriptions = await prisma.pushSubscription.findMany({
         where: {
-            employeeId,
+            userId,
             isActive: true,
         },
     });
@@ -90,10 +90,10 @@ async function sendPushToEmployee(employeeId: string, payload: PushPayload) {
 }
 
 /**
- * Send push notification to all employees in a department
+ * Send push notification to all users in a department
  */
 async function sendPushToDepartment(departmentId: string, payload: PushPayload) {
-    const employees = await prisma.employee.findMany({
+    const users = await prisma.user.findMany({
         where: {
             departmentId,
             isActive: true,
@@ -104,14 +104,14 @@ async function sendPushToDepartment(departmentId: string, payload: PushPayload) 
     });
 
     const results = await Promise.all(
-        employees.map((emp) => sendPushToEmployee(emp.id, payload))
+        users.map((user) => sendPushToUser(user.id, payload))
     );
 
     return results.flat();
 }
 
 /**
- * Create notification for new Work Order (notify all department employees)
+ * Create notification for new Work Order (notify all department users)
  */
 export async function notifyNewWorkOrder(data: WorkOrderNotificationData) {
     const priorityEmoji = getPriorityEmoji(data.priority);
@@ -122,7 +122,7 @@ export async function notifyNewWorkOrder(data: WorkOrderNotificationData) {
         priority: data.priority as NotificationPriority,
         title: `${priorityEmoji} Work Order Baru: ${data.workOrderNumber}`,
         message: `[${typeLabel}] ${data.title}`,
-        link: `/employee/workorders?id=${data.workOrderId}`,
+        link: `/admin/workorders/${data.workOrderId}`,
         departmentId: data.departmentId,
         sourceType: 'WORK_ORDER',
         sourceId: data.workOrderId,
@@ -134,7 +134,7 @@ export async function notifyNewWorkOrder(data: WorkOrderNotificationData) {
             title: `${priorityEmoji} Work Order Baru`,
             body: `[${typeLabel}] ${data.title}`,
             data: {
-                url: `/employee/workorders?id=${data.workOrderId}`,
+                url: `/admin/workorders/${data.workOrderId}`,
                 type: 'WORK_ORDER',
                 sourceId: data.workOrderId,
             },
@@ -147,7 +147,7 @@ export async function notifyNewWorkOrder(data: WorkOrderNotificationData) {
 }
 
 /**
- * Create notification when Work Order is assigned to a technician
+ * Create notification when Work Order is assigned to a user
  */
 export async function notifyWorkOrderAssigned(data: WorkOrderNotificationData & { assigneeName?: string }) {
     if (!data.assignedToId) return null;
@@ -157,18 +157,18 @@ export async function notifyWorkOrderAssigned(data: WorkOrderNotificationData & 
         priority: data.priority as NotificationPriority,
         title: `📋 Work Order Di-assign ke Anda`,
         message: `${data.workOrderNumber}: ${data.title}`,
-        link: `/employee/workorders?id=${data.workOrderId}`,
-        employeeId: data.assignedToId,
+        link: `/admin/workorders/${data.workOrderId}`,
+        userId: data.assignedToId,
         sourceType: 'WORK_ORDER',
         sourceId: data.workOrderId,
     });
 
-    // Send push to assigned employee
-    await sendPushToEmployee(data.assignedToId, {
+    // Send push to assigned user
+    await sendPushToUser(data.assignedToId, {
         title: '📋 Work Order Di-assign ke Anda',
         body: `${data.workOrderNumber}: ${data.title}`,
         data: {
-            url: `/employee/workorders?id=${data.workOrderId}`,
+            url: `/admin/workorders/${data.workOrderId}`,
             type: 'WORK_ORDER',
             sourceId: data.workOrderId,
         },
@@ -198,18 +198,18 @@ export async function notifyWorkOrderStatusChange(
         priority: 'NORMAL',
         title: `${statusEmoji} Status WO Berubah`,
         message: `${data.workOrderNumber}: ${data.oldStatus} → ${data.newStatus}`,
-        link: `/employee/workorders?id=${data.workOrderId}`,
-        employeeId: data.assignedToId,
+        link: `/admin/workorders/${data.workOrderId}`,
+        userId: data.assignedToId,
         sourceType: 'WORK_ORDER',
         sourceId: data.workOrderId,
     });
 
-    // Send push to assigned employee
-    await sendPushToEmployee(data.assignedToId, {
+    // Send push to assigned user
+    await sendPushToUser(data.assignedToId, {
         title: `${statusEmoji} Status WO Berubah: ${statusLabel}`,
         body: `${data.workOrderNumber}: ${data.title}`,
         data: {
-            url: `/employee/workorders?id=${data.workOrderId}`,
+            url: `/admin/workorders/${data.workOrderId}`,
             type: 'WORK_ORDER',
             sourceId: data.workOrderId,
         },
@@ -235,18 +235,18 @@ export async function notifyWorkOrderUpdate(
         priority: 'NORMAL',
         title: `💬 Update pada ${data.workOrderNumber}`,
         message: data.updateMessage,
-        link: `/employee/workorders?id=${data.workOrderId}`,
-        employeeId: data.assignedToId,
+        link: `/admin/workorders/${data.workOrderId}`,
+        userId: data.assignedToId,
         sourceType: 'WORK_ORDER',
         sourceId: data.workOrderId,
     });
 
-    // Send push to assigned employee
-    await sendPushToEmployee(data.assignedToId, {
+    // Send push to assigned user
+    await sendPushToUser(data.assignedToId, {
         title: `💬 Update pada ${data.workOrderNumber}`,
         body: data.updateMessage,
         data: {
-            url: `/employee/workorders?id=${data.workOrderId}`,
+            url: `/admin/workorders/${data.workOrderId}`,
             type: 'WORK_ORDER',
             sourceId: data.workOrderId,
         },
@@ -257,26 +257,26 @@ export async function notifyWorkOrderUpdate(
 }
 
 /**
- * Get notifications for an employee (including department notifications)
+ * Get notifications for a user (including department notifications)
  */
-export async function getNotificationsForEmployee(
-    employeeId: string,
+export async function getNotificationsForUser(
+    userId: string,
     options?: {
         unreadOnly?: boolean;
         limit?: number;
         offset?: number;
     }
 ) {
-    // Get employee's department
-    const employee = await prisma.employee.findUnique({
-        where: { id: employeeId },
+    // Get user's department
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
         select: { departmentId: true },
     });
 
     const where: any = {
         OR: [
-            { employeeId },
-            ...(employee?.departmentId ? [{ departmentId: employee.departmentId }] : []),
+            { userId },
+            ...(user?.departmentId ? [{ departmentId: user.departmentId }] : []),
         ],
     };
 
@@ -298,11 +298,11 @@ export async function getNotificationsForEmployee(
 }
 
 /**
- * Get unread notification count for an employee
+ * Get unread notification count for a user
  */
-export async function getUnreadCount(employeeId: string): Promise<number> {
-    const employee = await prisma.employee.findUnique({
-        where: { id: employeeId },
+export async function getUnreadCount(userId: string): Promise<number> {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
         select: { departmentId: true },
     });
 
@@ -310,8 +310,8 @@ export async function getUnreadCount(employeeId: string): Promise<number> {
         where: {
             isRead: false,
             OR: [
-                { employeeId },
-                ...(employee?.departmentId ? [{ departmentId: employee.departmentId }] : []),
+                { userId },
+                ...(user?.departmentId ? [{ departmentId: user.departmentId }] : []),
             ],
         },
     });
@@ -331,11 +331,11 @@ export async function markAsRead(notificationId: string) {
 }
 
 /**
- * Mark all notifications as read for an employee
+ * Mark all notifications as read for a user
  */
-export async function markAllAsRead(employeeId: string) {
-    const employee = await prisma.employee.findUnique({
-        where: { id: employeeId },
+export async function markAllAsRead(userId: string) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
         select: { departmentId: true },
     });
 
@@ -343,8 +343,8 @@ export async function markAllAsRead(employeeId: string) {
         where: {
             isRead: false,
             OR: [
-                { employeeId },
-                ...(employee?.departmentId ? [{ departmentId: employee.departmentId }] : []),
+                { userId },
+                ...(user?.departmentId ? [{ departmentId: user.departmentId }] : []),
             ],
         },
         data: {
@@ -358,7 +358,7 @@ export async function markAllAsRead(employeeId: string) {
  * Subscribe device for push notifications
  */
 export async function subscribeDevice(
-    employeeId: string,
+    userId: string,
     subscription: {
         endpoint: string;
         keys: {
@@ -385,7 +385,7 @@ export async function subscribeDevice(
 
     return prisma.pushSubscription.create({
         data: {
-            employeeId,
+            userId,
             endpoint: subscription.endpoint,
             p256dh: subscription.keys.p256dh,
             auth: subscription.keys.auth,

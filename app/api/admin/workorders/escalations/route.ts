@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
                     createdBy: {
                         select: {
                             id: true,
-                            fullName: true,
+                            name: true,
                         },
                     },
                 },
@@ -291,15 +291,10 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const validatedData = workOrderEscalationCreateSchema.parse(body);
 
-        // Get employee ID if available
-        const employee = await prisma.employee.findUnique({
-            where: { userId: user.id! },
-        });
-
         const escalation = await (prisma as any).workOrderEscalation.create({
             data: {
                 ...validatedData,
-                createdById: employee?.id,
+                createdById: user.id,
             },
             include: {
                 sla: {
@@ -319,7 +314,7 @@ export async function POST(request: NextRequest) {
                 createdBy: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                     },
                 },
             },

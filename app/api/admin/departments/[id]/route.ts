@@ -18,17 +18,17 @@ export async function GET(
         const department = await prisma.department.findUnique({
             where: { id },
             include: {
-                employees: {
+                users: {
                     select: {
                         id: true,
-                        employeeId: true,
-                        fullName: true,
+                        email: true,
+                        name: true,
                     },
                     take: 10,
                 },
                 _count: {
                     select: {
-                        employees: true,
+                        users: true,
                         workOrders: true,
                     },
                 },
@@ -126,7 +126,7 @@ export async function DELETE(
             include: {
                 _count: {
                     select: {
-                        employees: true,
+                        users: true,
                         workOrders: true,
                     },
                 },
@@ -137,9 +137,9 @@ export async function DELETE(
             return NextResponse.json({ error: 'Department not found' }, { status: 404 });
         }
 
-        if (department._count.employees > 0) {
+        if (department._count.users > 0) {
             return NextResponse.json(
-                { error: `Cannot delete department. It has ${department._count.employees} employee(s) assigned.` },
+                { error: `Cannot delete department. It has ${department._count.users} user(s) assigned.` },
                 { status: 400 }
             );
         }

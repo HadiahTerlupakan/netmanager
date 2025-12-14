@@ -12,84 +12,152 @@ async function main() {
   const dept = await prisma.department.upsert({
     where: { name: 'Technical' },
     update: {},
-    create: { name: 'Technical', description: 'Technical Support' },
+    create: {
+      name: 'Technical',
+      description: 'Technical Support & Network Operations',
+      jobDescription: 'Mengelola infrastruktur jaringan dan dukungan teknis'
+    },
   })
+  console.log('✅ Department: Technical')
+
+  // Create additional departments
+  await prisma.department.upsert({
+    where: { name: 'Customer Service' },
+    update: {},
+    create: {
+      name: 'Customer Service',
+      description: 'Customer Support & Relations',
+      jobDescription: 'Menangani pertanyaan dan keluhan pelanggan'
+    },
+  })
+  console.log('✅ Department: Customer Service')
+
+  await prisma.department.upsert({
+    where: { name: 'Operations' },
+    update: {},
+    create: {
+      name: 'Operations',
+      description: 'Field Operations & Maintenance',
+      jobDescription: 'Operasi lapangan dan pemeliharaan jaringan'
+    },
+  })
+  console.log('✅ Department: Operations')
 
   // Create Site
   const site = await prisma.site.upsert({
     where: { code: 'HQ' },
     update: {},
-    create: { code: 'HQ', name: 'Headquarters', address: 'Jl. Utama No. 1' },
+    create: {
+      code: 'HQ',
+      name: 'Headquarters',
+      address: 'Jl. Utama No. 1, Jakarta',
+      description: 'Kantor Pusat',
+      isActive: true
+    },
   })
+  console.log('✅ Site: HQ')
+
+  // Create additional sites
+  await prisma.site.upsert({
+    where: { code: 'JKT01' },
+    update: {},
+    create: {
+      code: 'JKT01',
+      name: 'Jakarta Selatan',
+      address: 'Jl. Sudirman No. 123, Jakarta Selatan',
+      description: 'Coverage area Jakarta Selatan',
+      isActive: true
+    },
+  })
+  console.log('✅ Site: JKT01')
+
+  await prisma.site.upsert({
+    where: { code: 'JKT02' },
+    update: {},
+    create: {
+      code: 'JKT02',
+      name: 'Jakarta Utara',
+      address: 'Jl. Mangga Dua No. 456, Jakarta Utara',
+      description: 'Coverage area Jakarta Utara',
+      isActive: true
+    },
+  })
+  console.log('✅ Site: JKT02')
 
   // Create Position
-  const position = await prisma.position.upsert({
+  await prisma.position.upsert({
     where: { title: 'Administrator' },
     update: {},
-    create: { title: 'Administrator', code: 'ADMIN', departmentId: dept.id },
+    create: {
+      title: 'Administrator',
+      code: 'ADMIN',
+      departmentId: dept.id
+    },
   })
+  console.log('✅ Position: Administrator')
 
-  // Create User
-  const user = await prisma.user.upsert({
+  await prisma.position.upsert({
+    where: { title: 'Teknisi' },
+    update: {},
+    create: {
+      title: 'Teknisi',
+      code: 'TECH',
+      departmentId: dept.id
+    },
+  })
+  console.log('✅ Position: Teknisi')
+
+  // Create Admin User (with complete data)
+  await prisma.user.upsert({
     where: { email: 'admin@example.com' },
-    update: { passwordHash, name: 'Administrator' },
-    create: { email: 'admin@example.com', name: 'Administrator', passwordHash },
+    update: {
+      passwordHash,
+      name: 'System Administrator',
+      phone: '+62812-0000-0001',
+      departmentId: dept.id,
+      siteId: site.id,
+      isActive: true,
+    },
+    create: {
+      email: 'admin@example.com',
+      name: 'System Administrator',
+      passwordHash,
+      phone: '+62812-0000-0001',
+      departmentId: dept.id,
+      siteId: site.id,
+      isActive: true,
+    },
   })
+  console.log('✅ User: admin@example.com (Admin)')
 
-  // Complete Employee Data
-  const employeeData = {
-    employeeId: 'EMP-001',
-    fullName: 'Administrator',
-    email: 'admin@example.com',
-    phone: '081234567890',
-    departmentId: dept.id,
-    positionId: position.id,
-    siteId: site.id,
-    userId: user.id,
-    joinDate: new Date('2024-01-01'),
-    status: 'ACTIVE',
-    isActive: true,
-
-    // Personal Information
-    dateOfBirth: new Date('1990-01-15'),
-    gender: 'MALE',
-    idCardNumber: '3201234567890001',
-    address: 'Jl. Contoh No. 123, RT 01/RW 02, Kelurahan Contoh',
-    city: 'Jakarta Selatan',
-    province: 'DKI Jakarta',
-
-    // Employment Details
-    employmentStatus: 'PERMANENT',
-    probationEndDate: new Date('2024-04-01'),
-
-    // Bank Information
-    bankName: 'BCA',
-    bankAccountNumber: '1234567890',
-    bankAccountName: 'ADMINISTRATOR',
-    npwp: '12.345.678.9-012.000',
-
-    // Emergency Contact
-    emergencyName: 'Keluarga Admin',
-    emergencyPhone: '081298765432',
-    emergencyRelation: 'Suami/Istri',
-  }
-
-  // Check if employee exists
-  const existingEmployee = await prisma.employee.findFirst({
-    where: { OR: [{ userId: user.id }, { employeeId: 'EMP-001' }] }
+  // Create Technician User
+  const techPasswordHash = await hash('tech123', 10)
+  await prisma.user.upsert({
+    where: { email: 'teknisi@example.com' },
+    update: {
+      passwordHash: techPasswordHash,
+      name: 'Budi Santoso',
+      phone: '+62812-0000-0002',
+      departmentId: dept.id,
+      siteId: site.id,
+      isActive: true,
+    },
+    create: {
+      email: 'teknisi@example.com',
+      name: 'Budi Santoso',
+      passwordHash: techPasswordHash,
+      phone: '+62812-0000-0002',
+      departmentId: dept.id,
+      siteId: site.id,
+      isActive: true,
+    },
   })
+  console.log('✅ User: teknisi@example.com (Technician)')
 
-  if (existingEmployee) {
-    await prisma.employee.update({
-      where: { id: existingEmployee.id },
-      data: employeeData,
-    })
-  } else {
-    await prisma.employee.create({ data: employeeData })
-  }
-
-  console.log('✅ Done!')
-  console.log('\n📝 Login: admin@example.com / admin123')
+  console.log('\n✅ Seeding completed!')
+  console.log('\n📝 Login credentials:')
+  console.log('   Admin:    admin@example.com / admin123')
+  console.log('   Teknisi:  teknisi@example.com / tech123')
 }
 
 main()

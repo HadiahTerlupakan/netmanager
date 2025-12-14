@@ -358,7 +358,7 @@ export async function POST(req: NextRequest) {
             jumlah: parsedJumlah,
             kondisi: kondisi || 'BARU',
             keterangan,
-            employeeId: session.user.id,
+            userId: session.user.id,
             fotoBukti: fotoBukti || [],
             fotoMetadata: fotoMetadata || null
           }

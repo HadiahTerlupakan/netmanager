@@ -85,7 +85,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 assignedTo: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                         email: true,
                     },
                 },
@@ -94,10 +94,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 },
                 assignments: {
                     include: {
-                        employee: {
+                        user: {
                             select: {
                                 id: true,
-                                fullName: true,
+                                name: true,
                             },
                         },
                     },
@@ -106,7 +106,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     include: {
                         createdBy: {
                             select: {
-                                fullName: true,
+                                name: true,
                             },
                         },
                     },
@@ -116,7 +116,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     include: {
                         uploadedBy: {
                             select: {
-                                fullName: true,
+                                name: true,
                             },
                         },
                     },
@@ -148,7 +148,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 assignedTo: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                         email: true,
                     },
                 },
@@ -157,10 +157,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 },
                 assignments: {
                     include: {
-                        employee: {
+                        user: {
                             select: {
                                 id: true,
-                                fullName: true,
+                                name: true,
                             },
                         },
                     },
@@ -169,7 +169,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     include: {
                         createdBy: {
                             select: {
-                                fullName: true,
+                                name: true,
                             },
                         },
                     },
@@ -264,17 +264,17 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     assignedTo: {
                         select: {
                             id: true,
-                            fullName: true,
+                            name: true,
                             email: true,
                         },
                     },
                     tasks: true,
                     assignments: {
                         include: {
-                            employee: {
+                            user: {
                                 select: {
                                     id: true,
-                                    fullName: true,
+                                    name: true,
                                 },
                             },
                         },
@@ -283,7 +283,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         include: {
                             createdBy: {
                                 select: {
-                                    fullName: true,
+                                    name: true,
                                 },
                             },
                         },
@@ -414,11 +414,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         });
     }
 
-    async addAssignment(workOrderId: string, employeeId: string, role?: string): Promise<WorkOrderAssignment> {
+    async addAssignment(workOrderId: string, userId: string, role?: string): Promise<WorkOrderAssignment> {
         return this.prisma.workOrderAssignment.create({
             data: {
                 workOrderId,
-                employeeId,
+                userId,
                 role,
             },
         });
@@ -466,38 +466,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async addUpdate(data: AddUpdateData): Promise<WorkOrderUpdate> {
-        const createdById = await this.resolveEmployeeId(data.createdById);
         return this.prisma.workOrderUpdate.create({
             data: {
                 ...data,
-                createdById,
+                createdById: data.createdById,
             },
         });
-    }
-
-    private async resolveEmployeeId(userIdOrEmployeeId?: string | null): Promise<string | undefined> {
-        if (!userIdOrEmployeeId) return undefined;
-
-        // 1. Check if it's already a valid Employee ID
-        const employeeById = await this.prisma.employee.findUnique({
-            where: { id: userIdOrEmployeeId },
-            select: { id: true },
-        });
-        if (employeeById) return employeeById.id;
-
-        // 2. Check if it's a User ID linked to an Employee
-        // Note: Prisma schema must have userId unique in Employee for this to work efficiently
-        // If not unique in schema (though logic implies it is), findFirst might be safer, but findUnique is better if schema supports it.
-        // Checking schema: userId String? @unique in Employee. So findUnique is correct.
-        const employeeByUserId = await this.prisma.employee.findUnique({
-            where: { userId: userIdOrEmployeeId },
-            select: { id: true },
-        });
-        if (employeeByUserId) return employeeByUserId.id;
-
-        // 3. Keep as is if we can't resolve (though it might fail FK if it was a User ID and not Employee ID)
-        // But if we return undefined, we assume "System" or "Unknown" which is safer than crashing.
-        return undefined;
     }
 
     async getUpdates(workOrderId: string): Promise<WorkOrderUpdate[]> {
@@ -516,7 +490,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         caption?: string,
         uploadedById?: string
     ): Promise<WorkOrderAttachment> {
-        const employeeId = await this.resolveEmployeeId(uploadedById);
         const attachment = await this.prisma.workOrderAttachment.create({
             data: {
                 workOrderId,
@@ -525,7 +498,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 fileSize,
                 fileType,
                 caption,
-                uploadedById: employeeId,
+                uploadedById,
             },
         });
 
@@ -534,7 +507,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             workOrderId,
             updateType: 'PHOTO',
             message: `Photo uploaded: ${fileName}`,
-            createdById: employeeId,
+            createdById: uploadedById,
         });
 
         return attachment;
@@ -637,7 +610,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     /**
      * Get top performers based on completed tasks and average completion time
      */
-    async getTopPerformers(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<Array<{ employeeName: string; count: number; avgCompletionTime: number }>> {
+    async getTopPerformers(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<Array<{ userName: string; count: number; avgCompletionTime: number }>> {
         const where: any = {
             status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
             assignedToId: { not: null },
@@ -656,7 +629,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             select: {
                 assignedTo: {
                     select: {
-                        fullName: true,
+                        name: true,
                     },
                 },
                 startedAt: true,
@@ -664,24 +637,24 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             },
         });
 
-        const employeeStats: Record<string, { count: number; totalHours: number }> = {};
+        const userStats: Record<string, { count: number; totalHours: number }> = {};
 
         completedWorkOrders.forEach((wo) => {
             if (wo.assignedTo && wo.startedAt && wo.completedAt) {
-                const name = wo.assignedTo.fullName;
+                const name = wo.assignedTo.name || 'Unknown';
                 const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
 
-                if (!employeeStats[name]) {
-                    employeeStats[name] = { count: 0, totalHours: 0 };
+                if (!userStats[name]) {
+                    userStats[name] = { count: 0, totalHours: 0 };
                 }
 
-                employeeStats[name].count += 1;
-                employeeStats[name].totalHours += hours;
+                userStats[name].count += 1;
+                userStats[name].totalHours += hours;
             }
         });
 
-        const topPerformers = Object.entries(employeeStats).map(([name, stats]) => ({
-            employeeName: name,
+        const topPerformers = Object.entries(userStats).map(([name, stats]) => ({
+            userName: name,
             count: stats.count,
             avgCompletionTime: stats.totalHours / stats.count,
         }));
@@ -724,7 +697,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 assignedTo: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                     },
                 },
                 tasks: true,
@@ -866,16 +839,16 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     assignedTo: {
                         select: {
                             id: true,
-                            fullName: true,
+                            name: true,
                         },
                     },
                     tasks: true,
                     assignments: {
                         include: {
-                            employee: {
+                            user: {
                                 select: {
                                     id: true,
-                                    fullName: true,
+                                    name: true,
                                 },
                             },
                         },
@@ -1088,17 +1061,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async addComment(workOrderId: string, message: string, userId: string): Promise<any> {
-        // Find employee ID for the user
-        const employee = await this.prisma.employee.findUnique({
-            where: { userId },
-        });
-
         return this.prisma.workOrderUpdate.create({
             data: {
                 workOrderId,
                 updateType: 'COMMENT',
                 message,
-                createdById: employee?.id,
+                createdById: userId,
             },
         });
     }

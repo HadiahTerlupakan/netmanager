@@ -8,18 +8,14 @@ import {
   HiOutlineEyeSlash,
   HiOutlineKey,
   HiOutlineUserCircle,
-  HiOutlineBriefcase,
   HiOutlineBuildingOffice,
   HiOutlinePhone,
-  HiOutlineCalendar,
   HiOutlineUser,
+  HiOutlineEnvelope,
   HiOutlineMap,
-  HiOutlineCreditCard,
-  HiOutlineDocumentText,
-  HiOutlineExclamationTriangle,
-  HiOutlineInformationCircle,
   HiOutlineCheckCircle,
-  HiCheckBadge,
+  HiOutlineShieldCheck,
+  HiOutlineExclamationTriangle,
   HiArrowPath
 } from 'react-icons/hi2'
 
@@ -28,12 +24,22 @@ interface Department {
   name: string
 }
 
-
-
 interface Site {
   id: string
   code: string
   name: string
+}
+
+interface UserData {
+  id: string
+  email: string
+  name: string | null
+  phone: string | null
+  departmentId: string | null
+  siteId: string | null
+  isActive: boolean
+  department?: { name: string } | null
+  site?: { code: string; name: string } | null
 }
 
 export default function UserEditPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -54,47 +60,24 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
   const [showPassword, setShowPassword] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
   const [sites, setSites] = useState<Site[]>([])
-
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<UserData | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showSuccess, setShowSuccess] = useState(false)
 
-  // Combined form data
   const [formData, setFormData] = useState({
-    // User fields
     name: '',
-    password: '',
-
-    // Employee fields
-    employeeId: '',
     phone: '',
-    dateOfBirth: '',
-    gender: '',
-    idCardNumber: '',
-    address: '',
-    city: '',
-    province: '',
+    password: '',
     departmentId: '',
     siteId: '',
-    positionId: '',
-    employmentStatus: 'PROBATION',
-    joinDate: '',
-    probationEndDate: '',
-    bankName: '',
-    bankAccountNumber: '',
-    bankAccountName: '',
-    npwp: '',
-    emergencyName: '',
-    emergencyPhone: '',
-    emergencyRelation: '',
+    isActive: true,
   })
 
   useEffect(() => {
     Promise.all([
-      fetchUserAndEmployee(),
+      fetchUser(),
       fetchDepartments(),
       fetchSites(),
-
     ]).finally(() => setLoading(false))
   }, [id])
 
@@ -110,8 +93,6 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     }
   }
 
-
-
   const fetchSites = async () => {
     try {
       const res = await fetch('/api/admin/sites?activeOnly=true')
@@ -124,7 +105,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     }
   }
 
-  const fetchUserAndEmployee = async () => {
+  const fetchUser = async () => {
     try {
       const res = await fetch(`/api/admin/users/${id}`)
       const data = await res.json()
@@ -132,35 +113,14 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
 
       if (usr) {
         setUser(usr)
-        const emp = usr.employee || {}
-
-        setFormData(prev => ({
-          ...prev,
-          // User data
+        setFormData({
           name: usr.name || '',
-          // Employee data
-          employeeId: emp.employeeId || '',
-          phone: emp.phone || '',
-          dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toISOString().split('T')[0] : '',
-          gender: emp.gender || '',
-          idCardNumber: emp.idCardNumber || '',
-          address: emp.address || '',
-          city: emp.city || '',
-          province: emp.province || '',
-          departmentId: emp.departmentId || '',
-          siteId: emp.siteId || '',
-          positionId: emp.positionId || '',
-          employmentStatus: emp.employmentStatus || 'PROBATION',
-          joinDate: emp.joinDate ? new Date(emp.joinDate).toISOString().split('T')[0] : '',
-          probationEndDate: emp.probationEndDate ? new Date(emp.probationEndDate).toISOString().split('T')[0] : '',
-          bankName: emp.bankName || '',
-          bankAccountNumber: emp.bankAccountNumber || '',
-          bankAccountName: emp.bankAccountName || '',
-          npwp: emp.npwp || '',
-          emergencyName: emp.emergencyName || '',
-          emergencyPhone: emp.emergencyPhone || '',
-          emergencyRelation: emp.emergencyRelation || '',
-        }))
+          phone: usr.phone || '',
+          password: '',
+          departmentId: usr.departmentId || '',
+          siteId: usr.siteId || '',
+          isActive: usr.isActive ?? true,
+        })
       }
     } catch (error) {
       console.error('Error fetching user:', error)
@@ -181,14 +141,15 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     })
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target
+    const checked = (e.target as HTMLInputElement).checked
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }))
 
-    // Clear error when user types in a field
     if (errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev }
@@ -198,7 +159,6 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     }
   }
 
-  // Validation function
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
@@ -209,9 +169,6 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     if (formData.password && formData.password.length < 6) {
       newErrors.password = 'Password minimal 6 karakter jika diisi'
     }
-
-    // Note: Employee fields validation removed as employee data is read-only
-    // Only user account fields are validated
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -227,18 +184,22 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     setSubmitting(true)
 
     try {
-      // 1. Update User
-      const userUpdateBody: any = {
+      const updateBody: Record<string, unknown> = {
         name: formData.name,
+        phone: formData.phone || null,
+        departmentId: formData.departmentId || null,
+        siteId: formData.siteId || null,
+        isActive: formData.isActive,
       }
+
       if (formData.password) {
-        userUpdateBody.password = formData.password
+        updateBody.password = formData.password
       }
 
       const userRes = await fetch(`/api/admin/users/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userUpdateBody),
+        body: JSON.stringify(updateBody),
       })
 
       const userData = await userRes.json()
@@ -247,18 +208,14 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
         throw new Error(userData.error || 'Failed to update user account')
       }
 
-      // Note: Employee data update functionality has been removed
-      // as the API endpoint /api/employees/[id] is no longer available
-
-      // Show success message and redirect
       setShowSuccess(true)
       setTimeout(() => {
         router.push('/admin/users')
       }, 2000)
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error in handleSubmit:', error)
-      setErrors({ submit: error.message || 'Gagal memperbarui pengguna' })
+      setErrors({ submit: error instanceof Error ? error.message : 'Gagal memperbarui pengguna' })
       setSubmitting(false)
     }
   }
@@ -289,13 +246,10 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     )
   }
 
-  // --- CV / DETAIL VIEW MODE ---
+  // --- VIEW MODE ---
   if (isViewMode) {
-
-    const departmentName = departments.find(d => d.id === formData.departmentId)?.name || '-'
-
     return (
-      <div className="space-y-8 max-w-5xl mx-auto pb-10">
+      <div className="space-y-8 max-w-4xl mx-auto pb-10">
         {/* Navigation & Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -307,7 +261,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
               <HiOutlineArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profile Karyawan</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profile Pengguna</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">Detail informasi pengguna</p>
             </div>
           </div>
@@ -341,10 +295,12 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                   {formData.name || 'Nama Belum Diisi'}
                 </h1>
                 <div className="flex flex-wrap gap-3 mt-3">
-
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
-                    <HiCheckBadge className="w-4 h-4 mr-1.5 text-gray-500" />
-                    ID: {formData.employeeId || '-'}
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${formData.isActive
+                    ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300'
+                    : 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300'
+                    }`}>
+                    <HiOutlineShieldCheck className="w-4 h-4 mr-1.5" />
+                    {formData.isActive ? 'Aktif' : 'Tidak Aktif'}
                   </span>
                 </div>
               </div>
@@ -352,15 +308,15 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div className="flex items-center text-gray-600 dark:text-gray-300">
                   <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center mr-3">
-                    <HiOutlineUser className="w-4 h-4 text-gray-500" />
+                    <HiOutlineEnvelope className="w-4 h-4 text-gray-500" />
                   </div>
-                  <span className="font-medium text-lg">{user?.email}</span>
+                  <span className="font-medium">{user?.email}</span>
                 </div>
                 <div className="flex items-center text-gray-600 dark:text-gray-300">
                   <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center mr-3">
                     <HiOutlinePhone className="w-4 h-4 text-gray-500" />
                   </div>
-                  <span className="font-medium text-lg">{formData.phone || '-'}</span>
+                  <span className="font-medium">{formData.phone || '-'}</span>
                 </div>
               </div>
             </div>
@@ -368,156 +324,36 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
         </div>
 
         {/* Details Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-          {/* Left Column: Personal Info */}
-          <div className="lg:col-span-1 space-y-8">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                <HiOutlineUserCircle className="w-5 h-5 text-indigo-500" />
-                Data Pribadi
-              </h3>
-
-              <dl className="space-y-5">
-                <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tanggal Lahir</dt>
-                  <dd className="text-gray-900 dark:text-white font-medium flex items-center gap-2">
-                    <HiOutlineCalendar className="w-4 h-4 text-gray-400" />
-                    {formData.dateOfBirth ? new Date(formData.dateOfBirth).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Jenis Kelamin</dt>
-                  <dd className="text-gray-900 dark:text-white font-medium">
-                    {formData.gender === 'MALE' ? 'Laki-laki' : formData.gender === 'FEMALE' ? 'Perempuan' : '-'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Nomor KTP</dt>
-                  <dd className="text-gray-900 dark:text-white font-medium break-all">
-                    {formData.idCardNumber || '-'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Alamat</dt>
-                  <dd className="text-gray-900 dark:text-white font-medium leading-relaxed">
-                    {formData.address || '-'}
-                    {formData.city && <br />}
-                    {formData.city} {formData.province && `, ${formData.province}`}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                <HiOutlineExclamationTriangle className="w-5 h-5 text-red-500" />
-                Kontak Darurat
-              </h3>
-              <dl className="space-y-5">
-                <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Nama Kontak</dt>
-                  <dd className="text-gray-900 dark:text-white font-medium">{formData.emergencyName || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Hubungan</dt>
-                  <dd className="text-gray-900 dark:text-white font-medium">{formData.emergencyRelation || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Nomor Telepon</dt>
-                  <dd className="text-gray-900 dark:text-white font-medium text-lg">{formData.emergencyPhone || '-'}</dd>
-                </div>
-              </dl>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Department Card */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <HiOutlineBuildingOffice className="w-5 h-5 text-indigo-500" />
+              Departemen
+            </h3>
+            <p className="text-xl font-medium text-gray-900 dark:text-white">
+              {departments.find(d => d.id === formData.departmentId)?.name || '-'}
+            </p>
           </div>
 
-          {/* Right Column: Employment & Finance */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                <HiOutlineBuildingOffice className="w-5 h-5 text-indigo-500" />
-                Informasi Pekerjaan
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <div className="col-span-1 md:col-span-2 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-100 dark:border-gray-700">
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Departemen</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">{departmentName}</p>
-                    </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600 self-stretch my-1"></div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Status Kepegawaian</p>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${formData.employmentStatus === 'PERMANENT' ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300' :
-                        formData.employmentStatus === 'PROBATION' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                          'bg-blue-100 text-blue-800 border-blue-200'
-                        }`}>
-                        {formData.employmentStatus}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6 pt-2">
-                  <div>
-                    <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tanggal Bergabung</dt>
-                    <dd className="text-gray-900 dark:text-white font-medium">
-                      {formData.joinDate ? new Date(formData.joinDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm text-gray-500 dark:text-gray-400 mb-1">Selesai Masa Percobaan</dt>
-                    <dd className="text-gray-900 dark:text-white font-medium">
-                      {formData.probationEndDate ? new Date(formData.probationEndDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}
-                    </dd>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                <HiOutlineCreditCard className="w-5 h-5 text-indigo-500" />
-                Data Keuangan
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-5 border border-indigo-100 dark:border-indigo-900/30 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <HiOutlineCreditCard className="w-24 h-24" />
-                  </div>
-                  <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-3 tracking-wide uppercase">Rekening Bank</p>
-                  <p className="text-2xl font-mono font-bold text-gray-900 dark:text-white tracking-tight mb-1">
-                    {formData.bankAccountNumber || '**** **** ****'}
-                  </p>
-                  <div className="flex justify-between items-end mt-4">
-                    <div>
-                      <p className="text-xs text-indigo-400 dark:text-indigo-400/70 mb-0.5">BANK</p>
-                      <p className="font-semibold text-indigo-900 dark:text-indigo-200">{formData.bankName || 'N/A'}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-indigo-400 dark:text-indigo-400/70 mb-0.5">HOLDER</p>
-                      <p className="font-medium text-indigo-900 dark:text-indigo-200">{formData.bankAccountName || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col justify-center p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                  <p className="text-sm font-medium text-gray-500 mb-2">Nomor Pokok Wajib Pajak (NPWP)</p>
-                  <p className="text-xl font-mono font-bold text-gray-900 dark:text-white">
-                    {formData.npwp || '-'}
-                  </p>
-                </div>
-              </div>
-            </div>
+          {/* Site Card */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <HiOutlineMap className="w-5 h-5 text-green-500" />
+              Site / Area Kerja
+            </h3>
+            <p className="text-xl font-medium text-gray-900 dark:text-white">
+              {sites.find(s => s.id === formData.siteId)
+                ? `${sites.find(s => s.id === formData.siteId)?.code} - ${sites.find(s => s.id === formData.siteId)?.name}`
+                : '-'}
+            </p>
           </div>
         </div>
       </div>
     )
   }
 
-  // --- EDIT MODE FORM (Existing Layout) ---
+  // --- EDIT MODE FORM ---
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -537,7 +373,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* User Account Section */}
+        {/* Account Information Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
@@ -545,21 +381,22 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                 <HiOutlineUserCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Akun Pengguna</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Informasi login dan peran pengguna</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Akun</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Data login dan identitas pengguna</p>
               </div>
             </div>
           </div>
 
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Email (Read Only) */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Alamat Email
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlineUser className="h-5 w-5 text-gray-400" />
+                    <HiOutlineEnvelope className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
                     type="email"
@@ -571,6 +408,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Email tidak dapat diubah</p>
               </div>
 
+              {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Nama Lengkap <span className="text-red-500">*</span>
@@ -592,6 +430,27 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                 {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
               </div>
 
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nomor Telepon
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <HiOutlinePhone className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="+62 812-3456-7890"
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Kata Sandi Baru
@@ -618,7 +477,6 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                       {showPassword ? <HiOutlineEyeSlash className="w-5 h-5" /> : <HiOutlineEye className="w-5 h-5" />}
                     </button>
                   </div>
-
                   <button
                     type="button"
                     onClick={generatePassword}
@@ -627,7 +485,6 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                     <HiOutlineKey className="w-5 h-5" />
                     Generate
                   </button>
-
                 </div>
                 {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
               </div>
@@ -635,112 +492,23 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
           </div>
         </div>
 
-        {/* Employee Information Section - Read Only */}
+        {/* Organization Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <HiOutlineBriefcase className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <HiOutlineBuildingOffice className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Karyawan (Read-Only)</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Data karyawan tidak dapat diubah (API endpoint telah dihapus)</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Organisasi</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Penempatan departemen dan lokasi kerja</p>
               </div>
             </div>
           </div>
 
           <div className="p-6">
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
-              <div className="flex items-center gap-3">
-                <HiOutlineExclamationTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  Fitur edit data karyawan telah dinonaktifkan. Data karyawan hanya dapat dilihat namun tidak dapat diubah.
-                </p>
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  ID Karyawan
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiCheckBadge className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    disabled
-                    value={formData.employeeId}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nomor Telepon
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlinePhone className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="tel"
-                    disabled
-                    value={formData.phone}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Tanggal Lahir
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlineCalendar className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="date"
-                    disabled
-                    value={formData.dateOfBirth}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Jenis Kelamin
-                </label>
-                <select
-                  disabled
-                  value={formData.gender}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                >
-                  <option value="">{formData.gender === 'MALE' ? 'Pria' : formData.gender === 'FEMALE' ? 'Wanita' : '-'}</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nomor KTP
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlineDocumentText className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    disabled
-                    value={formData.idCardNumber}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
+              {/* Department */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Departemen
@@ -750,15 +518,20 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                     <HiOutlineBuildingOffice className="h-5 w-5 text-gray-400" />
                   </div>
                   <select
-                    disabled
+                    name="departmentId"
                     value={formData.departmentId}
-                    className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
-                    <option value="">{departments.find(d => d.id === formData.departmentId)?.name || '-'}</option>
+                    <option value="">Pilih Departemen</option>
+                    {departments.map(dept => (
+                      <option key={dept.id} value={dept.id}>{dept.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
+              {/* Site */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Site / Area Kerja
@@ -768,86 +541,93 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                     <HiOutlineMap className="h-5 w-5 text-gray-400" />
                   </div>
                   <select
-                    disabled
+                    name="siteId"
                     value={formData.siteId}
-                    className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
-                    <option value="">{sites.find(s => s.id === formData.siteId)?.name || '-'}</option>
+                    <option value="">Pilih Site</option>
+                    {sites.map(site => (
+                      <option key={site.id} value={site.id}>{site.code} - {site.name}</option>
+                    ))}
                   </select>
                 </div>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Alamat Lengkap
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 pt-3 flex items-start pointer-events-none">
-                  <HiOutlineMap className="h-5 w-5 text-gray-400 mt-1" />
-                </div>
-                <textarea
-                  disabled
-                  value={formData.address}
-                  rows={3}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Kota
-                </label>
-                <input
-                  type="text"
-                  disabled
-                  value={formData.city}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Provinsi
-                </label>
-                <input
-                  type="text"
-                  disabled
-                  value={formData.province}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                />
               </div>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 sticky bottom-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg">
+        {/* Status Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                <HiOutlineShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Status Akun</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Pengaturan status aktif pengguna</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <div>
+                <h3 className="font-medium text-gray-900 dark:text-white">Akun Aktif</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Pengguna dapat login ke sistem jika akun aktif</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="isActive"
+                  checked={formData.isActive}
+                  onChange={handleChange}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {errors.submit && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <HiOutlineExclamationTriangle className="w-6 h-6 text-red-500 dark:text-red-400 flex-shrink-0" />
+              <p className="text-red-700 dark:text-red-300">{errors.submit}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Submit Buttons */}
+        <div className="flex items-center justify-end gap-4">
           <Link
             href="/admin/users"
-            className="px-6 py-2.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
+            className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             Batal
           </Link>
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (
               <>
-                <HiArrowPath className="w-5 h-5 animate-spin" />
+                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
                 Menyimpan...
               </>
             ) : (
               <>
                 <HiOutlineCheckCircle className="w-5 h-5" />
-                Simpan Perubahan Akun
+                Simpan Perubahan
               </>
             )}
           </button>
         </div>
-      </form >
-    </div >
+      </form>
+    </div>
   )
 }

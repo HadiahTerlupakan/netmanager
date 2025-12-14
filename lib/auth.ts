@@ -69,13 +69,13 @@ export const authConfig: NextAuthOptions = {
     error: '/error',
   },
   providers: [
-    // Credentials Provider (for email/password and employee ID login)
+    // Credentials Provider (for email/password login)
     Credentials({
       name: 'Credentials',
       credentials: {
-        username: { label: 'Email or Employee ID', type: 'text' },
+        username: { label: 'Email', type: 'text' },
         email: { label: 'Email', type: 'email' },
-        identifier: { label: 'Identifier', type: 'text' }, // Added for finance portal
+        identifier: { label: 'Identifier', type: 'text' },
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
@@ -113,49 +113,11 @@ export const authConfig: NextAuthOptions = {
 
           const userRepository = getUserRepository()
           let user = null
-          let employee = null
 
-          // Check if identifier is an email or Employee ID
-          if (identifier.includes('@')) {
-            console.log('[AUTH] Attempting email login')
-            // Login dengan email
-            user = await userRepository.findByEmail(identifier)
-            console.log('[AUTH] User found by email:', !!user)
-
-            if (user) {
-              // Try to find employee data linked to this user
-              employee = await prisma.employee.findUnique({
-                where: { userId: user.id },
-                include: {
-                  department: true,
-                  position: true,
-                },
-              })
-              console.log('[AUTH] Employee found for user:', !!employee)
-            }
-          } else {
-            console.log('[AUTH] Attempting Employee ID login')
-            // Login dengan Employee ID
-            employee = await prisma.employee.findUnique({
-              where: { employeeId: identifier.toUpperCase() }, // Ensure uppercase
-              include: {
-                department: true,
-                position: true,
-              },
-            })
-            console.log('[AUTH] Employee found:', !!employee)
-
-            // Employee-User Link Validation
-            if (employee && employee.userId) {
-              user = await prisma.user.findUnique({
-                where: { id: employee.userId },
-              })
-              console.log('[AUTH] User found via employee:', !!user)
-            } else if (employee) {
-              console.warn('[AUTH] Employee found but no userId:', employee.employeeId)
-              throw new Error('Employee account is not properly linked to a user account. Please contact HR.')
-            }
-          }
+          // Login with email
+          console.log('[AUTH] Attempting email login')
+          user = await userRepository.findByEmail(identifier)
+          console.log('[AUTH] User found by email:', !!user)
 
           if (!user) {
             console.log('[AUTH] No user found for identifier:', identifier)
@@ -177,16 +139,8 @@ export const authConfig: NextAuthOptions = {
           return {
             id: user.id,
             email: user.email,
-            name: user.name ?? employee?.fullName ?? null,
+            name: user.name ?? null,
             image: null,
-            employeeId: employee?.employeeId,
-            employee: employee ? {
-              id: employee.id,
-              employeeId: employee.employeeId,
-              fullName: employee.fullName,
-              department: employee.department,
-              position: employee.position,
-            } : null,
           } as any
         } catch (error) {
           console.error('[AUTH] Error in authorize:', error)
@@ -205,12 +159,7 @@ export const authConfig: NextAuthOptions = {
       // Initial sign in
       if (user) {
         token.id = user.id
-        token.employeeId = (user as any).employeeId
-        token.employee = (user as any).employee
 
-        // Simplified role assignment - only ADMIN role is used
-        const userEmail = (user as any).email?.toLowerCase()
-        
         // All authenticated users are now ADMIN
         token.role = 'ADMIN'
 
@@ -226,16 +175,15 @@ export const authConfig: NextAuthOptions = {
         // Refresh user data from database
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          include: {
-            employee: true
-          }
         })
 
         if (dbUser) {
           token.name = dbUser.name
           token.email = dbUser.email
           token.picture = dbUser.image
-          
+          token.departmentId = dbUser.departmentId
+          token.siteId = dbUser.siteId
+
           // All authenticated users are now ADMIN
           token.role = 'ADMIN'
         }
@@ -247,10 +195,9 @@ export const authConfig: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id;
-        (session.user as any).employeeId = token.employeeId;
-        (session.user as any).employee = token.employee;
         (session.user as any).role = token.role;
-        (session.user as any).permissions = token.permissions;
+        (session.user as any).departmentId = token.departmentId;
+        (session.user as any).siteId = token.siteId;
       }
       return session
     },

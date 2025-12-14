@@ -9,19 +9,14 @@ import {
   HiOutlineEyeSlash,
   HiOutlineKey,
   HiOutlineUserCircle,
-  HiOutlineBriefcase,
   HiOutlineBuildingOffice,
   HiOutlinePhone,
-  HiOutlineCalendar,
   HiOutlineUser,
+  HiOutlineEnvelope,
   HiOutlineMap,
-  HiOutlineCreditCard,
-  HiOutlineDocumentText,
   HiOutlineExclamationTriangle,
-  HiOutlineInformationCircle,
   HiOutlineCheckCircle,
-  HiArrowPath,
-  HiCheckBadge
+  HiOutlineShieldCheck
 } from 'react-icons/hi2'
 
 interface Department {
@@ -39,61 +34,28 @@ export default function UserNewPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [generatingEmployeeId, setGeneratingEmployeeId] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showSuccess, setShowSuccess] = useState(false)
 
-  // All users are employees - combined data
   const [formData, setFormData] = useState({
-    // User fields
+    // Account Information
     email: '',
     name: '',
     password: '',
-    // Employee fields (required for all users)
-    employeeId: '',
     phone: '',
-    dateOfBirth: '',
-    gender: '',
-    idCardNumber: '',
-    address: '',
-    city: '',
-    province: '',
+    // Organization
     departmentId: '',
     siteId: '',
-    positionId: '',
-    employmentStatus: 'PROBATION',
-    joinDate: new Date().toISOString().split('T')[0],
-    probationEndDate: '',
-    bankName: '',
-    bankAccountNumber: '',
-    bankAccountName: '',
-    npwp: '',
-    emergencyName: '',
-    emergencyPhone: '',
-    emergencyRelation: '',
+    // Status
+    isActive: true,
   })
 
   useEffect(() => {
     fetchDepartments()
     fetchSites()
-    // Auto-generate employee ID on page load
-    generateEmployeeIdOnLoad()
   }, [])
-
-  // Separate function for auto-generate on load (doesn't show loading state)
-  const generateEmployeeIdOnLoad = async () => {
-    try {
-      const res = await fetch('/api/employees/next-id')
-      const data = await res.json()
-      if (res.ok && data.nextId) {
-        setFormData(prev => ({ ...prev, employeeId: data.nextId }))
-      }
-    } catch (error) {
-      console.error('Error auto-generating employee ID:', error)
-    }
-  }
 
   const fetchDepartments = async () => {
     try {
@@ -119,26 +81,6 @@ export default function UserNewPage() {
     }
   }
 
-  const generateEmployeeId = async () => {
-    try {
-      setGeneratingEmployeeId(true)
-      const res = await fetch('/api/employees/next-id')
-      const data = await res.json()
-      if (res.ok && data.nextId) {
-        setFormData(prev => ({ ...prev, employeeId: data.nextId }))
-        setErrors(prev => {
-          const newErrors = { ...prev }
-          delete newErrors.employeeId
-          return newErrors
-        })
-      }
-    } catch (error) {
-      console.error('Error generating employee ID:', error)
-    } finally {
-      setGeneratingEmployeeId(false)
-    }
-  }
-
   const generatePassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
     let password = ''
@@ -154,13 +96,14 @@ export default function UserNewPage() {
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+    const { name, value, type } = e.target
+    const checked = (e.target as HTMLInputElement).checked
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }))
 
-    // Clear error when user types in a field
     if (errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev }
@@ -170,7 +113,6 @@ export default function UserNewPage() {
     }
   }
 
-  // Validation function
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
@@ -188,14 +130,6 @@ export default function UserNewPage() {
       newErrors.password = 'Password wajib diisi'
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password minimal 6 karakter'
-    }
-
-    if (!formData.employeeId) {
-      newErrors.employeeId = 'Employee ID wajib diisi'
-    }
-
-    if (!formData.joinDate) {
-      newErrors.joinDate = 'Tanggal bergabung wajib diisi'
     }
 
     setErrors(newErrors)
@@ -244,7 +178,7 @@ export default function UserNewPage() {
             <HiOutlineCheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
           </div>
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Berhasil!</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">Pengguna dan karyawan baru telah dibuat</p>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">Pengguna baru telah dibuat</p>
           <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-indigo-500"></div>
         </div>
       </div>
@@ -264,13 +198,13 @@ export default function UserNewPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tambah Pengguna Baru</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Buat akun pengguna dan data karyawan baru
+            Buat akun pengguna baru untuk sistem
           </p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* User Account Section */}
+        {/* Account Information Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
@@ -278,21 +212,22 @@ export default function UserNewPage() {
                 <HiOutlineUserCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Akun Pengguna</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Informasi login dan peran pengguna</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Akun</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Data login dan identitas pengguna</p>
               </div>
             </div>
           </div>
 
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Email */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Alamat Email <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlineUser className="h-5 w-5 text-gray-400" />
+                    <HiOutlineEnvelope className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
                     type="email"
@@ -308,6 +243,7 @@ export default function UserNewPage() {
                 {errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
               </div>
 
+              {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Nama Lengkap <span className="text-red-500">*</span>
@@ -330,6 +266,27 @@ export default function UserNewPage() {
                 {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
               </div>
 
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nomor Telepon
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <HiOutlinePhone className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="+62 812-3456-7890"
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Kata Sandi <span className="text-red-500">*</span>
@@ -372,119 +329,23 @@ export default function UserNewPage() {
           </div>
         </div>
 
-        {/* Employee Information Section */}
+        {/* Organization Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <HiOutlineBriefcase className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <HiOutlineBuildingOffice className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Karyawan</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Detail pribadi dan kontak karyawan</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Organisasi</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Penempatan departemen dan lokasi kerja</p>
               </div>
             </div>
           </div>
 
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  ID Karyawan <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-3">
-                  <div className="relative flex-1">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <HiCheckBadge className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      name="employeeId"
-                      required
-                      value={formData.employeeId}
-                      readOnly
-                      className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-gray-50 dark:bg-gray-600 text-gray-700 dark:text-gray-300 focus:outline-none cursor-not-allowed ${errors.employeeId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
-                        }`}
-                      placeholder="Auto-generated..."
-                    />
-                  </div>
-                </div>
-                {formData.employeeId && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">ID Karyawan dibuat otomatis</p>}
-                {errors.employeeId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.employeeId}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nomor Telepon
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlinePhone className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="+62 812-3456-7890"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Tanggal Lahir
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlineCalendar className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="date"
-                    name="dateOfBirth"
-                    value={formData.dateOfBirth}
-                    onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Jenis Kelamin
-                </label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value="">Pilih Jenis Kelamin</option>
-                  <option value="MALE">Pria</option>
-                  <option value="FEMALE">Wanita</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nomor KTP
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlineDocumentText className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    name="idCardNumber"
-                    value={formData.idCardNumber}
-                    onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="Nomor KTP"
-                  />
-                </div>
-              </div>
-
+              {/* Department */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Departemen
@@ -507,6 +368,7 @@ export default function UserNewPage() {
                 </div>
               </div>
 
+              {/* Site */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Site / Area Kerja
@@ -530,260 +392,39 @@ export default function UserNewPage() {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Site diperlukan untuk melihat work order di area tersebut</p>
               </div>
             </div>
+          </div>
+        </div>
 
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Alamat Lengkap
+        {/* Status Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                <HiOutlineShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Status Akun</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Pengaturan status aktif pengguna</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <div>
+                <h3 className="font-medium text-gray-900 dark:text-white">Akun Aktif</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Pengguna dapat login ke sistem jika akun aktif</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="isActive"
+                  checked={formData.isActive}
+                  onChange={handleChange}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 pt-3 flex items-start pointer-events-none">
-                  <HiOutlineMap className="h-5 w-5 text-gray-400 mt-1" />
-                </div>
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  rows={3}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Alamat lengkap karyawan"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Kota
-                </label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Kota tempat tinggal"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Provinsi
-                </label>
-                <input
-                  type="text"
-                  name="province"
-                  value={formData.province}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Provinsi tempat tinggal"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Employment Information Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <HiOutlineInformationCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Kepegawaian</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Status dan tanggal kepegawaian</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Status Kepegawaian <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="employmentStatus"
-                  required
-                  value={formData.employmentStatus}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value="PROBATION">Masa Percobaan</option>
-                  <option value="PERMANENT">Tetap</option>
-                  <option value="CONTRACT">Kontrak</option>
-                  <option value="INTERNSHIP">Magang</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Tanggal Bergabung <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  name="joinDate"
-                  required
-                  value={formData.joinDate}
-                  onChange={handleChange}
-                  className={`block w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.joinDate ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                />
-                {errors.joinDate && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.joinDate}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Tanggal Akhir Masa Percobaan
-                </label>
-                <input
-                  type="date"
-                  name="probationEndDate"
-                  value={formData.probationEndDate}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bank Information Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <HiOutlineCreditCard className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Perbankan</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Detail rekening untuk gaji</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nama Bank
-                </label>
-                <input
-                  type="text"
-                  name="bankName"
-                  value={formData.bankName}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Nama bank"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nomor Rekening
-                </label>
-                <input
-                  type="text"
-                  name="bankAccountNumber"
-                  value={formData.bankAccountNumber}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Nomor rekening"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Atas Nama
-                </label>
-                <input
-                  type="text"
-                  name="bankAccountName"
-                  value={formData.bankAccountName}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Atas nama rekening"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                NPWP
-              </label>
-              <input
-                type="text"
-                name="npwp"
-                value={formData.npwp}
-                onChange={handleChange}
-                className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="Nomor Pokok Wajib Pajak"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Emergency Contact Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <HiOutlineExclamationTriangle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Kontak Darurat</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Kontak dalam keadaan darurat</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nama
-                </label>
-                <input
-                  type="text"
-                  name="emergencyName"
-                  value={formData.emergencyName}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Nama kontak darurat"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nomor Telepon
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlinePhone className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="tel"
-                    name="emergencyPhone"
-                    value={formData.emergencyPhone}
-                    onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="+62 812-3456-7890"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Hubungan
-                </label>
-                <input
-                  type="text"
-                  name="emergencyRelation"
-                  value={formData.emergencyRelation}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Contoh: Pasangan, Orang Tua"
-                />
-              </div>
             </div>
           </div>
         </div>
@@ -798,21 +439,30 @@ export default function UserNewPage() {
           </div>
         )}
 
-        {/* Form Actions */}
-        <div className="flex items-center justify-end gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        {/* Submit Buttons */}
+        <div className="flex items-center justify-end gap-4">
           <Link
             href="/admin/users"
-            className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             Batal
           </Link>
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading && <HiArrowPath className="w-5 h-5 animate-spin" />}
-            {loading ? 'Membuat...' : 'Buat Pengguna Baru'}
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                Menyimpan...
+              </>
+            ) : (
+              <>
+                <HiOutlineCheckCircle className="w-5 h-5" />
+                Simpan Pengguna
+              </>
+            )}
           </button>
         </div>
       </form>

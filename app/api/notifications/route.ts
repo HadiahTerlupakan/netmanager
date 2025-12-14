@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import {
-    getNotificationsForEmployee,
+    getNotificationsForUser,
     getUnreadCount,
     markAllAsRead,
 } from '@/lib/services/NotificationService';
@@ -12,7 +11,7 @@ import { requireAuth } from '@/lib/auth-helpers';
  * /api/notifications:
  *   get:
  *     summary: Get notifications for current user
- *     description: Retrieve notifications for the currently authenticated user/employee
+ *     description: Retrieve notifications for the currently authenticated user
  *     tags: [Notifications]
  *     security:
  *       - bearerAuth: []
@@ -63,16 +62,6 @@ import { requireAuth } from '@/lib/auth-helpers';
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Employee not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Employee not found"
  *       500:
  *         description: Internal server error
  *         content:
@@ -86,27 +75,17 @@ export async function GET(request: NextRequest) {
         // Cek autentikasi menggunakan fungsi terpusat
         const session = await requireAuth(request);
 
-        // Get employee ID from session
-        const employee = await prisma.employee.findUnique({
-            where: { userId: session.user.id },
-            select: { id: true },
-        });
-
-        if (!employee) {
-            return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
-        }
-
         const { searchParams } = new URL(request.url);
         const unreadOnly = searchParams.get('unread') === 'true';
         const limit = parseInt(searchParams.get('limit') || '50');
         const offset = parseInt(searchParams.get('offset') || '0');
 
-        const { notifications, total } = await getNotificationsForEmployee(
-            employee.id,
+        const { notifications, total } = await getNotificationsForUser(
+            session.user.id,
             { unreadOnly, limit, offset }
         );
 
-        const unreadCount = await getUnreadCount(employee.id);
+        const unreadCount = await getUnreadCount(session.user.id);
 
         return NextResponse.json({
             success: true,
@@ -153,16 +132,6 @@ export async function GET(request: NextRequest) {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Employee not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Employee not found"
  *       500:
  *         description: Internal server error
  *         content:
@@ -176,16 +145,7 @@ export async function PATCH(request: NextRequest) {
         // Cek autentikasi menggunakan fungsi terpusat
         const session = await requireAuth(request);
 
-        const employee = await prisma.employee.findUnique({
-            where: { userId: session.user.id },
-            select: { id: true },
-        });
-
-        if (!employee) {
-            return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
-        }
-
-        await markAllAsRead(employee.id);
+        await markAllAsRead(session.user.id);
 
         return NextResponse.json({
             success: true,

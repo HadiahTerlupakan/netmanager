@@ -207,18 +207,13 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get employee ID if available
-        const employee = await prisma.employee.findUnique({
-            where: { userId: user.id },
-        });
-
         const workOrder = await workOrderRepo.create({
             ...body,
-            createdById: employee?.id,
+            createdById: user.id,
         });
 
         // Trigger notification for new Work Order
-        // This notifies all employees in the department
+        // This notifies all users in the department
         await onWorkOrderCreated({
             id: workOrder.id,
             workOrderNumber: workOrder.workOrderNumber,
@@ -239,4 +234,3 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to create work order' }, { status: 500 });
     }
 }
-

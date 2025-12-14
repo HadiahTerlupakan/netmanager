@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authConfig);
 
-        if (!session || !session.user) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -33,15 +33,6 @@ export async function POST(request: NextRequest) {
                 { error: 'Push notifications not configured' },
                 { status: 503 }
             );
-        }
-
-        const employee = await prisma.employee.findUnique({
-            where: { userId: session.user.id },
-            select: { id: true },
-        });
-
-        if (!employee) {
-            return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
         }
 
         const body = await request.json();
@@ -54,7 +45,7 @@ export async function POST(request: NextRequest) {
         }
 
         const subscription = await subscribeDevice(
-            employee.id,
+            session.user.id!,
             {
                 endpoint: body.subscription.endpoint,
                 keys: {

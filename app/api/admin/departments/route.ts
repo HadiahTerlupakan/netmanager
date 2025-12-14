@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
             include: {
                 _count: {
                     select: {
-                        employees: true,
+                        users: true,
                         workOrders: true,
                     },
                 },

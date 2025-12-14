@@ -7,9 +7,9 @@ export interface DepartmentPublic {
     updatedAt: Date
 }
 
-export interface DepartmentWithEmployeeCount extends DepartmentPublic {
+export interface DepartmentWithUserCount extends DepartmentPublic {
     _count: {
-        employees: number
+        users: number
     }
 }
 
@@ -26,7 +26,7 @@ export interface DepartmentUpdateData {
 }
 
 export interface IDepartmentRepository {
-    findAll(): Promise<DepartmentWithEmployeeCount[]>
+    findAll(): Promise<DepartmentWithUserCount[]>
     findById(id: string): Promise<DepartmentPublic | null>
     findByName(name: string): Promise<DepartmentPublic | null>
     create(data: DepartmentCreateData): Promise<{ id: string }>

@@ -19,19 +19,19 @@ export interface WorkOrderWithRelations extends WorkOrder {
     } | null;
     assignedTo?: {
         id: string;
-        fullName: string;
+        name: string | null;
         email: string | null;
     } | null;
     tasks?: WorkOrderTask[];
     assignments?: (WorkOrderAssignment & {
-        employee: {
+        user: {
             id: string;
-            fullName: string;
+            name: string | null;
         };
     })[];
     updates?: (WorkOrderUpdate & {
         createdBy?: {
-            fullName: string;
+            name: string | null;
         } | null;
     })[];
     attachments?: WorkOrderAttachment[];
@@ -152,7 +152,7 @@ export interface WorkOrderStatistics {
 }
 
 export interface TopPerformer {
-    employeeName: string;
+    userName: string;
     count: number;
     avgCompletionTime: number;
 }
@@ -191,9 +191,9 @@ export interface IWorkOrderRepository {
     cancel(id: string, reason: string, userId?: string): Promise<WorkOrder>;
 
     // Assignment
-    assign(id: string, employeeId: string, role?: string): Promise<WorkOrder>;
+    assign(id: string, userId: string, role?: string): Promise<WorkOrder>;
     unassign(id: string): Promise<WorkOrder>;
-    addAssignment(workOrderId: string, employeeId: string, role?: string): Promise<WorkOrderAssignment>;
+    addAssignment(workOrderId: string, userId: string, role?: string): Promise<WorkOrderAssignment>;
     removeAssignment(assignmentId: string): Promise<void>;
 
     // Tasks

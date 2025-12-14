@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
                     createdBy: {
                         select: {
                             id: true,
-                            fullName: true,
+                            name: true,
                         },
                     },
                     escalations: {
@@ -255,15 +255,10 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const validatedData = slaCreateSchema.parse(body);
 
-        // Get employee ID if available
-        const employee = await prisma.employee.findUnique({
-            where: { userId: user.id! },
-        });
-
         const sla = await (prisma as any).sLA.create({
             data: {
                 ...validatedData,
-                createdById: employee?.id,
+                createdById: user.id,
             },
             include: {
                 department: {
@@ -275,7 +270,7 @@ export async function POST(request: NextRequest) {
                 createdBy: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                     },
                 },
             },

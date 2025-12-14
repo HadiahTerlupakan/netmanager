@@ -252,15 +252,10 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const validatedData = workOrderTemplateCreateSchema.parse(body);
 
-        // Get employee ID if available
-        const employee = await prisma.employee.findUnique({
-            where: { userId: user.id },
-        });
-
         const template = await (prisma as any).workOrderTemplate.create({
             data: {
                 ...validatedData,
-                createdById: employee?.id,
+                createdById: user.id,
             },
             include: {
                 department: {
@@ -272,7 +267,7 @@ export async function POST(request: NextRequest) {
                 createdBy: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                     },
                 },
             },

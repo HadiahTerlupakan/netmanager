@@ -494,7 +494,7 @@ export async function POST(req: NextRequest) {
             kondisi: kondisi || 'BARU',
             isHilang: isHilang || false,
             keterangan,
-            employeeId: finalEmployeeId,
+            userId: finalEmployeeId,
             fotoBukti: fotoBukti || [],
             fotoMetadata: fotoMetadata || null
           }

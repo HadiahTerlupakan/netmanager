@@ -18,11 +18,11 @@ export async function GET(
         const site = await prisma.site.findUnique({
             where: { id },
             include: {
-                employees: {
+                users: {
                     select: {
                         id: true,
-                        employeeId: true,
-                        fullName: true,
+                        email: true,
+                        name: true,
                         department: {
                             select: { name: true },
                         },
@@ -131,7 +131,7 @@ export async function DELETE(
             include: {
                 _count: {
                     select: {
-                        employees: true,
+                        users: true,
                         workOrders: true,
                     },
                 },
@@ -142,7 +142,7 @@ export async function DELETE(
             return NextResponse.json({ error: 'Site not found' }, { status: 404 });
         }
 
-        if (site._count.employees > 0 || site._count.workOrders > 0) {
+        if (site._count.users > 0 || site._count.workOrders > 0) {
             // Soft delete - deactivate instead
             await prisma.site.update({
                 where: { id },
@@ -151,7 +151,7 @@ export async function DELETE(
 
             return NextResponse.json({
                 success: true,
-                message: 'Site deactivated (has associated employees/work orders)',
+                message: 'Site deactivated (has associated users/work orders)',
             });
         }
 
