@@ -15,8 +15,22 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
-  reactStrictMode: true,
+  reactStrictMode: false, // Temporarily disabled to suppress React warnings from swagger-ui-react
   // Next.js 16: serverActions configuration is now handled differently
+
+  // Webpack configuration to suppress React warnings
+  webpack: (config, { isServer }) => {
+    // Suppress React UNSAFE_componentWillReceiveProps warnings from swagger-ui-react
+    if (!isServer) {
+      config.ignoreWarnings = [
+        /UNSAFE_componentWillReceiveProps/,
+        /componentWillReceiveProps/,
+        /ModelCollapse/
+      ]
+    }
+    return config
+  },
+
   // CORS Configuration
   async headers() {
     // Employee portal URL for CORS (development or production)

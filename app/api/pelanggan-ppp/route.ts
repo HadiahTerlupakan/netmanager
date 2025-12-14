@@ -42,8 +42,254 @@ const parseEnumValue = <T extends string>(
 }
 
 /**
- * GET /api/pelanggan-ppp
- * Mendapatkan daftar pelanggan PPP
+ * @swagger
+ * /api/pelanggan-ppp:
+ *   get:
+ *     summary: Get all PPPoE customers
+ *     description: Retrieve a list of all PPPoE customers with their package and bandwidth details
+ *     tags: [Customer Management]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [AKTIF, NONAKTIF, ISOLIR]
+ *         description: Filter by customer status
+ *         example: "AKTIF"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved customer list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Pelanggan'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         $ref: '#/components/responses/Error'
+ *
+ *   post:
+ *     summary: Create a new PPPoE customer
+ *     description: Create a new PPPoE customer with service package and account details
+ *     tags: [Customer Management]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nama
+ *               - usernamePPP
+ *               - passwordPPP
+ *               - profilePppId
+ *               - hargaPaketId
+ *               - dueDateDay
+ *             properties:
+ *               nama:
+ *                 type: string
+ *                 description: Customer full name
+ *                 example: "John Doe"
+ *               usernamePPP:
+ *                 type: string
+ *                 description: PPPoE username
+ *                 example: "johndoe"
+ *               passwordPPP:
+ *                 type: string
+ *                 description: PPPoE password
+ *                 example: "securePassword123"
+ *               profilePppId:
+ *                 type: integer
+ *                 description: PPP profile ID
+ *                 example: 1
+ *               hargaPaketId:
+ *                 type: integer
+ *                 description: Package price ID
+ *                 example: 1
+ *               dueDateDay:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 31
+ *                 description: Due date day of month
+ *                 example: 15
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Customer email
+ *                 example: "john@example.com"
+ *               noHp:
+ *                 type: string
+ *                 description: Customer phone number
+ *                 example: "+628123456789"
+ *               alamat:
+ *                 type: string
+ *                 description: Customer address
+ *                 example: "Jl. Sudirman No. 123"
+ *               ktp:
+ *                 type: string
+ *                 description: KTP/ID number
+ *                 example: "1234567890123456"
+ *               latitude:
+ *                 type: number
+ *                 format: float
+ *                 description: Location latitude
+ *                 example: -6.2088
+ *               longitude:
+ *                 type: number
+ *                 format: float
+ *                 description: Location longitude
+ *                 example: 106.8456
+ *               tipePelanggan:
+ *                 type: string
+ *                 enum: [RESIDENTIAL, BUSINESS]
+ *                 description: Customer type
+ *                 example: "RESIDENTIAL"
+ *               status:
+ *                 type: string
+ *                 enum: [AKTIF, NONAKTIF, ISOLIR]
+ *                 description: Customer status
+ *                 example: "AKTIF"
+ *               secretRadius:
+ *                 type: string
+ *                 description: RADIUS secret for this customer
+ *                 example: "customerSecret"
+ *               zona:
+ *                 type: string
+ *                 description: Service zone
+ *                 example: "Zone-A"
+ *               odc:
+ *                 type: string
+ *                 description: ODC reference
+ *                 example: "ODC-001"
+ *               odp:
+ *                 type: string
+ *                 description: ODP reference
+ *                 example: "ODP-001"
+ *               portOdp:
+ *                 type: string
+ *                 description: ODP port assignment
+ *                 example: "Port-01"
+ *               onuSn:
+ *                 type: string
+ *                 description: ONU serial number
+ *                 example: "ALCL12345678"
+ *               onuModel:
+ *                 type: string
+ *                 description: ONU model
+ *                 example: "ZTE-F660"
+ *               otb:
+ *                 type: string
+ *                 description: OTB reference
+ *                 example: "OTB-001"
+ *               coreOtb:
+ *                 type: string
+ *                 description: OTB core assignment
+ *                 example: "Core-01"
+ *               logo:
+ *                 type: string
+ *                 format: uri
+ *                 description: Customer logo URL
+ *                 example: "https://example.com/logo.jpg"
+ *               disabled:
+ *                 type: boolean
+ *                 description: Whether customer account is disabled
+ *                 example: false
+ *               singlePppoeAccount:
+ *                 type: boolean
+ *                 description: Whether customer has single PPPoE account
+ *                 example: true
+ *               isActive:
+ *                 type: boolean
+ *                 description: Whether customer service is active
+ *                 example: true
+ *               pajak:
+ *                 type: boolean
+ *                 description: Whether tax applies to this customer
+ *                 example: false
+ *               diskon:
+ *                 type: number
+ *                 minimum: 0
+ *                 maximum: 100
+ *                 description: Discount percentage
+ *                 example: 10
+ *               diskonType:
+ *                 type: string
+ *                 enum: [PERCENTAGE, FIXED]
+ *                 description: Discount type
+ *                 example: "PERCENTAGE"
+ *               catatan:
+ *                 type: string
+ *                 description: Additional notes
+ *                 example: "Premium customer with priority support"
+ *               photoKTP:
+ *                 type: string
+ *                 format: uri
+ *                 description: KTP photo URL
+ *                 example: "https://example.com/ktp.jpg"
+ *               photoRumah:
+ *                 type: string
+ *                 format: uri
+ *                 description: House photo URL
+ *                 example: "https://example.com/house.jpg"
+ *     responses:
+ *       201:
+ *         description: Successfully created customer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                   description: Created customer ID
+ *                   example: 1
+ *                 message:
+ *                   type: string
+ *                   example: "Customer created successfully"
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       409:
+ *         description: PPPoE username already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Username sudah terdaftar"
+ *       500:
+ *         $ref: '#/components/responses/Error'
  */
 export async function GET(req: NextRequest) {
   try {

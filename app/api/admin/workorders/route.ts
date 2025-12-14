@@ -6,7 +6,80 @@ import { onWorkOrderCreated } from '@/lib/services/WorkOrderNotifications';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
-// GET /api/admin/workorders - List work orders
+/**
+ * @swagger
+ * /api/admin/workorders:
+ *   get:
+ *     summary: Get all work orders
+ *     description: Mengambil daftar semua work order dengan filter dan pagination
+ *     tags: [Work Orders]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [OPEN, IN_PROGRESS, COMPLETED, CANCELLED]
+ *         description: Filter by status (comma-separated for multiple)
+ *       - in: query
+ *         name: priority
+ *         schema:
+ *           type: string
+ *           enum: [LOW, MEDIUM, HIGH, URGENT]
+ *         description: Filter by priority
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [INSTALLATION, MAINTENANCE, TROUBLESHOOTING, RELOCATION]
+ *         description: Filter by type
+ *       - in: query
+ *         name: departmentId
+ *         schema:
+ *           type: string
+ *         description: Filter by department
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in title and description
+ *     responses:
+ *       200:
+ *         description: List of work orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/WorkOrder'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/PaginationMeta'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 export async function GET(request: NextRequest) {
     try {
         const user = await verifyAuth(request);
@@ -46,7 +119,78 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// POST /api/admin/workorders - Create work order
+/**
+ * @swagger
+ * /api/admin/workorders:
+ *   post:
+ *     summary: Create new work order
+ *     description: Membuat work order baru dan mengirim notifikasi ke department terkait
+ *     tags: [Work Orders]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - type
+ *               - title
+ *               - description
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 enum: [INSTALLATION, MAINTENANCE, TROUBLESHOOTING, RELOCATION]
+ *                 example: INSTALLATION
+ *               title:
+ *                 type: string
+ *                 example: Instalasi baru pelanggan
+ *               description:
+ *                 type: string
+ *                 example: Instalasi fiber optic untuk pelanggan baru
+ *               priority:
+ *                 type: string
+ *                 enum: [LOW, MEDIUM, HIGH, URGENT]
+ *                 default: MEDIUM
+ *               pelangganId:
+ *                 type: string
+ *                 description: ID pelanggan terkait
+ *               departmentId:
+ *                 type: string
+ *                 description: Department yang akan menangani
+ *               scheduledDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Tanggal jadwal pengerjaan
+ *     responses:
+ *       201:
+ *         description: Work order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/WorkOrder'
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 export async function POST(request: NextRequest) {
     try {
         const user = await verifyAuth(request);

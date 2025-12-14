@@ -4,6 +4,129 @@ import { authConfig } from '@/lib/auth'
 import { getOdpRepository } from '@/lib/repositories'
 import { odpCreateSchema } from '@/lib/validations/odp'
 
+/**
+ * @swagger
+ * /api/odps:
+ *   get:
+ *     summary: Get all ODP (Optical Distribution Point) records
+ *     description: Retrieve a list of all ODP records with their outputs and configurations
+ *     tags: [FTTH Infrastructure]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved ODP records
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 odps:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Odp'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         $ref: '#/components/responses/Error'
+ *
+ *   post:
+ *     summary: Create a new ODP (Optical Distribution Point)
+ *     description: Create a new ODP record with outputs configuration for FTTH network infrastructure
+ *     tags: [FTTH Infrastructure]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - odcOutputId
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: ODP name/identifier
+ *                 example: "ODP-001"
+ *               location:
+ *                 type: string
+ *                 description: Physical location of ODP
+ *                 example: "Jl. Sudirman No. 789"
+ *               notes:
+ *                 type: string
+ *                 description: Additional notes about ODP
+ *                 example: "Final distribution point for residential area"
+ *               keteranganJumlahKabelFeeder:
+ *                 type: string
+ *                 description: Description of feeder cables
+ *                 example: "1 x 12 core drop cable"
+ *               latitude:
+ *                 type: number
+ *                 format: float
+ *                 description: Latitude coordinate
+ *                 example: -6.2088
+ *               longitude:
+ *                 type: number
+ *                 format: float
+ *                 description: Longitude coordinate
+ *                 example: 106.8456
+ *               odcOutputId:
+ *                 type: integer
+ *                 description: Reference to ODC output ID
+ *                 example: 1
+ *               outputs:
+ *                 type: array
+ *                 description: Output configurations for customer connections
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - slotName
+ *                     - tubeColor
+ *                     - coreColor
+ *                   properties:
+ *                     idx:
+ *                       type: integer
+ *                       description: Output index
+ *                       example: 1
+ *                     slotName:
+ *                       type: string
+ *                       description: Slot name/identifier
+ *                       example: "Port-01"
+ *                     redaman:
+ *                       type: number
+ *                       format: float
+ *                       description: Attenuation/loss value in dB
+ *                       example: 0.2
+ *                     tubeColor:
+ *                       type: string
+ *                       description: Tube color identifier
+ *                       example: "Green"
+ *                     coreColor:
+ *                       type: string
+ *                       description: Core color identifier
+ *                       example: "Blue"
+ *     responses:
+ *       200:
+ *         description: Successfully created ODP
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                   description: Created ODP ID
+ *                   example: 1
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         $ref: '#/components/responses/Error'
+ */
+
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
   if (!session || false) {

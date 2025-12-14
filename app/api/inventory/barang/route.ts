@@ -13,8 +13,142 @@ async function requireAdmin() {
 }
 
 /**
- * GET /api/inventory/barang
- * Get all items with optional filters
+ * @swagger
+ * /api/inventory/barang:
+ *   get:
+ *     summary: Get all inventory items
+ *     description: Retrieve a list of all inventory items with stock information per warehouse
+ *     tags: [Inventory Management]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: gudangId
+ *         schema:
+ *           type: integer
+ *         description: Filter by warehouse ID
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in item code and name
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved inventory items
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 barangs:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Barang'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/PaginationMeta'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         $ref: '#/components/responses/Error'
+ *
+ *   post:
+ *     summary: Create a new inventory item
+ *     description: Add a new item to the inventory system
+ *     tags: [Inventory Management]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nama
+ *               - satuan
+ *             properties:
+ *               nama:
+ *                 type: string
+ *                 description: Item name
+ *                 example: "Fiber Optic Cable"
+ *               satuan:
+ *                 type: string
+ *                 description: Unit of measurement
+ *                 example: "meter"
+ *               kode:
+ *                 type: string
+ *                 description: Item code (optional, will be auto-generated if not provided)
+ *                 example: "FOC-001"
+ *               deskripsi:
+ *                 type: string
+ *                 description: Item description
+ *                 example: "Single mode fiber optic cable for FTTH"
+ *               kategori:
+ *                 type: string
+ *                 description: Item category
+ *                 example: "Cable"
+ *               merek:
+ *                 type: string
+ *                 description: Brand/manufacturer
+ *                 example: "Corning"
+ *               hargaBeli:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Purchase price per unit
+ *                 example: 50000
+ *               hargaJual:
+ *                 type: number
+ *                 format: decimal
+ *                 description: Selling price per unit
+ *                 example: 75000
+ *               stokMinimum:
+ *                 type: integer
+ *                 minimum: 0
+ *                 description: Minimum stock level for alerts
+ *                 example: 100
+ *               foto:
+ *                 type: string
+ *                 format: uri
+ *                 description: Item photo URL
+ *                 example: "https://example.com/photos/fiber-cable.jpg"
+ *     responses:
+ *       201:
+ *         description: Successfully created inventory item
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                   description: Created item ID
+ *                   example: 1
+ *                 message:
+ *                   type: string
+ *                   example: "Item created successfully"
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         $ref: '#/components/responses/Error'
  */
 export async function GET(req: NextRequest) {
   const startTime = Date.now()

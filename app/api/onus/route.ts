@@ -60,7 +60,7 @@ function parseGponOnu(gponOnu: string): { frame: number; slot: number; port: num
   // Support kedua format: dengan atau tanpa :OnuID
   const match = gponOnu.match(/^(\d+)\/(\d+)\/(\d+)(?::(\d+))?$/)
   if (!match) return null
-  
+
   return {
     frame: parseInt(match[1], 10),
     slot: parseInt(match[2], 10),
@@ -121,39 +121,141 @@ function getCacheKey(oltId: string | null, card: string | null, port: string | n
 function getCachedData(key: string): CacheEntry | null {
   const entry = cache.get(key)
   if (!entry) return null
-  
+
   const now = Date.now()
   if (now - entry.timestamp > CACHE_TTL) {
     cache.delete(key)
     return null
   }
-  
+
   return entry
 }
 
 function getCachedAggregate(key: string): AggregateCacheEntry | null {
   const entry = aggregateCache.get(key)
   if (!entry) return null
-  
+
   const now = Date.now()
   if (now - entry.timestamp > AGGREGATE_CACHE_TTL) {
     aggregateCache.delete(key)
     return null
   }
-  
+
   return entry
 }
 
+/**
+ * @swagger
+ * /api/onus:
+ *   get:
+ *     summary: Get all ONUs
+ *     description: Mengambil daftar semua ONU dengan filter, pagination, dan summary signal quality
+ *     tags: [ONUs]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Items per page
+ *       - in: query
+ *         name: oltId
+ *         schema:
+ *           type: string
+ *         description: Filter by OLT ID
+ *       - in: query
+ *         name: card
+ *         schema:
+ *           type: string
+ *         description: Filter by card (format Frame/Slot)
+ *       - in: query
+ *         name: port
+ *         schema:
+ *           type: string
+ *         description: Filter by port (format Frame/Slot/Port)
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *         description: Filter by ONU type
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in name, description, gponOnu, pppoe, serialNumber
+ *       - in: query
+ *         name: forceRefresh
+ *         schema:
+ *           type: boolean
+ *         description: Force refresh from database (skip cache)
+ *     responses:
+ *       200:
+ *         description: List of ONUs with summary
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 onus:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ONU'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/PaginationMeta'
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     good:
+ *                       type: object
+ *                       properties:
+ *                         count:
+ *                           type: integer
+ *                         percentage:
+ *                           type: string
+ *                     warning:
+ *                       type: object
+ *                     critical:
+ *                       type: object
+ *                     other:
+ *                       type: object
+ *                 types:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 cards:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 fromCache:
+ *                   type: boolean
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 export async function GET(req: NextRequest) {
   try {
-        // Authentication check
-        const user = await verifyAuth(req);
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+    // Authentication check
+    const user = await verifyAuth(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const searchParams = req.nextUrl.searchParams
-    
+
     const limit = parseInt(searchParams.get('limit') || '10', 10)
     const pageParam = parseInt(searchParams.get('page') || '1', 10)
     const page = Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam
@@ -165,7 +267,7 @@ export async function GET(req: NextRequest) {
     const forceRefresh = searchParams.get('forceRefresh') === 'true'
     const cursorParam = searchParams.get('cursor')
     const cursor = cursorParam !== null ? Math.max(parseInt(cursorParam, 10) || 0, 0) : null
-    
+
     // Log request untuk debugging
     console.log(`[All-ONU] Request received: oltId=${oltId || 'ALL'}, page=${page}, limit=${limit}, card=${card || 'ALL'}, port=${port || 'ALL'}, type=${type || 'ALL'}, forceRefresh=${forceRefresh}`)
 
@@ -174,12 +276,12 @@ export async function GET(req: NextRequest) {
     // Ini memastikan data selalu konsisten dan tidak berbeda-beda
     const baseCacheKey = 'onu:all:all:all:all:' // Key konsisten untuk semua data
     const aggregateCacheKey = 'aggregate:all:all:all:all'
-    
+
     // Check cache untuk base data (semua data, tanpa filter)
     // Skip cache jika forceRefresh=true (untuk refresh manual)
     const cachedAggregate = forceRefresh ? null : getCachedAggregate(aggregateCacheKey)
     const cachedEntry = forceRefresh ? null : getCachedData(baseCacheKey)
-    
+
     let allOnuData: Array<{
       oltId: string
       oltName: string
@@ -196,7 +298,7 @@ export async function GET(req: NextRequest) {
 
     let fromCache = false
     let fromDatabase = false
-    
+
     // Prioritas 1: Gunakan cache jika tersedia dan tidak force refresh
     if (cachedEntry && !forceRefresh) {
       console.log(`[All-ONU] Using cached data (${cachedEntry.data.length} ONUs, age: ${Math.round((Date.now() - cachedEntry.timestamp) / 1000)}s)`)
@@ -207,19 +309,19 @@ export async function GET(req: NextRequest) {
       // Hanya fetch dari SNMP jika forceRefresh=true atau data tidak ada di database
       const onuRepo = getOnuRepository()
       const oltRepo = getOLTRepository()
-      
+
       // HANYA ambil dari database (yang sudah di-sync dari menu OLT)
       // Jangan fetch langsung dari SNMP - biarkan menu OLT yang handle sync
       // SELALU ambil SEMUA data dari database untuk konsistensi cache
       // Filter akan dilakukan setelah fetch, bukan sebelum
       console.log(`[All-ONU] Fetching ALL ONU data from database (for consistent caching)...`)
-      
+
       try {
         // SELALU ambil SEMUA data ONU dari database (semua OLT)
         // Ini memastikan cache selalu konsisten dan tidak berbeda-beda
         const allOnusInDb = await onuRepo.findAll()
         console.log(`[All-ONU] Fetched ${allOnusInDb.length} ONUs from database (sorted by oltId, gponOnu)`)
-        
+
         if (allOnusInDb.length > 0) {
           // Get OLT names untuk mapping
           const allOlts = await oltRepo.findAll()
@@ -227,7 +329,7 @@ export async function GET(req: NextRequest) {
           allOlts.forEach(olt => {
             oltNameMap.set(olt.id, olt.name)
           })
-          
+
           // Convert semua data ONU
           const convertedData = allOnusInDb.map(onu => ({
             id: onu.gponOnu,
@@ -250,10 +352,10 @@ export async function GET(req: NextRequest) {
             descOid: onu.descOid || null,
             compositeIndex: onu.compositeIndex || null,
           }))
-          
+
           allOnuData.push(...convertedData)
           fromDatabase = true
-          
+
           const oltIdsInDb = new Set(allOnusInDb.map(onu => onu.oltId))
           console.log(`[All-ONU] Loaded ${allOnuData.length} ONUs from database untuk ${oltIdsInDb.size} OLT ID(s): ${Array.from(oltIdsInDb).join(', ')}`)
         } else {
@@ -269,14 +371,14 @@ export async function GET(req: NextRequest) {
           })
           console.log(`[All-ONU] Cached ${allOnuData.length} ONUs from database (all OLTs, no filters) for ${CACHE_TTL / 1000}s`)
         }
-        
+
         // Hapus logika lama yang kompleks - sekarang lebih sederhana
         // Jika oltId ada, hanya ambil data untuk OLT tersebut
         // Jika tidak, ambil semua data dari database
       } catch (error: any) {
         console.error(`[All-ONU] Error fetching from database:`, error.message)
       }
-      
+
       // Hapus logika fetch dari SNMP - biarkan menu OLT yang handle sync
       // Data akan tersedia setelah sync dari menu OLT
       // Jika forceRefresh=true, tetap hanya ambil dari database (tidak fetch dari SNMP)
@@ -336,12 +438,12 @@ export async function GET(req: NextRequest) {
       // Gunakan helper function yang sama untuk konsistensi
       const aGpon = parseGponOnu(a.gponOnu)
       const bGpon = parseGponOnu(b.gponOnu)
-      
+
       if (!aGpon || !bGpon) {
         // Jika salah satu tidak bisa di-parse, sort berdasarkan string
         return (a.gponOnu || '').localeCompare(b.gponOnu || '')
       }
-      
+
       if (aGpon.frame !== bGpon.frame) return aGpon.frame - bGpon.frame
       if (aGpon.slot !== bGpon.slot) return aGpon.slot - bGpon.slot
       if (aGpon.port !== bGpon.port) return aGpon.port - bGpon.port
@@ -397,7 +499,7 @@ export async function GET(req: NextRequest) {
     // Hitung total dari filteredOnus (untuk filter yang aktif)
     // Ini memastikan pagination dan summary sesuai dengan data yang benar-benar ada setelah filtering
     const total = filteredOnus.length
-    
+
     if (cachedAggregate && !forceRefresh) {
       // Gunakan cached aggregate hanya untuk types, cards, dan totalOnus (untuk dropdown/filter)
       // Tapi summary harus dihitung dari filteredOnus untuk akurasi
@@ -406,7 +508,7 @@ export async function GET(req: NextRequest) {
       typeCountsObj = cachedAggregate.typeCounts
       cardsSummary = cachedAggregate.cards
       totalOnusCount = cachedAggregate.totalOnus
-      
+
       // Hitung summary dari filteredOnus (bukan dari cache)
       const goodPercentage = total > 0 ? ((goodCount / total) * 100).toFixed(1) : '0'
       const warningPercentage = total > 0 ? ((warningCount / total) * 100).toFixed(1) : '0'
@@ -510,7 +612,7 @@ export async function GET(req: NextRequest) {
     const endIndex = Math.min(startIndex + limit, total)
     const paginatedOnus = filteredOnus.slice(startIndex, endIndex)
     const totalPages = Math.ceil(total / limit)
-    
+
     // Log untuk debugging perubahan jumlah data
     console.log(`[All-ONU] Pagination: page=${page}, limit=${limit}, total=${total}, filtered=${filteredOnus.length}, paginated=${paginatedOnus.length}, totalPages=${totalPages}`)
     // nextCursor untuk tracking, tapi tidak digunakan untuk pagination
@@ -562,22 +664,22 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-        // Authentication check
-        const user = await verifyAuth(req);
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+    // Authentication check
+    const user = await verifyAuth(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const searchParams = req.nextUrl.searchParams
     const oltId = searchParams.get('oltId')
-    
+
     const onuRepo = getOnuRepository()
-    
+
     if (oltId) {
       // Hapus ONU dari OLT tertentu
       await onuRepo.deleteByOltId(oltId)
       const count = await onuRepo.countByOltId(oltId)
-      
+
       return NextResponse.json({
         success: true,
         message: `Berhasil menghapus semua ONU dari OLT`,
@@ -588,12 +690,12 @@ export async function DELETE(req: NextRequest) {
       // Hapus semua ONU
       const allOnus = await onuRepo.findAll()
       const totalCount = allOnus.length
-      
+
       // Hapus semua ONU
       for (const onu of allOnus) {
         await onuRepo.delete(onu.id)
       }
-      
+
       return NextResponse.json({
         success: true,
         message: `Berhasil menghapus ${totalCount} ONU`,

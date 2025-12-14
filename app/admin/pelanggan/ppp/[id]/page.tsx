@@ -4,7 +4,7 @@ import { StatCard } from '@/components/common/StatCard'
 import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
 import { StatusBadge } from '@/components/common/StatusBadge'
-import RenewButton from '@/components/pelanggan/RenewButton'
+
 import {
   HiOutlineUser,
   HiOutlineMapPin,
@@ -106,7 +106,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
           >
             Kembali
           </Link>
-          <RenewButton pelangganId={pelanggan.id} />
+
           <Link
             href={`/admin/pelanggan/ppp/${pelanggan.id}/edit`}
             className="text-sm px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors inline-flex items-center gap-2"

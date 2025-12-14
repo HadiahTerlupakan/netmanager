@@ -17,14 +17,14 @@ async function requireAdmin() {
  * /api/mikrotik-routers:
  *   get:
  *     summary: Get all MikroTik routers
- *     description: Mengambil daftar semua MikroTik router. Hanya bisa diakses oleh ADMIN.
- *     tags: [MikroTik]
+ *     description: Retrieve a list of all MikroTik routers with their configurations
+ *     tags: [Network Equipment]
  *     security:
  *       - bearerAuth: []
  *       - cookieAuth: []
  *     responses:
  *       200:
- *         description: Daftar router berhasil diambil
+ *         description: Successfully retrieved router list
  *         content:
  *           application/json:
  *             schema:
@@ -35,9 +35,102 @@ async function requireAdmin() {
  *                   items:
  *                     $ref: '#/components/schemas/MikroTikRouter'
  *       401:
- *         description: Unauthorized
+ *         $ref: '#/components/responses/Unauthorized'
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/Error'
+ *
+ *   post:
+ *     summary: Create a new MikroTik router
+ *     description: Add a new MikroTik router to the network management system
+ *     tags: [Network Equipment]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - ipAddress
+ *               - apiUsername
+ *               - apiPassword
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Router name/identifier
+ *                 example: "Router-Main-Office"
+ *               ipAddress:
+ *                 type: string
+ *                 format: ipv4
+ *                 description: Router IP address
+ *                 example: "192.168.1.1"
+ *               timezone:
+ *                 type: string
+ *                 description: Router timezone configuration
+ *                 example: "Asia/Jakarta"
+ *               apiPort:
+ *                 type: integer
+ *                 description: MikroTik API port
+ *                 example: 8728
+ *               apiUsername:
+ *                 type: string
+ *                 description: API username for router access
+ *                 example: "admin"
+ *               apiPassword:
+ *                 type: string
+ *                 description: API password for router access
+ *                 example: "securePassword123"
+ *               authPort:
+ *                 type: integer
+ *                 description: RADIUS authentication port
+ *                 example: 1812
+ *               accountingPort:
+ *                 type: integer
+ *                 description: RADIUS accounting port
+ *                 example: 1813
+ *               secretRadius:
+ *                 type: string
+ *                 description: RADIUS shared secret
+ *                 example: "radiusSecret"
+ *               isolirUrl:
+ *                 type: string
+ *                 description: URL for isolation/blocked page
+ *                 example: "http://example.com/blocked"
+ *               description:
+ *                 type: string
+ *                 description: Router description
+ *                 example: "Main office router for internal network"
+ *     responses:
+ *       200:
+ *         description: Successfully created router
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                   description: Created router ID
+ *                   example: 1
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       409:
+ *         description: IP address already exists or conflict occurred
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "IP Address sudah terpakai atau terjadi kesalahan"
+ *       500:
+ *         $ref: '#/components/responses/Error'
  */
 export async function GET() {
   try {
