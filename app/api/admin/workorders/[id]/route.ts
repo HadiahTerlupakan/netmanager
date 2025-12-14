@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/lib/repositories/WorkOrderRepository';
-import { verifyAuth } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth-helpers';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -64,9 +64,9 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const user = await verifyAuth(request);
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const user = await requireAuth(request);
+        if (user instanceof NextResponse) {
+            return user; // Return error response if authentication fails
         }
 
         const { id } = await params;
@@ -179,9 +179,9 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const user = await verifyAuth(request);
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const user = await requireAuth(request);
+        if (user instanceof NextResponse) {
+            return user; // Return error response if authentication fails
         }
 
         const { id } = await params;
@@ -278,9 +278,9 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const user = await verifyAuth(request);
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const user = await requireAuth(request);
+        if (user instanceof NextResponse) {
+            return user; // Return error response if authentication fails
         }
 
         const { id } = await params;

@@ -993,16 +993,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-    const { provider } = await params
   const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
-
+  
   if (!olt) {
     return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
   }
-
-      const { id } = await params
-    const { provider } = await params
 // Cek SNMP connection status, tapi tetap coba ambil data jika kredensial tersedia
   if (!olt.snmpConnected) {
     console.log(`[VLAN-SNMP] Warning: SNMP status menunjukkan tidak connected untuk OLT ${olt.name}, tapi akan tetap mencoba mengambil data VLAN`)
@@ -1279,16 +1275,12 @@ export async function DELETE(
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-    const { provider } = await params
   const { searchParams } = new URL(req.url)
   const vlanId = searchParams.get('vlanId')
-
+  
   if (!vlanId) {
     return NextResponse.json({ error: 'VLAN ID diperlukan' }, { status: 400 })
   }
-
-      const { id } = await params
-    const { provider } = await params
 const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
 
@@ -1393,16 +1385,12 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-    const { provider } = await params
   const body = await req.json()
   const { vlanId, name, description } = body
-
+  
   if (!vlanId) {
     return NextResponse.json({ error: 'VLAN ID diperlukan' }, { status: 400 })
   }
-
-      const { id } = await params
-    const { provider } = await params
 if (!name && !description) {
     return NextResponse.json({ error: 'Name atau description diperlukan' }, { status: 400 })
   }

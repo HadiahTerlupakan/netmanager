@@ -259,16 +259,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-    const { provider } = await params
   const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
 
   if (!olt) {
     return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
   }
-
-      const { id } = await params
-    const { provider } = await params
 if (!olt.telnetConnected) {
     return NextResponse.json(
       { error: 'Telnet tidak connected. Silakan test connection terlebih dahulu.' },

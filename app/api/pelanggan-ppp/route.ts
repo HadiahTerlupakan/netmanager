@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import { hash } from 'bcryptjs'
 import path from 'path'
 import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
 import { afterCustomerCreate } from '@/lib/hooks/radius-sync-hooks'
+import { requireAuth } from '@/lib/auth-helpers'
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
 
@@ -293,11 +292,8 @@ const parseEnumValue = <T extends string>(
  */
 export async function GET(req: NextRequest) {
   try {
-    // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Cek autentikasi menggunakan fungsi terpusat
+    const session = await requireAuth(req)
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
@@ -344,11 +340,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Cek autentikasi menggunakan fungsi terpusat
+    const session = await requireAuth(req)
 
     const formData = await req.formData()
 

@@ -210,15 +210,8 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
       newErrors.password = 'Password minimal 6 karakter jika diisi'
     }
 
-    if (!formData.employeeId) {
-      newErrors.employeeId = 'Employee ID wajib diisi'
-    }
-
-    if (!formData.joinDate) {
-      newErrors.joinDate = 'Tanggal bergabung wajib diisi'
-    }
-
-
+    // Note: Employee fields validation removed as employee data is read-only
+    // Only user account fields are validated
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -254,43 +247,8 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
         throw new Error(userData.error || 'Failed to update user account')
       }
 
-      // 2. Update Employee (if exists)
-      if (user?.employee?.id) {
-        const employeeRes = await fetch(`/api/hris/employees/${user.employee.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            employeeId: formData.employeeId,
-            fullName: formData.name, // Sync name
-            phone: formData.phone || undefined,
-            dateOfBirth: formData.dateOfBirth || undefined,
-            gender: formData.gender || undefined,
-            idCardNumber: formData.idCardNumber || undefined,
-            address: formData.address || undefined,
-            city: formData.city || undefined,
-            province: formData.province || undefined,
-            departmentId: formData.departmentId || undefined,
-            siteId: formData.siteId || undefined,
-            positionId: formData.positionId || undefined,
-            employmentStatus: formData.employmentStatus,
-            joinDate: formData.joinDate,
-            probationEndDate: formData.probationEndDate || undefined,
-            bankName: formData.bankName || undefined,
-            bankAccountNumber: formData.bankAccountNumber || undefined,
-            bankAccountName: formData.bankAccountName || undefined,
-            npwp: formData.npwp || undefined,
-            emergencyName: formData.emergencyName || undefined,
-            emergencyPhone: formData.emergencyPhone || undefined,
-            emergencyRelation: formData.emergencyRelation || undefined,
-          }),
-        })
-
-        const employeeData = await employeeRes.json()
-
-        if (!employeeRes.ok) {
-          throw new Error(employeeData.error || 'Failed to update employee profile')
-        }
-      }
+      // Note: Employee data update functionality has been removed
+      // as the API endpoint /api/employees/[id] is no longer available
 
       // Show success message and redirect
       setShowSuccess(true)
@@ -573,7 +531,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Pengguna</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Edit akun pengguna dan data karyawan: {user?.email}
+            Edit akun pengguna: {user?.email}
           </p>
         </div>
       </div>
@@ -634,8 +592,6 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                 {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
               </div>
 
-
-
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Kata Sandi Baru
@@ -679,7 +635,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
           </div>
         </div>
 
-        {/* Employee Information Section */}
+        {/* Employee Information Section - Read Only */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
@@ -687,17 +643,26 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                 <HiOutlineBriefcase className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Karyawan</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Detail pribadi dan kontak karyawan</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Karyawan (Read-Only)</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Data karyawan tidak dapat diubah (API endpoint telah dihapus)</p>
               </div>
             </div>
           </div>
 
           <div className="p-6">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-3">
+                <HiOutlineExclamationTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  Fitur edit data karyawan telah dinonaktifkan. Data karyawan hanya dapat dilihat namun tidak dapat diubah.
+                </p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  ID Karyawan <span className="text-red-500">*</span>
+                  ID Karyawan
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -705,15 +670,11 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                   </div>
                   <input
                     type="text"
-                    name="employeeId"
-                    required
+                    disabled
                     value={formData.employeeId}
-                    onChange={handleChange}
-                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.employeeId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
-                      }`}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                   />
                 </div>
-                {errors.employeeId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.employeeId}</p>}
               </div>
 
               <div>
@@ -726,11 +687,9 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                   </div>
                   <input
                     type="tel"
-                    name="phone"
+                    disabled
                     value={formData.phone}
-                    onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="+62 812-3456-7890"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -745,10 +704,9 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                   </div>
                   <input
                     type="date"
-                    name="dateOfBirth"
+                    disabled
                     value={formData.dateOfBirth}
-                    onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -758,14 +716,11 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                   Jenis Kelamin
                 </label>
                 <select
-                  name="gender"
+                  disabled
                   value={formData.gender}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                 >
-                  <option value="">Pilih Jenis Kelamin</option>
-                  <option value="MALE">Pria</option>
-                  <option value="FEMALE">Wanita</option>
+                  <option value="">{formData.gender === 'MALE' ? 'Pria' : formData.gender === 'FEMALE' ? 'Wanita' : '-'}</option>
                 </select>
               </div>
 
@@ -779,11 +734,9 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                   </div>
                   <input
                     type="text"
-                    name="idCardNumber"
+                    disabled
                     value={formData.idCardNumber}
-                    onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="Nomor KTP"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -797,15 +750,11 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                     <HiOutlineBuildingOffice className="h-5 w-5 text-gray-400" />
                   </div>
                   <select
-                    name="departmentId"
+                    disabled
                     value={formData.departmentId}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                   >
-                    <option value="">Pilih Departemen</option>
-                    {departments.map(dept => (
-                      <option key={dept.id} value={dept.id}>{dept.name}</option>
-                    ))}
+                    <option value="">{departments.find(d => d.id === formData.departmentId)?.name || '-'}</option>
                   </select>
                 </div>
               </div>
@@ -819,18 +768,13 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                     <HiOutlineMap className="h-5 w-5 text-gray-400" />
                   </div>
                   <select
-                    name="siteId"
+                    disabled
                     value={formData.siteId}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                   >
-                    <option value="">Pilih Site</option>
-                    {sites.map(site => (
-                      <option key={site.id} value={site.id}>{site.code} - {site.name}</option>
-                    ))}
+                    <option value="">{sites.find(s => s.id === formData.siteId)?.name || '-'}</option>
                   </select>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Site diperlukan untuk melihat work order</p>
               </div>
             </div>
 
@@ -843,12 +787,10 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                   <HiOutlineMap className="h-5 w-5 text-gray-400 mt-1" />
                 </div>
                 <textarea
-                  name="address"
+                  disabled
                   value={formData.address}
-                  onChange={handleChange}
                   rows={3}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Alamat lengkap karyawan"
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                 />
               </div>
             </div>
@@ -860,11 +802,9 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                 </label>
                 <input
                   type="text"
-                  name="city"
+                  disabled
                   value={formData.city}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Kota tempat tinggal"
+                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                 />
               </div>
               <div>
@@ -873,213 +813,9 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                 </label>
                 <input
                   type="text"
-                  name="province"
+                  disabled
                   value={formData.province}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Provinsi tempat tinggal"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Employment Information Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <HiOutlineInformationCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Kepegawaian</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Status dan tanggal kepegawaian</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Status Kepegawaian <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="employmentStatus"
-                  required
-                  value={formData.employmentStatus}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value="PROBATION">Masa Percobaan</option>
-                  <option value="PERMANENT">Tetap</option>
-                  <option value="CONTRACT">Kontrak</option>
-                  <option value="INTERNSHIP">Magang</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Tanggal Bergabung <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  name="joinDate"
-                  required
-                  value={formData.joinDate}
-                  onChange={handleChange}
-                  className={`block w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.joinDate ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                />
-                {errors.joinDate && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.joinDate}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Tanggal Akhir Masa Percobaan
-                </label>
-                <input
-                  type="date"
-                  name="probationEndDate"
-                  value={formData.probationEndDate}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bank Information Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <HiOutlineCreditCard className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Perbankan</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Detail rekening untuk gaji</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nama Bank
-                </label>
-                <input
-                  type="text"
-                  name="bankName"
-                  value={formData.bankName}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Nama bank"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nomor Rekening
-                </label>
-                <input
-                  type="text"
-                  name="bankAccountNumber"
-                  value={formData.bankAccountNumber}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Nomor rekening"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Atas Nama
-                </label>
-                <input
-                  type="text"
-                  name="bankAccountName"
-                  value={formData.bankAccountName}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Atas nama rekening"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                NPWP
-              </label>
-              <input
-                type="text"
-                name="npwp"
-                value={formData.npwp}
-                onChange={handleChange}
-                className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="Nomor Pokok Wajib Pajak"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Emergency Contact Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <HiOutlineExclamationTriangle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Kontak Darurat</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Kontak dalam keadaan darurat</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nama
-                </label>
-                <input
-                  type="text"
-                  name="emergencyName"
-                  value={formData.emergencyName}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Nama kontak darurat"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nomor Telepon
-                </label>
-                <input
-                  type="tel"
-                  name="emergencyPhone"
-                  value={formData.emergencyPhone}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Nomor telepon darurat"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Hubungan
-                </label>
-                <input
-                  type="text"
-                  name="emergencyRelation"
-                  value={formData.emergencyRelation}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Contoh: Orang Tua, Istri, Suami"
+                  className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                 />
               </div>
             </div>
@@ -1106,7 +842,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
             ) : (
               <>
                 <HiOutlineCheckCircle className="w-5 h-5" />
-                Simpan Perubahan
+                Simpan Perubahan Akun
               </>
             )}
           </button>

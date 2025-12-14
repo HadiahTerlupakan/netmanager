@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import {
     getNotificationsForEmployee,
     getUnreadCount,
     markAllAsRead,
 } from '@/lib/services/NotificationService';
+import { requireAuth } from '@/lib/auth-helpers';
 
 /**
  * @swagger
@@ -84,11 +83,8 @@ import {
 // GET /api/notifications - Get notifications for current user
 export async function GET(request: NextRequest) {
     try {
-        const session = await getServerSession(authConfig);
-
-        if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        // Cek autentikasi menggunakan fungsi terpusat
+        const session = await requireAuth(request);
 
         // Get employee ID from session
         const employee = await prisma.employee.findUnique({
@@ -177,11 +173,8 @@ export async function GET(request: NextRequest) {
 // PATCH /api/notifications - Mark all as read
 export async function PATCH(request: NextRequest) {
     try {
-        const session = await getServerSession(authConfig);
-
-        if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        // Cek autentikasi menggunakan fungsi terpusat
+        const session = await requireAuth(request);
 
         const employee = await prisma.employee.findUnique({
             where: { userId: session.user.id },

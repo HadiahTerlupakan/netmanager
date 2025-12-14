@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-
-async function requireAuth() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session?.user) {
-    return null
-  }
-  return session
-}
 
 /**
  * @swagger
@@ -100,10 +91,9 @@ async function requireAuth() {
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAuth()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to GET /api/inventory/masuk')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAuth(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -289,10 +279,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAuth()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to POST /api/inventory/masuk')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAuth(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     const body = await req.json()

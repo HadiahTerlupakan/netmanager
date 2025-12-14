@@ -208,9 +208,16 @@ export const authConfig: NextAuthOptions = {
         token.employeeId = (user as any).employeeId
         token.employee = (user as any).employee
 
+        // Simplified role assignment - only ADMIN role is used
+        const userEmail = (user as any).email?.toLowerCase()
+        
+        // All authenticated users are now ADMIN
+        token.role = 'ADMIN'
+
         console.log('[AUTH JWT] Token set:', {
           id: token.id,
           email: token.email,
+          role: token.role,
         })
       }
 
@@ -219,12 +226,18 @@ export const authConfig: NextAuthOptions = {
         // Refresh user data from database
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
+          include: {
+            employee: true
+          }
         })
 
         if (dbUser) {
           token.name = dbUser.name
           token.email = dbUser.email
           token.picture = dbUser.image
+          
+          // All authenticated users are now ADMIN
+          token.role = 'ADMIN'
         }
       }
 

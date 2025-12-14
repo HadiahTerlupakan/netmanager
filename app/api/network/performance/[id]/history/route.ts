@@ -94,13 +94,13 @@ const historyQuerySchema = z.object({
  */
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
     const session = await requireAdmin()
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { id } = params
+    const { id } = await params
     const { searchParams } = new URL(req.url)
     const queryParams = Object.fromEntries(searchParams.entries())
     

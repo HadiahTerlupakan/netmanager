@@ -91,8 +91,6 @@ export async function GET(
     }
 
         const { id } = await params
-    const { provider } = await params
-const { id } = await params
         try {
       const dbStart = Date.now()
 
@@ -188,9 +186,6 @@ export async function PUT(
     }
 
         const { id } = await params
-    const { provider } = await params
-const { id } = await params
-    const { provider } = await params
     const body = await req.json()
     const { keterangan } = body
 
@@ -272,8 +267,6 @@ export async function DELETE(
     }
 
         const { id } = await params
-    const { provider } = await params
-const { id } = await params
         try {
       const dbStart = Date.now()
 

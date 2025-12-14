@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
 import { createPPPProfileInMikroTik } from '@/lib/services/mikrotik-ppp-profile'
+import { requireAdmin, requireAuth } from '@/lib/auth-helpers'
 
 /**
  * GET /api/profileppps
@@ -21,10 +20,8 @@ import { createPPPProfileInMikroTik } from '@/lib/services/mikrotik-ppp-profile'
  */
 export async function GET(req: NextRequest) {
   try {
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Cek autentikasi menggunakan fungsi terpusat
+    const session = await requireAuth(req)
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
@@ -186,11 +183,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    // Cek autentikasi dan autorisasi (hanya ADMIN yang bisa membuat Profile PPP)
-    const session: any = await getServerSession(authConfig as any)
-    if (!session || false) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    // Cek autentikasi admin menggunakan fungsi terpusat
+    const session = await requireAdmin(req)
 
     const body = await req.json()
     

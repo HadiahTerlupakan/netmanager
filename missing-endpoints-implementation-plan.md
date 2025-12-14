@@ -521,10 +521,6 @@ interface SuspensionResponse {
 **Endpoints:**
 - `GET /api/employees` - List employees with filtering
 - `POST /api/employees` - Create new employee
-- `GET /api/employees/[id]` - Get employee details
-- `PUT /api/employees/[id]` - Update employee
-- `DELETE /api/employees/[id]` - Delete employee (soft delete)
-- `GET /api/employees/[id]/history` - Employee change history
 
 **Request/Response Schemas:**
 ```typescript

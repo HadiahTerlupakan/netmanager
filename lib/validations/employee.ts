@@ -3,18 +3,28 @@ import { z } from 'zod'
 export const employeeCreateSchema = z.object({
   employeeId: z.string().trim().min(1, 'Employee ID wajib diisi'),
   fullName: z.string().trim().min(1, 'Nama lengkap wajib diisi'),
-  email: z.string().trim().email().optional().or(z.literal('')),
+  email: z.string().trim().optional().refine(val => !val || val === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), {
+    message: 'Format email tidak valid'
+  }),
   phone: z.string().trim().optional().or(z.literal('')),
   departmentId: z.string().trim().optional().or(z.literal('')),
   positionId: z.string().trim().optional().or(z.literal('')),
   siteId: z.string().trim().optional().or(z.literal('')),
-  joinDate: z.string().transform(val => new Date(val)),
+  joinDate: z.string().transform(val => {
+    if (!val) return undefined;
+    const date = new Date(val);
+    return isNaN(date.getTime()) ? undefined : date;
+  }),
   status: z.enum(['ACTIVE', 'INACTIVE', 'ON_LEAVE', 'TERMINATED']).default('ACTIVE'),
   isActive: z.boolean().default(true),
   userId: z.string().trim().optional().or(z.literal('')),
   
   // Personal Information
-  dateOfBirth: z.string().transform(val => val ? new Date(val) : undefined).optional(),
+  dateOfBirth: z.string().transform(val => {
+    if (!val) return undefined;
+    const date = new Date(val);
+    return isNaN(date.getTime()) ? undefined : date;
+  }).optional(),
   gender: z.enum(['MALE', 'FEMALE']).optional(),
   idCardNumber: z.string().trim().optional().or(z.literal('')),
   address: z.string().trim().optional().or(z.literal('')),
@@ -40,12 +50,18 @@ export const employeeCreateSchema = z.object({
 export const employeeUpdateSchema = z.object({
   employeeId: z.string().trim().min(1, 'Employee ID wajib diisi').optional(),
   fullName: z.string().trim().min(1, 'Nama lengkap wajib diisi').optional(),
-  email: z.string().trim().email().optional().or(z.literal('').transform(() => undefined)),
+  email: z.string().trim().optional().refine(val => !val || val === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), {
+    message: 'Format email tidak valid'
+  }).transform(val => val === '' ? undefined : val),
   phone: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
   departmentId: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
   positionId: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
   siteId: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
-  joinDate: z.string().transform(val => new Date(val)).optional(),
+  joinDate: z.string().transform(val => {
+    if (!val) return undefined;
+    const date = new Date(val);
+    return isNaN(date.getTime()) ? undefined : date;
+  }).optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'ON_LEAVE', 'TERMINATED']).optional(),
   isActive: z.boolean().optional(),
   userId: z.string().trim().optional().or(z.literal('').transform(() => undefined)),
@@ -60,7 +76,11 @@ export const employeeUpdateSchema = z.object({
   
   // Employment Details
   employmentStatus: z.enum(['PROBATION', 'PERMANENT', 'CONTRACT']).optional(),
-  probationEndDate: z.string().transform(val => val ? new Date(val) : undefined).optional(),
+  probationEndDate: z.string().transform(val => {
+    if (!val) return undefined;
+    const date = new Date(val);
+    return isNaN(date.getTime()) ? undefined : date;
+  }).optional(),
   
   // Bank Information
   bankName: z.string().trim().optional().or(z.literal('').transform(() => undefined)),

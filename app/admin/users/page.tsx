@@ -23,7 +23,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
 
-  // const [filter, setFilter] = useState<'ALL' | 'EMPLOYEE' | 'SYSTEM'>('ALL') // Removed filter state
+  // Filter state removed - all users are now ADMIN
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
@@ -46,14 +46,14 @@ export default function UsersPage() {
   }
 
   const filteredUsers = users.filter(user => {
-    // const matchesFilter = filter === 'ALL' || ... // Removed filter logic
-
+    // Filter logic simplified - no role filtering needed
+    
     const matchesSearch = searchTerm === '' ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.employee?.employeeId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.employee?.department?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-
+    
     return matchesSearch
   })
 

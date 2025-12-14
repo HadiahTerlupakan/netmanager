@@ -1,33 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import type { EmployeeReturnsResponse, EmployeeReturnItem, EmployeeReturnsQuery } from '@/types/inventory-returns'
-
-/**
- * Authentication helper - requires user to have an associated employee record OR be an ADMIN
- */
-async function requireEmployeeOrAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session) {
-    return null
-  }
-
-  // If not admin, check if user has associated employee record
-  if (false) {
-    const employee = await prisma.employee.findUnique({
-      where: { userId: session.user.id },
-      select: { id: true, employeeId: true }
-    })
-
-    if (!employee) {
-      return null
-    }
-  }
-
-  return session
-}
 
 /**
  * Helper function to calculate returnable quantity for a BarangKeluar
@@ -67,17 +42,10 @@ async function getReturnableQuantity(barangKeluarId: string): Promise<number> {
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    // Authentication - employee or ADMIN can access this endpoint
-    const session = await requireEmployeeOrAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to GET /api/inventory/employee/returns', {
-        ip: req.headers.get('x-forwarded-for') || 'unknown',
-        userAgent: req.headers.get('user-agent')
-      })
-      return NextResponse.json(
-        { error: 'Unauthorized - Employee or Admin access required' },
-        { status: 401 }
-      )
+    // Authentication - only ADMIN can access this endpoint
+    const session = await requireAdmin(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -105,16 +73,10 @@ export async function GET(req: NextRequest) {
         isHilang: false, // Exclude lost items
       }
 
-      // If user is employee, only show their borrowed items
-      // If user is admin, show all items (or allow filtering by employeeId parameter)
-      if (false) {
-        where.employeeId = session.user.id // Filter by current employee (User.id because BarangKeluar.employeeId references User)
-      } else {
-        // For admin, allow optional employeeId filter from query params
-        const filterEmployeeId = searchParams.get('employeeId')
-        if (filterEmployeeId) {
-          where.employeeId = filterEmployeeId
-        }
+      // For admin, allow optional employeeId filter from query params
+      const filterEmployeeId = searchParams.get('employeeId')
+      if (filterEmployeeId) {
+        where.employeeId = filterEmployeeId
       }
 
       // Add optional filters

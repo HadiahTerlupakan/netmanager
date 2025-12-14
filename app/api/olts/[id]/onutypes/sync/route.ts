@@ -829,7 +829,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-    const { provider } = await params
   const oltRepository = getOLTRepository()
   const onuTypeRepository = getOnuTypeRepository()
   const olt = await oltRepository.findById(id)
@@ -837,9 +836,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!olt) {
     return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
   }
-
-      const { id } = await params
-    const { provider } = await params
 // Cek method sync dari query parameter
   const { searchParams } = new URL(req.url)
   const syncMethod = searchParams.get('method') || 'telnet' // default: telnet

@@ -29,8 +29,6 @@ export async function GET(
     }
 
         const { id } = await params
-    const { provider } = await params
-const { id } = await params
         try {
       const dbStart = Date.now()
 
@@ -85,7 +83,6 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-    const { provider } = await params
   const startTime = Date.now()
   try {
     const session = await requireAdmin()
@@ -93,8 +90,6 @@ export async function PUT(
       logger.warn('Unauthorized access attempt to PUT /api/inventory/gudang/[id]')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-        const { id } = await params
-    const { provider } = await params
 const body = await req.json()
     const { kode, nama, lokasi, isActive } = body
 
@@ -179,7 +174,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-    const { provider } = await params
   const startTime = Date.now()
   try {
     const session = await requireAdmin()
@@ -187,9 +181,6 @@ export async function DELETE(
       logger.warn('Unauthorized access attempt to DELETE /api/inventory/gudang/[id]')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-        const { id } = await params
-    const { provider } = await params
 try {
       const dbStart = Date.now()
 

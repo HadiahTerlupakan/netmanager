@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { bandwidthSchema } from '@/lib/validations/bandwidth'
 import { sanitizeInput } from '@/lib/utils/sanitize'
+import { requireAdmin, requireAuth } from '@/lib/auth-helpers'
 
 /**
  * @swagger
@@ -46,10 +45,8 @@ import { sanitizeInput } from '@/lib/utils/sanitize'
  */
 export async function GET(req: NextRequest) {
   try {
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Cek autentikasi menggunakan fungsi terpusat
+    const session = await requireAuth(req)
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
@@ -202,10 +199,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const session: any = await getServerSession(authConfig as any)
-    if (!session || false) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    // Cek autentikasi admin menggunakan fungsi terpusat
+    const session = await requireAdmin(req)
 
     const body = await req.json()
     

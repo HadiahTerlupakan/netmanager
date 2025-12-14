@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { RadiusSyncService } from '@/lib/services/radius-sync-service'
+import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
 
 /**
@@ -136,15 +135,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
-        // Check authentication
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Check authentication using centralized auth helper
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) {
+      return auth
     }
 
-        const { id } = await params
-    const { provider } = await params
+    const { id } = await params
 // Get customer information
     const pelanggan = await prisma.pelanggan.findUnique({
       where: { id },
@@ -204,7 +201,7 @@ export async function POST(
           reason,
           notes,
           expectedResumeAt: expectedResumeAt ? new Date(expectedResumeAt) : null,
-          suspendedBy: session.user.id,
+          suspendedBy: (auth as any)?.user?.id,
           isActive: true,
         },
       })

@@ -1,16 +1,7 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth-helpers'
 import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { mikrotikRouterUpdateSchema } from '@/lib/validations/mikrotik'
-
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
 
 /**
  * @swagger
@@ -66,20 +57,17 @@ async function requireAdmin() {
  *                   type: string
  *                   example: "Gagal memuat data Router"
  */
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAdmin(req)
+    if (session instanceof NextResponse) return session
     const { id } = await params
-    const { provider } = await params
     const routerRepository = getMikroTikRouterRepository()
     const router = await routerRepository.findById(id)
     if (!router) {
       return NextResponse.json({ error: 'Router tidak ditemukan' }, { status: 404 })
     }
-        const { id } = await params
-    const { provider } = await params
-return NextResponse.json({ router })
+    return NextResponse.json({ router })
   } catch (error: any) {
     console.error('Error fetching MikroTik Router:', error)
     return NextResponse.json({ error: error.message || 'Gagal memuat data Router' }, { status: 500 })
@@ -190,19 +178,16 @@ return NextResponse.json({ router })
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAdmin(req)
+  if (session instanceof NextResponse) return session
   const { id } = await params
-    const { provider } = await params
   const json = await req.json()
   const parsed = mikrotikRouterUpdateSchema.safeParse(json)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-      const { id } = await params
-    const { provider } = await params
-const data = parsed.data
+  const data = parsed.data
   try {
     const routerRepository = getMikroTikRouterRepository()
     await routerRepository.update(id, {
@@ -269,19 +254,16 @@ const data = parsed.data
  *                   type: string
  *                   example: "Gagal menghapus router"
  */
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAdmin(req)
+  if (session instanceof NextResponse) return session
   try {
     const { id } = await params
-    const { provider } = await params
     const routerRepository = getMikroTikRouterRepository()
     await routerRepository.delete(id)
     return NextResponse.json({ success: true })
   } catch (e: any) {
     return NextResponse.json({ error: 'Gagal menghapus router' }, { status: 500 })
   }
-    const { id } = await params
-    const { provider } = await params
 }
 

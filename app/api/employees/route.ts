@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/route-protection'
 import { prisma } from '@/lib/prisma'
 import { employeeQuerySchema, employeeCreateSchema } from '@/lib/validations/employee'
 import { logger } from '@/lib/logger'
+import { requireAuth, getCurrentSession } from '@/lib/auth-helpers'
 
 /**
  * @swagger
@@ -103,16 +103,27 @@ import { logger } from '@/lib/logger'
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
   
-  // Check authentication
-  const authError = await requireAuth(request)
-  if (authError) return authError
+  // Check authentication using centralized function
+  const authResult = await requireAuth(request)
+  if (authResult) return authResult
+  
+  const session = await getCurrentSession(request)
 
   try {
     // Parse query parameters
     const { searchParams } = new URL(request.url)
     const query = Object.fromEntries(searchParams.entries())
     
-    const parsedQuery = employeeQuerySchema.parse(query)
+    const queryResult = employeeQuerySchema.safeParse(query)
+    
+    if (!queryResult.success) {
+      return NextResponse.json(
+        { error: 'Query validation error', details: queryResult.error.flatten() },
+        { status: 400 }
+      )
+    }
+    
+    const parsedQuery = queryResult.data
     
     // Build where clause
     const where: any = {}
@@ -206,6 +217,21 @@ export async function GET(request: NextRequest) {
       path: '/api/employees',
       method: 'GET',
     })
+    
+    // Handle specific database errors
+    if (error.code === 'P1001') {
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 503 }
+      )
+    }
+    
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Database constraint violation' },
+        { status: 409 }
+      )
+    }
     
     return NextResponse.json(
       { error: 'Gagal memuat data karyawan' },
@@ -328,13 +354,33 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   
-  // Check authentication
-  const authError = await requireAuth(request)
-  if (authError) return authError
+  // Check authentication using centralized function
+  const authResult = await requireAuth(request)
+  if (authResult) return authResult
+  
+  const session = await getCurrentSession(request)
   
   try {
-    const body = await request.json()
-    const parsed = employeeCreateSchema.parse(body)
+    let body
+    try {
+      body = await request.json()
+    } catch (jsonError) {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      )
+    }
+    
+    const result = employeeCreateSchema.safeParse(body)
+    
+    if (!result.success) {
+      return NextResponse.json(
+        { error: 'Validation error', details: result.error.flatten() },
+        { status: 400 }
+      )
+    }
+    
+    const parsed = result.data
     
     // Check if employee ID already exists
     const existingEmployee = await prisma.employee.findUnique({
@@ -362,13 +408,36 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Get session for createdBy
-    const session = await requireAuth(request)
+    // Get session for createdBy (already retrieved above)
     
-    // Create employee
+    // Create employee with explicit field mapping
     const employee = await prisma.employee.create({
       data: {
-        ...parsed,
+        employeeId: parsed.employeeId,
+        fullName: parsed.fullName,
+        email: parsed.email || undefined,
+        phone: parsed.phone || undefined,
+        joinDate: parsed.joinDate || new Date(),
+        status: parsed.status || 'ACTIVE',
+        isActive: parsed.isActive !== undefined ? parsed.isActive : true,
+        employmentStatus: parsed.employmentStatus || 'PROBATION',
+        dateOfBirth: parsed.dateOfBirth || undefined,
+        gender: parsed.gender || undefined,
+        idCardNumber: parsed.idCardNumber || undefined,
+        address: parsed.address || undefined,
+        city: parsed.city || undefined,
+        province: parsed.province || undefined,
+        probationEndDate: parsed.probationEndDate || undefined,
+        bankName: parsed.bankName || undefined,
+        bankAccountNumber: parsed.bankAccountNumber || undefined,
+        bankAccountName: parsed.bankAccountName || undefined,
+        npwp: parsed.npwp || undefined,
+        emergencyName: parsed.emergencyName || undefined,
+        emergencyPhone: parsed.emergencyPhone || undefined,
+        emergencyRelation: parsed.emergencyRelation || undefined,
+        departmentId: parsed.departmentId || undefined,
+        positionId: parsed.positionId || undefined,
+        siteId: parsed.siteId || undefined,
         createdBy: (session as any)?.user?.id,
       },
       include: {
@@ -412,10 +481,11 @@ export async function POST(request: NextRequest) {
       method: 'POST',
     })
     
-    if (error.name === 'ZodError') {
+    // Handle specific database errors
+    if (error.code === 'P1001') {
       return NextResponse.json(
-        { error: error.errors },
-        { status: 400 }
+        { error: 'Database connection failed' },
+        { status: 503 }
       )
     }
     
@@ -424,6 +494,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Employee ID or email already exists' },
         { status: 409 }
+      )
+    }
+    
+    if (error.code === 'P2003') {
+      // Foreign key constraint error
+      return NextResponse.json(
+        { error: 'Invalid department, position, or site reference' },
+        { status: 400 }
+      )
+    }
+    
+    // Handle JSON parsing errors
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
       )
     }
     

@@ -22,7 +22,6 @@ export async function GET(
 
   try {
     const { id } = await params
-    const { provider } = await params
     const kmzRepository = getKmzRepository()
     const kmzFile = await kmzRepository.findById(id)
 
@@ -30,8 +29,6 @@ export async function GET(
       return NextResponse.json({ error: 'KMZ file tidak ditemukan' }, { status: 404 })
     }
 
-        const { id } = await params
-    const { provider } = await params
 return NextResponse.json({ kmzFile })
   } catch (error: any) {
     console.error('Error fetching KMZ file:', error)
@@ -48,7 +45,6 @@ export async function PUT(
 
   try {
     const { id } = await params
-    const { provider } = await params
     const json = await req.json()
     const parsed = kmzUpdateSchema.safeParse(json)
 
@@ -58,9 +54,7 @@ export async function PUT(
       return NextResponse.json({ error: errorMessage }, { status: 400 })
     }
 
-        const { id } = await params
-    const { provider } = await params
-const kmzRepository = getKmzRepository()
+    const kmzRepository = getKmzRepository()
     const existing = await kmzRepository.findById(id)
 
     if (!existing) {
@@ -84,16 +78,13 @@ export async function DELETE(
 
   try {
     const { id } = await params
-    const { provider } = await params
-    const kmzRepository = getKmzRepository()
-    const existing = await kmzRepository.findById(id)
+const kmzRepository = getKmzRepository()
+const existing = await kmzRepository.findById(id)
 
     if (!existing) {
       return NextResponse.json({ error: 'KMZ file tidak ditemukan' }, { status: 404 })
     }
 
-        const { id } = await params
-    const { provider } = await params
 // Extract kmzId from filePath to delete the correct directory
     // filePath format: /uploads/kmz/{kmzId}/original.kmz
     const filePathMatch = existing.filePath.match(/\/uploads\/kmz\/([^\/]+)\/original\.kmz/)

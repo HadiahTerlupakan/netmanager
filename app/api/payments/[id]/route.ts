@@ -57,12 +57,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const payment = await prisma.payment.findUnique({
       where: { id },
       include: {
-        pelanggan: {
+        invoice: {
           include: {
-            hargaPaket: true,
+            pelanggan: {
+              include: {
+                hargaPaket: true,
+              },
+            },
           },
         },
-        invoice: true,
       },
     })
 

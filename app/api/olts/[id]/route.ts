@@ -1,16 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { requireAdmin } from '@/lib/auth-helpers'
 import { getOLTRepository } from '@/lib/repositories'
 import { oltUpdateSchema } from '@/lib/validations/olt'
-
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
 
 /**
  * @swagger
@@ -45,18 +36,15 @@ async function requireAdmin() {
  *         description: OLT tidak ditemukan
  */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await requireAdmin(_req)
+  if (session instanceof NextResponse) return session
   const { id } = await params
-    const { provider } = await params
   const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
   if (!olt) {
     return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
   }
-      const { id } = await params
-    const { provider } = await params
-return NextResponse.json({ olt })
+  return NextResponse.json({ olt })
 }
 
 /**
@@ -184,18 +172,15 @@ return NextResponse.json({ olt })
  *               $ref: '#/components/schemas/Error'
  */
 export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await requireAdmin(_req)
+  if (session instanceof NextResponse) return session
   const { id } = await params
-    const { provider } = await params
   const body = await _req.json()
   const parsed = oltUpdateSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-      const { id } = await params
-    const { provider } = await params
-const oltRepository = getOLTRepository()
+  const oltRepository = getOLTRepository()
   const data: any = {}
   if (parsed.data.name !== undefined) data.name = parsed.data.name
   if (parsed.data.ipAddress !== undefined) data.ipAddress = parsed.data.ipAddress
@@ -272,14 +257,10 @@ const oltRepository = getOLTRepository()
  *               $ref: '#/components/schemas/Error'
  */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await requireAdmin(_req)
+  if (session instanceof NextResponse) return session
   const { id } = await params
-    const { provider } = await params
   const oltRepository = getOLTRepository()
   await oltRepository.delete(id)
   return NextResponse.json({ ok: true })
 }
-
-    const { id } = await params
-    const { provider } = await params

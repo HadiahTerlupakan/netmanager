@@ -4,10 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/route-protection'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { requireAuth } from '@/lib/auth-helpers'
+import { prisma } from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 // Cache next ID for 1 minute to avoid excessive DB calls during rapid form interactions
 let cachedNextId: { id: string; timestamp: number } | null = null
@@ -28,14 +27,19 @@ function getNextEmployeeId(lastId: string | null): string {
 }
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
+  
   // Check authentication
   const authError = await requireAuth(request)
   if (authError) return authError
 
   try {
+    // Validate request
+    const url = new URL(request.url)
+    const forceRefresh = url.searchParams.get('forceRefresh') === 'true'
     // Check cache first (valid for 1 minute)
     const now = Date.now()
-    if (cachedNextId && (now - cachedNextId.timestamp) < 60000) {
+    if (!forceRefresh && cachedNextId && (now - cachedNextId.timestamp) < 60000) {
       return NextResponse.json({
         success: true,
         nextId: cachedNextId.id
@@ -60,12 +64,28 @@ export async function GET(request: NextRequest) {
       timestamp: now
     }
 
+    logger.apiRequest('GET', '/api/employees/next-id', 200, Date.now() - startTime, {
+      nextId,
+    })
+    
     return NextResponse.json({
       success: true,
       nextId
     })
-  } catch (error) {
-    console.error('Error generating employee ID:', error)
+  } catch (error: any) {
+    logger.error('Error generating employee ID', error, {
+      path: '/api/employees/next-id',
+      method: 'GET',
+    })
+    
+    // Handle specific database errors
+    if (error.code === 'P1001') {
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 503 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Failed to generate employee ID' },
       { status: 500 }

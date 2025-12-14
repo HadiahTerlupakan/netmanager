@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { hargaPaketSchema } from '@/lib/validations/hargapaket'
 import { sanitizeInput } from '@/lib/utils/sanitize'
@@ -53,9 +52,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAuth(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     const { id } = await params
@@ -178,13 +177,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session: any = await getServerSession(authConfig as any)
-    if (!session || false) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    const session = await requireAuth(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     const { id } = await params
-    const { provider } = await params
     const body = await req.json()
     
     // Sanitize input
@@ -334,13 +332,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session: any = await getServerSession(authConfig as any)
-    if (!session || false) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    const session = await requireAuth(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     const { id } = await params
-    const { provider } = await params
     await prisma.hargaPaket.delete({
       where: { id },
     })

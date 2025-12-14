@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { Invoice, Payment } from '@prisma/client'
+import type { Invoice, Payment } from '@prisma/client'
 
 /**
  * @swagger

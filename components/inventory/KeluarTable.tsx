@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { FiEdit, FiTrash2, FiEye, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText, FiUser } from 'react-icons/fi'
+import { getWithAuth, deleteWithAuth } from '@/lib/api-client'
 
 interface BarangKeluar {
   id: string
@@ -65,7 +66,7 @@ export function KeluarTable({ onEdit, onView, refreshTrigger = 0 }: KeluarTableP
           limit: '20'
         })
 
-        const response = await fetch(`/api/inventory/keluar?${params}`)
+        const response = await getWithAuth(`/api/inventory/keluar?${params}`)
         const data = await response.json()
 
         if (!response.ok) {
@@ -91,9 +92,7 @@ export function KeluarTable({ onEdit, onView, refreshTrigger = 0 }: KeluarTableP
     }
 
     try {
-      const response = await fetch(`/api/inventory/keluar/${id}`, {
-        method: 'DELETE',
-      })
+      const response = await deleteWithAuth(`/api/inventory/keluar/${id}`)
 
       if (!response.ok) {
         throw new Error('Gagal menghapus record barang keluar')

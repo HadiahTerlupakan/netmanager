@@ -1,16 +1,7 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
 
 /**
  * Generate automatic warehouse code
@@ -56,13 +47,12 @@ async function generateGudangCode(): Promise<string> {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to GET /api/inventory/gudang')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAdmin(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     try {
@@ -161,13 +151,12 @@ export async function GET() {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to POST /api/inventory/gudang')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAdmin(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     const body = await req.json()

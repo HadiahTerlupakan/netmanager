@@ -26,9 +26,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
         const { id } = await params
-    const { provider } = await params
-// Unpack params since it's a Promise in Next.js 16
-    const { id } = await params
         try {
       const dbStart = Date.now()
 
@@ -96,10 +93,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
         const { id } = await params
-    const { provider } = await params
-// Unpack params since it's a Promise in Next.js 16
-    const { id } = await params
-    const { provider } = await params
     const body = await req.json()
     const {
       stokFisik,
@@ -259,9 +252,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
         const { id } = await params
-    const { provider } = await params
-// Unpack params since it's a Promise in Next.js 16
-    const { id } = await params
         // Validate ID
     if (!id || id.trim() === '') {
       return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })

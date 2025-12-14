@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { requireAdmin, getCurrentSession } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
 
 /**
  * @swagger
@@ -153,11 +144,8 @@ async function requireAdmin() {
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to GET /api/inventory/barang')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Cek autentikasi admin menggunakan fungsi terpusat
+    const session = await requireAdmin(req)
 
     const searchParams = req.nextUrl.searchParams
     const gudangId = searchParams.get('gudangId')
@@ -286,11 +274,8 @@ async function generateBarangCode(): Promise<string> {
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to POST /api/inventory/barang')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Cek autentikasi admin menggunakan fungsi terpusat
+    const session = await requireAdmin(req)
 
     const body = await req.json()
     const { nama, satuan } = body

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
@@ -108,15 +107,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAuth(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
-        const { id } = await params
-    const { provider } = await params
-const { id } = await params
-    const { provider } = await params
+    const { id } = await params
     const profilePPP = await prisma.profilePPP.findUnique({
       where: { id },
       include: {
@@ -282,13 +278,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session: any = await getServerSession(authConfig as any)
-    if (!session || false) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    const session = await requireAuth(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     const { id } = await params
-    const { provider } = await params
     const body = await req.json()
     
     // Ambil data profile lama untuk cek router sebelumnya
@@ -481,13 +476,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session: any = await getServerSession(authConfig as any)
-    if (!session || false) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    const session = await requireAuth(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     const { id } = await params
-    const { provider } = await params
     
     // Ambil data profile sebelum dihapus untuk hapus di MikroTik
     const profile = await prisma.profilePPP.findUnique({

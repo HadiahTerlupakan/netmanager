@@ -16,30 +16,24 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
-    const { provider } = await params
   const speedProfileRepository = getSpeedProfileRepository()
   const speedProfile = await speedProfileRepository.findById(id)
   if (!speedProfile) {
     return NextResponse.json({ error: 'SpeedProfile tidak ditemukan' }, { status: 404 })
   }
-      const { id } = await params
-    const { provider } = await params
-return NextResponse.json({ speedProfile })
+  return NextResponse.json({ speedProfile })
 }
 
 export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
-    const { provider } = await params
   const body = await _req.json()
   const parsed = speedProfileUpdateSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-      const { id } = await params
-    const { provider } = await params
-const speedProfileRepository = getSpeedProfileRepository()
+  const speedProfileRepository = getSpeedProfileRepository()
   const data: any = {}
   if (parsed.data.profileType !== undefined) data.profileType = parsed.data.profileType
   if (parsed.data.name !== undefined) data.name = parsed.data.name
@@ -62,11 +56,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
-    const { provider } = await params
   const speedProfileRepository = getSpeedProfileRepository()
   await speedProfileRepository.delete(id)
   return NextResponse.json({ ok: true })
 }
-
-    const { id } = await params
-    const { provider } = await params

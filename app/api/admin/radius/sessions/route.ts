@@ -99,20 +99,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authConfig } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/lib/repositories/RadiusRepository';
 
 export async function GET(req: NextRequest) {
     try {
         // Auth check
-        const session = await getServerSession(authConfig);
-        if (!session?.user || false) {
-            return NextResponse.json(
-                { error: 'Unauthorized - Admin access required' },
-                { status: 401 }
-            );
+        const session = await requireAdmin(req);
+        if (session instanceof NextResponse) {
+            return session; // Return error response if authentication fails
         }
 
         const { searchParams } = new URL(req.url);

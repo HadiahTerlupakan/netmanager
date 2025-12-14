@@ -1,16 +1,7 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { NextResponse, NextRequest } from 'next/server'
+import { requireAdmin, getCurrentSession } from '@/lib/auth-helpers'
 import { getOLTRepository } from '@/lib/repositories'
 import { oltCreateSchema } from '@/lib/validations/olt'
-
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
 
 /**
  * @swagger
@@ -47,10 +38,10 @@ async function requireAdmin() {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Cek autentikasi admin menggunakan fungsi terpusat
+    const session = await requireAdmin(req)
     const oltRepository = getOLTRepository()
     const olts = await oltRepository.findAll()
     return NextResponse.json({ olts })
@@ -178,9 +169,10 @@ export async function GET() {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export async function POST(req: Request) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function POST(req: NextRequest) {
+  // Cek autentikasi admin menggunakan fungsi terpusat
+  const session = await requireAdmin(req)
+  
   const json = await req.json()
   const parsed = oltCreateSchema.safeParse(json)
   if (!parsed.success) {

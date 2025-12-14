@@ -28,14 +28,15 @@ export async function apiFetch(url: string, options?: RequestInit): Promise<Resp
  * API endpoints that are commonly used
  */
 export const API_ENDPOINTS = {
-    EMPLOYEE: {
-        DASHBOARD: '/api/employee/dashboard',
-        ATTENDANCE_TODAY: '/api/employee/attendance/today',
-        LEAVES: '/api/employee/leaves',
-        PAYSLIPS: '/api/employee/payslips',
-        ME: '/api/employee/me',
+    // All endpoints now use ADMIN role
+    ADMIN: {
+        DASHBOARD: '/api/admin/dashboard',
+        ATTENDANCE_TODAY: '/api/admin/attendance/today',
+        LEAVES: '/api/admin/leaves',
+        PAYSLIPS: '/api/admin/payslips',
+        ME: '/api/admin/me',
     },
-    // Legacy HRIS endpoints (deprecated - use EMPLOYEE instead)
+    // Legacy HRIS endpoints (deprecated - use ADMIN instead)
     HRIS: {
         ATTENDANCE_SUMMARY: '/api/hris/attendance/summary',
         LEAVES_BALANCE: '/api/hris/leaves/balance',

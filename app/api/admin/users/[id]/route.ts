@@ -1,18 +1,9 @@
 // Cleaned up file content
 import { NextResponse, type NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { requireAdmin } from '@/lib/auth-helpers'
 import { getUserRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
-
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session) {
-    return null
-  }
-  return session
-}
 
 /**
  * @swagger
@@ -64,12 +55,38 @@ async function requireAdmin() {
  *         description: User tidak ditemukan
  */
 export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await requireAdmin(_req)
+  if (session instanceof NextResponse) return session
   const { id } = await params
-  const body = await _req.json()
+  
+  let body
+  try {
+    body = await _req.json()
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Invalid JSON in request body' },
+      { status: 400 }
+    )
+  }
 
   console.log('[USER-UPDATE] Updating user:', { id, body })
+
+  // Validate input
+  if (body.name !== undefined && typeof body.name !== 'string') {
+    return NextResponse.json(
+      { error: 'Name must be a string' },
+      { status: 400 }
+    )
+  }
+  
+  if (body.password !== undefined) {
+    if (typeof body.password !== 'string' || body.password.length < 6) {
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters long' },
+        { status: 400 }
+      )
+    }
+  }
 
   // Handle user data update
   const data: any = {}
@@ -78,18 +95,34 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
 
   console.log('[USER-UPDATE] Data to update:', data)
 
-  // Update user
-  const updatedUser = await prisma.user.update({
-    where: { id },
-    data,
-  })
+  try {
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data,
+    })
 
-  console.log('[USER-UPDATE] User updated successfully:', {
-    id: updatedUser.id,
-    email: updatedUser.email,
-  })
+    console.log('[USER-UPDATE] User updated successfully:', {
+      id: updatedUser.id,
+      email: updatedUser.email,
+    })
 
-  return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true })
+  } catch (error: any) {
+    console.error('[USER-UPDATE] Error updating user:', error)
+    
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
+    }
+    
+    return NextResponse.json(
+      { error: 'Failed to update user' },
+      { status: 500 }
+    )
+  }
 }
 
 /**
@@ -202,9 +235,18 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
  *               $ref: '#/components/schemas/Error'
  */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await requireAdmin(_req)
+  if (session instanceof NextResponse) return session
   const { id } = await params
+  
+  // Validate ID
+  if (!id || typeof id !== 'string') {
+    return NextResponse.json(
+      { error: 'Invalid user ID' },
+      { status: 400 }
+    )
+  }
+  
   try {
     // Fetch user
     const user = await prisma.user.findUnique({
@@ -274,6 +316,23 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({ user: { ...user, employee } })
   } catch (e: any) {
+    console.error('[USER-GET] Error fetching user:', e)
+    
+    // Handle specific database errors
+    if (e.code === 'P1001') {
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 503 }
+      )
+    }
+    
+    if (e.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Database constraint violation' },
+        { status: 409 }
+      )
+    }
+    
     return NextResponse.json({ error: e.message || 'Gagal memuat pengguna' }, { status: 500 })
   }
 }
@@ -312,10 +371,35 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
  *         description: User tidak ditemukan
  */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await requireAdmin(_req)
+  if (session instanceof NextResponse) return session
   const { id } = await params
-  const userRepository = getUserRepository()
-  await userRepository.delete(id)
-  return NextResponse.json({ ok: true })
+  
+  // Validate ID
+  if (!id || typeof id !== 'string') {
+    return NextResponse.json(
+      { error: 'Invalid user ID' },
+      { status: 400 }
+    )
+  }
+  
+  try {
+    const userRepository = getUserRepository()
+    await userRepository.delete(id)
+    return NextResponse.json({ ok: true })
+  } catch (error: any) {
+    console.error('[USER-DELETE] Error deleting user:', error)
+    
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
+    }
+    
+    return NextResponse.json(
+      { error: 'Failed to delete user' },
+      { status: 500 }
+    )
+  }
 }

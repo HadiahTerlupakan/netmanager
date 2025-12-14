@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { requireAuth, requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import { promises as fs } from 'fs'
@@ -193,9 +192,8 @@ export async function GET(
   try {
     const { id } = await params
         // Cek apakah ini request dari admin (user dengan session valid)
-    const session: any = await getServerSession(authConfig as any)
-    // User dengan session valid dianggap admin (bisa akses dari admin portal)
-    const isAdmin = session && session.user
+    const session = await requireAdmin(req)
+    const isAdmin = !(session instanceof NextResponse) // If session is not NextResponse, it's a valid session
 
     // Jika bukan admin, cek token pelanggan
     if (!isAdmin) {
@@ -468,14 +466,12 @@ export async function PUT(
 ) {
   try {
     // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAdmin(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
         const { id } = await params
-    const { provider } = await params
-const { id } = await params
         // Debug: Log ID yang diterima
     console.log('[PUT Pelanggan] ID diterima:', id, 'Type:', typeof id)
 
@@ -944,14 +940,12 @@ export async function DELETE(
 ) {
   try {
     // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAdmin(req)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
         const { id } = await params
-    const { provider } = await params
-const { id } = await params
         // Debug: Log ID yang diterima
     console.log('[DELETE Pelanggan] ID diterima:', id, 'Type:', typeof id)
 

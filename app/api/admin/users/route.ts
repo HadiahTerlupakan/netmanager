@@ -1,20 +1,10 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { NextResponse, NextRequest } from 'next/server'
+import { requireAdmin, getCurrentSession } from '@/lib/auth-helpers'
 import { getUserRepository } from '@/lib/repositories'
 import { userCreateSchema } from '@/lib/validations/user'
 import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { logger } from '@/lib/logger'
-
-// Check if user is authenticated
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session) {
-    return null
-  }
-  return session
-}
 
 /**
  * @swagger
@@ -51,14 +41,11 @@ async function requireAdmin() {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to GET /api/users')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Cek autentikasi admin menggunakan fungsi terpusat
+    const session = await requireAdmin(req)
 
     try {
       const dbStart = Date.now()
@@ -130,6 +117,22 @@ export async function GET() {
       path: '/api/users',
       method: 'GET',
     })
+    
+    // Handle specific database errors
+    if (error.code === 'P1001') {
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 503 }
+      )
+    }
+    
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Database constraint violation' },
+        { status: 409 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Gagal memuat data pengguna' },
       { status: 500 }
@@ -205,31 +208,52 @@ export async function GET() {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to POST /api/users')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Cek autentikasi admin menggunakan fungsi terpusat
+    const session = await requireAdmin(req)
 
-    const formData = await req.json()
+    let formData
+    try {
+      formData = await req.json()
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      )
+    }
+    
     const {
       email, name, password,
       employeeId, phone, departmentId, positionId, joinDate
     } = formData
 
-    // Validate required fields 
-    // Removed role validation
-    const parsed = userCreateSchema.safeParse({ email, name, password, role: 'USER' })
+    // Validate required fields
+    const parsed = userCreateSchema.safeParse({ email, name, password, role: 'ADMIN' })
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
     }
 
-    if (!employeeId || !joinDate) {
+    if (!employeeId) {
       return NextResponse.json(
-        { error: 'Missing required fields: employeeId, joinDate' },
+        { error: 'Employee ID is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!joinDate) {
+      return NextResponse.json(
+        { error: 'Join date is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate joinDate format
+    const joinDateObj = new Date(joinDate)
+    if (isNaN(joinDateObj.getTime())) {
+      return NextResponse.json(
+        { error: 'Invalid join date format' },
         { status: 400 }
       )
     }
@@ -285,7 +309,7 @@ export async function POST(req: Request) {
           userId: user.id
         })
 
-        // Role creation removed
+        // All users are now ADMIN by default
 
         return { user, employee }
       })
@@ -320,9 +344,33 @@ export async function POST(req: Request) {
         method: 'POST',
       })
 
+      // Handle specific database errors
+      if (e.code === 'P1001') {
+        return NextResponse.json(
+          { error: 'Database connection failed' },
+          { status: 503 }
+        )
+      }
+
       if (e.code === 'P2002') {
         // Prisma unique constraint error
         return NextResponse.json({ error: 'Email or Employee ID already exists' }, { status: 409 })
+      }
+
+      if (e.code === 'P2003') {
+        // Foreign key constraint error
+        return NextResponse.json(
+          { error: 'Invalid department, position, or site reference' },
+          { status: 400 }
+        )
+      }
+
+      // Handle JSON parsing errors
+      if (e instanceof SyntaxError && e.message.includes('JSON')) {
+        return NextResponse.json(
+          { error: 'Invalid JSON in request body' },
+          { status: 400 }
+        )
       }
 
       return NextResponse.json(

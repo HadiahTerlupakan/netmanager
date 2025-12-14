@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
 import { getOnuRepository } from '@/lib/repositories'
-import { verifyAuth } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth-helpers'
 
 /**
  * @swagger
@@ -55,14 +53,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Authentication check using verifyAuth (consistent with other ONU endpoints)
-    const user = await verifyAuth(req)
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Authentication check using centralized auth helper
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) {
+      return auth
     }
 
     const { id } = await params
-    const { provider } = await params
     const onuRepo = getOnuRepository()
     
     const onu = await onuRepo.findByGponOnu('', id) // We'll search by gponOnu instead of ID
@@ -320,14 +317,13 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Authentication check
-    const user = await verifyAuth(req)
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Authentication check using centralized auth helper
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) {
+      return auth
     }
 
     const { id } = await params
-    const { provider } = await params
     const body = await req.json()
     
     // First check if ONU exists
@@ -458,14 +454,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Authentication check
-    const user = await verifyAuth(req)
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Authentication check using centralized auth helper
+    const auth = await requireAuth(req)
+    if (auth instanceof NextResponse) {
+      return auth
     }
 
     const { id } = await params
-    const { provider } = await params
     const onuRepo = getOnuRepository()
     
     // First check if ONU exists

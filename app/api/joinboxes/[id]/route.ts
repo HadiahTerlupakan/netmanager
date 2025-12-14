@@ -15,7 +15,6 @@ async function requireAdmin() {
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-    const { provider } = await params
   const item = await prisma.joinbox.findUnique({
     where: { id },
     include: {
@@ -30,16 +29,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { id } = await params
   const json = await req.json()
   const parsed = joinboxUpdateSchema.safeParse(json)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-      const { id } = await params
-    const { provider } = await params
-const repo = getJoinboxRepository()
-  const { id } = await params
-    const { provider } = await params
+  const repo = getJoinboxRepository()
   await repo.update(id, parsed.data as any)
   return NextResponse.json({ ok: true })
 }
@@ -49,11 +45,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const repo = getJoinboxRepository()
   const { id } = await params
-    const { provider } = await params
   await repo.delete(id)
   return NextResponse.json({ ok: true })
 }
 
 
-    const { id } = await params
-    const { provider } = await params

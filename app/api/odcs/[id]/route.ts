@@ -16,7 +16,6 @@ async function requireAdmin() {
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   // Publik: memudahkan pemuatan form edit di client
   const { id } = await params
-    const { provider } = await params
   const odc = await prisma.odc.findUnique({
     where: { id },
     include: {
@@ -31,16 +30,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { id } = await params
   const json = await req.json()
   const parsed = odcUpdateSchema.safeParse(json)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-      const { id } = await params
-    const { provider } = await params
-const repo = getOdcRepository()
-  const { id } = await params
-    const { provider } = await params
+  const repo = getOdcRepository()
   const updateData: any = {
     ...(parsed.data.name !== undefined && { name: parsed.data.name }),
     ...(parsed.data.location !== undefined && { location: parsed.data.location }),
@@ -67,9 +63,8 @@ const repo = getOdcRepository()
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const repo = getOdcRepository()
   const { id } = await params
-    const { provider } = await params
+  const repo = getOdcRepository()
   
   // Cek apakah ada ODP yang masih menggunakan output dari ODC ini
   const odc = await prisma.odc.findUnique({
@@ -81,8 +76,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'ODC tidak ditemukan' }, { status: 404 })
   }
   
-      const { id } = await params
-    const { provider } = await params
 const odpsUsingOutputs = odc.outputs.filter(o => o.odp !== null).map(o => o.odp!.name)
   
   if (odpsUsingOutputs.length > 0) {

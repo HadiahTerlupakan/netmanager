@@ -127,12 +127,15 @@ export async function GET(req: NextRequest) {
       prisma.payment.findMany({
         where,
         include: {
-          pelanggan: {
+          invoice: {
             include: {
-              hargaPaket: true,
+              pelanggan: {
+                include: {
+                  hargaPaket: true,
+                },
+              },
             },
           },
-          invoice: true,
         },
         orderBy: { paymentDate: 'desc' },
         skip,
@@ -294,12 +297,15 @@ export async function POST(req: NextRequest) {
         verifiedBy: session.user?.id,
       },
       include: {
-        pelanggan: {
+        invoice: {
           include: {
-            hargaPaket: true,
+            pelanggan: {
+              include: {
+                hargaPaket: true,
+              },
+            },
           },
         },
-        invoice: true,
       },
     })
 

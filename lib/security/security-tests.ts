@@ -106,7 +106,7 @@ export class SecurityTests {
       // Test JWT signing and verification
       const testPayload = {
         userId: 'test-user',
-        role: 'USER',
+        role: 'ADMIN',
         type: 'TEST'
       }
 

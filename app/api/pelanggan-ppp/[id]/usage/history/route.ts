@@ -177,13 +177,10 @@ export async function GET(
   try {
     const { id } = await params
         // Check authentication
-    const session: any = await getServerSession(authConfig as any)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-        const { id } = await params
-    const { provider } = await params
+        const session: any = await getServerSession(authConfig as any)
+        if (!session) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
 // Get customer information
     const pelanggan = await prisma.pelanggan.findUnique({
       where: { id },

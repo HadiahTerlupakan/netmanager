@@ -207,9 +207,6 @@ export async function GET(
     }
 
         const { id } = await params
-    const { provider } = await params
-const { id } = await params
-    const { provider } = await params
     const oltRepository = getOLTRepository()
     const olt = await oltRepository.findById(id)
 

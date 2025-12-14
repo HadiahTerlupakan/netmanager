@@ -1,21 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { validateInventoryPhotos, uploadInventoryPhotos } from '@/lib/utils/image-upload'
 import * as path from 'path'
-
-/**
- * Authentication helper - requires ADMIN or EMPLOYEE role
- */
-async function requireAuth() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || !['ADMIN', 'EMPLOYEE'].includes(session?.user?.role)) {
-    return null
-  }
-  return session
-}
 
 /**
  * POST /api/inventory/upload-photo
@@ -42,16 +30,9 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now()
   try {
     // Authentication
-    const session = await requireAuth()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to POST /api/inventory/upload-photo', {
-        ip: request.headers.get('x-forwarded-for') || 'unknown',
-        userAgent: request.headers.get('user-agent')
-      })
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin or Employee access required' },
-        { status: 401 }
-      )
+    const session = await requireAdmin(request)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     // Parse form data
@@ -261,13 +242,9 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
   try {
     // Authentication
-    const session = await requireAuth()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to GET /api/inventory/upload-photo')
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin or Employee access required' },
-        { status: 401 }
-      )
+    const session = await requireAdmin(request)
+    if (session instanceof NextResponse) {
+      return session // Return error response if authentication fails
     }
 
     const searchParams = request.nextUrl.searchParams

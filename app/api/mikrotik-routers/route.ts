@@ -1,16 +1,7 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { NextResponse, NextRequest } from 'next/server'
 import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { mikrotikRouterCreateSchema } from '@/lib/validations/mikrotik'
-
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
+import { requireAdmin } from '@/lib/auth-helpers'
 
 /**
  * @swagger
@@ -132,10 +123,10 @@ async function requireAdmin() {
  *       500:
  *         $ref: '#/components/responses/Error'
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Cek autentikasi admin menggunakan fungsi terpusat
+    const session = await requireAdmin(req)
     const routerRepository = getMikroTikRouterRepository()
     const routers = await routerRepository.findAll()
     return NextResponse.json({ routers })
@@ -149,8 +140,9 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
-  const session = await requireAdmin()
+export async function POST(req: NextRequest) {
+  // Cek autentikasi admin menggunakan fungsi terpusat
+  const session = await requireAdmin(req)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const json = await req.json()
   const parsed = mikrotikRouterCreateSchema.safeParse(json)
