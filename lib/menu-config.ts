@@ -1,22 +1,19 @@
 /**
- * Shared Menu Configuration
- * 
- * Single source of truth for all admin portal menus.
+ * Static Menu Configuration
+ *
+ * Fixed menu configuration for admin portal.
  * Used by:
  * - Sidebar (components/layout/Sidebar.tsx)
- * - Role Permission Matrix (components/roles/PermissionMatrixEditor.tsx)
- * 
+ *
  * HOW TO ADD NEW MENU:
  * 1. Tambahkan menu baru ke array ADMIN_MENU_CONFIG di bawah
  * 2. Format: { code: 'CODE', name: 'Display Name', path: '/admin/path', icon: 'IconName' }
  * 3. Untuk submenu, tambahkan property `children` dengan array submenu
  * 4. Restart aplikasi untuk melihat perubahan
- * 
- * Lihat dokumentasi lengkap di: docs/menu-configuration.md
  */
 
 export interface MenuConfig {
-    code: string           // Unique identifier (used for permissions)
+    code: string           // Unique identifier
     name: string           // Display name
     path: string | null    // Route path, null if only parent container
     icon?: string          // Icon name from react-icons/hi2 (optional)
@@ -26,8 +23,8 @@ export interface MenuConfig {
 
 /**
  * Admin Portal Menu Configuration
- * 
- * Kode permission menggunakan format:
+ *
+ * Menu codes menggunakan format:
  * - Parent: 'NETWORK', 'FTTH', 'PELANGGAN', etc.
  * - Child: 'NETWORK.MIKROTIK', 'NETWORK.OLT', etc.
  */
@@ -38,12 +35,6 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: '/admin',
         icon: 'HiOutlineChartBar',
         exact: true
-    },
-    {
-        code: 'ROLES',
-        name: 'Roles',
-        path: '/admin/roles',
-        icon: 'HiOutlineShieldCheck'
     },
     {
         code: 'NETWORK',
@@ -119,16 +110,6 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineUsers'
     },
     {
-        code: 'HELPDESK',
-        name: 'Helpdesk',
-        path: '/admin/helpdesk',
-        icon: 'HiOutlineQuestionMarkCircle',
-        children: [
-            { code: 'HELPDESK.DASHBOARD', name: 'Dashboard', path: '/admin/helpdesk', icon: 'HiOutlineChartBar', exact: true },
-            { code: 'HELPDESK.TIKET', name: 'Semua Tiket', path: '/admin/helpdesk/tiket', icon: 'HiOutlineQuestionMarkCircle' },
-        ],
-    },
-    {
         code: 'WORKORDERS',
         name: 'Work Orders',
         path: '/admin/workorders',
@@ -138,33 +119,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'WORKORDERS.LIST', name: 'All Work Orders', path: '/admin/workorders/list', icon: 'HiOutlineClipboard' },
         ],
     },
-    {
-        code: 'HRIS',
-        name: 'HRIS',
-        path: '/admin/hris',
-        icon: 'HiOutlineUserGroup',
-        children: [
-            { code: 'HRIS.DASHBOARD', name: 'Dashboard', path: '/admin/hris', icon: 'HiOutlineChartBar', exact: true },
-            { code: 'HRIS.KPI', name: 'KPI Dashboard', path: '/admin/kpi', icon: 'HiOutlinePresentationChartLine' },
-            { code: 'HRIS.DEPARTMENTS', name: 'Departments', path: '/admin/hris/departments', icon: 'HiOutlineHome' },
-            { code: 'HRIS.SITES', name: 'Sites / Area', path: '/admin/hris/sites', icon: 'HiOutlineMap' },
-            { code: 'HRIS.ATTENDANCE', name: 'Attendance', path: '/admin/hris/attendance', icon: 'HiOutlineClock' },
-            { code: 'HRIS.LEAVES', name: 'Leave Management', path: '/admin/hris/leaves', icon: 'HiOutlineCalendar' },
-            { code: 'HRIS.PAYROLL', name: 'Payroll', path: '/admin/hris/payroll', icon: 'HiOutlineArrowTrendingUp' },
-        ],
-    },
-    {
-        code: 'FINANCE',
-        name: 'Finance',
-        path: '/admin/finance',
-        icon: 'HiOutlineCurrencyDollar',
-        children: [
-            { code: 'FINANCE.TAGIHAN', name: 'Tagihan', path: '/admin/finance/tagihan', icon: 'HiOutlineDocumentText' },
-            { code: 'FINANCE.CASHFLOW', name: 'Cashflow & Pengeluaran', path: '/admin/finance/cashflow', icon: 'HiOutlineArrowTrendingUp' },
-            { code: 'FINANCE.BANK_ACCOUNTS', name: 'Rekening Bank', path: '/admin/finance/bank-accounts', icon: 'HiOutlineArrowTrendingUp' },
-        ],
-    },
-    {
+      {
         code: 'PENGATURAN',
         name: 'Pengaturan',
         path: '/admin/pengaturan',

@@ -7,8 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { logger } from '@/lib/logger'
 
-// SIMPLIFIED RBAC: Only check if user is authenticated
-// Authorization is controlled by CustomRole at UI level
+// Check if user is authenticated
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
   if (!session) {
@@ -71,7 +70,7 @@ export async function GET() {
         },
       })
 
-      // Get all employees with their relations including CustomRole
+      // Get all employees
       const employees = await prisma.employee.findMany({
         where: {
           userId: {
@@ -91,17 +90,6 @@ export async function GET() {
               title: true,
             },
           },
-          customRoles: {
-            include: {
-              role: {
-                select: {
-                  id: true,
-                  name: true,
-                  code: true,
-                }
-              }
-            }
-          },
         },
       })
 
@@ -109,16 +97,13 @@ export async function GET() {
       const employeeMap = new Map()
       employees.forEach(emp => {
         if (emp.userId) {
-          // Get the first custom role (if any)
-          const primaryRole = emp.customRoles?.[0]?.role
           employeeMap.set(emp.userId, {
             id: emp.id,
             employeeId: emp.employeeId,
+            fullName: emp.fullName,
             department: emp.department,
             position: emp.position,
-            employmentStatus: emp.employmentStatus,
-            customRoleName: primaryRole?.name || null,
-            customRoleCode: primaryRole?.code || null,
+            status: emp.status,
           })
         }
       })
@@ -171,7 +156,6 @@ export async function GET() {
  *             required:
  *               - email
  *               - password
- *               - role
  *             properties:
  *               email:
  *                 type: string
@@ -185,10 +169,6 @@ export async function GET() {
  *                 type: string
  *                 minLength: 8
  *                 example: password123
- *               role:
- *                 type: string
- *                 enum: [USER, ADMIN]
- *                 example: USER
  *     responses:
  *       200:
  *         description: Pengguna berhasil dibuat
@@ -236,15 +216,12 @@ export async function POST(req: Request) {
 
     const formData = await req.json()
     const {
-      email, name, password, roleId,
-      employeeId, phone, dateOfBirth, gender, idCardNumber,
-      address, city, province, departmentId, positionId,
-      employmentStatus, joinDate, probationEndDate,
-      bankName, bankAccountNumber, bankAccountName, npwp,
-      emergencyName, emergencyPhone, emergencyRelation
+      email, name, password,
+      employeeId, phone, departmentId, positionId, joinDate
     } = formData
 
-    // Validate required fields using zod schema (use 'USER' as default role for schema validation)
+    // Validate required fields 
+    // Removed role validation
     const parsed = userCreateSchema.safeParse({ email, name, password, role: 'USER' })
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
@@ -257,86 +234,8 @@ export async function POST(req: Request) {
       )
     }
 
-    if (!roleId) {
-      return NextResponse.json(
-        { error: 'Role pengguna wajib dipilih' },
-        { status: 400 }
-      )
-    }
-
-    // Validate and fetch the custom role before proceeding
-    const customRole = await prisma.customRole.findUnique({
-      where: { id: roleId },
-      select: {
-        id: true,
-        name: true,
-        code: true,
-        isActive: true,
-        allowedFeatures: true,
-        priority: true,
-      }
-    })
-
-    if (!customRole) {
-      console.error('Custom role not found:', { roleId })
-      return NextResponse.json(
-        { error: 'Role yang dipilih tidak ditemukan' },
-        { status: 400 }
-      )
-    }
-
-    console.log('[USER-CREATION] Custom role found:', {
-      id: customRole.id,
-      name: customRole.name,
-      code: customRole.code,
-      isActive: customRole.isActive,
-      hasAllowedFeatures: !!customRole.allowedFeatures,
-    })
-
-    console.log('[USER-CREATION] Single Role System - Using custom role only:', {
-      customRoleName: customRole.name,
-      customRoleCode: customRole.code,
-      isActive: customRole.isActive,
-      hasPermissions: !!customRole.allowedFeatures
-    })
-
-    // Base role system removed - only custom roles are used now
-
-    if (!customRole.isActive) {
-      console.log('[USER-CREATION] WARNING: Custom role is inactive, activating it automatically')
-      // Auto-activate the role if it's inactive
-      await prisma.customRole.update({
-        where: { id: roleId },
-        data: { isActive: true }
-      })
-      console.log('[USER-CREATION] Custom role activated successfully')
-    }
-
-    // Validate allowedFeatures format
-    if (customRole.allowedFeatures) {
-      try {
-        const parsed = JSON.parse(customRole.allowedFeatures)
-        console.log('[USER-CREATION] Role allowedFeatures parsed successfully:', {
-          type: typeof parsed,
-          isArray: Array.isArray(parsed),
-          keys: Array.isArray(parsed) ? null : Object.keys(parsed || {}),
-        })
-      } catch (e) {
-        console.error('[USER-CREATION] ERROR: Invalid JSON in allowedFeatures:', customRole.allowedFeatures)
-        return NextResponse.json(
-          { error: 'Role yang dipilih memiliki format permission yang tidak valid' },
-          { status: 400 }
-        )
-      }
-    } else {
-      console.log('[USER-CREATION] WARNING: Custom role has no allowedFeatures')
-    }
-
     logger.info('Creating new user+employee', {
       email,
-      customRoleId: customRole.id,
-      customRoleName: customRole.name,
-      customRoleCode: customRole.code,
       employeeId,
       createdBy: session.user.id,
     })
@@ -344,10 +243,10 @@ export async function POST(req: Request) {
     const passwordHash = await hash(password, 10)
 
     try {
-      // Create User + Employee + EmployeeRole in single transaction
+      // Create User + Employee in single transaction
       const result = await prisma.$transaction(async (tx) => {
         console.log('[USER-CREATION] Starting transaction...')
-        // 1. Create User (no base role - single role system)
+        // 1. Create User
         const user = await tx.user.create({
           data: {
             email,
@@ -368,24 +267,9 @@ export async function POST(req: Request) {
             fullName: name || email.split('@')[0],
             email,
             phone: phone || null,
-            dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-            gender: gender || null,
-            idCardNumber: idCardNumber || null,
-            address: address || null,
-            city: city || null,
-            province: province || null,
             departmentId: departmentId || null,
             positionId: positionId || null,
-            employmentStatus: employmentStatus || 'PROBATION',
             joinDate: new Date(joinDate),
-            probationEndDate: probationEndDate ? new Date(probationEndDate) : null,
-            bankName: bankName || null,
-            bankAccountNumber: bankAccountNumber || null,
-            bankAccountName: bankAccountName || null,
-            npwp: npwp || null,
-            emergencyName: emergencyName || null,
-            emergencyPhone: emergencyPhone || null,
-            emergencyRelation: emergencyRelation || null,
             userId: user.id,
             createdBy: session.user.id,
           },
@@ -401,28 +285,9 @@ export async function POST(req: Request) {
           userId: user.id
         })
 
-        // 3. Create EmployeeRole to assign role to employee
-        const employeeRole = await tx.employeeRole.create({
-          data: {
-            employeeId: employee.id,
-            roleId: roleId,
-            assignedBy: session.user.id,
-          },
-        })
+        // Role creation removed
 
-        logger.dbOperation('create', 'EmployeeRole', Date.now() - startTime, {
-          employeeRoleId: employeeRole.id,
-          employeeId: employee.id,
-          roleId: roleId,
-        })
-        console.log('[USER-CREATION] EmployeeRole created successfully:', {
-          employeeRoleId: employeeRole.id,
-          employeeId: employee.id,
-          roleId: roleId,
-          roleName: customRole.name
-        })
-
-        return { user, employee, employeeRole }
+        return { user, employee }
       })
 
       logger.apiRequest('POST', '/api/users', 200, Date.now() - startTime, {
@@ -434,7 +299,6 @@ export async function POST(req: Request) {
         userId: result.user.id,
         employeeId: result.employee.id,
         employeeNumber: result.employee.employeeId,
-        customRoleName: customRole.name,
       })
 
       return NextResponse.json({
@@ -448,7 +312,6 @@ export async function POST(req: Request) {
         code: e.code,
         meta: e.meta,
         cause: e.cause,
-        roleId: roleId,
         email: email,
         employeeId: employeeId,
       })

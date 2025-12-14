@@ -1,86 +1,12 @@
 import NextAuth from 'next-auth'
 import type { NextAuthOptions } from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
-import GoogleProvider from 'next-auth/providers/google'
-import GitHubProvider from 'next-auth/providers/github'
-import AzureADProvider from 'next-auth/providers/azure-ad'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from '@/lib/prisma'
 import { getUserRepository } from '@/lib/repositories'
 import { compare } from 'bcryptjs'
 import { checkRateLimit } from '@/lib/redis'
-import { getAllOAuthProviders } from '@/lib/auth-dynamic'
-import { canLinkAccount, logOAuthSecurityEvent } from './oauth-security'
 import { redis } from '@/lib/redis'
-import { getEmployeePermissions } from '@/lib/utils/permissions'
-
-// Fallback OAuth providers from environment variables
-function getFallbackOAuthProviders() {
-  const providers = []
-
-  // Google OAuth
-  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    providers.push(
-      GoogleProvider({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        allowDangerousEmailAccountLinking: false,
-        authorization: {
-          params: {
-            scope: 'openid email profile',
-            access_type: 'offline',
-            response_type: 'code',
-          },
-        },
-        client: {
-          token_endpoint_auth_method: 'client_secret_post',
-        },
-      })
-    )
-  }
-
-  // GitHub OAuth
-  if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
-    providers.push(
-      GitHubProvider({
-        clientId: process.env.GITHUB_CLIENT_ID,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET,
-        allowDangerousEmailAccountLinking: false,
-        authorization: {
-          params: {
-            scope: 'user:email',
-          },
-        },
-        client: {
-          token_endpoint_auth_method: 'client_secret_post',
-        },
-      })
-    )
-  }
-
-  // Microsoft Azure AD OAuth
-  if (process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET && process.env.AZURE_AD_TENANT_ID) {
-    providers.push(
-      AzureADProvider({
-        clientId: process.env.AZURE_AD_CLIENT_ID,
-        clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
-        tenantId: process.env.AZURE_AD_TENANT_ID,
-        allowDangerousEmailAccountLinking: false,
-        authorization: {
-          params: {
-            scope: 'openid email profile',
-            response_type: 'code',
-          },
-        },
-        client: {
-          token_endpoint_auth_method: 'client_secret_post',
-        },
-      })
-    )
-  }
-
-  return providers
-}
 
 // Database connection validation
 async function validateDatabaseConnection(): Promise<boolean> {
@@ -112,430 +38,7 @@ async function validateRedisConnection(): Promise<boolean> {
   }
 }
 
-// Dynamic auth configuration that loads OAuth providers at runtime
-export async function createAuthConfig(): Promise<NextAuthOptions> {
-  // Load OAuth providers dynamically, but handle failures gracefully
-  let oauthProviders = []
-  try {
-    // Only load OAuth providers if DYNAMIC_OAUTH is enabled
-    if (process.env.DYNAMIC_OAUTH === 'true') {
-      oauthProviders = await getAllOAuthProviders()
-      console.log('[AUTH] Loaded OAuth providers:', oauthProviders.length)
-    }
-  } catch (error) {
-    console.warn('[AUTH] Failed to load OAuth providers, continuing without them:', error)
-    oauthProviders = []
-  }
-
-  return {
-    adapter: PrismaAdapter(prisma) as any,
-    // IMPORTANT: Secret is required for JWT signing
-    secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
-    // Enable debug mode in development
-    debug: process.env.NODE_ENV === 'development',
-    session: {
-      strategy: 'jwt', // Use JWT for sessions (works for both OAuth and credentials)
-      maxAge: parseInt(process.env.SESSION_MAX_AGE || '604800'), // 7 days (default)
-      updateAge: parseInt(process.env.SESSION_UPDATE_AGE || '1800'), // 30 minutes (sliding expiration)
-    },
-    // Configure cookies for cross-subdomain support
-    cookies: {
-      sessionToken: {
-        name: `next-auth.session-token`,
-        options: {
-          httpOnly: true,
-          sameSite: 'lax',
-          path: '/',
-          // Fixed: Allow cookies in production even on HTTP for local deployment
-          // Only require secure in actual production with HTTPS
-          secure: process.env.NODE_ENV === 'production' &&
-            process.env.NEXTAUTH_URL?.startsWith('https://') &&
-            !process.env.NEXTAUTH_URL?.includes('localhost'),
-          // Only set domain if explicitly configured AND not localhost
-          // Setting a domain like '.localhost' is invalid and blocks cookies
-          domain: process.env.COOKIE_DOMAIN === 'localhost' ? undefined : process.env.COOKIE_DOMAIN
-        }
-      }
-    },
-    pages: {
-      signIn: '/login',
-      error: '/error',
-    },
-    providers: [
-      // Dynamic OAuth providers
-      ...oauthProviders,
-
-      // Credentials Provider (for backward compatibility with email/employee ID login)
-      Credentials({
-        name: 'Credentials',
-        credentials: {
-          username: { label: 'Email or Employee ID', type: 'text' },
-          email: { label: 'Email', type: 'email' },
-          identifier: { label: 'Identifier', type: 'text' }, // Added for finance portal
-          password: { label: 'Password', type: 'password' },
-        },
-        async authorize(credentials) {
-          try {
-            // Support 'identifier', 'email', or 'username' fields
-            const identifier = (credentials?.identifier || credentials?.username || credentials?.email)?.toLowerCase().trim()
-            const password = credentials?.password ?? ''
-
-            console.log('[AUTH] Login attempt with identifier:', identifier?.substring(0, 3) + '***')
-
-            if (!identifier || !password) {
-              console.log('[AUTH] Missing identifier or password')
-              return null
-            }
-
-            // Validate database connection before proceeding
-            const dbConnected = await validateDatabaseConnection()
-            if (!dbConnected) {
-              console.error('[AUTH] Database connection failed during login attempt')
-              throw new Error('Database connection error. Please try again later.')
-            }
-
-            // Validate Redis connection for rate limiting
-            const redisConnected = await validateRedisConnection()
-            if (!redisConnected) {
-              console.warn('[AUTH] Redis connection failed, proceeding without rate limiting')
-            } else {
-              // Rate limit percobaan login per identifier (mis. 500x per 5 menit untuk dev)
-              const allowed = await checkRateLimit(`login:${identifier}`, 500, 300)
-              if (!allowed) {
-                console.log('[AUTH] Rate limit exceeded for:', identifier)
-                throw new Error('Terlalu banyak percobaan. Coba lagi nanti.')
-              }
-            }
-
-            const userRepository = getUserRepository()
-            let user = null
-            let employee = null
-
-            // Check if identifier is an email or Employee ID
-            if (identifier.includes('@')) {
-              console.log('[AUTH] Attempting email login')
-              // Login dengan email
-              user = await userRepository.findByEmail(identifier)
-              console.log('[AUTH] User found by email:', !!user)
-
-              if (user) {
-                // Try to find employee data linked to this user
-                employee = await prisma.employee.findUnique({
-                  where: { userId: user.id },
-                  include: {
-                    department: true,
-                    position: true,
-                  },
-                })
-                console.log('[AUTH] Employee found for user:', !!employee)
-              }
-            } else {
-              console.log('[AUTH] Attempting Employee ID login')
-              // Login dengan Employee ID
-              employee = await prisma.employee.findUnique({
-                where: { employeeId: identifier.toUpperCase() }, // Ensure uppercase
-                include: {
-                  department: true,
-                  position: true,
-                },
-              })
-              console.log('[AUTH] Employee found:', !!employee)
-
-              // Employee-User Link Validation
-              if (employee && employee.userId) {
-                user = await prisma.user.findUnique({
-                  where: { id: employee.userId },
-                })
-                console.log('[AUTH] User found via employee:', !!user)
-              } else if (employee) {
-                console.warn('[AUTH] Employee found but no userId:', employee.employeeId)
-                throw new Error('Employee account is not properly linked to a user account. Please contact HR.')
-              }
-            }
-
-            if (!user) {
-              console.log('[AUTH] No user found for identifier:', identifier)
-              return null
-            }
-
-            // Verify password
-            console.log('[AUTH] Verifying password...')
-            const ok = await compare(password, user.passwordHash ?? '')
-            console.log('[AUTH] Password valid:', ok)
-
-            if (!ok) {
-              console.log('[AUTH] Password mismatch')
-              return null
-            }
-
-            console.log('[AUTH] Login successful for:', user.email)
-
-            // Get granular permissions
-            let permissions: string[] = []
-            console.log('[AUTH LOGIN] Checking permissions for user:', {
-              userId: user.id,
-              email: user.email,
-              hasEmployee: !!employee,
-              singleRoleSystem: true,
-            })
-
-            if (employee) {
-              console.log('[AUTH LOGIN] Employee found:', {
-                employeeId: employee.employeeId,
-                department: employee.department?.name,
-              })
-
-              const perms = await getEmployeePermissions(employee.employeeId)
-              console.log('[AUTH LOGIN] Permissions result:', {
-                hasPermissions: !!perms,
-                allowedFeaturesCount: perms?.allowedFeatures?.length || 0,
-                allowedFeatures: perms?.allowedFeatures || [],
-              })
-
-              if (perms) {
-                permissions = perms.allowedFeatures
-              }
-            } else {
-              console.log('[AUTH LOGIN] WARNING: No employee found for user')
-            }
-
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name ?? employee?.fullName ?? null,
-              image: null,
-              employeeId: employee?.employeeId,
-              employee: employee ? {
-                id: employee.id,
-                employeeId: employee.employeeId,
-                fullName: employee.fullName,
-                department: employee.department,
-                position: employee.position,
-              } : null,
-              permissions,
-            } as any
-          } catch (error) {
-            console.error('[AUTH] Error in authorize:', error)
-            throw error
-          }
-        },
-      }),
-    ],
-    callbacks: {
-      async signIn({ user, account, profile }) {
-        // For OAuth providers, handle account linking securely
-        if (account?.provider !== 'credentials') {
-          const provider = account?.provider
-          const email = user.email
-
-          if (!email) {
-            logOAuthSecurityEvent('OAUTH_SIGNIN_NO_EMAIL', { provider }, 'error')
-            return false
-          }
-
-          logOAuthSecurityEvent('OAUTH_SIGNIN_ATTEMPT', { provider, email })
-
-          // Check if account linking is allowed based on email verification
-          const canLink = await canLinkAccount(email)
-          if (!canLink) {
-            logOAuthSecurityEvent('OAUTH_ACCOUNT_LINKING_DENIED', { provider, email }, 'warn')
-            return false
-          }
-
-          // Check if user already exists
-          const existingUser = await prisma.user.findUnique({
-            where: { email },
-          })
-
-          // If user doesn't exist, create with email verification requirement
-          if (!existingUser) {
-            logOAuthSecurityEvent('OAUTH_NEW_USER', { provider, email })
-            // The Prisma adapter will create the user automatically
-            // We'll set emailVerified to null to require verification
-            return true
-          }
-
-          // If user exists but email is not verified, enforce verification
-          if (existingUser && !existingUser.emailVerified) {
-            logOAuthSecurityEvent('OAUTH_EMAIL_NOT_VERIFIED', { provider, email }, 'warn')
-            // For now, allow sign-in but mark as requiring verification
-            // In production, you might want to redirect to a verification page
-            return true
-          }
-
-          // For existing users with verified emails, ensure secure account linking
-          if (existingUser && existingUser.emailVerified && account) {
-            // Check if this OAuth account is already linked
-            const existingAccount = await prisma.account.findFirst({
-              where: {
-                provider: account.provider,
-                providerAccountId: account.providerAccountId,
-              }
-            })
-
-            if (!existingAccount) {
-              // This is a new OAuth account being linked to an existing user
-              logOAuthSecurityEvent('OAUTH_NEW_ACCOUNT_LINK', {
-                provider,
-                email,
-                providerAccountId: account.providerAccountId
-              })
-
-              // The adapter will handle the account linking
-              // We've already disabled allowDangerousEmailAccountLinking
-              return true
-            }
-          }
-
-          logOAuthSecurityEvent('OAUTH_SIGNIN_SUCCESS', { provider, email })
-        }
-
-        return true
-      },
-
-      async jwt({ token, user, account, trigger }) {
-        // Initial sign in
-        if (user) {
-          token.id = user.id
-          // For credentials users, check if they have employee data to determine role
-          token.role = (user as any).role || ((user as any).employee ? 'USER' : 'USER')
-          // Special case: If user has admin-like permissions, set role to ADMIN
-          if ((user as any).permissions && (user as any).permissions.length > 0) {
-            // Check if any permission starts with ADMIN or if they have high-level permissions
-            const hasAdminPermissions = (user as any).permissions.some((perm: string) =>
-              perm.includes('DASHBOARD') || perm.includes('ROLES') || perm.includes('PENGATURAN')
-            )
-            if (hasAdminPermissions) {
-              token.role = 'ADMIN'
-            }
-          }
-          token.employeeId = (user as any).employeeId
-          token.employee = (user as any).employee
-          token.permissions = (user as any).permissions
-
-          console.log('[AUTH JWT] Token set:', {
-            id: token.id,
-            email: token.email,
-            role: token.role,
-            permissionsCount: token.permissions?.length || 0,
-            permissions: token.permissions
-          })
-
-          // For OAuth sign in, fetch role from database
-          if (account?.provider !== 'credentials') {
-            const dbUser = await prisma.user.findUnique({
-              where: { id: user.id },
-            })
-
-            if (dbUser) {
-              // Base role system removed - token.role no longer needed
-
-              // Also fetch employee info for OAuth users
-              const employee = await prisma.employee.findUnique({
-                where: { userId: dbUser.id },
-                include: {
-                  department: true,
-                  position: true,
-                }
-              })
-
-              if (employee) {
-                token.employeeId = employee.employeeId
-                token.employee = {
-                  id: employee.id,
-                  employeeId: employee.employeeId,
-                  fullName: employee.fullName,
-                  department: employee.department,
-                  position: employee.position,
-                }
-
-                console.log('[AUTH JWT] OAuth user permissions check:', {
-                  userId: dbUser.id,
-                  email: dbUser.email,
-                  employeeId: employee.employeeId,
-                  singleRoleSystem: true,
-                })
-
-                const perms = await getEmployeePermissions(employee.employeeId)
-                console.log('[AUTH JWT] OAuth permissions result:', {
-                  hasPermissions: !!perms,
-                  allowedFeaturesCount: perms?.allowedFeatures?.length || 0,
-                  allowedFeatures: perms?.allowedFeatures || [],
-                })
-                token.permissions = perms?.allowedFeatures || []
-              } else {
-                console.log('[AUTH JWT] OAuth user has no employee linked:', {
-                  userId: dbUser.id,
-                  email: dbUser.email,
-                })
-              }
-            }
-          }
-        }
-
-        // Handle session updates
-        if (trigger === 'update') {
-          console.log('[AUTH JWT] Session update for user:', token.id)
-
-          // Refresh user data from database
-          const dbUser = await prisma.user.findUnique({
-            where: { id: token.id as string },
-          })
-
-          if (dbUser) {
-            // Base role system removed - token.role no longer needed
-            token.name = dbUser.name
-            token.email = dbUser.email
-            token.picture = dbUser.image
-
-            // Update permissions on session refresh
-            const employee = await prisma.employee.findUnique({
-              where: { userId: dbUser.id }
-            })
-            if (employee) {
-              console.log('[AUTH JWT] Session update - refreshing permissions:', {
-                userId: dbUser.id,
-                employeeId: employee.employeeId,
-              })
-              const perms = await getEmployeePermissions(employee.employeeId)
-              console.log('[AUTH JWT] Session update - new permissions:', {
-                hasPermissions: !!perms,
-                allowedFeaturesCount: perms?.allowedFeatures?.length || 0,
-              })
-              token.permissions = perms?.allowedFeatures || []
-            } else {
-              console.log('[AUTH JWT] Session update - no employee found for user:', dbUser.id)
-            }
-          }
-        }
-
-        return token
-      },
-
-      async session({ session, token }) {
-        if (session.user) {
-          (session.user as any).id = token.id;
-          (session.user as any).role = token.role;
-          (session.user as any).employeeId = token.employeeId;
-          (session.user as any).employee = token.employee;
-          (session.user as any).permissions = token.permissions || [];
-        }
-        return session
-      },
-    },
-    events: {
-      async linkAccount({ user }) {
-        // When OAuth account is linked, update emailVerified
-        await prisma.user.update({
-          where: { id: user.id! },
-          data: { emailVerified: new Date() },
-        })
-      },
-    },
-  }
-}
-
-// Fallback static configuration for when dynamic loading fails
+// Auth configuration with credentials provider only
 export const authConfig: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
   // IMPORTANT: Secret is required for JWT signing
@@ -543,7 +46,7 @@ export const authConfig: NextAuthOptions = {
   // Enable debug mode in development
   debug: process.env.NODE_ENV === 'development',
   session: {
-    strategy: 'jwt', // Use JWT for sessions (works for both OAuth and credentials)
+    strategy: 'jwt', // Use JWT for sessions
     maxAge: parseInt(process.env.SESSION_MAX_AGE || '604800'), // 7 days (default)
     updateAge: parseInt(process.env.SESSION_UPDATE_AGE || '1800'), // 30 minutes (sliding expiration)
   },
@@ -557,7 +60,7 @@ export const authConfig: NextAuthOptions = {
         path: '/',
         // Secure hanya jika production DAN URL diawali https
         secure: process.env.NODE_ENV === 'production' && process.env.NEXTAUTH_URL?.startsWith('https://'),
-        domain: process.env.COOKIE_DOMAIN
+        domain: process.env.COOKIE_DOMAIN === 'localhost' ? undefined : process.env.COOKIE_DOMAIN
       }
     }
   },
@@ -566,10 +69,7 @@ export const authConfig: NextAuthOptions = {
     error: '/error',
   },
   providers: [
-    // Fallback providers from environment variables
-    ...getFallbackOAuthProviders(),
-
-    // Credentials Provider (for backward compatibility with email/employee ID login)
+    // Credentials Provider (for email/password and employee ID login)
     Credentials({
       name: 'Credentials',
       credentials: {
@@ -672,36 +172,7 @@ export const authConfig: NextAuthOptions = {
             return null
           }
 
-          console.log('[AUTH] Login successful for:', user.email, 'Single Role System: true')
-
-          // Get granular permissions (same as createAuthConfig)
-          let permissions: string[] = []
-          console.log('[AUTH CREDENTIALS] Checking permissions for user:', {
-            userId: user.id,
-            email: user.email,
-            singleRoleSystem: true,
-            hasEmployee: !!employee,
-          })
-
-          if (employee) {
-            console.log('[AUTH CREDENTIALS] Employee found:', {
-              employeeId: employee.employeeId,
-              department: employee.department?.name,
-            })
-
-            const perms = await getEmployeePermissions(employee.employeeId)
-            console.log('[AUTH CREDENTIALS] Permissions result:', {
-              hasPermissions: !!perms,
-              allowedFeaturesCount: perms?.allowedFeatures?.length || 0,
-              allowedFeatures: perms?.allowedFeatures || [],
-            })
-
-            if (perms) {
-              permissions = perms.allowedFeatures
-            }
-          } else {
-            console.log('[AUTH CREDENTIALS] WARNING: No employee found for user')
-          }
+          console.log('[AUTH] Login successful for:', user.email)
 
           return {
             id: user.id,
@@ -716,7 +187,6 @@ export const authConfig: NextAuthOptions = {
               department: employee.department,
               position: employee.position,
             } : null,
-            permissions,
           } as any
         } catch (error) {
           console.error('[AUTH] Error in authorize:', error)
@@ -726,87 +196,22 @@ export const authConfig: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // For OAuth providers, auto-provision users
-      if (account?.provider !== 'credentials') {
-        console.log('[AUTH] OAuth sign in:', account?.provider, user.email)
-
-        // Check if user already exists
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-        })
-
-        // If user doesn't exist, the adapter will create it
-        // We just need to ensure it has a proper role (default: USER)
-        if (!existingUser && user.email) {
-          // The Prisma adapter will create the user automatically
-          // We'll assign proper role in the jwt callback
-          console.log('[AUTH] New OAuth user will be created:', user.email)
-        }
-      }
-
+    async signIn() {
+      // Only credentials login is allowed
       return true
     },
 
-    async jwt({ token, user, account, trigger }) {
+    async jwt({ token, user, trigger }) {
       // Initial sign in
       if (user) {
         token.id = user.id
-        token.role = (user as any).role || 'USER' // Default to USER for OAuth users
         token.employeeId = (user as any).employeeId
         token.employee = (user as any).employee
-        token.permissions = (user as any).permissions || []
 
-        // For OAuth sign in, fetch role and permissions from database
-        if (account?.provider !== 'credentials') {
-          console.log('[AUTH JWT OAuth] Fetching data for user:', user.id)
-          const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
-          })
-
-          if (dbUser) {
-            // Base role system removed - token.role no longer needed
-
-            // Fetch employee info for OAuth users
-            const employee = await prisma.employee.findUnique({
-              where: { userId: dbUser.id },
-              include: {
-                department: true,
-                position: true,
-              }
-            })
-
-            if (employee) {
-              token.employeeId = employee.employeeId
-              token.employee = {
-                id: employee.id,
-                employeeId: employee.employeeId,
-                fullName: employee.fullName,
-                department: employee.department,
-                position: employee.position,
-              }
-
-              console.log('[AUTH JWT OAuth] OAuth user found, checking permissions:', {
-                userId: dbUser.id,
-                email: dbUser.email,
-                employeeId: employee.employeeId,
-              })
-
-              const perms = await getEmployeePermissions(employee.employeeId)
-              console.log('[AUTH JWT OAuth] OAuth permissions result:', {
-                hasPermissions: !!perms,
-                allowedFeaturesCount: perms?.allowedFeatures?.length || 0,
-                allowedFeatures: perms?.allowedFeatures || [],
-              })
-              token.permissions = perms?.allowedFeatures || []
-            } else {
-              console.log('[AUTH JWT OAuth] OAuth user has no employee linked:', {
-                userId: dbUser.id,
-                email: dbUser.email,
-              })
-            }
-          }
-        }
+        console.log('[AUTH JWT] Token set:', {
+          id: token.id,
+          email: token.email,
+        })
       }
 
       // Handle session updates
@@ -817,19 +222,9 @@ export const authConfig: NextAuthOptions = {
         })
 
         if (dbUser) {
-          // Base role system removed - token.role no longer needed
           token.name = dbUser.name
           token.email = dbUser.email
           token.picture = dbUser.image
-
-          // Update permissions on session refresh
-          const employee = await prisma.employee.findUnique({
-            where: { userId: dbUser.id }
-          })
-          if (employee) {
-            const perms = await getEmployeePermissions(employee.employeeId)
-            token.permissions = perms?.allowedFeatures || []
-          }
         }
       }
 
@@ -839,23 +234,19 @@ export const authConfig: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id;
-        (session.user as any).role = token.role;
         (session.user as any).employeeId = token.employeeId;
         (session.user as any).employee = token.employee;
-        (session.user as any).permissions = token.permissions || [];
+        (session.user as any).role = token.role;
+        (session.user as any).permissions = token.permissions;
       }
       return session
     },
   },
-  events: {
-    async linkAccount({ user }) {
-      // When OAuth account is linked, update emailVerified
-      await prisma.user.update({
-        where: { id: user.id! },
-        data: { emailVerified: new Date() },
-      })
-    },
-  },
+}
+
+// createAuthConfig is simplified - just returns authConfig
+export async function createAuthConfig(): Promise<NextAuthOptions> {
+  return authConfig
 }
 
 // Export authOptions for NextAuth API route
@@ -882,7 +273,6 @@ export async function verifyAuth(request: NextRequest) {
       id: token.id as string,
       email: token.email as string,
       name: token.name as string | null,
-      role: token.role as string,
     }
   } catch (error) {
     console.error('Error verifying auth:', error)

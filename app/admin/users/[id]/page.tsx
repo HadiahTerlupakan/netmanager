@@ -28,12 +28,7 @@ interface Department {
   name: string
 }
 
-interface Role {
-  id: string
-  name: string
-  permissions: string[]
-  isActive: boolean
-}
+
 
 interface Site {
   id: string
@@ -59,7 +54,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
   const [showPassword, setShowPassword] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
   const [sites, setSites] = useState<Site[]>([])
-  const [roles, setRoles] = useState<Role[]>([])
+
   const [user, setUser] = useState<any>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showSuccess, setShowSuccess] = useState(false)
@@ -69,7 +64,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     // User fields
     name: '',
     password: '',
-    roleId: '', // Single role system
+
     // Employee fields
     employeeId: '',
     phone: '',
@@ -99,33 +94,23 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
       fetchUserAndEmployee(),
       fetchDepartments(),
       fetchSites(),
-      fetchRoles()
+
     ]).finally(() => setLoading(false))
   }, [id])
 
   const fetchDepartments = async () => {
     try {
-      const res = await fetch('/api/hris/departments')
+      const res = await fetch('/api/admin/departments')
       const data = await res.json()
       if (res.ok) {
-        setDepartments(data.departments || [])
+        setDepartments(data.data || [])
       }
     } catch (error) {
       console.error('Error fetching departments:', error)
     }
   }
 
-  const fetchRoles = async () => {
-    try {
-      const res = await fetch('/api/roles')
-      const data = await res.json()
-      if (res.ok) {
-        setRoles(data.roles?.filter((role: Role) => role.isActive) || [])
-      }
-    } catch (error) {
-      console.error('Error fetching roles:', error)
-    }
-  }
+
 
   const fetchSites = async () => {
     try {
@@ -149,19 +134,10 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
         setUser(usr)
         const emp = usr.employee || {}
 
-        console.log('[USER-EDIT] Employee data loaded:', {
-          employeeId: emp.employeeId,
-          customRoleId: emp.customRoleId,
-          customRoleName: emp.customRoleName,
-          formDataRoleBefore: formData.roleId
-        })
-
         setFormData(prev => ({
           ...prev,
           // User data
           name: usr.name || '',
-          roleId: emp.customRoleId || '', // Get from employee's assigned role
-
           // Employee data
           employeeId: emp.employeeId || '',
           phone: emp.phone || '',
@@ -185,11 +161,6 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
           emergencyPhone: emp.emergencyPhone || '',
           emergencyRelation: emp.emergencyRelation || '',
         }))
-
-        console.log('[USER-EDIT] Form data after update:', {
-          roleId: formData.roleId,
-          employeeId: emp.employeeId
-        })
       }
     } catch (error) {
       console.error('Error fetching user:', error)
@@ -247,9 +218,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
       newErrors.joinDate = 'Tanggal bergabung wajib diisi'
     }
 
-    if (!formData.roleId) {
-      newErrors.roleId = 'Role name is required'
-    }
+
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -265,16 +234,9 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     setSubmitting(true)
 
     try {
-      console.log('[USER-EDIT] Submitting form data:', {
-        name: formData.name,
-        roleId: formData.roleId,
-        employeeId: formData.employeeId
-      })
-
       // 1. Update User
       const userUpdateBody: any = {
         name: formData.name,
-        roleId: formData.roleId,
       }
       if (formData.password) {
         userUpdateBody.password = formData.password
@@ -371,7 +333,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
 
   // --- CV / DETAIL VIEW MODE ---
   if (isViewMode) {
-    const roleName = roles.find(r => r.id === formData.roleId)?.name || 'No Role'
+
     const departmentName = departments.find(d => d.id === formData.departmentId)?.name || '-'
 
     return (
@@ -421,10 +383,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                   {formData.name || 'Nama Belum Diisi'}
                 </h1>
                 <div className="flex flex-wrap gap-3 mt-3">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50">
-                    <HiOutlineBriefcase className="w-4 h-4 mr-1.5" />
-                    {roleName}
-                  </span>
+
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
                     <HiCheckBadge className="w-4 h-4 mr-1.5 text-gray-500" />
                     ID: {formData.employeeId || '-'}
@@ -675,33 +634,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                 {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Role Pengguna <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="roleId"
-                  required
-                  value={formData.roleId}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.roleId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                >
-                  <option value="">Pilih Role</option>
-                  {roles.map(role => (
-                    <option key={role.id} value={role.id}>
-                      {role.name} ({role.permissions.length} permissions)
-                    </option>
-                  ))}
-                </select>
-                {errors.roleId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.roleId}</p>}
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Role ini akan menentukan semua hak akses pengguna.
-                  <a href="/admin/roles" target="_blank" className="text-indigo-600 dark:text-indigo-400 hover:underline ml-1">
-                    Kelola roles →
-                  </a>
-                </p>
-              </div>
+
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

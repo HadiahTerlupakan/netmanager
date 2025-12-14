@@ -19,7 +19,43 @@ const nextConfig: NextConfig = {
   // Next.js 16: serverActions configuration is now handled differently
   // CORS Configuration
   async headers() {
+    // Employee portal URL for CORS (development or production)
+    const employeePortalUrl = process.env.EMPLOYEE_PORTAL_URL || 'http://localhost:3001'
+
     return [
+      {
+        // CORS for Employee Auth API (public endpoints for login/refresh)
+        source: '/api/employee-auth/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: employeePortalUrl },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization, X-Requested-With' },
+          { key: 'Access-Control-Max-Age', value: '86400' },
+        ],
+      },
+      {
+        // CORS for Employee API endpoints
+        source: '/api/employee/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: employeePortalUrl },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, PATCH, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization, X-Requested-With' },
+          { key: 'Access-Control-Max-Age', value: '86400' },
+        ],
+      },
+      {
+        // CORS for Settings public API (for employee portal branding)
+        source: '/api/settings/public',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: employeePortalUrl },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type' },
+          { key: 'Access-Control-Max-Age', value: '86400' },
+        ],
+      },
       {
         // Apply security headers to all routes
         source: '/:path*',

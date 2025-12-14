@@ -26,7 +26,6 @@ import {
   HiOutlineShoppingCart,
   HiOutlineCircleStack, // Database replacement
   HiOutlineUser,
-  HiOutlineCurrencyDollar,
   HiOutlineArrowTrendingUp,
   HiOutlineCreditCard,
   HiOutlineKey,
@@ -35,23 +34,19 @@ import {
   HiOutlineEnvelope,
   HiOutlineChatBubbleLeftRight,
   HiOutlineCodeBracket,
-  HiOutlineShieldCheck,
   HiOutlineClock,
   HiOutlineCalendar,
   HiOutlineUserGroup,
-  HiOutlineQuestionMarkCircle,
   HiOutlineWrench,
   HiOutlineCube,
   HiOutlineTruck,
   HiOutlineArrowDownTray,
   HiOutlineArrowUpTray,
-  HiOutlineDocumentText,
+  HiOutlineCurrencyDollar,
   HiXMark, // For close button
 } from 'react-icons/hi2'
 import { useSettings } from '@/hooks/useSettings'
 import { useSession } from 'next-auth/react'
-import { useEmployeePermissions } from '@/components/providers/EmployeePermissionContext'
-import { getAllFeatures } from '@/lib/utils/permissions'
 
 // Context for sidebar state
 const SidebarContext = createContext<{
@@ -78,99 +73,27 @@ export default function Sidebar() {
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set())
   const { settings } = useSettings()
   const { data: session } = useSession()
-  const { permissions, isAdmin } = useEmployeePermissions()
   const appName = settings?.namaAplikasi || 'NetManager'
   const [isOpen, setIsOpen] = useState(false)
 
-  // Get user permissions from EmployeePermissionContext (Single Role System)
-  const userPermissions = useMemo(() => {
-    // Use permissions from EmployeePermissionContext (custom role only)
-    if (permissions?.allowedFeatures && permissions.allowedFeatures.length > 0) {
-      console.log('[SIDEBAR] Using role permissions:', {
-        count: permissions.allowedFeatures.length,
-        features: permissions.allowedFeatures,
-        permissionsObject: permissions,
-      })
-      return permissions.allowedFeatures
-    }
+  // No permission filtering - show all menus
+  // Role system has been removed, all users have access to all menus
 
-    // If no permissions, no menu access
-    console.log('[SIDEBAR] No permissions - no menu access')
-    return []
-  }, [permissions])
-
-  // Helper function with suffix match (same logic as EmployeePermissionContext.hasFeature)
-  const checkPermission = (feature: string): boolean => {
-    if (!userPermissions || userPermissions.length === 0) {
-      return false
-    }
-
-    // 1. Exact match
-    if (userPermissions.includes(feature)) {
-      return true
-    }
-
-    // 2. Parent match - if user has 'HRIS', they also have 'HRIS.EMPLOYEES'
-    const parts = feature.split('.')
-    while (parts.length > 1) {
-      parts.pop()
-      const parent = parts.join('.')
-      if (userPermissions.includes(parent)) {
-        return true
-      }
-    }
-
-    // 3. Suffix/Base match - if menu needs 'FINANCE.TAGIHAN' and user has 'TAGIHAN'
-    const baseParts = feature.split('.')
-    if (baseParts.length > 1) {
-      const lastPart = baseParts[baseParts.length - 1]
-      if (userPermissions.includes(lastPart)) {
-        return true
-      }
-    }
-
-    return false
-  }
-
-  // Filter menu items based on permissions
+  // Filter menu items - now just returns all items without filtering
   const filterNavItem = (item: NavItem): NavItem | null => {
-    // If item has no permission requirement, show it
-    if (!item.permission) {
-      // Filter children if exist
-      if (item.children) {
-        const filteredChildren = item.children
-          .map(filterNavItem)
-          .filter((child): child is NavItem => child !== null)
+    // Return all items without permission check
+    if (item.children) {
+      const filteredChildren = item.children
+        .map(filterNavItem)
+        .filter((child): child is NavItem => child !== null)
 
-        // Only show parent if it has visible children or no permission requirement
-        if (filteredChildren.length > 0) {
-          return { ...item, children: filteredChildren }
-        }
-      }
-      return item
+      return { ...item, children: filteredChildren }
     }
-
-    // Check if user has permission for this menu using suffix match
-    const hasPermission = checkPermission(item.permission)
-
-    if (hasPermission) {
-      // Filter children if exist
-      if (item.children) {
-        const filteredChildren = item.children
-          .map(filterNavItem)
-          .filter((child): child is NavItem => child !== null)
-
-        return { ...item, children: filteredChildren }
-      }
-      return item
-    }
-
-    return null
+    return item
   }
 
   const allNavItems: NavItem[] = [
     { href: '/admin', label: 'Dashboard', icon: <HiOutlineChartBar className="w-5 h-5" />, permission: 'DASHBOARD', exact: true },
-    { href: '/admin/roles', label: 'Roles', icon: <HiOutlineShieldCheck className="w-5 h-5" />, permission: 'ROLES' },
     {
       href: '/admin/network',
       label: 'Network',
@@ -240,16 +163,6 @@ export default function Sidebar() {
     },
     { href: '/admin/users', label: 'Users', icon: <HiOutlineUsers className="w-5 h-5" />, permission: 'USERS' },
     {
-      href: '/admin/helpdesk',
-      label: 'Helpdesk',
-      icon: <HiOutlineQuestionMarkCircle className="w-5 h-5" />,
-      permission: 'HELPDESK',
-      children: [
-        { href: '/admin/helpdesk', label: 'Dashboard', icon: <HiOutlineChartBar className="w-4 h-4" />, permission: 'HELPDESK', exact: true },
-        { href: '/admin/helpdesk/tiket', label: 'Semua Tiket', icon: <HiOutlineQuestionMarkCircle className="w-4 h-4" />, permission: 'HELPDESK' },
-      ],
-    },
-    {
       href: '/admin/workorders',
       label: 'Work Orders',
       icon: <HiOutlineWrench className="w-5 h-5" />,
@@ -257,33 +170,9 @@ export default function Sidebar() {
       children: [
         { href: '/admin/workorders', label: 'Dashboard', icon: <HiOutlineChartBar className="w-4 h-4" />, permission: 'WORKORDERS', exact: true },
         { href: '/admin/workorders/list', label: 'All Work Orders', icon: <HiOutlineClipboard className="w-4 h-4" />, permission: 'WORKORDERS' },
+        { href: '/admin/workorders/sites', label: 'Sites', icon: <HiOutlineMap className="w-4 h-4" />, permission: 'WORKORDERS' },
+        { href: '/admin/workorders/departments', label: 'Departments', icon: <HiOutlineUserGroup className="w-4 h-4" />, permission: 'WORKORDERS' },
       ],
-    },
-    {
-      href: '/admin/hris',
-      label: 'HRIS',
-      icon: <HiOutlineUserGroup className="w-5 h-5" />,
-      permission: 'HRIS',
-      children: [
-        { href: '/admin/hris', label: 'Dashboard', icon: <HiOutlineChartBar className="w-4 h-4" />, permission: 'HRIS', exact: true },
-        { href: '/admin/kpi', label: 'KPI Dashboard', icon: <HiOutlinePresentationChartLine className="w-4 h-4" />, permission: 'HRIS' },
-        { href: '/admin/hris/departments', label: 'Departments', icon: <HiOutlineHome className="w-4 h-4" />, permission: 'HRIS' },
-        { href: '/admin/hris/sites', label: 'Sites / Area', icon: <HiOutlineMap className="w-4 h-4" />, permission: 'HRIS' },
-        { href: '/admin/hris/attendance', label: 'Attendance', icon: <HiOutlineClock className="w-4 h-4" />, permission: 'HRIS' },
-        { href: '/admin/hris/leaves', label: 'Leave Management', icon: <HiOutlineCalendar className="w-4 h-4" />, permission: 'HRIS' },
-        { href: '/admin/hris/payroll', label: 'Payroll', icon: <HiOutlineArrowTrendingUp className="w-4 h-4" />, permission: 'HRIS' },
-      ],
-    },
-    {
-      href: '/admin/finance',
-      label: 'Finance',
-      icon: <HiOutlineCurrencyDollar className="w-5 h-5" />,
-      permission: 'FINANCE',
-      children: [
-        { href: '/admin/finance/tagihan', label: 'Tagihan', icon: <HiOutlineDocumentText className="w-4 h-4" />, permission: 'FINANCE' },
-        { href: '/admin/finance/cashflow', label: 'Cashflow & Pengeluaran', icon: <HiOutlineArrowTrendingUp className="w-4 h-4" />, permission: 'FINANCE' },
-        { href: '/admin/finance/bank-accounts', label: 'Rekening Bank', icon: <HiOutlineArrowTrendingUp className="w-4 h-4" />, permission: 'FINANCE' },
-      ]
     },
     {
       href: '/admin/pengaturan',
@@ -306,7 +195,7 @@ export default function Sidebar() {
     return allNavItems
       .map(filterNavItem)
       .filter((item): item is NavItem => item !== null)
-  }, [allNavItems, userPermissions])
+  }, [allNavItems])
 
   // Auto-expand menu
   useEffect(() => {

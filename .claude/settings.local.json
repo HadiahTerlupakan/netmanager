@@ -46,9 +46,19 @@
       "Bash(npm start)",
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
-      "Bash(npx next lint:*)"
+      "Bash(npx next lint:*)",
+      "Bash(npx prisma validate:*)",
+      "Bash(npx prisma format:*)",
+      "Bash(chmod:*)",
+      "Bash(/Users/rohadimraja/Documents/netmanager/remove-hris-models.sh)",
+      "Bash(/Users/rohadimraja/Documents/netmanager/update-employee-model.sh:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

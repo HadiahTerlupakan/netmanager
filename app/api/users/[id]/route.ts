@@ -44,10 +44,7 @@ async function requireAdmin() {
  *               password:
  *                 type: string
  *                 minLength: 8
- *               role:
- *                 type: string
- *                 enum: [USER, ADMIN, TECHNICIAN, HR, FINANCE]
- *                 description: Base role that determines default access level
+ *
  *     responses:
  *       200:
  *         description: Pengguna berhasil diupdate
@@ -78,7 +75,6 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   const data: any = {}
   if (body.name !== undefined) data.name = body.name
   if (body.password) data.passwordHash = await hash(body.password, 10)
-  // No base role update in single role system
 
   console.log('[USER-UPDATE] Data to update:', data)
 
@@ -93,28 +89,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
     email: updatedUser.email,
   })
 
-  // Handle roleId update - update EmployeeRole
-  if (body.roleId) {
-    // Find employee by userId
-    const employee = await prisma.employee.findFirst({
-      where: { userId: id },
-    })
-
-    if (employee) {
-      // Delete existing employee roles and create new one
-      await prisma.employeeRole.deleteMany({
-        where: { employeeId: employee.id },
-      })
-
-      await prisma.employeeRole.create({
-        data: {
-          employeeId: employee.id,
-          roleId: body.roleId,
-          assignedBy: session.user.id,
-        },
-      })
-    }
-  }
+  // Role update logic removed
 
   return NextResponse.json({ ok: true })
 }
@@ -151,13 +126,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         site: {
           select: { id: true, code: true, name: true },
         },
-        customRoles: {
-          include: {
-            role: {
-              select: { id: true, name: true },
-            },
-          },
-        },
       },
     })
 
@@ -165,37 +133,36 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       ? {
         id: emp.id,
         employeeId: emp.employeeId,
-        // Personal info
+        fullName: emp.fullName,
+        email: emp.email,
         phone: emp.phone,
+        departmentId: emp.departmentId,
+        positionId: emp.positionId,
+        siteId: emp.siteId,
+        joinDate: emp.joinDate,
+        status: emp.status,
+        department: emp.department,
+        position: emp.position,
+        site: emp.site,
+        // Personal Information
         dateOfBirth: emp.dateOfBirth,
         gender: emp.gender,
         idCardNumber: emp.idCardNumber,
         address: emp.address,
         city: emp.city,
         province: emp.province,
-        // Employment info
-        departmentId: emp.departmentId,
-        positionId: emp.positionId,
-        siteId: emp.siteId,
+        // Employment Details
         employmentStatus: emp.employmentStatus,
-        joinDate: emp.joinDate,
         probationEndDate: emp.probationEndDate,
-        // Bank info
+        // Bank Information
         bankName: emp.bankName,
         bankAccountNumber: emp.bankAccountNumber,
         bankAccountName: emp.bankAccountName,
         npwp: emp.npwp,
-        // Emergency contact
+        // Emergency Contact
         emergencyName: emp.emergencyName,
         emergencyPhone: emp.emergencyPhone,
         emergencyRelation: emp.emergencyRelation,
-        // Relations
-        department: emp.department,
-        position: emp.position,
-        site: emp.site,
-        // Get the first custom role id if exists
-        customRoleId: emp.customRoles[0]?.roleId || '',
-        customRoleName: emp.customRoles[0]?.role?.name || '',
       }
       : null
 

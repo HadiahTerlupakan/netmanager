@@ -4,82 +4,6 @@ import type { NextRequest } from 'next/server'
 import { getRateLimitConfig, rateLimit } from '@/lib/middleware/rate-limit'
 import { getSubdomain, isAdminSubdomain, isPelangganSubdomain, isKaryawanSubdomain, isFinanceSubdomain, isHelpdeskSubdomain } from '@/lib/utils/subdomain'
 import { getToken } from 'next-auth/jwt'
-import { ROUTE_PERMISSIONS } from '@/lib/config/route-permissions'
-
-// RBAC Enforcement: Now actually checks permissions from session.permissions
-// Permissions are loaded from CustomRole.allowedFeatures during login
-
-// All available permissions (admin + employee portal)
-const ALL_PERMISSIONS = [
-  'DASHBOARD', 'ROLES', 'NETWORK', 'FTTH', 'PAKET', 'PELANGGAN',
-  'INVENTORY', 'USERS', 'HELPDESK', 'WORKORDERS', 'HRIS', 'FINANCE', 'PENGATURAN',
-  // Employee Portal
-  'EMPLOYEE.DASHBOARD', 'EMPLOYEE.ABSENSI', 'EMPLOYEE.CUTI', 'EMPLOYEE.INVENTORY',
-  'EMPLOYEE.WORKORDERS', 'EMPLOYEE.PAYSLIPS', 'EMPLOYEE.PROFILE'
-]
-
-// ROUTE_PERMISSIONS is imported from @/lib/config/route-permissions
-
-// Function to get required permission for a route
-function getRequiredPermission(pathname: string): string | null {
-  // First try exact match from config
-  if (ROUTE_PERMISSIONS[pathname]) {
-    return ROUTE_PERMISSIONS[pathname]
-  }
-
-  // Then try prefix match (longest match wins)
-  const sortedRoutes = Object.keys(ROUTE_PERMISSIONS).sort((a, b) => b.length - a.length)
-  for (const route of sortedRoutes) {
-    if (pathname.startsWith(route)) {
-      return ROUTE_PERMISSIONS[route]
-    }
-  }
-  return null
-}
-
-// Check if user has permission (with hierarchy and suffix match support)
-function hasPermission(userPermissions: string[] | undefined, requiredFeature: string): boolean {
-  if (!userPermissions || !Array.isArray(userPermissions)) return false
-
-  // 1. Exact match
-  if (userPermissions.includes(requiredFeature)) return true
-
-  // 2. Parent match (e.g. PELANGGAN access grants PELANGGAN.TAGIHAN)
-  const parts = requiredFeature.split('.')
-  while (parts.length > 1) {
-    parts.pop()
-    const parent = parts.join('.')
-    if (userPermissions.includes(parent)) return true
-  }
-
-  // 3. Suffix/Base match - if route needs 'EMPLOYEE.INVENTORY' and user has 'INVENTORY'
-  // This allows admin-defined features (INVENTORY) to work for employee portal routes (EMPLOYEE.INVENTORY)
-  const baseParts = requiredFeature.split('.')
-  if (baseParts.length > 1) {
-    const lastPart = baseParts[baseParts.length - 1] // e.g. 'INVENTORY'
-    if (userPermissions.includes(lastPart)) return true
-  }
-
-  return false
-}
-
-// Function to get user permissions from token
-// IMPORTANT: Now returns actual permissions from session token
-function getUserPermissions(token: any): string[] {
-  // Debug log to see what role is in token
-  console.log(`[PROXY] getUserPermissions - email: ${token?.email}, role: ${token?.role}, type: ${typeof token?.role}`)
-
-  // For ADMIN users, grant all permissions (fail-safe)
-  if (token?.role === 'ADMIN') {
-    console.log('[PROXY] ADMIN detected, granting all permissions')
-    return ALL_PERMISSIONS
-  }
-
-  // Return permissions from session (set during login in auth.ts)
-  return token?.permissions || []
-}
-
-// NOTE: hasRoutePermission and hasRequiredRole removed - now handled at API/page level
 
 // Log unauthorized access attempts
 function logUnauthorizedAccess(request: NextRequest, reason: string) {
@@ -97,14 +21,13 @@ function logUnauthorizedAccess(request: NextRequest, reason: string) {
 }
 
 // SIMPLIFIED: Only check authentication, not authorization
-// Authorization is handled at API/page level using CustomRole permissions
-async function checkRoleAccess(request: NextRequest, pathname: string): Promise<NextResponse | null> {
-  // Only check if route needs authentication (not authorization)
+// Authorization is handled at API/page level
+async function checkAuthAccess(request: NextRequest, pathname: string): Promise<NextResponse | null> {
+  // Only check if route needs authentication
   const needsAuth = pathname.startsWith('/admin') ||
     pathname.startsWith('/api/') ||
-    (pathname.startsWith('/employee') && !pathname.startsWith('/employee/login')) ||
     pathname.startsWith('/finance') ||
-    pathname.startsWith('/hr')
+    pathname.startsWith('/helpdesk')
 
   if (!needsAuth) {
     return null
@@ -118,12 +41,13 @@ async function checkRoleAccess(request: NextRequest, pathname: string): Promise<
       secureCookie: false, // Always use false for localhost development
     })
 
-    // Debug logging
-    console.log(`[PROXY] Token check for ${pathname}:`, {
-      hasToken: !!token,
-      tokenEmail: token?.email,
-      userAgent: request.headers.get('user-agent')?.substring(0, 50)
-    })
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[PROXY] Token check for ${pathname}:`, {
+        hasToken: !!token,
+        tokenEmail: token?.email
+      })
+    }
 
     if (!token) {
       logUnauthorizedAccess(request, 'No authentication token')
@@ -141,51 +65,21 @@ async function checkRoleAccess(request: NextRequest, pathname: string): Promise<
         )
       }
 
-      // For pages, redirect to appropriate login page
-      // If accessing /employee routes, redirect to /employee/login, else /login
-      const loginPath = pathname.startsWith('/employee') ? '/employee/login' : '/login'
-      const loginUrl = new URL(loginPath, request.url)
+      // For pages, redirect to login page
+      const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('callbackUrl', pathname)
       return NextResponse.redirect(loginUrl)
     }
 
-    // User is authenticated - now check authorization
-    const userPermissions = getUserPermissions(token)
-    const requiredPermission = getRequiredPermission(pathname)
-
-    console.log(`[PROXY] Auth check - Path: ${pathname}, Role: ${token.role}, Required: ${requiredPermission || 'none'}`)
-
-    // If route requires a specific permission, check it
-    if (requiredPermission) {
-      if (!hasPermission(userPermissions, requiredPermission)) {
-        console.log(`[PROXY] Access denied for ${token.email} to ${pathname}. Required: ${requiredPermission}, Has: ${userPermissions.join(', ')}`)
-
-        // For API routes, return 403
-        if (pathname.startsWith('/api/')) {
-          return new NextResponse(
-            JSON.stringify({ error: 'Forbidden', required: requiredPermission }),
-            {
-              status: 403,
-              headers: { 'Content-Type': 'application/json' },
-            }
-          )
-        }
-
-        // For pages, redirect to dashboard with access denied message
-        const redirectUrl = new URL('/admin', request.url)
-        redirectUrl.searchParams.set('accessDenied', 'true')
-        redirectUrl.searchParams.set('required', requiredPermission)
-        return NextResponse.redirect(redirectUrl)
-      }
+    // User is authenticated - allow access
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[PROXY] Auth check - Path: ${pathname}, Email: ${token.email}`)
     }
 
-    // User info is available via session - no need to expose in response headers
-    // Note: If reverse proxy (nginx/traefik) needs user info, consider using
-    // internal headers with 'X-Internal-' prefix that are stripped at the edge
     return NextResponse.next()
 
   } catch (error) {
-    console.error('[PROXY] Role check error:', error)
+    console.error('[PROXY] Auth check error:', error)
 
     // For API routes, return 500
     if (pathname.startsWith('/api/')) {
@@ -245,14 +139,13 @@ export default async function proxy(request: NextRequest) {
       }
     }
 
-    // Jika request dari karyawan subdomain, redirect ke /employee
+    // Jika request dari karyawan subdomain, redirect ke /employee (now removed)
     if (isKaryawanSubdomain(request)) {
-      // Jika pathname tidak dimulai dengan /employee, redirect ke /employee
-      if (!pathname.startsWith('/employee') && !pathname.startsWith('/api') && !pathname.startsWith('/login')) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/employee'
-        return NextResponse.redirect(url)
-      }
+      // Since employee portal is removed, redirect to admin
+      const url = request.nextUrl.clone()
+      url.hostname = `admin.${url.hostname}`
+      url.pathname = '/admin'
+      return NextResponse.redirect(url)
     }
 
     // Jika request dari finance subdomain, redirect ke /finance
@@ -302,9 +195,11 @@ export default async function proxy(request: NextRequest) {
         url.hostname = `pelanggan.${url.hostname}`
         return NextResponse.redirect(url)
       }
+      // Remove employee redirection since portal is removed
       if (pathname.startsWith('/employee')) {
         const url = request.nextUrl.clone()
-        url.hostname = `karyawan.${url.hostname}`
+        url.hostname = `admin.${url.hostname}`
+        url.pathname = '/admin'
         return NextResponse.redirect(url)
       }
       if (pathname.startsWith('/finance')) {
@@ -343,14 +238,21 @@ export default async function proxy(request: NextRequest) {
     }
 
     // Skip auth check for public routes
-    if (pathname.startsWith('/api/auth/') || pathname === '/login' || pathname === '/' || pathname.startsWith('/employee/login')) {
+    const isPublicRoute =
+      pathname.startsWith('/api/auth/') ||
+      pathname === '/login' ||
+      pathname === '/' ||
+      pathname === '/api/settings/public' ||         // Public settings for branding
+      pathname.startsWith('/api/superadmin/')        // Super admin has its own auth
+
+    if (isPublicRoute) {
       return NextResponse.next({ request })
     }
 
-    // Check role-based access for protected routes
-    const roleCheckResponse = await checkRoleAccess(request, pathname)
-    if (roleCheckResponse) {
-      return roleCheckResponse
+    // Check authentication for protected routes
+    const authCheckResponse = await checkAuthAccess(request, pathname)
+    if (authCheckResponse) {
+      return authCheckResponse
     }
 
     // Auth middleware untuk admin routes (baik dari subdomain atau path)
@@ -373,28 +275,6 @@ export default async function proxy(request: NextRequest) {
 
       return response
     }
-
-    // Skip auth middleware for employee routes since we already handle auth in checkRoleAccess
-    // if (pathname.startsWith('/employee') || isKaryawanSubdomain(request)) {
-    //   // Skip auth check untuk login page
-    //   if (pathname.startsWith('/employee/login') || pathname === '/login') {
-    //     return NextResponse.next({ request })
-    //   }
-
-    //   const response = await authMiddleware(request as any, {} as any)
-
-    //   // Jika redirect ke login, redirect ke employee login page
-    //   if (response && response.status === 307) {
-    //     const url = request.nextUrl.clone()
-    //     url.pathname = '/employee/login'
-    //     if (pathname !== '/employee') {
-    //       url.searchParams.set('callbackUrl', pathname)
-    //     }
-    //     return NextResponse.redirect(url)
-    //   }
-
-    //   return response
-    // }
 
     // Auth middleware untuk helpdesk routes (baik dari subdomain atau path)
     if (pathname.startsWith('/helpdesk') || isHelpdeskSubdomain(request)) {

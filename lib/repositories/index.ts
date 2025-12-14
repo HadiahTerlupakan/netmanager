@@ -22,8 +22,6 @@ import { SpeedProfileRepository } from './SpeedProfileRepository'
 import type { ISpeedProfileRepository } from './ISpeedProfileRepository'
 import { MikroTikRouterRepository } from './MikroTikRouterRepository'
 import type { IMikroTikRouterRepository } from './IMikroTikRouterRepository'
-import { TagihanRepository } from './TagihanRepository'
-import type { ITagihanRepository } from './ITagihanRepository'
 import { PengeluaranRepository } from './PengeluaranRepository'
 import type { IPengeluaranRepository } from './IPengeluaranRepository'
 import { PemasukanRepository } from './PemasukanRepository'
@@ -41,7 +39,6 @@ let onuRepositoryInstance: IOnuRepository | null = null
 let onuTypeRepositoryInstance: IOnuTypeRepository | null = null
 let speedProfileRepositoryInstance: ISpeedProfileRepository | null = null
 let mikroTikRouterRepositoryInstance: IMikroTikRouterRepository | null = null
-let tagihanRepositoryInstance: ITagihanRepository | null = null
 let pengeluaranRepositoryInstance: IPengeluaranRepository | null = null
 let pemasukanRepositoryInstance: IPemasukanRepository | null = null
 
@@ -129,13 +126,6 @@ export function getMikroTikRouterRepository(): IMikroTikRouterRepository {
   return mikroTikRouterRepositoryInstance
 }
 
-export function getTagihanRepository(): ITagihanRepository {
-  if (!tagihanRepositoryInstance) {
-    tagihanRepositoryInstance = new TagihanRepository()
-  }
-  return tagihanRepositoryInstance
-}
-
 export function getPengeluaranRepository(): IPengeluaranRepository {
   if (!pengeluaranRepositoryInstance) {
     pengeluaranRepositoryInstance = new PengeluaranRepository()
@@ -174,8 +164,6 @@ export { SpeedProfileRepository } from './SpeedProfileRepository'
 export type { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from './ISpeedProfileRepository'
 export { MikroTikRouterRepository } from './MikroTikRouterRepository'
 export type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from './IMikroTikRouterRepository'
-export { TagihanRepository } from './TagihanRepository'
-export type { ITagihanRepository, TagihanCreateData, TagihanUpdateData, TagihanPublic, TagihanWithPelanggan } from './ITagihanRepository'
 export { PengeluaranRepository } from './PengeluaranRepository'
 export type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateData, PengeluaranPublic } from './IPengeluaranRepository'
 export { PemasukanRepository } from './PemasukanRepository'

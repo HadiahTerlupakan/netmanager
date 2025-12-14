@@ -62,7 +62,6 @@ export const swaggerConfig = {
             id: { type: 'string' },
             email: { type: 'string', format: 'email' },
             name: { type: 'string', nullable: true },
-            role: { type: 'string', enum: ['USER', 'ADMIN'] },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },
           },

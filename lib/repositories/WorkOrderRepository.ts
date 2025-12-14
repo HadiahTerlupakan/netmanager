@@ -56,38 +56,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         });
     }
 
-    async createFromTicket(ticketId: string, additionalData?: Partial<CreateWorkOrderData>): Promise<WorkOrder> {
-        const ticket = await this.prisma.ticket.findUnique({
-            where: { id: ticketId },
-            include: { pelanggan: true },
-        });
-
-        if (!ticket) {
-            throw new Error('Ticket not found');
-        }
-
-        return this.create({
-            pelangganId: ticket.pelangganId,
-            ticketId,
-            type: additionalData?.type || 'TROUBLESHOOT',
-            title: additionalData?.title || ticket.subject,
-            description: additionalData?.description || ticket.description,
-            priority: additionalData?.priority || (ticket.priority as any),
-            ...additionalData,
-        });
-    }
-
     async findById(id: string): Promise<WorkOrderWithRelations | null> {
         return this.prisma.workOrder.findUnique({
             where: { id },
             include: {
-                ticket: {
-                    select: {
-                        id: true,
-                        ticketNumber: true,
-                        subject: true,
-                    },
-                },
                 pelanggan: {
                     select: {
                         id: true,
@@ -158,13 +130,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         return this.prisma.workOrder.findUnique({
             where: { workOrderNumber },
             include: {
-                ticket: {
-                    select: {
-                        id: true,
-                        ticketNumber: true,
-                        subject: true,
-                    },
-                },
                 pelanggan: {
                     select: {
                         id: true,
@@ -257,10 +222,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             where.pelangganId = filters.pelangganId;
         }
 
-        if (filters?.ticketId) {
-            where.ticketId = filters.ticketId;
-        }
-
         if (filters?.search) {
             where.OR = [
                 { workOrderNumber: { contains: filters.search, mode: 'insensitive' } },
@@ -285,13 +246,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             this.prisma.workOrder.findMany({
                 where,
                 include: {
-                    ticket: {
-                        select: {
-                            id: true,
-                            ticketNumber: true,
-                            subject: true,
-                        },
-                    },
                     pelanggan: {
                         select: {
                             id: true,
@@ -392,7 +346,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             updateData.closedAt = new Date();
         }
 
-        // Add update log
         await this.addUpdate({
             workOrderId: id,
             updateType: 'STATUS_CHANGE',
@@ -401,20 +354,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             newStatus: status,
             createdById: userId,
         });
-
-        // Update linked ticket status
-        if (workOrder.ticketId) {
-            let ticketStatus = null;
-            if (status === 'IN_PROGRESS') ticketStatus = 'IN_PROGRESS';
-            else if (status === 'COMPLETED' || status === 'VERIFIED') ticketStatus = 'RESOLVED';
-
-            if (ticketStatus) {
-                await this.prisma.ticket.update({
-                    where: { id: workOrder.ticketId },
-                    data: { status: ticketStatus as any },
-                });
-            }
-        }
 
         return this.update(id, updateData);
     }
@@ -613,7 +552,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         if (filters?.departmentId) where.departmentId = filters.departmentId;
         if (filters?.assignedToId !== undefined) where.assignedToId = filters.assignedToId;
         if (filters?.pelangganId) where.pelangganId = filters.pelangganId;
-        if (filters?.ticketId) where.ticketId = filters.ticketId;
         if (filters?.dateFrom || filters?.dateTo) {
             where.createdAt = {};
             if (filters.dateFrom) where.createdAt.gte = filters.dateFrom;

@@ -7,7 +7,6 @@ import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { HiArrowPath, HiLockClosed } from 'react-icons/hi2'
 import { getAdminUrl, getSubdomainFromWindow } from '@/lib/utils/subdomain-client'
-import OAuthProviders from './OAuthProviders'
 
 const schema = z.object({
   email: z.string().min(1, 'Email wajib diisi').email('Email tidak valid'),
@@ -23,25 +22,6 @@ export default function LoginForm() {
   const isEmployeePortal = typeof window !== 'undefined' && window.location.pathname.startsWith('/employee')
   const defaultCallback = isEmployeePortal ? '/employee' : '/admin'
   const callbackUrlParam = search.get('callbackUrl') || defaultCallback
-  const [hasOAuthProviders, setHasOAuthProviders] = React.useState<boolean | null>(null)
-
-  // Check if there are OAuth providers configured
-  React.useEffect(() => {
-    const checkProviders = async () => {
-      try {
-        const response = await fetch('/api/auth/oauth/providers')
-        if (response.ok) {
-          const data = await response.json()
-          setHasOAuthProviders((data.data || []).length > 0)
-        } else {
-          setHasOAuthProviders(false)
-        }
-      } catch (error) {
-        setHasOAuthProviders(false)
-      }
-    }
-    checkProviders()
-  }, [])
 
   // Dapatkan URL lengkap dengan subdomain untuk callback
   const getCallbackUrl = () => {
@@ -104,60 +84,60 @@ export default function LoginForm() {
 
       // Cek apakah kita sudah di admin subdomain
       const subdomain = getSubdomainFromWindow()
-    // Extract path dari res.url (bisa berisi URL lengkap atau path relatif)
-    let targetPath = res.url
-      ? (res.url.startsWith('http') ? new URL(res.url).pathname : res.url)
-      : callbackUrlParam
+      // Extract path dari res.url (bisa berisi URL lengkap atau path relatif)
+      let targetPath = res.url
+        ? (res.url.startsWith('http') ? new URL(res.url).pathname : res.url)
+        : callbackUrlParam
 
-    // Use the appropriate callback based on portal type
-    if (isEmployeePortal) {
-      // For employee portal, ensure we stay on employee routes
-      if (!targetPath.startsWith('/employee')) {
-        targetPath = '/employee'
+      // Use the appropriate callback based on portal type
+      if (isEmployeePortal) {
+        // For employee portal, ensure we stay on employee routes
+        if (!targetPath.startsWith('/employee')) {
+          targetPath = '/employee'
+        }
+      } else {
+        // For admin portal, ensure we stay on admin routes
+        if (!targetPath.startsWith('/admin')) {
+          targetPath = '/admin'
+        }
       }
-    } else {
-      // For admin portal, ensure we stay on admin routes
-      if (!targetPath.startsWith('/admin')) {
-        targetPath = '/admin'
+
+      // Di development atau localhost
+      const isLocalhost = typeof window !== 'undefined' && (
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname.endsWith('.localhost')
+      )
+
+      console.log('[LoginForm] Login successful, redirecting...', {
+        targetPath,
+        subdomain,
+        isLocalhost,
+        isEmployeePortal,
+        hostname: window.location.hostname,
+        currentPath: window.location.pathname
+      })
+
+      // KASUS KHUSUS LOCALHOST:
+      // Kita tetap di localhost:3000 agar session cookie valid
+
+      if (isLocalhost) {
+        // Untuk localhost, gunakan window.location untuk memastikan redirect terjadi
+        // dan session cookie ter-set dengan benar
+        console.log('[LoginForm] Using window.location redirect for localhost')
+        window.location.href = targetPath
+        return
       }
-    }
 
-    // Di development atau localhost
-    const isLocalhost = typeof window !== 'undefined' && (
-      window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.endsWith('.localhost')
-    )
+      // Default behavior
+      if (subdomain === 'admin') {
+        router.push(targetPath)
+        return
+      }
 
-    console.log('[LoginForm] Login successful, redirecting...', {
-      targetPath,
-      subdomain,
-      isLocalhost,
-      isEmployeePortal,
-      hostname: window.location.hostname,
-      currentPath: window.location.pathname
-    })
-
-    // KASUS KHUSUS LOCALHOST:
-    // Kita tetap di localhost:3000 agar session cookie valid
-
-    if (isLocalhost) {
-      // Untuk localhost, gunakan window.location untuk memastikan redirect terjadi
-      // dan session cookie ter-set dengan benar
-      console.log('[LoginForm] Using window.location redirect for localhost')
-      window.location.href = targetPath
-      return
-    }
-
-    // Default behavior
-    if (subdomain === 'admin') {
-      router.push(targetPath)
-      return
-    }
-
-    // Di production dengan subdomain, redirect ke admin subdomain dengan URL lengkap
-    const adminUrl = getAdminUrl(targetPath)
-    window.location.href = adminUrl
+      // Di production dengan subdomain, redirect ke admin subdomain dengan URL lengkap
+      const adminUrl = getAdminUrl(targetPath)
+      window.location.href = adminUrl
     } catch (error) {
       console.error('[LoginForm] Unexpected error:', error)
       setError('password', { message: 'Terjadi kesalahan tak terduga. Silakan coba lagi.' })
@@ -166,23 +146,6 @@ export default function LoginForm() {
 
   return (
     <div className="w-full space-y-6">
-      {/* OAuth Providers - akan return null jika tidak ada providers */}
-      <OAuthProviders callbackUrl={callbackUrlParam} />
-
-      {/* Divider - hanya tampil jika ada OAuth providers */}
-      {hasOAuthProviders && (
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-              Atau lanjutkan dengan email
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Credentials Form */}
       <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-2">

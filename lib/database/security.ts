@@ -94,8 +94,6 @@ export class DatabaseSecurity {
 
   /**
    * Check if user has access to specific data (Row-Level Security)
-   * Note: With the new CustomRole system, authorization is primarily handled at UI level
-   * via CustomRole.allowedFeatures. This function is simplified as a result.
    */
   async checkDataAccess(
     userId: string,
@@ -120,7 +118,6 @@ export class DatabaseSecurity {
         return false
       }
 
-      // With the new CustomRole system, detailed authorization is handled at UI/API level
       // For now, if user exists, allow access (API routes handle auth separately)
       return true
     } catch (error) {
@@ -144,6 +141,9 @@ export class DatabaseSecurity {
     }
 
     try {
+      // FinancialAuditLog model not available
+      console.log(`[AUDIT] ${action} on ${resourceType}:${resourceId} by ${userId}`)
+      /*
       await this.prisma.financialAuditLog.create({
         data: {
           action: `DB_${action}`,
@@ -156,6 +156,7 @@ export class DatabaseSecurity {
           newValues: metadata
         }
       })
+      */
     } catch (error) {
       console.error('Audit logging error:', error)
     }

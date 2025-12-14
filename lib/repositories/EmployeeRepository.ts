@@ -15,7 +15,7 @@ export class EmployeeRepository implements IEmployeeRepository {
         if (filters) {
             if (filters.departmentId) where.departmentId = filters.departmentId
             if (filters.positionId) where.positionId = filters.positionId
-            if (filters.employmentStatus) where.employmentStatus = filters.employmentStatus
+            if (filters.status) where.status = filters.status
             if (filters.isActive !== undefined) where.isActive = filters.isActive
             if (filters.search) {
                 where.OR = [
@@ -152,15 +152,6 @@ export class EmployeeRepository implements IEmployeeRepository {
         return employees as EmployeePublic[]
     }
 
-    async findByManager(managerId: string): Promise<EmployeePublic[]> {
-        const employees = await prisma.employee.findMany({
-            where: { managerId, isActive: true },
-            orderBy: { fullName: 'asc' },
-        })
-
-        return employees as EmployeePublic[]
-    }
-
     async findActiveEmployees(): Promise<EmployeePublic[]> {
         const employees = await prisma.employee.findMany({
             where: { isActive: true },
@@ -198,7 +189,7 @@ export class EmployeeRepository implements IEmployeeRepository {
         if (filters) {
             if (filters.departmentId) where.departmentId = filters.departmentId
             if (filters.positionId) where.positionId = filters.positionId
-            if (filters.employmentStatus) where.employmentStatus = filters.employmentStatus
+            if (filters.status) where.status = filters.status
             if (filters.isActive !== undefined) where.isActive = filters.isActive
             if (filters.search) {
                 where.OR = [
@@ -210,12 +201,6 @@ export class EmployeeRepository implements IEmployeeRepository {
         }
 
         return await prisma.employee.count({ where })
-    }
-
-    async countByStatus(status: any): Promise<number> {
-        return await prisma.employee.count({
-            where: { employmentStatus: status },
-        })
     }
 
     async countByDepartment(departmentId: string): Promise<number> {

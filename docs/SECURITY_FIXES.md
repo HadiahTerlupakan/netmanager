@@ -150,23 +150,15 @@ Pastikan environment variables berikut sudah diatur dengan benar:
 ## 9. Implementasi
 
 ### File yang Diubah
-1. `scripts/migrate-pelanggan-password.ts` - Script migrasi password
-2. `prisma/schema.prisma` - Tambah field passwordHash dan tokenVersion
-3. `lib/jwt.ts` - Utilitas JWT untuk autentikasi pelanggan
-4. `lib/middleware/pelanggan-auth.ts` - Middleware verifikasi JWT
-5. `lib/middleware/input-sanitization.ts` - Middleware sanitasi input
-6. `lib/redis.ts` - Tambah progressive delay
-7. `lib/middleware/rate-limit.ts` - Perketat rate limiting
-8. `next.config.ts` - Perbarui CSP
-9. `app/api/pelanggan/auth/login/route.ts` - Update login dengan JWT
-10. `app/api/pelanggan/auth/refresh/route.ts` - Endpoint refresh token
-11. `app/api/pelanggan/auth/logout/route.ts` - Endpoint logout
-12. `app/api/pelanggan/me/route.ts` - Update dengan JWT
-13. `app/api/pelanggan/tickets/route.ts` - Update dengan middleware JWT
-14. `app/api/pelanggan/tickets/[id]/route.ts` - Update dengan sanitasi
-15. `app/api/pelanggan-ppp/route.ts` - Update registrasi dengan hash password
-16. `docs/SECURITY_IMPROVEMENTS.md` - Dokumentasi perubahan
-17. `docs/SECURITY_FIXES.md` - Dokumentasi perbaikan
+1. `prisma/schema.prisma` - Tambah field passwordHash dan tokenVersion
+2. `lib/jwt.ts` - Utilitas JWT untuk autentikasi
+3. `lib/middleware/input-sanitization.ts` - Middleware sanitasi input
+4. `lib/redis.ts` - Tambah progressive delay
+5. `lib/middleware/rate-limit.ts` - Perketat rate limiting
+6. `next.config.ts` - Perbarui CSP
+7. `app/api/pelanggan-ppp/route.ts` - Update registrasi dengan hash password
+8. `docs/SECURITY_IMPROVEMENTS.md` - Dokumentasi perubahan
+9. `docs/SECURITY_FIXES.md` - Dokumentasi perbaikan
 
 ### Migration Database
 1. `20251203045738_add_password_hash_to_pelanggan` - Tambah field passwordHash

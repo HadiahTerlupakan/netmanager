@@ -220,19 +220,6 @@ export function isValidUUID(input: unknown): boolean {
 }
 
 /**
- * Middleware to check if user has required role
- */
-export function requireRole(allowedRoles: string[]) {
-  return (user: { role?: string | null }): boolean => {
-    if (!user?.role) {
-      return false
-    }
-
-    return allowedRoles.includes(user.role)
-  }
-}
-
-/**
  * Middleware to validate file uploads
  */
 export function validateFileUpload(file: File, allowedTypes: string[], maxSize: number): ValidationResponse {

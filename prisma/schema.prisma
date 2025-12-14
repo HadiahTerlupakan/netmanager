@@ -8,28 +8,20 @@ datasource db {
 }
 
 model User {
-  id                  String         @id @default(cuid())
-  name                String?
-  email               String         @unique
-  passwordHash        String?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  emailVerified       DateTime?
-  image               String?
-  accounts            Account[]
-  bankAccountsCreated BankAccount[]  @relation("BankAccountCreatedBy")
-  bankAccountsUpdated BankAccount[]  @relation("BankAccountUpdatedBy")
-  pelanggan           Pelanggan[]
-  pemasukanCreated    Pemasukan[]    @relation("PemasukanCreatedBy")
-  pemasukanUpdated    Pemasukan[]    @relation("PemasukanUpdatedBy")
-  pengeluaranCreated  Pengeluaran[]  @relation("PengeluaranCreatedBy")
-  pengeluaranUpdated  Pengeluaran[]  @relation("PengeluaranUpdatedBy")
-  sessions            Session[]
-  transactionsCreated Transaction[]  @relation("TransactionCreatedBy")
-  transactionsUpdated Transaction[]  @relation("TransactionUpdatedBy")
-  barangKeluar        BarangKeluar[] @relation("EmployeeBarangKeluar")
-  barangMasuk         BarangMasuk[]  @relation("EmployeeBarangMasuk")
-  tickets             Ticket[]
+  id            String         @id @default(cuid())
+  name          String?
+  email         String         @unique
+  passwordHash  String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  pelanggan     Pelanggan[]
+  sessions      Session[]
+  employee      Employee?
+  barangKeluar  BarangKeluar[] @relation("EmployeeBarangKeluar")
+  barangMasuk   BarangMasuk[]  @relation("EmployeeBarangMasuk")
 }
 
 model Account {
@@ -477,40 +469,40 @@ model HargaPaket {
 }
 
 model Pelanggan {
-  id                            String          @id @default(cuid())
-  idPelanggan                   String          @unique
+  id                            String        @id @default(cuid())
+  idPelanggan                   String        @unique
   nama                          String
   username                      String
   password                      String
   passwordLogin                 String
   hargaPaketId                  String
-  tipe                          TipePelanggan   @default(REGULER)
+  tipe                          TipePelanggan @default(REGULER)
   tanggalAktif                  DateTime
   jatuhTempo                    DateTime
-  status                        Status          @default(AKTIF)
+  status                        Status        @default(AKTIF)
   alamat                        String?
   noTelp                        String?
   email                         String?
   catatan                       String?
-  createdAt                     DateTime        @default(now())
-  updatedAt                     DateTime        @updatedAt
+  createdAt                     DateTime      @default(now())
+  updatedAt                     DateTime      @updatedAt
   biayaInstalasi                Int?
   biayaInstalasiDiskon          Float?
-  biayaInstalasiIsRecurring     Boolean         @default(false)
+  biayaInstalasiIsRecurring     Boolean       @default(false)
   biayaLainnya                  Int?
   biayaLainnyaDiskon            Float?
-  biayaLainnyaIsRecurring       Boolean         @default(false)
+  biayaLainnyaIsRecurring       Boolean       @default(false)
   biayaSewaPerangkat            Int?
   biayaSewaPerangkatDiskon      Float?
-  biayaSewaPerangkatIsRecurring Boolean         @default(true)
+  biayaSewaPerangkatIsRecurring Boolean       @default(true)
   discountDuration              Int?
   discountDurationUnit          DurasiUnit?
   discountType                  DiscountType?
   discountValue                 Float?
   keteranganBiayaLainnya        String?
-  useDiscount                   Boolean         @default(false)
-  usePPN                        Boolean         @default(true)
-  useProrate                    Boolean         @default(false)
+  useDiscount                   Boolean       @default(false)
+  usePPN                        Boolean       @default(true)
+  useProrate                    Boolean       @default(false)
   jenisDokumen                  String?
   noDokumen                     String?
   fileBAST                      String?
@@ -524,14 +516,11 @@ model Pelanggan {
   provinsi                      String?
   odpId                         String?
   passwordHash                  String?
-  tokenVersion                  Int             @default(1)
+  tokenVersion                  Int           @default(1)
   userId                        String?
-  manualPayments                ManualPayment[]
-  hargaPaket                    HargaPaket      @relation(fields: [hargaPaketId], references: [id])
-  odp                           Odp?            @relation(fields: [odpId], references: [id])
-  user                          User?           @relation(fields: [userId], references: [id])
-  tagihans                      Tagihan[]
-  tickets                       Ticket[]
+  hargaPaket                    HargaPaket    @relation(fields: [hargaPaketId], references: [id])
+  odp                           Odp?          @relation(fields: [odpId], references: [id])
+  user                          User?         @relation(fields: [userId], references: [id])
   workOrders                    WorkOrder[]
 
   @@index([idPelanggan])
@@ -543,47 +532,13 @@ model Pelanggan {
   @@index([email])
 }
 
-model Tagihan {
-  id                  String                      @id @default(cuid())
-  pelangganId         String
-  noTagihan           String                      @unique
-  periodeBulan        Int
-  periodeTahun        Int
-  subtotal            Int
-  diskon              Int                         @default(0)
-  ppn                 Int                         @default(0)
-  biayaInstalasi      Int                         @default(0)
-  biayaSewaPerangkat  Int                         @default(0)
-  biayaLainnya        Int                         @default(0)
-  total               Int
-  status              TagihanStatus               @default(BELUM_LUNAS)
-  jatuhTempo          DateTime
-  tanggalBayar        DateTime?
-  metodePembayaran    String?
-  catatan             String?
-  createdAt           DateTime                    @default(now())
-  updatedAt           DateTime                    @updatedAt
-  manualPayments      ManualPayment[]
-  paymentTransactions PaymentGatewayTransaction[]
-  paymentLink         PaymentLink?
-  pelanggan           Pelanggan                   @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-
-  @@unique([pelangganId, periodeBulan, periodeTahun])
-  @@index([pelangganId])
-  @@index([status])
-  @@index([jatuhTempo])
-  @@index([noTagihan])
-  @@index([periodeBulan, periodeTahun])
-  @@index([createdAt])
-}
-
 model PaymentGatewayConfig {
-  id           String                      @id @default(cuid())
-  provider     String                      @unique
+  id           String    @id @default(cuid())
+  provider     String    @unique
   providerName String
-  isEnabled    Boolean                     @default(false)
-  isProduction Boolean                     @default(false)
-  priority     Int                         @default(0)
+  isEnabled    Boolean   @default(false)
+  isProduction Boolean   @default(false)
+  priority     Int       @default(0)
   apiKey       String?
   apiSecret    String?
   clientKey    String?
@@ -593,158 +548,13 @@ model PaymentGatewayConfig {
   settings     Json?
   lastTestedAt DateTime?
   testStatus   String?
-  createdAt    DateTime                    @default(now())
-  updatedAt    DateTime                    @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   createdBy    String?
-  transactions PaymentGatewayTransaction[]
 
   @@index([provider])
   @@index([isEnabled])
   @@index([priority])
-}
-
-model PaymentGatewayTransaction {
-  id              String               @id @default(cuid())
-  provider        String
-  orderId         String               @unique
-  transactionId   String?              @unique
-  tagihanId       String
-  amount          BigInt
-  paymentMethod   String?
-  bankCode        String?
-  status          String               @default("PENDING")
-  paidAt          DateTime?
-  expiredAt       DateTime?
-  paymentUrl      String?
-  qrCodeUrl       String?
-  vaNumber        String?
-  webhookReceived Boolean              @default(false)
-  webhookData     Json?
-  customerEmail   String?
-  customerPhone   String?
-  notes           String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  providerConfig  PaymentGatewayConfig @relation(fields: [provider], references: [provider])
-  tagihan         Tagihan              @relation(fields: [tagihanId], references: [id], onDelete: Cascade)
-
-  @@index([tagihanId])
-  @@index([status])
-  @@index([orderId])
-  @@index([transactionId])
-  @@index([createdAt])
-}
-
-model PaymentLink {
-  id           String    @id @default(cuid())
-  tagihanId    String    @unique
-  linkToken    String    @unique
-  paymentUrl   String
-  isActive     Boolean   @default(true)
-  expiresAt    DateTime?
-  viewCount    Int       @default(0)
-  lastViewedAt DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  tagihan      Tagihan   @relation(fields: [tagihanId], references: [id], onDelete: Cascade)
-
-  @@index([linkToken])
-  @@index([tagihanId])
-}
-
-model CompanyBankAccount {
-  id             String          @id @default(cuid())
-  bankName       String
-  accountNumber  String
-  accountName    String
-  isActive       Boolean         @default(true)
-  priority       Int             @default(1)
-  logo           String?
-  description    String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  manualPayments ManualPayment[]
-
-  @@index([isActive])
-  @@index([priority])
-}
-
-model ManualPayment {
-  id              String             @id @default(cuid())
-  tagihanId       String
-  pelangganId     String
-  bankAccountId   String
-  amount          BigInt
-  senderName      String
-  transferDate    DateTime
-  proofImageUrl   String
-  notes           String?
-  status          String             @default("PENDING")
-  verifiedBy      String?
-  verifiedAt      DateTime?
-  rejectionReason String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  bankAccount     CompanyBankAccount @relation(fields: [bankAccountId], references: [id])
-  pelanggan       Pelanggan          @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  tagihan         Tagihan            @relation(fields: [tagihanId], references: [id], onDelete: Cascade)
-
-  @@index([tagihanId])
-  @@index([pelangganId])
-  @@index([status])
-  @@index([createdAt])
-}
-
-model Pengeluaran {
-  id              String          @id @default(cuid())
-  tanggal         DateTime
-  tipePengeluaran TipePengeluaran @default(OPEX)
-  kategori        String
-  deskripsi       String
-  jumlah          BigInt
-  metodeBayar     String?
-  catatan         String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  createdBy       String?
-  updatedBy       String?
-  budgetId        String?
-  isApproved      Boolean         @default(false)
-  approvedBy      String?
-  approvedAt      DateTime?
-  nomorBukti      String?
-  createdByUser   User?           @relation("PengeluaranCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser   User?           @relation("PengeluaranUpdatedBy", fields: [updatedBy], references: [id])
-
-  @@index([tanggal])
-  @@index([kategori])
-  @@index([tipePengeluaran])
-  @@index([budgetId])
-  @@index([isApproved])
-}
-
-model Pemasukan {
-  id            String    @id @default(cuid())
-  tanggal       DateTime
-  kategori      String
-  deskripsi     String
-  jumlah        BigInt
-  metodeBayar   String?
-  catatan       String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  createdBy     String?
-  updatedBy     String?
-  isVerified    Boolean   @default(false)
-  verifiedBy    String?
-  verifiedAt    DateTime?
-  nomorBukti    String?
-  createdByUser User?     @relation("PemasukanCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser User?     @relation("PemasukanUpdatedBy", fields: [updatedBy], references: [id])
-
-  @@index([tanggal])
-  @@index([kategori])
-  @@index([isVerified])
 }
 
 model Settings {
@@ -784,132 +594,12 @@ model OAuthProviderConfig {
   @@map("oauth_provider_configs")
 }
 
-model BankAccount {
-  id              String           @id @default(cuid())
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  createdBy       String?
-  mataUang        String           @default("IDR")
-  namaBank        String
-  namaPemilik     String
-  nomorRekening   String
-  saldoAwal       BigInt
-  saldoSaatIni    BigInt
-  updatedBy       String?
-  createdByUser   User?            @relation("BankAccountCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser   User?            @relation("BankAccountUpdatedBy", fields: [updatedBy], references: [id])
-  statements      BankStatement[]
-  reconciliations Reconciliation[]
-  transactions    Transaction[]
-}
-
-model BankStatement {
-  id                  String                @id @default(cuid())
-  bankAccountId       String
-  transactionDate     DateTime
-  description         String
-  reference           String?
-  debit               BigInt                @default(0)
-  credit              BigInt                @default(0)
-  balance             BigInt
-  isReconciled        Boolean               @default(false)
-  reconciledAt        DateTime?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  bankAccount         BankAccount           @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  reconciliationMatch ReconciliationMatch[]
-
-  @@index([bankAccountId])
-  @@index([transactionDate])
-  @@index([isReconciled])
-  @@index([bankAccountId, transactionDate])
-}
-
-model Reconciliation {
-  id                String      @id @default(cuid())
-  bankAccountId     String
-  month             Int
-  year              Int
-  openingBalance    BigInt
-  closingBalance    BigInt
-  totalDeposits     BigInt
-  totalWithdrawals  BigInt
-  systemDeposits    BigInt
-  systemWithdrawals BigInt
-  difference        BigInt
-  isCompleted       Boolean     @default(false)
-  completedAt       DateTime?
-  completedBy       String?
-  notes             String?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  bankAccount       BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-
-  @@unique([bankAccountId, month, year])
-  @@index([bankAccountId])
-  @@index([year, month])
-}
-
-model ReconciliationMatch {
-  id                String        @id @default(cuid())
-  bankStatementId   String
-  matchType         String
-  matchedEntityType String
-  matchedEntityId   String
-  confidence        Float         @default(1.0)
-  notes             String?
-  matchedBy         String?
-  createdAt         DateTime      @default(now())
-  bankStatement     BankStatement @relation(fields: [bankStatementId], references: [id], onDelete: Cascade)
-
-  @@index([bankStatementId])
-  @@index([matchedEntityType, matchedEntityId])
-}
-
-model CollectionTask {
-  id          String               @id @default(cuid())
-  pelangganId String
-  tagihanId   String?
-  assignedTo  String?
-  priority    String               @default("MEDIUM")
-  status      String               @default("PENDING")
-  dueDate     DateTime
-  notes       String?
-  resolution  String?
-  completedAt DateTime?
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  followUps   CollectionFollowUp[]
-
-  @@index([pelangganId])
-  @@index([assignedTo])
-  @@index([status])
-  @@index([dueDate])
-}
-
-model CollectionFollowUp {
-  id               String         @id @default(cuid())
-  collectionTaskId String
-  method           String
-  notes            String
-  response         String?
-  followUpBy       String?
-  followUpAt       DateTime       @default(now())
-  collectionTask   CollectionTask @relation(fields: [collectionTaskId], references: [id], onDelete: Cascade)
-
-  @@index([collectionTaskId])
-  @@index([followUpAt])
-}
-
 model Payment {
   id            String    @id @default(cuid())
-  tagihanId     String?
   pelangganId   String
   amount        BigInt
   paymentDate   DateTime
   paymentMethod String
-  bankAccountId String?
   reference     String?
   notes         String?
   verifiedBy    String?
@@ -917,10 +607,8 @@ model Payment {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  @@index([tagihanId])
   @@index([pelangganId])
   @@index([paymentDate])
-  @@index([bankAccountId])
 }
 
 model ARAgingSnapshot {
@@ -977,7 +665,6 @@ model RevenueSnapshot {
 model ReminderLog {
   id            String    @id @default(cuid())
   pelangganId   String
-  tagihanId     String?
   reminderType  String
   channel       String
   recipient     String
@@ -990,7 +677,6 @@ model ReminderLog {
   createdAt     DateTime  @default(now())
 
   @@index([pelangganId])
-  @@index([tagihanId])
   @@index([status])
   @@index([createdAt])
 }
@@ -1018,209 +704,13 @@ model CustomerCohort {
   @@index([cohortYear, cohortMonth])
 }
 
-model TaxRecord {
-  id                String    @id @default(cuid())
-  taxType           String
-  taxPeriod         Int
-  taxYear           Int
-  taxableAmount     BigInt
-  taxAmount         BigInt
-  taxRate           Float
-  reference         String?
-  relatedEntityType String?
-  relatedEntityId   String?
-  status            String    @default("DRAFT")
-  filedAt           DateTime?
-  paidAt            DateTime?
-  notes             String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  createdBy         String?
-  updatedBy         String?
-
-  @@index([taxType, taxPeriod, taxYear])
-  @@index([relatedEntityType, relatedEntityId])
-  @@index([status])
-  @@index([taxPeriod, taxYear])
-}
-
-model TaxFilingDeadline {
-  id        String    @id @default(cuid())
-  taxType   String
-  period    Int
-  year      Int
-  deadline  DateTime
-  status    String    @default("PENDING")
-  filedAt   DateTime?
-  filedBy   String?
-  notes     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@unique([taxType, period, year])
-  @@index([deadline])
-  @@index([status])
-  @@index([year, period])
-}
-
-model BudgetCategory {
-  id          String           @id @default(cuid())
-  code        String           @unique
-  name        String
-  type        String
-  parentId    String?
-  description String?
-  isActive    Boolean          @default(true)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  budgets     Budget[]
-  parent      BudgetCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  children    BudgetCategory[] @relation("CategoryHierarchy")
-
-  @@index([type])
-  @@index([parentId])
-  @@index([isActive])
-}
-
-model Budget {
-  id              String         @id @default(cuid())
-  year            Int
-  month           Int
-  categoryId      String
-  department      String?
-  budgetAmount    BigInt
-  actualAmount    BigInt         @default(0)
-  variance        BigInt         @default(0)
-  variancePercent Float          @default(0)
-  status          String         @default("DRAFT")
-  approvedBy      String?
-  approvedAt      DateTime?
-  notes           String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  createdBy       String?
-  updatedBy       String?
-  category        BudgetCategory @relation(fields: [categoryId], references: [id])
-  alerts          BudgetAlert[]
-
-  @@unique([year, month, categoryId])
-  @@index([year, month])
-  @@index([status])
-  @@index([categoryId])
-}
-
-model CashFlowForecast {
-  id                String   @id @default(cuid())
-  forecastDate      DateTime
-  scenarioType      String
-  projectedRevenue  BigInt
-  projectedExpenses BigInt
-  projectedCashFlow BigInt
-  projectedBalance  BigInt
-  confidence        Float    @default(0.7)
-  assumptions       String?
-  notes             String?
-  createdAt         DateTime @default(now())
-  createdBy         String?
-
-  @@index([forecastDate])
-  @@index([scenarioType])
-  @@index([forecastDate, scenarioType])
-}
-
-model BudgetAlert {
-  id        String    @id @default(cuid())
-  budgetId  String
-  alertType String
-  threshold Float
-  message   String
-  isRead    Boolean   @default(false)
-  readAt    DateTime?
-  readBy    String?
-  createdAt DateTime  @default(now())
-  budget    Budget    @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-
-  @@index([budgetId])
-  @@index([isRead])
-  @@index([createdAt])
-}
-
-model USOContribution {
-  id               String    @id @default(cuid())
-  quarter          Int
-  year             Int
-  totalRevenue     BigInt
-  usoRate          Float     @default(0.0125)
-  usoAmount        BigInt
-  status           String    @default("DRAFT")
-  calculatedAt     DateTime?
-  filedAt          DateTime?
-  filedBy          String?
-  paidAt           DateTime?
-  paidBy           String?
-  paymentReference String?
-  notes            String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  createdBy        String?
-
-  @@unique([quarter, year])
-  @@index([status])
-  @@index([year, quarter])
-  @@map("uso_contributions")
-}
-
-model DeferredRevenue {
-  id               String               @id @default(cuid())
-  tagihanId        String?
-  customerId       String?
-  totalAmount      BigInt
-  recognizedAmount BigInt               @default(0)
-  remainingAmount  BigInt
-  startDate        DateTime
-  endDate          DateTime
-  periodMonths     Int
-  monthlyAmount    BigInt
-  status           String               @default("ACTIVE")
-  description      String?
-  notes            String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  createdBy        String?
-  recognitions     RevenueRecognition[]
-
-  @@index([status])
-  @@index([tagihanId])
-  @@index([startDate, endDate])
-  @@map("deferred_revenues")
-}
-
-model RevenueRecognition {
-  id                String          @id @default(cuid())
-  deferredRevenueId String
-  recognitionDate   DateTime
-  amount            BigInt
-  notes             String?
-  pemasukanId       String?
-  createdAt         DateTime        @default(now())
-  recognizedBy      String?
-  deferredRevenue   DeferredRevenue @relation(fields: [deferredRevenueId], references: [id], onDelete: Cascade)
-
-  @@unique([deferredRevenueId, recognitionDate])
-  @@index([deferredRevenueId])
-  @@index([recognitionDate])
-  @@map("revenue_recognitions")
-}
-
 model Department {
-  id              String       @id @default(cuid())
-  name            String       @unique
+  id              String         @id @default(cuid())
+  name            String         @unique
   description     String?
   jobDescription  String?
-  allowedFeatures String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  customRoles     CustomRole[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   employees       Employee[]
   positions       Position[]
   workOrders      WorkOrder[]
@@ -1265,185 +755,72 @@ model Position {
   @@map("positions")
 }
 
-model CustomRole {
-  id              String         @id @default(cuid())
-  name            String
-  code            String         @unique
-  description     String?
-  departmentId    String?
-  allowedFeatures String?
-  priority        Int            @default(50)
-  isActive        Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  createdBy       String?
-  department      Department?    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  employeeRoles   EmployeeRole[]
-  auditLogs       RoleAuditLog[]
 
-  @@index([departmentId])
-  @@index([isActive])
-  @@index([priority])
-  @@map("custom_roles")
-}
-
-model EmployeeRole {
-  id         String     @id @default(cuid())
-  employeeId String
-  roleId     String
-  assignedAt DateTime   @default(now())
-  assignedBy String
-  employee   Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  role       CustomRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
-
-  @@unique([employeeId, roleId])
-  @@index([employeeId])
-  @@index([roleId])
-  @@index([assignedAt])
-  @@map("employee_roles")
-}
-
-model RoleAuditLog {
-  id         String      @id @default(cuid())
-  action     String
-  entityType String
-  entityId   String
-  roleId     String?
-  userId     String
-  userName   String?
-  oldValues  Json?
-  newValues  Json?
-  ipAddress  String?
-  userAgent  String?
-  notes      String?
-  createdAt  DateTime    @default(now())
-  role       CustomRole? @relation(fields: [roleId], references: [id])
-
-  @@index([roleId])
-  @@index([userId])
-  @@index([action])
-  @@index([createdAt])
-  @@index([entityType, entityId])
-  @@map("role_audit_logs")
-}
 
 model Employee {
-  id                   String                @id @default(cuid())
-  employeeId           String                @unique
-  userId               String?               @unique
+  id                   String    @id @default(cuid())
+  employeeId           String    @unique
+  userId               String?   @unique
   fullName             String
-  email                String?               @unique
+  email                String?   @unique
   phone                String?
-  dateOfBirth          DateTime?
-  gender               String?
-  idCardNumber         String?               @unique
-  address              String?
-  city                 String?
-  province             String?
-  postalCode           String?
   departmentId         String?
   positionId           String?
   siteId               String?
-  employmentStatus     EmploymentStatus      @default(PROBATION)
   joinDate             DateTime
-  endDate              DateTime?
+  status               String    @default("ACTIVE")
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  createdBy            String?
+  updatedBy            String?
+
+  // Personal Information
+  dateOfBirth          DateTime?
+  gender               String?   // MALE, FEMALE
+  idCardNumber         String?   // Nomor KTP
+  address              String?
+  city                 String?
+  province             String?
+
+  // Employment Details
+  employmentStatus     String    @default("PROBATION") // PROBATION, PERMANENT, CONTRACT
   probationEndDate     DateTime?
-  managerId            String?
-  emergencyName        String?
-  emergencyPhone       String?
-  emergencyRelation    String?
+
+  // Bank Information
   bankName             String?
   bankAccountNumber    String?
   bankAccountName      String?
-  npwp                 String?
-  ptkpStatus           String?
-  photoUrl             String?
-  isActive             Boolean               @default(true)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  createdBy            String?
-  updatedBy            String?
+  npwp                 String?   // Nomor NPWP
+
+  // Emergency Contact
+  emergencyName        String?
+  emergencyPhone       String?
+  emergencyRelation    String?
+
+  // Relations for work orders and inventory
   workOrdersCreated    WorkOrder[]           @relation("WorkOrderCreatedBy")
-  attendances          Attendance[]
-  documents            EmployeeDocument[]
-  customRoles          EmployeeRole[]
-  employeeSalaries     EmployeeSalary[]
-  employeeSkills       EmployeeSkill[]
+
+  // Relations to organization structure
   department           Department?           @relation(fields: [departmentId], references: [id])
   position             Position?             @relation(fields: [positionId], references: [id])
   site                 Site?                 @relation(fields: [siteId], references: [id])
-  leaveBalances        LeaveBalance[]
-  leaveRequests        LeaveRequest[]
-  overtimes            Overtime[]
-  payrollDetails       PayrollDetail[]
-  performanceGoals     PerformanceGoal[]
-  performanceReviews   PerformanceReview[]
-  trainingEnrollments  TrainingEnrollment[]
-  workOrderAssignments WorkOrderAssignment[]
-  workOrderAttachments WorkOrderAttachment[]
-  taskCompletions      WorkOrderTask[]
-  workOrderUpdates     WorkOrderUpdate[]
-  workOrders           WorkOrder[]
-  notifications        Notification[]
-  pushSubscriptions    PushSubscription[]
 
-  @@index([departmentId])
-  @@index([positionId])
-  @@index([siteId])
-  @@index([employmentStatus])
-  @@index([isActive])
-  @@index([email])
+  // Back-references for related models
+  workOrdersAssigned   WorkOrder[]           @relation("EmployeeWorkOrders")
+  workOrderTasks       WorkOrderTask[]       @relation("EmployeeWorkOrderTasks")
+  workOrderAssignments WorkOrderAssignment[] @relation("EmployeeWorkOrderAssignments")
+  workOrderUpdates     WorkOrderUpdate[]     @relation("EmployeeWorkOrderUpdates")
+  workOrderAttachments WorkOrderAttachment[] @relation("EmployeeWorkOrderAttachments")
+  notifications        Notification[]        @relation("EmployeeNotifications")
+  pushSubscriptions    PushSubscription[]    @relation("EmployeePushSubscriptions")
+  user                 User?                 @relation(fields: [userId], references: [id])
+
   @@map("employees")
 }
 
-model EmployeeDocument {
-  id           String   @id @default(cuid())
-  employeeId   String
-  documentType String
-  fileName     String
-  filePath     String
-  fileSize     Int?
-  description  String?
-  uploadedAt   DateTime @default(now())
-  uploadedBy   String?
-  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@index([employeeId])
-  @@index([documentType])
-  @@map("employee_documents")
-}
 
-model Attendance {
-  id           String           @id @default(cuid())
-  employeeId   String
-  date         DateTime
-  checkInTime  DateTime?
-  checkInLat   Float?
-  checkInLng   Float?
-  checkInNote  String?
-  checkInPhoto String?
-  checkOutTime DateTime?
-  checkOutLat  Float?
-  checkOutLng  Float?
-  checkOutNote String?
-  checkOutPhoto String?
-  workingHours Float?
-  status       AttendanceStatus @default(ABSENT)
-  isManual     Boolean          @default(false)
-  correctedBy  String?
-  correctedAt  DateTime?
-  notes        String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  employee     Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  @@unique([employeeId, date])
-  @@index([employeeId])
-  @@index([date])
-  @@index([status])
-  @@index([employeeId, date])
-  @@map("attendances")
-}
 
 model RadCheck {
   id        Int      @id @default(autoincrement())
@@ -1598,510 +975,70 @@ model RadIpPool {
   @@map("radippool")
 }
 
-model LeaveBalance {
-  id            String    @id @default(cuid())
-  employeeId    String
-  year          Int
-  leaveType     LeaveType
-  totalDays     Int
-  usedDays      Int       @default(0)
-  remainingDays Int
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@unique([employeeId, year, leaveType])
-  @@index([employeeId])
-  @@index([year])
-  @@map("leave_balances")
-}
 
-model LeaveRequest {
-  id              String      @id @default(cuid())
-  employeeId      String
-  leaveType       LeaveType
-  startDate       DateTime
-  endDate         DateTime
-  totalDays       Int
-  reason          String
-  status          LeaveStatus @default(PENDING)
-  approvedBy      String?
-  approvedAt      DateTime?
-  rejectionReason String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  employee        Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@index([employeeId])
-  @@index([status])
-  @@index([startDate])
-  @@index([employeeId, status])
-  @@map("leave_requests")
-}
 
-model Overtime {
-  id          String    @id @default(cuid())
-  employeeId  String
-  date        DateTime
-  startTime   DateTime
-  endTime     DateTime
-  hours       Float
-  description String?
-  isApproved  Boolean   @default(false)
-  approvedBy  String?
-  approvedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@index([employeeId])
-  @@index([date])
-  @@index([isApproved])
-  @@map("overtimes")
-}
 
-model SalaryComponent {
-  id               String              @id @default(cuid())
-  code             String              @unique
-  name             String
-  type             SalaryComponentType
-  description      String?
-  isActive         Boolean             @default(true)
-  isTaxable        Boolean             @default(true)
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  employeeSalaries EmployeeSalary[]
 
-  @@index([type])
-  @@index([isActive])
-  @@map("salary_components")
-}
 
-model EmployeeSalary {
-  id                String          @id @default(cuid())
-  employeeId        String
-  salaryComponentId String
-  amount            BigInt
-  effectiveDate     DateTime
-  endDate           DateTime?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  employee          Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  salaryComponent   SalaryComponent @relation(fields: [salaryComponentId], references: [id])
 
-  @@index([employeeId])
-  @@index([salaryComponentId])
-  @@index([effectiveDate])
-  @@map("employee_salaries")
-}
 
-model Payroll {
-  id             String          @id @default(cuid())
-  month          Int
-  year           Int
-  periodStart    DateTime
-  periodEnd      DateTime
-  totalGross     BigInt          @default(0)
-  totalDeduction BigInt          @default(0)
-  totalNet       BigInt          @default(0)
-  totalEmployees Int             @default(0)
-  status         PayrollStatus   @default(DRAFT)
-  processedAt    DateTime?
-  approvedBy     String?
-  approvedAt     DateTime?
-  paidAt         DateTime?
-  paidBy         String?
-  pengeluaranId  String?         @unique
-  notes          String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  createdBy      String?
-  payrollDetails PayrollDetail[]
 
-  @@unique([month, year])
-  @@index([month, year])
-  @@index([status])
-  @@map("payrolls")
-}
 
-model PayrollDetail {
-  id                 String   @id @default(cuid())
-  payrollId          String
-  employeeId         String
-  basicSalary        BigInt   @default(0)
-  allowances         BigInt   @default(0)
-  bonuses            BigInt   @default(0)
-  grossSalary        BigInt
-  deductions         BigInt   @default(0)
-  tax                BigInt   @default(0)
-  insurance          BigInt   @default(0)
-  totalDeduction     BigInt
-  netSalary          BigInt
-  overtimeHours      Float    @default(0)
-  overtimePay        BigInt   @default(0)
-  daysWorked         Int      @default(0)
-  daysAbsent         Int      @default(0)
-  lateCount          Int      @default(0)
-  componentBreakdown Json?
-  notes              String?
-  createdAt          DateTime @default(now())
-  employee           Employee @relation(fields: [employeeId], references: [id])
-  payroll            Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
 
-  @@unique([payrollId, employeeId])
-  @@index([payrollId])
-  @@index([employeeId])
-  @@map("payroll_details")
-}
 
-model PerformanceReview {
-  id                String   @id @default(cuid())
-  employeeId        String
-  reviewPeriod      String
-  reviewDate        DateTime
-  reviewerId        String?
-  scoreQuality      Float?
-  scoreProductivity Float?
-  scoreAttendance   Float?
-  scoreTeamwork     Float?
-  scoreInitiative   Float?
-  overallScore      Float?
-  strengths         String?
-  weaknesses        String?
-  goals             String?
-  comments          String?
-  status            String   @default("DRAFT")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@index([employeeId])
-  @@index([reviewDate])
-  @@map("performance_reviews")
-}
-
-model PerformanceGoal {
-  id          String   @id @default(cuid())
-  employeeId  String
-  title       String
-  description String
-  targetValue Float?
-  actualValue Float?
-  unit        String?
-  startDate   DateTime
-  endDate     DateTime
-  status      String   @default("IN_PROGRESS")
-  achievement Float?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  @@index([employeeId])
-  @@index([status])
-  @@index([endDate])
-  @@map("performance_goals")
-}
-
-model Training {
-  id              String               @id @default(cuid())
-  title           String
-  description     String?
-  trainer         String?
-  location        String?
-  startDate       DateTime
-  endDate         DateTime
-  duration        Int?
-  maxParticipants Int?
-  cost            BigInt?
-  isActive        Boolean              @default(true)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  createdBy       String?
-  enrollments     TrainingEnrollment[]
-
-  @@index([startDate])
-  @@index([isActive])
-  @@map("trainings")
-}
-
-model TrainingEnrollment {
-  id          String    @id @default(cuid())
-  trainingId  String
-  employeeId  String
-  status      String    @default("REGISTERED")
-  attended    Boolean   @default(false)
-  score       Float?
-  certificate String?
-  feedback    String?
-  enrolledAt  DateTime  @default(now())
-  completedAt DateTime?
-  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  training    Training  @relation(fields: [trainingId], references: [id], onDelete: Cascade)
-
-  @@unique([trainingId, employeeId])
-  @@index([trainingId])
-  @@index([employeeId])
-  @@index([status])
-  @@map("training_enrollments")
-}
-
-model Skill {
-  id             String          @id @default(cuid())
-  name           String          @unique
-  category       String?
-  description    String?
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  employeeSkills EmployeeSkill[]
-
-  @@index([category])
-  @@index([isActive])
-  @@map("skills")
-}
-
-model EmployeeSkill {
-  id         String    @id @default(cuid())
-  employeeId String
-  skillId    String
-  level      String    @default("BEGINNER")
-  yearsOfExp Int?
-  lastUsed   DateTime?
-  certified  Boolean   @default(false)
-  notes      String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  skill      Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
-
-  @@unique([employeeId, skillId])
-  @@index([employeeId])
-  @@index([skillId])
-  @@map("employee_skills")
-}
-
-model JobPosting {
-  id               String           @id @default(cuid())
-  title            String
-  departmentId     String?
-  positionId       String?
-  description      String
-  requirements     String
-  responsibilities String
-  employmentType   String
-  location         String?
-  salaryMin        BigInt?
-  salaryMax        BigInt?
-  openings         Int              @default(1)
-  publishDate      DateTime         @default(now())
-  closeDate        DateTime?
-  isActive         Boolean          @default(true)
-  isPublic         Boolean          @default(false)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  createdBy        String?
-  applications     JobApplication[]
-
-  @@index([isActive])
-  @@index([publishDate])
-  @@map("job_postings")
-}
-
-model JobApplication {
-  id             String            @id @default(cuid())
-  jobPostingId   String
-  fullName       String
-  email          String
-  phone          String
-  resumeUrl      String?
-  coverLetter    String?
-  status         ApplicationStatus @default(APPLIED)
-  currentStage   String?
-  screeningScore Float?
-  interviewScore Float?
-  finalScore     Float?
-  notes          String?
-  appliedAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  interviews     Interview[]
-  jobPosting     JobPosting        @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
-
-  @@index([jobPostingId])
-  @@index([status])
-  @@index([email])
-  @@map("job_applications")
-}
-
-model Interview {
-  id               String         @id @default(cuid())
-  jobApplicationId String
-  interviewType    String
-  scheduledDate    DateTime
-  duration         Int?
-  location         String?
-  interviewerIds   String?
-  interviewers     String?
-  status           String         @default("SCHEDULED")
-  score            Float?
-  feedback         String?
-  recommendation   String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  jobApplication   JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
-
-  @@index([jobApplicationId])
-  @@index([scheduledDate])
-  @@index([status])
-  @@map("interviews")
-}
-
-model TicketCategory {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  description  String?
-  color        String?  @default("#3b82f6")
-  icon         String?
-  displayOrder Int      @default(0)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  tickets      Ticket[]
-
-  @@index([isActive])
-  @@index([displayOrder])
-  @@map("ticket_categories")
-}
-
-model Ticket {
-  id              String             @id @default(cuid())
-  ticketNumber    String             @unique
-  pelangganId     String
-  categoryId      String?
-  subject         String
-  description     String
-  status          TicketStatus       @default(OPEN)
-  priority        TicketPriority     @default(NORMAL)
-  assignedToId    String?
-  assignedAt      DateTime?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  firstResponseAt DateTime?
-  resolvedAt      DateTime?
-  closedAt        DateTime?
-  rating          Int?
-  feedback        String?
-  lastActivityAt  DateTime           @default(now())
-  tags            String?
-  userId          String?
-  attachments     TicketAttachment[]
-  messages        TicketMessage[]
-  category        TicketCategory?    @relation(fields: [categoryId], references: [id])
-  pelanggan       Pelanggan          @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  user            User?              @relation(fields: [userId], references: [id])
-  workOrders      WorkOrder[]
-
-  @@index([pelangganId])
-  @@index([status])
-  @@index([priority])
-  @@index([assignedToId])
-  @@index([categoryId])
-  @@index([createdAt])
-  @@index([lastActivityAt])
-  @@index([ticketNumber])
-  @@index([pelangganId, status])
-  @@map("tickets")
-}
-
-model TicketMessage {
-  id              String             @id @default(cuid())
-  ticketId        String
-  message         String
-  isInternal      Boolean            @default(false)
-  senderType      String
-  senderId        String?
-  senderName      String
-  isFirstResponse Boolean            @default(false)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  attachments     TicketAttachment[]
-  ticket          Ticket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-
-  @@index([ticketId])
-  @@index([createdAt])
-  @@index([senderType])
-  @@map("ticket_messages")
-}
-
-model TicketAttachment {
-  id         String         @id @default(cuid())
-  ticketId   String?
-  messageId  String?
-  fileName   String
-  filePath   String
-  fileSize   Int
-  fileType   String
-  uploadedBy String?
-  uploadedAt DateTime       @default(now())
-  message    TicketMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  ticket     Ticket?        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-
-  @@index([ticketId])
-  @@index([messageId])
-  @@index([uploadedAt])
-  @@map("ticket_attachments")
-}
 
 model WorkOrder {
-  id                 String                @id @default(cuid())
-  workOrderNumber    String                @unique
-  ticketId           String?
-  pelangganId        String?
-  siteId             String?
-  type               WorkOrderType
-  title              String
-  description        String
-  status             WorkOrderStatus       @default(PENDING)
-  priority           WorkOrderPriority     @default(NORMAL)
-  departmentId       String?
-  assignedToId       String?
-  locationAddress    String?
-  locationLat        Float?
-  locationLng        Float?
-  contactName        String?
-  contactPhone       String?
-  scheduledDate      DateTime?
-  scheduledTimeStart String?
-  scheduledTimeEnd   String?
-  startedAt          DateTime?
-  completedAt        DateTime?
-  verifiedAt         DateTime?
-  closedAt           DateTime?
-  estimatedHours     Float?
-  actualHours        Float?
-  estimatedCost      Float?
-  actualCost         Float?
-  requiredMaterials  Json?
-  usedMaterials      Json?
-  internalNotes      String?
-  resolutionNotes    String?
-  customerFeedback   String?
-  rating             Int?
+  id                  String                @id @default(cuid())
+  workOrderNumber     String                @unique
+  pelangganId         String?
+  siteId              String?
+  type                WorkOrderType
+  title               String
+  description         String
+  status              WorkOrderStatus       @default(PENDING)
+  priority            WorkOrderPriority     @default(NORMAL)
+  departmentId        String?
+  assignedToId        String?
+  locationAddress     String?
+  locationLat         Float?
+  locationLng         Float?
+  contactName         String?
+  contactPhone        String?
+  scheduledDate       DateTime?
+  scheduledTimeStart  String?
+  scheduledTimeEnd    String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  verifiedAt          DateTime?
+  closedAt            DateTime?
+  estimatedHours      Float?
+  actualHours         Float?
+  estimatedCost       Float?
+  actualCost          Float?
+  requiredMaterials   Json?
+  usedMaterials       Json?
+  internalNotes       String?
+  resolutionNotes     String?
+  customerFeedback    String?
+  rating              Int?
   disconnectionReason String?
-  createdById        String?
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  createdBy          Employee?             @relation("WorkOrderCreatedBy", fields: [createdById], references: [id])
-  assignments        WorkOrderAssignment[]
-  attachments        WorkOrderAttachment[]
-  tasks              WorkOrderTask[]
-  updates            WorkOrderUpdate[]
-  assignedTo         Employee?             @relation(fields: [assignedToId], references: [id])
-  department         Department?           @relation(fields: [departmentId], references: [id])
-  pelanggan          Pelanggan?            @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  site               Site?                 @relation(fields: [siteId], references: [id])
-  ticket             Ticket?               @relation(fields: [ticketId], references: [id])
+  createdById         String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  createdBy           Employee?             @relation("WorkOrderCreatedBy", fields: [createdById], references: [id])
+  assignments         WorkOrderAssignment[]
+  attachments         WorkOrderAttachment[]
+  tasks               WorkOrderTask[]
+  updates             WorkOrderUpdate[]
+  assignedTo          Employee?             @relation("EmployeeWorkOrders", fields: [assignedToId], references: [id])
+  department          Department?           @relation(fields: [departmentId], references: [id])
+  pelanggan           Pelanggan?            @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  site                Site?                 @relation(fields: [siteId], references: [id])
 
-  @@index([ticketId])
   @@index([pelangganId])
   @@index([siteId])
   @@index([status])
@@ -2125,7 +1062,7 @@ model WorkOrderTask {
   completedAt   DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-  completedBy   Employee?  @relation(fields: [completedById], references: [id])
+  completedBy   Employee?  @relation("EmployeeWorkOrderTasks", fields: [completedById], references: [id])
   workOrder     WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
@@ -2140,7 +1077,7 @@ model WorkOrderAssignment {
   role         String?
   assignedAt   DateTime  @default(now())
   assignedById String?
-  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee     Employee  @relation("EmployeeWorkOrderAssignments", fields: [employeeId], references: [id], onDelete: Cascade)
   workOrder    WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
@@ -2157,7 +1094,7 @@ model WorkOrderUpdate {
   newStatus   WorkOrderStatus?
   createdById String?
   createdAt   DateTime         @default(now())
-  createdBy   Employee?        @relation(fields: [createdById], references: [id])
+  createdBy   Employee?        @relation("EmployeeWorkOrderUpdates", fields: [createdById], references: [id])
   workOrder   WorkOrder        @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
@@ -2175,290 +1112,12 @@ model WorkOrderAttachment {
   caption      String?
   uploadedById String?
   uploadedAt   DateTime  @default(now())
-  uploadedBy   Employee? @relation(fields: [uploadedById], references: [id])
+  uploadedBy   Employee? @relation("EmployeeWorkOrderAttachments", fields: [uploadedById], references: [id])
   workOrder    WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
   @@index([uploadedAt])
   @@map("work_order_attachments")
-}
-
-model Transaction {
-  id              String      @id @default(cuid())
-  bankAccountId   String
-  tanggal         DateTime
-  tipeTransaksi   String
-  kategori        String
-  deskripsi       String
-  jumlah          BigInt
-  saldoSebelumnya BigInt
-  saldoSetelahnya BigInt
-  nomorReferensi  String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  createdBy       String?
-  updatedBy       String?
-  bankAccount     BankAccount @relation(fields: [bankAccountId], references: [id])
-  createdByUser   User?       @relation("TransactionCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser   User?       @relation("TransactionUpdatedBy", fields: [updatedBy], references: [id])
-
-  @@index([bankAccountId, tanggal])
-  @@index([tipeTransaksi])
-  @@index([kategori])
-  @@index([tanggal])
-}
-
-model AccountingPeriod {
-  id              String                  @id @default(cuid())
-  year            Int
-  month           Int?
-  quarter         Int?
-  name            String
-  startDate       DateTime
-  endDate         DateTime
-  isActive        Boolean                 @default(false)
-  isClosed        Boolean                 @default(false)
-  closedAt        DateTime?
-  closedBy        String?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  balanceSheet    BalanceSheetSnapshot?
-  cashFlow        CashFlowSnapshot?
-  auditLogs       FinancialAuditLog[]
-  financialRatios FinancialRatioSnapshot?
-  profitLoss      ProfitLossSnapshot?
-
-  @@unique([year, month, quarter])
-  @@index([isActive])
-  @@index([isClosed])
-  @@index([year])
-}
-
-model BalanceSheetSnapshot {
-  id                      String           @id @default(cuid())
-  periodId                String           @unique
-  cashAndEquivalents      BigInt
-  accountsReceivable      BigInt
-  inventory               BigInt           @default(0)
-  prepaidExpenses         BigInt           @default(0)
-  currentAssets           BigInt
-  fixedAssets             BigInt
-  accumulatedDepreciation BigInt           @default(0)
-  netFixedAssets          BigInt
-  totalAssets             BigInt
-  accountsPayable         BigInt
-  accruedExpenses         BigInt           @default(0)
-  shortTermDebt           BigInt           @default(0)
-  currentLiabilities      BigInt
-  longTermDebt            BigInt           @default(0)
-  totalLiabilities        BigInt
-  initialCapital          BigInt           @default(0)
-  retainedEarnings        BigInt
-  currentPeriodEarnings   BigInt           @default(0)
-  totalEquity             BigInt
-  isBalanced              Boolean          @default(false)
-  variance                BigInt           @default(0)
-  createdAt               DateTime         @default(now())
-  updatedAt               DateTime         @updatedAt
-  createdBy               String?
-  period                  AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
-
-  @@index([periodId])
-}
-
-model ProfitLossSnapshot {
-  id                String           @id @default(cuid())
-  periodId          String           @unique
-  salesRevenue      BigInt
-  serviceRevenue    BigInt           @default(0)
-  otherRevenue      BigInt           @default(0)
-  totalRevenue      BigInt
-  directCosts       BigInt           @default(0)
-  cogs              BigInt           @default(0)
-  grossProfit       BigInt
-  grossMargin       Float            @default(0)
-  operatingExpenses BigInt
-  operatingIncome   BigInt
-  operatingMargin   Float            @default(0)
-  interestIncome    BigInt           @default(0)
-  interestExpense   BigInt           @default(0)
-  otherIncome       BigInt           @default(0)
-  otherExpenses     BigInt           @default(0)
-  incomeBeforeTax   BigInt
-  incomeTax         BigInt           @default(0)
-  netIncome         BigInt
-  netMargin         Float            @default(0)
-  earningsPerShare  Float            @default(0)
-  returnOnAssets    Float            @default(0)
-  returnOnEquity    Float            @default(0)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  createdBy         String?
-  period            AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
-
-  @@index([periodId])
-}
-
-model CashFlowSnapshot {
-  id                    String           @id @default(cuid())
-  periodId              String           @unique
-  netIncome             BigInt
-  depreciation          BigInt           @default(0)
-  workingCapitalChanges BigInt           @default(0)
-  operatingCashFlow     BigInt
-  capex                 BigInt           @default(0)
-  assetSales            BigInt           @default(0)
-  investingCashFlow     BigInt           @default(0)
-  debtProceeds          BigInt           @default(0)
-  debtRepayments        BigInt           @default(0)
-  equityProceeds        BigInt           @default(0)
-  dividends             BigInt           @default(0)
-  financingCashFlow     BigInt           @default(0)
-  cashFlowIncrease      BigInt
-  beginningCash         BigInt
-  endingCash            BigInt
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
-  createdBy             String?
-  period                AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
-
-  @@index([periodId])
-}
-
-model FinancialRatioSnapshot {
-  id                  String           @id @default(cuid())
-  periodId            String           @unique
-  currentRatio        Float
-  quickRatio          Float            @default(0)
-  cashRatio           Float            @default(0)
-  grossMargin         Float
-  operatingMargin     Float
-  netMargin           Float
-  returnOnAssets      Float
-  returnOnEquity      Float
-  assetTurnover       Float            @default(0)
-  inventoryTurnover   Float            @default(0)
-  receivablesTurnover Float            @default(0)
-  debtToEquity        Float            @default(0)
-  debtToAssets        Float            @default(0)
-  interestCoverage    Float            @default(0)
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  period              AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
-
-  @@index([periodId])
-}
-
-model FinancialAuditLog {
-  id          String            @id @default(cuid())
-  periodId    String?
-  action      String
-  entityType  String
-  entityId    String?
-  description String
-  oldValues   Json?
-  newValues   Json?
-  userId      String
-  userName    String?
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime          @default(now())
-  period      AccountingPeriod? @relation(fields: [periodId], references: [id])
-
-  @@index([periodId])
-  @@index([entityType])
-  @@index([userId])
-  @@index([createdAt])
-  @@index([action])
-}
-
-model DepreciationSchedule {
-  id                      String               @id @default(cuid())
-  assetName               String
-  description             String?
-  assetCategory           String
-  purchaseDate            DateTime
-  purchaseCost            BigInt
-  salvageValue            BigInt               @default(0)
-  usefulLifeYears         Int
-  depreciationMethod      String               @default("STRAIGHT_LINE")
-  annualDepreciation      BigInt               @default(0)
-  monthlyDepreciation     BigInt               @default(0)
-  accumulatedDepreciation BigInt               @default(0)
-  netBookValue            BigInt
-  isActive                Boolean              @default(true)
-  disposedDate            DateTime?
-  disposedValue           BigInt               @default(0)
-  createdAt               DateTime             @default(now())
-  updatedAt               DateTime             @updatedAt
-  createdBy               String?
-  depreciationRecords     DepreciationRecord[]
-
-  @@index([isActive])
-  @@index([purchaseDate])
-  @@index([assetCategory])
-}
-
-model DepreciationRecord {
-  id                      String               @id @default(cuid())
-  depreciationScheduleId  String
-  year                    Int
-  month                   Int
-  depreciationAmount      BigInt
-  accumulatedDepreciation BigInt
-  netBookValue            BigInt
-  createdAt               DateTime             @default(now())
-  depreciationSchedule    DepreciationSchedule @relation(fields: [depreciationScheduleId], references: [id], onDelete: Cascade)
-
-  @@unique([depreciationScheduleId, year, month])
-  @@index([year, month])
-  @@index([depreciationScheduleId])
-}
-
-model FixedAsset {
-  id                 String                  @id @default(cuid())
-  assetCode          String                  @unique
-  assetName          String
-  description        String?
-  assetCategory      String
-  serialNumber       String?
-  location           String?
-  purchaseDate       DateTime
-  purchaseCost       BigInt
-  salvageValue       BigInt                  @default(0)
-  usefulLifeYears    Int
-  currentValue       BigInt
-  status             String                  @default("ACTIVE")
-  condition          String?
-  assignedTo         String?
-  assignedDate       DateTime?
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  createdBy          String?
-  updatedBy          String?
-  maintenanceRecords FixedAssetMaintenance[]
-
-  @@index([assetCode])
-  @@index([assetCategory])
-  @@index([status])
-  @@index([purchaseDate])
-}
-
-model FixedAssetMaintenance {
-  id              String     @id @default(cuid())
-  fixedAssetId    String
-  maintenanceDate DateTime
-  maintenanceType String
-  description     String
-  cost            BigInt     @default(0)
-  performedBy     String?
-  createdAt       DateTime   @default(now())
-  createdBy       String?
-  fixedAsset      FixedAsset @relation(fields: [fixedAssetId], references: [id], onDelete: Cascade)
-
-  @@index([fixedAssetId])
-  @@index([maintenanceDate])
-  @@index([maintenanceType])
 }
 
 model Gudang {
@@ -2716,13 +1375,7 @@ model UsageAnalytics {
   @@map("usage_analytics")
 }
 
-enum Role {
-  USER
-  TECHNICIAN
-  ADMIN
-  FINANCE
-  HR
-}
+
 
 enum Status {
   AKTIF
@@ -2745,17 +1398,6 @@ enum DiscountType {
 enum TipePelanggan {
   REGULER
   NON_REGULER
-}
-
-enum TagihanStatus {
-  BELUM_LUNAS
-  LUNAS
-  TERLAMBAT
-}
-
-enum TipePengeluaran {
-  CAPEX
-  OPEX
 }
 
 enum KondisiBarang {
@@ -2785,79 +1427,12 @@ enum PeriodType {
   MONTHLY
 }
 
-enum EmploymentStatus {
-  PROBATION
-  PERMANENT
-  CONTRACT
-  INTERNSHIP
-  TERMINATED
-}
 
-enum AttendanceStatus {
-  PRESENT
-  LATE
-  ABSENT
-  LEAVE
-  SICK_LEAVE
-  PERMISSION
-  REMOTE
-}
 
-enum LeaveType {
-  ANNUAL
-  SICK
-  PERMISSION
-  MATERNITY
-  PATERNITY
-  UNPAID
-}
 
-enum LeaveStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  CANCELLED
-}
 
-enum PayrollStatus {
-  DRAFT
-  CALCULATED
-  APPROVED
-  PAID
-}
 
-enum SalaryComponentType {
-  BASIC_SALARY
-  ALLOWANCE
-  BONUS
-  DEDUCTION
-  TAX
-  INSURANCE
-}
 
-enum ApplicationStatus {
-  APPLIED
-  SCREENING
-  INTERVIEW
-  OFFERED
-  ACCEPTED
-  REJECTED
-}
-
-enum TicketPriority {
-  LOW
-  NORMAL
-  HIGH
-  URGENT
-}
-
-enum TicketStatus {
-  OPEN
-  IN_PROGRESS
-  WAITING_CUSTOMER
-  RESOLVED
-  CLOSED
-}
 
 enum WorkOrderStatus {
   PENDING
@@ -2895,54 +1470,38 @@ enum TaskStatus {
   SKIPPED
 }
 
-// Menu Definition for granular role-based access control
-model MenuDefinition {
-  id           String   @id @default(cuid())
-  code         String   @unique // e.g. "PELANGGAN.TAGIHAN"
-  name         String // Display name e.g. "Tagihan Pelanggan"
-  parentCode   String? // null = top menu, "PELANGGAN" = submenu
-  path         String? // Route path e.g. "/admin/pelanggan/tagihan"
-  icon         String? // Icon name for menu
-  defaultPerms Json? // Default permissions: {"read":true,"create":true,...}
-  sortOrder    Int      @default(0)
-  isActive     Boolean  @default(true)
-  portal       String   @default("admin") // admin, employee, finance
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+// Role-Based Access Control Models
 
-  @@index([parentCode])
-  @@index([portal])
-  @@index([sortOrder])
-  @@map("menu_definitions")
-}
+
+// Menu Definition for granular role-based access control
 
 // ===================================================================
 // Notification System
 // ===================================================================
 
 model Notification {
-  id           String      @id @default(cuid())
-  type         String      // 'WORK_ORDER', 'SYSTEM', 'TICKET', 'ALERT'
-  priority     String      @default("NORMAL") // 'LOW', 'NORMAL', 'HIGH', 'URGENT'
-  title        String
-  message      String
-  link         String?     // URL for navigation
-  isRead       Boolean     @default(false)
-  
+  id       String  @id @default(cuid())
+  type     String // 'WORK_ORDER', 'SYSTEM', 'TICKET', 'ALERT'
+  priority String  @default("NORMAL") // 'LOW', 'NORMAL', 'HIGH', 'URGENT'
+  title    String
+  message  String
+  link     String? // URL for navigation
+  isRead   Boolean @default(false)
+
   // Target notification
-  employeeId   String?     // Specific employee
-  departmentId String?     // All employees in department
-  
+  employeeId   String? // Specific employee
+  departmentId String? // All employees in department
+
   // Reference to source
-  sourceType   String?     // 'WORK_ORDER', 'TICKET', etc.
-  sourceId     String?     // ID of the source entity
-  
-  createdAt    DateTime    @default(now())
-  readAt       DateTime?
-  
-  employee     Employee?   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  
+  sourceType String? // 'WORK_ORDER', 'TICKET', etc.
+  sourceId   String? // ID of the source entity
+
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  employee   Employee?   @relation("EmployeeNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
   @@index([employeeId])
   @@index([departmentId])
   @@index([isRead])
@@ -2952,20 +1511,20 @@ model Notification {
 }
 
 model PushSubscription {
-  id           String   @id @default(cuid())
-  employeeId   String
-  endpoint     String   @unique
-  p256dh       String   // Public key for encryption
-  auth         String   // Auth secret
-  userAgent    String?  // Device/browser info
-  isActive     Boolean  @default(true)
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  lastUsedAt   DateTime?
-  
-  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
+  id         String  @id @default(cuid())
+  employeeId String
+  endpoint   String  @unique
+  p256dh     String // Public key for encryption
+  auth       String // Auth secret
+  userAgent  String? // Device/browser info
+  isActive   Boolean @default(true)
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastUsedAt DateTime?
+
+  employee Employee @relation("EmployeePushSubscriptions", fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([employeeId])
   @@index([isActive])
   @@map("push_subscriptions")

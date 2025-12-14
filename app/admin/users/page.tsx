@@ -9,7 +9,6 @@ interface User {
   id: string
   email: string
   name: string | null
-  role: string
   createdAt: string
   employee: {
     id: string
@@ -17,8 +16,6 @@ interface User {
     department: { id: string; name: string } | null
     position: { id: string; title: string } | null
     employmentStatus: string
-    customRoleName: string | null
-    customRoleCode: string | null
   } | null
 }
 
@@ -147,10 +144,7 @@ export default function UsersPage() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Pengguna
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Peran
-                  </th>
-                  {/* Tipe column removed */}
+                  {/* Role column removed */}
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     ID Pegawai
                   </th>
@@ -185,14 +179,7 @@ export default function UsersPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400"
-                      >
-                        {user.employee?.customRoleName || 'Belum ada role'}
-                      </span>
-                    </td>
-                    {/* Tipe cell removed */}
+                    {/* Role column removed */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                       {user.employee?.employeeId || '-'}
                     </td>

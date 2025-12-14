@@ -2,7 +2,6 @@ import Sidebar from '@/components/layout/Sidebar'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import SessionProviderWrapper from '@/components/providers/SessionProviderWrapper'
-import { EmployeePermissionProvider } from '@/components/providers/EmployeePermissionContext'
 import ToastProvider from '@/components/common/ToastProvider'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
@@ -29,20 +28,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Jika user tidak memiliki permission apapun, mereka akan melihat dashboard kosong.
   return (
     <SessionProviderWrapper session={session}>
-      <EmployeePermissionProvider>
-        <ToastProvider>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
-            <Sidebar />
-            <div className="flex-1 flex flex-col min-w-0">
-              <Navbar />
-              <main className="flex-1 overflow-y-auto">
-                <div className="p-6">{children}</div>
-              </main>
-              <Footer />
-            </div>
+      <ToastProvider>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-w-0">
+            <Navbar />
+            <main className="flex-1 overflow-y-auto">
+              <div className="p-6">{children}</div>
+            </main>
+            <Footer />
           </div>
-        </ToastProvider>
-      </EmployeePermissionProvider>
+        </div>
+      </ToastProvider>
     </SessionProviderWrapper>
   )
 }

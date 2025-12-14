@@ -83,10 +83,10 @@ export default function NewWorkOrderPage() {
 
     const fetchDepartments = async () => {
         try {
-            const response = await fetch('/api/hris/departments')
+            const response = await fetch('/api/admin/departments')
             if (response.ok) {
                 const result = await response.json()
-                setDepartments(result.departments || [])
+                setDepartments(result.data || [])
             }
         } catch (error) {
             console.error('Error fetching departments:', error)

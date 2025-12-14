@@ -1,4 +1,4 @@
-import type { Employee, EmploymentStatus } from '@prisma/client'
+import type { Employee } from '@prisma/client'
 
 export interface EmployeePublic {
     id: string
@@ -7,29 +7,11 @@ export interface EmployeePublic {
     fullName: string
     email: string | null
     phone: string | null
-    dateOfBirth: Date | null
-    gender: string | null
-    idCardNumber: string | null
-    address: string | null
-    city: string | null
-    province: string | null
-    postalCode: string | null
     departmentId: string | null
     positionId: string | null
-    employmentStatus: EmploymentStatus
+    siteId: string | null
     joinDate: Date
-    endDate: Date | null
-    probationEndDate: Date | null
-    managerId: string | null
-    emergencyName: string | null
-    emergencyPhone: string | null
-    emergencyRelation: string | null
-    bankName: string | null
-    bankAccountNumber: string | null
-    bankAccountName: string | null
-    npwp: string | null
-    ptkpStatus: string | null
-    photoUrl: string | null
+    status: string
     isActive: boolean
     createdAt: Date
     updatedAt: Date
@@ -41,12 +23,16 @@ export interface EmployeeWithRelations extends EmployeePublic {
     department?: {
         id: string
         name: string
-        code: string | null
     } | null
     position?: {
         id: string
         title: string
-        level: string | null
+        level?: string | null
+    } | null
+    site?: {
+        id: string
+        code: string
+        name: string
     } | null
 }
 
@@ -56,29 +42,11 @@ export interface EmployeeCreateData {
     fullName: string
     email?: string | null
     phone?: string | null
-    dateOfBirth?: Date | null
-    gender?: string | null
-    idCardNumber?: string | null
-    address?: string | null
-    city?: string | null
-    province?: string | null
-    postalCode?: string | null
     departmentId?: string | null
     positionId?: string | null
-    employmentStatus?: EmploymentStatus
+    siteId?: string | null
     joinDate: Date
-    endDate?: Date | null
-    probationEndDate?: Date | null
-    managerId?: string | null
-    emergencyName?: string | null
-    emergencyPhone?: string | null
-    emergencyRelation?: string | null
-    bankName?: string | null
-    bankAccountNumber?: string | null
-    bankAccountName?: string | null
-    npwp?: string | null
-    ptkpStatus?: string | null
-    photoUrl?: string | null
+    status?: string
     isActive?: boolean
     createdBy?: string | null
 }
@@ -88,29 +56,11 @@ export interface EmployeeUpdateData {
     fullName?: string
     email?: string | null
     phone?: string | null
-    dateOfBirth?: Date | null
-    gender?: string | null
-    idCardNumber?: string | null
-    address?: string | null
-    city?: string | null
-    province?: string | null
-    postalCode?: string | null
     departmentId?: string | null
     positionId?: string | null
-    employmentStatus?: EmploymentStatus
+    siteId?: string | null
     joinDate?: Date
-    endDate?: Date | null
-    probationEndDate?: Date | null
-    managerId?: string | null
-    emergencyName?: string | null
-    emergencyPhone?: string | null
-    emergencyRelation?: string | null
-    bankName?: string | null
-    bankAccountNumber?: string | null
-    bankAccountName?: string | null
-    npwp?: string | null
-    ptkpStatus?: string | null
-    photoUrl?: string | null
+    status?: string
     isActive?: boolean
     updatedBy?: string | null
 }
@@ -118,9 +68,9 @@ export interface EmployeeUpdateData {
 export interface EmployeeFilters {
     departmentId?: string
     positionId?: string
-    employmentStatus?: EmploymentStatus
+    status?: string
     isActive?: boolean
-    search?: string // Search by name, email, employeeId
+    search?: string
 }
 
 export interface IEmployeeRepository {
@@ -131,12 +81,10 @@ export interface IEmployeeRepository {
     findByEmail(email: string): Promise<EmployeePublic | null>
     findByDepartment(departmentId: string): Promise<EmployeePublic[]>
     findByPosition(positionId: string): Promise<EmployeePublic[]>
-    findByManager(managerId: string): Promise<EmployeePublic[]>
     findActiveEmployees(): Promise<EmployeePublic[]>
     create(data: EmployeeCreateData): Promise<{ id: string }>
     update(id: string, data: EmployeeUpdateData): Promise<void>
     delete(id: string): Promise<void>
     count(filters?: EmployeeFilters): Promise<number>
-    countByStatus(status: EmploymentStatus): Promise<number>
     countByDepartment(departmentId: string): Promise<number>
 }

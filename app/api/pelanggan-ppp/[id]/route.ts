@@ -5,9 +5,8 @@ import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import { promises as fs } from 'fs'
 import path from 'path'
-import { DiscountType, DurasiUnit, Status, TipePelanggan, TagihanStatus } from '@prisma/client'
+import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
-import { getTagihanRepository } from '@/lib/repositories'
 import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sync-hooks'
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
@@ -491,80 +490,6 @@ export async function PUT(
       jatuhTempoLocal: `${pelanggan.jatuhTempo.getFullYear()}-${String(pelanggan.jatuhTempo.getMonth() + 1).padStart(2, '0')}-${String(pelanggan.jatuhTempo.getDate()).padStart(2, '0')}`,
     })
 
-    // Update tagihan yang belum lunas jika jatuh tempo berubah
-    const jatuhTempoLama = existingPelanggan.jatuhTempo
-    const jatuhTempoBaru = parsedJatuhTempo
-
-    // Cek apakah jatuh tempo berubah (bandingkan tanggal tanpa waktu)
-    const isJatuhTempoChanged =
-      jatuhTempoLama.getFullYear() !== jatuhTempoBaru.getFullYear() ||
-      jatuhTempoLama.getMonth() !== jatuhTempoBaru.getMonth() ||
-      jatuhTempoLama.getDate() !== jatuhTempoBaru.getDate()
-
-    if (isJatuhTempoChanged && pelanggan.hargaPaket) {
-      console.log('[PUT Pelanggan] Jatuh tempo berubah, update tagihan yang belum lunas...')
-
-      try {
-        const tagihanRepo = getTagihanRepository()
-
-        // Ambil semua tagihan pelanggan yang belum lunas
-        const tagihanBelumLunas = await tagihanRepo.findByPelangganId(id)
-        const tagihanToUpdate = tagihanBelumLunas.filter(
-          (t) => t.status === TagihanStatus.BELUM_LUNAS || t.status === TagihanStatus.TERLAMBAT
-        )
-
-        console.log(`[PUT Pelanggan] Ditemukan ${tagihanToUpdate.length} tagihan yang perlu diupdate`)
-
-        // Update setiap tagihan
-        for (const tagihan of tagihanToUpdate) {
-          const paket = pelanggan.hargaPaket
-          let jatuhTempoTagihanBaru: Date
-
-          if (paket.durasiUnit === 'BULAN' || paket.durasiUnit === 'TAHUN') {
-            // Untuk paket bulanan/tahunan, jatuh tempo tagihan = tanggal jatuh tempo pelanggan di bulan periode tagihan
-            const tanggalJatuhTempoPelanggan = jatuhTempoBaru.getDate()
-            jatuhTempoTagihanBaru = new Date(
-              tagihan.periodeTahun,
-              tagihan.periodeBulan - 1,
-              tanggalJatuhTempoPelanggan
-            )
-          } else {
-            // Untuk paket harian/jam-jaman, hitung dari tanggal aktif pelanggan + durasi paket
-            const tanggalMulai = pelanggan.tanggalAktif || new Date()
-            jatuhTempoTagihanBaru = new Date(tanggalMulai)
-
-            switch (paket.durasiUnit) {
-              case 'JAM':
-                jatuhTempoTagihanBaru.setHours(jatuhTempoTagihanBaru.getHours() + paket.durasi)
-                break
-              case 'HARI':
-                jatuhTempoTagihanBaru.setDate(jatuhTempoTagihanBaru.getDate() + paket.durasi)
-                break
-            }
-          }
-
-          // Update jatuh tempo tagihan
-          await tagihanRepo.update(tagihan.id, {
-            jatuhTempo: jatuhTempoTagihanBaru,
-          })
-
-          console.log(
-            `[PUT Pelanggan] Tagihan ${tagihan.noTagihan} diupdate: jatuh tempo baru = ${jatuhTempoTagihanBaru.toISOString()}`
-          )
-        }
-
-        // Revalidate cache untuk halaman tagihan
-        revalidatePath(`/api/tagihan/pelanggan/${id}`)
-        revalidatePath('/api/tagihan')
-        revalidatePath(`/pelanggan/tagihan`)
-        revalidatePath(`/pelanggan`)
-
-        console.log(`[PUT Pelanggan] Berhasil update ${tagihanToUpdate.length} tagihan`)
-      } catch (tagihanError: any) {
-        // Log error tapi jangan gagalkan update pelanggan
-        console.error('[PUT Pelanggan] Error updating tagihan:', tagihanError)
-      }
-    }
 
     // ✨ RADIUS Auto-Sync Hook: Detect changes and sync accordingly
     try {
@@ -747,15 +672,6 @@ export async function DELETE(
       )
     }
 
-    // Hapus semua tagihan terkait terlebih dahulu (meskipun sudah ada cascade, lebih aman hapus manual)
-    try {
-      await prisma.tagihan.deleteMany({
-        where: { pelangganId: id },
-      })
-    } catch (error) {
-      console.error(`Error deleting tagihan for pelanggan ${id}:`, error)
-      // Lanjutkan meskipun ada error, karena cascade akan menangani
-    }
 
     // Hapus file uploads jika ada
     const pelangganUploadDir = path.join(process.cwd(), 'public', 'uploads', 'pelanggan', pelanggan.idPelanggan)

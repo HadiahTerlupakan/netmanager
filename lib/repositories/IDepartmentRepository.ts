@@ -3,7 +3,6 @@ export interface DepartmentPublic {
     name: string
     description: string | null
     jobDescription: string | null
-    allowedFeatures: string | null
     createdAt: Date
     updatedAt: Date
 }
@@ -18,14 +17,12 @@ export interface DepartmentCreateData {
     name: string
     description?: string | null
     jobDescription?: string | null
-    allowedFeatures?: string | null
 }
 
 export interface DepartmentUpdateData {
     name?: string
     description?: string | null
     jobDescription?: string | null
-    allowedFeatures?: string | null
 }
 
 export interface IDepartmentRepository {

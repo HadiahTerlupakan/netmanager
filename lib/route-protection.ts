@@ -2,77 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 
-// Define user roles and their hierarchy
-export enum UserRole {
-  USER = 'USER',
-  TECHNICIAN = 'TECHNICIAN',
-  HR = 'HR',
-  FINANCE = 'FINANCE',
-  ADMIN = 'ADMIN',
-}
-
-// Role hierarchy for permission checking
-const roleHierarchy: Record<UserRole, number> = {
-  [UserRole.USER]: 0,
-  [UserRole.TECHNICIAN]: 1,
-  [UserRole.HR]: 2,
-  [UserRole.FINANCE]: 3,
-  [UserRole.ADMIN]: 4,
-}
-
-// Permission sets for different operations
-const permissions = {
-  // User management
-  users: {
-    read: [UserRole.HR, UserRole.ADMIN],
-    create: [UserRole.HR, UserRole.ADMIN],
-    update: [UserRole.HR, UserRole.ADMIN],
-    delete: [UserRole.ADMIN],
-  },
-  // Financial data
-  finance: {
-    read: [UserRole.FINANCE, UserRole.ADMIN],
-    create: [UserRole.FINANCE, UserRole.ADMIN],
-    update: [UserRole.FINANCE, UserRole.ADMIN],
-    delete: [UserRole.FINANCE, UserRole.ADMIN],
-  },
-  // Billing and payments
-  billing: {
-    read: [UserRole.FINANCE, UserRole.ADMIN],
-    create: [UserRole.FINANCE, UserRole.ADMIN],
-    update: [UserRole.FINANCE, UserRole.ADMIN],
-    delete: [UserRole.FINANCE, UserRole.ADMIN],
-  },
-  // OLT/ONU management
-  network: {
-    read: [UserRole.TECHNICIAN, UserRole.ADMIN],
-    create: [UserRole.TECHNICIAN, UserRole.ADMIN],
-    update: [UserRole.TECHNICIAN, UserRole.ADMIN],
-    delete: [UserRole.ADMIN],
-  },
-  // Work orders
-  workorders: {
-    read: [UserRole.TECHNICIAN, UserRole.ADMIN],
-    create: [UserRole.TECHNICIAN, UserRole.ADMIN],
-    update: [UserRole.TECHNICIAN, UserRole.ADMIN],
-    delete: [UserRole.ADMIN],
-  },
-  // Tickets
-  tickets: {
-    read: [UserRole.USER, UserRole.TECHNICIAN, UserRole.ADMIN],
-    create: [UserRole.USER, UserRole.TECHNICIAN, UserRole.ADMIN],
-    update: [UserRole.TECHNICIAN, UserRole.ADMIN],
-    delete: [UserRole.ADMIN],
-  },
-  // Reports
-  reports: {
-    read: [UserRole.HR, UserRole.FINANCE, UserRole.ADMIN],
-    create: [UserRole.HR, UserRole.FINANCE, UserRole.ADMIN],
-    update: [UserRole.HR, UserRole.FINANCE, UserRole.ADMIN],
-    delete: [UserRole.ADMIN],
-  },
-}
-
 // Log security events
 function logSecurityEvent(
   request: NextRequest,
@@ -104,47 +33,17 @@ export async function verifySession(request: NextRequest) {
   }
 }
 
-// Check if user has required role
-export function hasRole(userRole: string | undefined, requiredRole: UserRole): boolean {
-  if (!userRole) return false
-
-  const userLevel = roleHierarchy[userRole as UserRole] ?? -1
-  const requiredLevel = roleHierarchy[requiredRole] ?? 999
-
-  return userLevel >= requiredLevel
-}
-
-// Check if user has specific permission
-export function hasPermission(
-  userRole: string | undefined,
-  resource: keyof typeof permissions,
-  action: keyof typeof permissions[keyof typeof permissions]
-): boolean {
-  if (!userRole) return false
-
-  const userRoleEnum = userRole as UserRole
-  const allowedRoles = permissions[resource]?.[action] || []
-
-  return allowedRoles.includes(userRoleEnum)
-}
 
 // Middleware function to protect API routes
 export async function protectRoute(
   request: NextRequest,
   options: {
     requireAuth?: boolean
-    requireRole?: UserRole
-    requirePermission?: {
-      resource: keyof typeof permissions
-      action: keyof typeof permissions[keyof typeof permissions]
-    }
     allowSelf?: boolean // For routes that allow users to access their own data
   } = {}
 ) {
   const {
     requireAuth = true,
-    requireRole,
-    requirePermission,
     allowSelf = false
   } = options
 
@@ -154,8 +53,7 @@ export async function protectRoute(
   // Check if authentication is required
   if (requireAuth && !session) {
     logSecurityEvent(request, 'UNAUTHORIZED_ACCESS', {
-      reason: 'No session found',
-      required: options
+      reason: 'No session found'
     })
 
     return NextResponse.json(
@@ -166,60 +64,18 @@ export async function protectRoute(
 
   // If session exists, extract user info
   const sessionData = session as any
-  const userRole = sessionData?.user?.role as string | undefined
   const userId = sessionData?.user?.id as string | undefined
-
-  // Check role requirement
-  if (requireRole && session) {
-    if (!hasRole(userRole, requireRole)) {
-      logSecurityEvent(request, 'INSUFFICIENT_ROLE', {
-        userRole,
-        requireRole,
-        userId
-      })
-
-      return NextResponse.json(
-        {
-          error: 'Insufficient permissions',
-          required: requireRole,
-          current: userRole
-        },
-        { status: 403 }
-      )
-    }
-  }
-
-  // Check permission requirement
-  if (requirePermission && session) {
-    if (!hasPermission(userRole, requirePermission.resource, requirePermission.action)) {
-      logSecurityEvent(request, 'INSUFFICIENT_PERMISSION', {
-        userRole,
-        permission: requirePermission,
-        userId
-      })
-
-      return NextResponse.json(
-        {
-          error: 'Insufficient permissions',
-          required: requirePermission,
-          current: userRole
-        },
-        { status: 403 }
-      )
-    }
-  }
 
   // Check self-access (for routes like /api/users/[id] where users can access their own data)
   if (allowSelf && session && request.url.includes('/')) {
     const urlParts = request.url.split('/')
     const resourceId = urlParts[urlParts.length - 1]
 
-    // If trying to access someone else's data and not admin
-    if (resourceId !== userId && !hasRole(userRole, UserRole.ADMIN)) {
+    // If trying to access someone else's data
+    if (resourceId !== userId) {
       logSecurityEvent(request, 'UNAUTHORIZED_SELF_ACCESS', {
         userId,
-        attemptedAccess: resourceId,
-        userRole
+        attemptedAccess: resourceId
       })
 
       return NextResponse.json(
@@ -233,36 +89,12 @@ export async function protectRoute(
   return null
 }
 
-// SIMPLIFIED RBAC: Role-based helpers now only require authentication
-// Authorization is controlled by CustomRole.allowedFeatures at UI level
-// All authenticated users can call APIs - the frontend controls access
-
-export const requireAdmin = (request: NextRequest) =>
-  protectRoute(request, { requireAuth: true })
-
-export const requireFinance = (request: NextRequest) =>
-  protectRoute(request, { requireAuth: true })
-
-export const requireHR = (request: NextRequest) =>
-  protectRoute(request, { requireAuth: true })
-
-export const requireTechnician = (request: NextRequest) =>
-  protectRoute(request, { requireAuth: true })
-
+// All authenticated users can access protected routes
 export const requireAuth = (request: NextRequest) =>
   protectRoute(request, { requireAuth: true })
 
-// Permission-based helpers - now just require auth
-export const requireUserRead = (request: NextRequest) =>
-  protectRoute(request, { requireAuth: true })
-
-export const requireFinanceRead = (request: NextRequest) =>
-  protectRoute(request, { requireAuth: true })
-
-export const requireNetworkWrite = (request: NextRequest) =>
-  protectRoute(request, { requireAuth: true })
-
-export const requireSelfAccessOrAdmin = (request: NextRequest) =>
+// For routes where users can access their own data
+export const requireSelfAccess = (request: NextRequest) =>
   protectRoute(request, {
     requireAuth: true,
     allowSelf: true

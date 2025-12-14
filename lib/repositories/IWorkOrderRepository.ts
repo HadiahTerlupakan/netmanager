@@ -1,11 +1,6 @@
 import type { WorkOrder, WorkOrderTask, WorkOrderAssignment, WorkOrderUpdate, WorkOrderAttachment, WorkOrderStatus, WorkOrderPriority, WorkOrderType, TaskStatus } from '@prisma/client';
 
 export interface WorkOrderWithRelations extends WorkOrder {
-    ticket?: {
-        id: string;
-        ticketNumber: string;
-        subject: string;
-    } | null;
     pelanggan?: {
         id: string;
         idPelanggan: string;
@@ -45,7 +40,6 @@ export interface WorkOrderWithRelations extends WorkOrder {
 export interface CreateWorkOrderData {
     workOrderNumber?: string;
     pelangganId?: string;
-    ticketId?: string;
     siteId?: string;
     type: WorkOrderType;
     title: string;
@@ -132,7 +126,6 @@ export interface WorkOrderFilters {
     departmentId?: string;
     assignedToId?: string | null;
     pelangganId?: string;
-    ticketId?: string;
     search?: string;
     dateFrom?: Date;
     dateTo?: Date;
@@ -178,7 +171,6 @@ export interface SiteStatistic {
 export interface IWorkOrderRepository {
     // CRUD Operations
     create(data: CreateWorkOrderData): Promise<WorkOrder>;
-    createFromTicket(ticketId: string, additionalData?: Partial<CreateWorkOrderData>): Promise<WorkOrder>;
     findById(id: string): Promise<WorkOrderWithRelations | null>;
     findByWorkOrderNumber(workOrderNumber: string): Promise<WorkOrderWithRelations | null>;
     findAll(filters?: WorkOrderFilters, page?: number, limit?: number): Promise<{

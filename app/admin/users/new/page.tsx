@@ -29,13 +29,6 @@ interface Department {
   name: string
 }
 
-interface Role {
-  id: string
-  name: string
-  permissions: string[]
-  isActive: boolean
-}
-
 interface Site {
   id: string
   code: string
@@ -49,7 +42,6 @@ export default function UserNewPage() {
   const [generatingEmployeeId, setGeneratingEmployeeId] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
   const [sites, setSites] = useState<Site[]>([])
-  const [roles, setRoles] = useState<Role[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showSuccess, setShowSuccess] = useState(false)
 
@@ -59,7 +51,6 @@ export default function UserNewPage() {
     email: '',
     name: '',
     password: '',
-    roleId: '', // Single role selection - custom role only
     // Employee fields (required for all users)
     employeeId: '',
     phone: '',
@@ -87,7 +78,6 @@ export default function UserNewPage() {
   useEffect(() => {
     fetchDepartments()
     fetchSites()
-    fetchRoles()
     // Auto-generate employee ID on page load
     generateEmployeeIdOnLoad()
   }, [])
@@ -95,7 +85,7 @@ export default function UserNewPage() {
   // Separate function for auto-generate on load (doesn't show loading state)
   const generateEmployeeIdOnLoad = async () => {
     try {
-      const res = await fetch('/api/hris/employees/next-id')
+      const res = await fetch('/api/employees/next-id')
       const data = await res.json()
       if (res.ok && data.nextId) {
         setFormData(prev => ({ ...prev, employeeId: data.nextId }))
@@ -107,25 +97,13 @@ export default function UserNewPage() {
 
   const fetchDepartments = async () => {
     try {
-      const res = await fetch('/api/hris/departments')
+      const res = await fetch('/api/departments')
       const data = await res.json()
       if (res.ok) {
         setDepartments(data.departments || [])
       }
     } catch (error) {
       console.error('Error fetching departments:', error)
-    }
-  }
-
-  const fetchRoles = async () => {
-    try {
-      const res = await fetch('/api/roles')
-      const data = await res.json()
-      if (res.ok) {
-        setRoles(data.roles?.filter((role: Role) => role.isActive) || [])
-      }
-    } catch (error) {
-      console.error('Error fetching roles:', error)
     }
   }
 
@@ -204,10 +182,6 @@ export default function UserNewPage() {
 
     if (!formData.name) {
       newErrors.name = 'Nama wajib diisi'
-    }
-
-    if (!formData.roleId) {
-      newErrors.roleId = 'Role pengguna wajib dipilih'
     }
 
     if (!formData.password) {
@@ -354,34 +328,6 @@ export default function UserNewPage() {
                   />
                 </div>
                 {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Role Pengguna <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="roleId"
-                  required
-                  value={formData.roleId}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.roleId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                >
-                  <option value="">Pilih Role</option>
-                  {roles.map(role => (
-                    <option key={role.id} value={role.id}>
-                      {role.name} ({role.permissions.length} permissions)
-                    </option>
-                  ))}
-                </select>
-                {errors.roleId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.roleId}</p>}
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Role ini akan menentukan semua hak akses pengguna.
-                  <a href="/admin/roles" target="_blank" className="text-indigo-600 dark:text-indigo-400 hover:underline ml-1">
-                    Kelola roles →
-                  </a>
-                </p>
               </div>
 
               <div className="md:col-span-2">
