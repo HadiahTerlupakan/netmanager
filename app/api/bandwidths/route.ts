@@ -9,11 +9,40 @@ import { sanitizeInput } from '@/lib/utils/sanitize'
  * @swagger
  * /api/bandwidths:
  *   get:
+ *     summary: Get all bandwidths
+ *     description: Mengambil daftar semua bandwidth dengan filter opsional
  *     tags: [Bandwidth]
- *     summary: Mendapatkan semua data bandwidth
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: ["AKTIF", "NONAKTIF"]
+ *         description: Filter by status
  *     responses:
  *       200:
- *         description: List bandwidth
+ *         description: Daftar bandwidth berhasil diambil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Bandwidth'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function GET(req: NextRequest) {
   try {
@@ -54,28 +83,122 @@ export async function GET(req: NextRequest) {
  * @swagger
  * /api/bandwidths:
  *   post:
+ *     summary: Create new bandwidth
+ *     description: Membuat bandwidth baru
  *     tags: [Bandwidth]
- *     summary: Membuat bandwidth baru
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - name
+ *               - maxLimitDownload
+ *               - maxLimitUpload
  *             properties:
  *               name:
  *                 type: string
- *               uploadSpeed:
+ *                 example: "10 Mbps"
+ *                 description: Nama bandwidth
+ *               maxLimitDownload:
+ *                 type: string
+ *                 example: "10M"
+ *                 description: Limit download maksimal
+ *               maxLimitUpload:
+ *                 type: string
+ *                 example: "10M"
+ *                 description: Limit upload maksimal
+ *               burstLimitDownload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "12M"
+ *                 description: Burst limit download
+ *               burstLimitUpload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "12M"
+ *                 description: Burst limit upload
+ *               minLimitDownload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "5M"
+ *                 description: Limit download minimal
+ *               minLimitUpload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "5M"
+ *                 description: Limit upload minimal
+ *               burstThresholdDownload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "8M"
+ *                 description: Threshold untuk burst download
+ *               burstThresholdUpload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "8M"
+ *                 description: Threshold untuk burst upload
+ *               burstTimeDownload:
  *                 type: number
- *               downloadSpeed:
+ *                 nullable: true
+ *                 example: 10
+ *                 description: Waktu burst download dalam detik
+ *               burstTimeUpload:
  *                 type: number
+ *                 nullable: true
+ *                 example: 10
+ *                 description: Waktu burst upload dalam detik
+ *               priority:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 8
+ *                 description: Prioritas bandwidth
  *               description:
  *                 type: string
+ *                 nullable: true
+ *                 example: "Standard 10 Mbps package"
+ *                 description: Deskripsi bandwidth
  *               status:
  *                 type: string
+ *                 enum: ["AKTIF", "NONAKTIF"]
+ *                 default: "AKTIF"
+ *                 example: "AKTIF"
+ *                 description: Status bandwidth
  *     responses:
  *       201:
  *         description: Bandwidth berhasil dibuat
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Bandwidth'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: Nama bandwidth sudah digunakan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function POST(req: NextRequest) {
   try {

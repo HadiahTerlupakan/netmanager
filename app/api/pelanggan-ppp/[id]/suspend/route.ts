@@ -1,0 +1,306 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authConfig } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { RadiusSyncService } from '@/lib/services/radius-sync-service'
+import { z } from 'zod'
+
+/**
+ * @swagger
+ * /api/pelanggan-ppp/{id}/suspend:
+ *   post:
+ *     summary: Suspend customer service
+ *     description: |
+ *       Suspend a customer's internet service with the following effects:
+ *       - Changes customer status to NONAKTIF
+ *       - Records suspension in ServiceSuspension model
+ *       - Removes user from RADIUS authentication
+ *       - Terminates active sessions
+ *       - Creates audit trail
+ *     tags: [Customer Management]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer database ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - suspensionType
+ *               - reason
+ *             properties:
+ *               suspensionType:
+ *                 type: string
+ *                 enum: [PAYMENT, VIOLATION, MAINTENANCE, REQUEST]
+ *                 description: Type of suspension
+ *                 example: "PAYMENT"
+ *               reason:
+ *                 type: string
+ *                 maxLength: 500
+ *                 description: Detailed reason for suspension
+ *                 example: "Payment overdue for 30 days"
+ *               notes:
+ *                 type: string
+ *                 maxLength: 1000
+ *                 description: Additional notes about suspension
+ *                 example: "Customer contacted multiple times without response"
+ *               expectedResumeAt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Expected date and time for service restoration
+ *                 example: "2024-02-15T10:00:00Z"
+ *               terminateActiveSessions:
+ *                 type: boolean
+ *                 default: true
+ *                 description: Whether to terminate active RADIUS sessions
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Service suspended successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Customer service suspended successfully"
+ *                 suspension:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     suspensionType:
+ *                       type: string
+ *                     reason:
+ *                       type: string
+ *                     suspendedAt:
+ *                       type: string
+ *                       format: date-time
+ *                     expectedResumeAt:
+ *                       type: string
+ *                       format: date-time
+ *                       nullable: true
+ *                 customer:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     idPelanggan:
+ *                       type: string
+ *                     nama:
+ *                       type: string
+ *                     username:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *       400:
+ *         description: Bad request - validation error or customer already suspended
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         description: Customer not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         $ref: '#/components/responses/Error'
+ */
+const suspendRequestSchema = z.object({
+  suspensionType: z.enum(['PAYMENT', 'VIOLATION', 'MAINTENANCE', 'REQUEST']),
+  reason: z.string().min(1, 'Reason is required').max(500, 'Reason too long'),
+  notes: z.string().max(1000, 'Notes too long').optional(),
+  expectedResumeAt: z.string().datetime().optional(),
+  terminateActiveSessions: z.boolean().default(true),
+})
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+        // Check authentication
+    const session: any = await getServerSession(authConfig as any)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+        const { id } = await params
+    const { provider } = await params
+// Get customer information
+    const pelanggan = await prisma.pelanggan.findUnique({
+      where: { id },
+      include: {
+        hargaPaket: {
+          include: {
+            bandwidth: true,
+          },
+        },
+      },
+    })
+
+    if (!pelanggan) {
+      return NextResponse.json(
+        { error: 'Customer not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check if customer is already suspended
+    if (pelanggan.status === 'NONAKTIF') {
+      return NextResponse.json(
+        { error: 'Customer is already suspended' },
+        { status: 400 }
+      )
+    }
+
+    // Parse and validate request body
+    const body = await req.json()
+    const validationResult = suspendRequestSchema.safeParse(body)
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: validationResult.error.issues,
+        },
+        { status: 400 }
+      )
+    }
+
+    const {
+      suspensionType,
+      reason,
+      notes,
+      expectedResumeAt,
+      terminateActiveSessions,
+    } = validationResult.data
+
+    // Use transaction to ensure data consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create suspension record
+      const suspension = await (tx as any).serviceSuspension.create({
+        data: {
+          pelangganId: id,
+          suspensionType,
+          reason,
+          notes,
+          expectedResumeAt: expectedResumeAt ? new Date(expectedResumeAt) : null,
+          suspendedBy: session.user.id,
+          isActive: true,
+        },
+      })
+
+      // 2. Update customer status
+      await tx.pelanggan.update({
+        where: { id },
+        data: {
+          status: 'NONAKTIF',
+          updatedAt: new Date(),
+        },
+      })
+
+      // 3. Add note to customer record
+      const suspensionNote = `Service suspended: ${reason} (${suspensionType})`
+      await tx.pelanggan.update({
+        where: { id },
+        data: {
+          catatan: pelanggan.catatan 
+            ? `${pelanggan.catatan}\n\n${suspensionNote}` 
+            : suspensionNote,
+        },
+      })
+
+      return suspension
+    })
+
+    // 4. Handle RADIUS operations outside transaction
+    const radiusService = new RadiusSyncService(prisma)
+    
+    try {
+      // Remove from RADIUS to disable authentication
+      await radiusService.handleStatusChange(id, 'NONAKTIF')
+      
+      // Terminate active sessions if requested
+      if (terminateActiveSessions) {
+        const activeSessions = await radiusService.getCustomerActiveSessions(pelanggan.username)
+        
+        // Log active sessions that were terminated
+        for (const session of activeSessions) {
+          console.log(`[SUSPEND] Terminated active session ${session.acctSessionId} for user ${pelanggan.username}`)
+        }
+      }
+    } catch (radiusError) {
+      console.error('Error handling RADIUS operations during suspension:', radiusError)
+      // Don't fail the request, but log the error
+    }
+
+    // 5. Get updated customer data for response
+    const updatedPelanggan = await prisma.pelanggan.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        idPelanggan: true,
+        nama: true,
+        username: true,
+        status: true,
+      },
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Customer service suspended successfully',
+      suspension: {
+        id: result.id,
+        suspensionType: result.suspensionType,
+        reason: result.reason,
+        notes: result.notes,
+        suspendedAt: result.suspendedAt.toISOString(),
+        expectedResumeAt: result.expectedResumeAt?.toISOString() || null,
+        suspendedBy: result.suspendedBy,
+        isActive: result.isActive,
+      },
+      customer: updatedPelanggan,
+    })
+  } catch (error: any) {
+    console.error('Error suspending customer service:', error)
+    
+    // Handle specific errors
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Suspension record already exists' },
+        { status: 400 }
+      )
+    }
+    
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: 'Customer not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json(
+      { error: error?.message || 'Internal Server Error' },
+      { status: 500 }
+    )
+  }
+}

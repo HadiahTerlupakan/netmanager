@@ -10,8 +10,98 @@ import { updatePPPProfileInMikroTik, deletePPPProfileInMikroTik } from '@/lib/se
  * @swagger
  * /api/profileppps/{id}:
  *   get:
+ *     summary: Get profile PPP by ID
+ *     description: Mengambil detail profile PPP berdasarkan ID
  *     tags: [ProfilePPP]
- *     summary: Mendapatkan detail profile PPP
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Profile PPP ID
+ *     responses:
+ *       200:
+ *         description: Detail profile PPP berhasil diambil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: clx1234567890
+ *                 name:
+ *                   type: string
+ *                   example: "10Mbps-Profile"
+ *                 localAddress:
+ *                   type: string
+ *                   example: "192.168.1.1"
+ *                 remoteAddress:
+ *                   type: string
+ *                   example: "192.168.1.100"
+ *                 dnsServer:
+ *                   type: string
+ *                   nullable: true
+ *                   example: "8.8.8.8,8.8.4.4"
+ *                 sessionTimeout:
+ *                   type: integer
+ *                   nullable: true
+ *                   example: 600
+ *                 idleTimeout:
+ *                   type: integer
+ *                   nullable: true
+ *                   example: 300
+ *                 status:
+ *                   type: string
+ *                   enum: ["AKTIF", "NONAKTIF"]
+ *                   example: "AKTIF"
+ *                 ipRange:
+ *                   type: string
+ *                   nullable: true
+ *                   example: "192.168.1.100-192.168.1.200"
+ *                 mikroTikRouter:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     ipAddress:
+ *                       type: string
+ *                 hargaPakets:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       bandwidth:
+ *                         type: object
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Profile PPP tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function GET(
   req: NextRequest,
@@ -23,7 +113,10 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
+        const { id } = await params
+    const { provider } = await params
+const { id } = await params
+    const { provider } = await params
     const profilePPP = await prisma.profilePPP.findUnique({
       where: { id },
       include: {
@@ -73,8 +166,116 @@ export async function GET(
  * @swagger
  * /api/profileppps/{id}:
  *   put:
- *     tags: [ProfilePPP]
  *     summary: Update profile PPP
+ *     description: Mengupdate data profile PPP
+ *     tags: [ProfilePPP]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Profile PPP ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "10Mbps-Profile"
+ *                 description: Nama profile PPP
+ *               localAddress:
+ *                 type: string
+ *                 example: "192.168.1.1"
+ *                 description: Alamat local untuk PPP
+ *               remoteAddress:
+ *                 type: string
+ *                 example: "192.168.1.100"
+ *                 description: Alamat remote/nama pool untuk PPP
+ *               dnsServer:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "8.8.8.8,8.8.4.4"
+ *                 description: Server DNS
+ *               sessionTimeout:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 600
+ *                 description: Timeout sesi dalam detik
+ *               idleTimeout:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 300
+ *                 description: Timeout idle dalam detik
+ *               ipRange:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "192.168.1.100-192.168.1.200"
+ *                 description: Range IP untuk pool dengan format start-end
+ *               mikroTikRouterId:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "clx1234567890"
+ *                 description: ID MikroTik Router
+ *               bandwidthId:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "clx1234567890"
+ *                 description: ID Bandwidth untuk rate limit
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Profile untuk paket 10 Mbps"
+ *                 description: Deskripsi profile
+ *               status:
+ *                 type: string
+ *                 enum: ["AKTIF", "NONAKTIF"]
+ *                 default: "AKTIF"
+ *                 example: "AKTIF"
+ *                 description: Status profile
+ *     responses:
+ *       200:
+ *         description: Profile PPP berhasil diupdate
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProfilePPP'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Profile PPP tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function PUT(
   req: NextRequest,
@@ -87,6 +288,7 @@ export async function PUT(
     }
 
     const { id } = await params
+    const { provider } = await params
     const body = await req.json()
     
     // Ambil data profile lama untuk cek router sebelumnya
@@ -219,8 +421,60 @@ export async function PUT(
  * @swagger
  * /api/profileppps/{id}:
  *   delete:
+ *     summary: Delete profile PPP
+ *     description: Menghapus profile PPP
  *     tags: [ProfilePPP]
- *     summary: Hapus profile PPP
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Profile PPP ID
+ *     responses:
+ *       200:
+ *         description: Profile PPP berhasil dihapus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Profile PPP berhasil dihapus"
+ *       400:
+ *         description: Profile PPP tidak dapat dihapus karena masih digunakan oleh paket
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Profile PPP tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function DELETE(
   req: NextRequest,
@@ -233,6 +487,7 @@ export async function DELETE(
     }
 
     const { id } = await params
+    const { provider } = await params
     
     // Ambil data profile sebelum dihapus untuk hapus di MikroTik
     const profile = await prisma.profilePPP.findUnique({

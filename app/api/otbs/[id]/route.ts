@@ -16,6 +16,7 @@ async function requireAdmin() {
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   // GET dibuat publik agar form edit bisa memuat data tanpa isu cookie di fetch client
   const { id } = await params
+    const { provider } = await params
   const otb = await prisma.otb.findUnique({
     where: { id },
     include: { cores: { orderBy: { idx: 'asc' } } },
@@ -32,8 +33,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-  const repo = getOtbRepository()
+      const { id } = await params
+    const { provider } = await params
+const repo = getOtbRepository()
   const { id } = await params
+    const { provider } = await params
   await repo.update(id, parsed.data as any)
   return NextResponse.json({ ok: true })
 }
@@ -43,6 +47,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const repo = getOtbRepository()
   const { id } = await params
+    const { provider } = await params
   
   // Cek apakah ada ODC yang masih menggunakan slot dari OTB ini
   const otb = await prisma.otb.findUnique({
@@ -54,7 +59,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'OTB tidak ditemukan' }, { status: 404 })
   }
   
-  // Cek setiap core apakah ada ODC yang menggunakan
+      const { id } = await params
+    const { provider } = await params
+// Cek setiap core apakah ada ODC yang menggunakan
   const coreIds = otb.cores.map((c: any) => c.id)
   const odcsUsingSlots = await (prisma as any).odc.findMany({
     where: { otbCoreId: { in: coreIds } },

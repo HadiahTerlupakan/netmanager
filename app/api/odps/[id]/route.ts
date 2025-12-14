@@ -15,6 +15,7 @@ async function requireAdmin() {
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+    const { provider } = await params
   const odp = await prisma.odp.findUnique({
     where: { id },
     include: { odcOutput: { include: { odc: true } }, outputs: { orderBy: { idx: 'asc' } } },
@@ -31,8 +32,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-  const repo = getOdpRepository()
+      const { id } = await params
+    const { provider } = await params
+const repo = getOdpRepository()
   const { id } = await params
+    const { provider } = await params
   const updateData: any = {
     ...(parsed.data.name !== undefined && { name: parsed.data.name }),
     ...(parsed.data.location !== undefined && { location: parsed.data.location }),
@@ -61,6 +65,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const repo = getOdpRepository()
   const { id } = await params
+    const { provider } = await params
   
   // Cek apakah ada output yang masih terhubung (jika ada relasi lain di masa depan)
   const odp = await prisma.odp.findUnique({
@@ -72,7 +77,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'ODP tidak ditemukan' }, { status: 404 })
   }
   
-  // ODP saat ini tidak punya relasi ke data lain selain outputs yang akan ikut terhapus
+      const { id } = await params
+    const { provider } = await params
+// ODP saat ini tidak punya relasi ke data lain selain outputs yang akan ikut terhapus
   // Tapi kita tetap cek untuk konsistensi
   if (odp.outputs.length > 0) {
     // Output akan ikut terhapus dengan cascade, jadi tidak perlu block

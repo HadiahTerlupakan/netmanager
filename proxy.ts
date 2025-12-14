@@ -243,7 +243,9 @@ export default async function proxy(request: NextRequest) {
       pathname === '/login' ||
       pathname === '/' ||
       pathname === '/api/settings/public' ||         // Public settings for branding
-      pathname.startsWith('/api/superadmin/')        // Super admin has its own auth
+      pathname.startsWith('/api/superadmin/') ||      // Super admin has its own auth
+      pathname.startsWith('/api/docs') ||             // API documentation should be publicly accessible
+      pathname === '/api/health'                     // Health check endpoint for monitoring
 
     if (isPublicRoute) {
       return NextResponse.next({ request })

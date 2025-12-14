@@ -59,7 +59,7 @@ public/uploads/kmz/*
 !public/uploads/kmz/.gitkeep
 
 # Backups
-backups/
+//backups/
 *.sql.gz
 *.sql
 

@@ -5,6 +5,59 @@ import { verifyAuth } from '@/lib/auth';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
+/**
+ * @swagger
+ * /api/admin/workorders/{id}:
+ *   get:
+ *     summary: Get work order detail
+ *     description: Retrieve detailed information about a specific work order
+ *     tags: [Work Orders]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Work order ID
+ *     responses:
+ *       200:
+ *         description: Work order details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/WorkOrder'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Work order not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Work order not found"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // GET /api/admin/workorders/[id] - Get work order detail
 export async function GET(
     request: NextRequest,
@@ -33,6 +86,93 @@ export async function GET(
     }
 }
 
+/**
+ * @swagger
+ * /api/admin/workorders/{id}:
+ *   patch:
+ *     summary: Update work order
+ *     description: |
+ *       Update work order information including status and other fields.
+ *       Can add rejection reason which will be recorded as an update note.
+ *       Status changes are handled separately from other field updates.
+ *     tags: [Work Orders]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Work order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [OPEN, IN_PROGRESS, COMPLETED, CANCELLED]
+ *                 description: New work order status
+ *               rejectionReason:
+ *                 type: string
+ *                 description: Reason for rejection (will be added as note)
+ *               title:
+ *                 type: string
+ *                 description: Work order title
+ *               description:
+ *                 type: string
+ *                 description: Work order description
+ *               type:
+ *                 type: string
+ *                 enum: [INSTALLATION, MAINTENANCE, TROUBLESHOOTING, RELOCATION]
+ *                 description: Work order type
+ *               priority:
+ *                 type: string
+ *                 enum: [LOW, MEDIUM, HIGH, URGENT]
+ *                 description: Work order priority
+ *               pelangganId:
+ *                 type: string
+ *                 description: Customer ID
+ *               assignedDepartmentId:
+ *                 type: string
+ *                 description: Assigned department ID
+ *               scheduledDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Scheduled date
+ *     responses:
+ *       200:
+ *         description: Work order updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/WorkOrder'
+ *                 message:
+ *                   type: string
+ *                   example: "Work order updated successfully"
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // PATCH /api/admin/workorders/[id] - Update work order
 export async function PATCH(
     request: NextRequest,
@@ -82,6 +222,56 @@ export async function PATCH(
     }
 }
 
+/**
+ * @swagger
+ * /api/admin/workorders/{id}:
+ *   delete:
+ *     summary: Delete/cancel work order
+ *     description: Cancel a work order with optional reason
+ *     tags: [Work Orders]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Work order ID
+ *       - in: query
+ *         name: reason
+ *         schema:
+ *           type: string
+ *           default: "Cancelled by admin"
+ *         description: Reason for cancellation
+ *     responses:
+ *       200:
+ *         description: Work order cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Work order cancelled successfully"
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // DELETE /api/admin/workorders/[id] - Delete/cancel work order
 export async function DELETE(
     request: NextRequest,

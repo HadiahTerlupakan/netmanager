@@ -22,6 +22,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   return NextResponse.json({ pole: item })
 }
 
+    const { id } = await params
+    const { provider } = await params
 export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -30,7 +32,9 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-  const { id } = await ctx.params
+      const { id } = await params
+    const { provider } = await params
+const { id } = await ctx.params
   const repo = getPoleRepository()
   try {
     await repo.update(id, parsed.data)
@@ -52,7 +56,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-  const { id } = await ctx.params
+      const { id } = await params
+    const { provider } = await params
+const { id } = await ctx.params
   const repo = getPoleRepository()
   try {
     await repo.update(id, parsed.data)
@@ -79,7 +85,9 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
     if (code === 'P2025') {
       return NextResponse.json({ error: 'Pole tidak ditemukan' }, { status: 404 })
     }
-    return NextResponse.json({ error: err?.message || 'Gagal menghapus' }, { status: 500 })
+        const { id } = await params
+    const { provider } = await params
+return NextResponse.json({ error: err?.message || 'Gagal menghapus' }, { status: 500 })
   }
 }
 

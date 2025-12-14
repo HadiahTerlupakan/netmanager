@@ -65,36 +65,113 @@ export async function GET(req: NextRequest) {
  * @swagger
  * /api/profileppps:
  *   post:
+ *     summary: Create new profile PPP
+ *     description: Membuat profile PPP baru
  *     tags: [ProfilePPP]
- *     summary: Membuat profile PPP baru
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - name
+ *               - localAddress
+ *               - remoteAddress
  *             properties:
  *               name:
  *                 type: string
+ *                 example: "10Mbps-Profile"
+ *                 description: Nama profile PPP
  *               localAddress:
  *                 type: string
+ *                 example: "192.168.1.1"
+ *                 description: Alamat local untuk PPP
  *               remoteAddress:
  *                 type: string
+ *                 example: "192.168.1.100"
+ *                 description: Alamat remote/nama pool untuk PPP
  *               dnsServer:
  *                 type: string
+ *                 nullable: true
+ *                 example: "8.8.8.8,8.8.4.4"
+ *                 description: Server DNS
  *               sessionTimeout:
- *                 type: number
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 600
+ *                 description: Timeout sesi dalam detik
  *               idleTimeout:
- *                 type: number
- *               rateLimit:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 300
+ *                 description: Timeout idle dalam detik
+ *               ipRange:
  *                 type: string
+ *                 nullable: true
+ *                 example: "192.168.1.100-192.168.1.200"
+ *                 description: "Range IP untuk pool (format: start-end)"
+ *               mikroTikRouterId:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "clx1234567890"
+ *                 description: ID MikroTik Router
+ *               bandwidthId:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "clx1234567890"
+ *                 description: ID Bandwidth untuk rate limit
  *               description:
  *                 type: string
+ *                 nullable: true
+ *                 example: "Profile untuk paket 10 Mbps"
+ *                 description: Deskripsi profile
  *               status:
  *                 type: string
+ *                 enum: ["AKTIF", "NONAKTIF"]
+ *                 default: "AKTIF"
+ *                 example: "AKTIF"
+ *                 description: Status profile
  *     responses:
  *       201:
  *         description: Profile PPP berhasil dibuat
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProfilePPP'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: Nama profile PPP sudah digunakan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 /**
  * POST /api/profileppps

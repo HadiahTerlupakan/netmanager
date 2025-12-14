@@ -76,8 +76,110 @@ async function getStockByCondition(barangId: string, gudangId: string) {
 }
 
 /**
- * GET /api/inventory/keluar
- * Get all stock-out movements with filters
+ * @swagger
+ * /api/inventory/keluar:
+ *   get:
+ *     summary: Get all stock-out movements with filters
+ *     description: Retrieve a paginated list of stock-out movements with optional filtering
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: barangId
+ *         schema:
+ *           type: string
+ *         description: Filter by item ID
+ *       - in: query
+ *         name: gudangId
+ *         schema:
+ *           type: string
+ *         description: Filter by warehouse ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: checkStock
+ *         schema:
+ *           type: boolean
+ *         description: Check stock availability for specific item and warehouse (requires barangId and gudangId)
+ *     responses:
+ *       200:
+ *         description: List of stock-out movements retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - type: object
+ *                   properties:
+ *                     keluarList:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           barang:
+ *                             $ref: '#/components/schemas/Barang'
+ *                           gudang:
+ *                             $ref: '#/components/schemas/Gudang'
+ *                           user:
+ *                             $ref: '#/components/schemas/User'
+ *                           jumlah:
+ *                             type: integer
+ *                           kondisi:
+ *                             type: string
+ *                             enum: [BARU, BEKAS, RUSAK]
+ *                           isHilang:
+ *                             type: boolean
+ *                           keterangan:
+ *                             type: string
+ *                             nullable: true
+ *                           tanggal:
+ *                             type: string
+ *                             format: date-time
+ *                           fotoBukti:
+ *                             type: array
+ *                             items:
+ *                               type: string
+ *                             nullable: true
+ *                     pagination:
+ *                       $ref: '#/components/schemas/PaginationMeta'
+ *                 - type: object
+ *                   properties:
+ *                     stokByKondisi:
+ *                       type: object
+ *                       properties:
+ *                         BARU:
+ *                           type: integer
+ *                         BEKAS:
+ *                           type: integer
+ *                         RUSAK:
+ *                           type: integer
+ *                         total:
+ *                           type: integer
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
@@ -194,8 +296,100 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/inventory/keluar
- * Record new stock-out movement
+ * @swagger
+ * /api/inventory/keluar:
+ *   post:
+ *     summary: Record new stock-out movement
+ *     description: Remove items from warehouse inventory
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - barangId
+ *               - gudangId
+ *               - jumlah
+ *             properties:
+ *               barangId:
+ *                 type: string
+ *                 description: Item ID
+ *               gudangId:
+ *                 type: string
+ *                 description: Warehouse ID
+ *               jumlah:
+ *                 type: integer
+ *                 description: Quantity to remove (must be > 0)
+ *                 minimum: 1
+ *               kondisi:
+ *                 type: string
+ *                 description: Item condition
+ *                 enum: [BARU, BEKAS, RUSAK]
+ *                 default: BARU
+ *               isHilang:
+ *                 type: boolean
+ *                 description: Whether the item is lost
+ *                 default: false
+ *               keterangan:
+ *                 type: string
+ *                 description: Additional notes
+ *                 nullable: true
+ *               fotoBukti:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of photo URLs as proof
+ *                 nullable: true
+ *               fotoMetadata:
+ *                 type: object
+ *                 description: Photo metadata
+ *                 nullable: true
+ *     responses:
+ *       201:
+ *         description: Stock-out movement recorded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Barang keluar berhasil dicatat"
+ *                 keluarId:
+ *                   type: string
+ *                   description: ID of created stock-out record
+ *                 data:
+ *                   type: object
+ *                   description: The created stock-out record
+ *       400:
+ *         description: Bad request - validation error or insufficient stock
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Item or warehouse not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function POST(req: NextRequest) {
   const startTime = Date.now()

@@ -168,4 +168,3 @@ export { PengeluaranRepository } from './PengeluaranRepository'
 export type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateData, PengeluaranPublic } from './IPengeluaranRepository'
 export { PemasukanRepository } from './PemasukanRepository'
 export type { IPemasukanRepository, PemasukanCreateData, PemasukanUpdateData, PemasukanPublic } from './IPemasukanRepository'
-

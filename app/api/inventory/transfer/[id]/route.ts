@@ -90,9 +90,10 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
-
-    try {
+        const { id } = await params
+    const { provider } = await params
+const { id } = await params
+        try {
       const dbStart = Date.now()
 
       const transferRecord = await prisma.transferAntarGudang.findUnique({
@@ -186,7 +187,10 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
+        const { id } = await params
+    const { provider } = await params
+const { id } = await params
+    const { provider } = await params
     const body = await req.json()
     const { keterangan } = body
 
@@ -267,9 +271,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
-
-    try {
+        const { id } = await params
+    const { provider } = await params
+const { id } = await params
+        try {
       const dbStart = Date.now()
 
       await prisma.$transaction(async (tx) => {

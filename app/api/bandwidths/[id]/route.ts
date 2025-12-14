@@ -9,8 +9,44 @@ import { sanitizeInput } from '@/lib/utils/sanitize'
  * @swagger
  * /api/bandwidths/{id}:
  *   get:
+ *     summary: Get bandwidth by ID
+ *     description: Mengambil detail bandwidth berdasarkan ID
  *     tags: [Bandwidth]
- *     summary: Mendapatkan detail bandwidth
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Bandwidth ID
+ *     responses:
+ *       200:
+ *         description: Detail bandwidth berhasil diambil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Bandwidth'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Bandwidth tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function GET(
   req: NextRequest,
@@ -52,8 +88,110 @@ export async function GET(
  * @swagger
  * /api/bandwidths/{id}:
  *   put:
- *     tags: [Bandwidth]
  *     summary: Update bandwidth
+ *     description: Mengupdate data bandwidth
+ *     tags: [Bandwidth]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Bandwidth ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "10 Mbps"
+ *               maxLimitDownload:
+ *                 type: string
+ *                 example: "10M"
+ *               maxLimitUpload:
+ *                 type: string
+ *                 example: "10M"
+ *               burstLimitDownload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "12M"
+ *               burstLimitUpload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "12M"
+ *               minLimitDownload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "5M"
+ *               minLimitUpload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "5M"
+ *               burstThresholdDownload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "8M"
+ *               burstThresholdUpload:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "8M"
+ *               burstTimeDownload:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10
+ *               burstTimeUpload:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 10
+ *               priority:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 8
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Standard 10 Mbps package"
+ *               status:
+ *                 type: string
+ *                 enum: ["AKTIF", "NONAKTIF"]
+ *                 example: "AKTIF"
+ *     responses:
+ *       200:
+ *         description: Bandwidth berhasil diupdate
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Bandwidth'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Bandwidth tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function PUT(
   req: NextRequest,
@@ -66,6 +204,7 @@ export async function PUT(
     }
 
     const { id } = await params
+    const { provider } = await params
     const body = await req.json()
     
     // Sanitize input
@@ -140,8 +279,54 @@ export async function PUT(
  * @swagger
  * /api/bandwidths/{id}:
  *   delete:
+ *     summary: Delete bandwidth
+ *     description: Menghapus bandwidth
  *     tags: [Bandwidth]
- *     summary: Hapus bandwidth
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Bandwidth ID
+ *     responses:
+ *       200:
+ *         description: Bandwidth berhasil dihapus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Bandwidth berhasil dihapus"
+ *       400:
+ *         description: Bandwidth tidak dapat dihapus karena masih digunakan oleh paket
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Bandwidth tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function DELETE(
   req: NextRequest,
@@ -154,6 +339,7 @@ export async function DELETE(
     }
 
     const { id } = await params
+    const { provider } = await params
     await prisma.bandwidth.delete({
       where: { id },
     })

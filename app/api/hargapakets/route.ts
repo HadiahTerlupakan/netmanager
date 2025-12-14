@@ -9,11 +9,45 @@ import { sanitizeInput } from '@/lib/utils/sanitize'
  * @swagger
  * /api/hargapakets:
  *   get:
+ *     summary: Get all harga pakets
+ *     description: Mengambil daftar semua harga paket dengan filter opsional
  *     tags: [HargaPaket]
- *     summary: Mendapatkan semua data harga paket
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: ["AKTIF", "NONAKTIF"]
+ *         description: Filter by status
+ *       - in: query
+ *         name: featured
+ *         schema:
+ *           type: boolean
+ *         description: Filter by featured status
  *     responses:
  *       200:
- *         description: List harga paket
+ *         description: Daftar harga paket berhasil diambil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/HargaPaket'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function GET(req: NextRequest) {
   try {
@@ -57,34 +91,104 @@ export async function GET(req: NextRequest) {
  * @swagger
  * /api/hargapakets:
  *   post:
+ *     summary: Create new harga paket
+ *     description: Membuat harga paket baru
  *     tags: [HargaPaket]
- *     summary: Membuat harga paket baru
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - name
+ *               - harga
+ *               - durasi
+ *               - profilePPPId
  *             properties:
  *               name:
  *                 type: string
+ *                 example: "Paket 10 Mbps"
+ *                 description: Nama paket
  *               bandwidthId:
  *                 type: string
+ *                 nullable: true
+ *                 example: "clx1234567890"
+ *                 description: ID bandwidth (opsional)
  *               profilePPPId:
  *                 type: string
+ *                 example: "clx1234567890"
+ *                 description: ID profile PPP
  *               harga:
- *                 type: number
+ *                 type: integer
+ *                 example: 150000
+ *                 description: Harga paket dalam Rupiah
  *               durasi:
- *                 type: number
+ *                 type: integer
+ *                 example: 1
+ *                 description: Durasi paket
+ *               durasiUnit:
+ *                 type: string
+ *                 enum: ["HARI", "MINGGU", "BULAN", "TAHUN"]
+ *                 default: "BULAN"
+ *                 example: "BULAN"
+ *                 description: Satuan durasi
  *               description:
  *                 type: string
+ *                 nullable: true
+ *                 example: "Paket internet 10 Mbps untuk rumahan"
+ *                 description: Deskripsi paket
  *               featured:
  *                 type: boolean
+ *                 default: false
+ *                 example: true
+ *                 description: Apakah paket ditampilkan sebagai unggulan
  *               status:
  *                 type: string
+ *                 enum: ["AKTIF", "NONAKTIF"]
+ *                 default: "AKTIF"
+ *                 example: "AKTIF"
+ *                 description: Status paket
  *     responses:
  *       201:
  *         description: Harga paket berhasil dibuat
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HargaPaket'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: Nama paket sudah digunakan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function POST(req: NextRequest) {
   try {

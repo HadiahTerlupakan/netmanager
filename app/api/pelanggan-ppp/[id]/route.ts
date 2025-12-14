@@ -63,10 +63,128 @@ async function verifyPelangganToken(token: string): Promise<string | null> {
 }
 
 /**
- * GET /api/pelanggan-ppp/[id]
- * Mendapatkan detail pelanggan PPP berdasarkan ID
- * - Admin bisa akses semua pelanggan
- * - Pelanggan hanya bisa akses data mereka sendiri dengan token
+ * @swagger
+ * /api/pelanggan-ppp/{id}:
+ *   get:
+ *     summary: Get customer PPP details by ID
+ *     description: |
+ *       Retrieve detailed information about a PPP customer.
+ *       - Admin users can access all customer data
+ *       - Customers can only access their own data with valid token
+ *     tags: [Pelanggan]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer database ID (not customer ID)
+ *     responses:
+ *       200:
+ *         description: Customer details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 idPelanggan:
+ *                   type: string
+ *                   description: Customer ID (8 digits)
+ *                 nama:
+ *                   type: string
+ *                   description: Customer name
+ *                 username:
+ *                   type: string
+ *                   description: PPPoE username
+ *                 tipe:
+ *                   type: string
+ *                   enum: [REGULER, VIP, CORPORATE]
+ *                   description: Customer type
+ *                 tanggalAktif:
+ *                   type: string
+ *                   format: date-time
+ *                   description: Activation date
+ *                 jatuhTempo:
+ *                   type: string
+ *                   format: date-time
+ *                   description: Due date for payment
+ *                 status:
+ *                   type: string
+ *                   enum: [AKTIF, NONAKTIF, ISOLIR]
+ *                   description: Customer status
+ *                 alamat:
+ *                   type: string
+ *                   nullable: true
+ *                   description: Customer address
+ *                 noTelp:
+ *                   type: string
+ *                   nullable: true
+ *                   description: Phone number
+ *                 email:
+ *                   type: string
+ *                   format: email
+ *                   nullable: true
+ *                   description: Email address
+ *                 hargaPaket:
+ *                   type: object
+ *                   description: Package information
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     harga:
+ *                       type: integer
+ *                     durasi:
+ *                       type: integer
+ *                     durasiUnit:
+ *                       type: string
+ *                       enum: [HARI, MINGGU, BULAN, TAHUN]
+ *                     profilePPP:
+ *                       $ref: '#/components/schemas/ProfilePPP'
+ *                     bandwidth:
+ *                       $ref: '#/components/schemas/Bandwidth'
+ *                 odp:
+ *                   type: object
+ *                   nullable: true
+ *                   description: ODP information
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     location:
+ *                       type: string
+ *                       nullable: true
+ *       401:
+ *         description: Unauthorized - invalid session or token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden - customer trying to access another customer's data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Customer not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function GET(
   req: NextRequest,
@@ -74,8 +192,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-
-    // Cek apakah ini request dari admin (user dengan session valid)
+        // Cek apakah ini request dari admin (user dengan session valid)
     const session: any = await getServerSession(authConfig as any)
     // User dengan session valid dianggap admin (bisa akses dari admin portal)
     const isAdmin = session && session.user
@@ -135,8 +252,215 @@ export async function GET(
 }
 
 /**
- * PUT /api/pelanggan-ppp/[id]
- * Update pelanggan PPP
+ * @swagger
+ * /api/pelanggan-ppp/{id}:
+ *   put:
+ *     summary: Update customer PPP information
+ *     description: |
+ *       Update customer PPP information including personal details, package, and billing information.
+ *       Supports file uploads for KTP, house photos, and BAST documents.
+ *       Automatically syncs with RADIUS server for PPPoE authentication.
+ *     tags: [Pelanggan]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer database ID (not customer ID)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idPelanggan
+ *               - nama
+ *               - username
+ *               - password
+ *               - passwordLogin
+ *               - hargaPaketId
+ *               - tanggalAktif
+ *               - jatuhTempo
+ *             properties:
+ *               idPelanggan:
+ *                 type: string
+ *                 description: Customer ID (8 digits)
+ *                 pattern: '^\d{8}$'
+ *               nama:
+ *                 type: string
+ *                 description: Customer name
+ *               username:
+ *                 type: string
+ *                 description: PPPoE username
+ *               password:
+ *                 type: string
+ *                 description: PPPoE password
+ *               passwordLogin:
+ *                 type: string
+ *                 description: Login password
+ *               hargaPaketId:
+ *                 type: string
+ *                 description: Package ID
+ *               tipe:
+ *                 type: string
+ *                 enum: [REGULER, VIP, CORPORATE]
+ *                 description: Customer type
+ *               tanggalAktif:
+ *                 type: string
+ *                 format: date
+ *                 description: Activation date (YYYY-MM-DD)
+ *               jatuhTempo:
+ *                 type: string
+ *                 format: date
+ *                 description: Due date (YYYY-MM-DD)
+ *               status:
+ *                 type: string
+ *                 enum: [AKTIF, NONAKTIF, ISOLIR]
+ *                 description: Customer status
+ *               alamat:
+ *                 type: string
+ *                 description: Customer address
+ *               provinsi:
+ *                 type: string
+ *                 description: Province
+ *               kabupatenKota:
+ *                 type: string
+ *                 description: City/Regency
+ *               kelurahanDesa:
+ *                 type: string
+ *                 description: Sub-district/Village
+ *               kecamatan:
+ *                 type: string
+ *                 description: District
+ *               noTelp:
+ *                 type: string
+ *                 description: Phone number
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email address
+ *               latitude:
+ *                 type: number
+ *                 format: double
+ *                 description: Latitude coordinate
+ *               longitude:
+ *                 type: number
+ *                 format: double
+ *                 description: Longitude coordinate
+ *               jenisDokumen:
+ *                 type: string
+ *                 description: Document type
+ *               noDokumen:
+ *                 type: string
+ *                 description: Document number
+ *               catatan:
+ *                 type: string
+ *                 description: Notes
+ *               usePPN:
+ *                 type: boolean
+ *                 description: Apply VAT
+ *                 default: true
+ *               useDiscount:
+ *                 type: boolean
+ *                 description: Apply discount
+ *                 default: false
+ *               useProrate:
+ *                 type: boolean
+ *                 description: Use prorated billing
+ *                 default: false
+ *               discountType:
+ *                 type: string
+ *                 enum: [PERCENTAGE, FIXED]
+ *                 description: Discount type
+ *               discountValue:
+ *                 type: number
+ *                 description: Discount value
+ *               discountDuration:
+ *                 type: integer
+ *                 description: Discount duration
+ *               discountDurationUnit:
+ *                 type: string
+ *                 enum: [HARI, MINGGU, BULAN, TAHUN]
+ *                 description: Discount duration unit
+ *               biayaInstalasi:
+ *                 type: integer
+ *                 description: Installation fee
+ *               biayaInstalasiIsRecurring:
+ *                 type: boolean
+ *                 description: Installation fee is recurring
+ *               biayaSewaPerangkat:
+ *                 type: integer
+ *                 description: Device rental fee
+ *               biayaSewaPerangkatIsRecurring:
+ *                 type: boolean
+ *                 description: Device rental fee is recurring
+ *               biayaLainnya:
+ *                 type: integer
+ *                 description: Other fees
+ *               biayaLainnyaIsRecurring:
+ *                 type: boolean
+ *                 description: Other fees are recurring
+ *               keteranganBiayaLainnya:
+ *                 type: string
+ *                 description: Description for other fees
+ *               odpId:
+ *                 type: string
+ *                 description: ODP ID
+ *               fileKTP:
+ *                 type: string
+ *                 format: binary
+ *                 description: KTP document
+ *               fileRumahSekitar:
+ *                 type: string
+ *                 format: binary
+ *                 description: House surroundings photo
+ *               fileBAST:
+ *                 type: string
+ *                 format: binary
+ *                 description: BAST document
+ *     responses:
+ *       200:
+ *         description: Customer updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               description: Updated customer object with package details
+ *       400:
+ *         description: Bad request - validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Customer or package not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: Conflict - customer ID already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function PUT(
   req: NextRequest,
@@ -149,9 +473,10 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
-
-    // Debug: Log ID yang diterima
+        const { id } = await params
+    const { provider } = await params
+const { id } = await params
+        // Debug: Log ID yang diterima
     console.log('[PUT Pelanggan] ID diterima:', id, 'Type:', typeof id)
 
     // Cek apakah ID valid (tidak kosong dan tidak undefined)
@@ -556,8 +881,62 @@ export async function PUT(
 }
 
 /**
- * DELETE /api/pelanggan-ppp/[id]
- * Hapus pelanggan PPP
+ * @swagger
+ * /api/pelanggan-ppp/{id}:
+ *   delete:
+ *     summary: Delete customer PPP
+ *     description: |
+ *       Delete a customer PPP account.
+ *       - Removes customer from database
+ *       - Removes from RADIUS server
+ *       - Deletes uploaded files
+ *       - Cannot be undone
+ *     tags: [Pelanggan]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer database ID (not customer ID)
+ *     responses:
+ *       200:
+ *         description: Customer deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Pelanggan berhasil dihapus"
+ *       400:
+ *         description: Bad request - invalid ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Customer not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function DELETE(
   req: NextRequest,
@@ -570,9 +949,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
-
-    // Debug: Log ID yang diterima
+        const { id } = await params
+    const { provider } = await params
+const { id } = await params
+        // Debug: Log ID yang diterima
     console.log('[DELETE Pelanggan] ID diterima:', id, 'Type:', typeof id)
 
     // Cek apakah ID valid (tidak kosong dan tidak undefined)

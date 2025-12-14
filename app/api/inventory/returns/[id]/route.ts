@@ -59,7 +59,6 @@ export async function GET(
 ) {
   const startTime = Date.now()
   const { id } = await params
-
   try {
     // Authentication
     const session = await requireAuth()
@@ -73,6 +72,7 @@ export async function GET(
         { error: 'Unauthorized - Admin or Employee access required' },
         { status: 401 }
       )
+
     }
 
     // Validate ID
@@ -200,7 +200,6 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-
   try {
     const session = await requireAuth()
     if (!session) {
@@ -208,6 +207,7 @@ export async function PUT(
         { error: 'Unauthorized - Admin or Employee access required' },
         { status: 401 }
       )
+
     }
 
     // Check if user can access this BarangKeluar
@@ -265,7 +265,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-
   try {
     const session = await requireAuth()
     if (!session || false) {

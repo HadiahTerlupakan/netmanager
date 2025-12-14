@@ -1,0 +1,176 @@
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authConfig } from '@/lib/auth'
+import { z } from 'zod'
+import { prisma } from '@/lib/prisma'
+
+async function requireAdmin() {
+  const session: any = await getServerSession(authConfig as any)
+  if (!session || false) {
+    return null
+  }
+  return session
+}
+
+const historyQuerySchema = z.object({
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  sortBy: z.enum(['timestamp', 'cpuUsage', 'memoryUsage', 'temperature']).default('timestamp'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+})
+
+/**
+ * @swagger
+ * /api/network/performance/{id}/history:
+ *   get:
+ *     summary: Get performance history for a device
+ *     description: Mengambil riwayat performa untuk perangkat tertentu
+ *     tags: [Network Performance]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Device ID
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter by start date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Filter by end date
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Performance history retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/NetworkPerformance'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     total:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Device not found
+ *       500:
+ *         description: Server error
+ */
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } }
+): Promise<NextResponse> {
+  try {
+    const session = await requireAdmin()
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { id } = params
+    const { searchParams } = new URL(req.url)
+    const queryParams = Object.fromEntries(searchParams.entries())
+    
+    const parsed = historyQuerySchema.safeParse(queryParams)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    }
+
+    const filters = parsed.data
+    const where: any = { deviceId: id }
+
+    if (filters.startDate || filters.endDate) {
+      where.timestamp = {}
+      if (filters.startDate) where.timestamp.gte = new Date(filters.startDate)
+      if (filters.endDate) where.timestamp.lte = new Date(filters.endDate)
+    }
+
+    const page = filters.page || 1
+    const limit = filters.limit || 20
+    const skip = (page - 1) * limit
+
+    const orderBy: any = {}
+    if (filters.sortBy) {
+      orderBy[filters.sortBy] = filters.sortOrder || 'desc'
+    } else {
+      orderBy.timestamp = 'desc'
+    }
+
+    try {
+      // @ts-ignore - Will work after schema update
+      const [data, total] = await Promise.all([
+        prisma.networkPerformance.findMany({
+          where,
+          orderBy,
+          skip,
+          take: limit,
+        }),
+        prisma.networkPerformance.count({ where }),
+      ])
+
+      return NextResponse.json({
+        data,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      })
+    } catch (prismaError: any) {
+      // Handle case where model doesn't exist yet
+      if (prismaError.code === 'P2021') {
+        return NextResponse.json({
+          data: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            totalPages: 0,
+          },
+          message: 'Network performance monitoring will be available after database migration'
+        })
+      }
+      throw prismaError
+    }
+  } catch (error: any) {
+    console.error('Error fetching performance history:', error)
+    return NextResponse.json(
+      { error: error.message || 'Gagal memuat riwayat performa' },
+      { status: 500 }
+    )
+  }
+}

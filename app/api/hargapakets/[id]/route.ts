@@ -9,8 +9,44 @@ import { sanitizeInput } from '@/lib/utils/sanitize'
  * @swagger
  * /api/hargapakets/{id}:
  *   get:
+ *     summary: Get harga paket by ID
+ *     description: Mengambil detail harga paket berdasarkan ID
  *     tags: [HargaPaket]
- *     summary: Mendapatkan detail harga paket
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Harga paket ID
+ *     responses:
+ *       200:
+ *         description: Detail harga paket berhasil diambil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HargaPaket'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Harga paket tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function GET(
   req: NextRequest,
@@ -49,8 +85,93 @@ export async function GET(
  * @swagger
  * /api/hargapakets/{id}:
  *   put:
- *     tags: [HargaPaket]
  *     summary: Update harga paket
+ *     description: Mengupdate data harga paket
+ *     tags: [HargaPaket]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Harga paket ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Paket 10 Mbps"
+ *                 description: Nama paket
+ *               harga:
+ *                 type: integer
+ *                 example: 150000
+ *                 description: Harga paket dalam Rupiah
+ *               durasi:
+ *                 type: integer
+ *                 example: 1
+ *                 description: Durasi paket
+ *               durasiUnit:
+ *                 type: string
+ *                 enum: ["HARI", "MINGGU", "BULAN", "TAHUN"]
+ *                 example: "BULAN"
+ *                 description: Satuan durasi
+ *               featured:
+ *                 type: boolean
+ *                 example: true
+ *                 description: Apakah paket ditampilkan sebagai unggulan
+ *               status:
+ *                 type: string
+ *                 enum: ["AKTIF", "NONAKTIF"]
+ *                 example: "AKTIF"
+ *                 description: Status paket
+ *               bandwidthId:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "clx1234567890"
+ *                 description: ID bandwidth (opsional)
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Paket internet 10 Mbps untuk rumahan"
+ *                 description: Deskripsi paket
+ *     responses:
+ *       200:
+ *         description: Harga paket berhasil diupdate
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HargaPaket'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Harga paket tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function PUT(
   req: NextRequest,
@@ -63,6 +184,7 @@ export async function PUT(
     }
 
     const { id } = await params
+    const { provider } = await params
     const body = await req.json()
     
     // Sanitize input
@@ -164,8 +286,48 @@ export async function PUT(
  * @swagger
  * /api/hargapakets/{id}:
  *   delete:
+ *     summary: Delete harga paket
+ *     description: Menghapus harga paket
  *     tags: [HargaPaket]
- *     summary: Hapus harga paket
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Harga paket ID
+ *     responses:
+ *       200:
+ *         description: Harga paket berhasil dihapus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Harga paket berhasil dihapus"
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Harga paket tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function DELETE(
   req: NextRequest,
@@ -178,6 +340,7 @@ export async function DELETE(
     }
 
     const { id } = await params
+    const { provider } = await params
     await prisma.hargaPaket.delete({
       where: { id },
     })

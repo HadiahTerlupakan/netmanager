@@ -206,7 +206,10 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
+        const { id } = await params
+    const { provider } = await params
+const { id } = await params
+    const { provider } = await params
     const oltRepository = getOLTRepository()
     const olt = await oltRepository.findById(id)
 

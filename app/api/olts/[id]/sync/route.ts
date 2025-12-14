@@ -310,6 +310,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+    const { provider } = await params
   const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
 
@@ -317,7 +318,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
   }
 
-  if (!olt.snmpConnected) {
+      const { id } = await params
+    const { provider } = await params
+if (!olt.snmpConnected) {
     return NextResponse.json({ error: 'SNMP tidak connected. Silakan test connection terlebih dahulu.' }, { status: 400 })
   }
 

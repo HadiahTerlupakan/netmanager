@@ -25,10 +25,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Unpack params since it's a Promise in Next.js 16
+        const { id } = await params
+    const { provider } = await params
+// Unpack params since it's a Promise in Next.js 16
     const { id } = await params
-
-    try {
+        try {
       const dbStart = Date.now()
 
       const opnameRecord = await prisma.stockOpname.findUnique({
@@ -94,8 +95,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Unpack params since it's a Promise in Next.js 16
+        const { id } = await params
+    const { provider } = await params
+// Unpack params since it's a Promise in Next.js 16
     const { id } = await params
+    const { provider } = await params
     const body = await req.json()
     const {
       stokFisik,
@@ -254,10 +258,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Unpack params since it's a Promise in Next.js 16
+        const { id } = await params
+    const { provider } = await params
+// Unpack params since it's a Promise in Next.js 16
     const { id } = await params
-
-    // Validate ID
+        // Validate ID
     if (!id || id.trim() === '') {
       return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
     }

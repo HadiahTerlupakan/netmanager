@@ -993,6 +993,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+    const { provider } = await params
   const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
 
@@ -1000,7 +1001,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
   }
 
-  // Cek SNMP connection status, tapi tetap coba ambil data jika kredensial tersedia
+      const { id } = await params
+    const { provider } = await params
+// Cek SNMP connection status, tapi tetap coba ambil data jika kredensial tersedia
   if (!olt.snmpConnected) {
     console.log(`[VLAN-SNMP] Warning: SNMP status menunjukkan tidak connected untuk OLT ${olt.name}, tapi akan tetap mencoba mengambil data VLAN`)
   }
@@ -1276,6 +1279,7 @@ export async function DELETE(
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+    const { provider } = await params
   const { searchParams } = new URL(req.url)
   const vlanId = searchParams.get('vlanId')
 
@@ -1283,7 +1287,9 @@ export async function DELETE(
     return NextResponse.json({ error: 'VLAN ID diperlukan' }, { status: 400 })
   }
 
-  const oltRepository = getOLTRepository()
+      const { id } = await params
+    const { provider } = await params
+const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
 
   if (!olt) {
@@ -1387,6 +1393,7 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+    const { provider } = await params
   const body = await req.json()
   const { vlanId, name, description } = body
 
@@ -1394,7 +1401,9 @@ export async function PATCH(
     return NextResponse.json({ error: 'VLAN ID diperlukan' }, { status: 400 })
   }
 
-  if (!name && !description) {
+      const { id } = await params
+    const { provider } = await params
+if (!name && !description) {
     return NextResponse.json({ error: 'Name atau description diperlukan' }, { status: 400 })
   }
 

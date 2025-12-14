@@ -16,24 +16,30 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
+    const { provider } = await params
   const onuTypeRepository = getOnuTypeRepository()
   const onuType = await onuTypeRepository.findById(id)
   if (!onuType) {
     return NextResponse.json({ error: 'OnuType tidak ditemukan' }, { status: 404 })
   }
-  return NextResponse.json({ onuType })
+      const { id } = await params
+    const { provider } = await params
+return NextResponse.json({ onuType })
 }
 
 export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
+    const { provider } = await params
   const body = await _req.json()
   const parsed = onuTypeUpdateSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-  const onuTypeRepository = getOnuTypeRepository()
+      const { id } = await params
+    const { provider } = await params
+const onuTypeRepository = getOnuTypeRepository()
   const data: any = {}
   if (parsed.data.name !== undefined) data.name = parsed.data.name
   if (parsed.data.ethernetPorts !== undefined) data.ethernetPorts = parsed.data.ethernetPorts
@@ -52,8 +58,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
+    const { provider } = await params
   const onuTypeRepository = getOnuTypeRepository()
   await onuTypeRepository.delete(id)
   return NextResponse.json({ ok: true })
 }
 
+    const { id } = await params
+    const { provider } = await params

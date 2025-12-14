@@ -48,24 +48,154 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
+    const { provider } = await params
   const oltRepository = getOLTRepository()
   const olt = await oltRepository.findById(id)
   if (!olt) {
     return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
   }
-  return NextResponse.json({ olt })
+      const { id } = await params
+    const { provider } = await params
+return NextResponse.json({ olt })
 }
 
+/**
+ * @swagger
+ * /api/olts/{id}:
+ *   patch:
+ *     summary: Update OLT
+ *     description: Mengupdate data OLT. Hanya bisa diakses oleh ADMIN.
+ *     tags: [OLTs]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: OLT ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: OLT-Jakarta-01
+ *               ipAddress:
+ *                 type: string
+ *                 format: ipv4
+ *                 example: 192.168.1.100
+ *               type:
+ *                 type: string
+ *                 example: ZTE-C300
+ *               version:
+ *                 type: string
+ *                 nullable: true
+ *                 example: 1.0.0
+ *               temperature:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 45
+ *               connectedDevices:
+ *                 type: integer
+ *                 example: 128
+ *               model:
+ *                 type: string
+ *                 nullable: true
+ *                 example: C300
+ *               uptime:
+ *                 type: string
+ *                 nullable: true
+ *                 example: 30 days
+ *               syncStatus:
+ *                 type: string
+ *                 example: '0'
+ *               syncDate:
+ *                 type: string
+ *                 format: date-time
+ *                 nullable: true
+ *               telnetConnected:
+ *                 type: boolean
+ *               snmpConnected:
+ *                 type: boolean
+ *               snmpCommunityWrite:
+ *                 type: string
+ *                 example: public
+ *               snmpVersion:
+ *                 type: string
+ *                 example: '2'
+ *               snmpPort:
+ *                 type: integer
+ *                 example: 161
+ *               telnetUsername:
+ *                 type: string
+ *                 example: zte
+ *               telnetPassword:
+ *                 type: string
+ *                 example: password123
+ *               telnetPort:
+ *                 type: integer
+ *                 example: 23
+ *     responses:
+ *       200:
+ *         description: OLT berhasil diupdate
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: OLT tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: IP Address sudah terpakai
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
+    const { provider } = await params
   const body = await _req.json()
   const parsed = oltUpdateSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-  const oltRepository = getOLTRepository()
+      const { id } = await params
+    const { provider } = await params
+const oltRepository = getOLTRepository()
   const data: any = {}
   if (parsed.data.name !== undefined) data.name = parsed.data.name
   if (parsed.data.ipAddress !== undefined) data.ipAddress = parsed.data.ipAddress
@@ -94,12 +224,62 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   }
 }
 
+/**
+ * @swagger
+ * /api/olts/{id}:
+ *   delete:
+ *     summary: Delete OLT
+ *     description: Menghapus OLT. Hanya bisa diakses oleh ADMIN.
+ *     tags: [OLTs]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: OLT ID
+ *     responses:
+ *       200:
+ *         description: OLT berhasil dihapus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: true
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: OLT tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
+    const { provider } = await params
   const oltRepository = getOLTRepository()
   await oltRepository.delete(id)
   return NextResponse.json({ ok: true })
 }
 
+    const { id } = await params
+    const { provider } = await params

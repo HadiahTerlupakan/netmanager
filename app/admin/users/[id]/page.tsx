@@ -126,7 +126,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
 
   const fetchUserAndEmployee = async () => {
     try {
-      const res = await fetch(`/api/users/${id}`)
+      const res = await fetch(`/api/admin/users/${id}`)
       const data = await res.json()
       const usr = data.user
 
@@ -242,7 +242,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
         userUpdateBody.password = formData.password
       }
 
-      const userRes = await fetch(`/api/users/${id}`, {
+      const userRes = await fetch(`/api/admin/users/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userUpdateBody),

@@ -13,8 +13,89 @@ async function requireAuth() {
 }
 
 /**
- * GET /api/inventory/masuk
- * Get all stock-in movements with filters
+ * @swagger
+ * /api/inventory/masuk:
+ *   get:
+ *     summary: Get all stock-in movements with filters
+ *     description: Retrieve a paginated list of stock-in movements with optional filtering
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: barangId
+ *         schema:
+ *           type: string
+ *         description: Filter by item ID
+ *       - in: query
+ *         name: gudangId
+ *         schema:
+ *           type: string
+ *         description: Filter by warehouse ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of stock-in movements retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 masukList:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       barang:
+ *                         $ref: '#/components/schemas/Barang'
+ *                       gudang:
+ *                         $ref: '#/components/schemas/Gudang'
+ *                       user:
+ *                         $ref: '#/components/schemas/User'
+ *                       jumlah:
+ *                         type: integer
+ *                       kondisi:
+ *                         type: string
+ *                         enum: [BARU, BEKAS, RUSAK]
+ *                       keterangan:
+ *                         type: string
+ *                         nullable: true
+ *                       tanggal:
+ *                         type: string
+ *                         format: date-time
+ *                       fotoBukti:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                         nullable: true
+ *                 pagination:
+ *                   $ref: '#/components/schemas/PaginationMeta'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
@@ -114,8 +195,96 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/inventory/masuk
- * Record new stock-in movement
+ * @swagger
+ * /api/inventory/masuk:
+ *   post:
+ *     summary: Record new stock-in movement
+ *     description: Add new items to warehouse inventory
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - barangId
+ *               - gudangId
+ *               - jumlah
+ *             properties:
+ *               barangId:
+ *                 type: string
+ *                 description: Item ID
+ *               gudangId:
+ *                 type: string
+ *                 description: Warehouse ID
+ *               jumlah:
+ *                 type: integer
+ *                 description: Quantity to add (must be > 0)
+ *                 minimum: 1
+ *               kondisi:
+ *                 type: string
+ *                 description: Item condition
+ *                 enum: [BARU, BEKAS, RUSAK]
+ *                 default: BARU
+ *               keterangan:
+ *                 type: string
+ *                 description: Additional notes
+ *                 nullable: true
+ *               fotoBukti:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of photo URLs as proof
+ *                 nullable: true
+ *               fotoMetadata:
+ *                 type: object
+ *                 description: Photo metadata
+ *                 nullable: true
+ *     responses:
+ *       201:
+ *         description: Stock-in movement recorded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Barang masuk berhasil dicatat"
+ *                 masukId:
+ *                   type: string
+ *                   description: ID of the created stock-in record
+ *                 data:
+ *                   type: object
+ *                   description: The created stock-in record
+ *       400:
+ *         description: Bad request - validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Item or warehouse not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function POST(req: NextRequest) {
   const startTime = Date.now()

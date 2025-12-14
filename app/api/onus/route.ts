@@ -1,147 +1,489 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
-
+import { getOnuRepository } from '@/lib/repositories'
+import { onuCreateSchema } from '@/lib/validations/onu'
 import { verifyAuth } from '@/lib/auth'
-// Simple in-memory cache untuk ONU data
-// Cache key: kombinasi filter parameters
-// Cache TTL: 30 detik (data tetap fresh tapi tidak fetch ulang setiap pagination)
-interface CacheEntry {
-  data: Array<{
-    oltId: string
-    oltName: string
-    name: string
-    description: string | null
-    pppoe: string | null
-    gponOnu: string
-    status: string
-    rxOlt: string | null
-    rxOnu: string | null
-    serialNumber: string | null
-    actualType: string | null
-  }>
-  timestamp: number
-}
+import { prisma } from '@/lib/prisma'
 
-interface AggregateCacheEntry {
-  summary: any
-  types: string[]
-  typeCounts: Record<string, number>
-  cards: CardSummary[]
-  totalOnus: number
-  timestamp: number
-}
-
-const cache = new Map<string, CacheEntry>()
-const aggregateCache = new Map<string, AggregateCacheEntry>()
-const CACHE_TTL = 120000 // 2 menit untuk data ONU (lebih lama untuk stabilitas)
-const AGGREGATE_CACHE_TTL = 300000 // 5 menit untuk agregat (summary/types/cards)
-
-// Export function untuk clear cache (dipanggil saat data di-sync)
-export function clearOnuCache(): void {
-  const count = cache.size
-  const aggregateCount = aggregateCache.size
-  cache.clear()
-  aggregateCache.clear()
-  console.log(`[All-ONU] Cleared all ONU cache (${count} data entries, ${aggregateCount} aggregate entries)`)
-}
-
-type CardSummary = {
-  frame: number
-  card: number
-  slots: Array<{ slot: number; ports: number[] }>
-  totalSlots: number
-  totalPorts: number
-}
-
-// Helper function untuk parse gponOnu dengan pattern yang konsisten
-// Format: Frame/Slot/Port:OnuID atau Frame/Slot/Port
-function parseGponOnu(gponOnu: string): { frame: number; slot: number; port: number; onu: number | null } | null {
-  if (!gponOnu) return null
-  // Support kedua format: dengan atau tanpa :OnuID
-  const match = gponOnu.match(/^(\d+)\/(\d+)\/(\d+)(?::(\d+))?$/)
-  if (!match) return null
-
-  return {
-    frame: parseInt(match[1], 10),
-    slot: parseInt(match[2], 10),
-    port: parseInt(match[3], 10),
-    onu: match[4] ? parseInt(match[4], 10) : null
-  }
-}
-
-function extractCardsFromOnuData(
-  onus: Array<{ gponOnu: string }>
-): CardSummary[] {
-  const cardMap = new Map<number, Map<number, Set<number>>>()
-
-  onus.forEach((onu) => {
-    if (!onu.gponOnu) return
-    const parsed = parseGponOnu(onu.gponOnu)
-    if (!parsed) return
-
-    const frame = parsed.frame
-    const slot = parsed.slot
-    const port = parsed.port
-
-    if (!cardMap.has(frame)) {
-      cardMap.set(frame, new Map())
+/**
+ * @swagger
+ * /api/onus:
+ *   post:
+ *     summary: Create new ONU
+ *     description: Membuat ONU baru
+ *     tags: [ONUs]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - oltId
+ *               - name
+ *               - gponOnu
+ *               - status
+ *             properties:
+ *               oltId:
+ *                 type: string
+ *                 example: "clt123456789"
+ *                 description: OLT ID
+ *               name:
+ *                 type: string
+ *                 example: "ONU-Customer-001"
+ *                 description: Nama ONU
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "ONU for customer"
+ *                 description: Deskripsi ONU
+ *               pppoe:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "customer001"
+ *                 description: Username PPPoE
+ *               gponOnu:
+ *                 type: string
+ *                 example: "1/1/1:1"
+ *                 description: GPON ONU identifier format
+ *               status:
+ *                 type: string
+ *                 example: "Online"
+ *                 description: Status ONU
+ *               rxOlt:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "-15.5"
+ *                 description: Signal level di OLT in dBm
+ *               rxOnu:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "-5.2"
+ *                 description: Signal level di ONU in dBm
+ *               txOlt:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "2.1"
+ *                 description: Transmit power di OLT in dBm
+ *               txOnu:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "0.5"
+ *                 description: Transmit power di ONU in dBm
+ *               serialNumber:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "ZTEGC1234567"
+ *                 description: Nomor serial ONU
+ *               actualType:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "ZXHN F670L"
+ *                 description: Tipe ONU aktual
+ *               registerTime:
+ *                 type: string
+ *                 format: date-time
+ *                 nullable: true
+ *                 description: Waktu registrasi
+ *               distance:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 1500
+ *                 description: Jarak ke OLT in meter
+ *               lastSeen:
+ *                 type: string
+ *                 format: date-time
+ *                 nullable: true
+ *                 description: Terakhir kali terlihat
+ *               registrationMode:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "auto"
+ *                 description: Mode registrasi
+ *               softwareVersion:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "V3.0.0"
+ *                 description: Versi software
+ *               hardwareVersion:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "V2.0"
+ *                 description: Versi hardware
+ *               temperature:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 45
+ *                 description: Suhu ONU in Celsius
+ *               laserBiasCurrent:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 12.5
+ *                 description: Laser bias current in mA
+ *               vendorId:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "ZTE"
+ *                 description: ID vendor
+ *               equipmentId:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "F670L"
+ *                 description: ID peralatan
+ *               firmwareVersion:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "V3.0.0"
+ *                 description: Versi firmware
+ *               macAddress:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "00:11:22:33:44:55"
+ *                 description: MAC address
+ *               batteryStatus:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "OK"
+ *                 description: Status baterai
+ *               opticalTransceiverType:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Class B+"
+ *                 description: Tipe optical transceiver
+ *               lastDeregTime:
+ *                 type: string
+ *                 format: date-time
+ *                 nullable: true
+ *                 description: Waktu deregistrasi terakhir
+ *               authMode:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "LOID"
+ *                 description: Mode autentikasi
+ *               loid:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "12345678"
+ *                 description: Logical ONU ID
+ *               password:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "password123"
+ *                 description: Password ONU
+ *               configState:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Configured"
+ *                 description: Status konfigurasi
+ *               powerLevel:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Normal"
+ *                 description: Level daya
+ *               dyingGaspTime:
+ *                 type: string
+ *                 format: date-time
+ *                 nullable: true
+ *                 description: Waktu dying gasp
+ *               rxPowerStatus:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Normal"
+ *                 description: Status daya terima
+ *               txPowerStatus:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Normal"
+ *                 description: Status daya kirim
+ *               rxBytes:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 1048576
+ *                 description: Bytes diterima
+ *               txBytes:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 524288
+ *                 description: Bytes dikirim
+ *               rxPackets:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 1024
+ *                 description: Paket diterima
+ *               txPackets:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 512
+ *                 description: Paket dikirim
+ *               rxErrors:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 0
+ *                 description: Error diterima
+ *               txErrors:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 0
+ *                 description: Error dikirim
+ *               rxDrops:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 0
+ *                 description: Paket di-drop diterima
+ *               txDrops:
+ *                 type: number
+ *                 nullable: true
+ *                 example: 0
+ *                 description: Paket di-drop dikirim
+ *               wifiEnable:
+ *                 type: boolean
+ *                 nullable: true
+ *                 example: true
+ *                 description: WiFi enable
+ *               wifiSsid:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "MyWiFi"
+ *                 description: WiFi SSID
+ *               wifiSecurityMode:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "WPA2-PSK"
+ *                 description: Mode keamanan WiFi
+ *               wifiChannel:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 6
+ *                 description: Channel WiFi
+ *               statusOid:
+ *                 type: string
+ *                 nullable: true
+ *                 description: SNMP OID untuk status
+ *               rxOltOid:
+ *                 type: string
+ *                 nullable: true
+ *                 description: SNMP OID untuk RX OLT
+ *               rxOnuOid:
+ *                 type: string
+ *                 nullable: true
+ *                 description: SNMP OID untuk RX ONU
+ *               nameOid:
+ *                 type: string
+ *                 nullable: true
+ *                 description: SNMP OID untuk nama
+ *               descOid:
+ *                 type: string
+ *                 nullable: true
+ *                 description: SNMP OID untuk deskripsi
+ *               compositeIndex:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: Index komposit SNMP
+ *     responses:
+ *       201:
+ *         description: ONU berhasil dibuat
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 onu:
+ *                   $ref: '#/components/schemas/ONU'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: ONU sudah ada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+export async function POST(req: NextRequest) {
+  try {
+    // Authentication check
+    const user = await verifyAuth(req)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const slotMap = cardMap.get(frame)!
-    if (!slotMap.has(slot)) {
-      slotMap.set(slot, new Set())
+    const body = await req.json()
+    
+    // Validate request body
+    const validation = onuCreateSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Validation error', details: validation.error.flatten() },
+        { status: 400 }
+      )
     }
-    slotMap.get(slot)!.add(port)
-  })
 
-  return Array.from(cardMap.entries())
-    .map(([frame, slotMap]) => {
-      const slots = Array.from(slotMap.entries())
-        .map(([slot, ports]) => ({
-          slot,
-          ports: Array.from(ports).sort((a, b) => a - b),
-        }))
-        .sort((a, b) => a.slot - b.slot)
-
-      return {
-        frame,
-        card: frame,
-        slots,
-        totalSlots: slots.length,
-        totalPorts: slots.reduce((sum, slot) => sum + slot.ports.length, 0),
-      }
+    const onuRepo = getOnuRepository()
+    
+    // Check if OLT exists
+    const oltExists = await prisma.olt.findUnique({
+      where: { id: validation.data.oltId }
     })
-    .sort((a, b) => a.frame - b.frame)
-}
+    
+    if (!oltExists) {
+      return NextResponse.json(
+        { error: 'OLT tidak ditemukan' },
+        { status: 404 }
+      )
+    }
 
-function getCacheKey(oltId: string | null, card: string | null, port: string | null, type: string | null, search: string): string {
-  return `onu:${oltId || 'all'}:${card || 'all'}:${port || 'all'}:${type || 'all'}:${search || ''}`
-}
+    // Check if ONU with same gponOnu already exists for this OLT
+    const existingOnu = await onuRepo.findByGponOnu(validation.data.oltId, validation.data.gponOnu)
+    
+    if (existingOnu) {
+      return NextResponse.json(
+        { error: 'ONU dengan GPON ID ini sudah ada di OLT yang sama' },
+        { status: 409 }
+      )
+    }
 
-function getCachedData(key: string): CacheEntry | null {
-  const entry = cache.get(key)
-  if (!entry) return null
+    // Prepare data for creation
+    const createData: any = {
+      oltId: validation.data.oltId,
+      name: validation.data.name,
+      gponOnu: validation.data.gponOnu,
+      status: validation.data.status,
+    }
 
-  const now = Date.now()
-  if (now - entry.timestamp > CACHE_TTL) {
-    cache.delete(key)
-    return null
+    // Add optional fields if provided
+    if (validation.data.description !== undefined) createData.description = validation.data.description
+    if (validation.data.pppoe !== undefined) createData.pppoe = validation.data.pppoe
+    if (validation.data.rxOlt !== undefined) createData.rxOlt = validation.data.rxOlt
+    if (validation.data.rxOnu !== undefined) createData.rxOnu = validation.data.rxOnu
+    if (validation.data.txOlt !== undefined) createData.txOlt = validation.data.txOlt
+    if (validation.data.txOnu !== undefined) createData.txOnu = validation.data.txOnu
+    if (validation.data.serialNumber !== undefined) createData.serialNumber = validation.data.serialNumber
+    if (validation.data.actualType !== undefined) createData.actualType = validation.data.actualType
+    if (validation.data.registerTime !== undefined) createData.registerTime = validation.data.registerTime ? new Date(validation.data.registerTime) : null
+    if (validation.data.distance !== undefined) createData.distance = validation.data.distance
+    if (validation.data.lastSeen !== undefined) createData.lastSeen = validation.data.lastSeen ? new Date(validation.data.lastSeen) : null
+    if (validation.data.registrationMode !== undefined) createData.registrationMode = validation.data.registrationMode
+    if (validation.data.softwareVersion !== undefined) createData.softwareVersion = validation.data.softwareVersion
+    if (validation.data.hardwareVersion !== undefined) createData.hardwareVersion = validation.data.hardwareVersion
+    if (validation.data.temperature !== undefined) createData.temperature = validation.data.temperature
+    if (validation.data.laserBiasCurrent !== undefined) createData.laserBiasCurrent = validation.data.laserBiasCurrent
+    if (validation.data.vendorId !== undefined) createData.vendorId = validation.data.vendorId
+    if (validation.data.equipmentId !== undefined) createData.equipmentId = validation.data.equipmentId
+    if (validation.data.firmwareVersion !== undefined) createData.firmwareVersion = validation.data.firmwareVersion
+    if (validation.data.macAddress !== undefined) createData.macAddress = validation.data.macAddress
+    if (validation.data.batteryStatus !== undefined) createData.batteryStatus = validation.data.batteryStatus
+    if (validation.data.opticalTransceiverType !== undefined) createData.opticalTransceiverType = validation.data.opticalTransceiverType
+    if (validation.data.lastDeregTime !== undefined) createData.lastDeregTime = validation.data.lastDeregTime ? new Date(validation.data.lastDeregTime) : null
+    if (validation.data.authMode !== undefined) createData.authMode = validation.data.authMode
+    if (validation.data.loid !== undefined) createData.loid = validation.data.loid
+    if (validation.data.password !== undefined) createData.password = validation.data.password
+    if (validation.data.configState !== undefined) createData.configState = validation.data.configState
+    if (validation.data.powerLevel !== undefined) createData.powerLevel = validation.data.powerLevel
+    if (validation.data.dyingGaspTime !== undefined) createData.dyingGaspTime = validation.data.dyingGaspTime ? new Date(validation.data.dyingGaspTime) : null
+    if (validation.data.rxPowerStatus !== undefined) createData.rxPowerStatus = validation.data.rxPowerStatus
+    if (validation.data.txPowerStatus !== undefined) createData.txPowerStatus = validation.data.txPowerStatus
+    if (validation.data.rxBytes !== undefined) createData.rxBytes = validation.data.rxBytes ? BigInt(validation.data.rxBytes) : null
+    if (validation.data.txBytes !== undefined) createData.txBytes = validation.data.txBytes ? BigInt(validation.data.txBytes) : null
+    if (validation.data.rxPackets !== undefined) createData.rxPackets = validation.data.rxPackets ? BigInt(validation.data.rxPackets) : null
+    if (validation.data.txPackets !== undefined) createData.txPackets = validation.data.txPackets ? BigInt(validation.data.txPackets) : null
+    if (validation.data.rxErrors !== undefined) createData.rxErrors = validation.data.rxErrors ? BigInt(validation.data.rxErrors) : null
+    if (validation.data.txErrors !== undefined) createData.txErrors = validation.data.txErrors ? BigInt(validation.data.txErrors) : null
+    if (validation.data.rxDrops !== undefined) createData.rxDrops = validation.data.rxDrops ? BigInt(validation.data.rxDrops) : null
+    if (validation.data.txDrops !== undefined) createData.txDrops = validation.data.txDrops ? BigInt(validation.data.txDrops) : null
+    if (validation.data.wifiEnable !== undefined) createData.wifiEnable = validation.data.wifiEnable
+    if (validation.data.wifiSsid !== undefined) createData.wifiSsid = validation.data.wifiSsid
+    if (validation.data.wifiSecurityMode !== undefined) createData.wifiSecurityMode = validation.data.wifiSecurityMode
+    if (validation.data.wifiChannel !== undefined) createData.wifiChannel = validation.data.wifiChannel
+    if (validation.data.statusOid !== undefined) createData.statusOid = validation.data.statusOid
+    if (validation.data.rxOltOid !== undefined) createData.rxOltOid = validation.data.rxOltOid
+    if (validation.data.rxOnuOid !== undefined) createData.rxOnuOid = validation.data.rxOnuOid
+    if (validation.data.nameOid !== undefined) createData.nameOid = validation.data.nameOid
+    if (validation.data.descOid !== undefined) createData.descOid = validation.data.descOid
+    if (validation.data.compositeIndex !== undefined) createData.compositeIndex = validation.data.compositeIndex
+
+    // Create ONU
+    const result = await onuRepo.create(createData)
+    
+    // Get created ONU
+    const createdOnu = await onuRepo.findByGponOnu(validation.data.oltId, validation.data.gponOnu)
+      .catch(() => null)
+
+    return NextResponse.json({ onu: createdOnu }, { status: 201 })
+  } catch (error: any) {
+    console.error('Error creating ONU:', error)
+    
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'ONU dengan GPON ID ini sudah ada di OLT yang sama' },
+        { status: 409 }
+      )
+    }
+    
+    return NextResponse.json(
+      { error: error?.message || 'Internal Server Error' },
+      { status: 500 }
+    )
   }
-
-  return entry
 }
 
-function getCachedAggregate(key: string): AggregateCacheEntry | null {
-  const entry = aggregateCache.get(key)
-  if (!entry) return null
+// Cache for ONU data
+let onuCache: Map<string, any> = new Map()
+let cacheTimestamp: number = 0
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
+/**
+ * Clear ONU cache
+ * This function is used to invalidate the cache when ONU data changes
+ */
+export function clearOnuCache() {
+  onuCache.clear()
+  cacheTimestamp = 0
+}
+
+/**
+ * Get cached ONU data or fetch from database
+ */
+async function getCachedOnus(oltId?: string) {
   const now = Date.now()
-  if (now - entry.timestamp > AGGREGATE_CACHE_TTL) {
-    aggregateCache.delete(key)
-    return null
+  const cacheKey = oltId || 'all'
+  
+  // Check if cache is valid
+  if (onuCache.has(cacheKey) && (now - cacheTimestamp) < CACHE_DURATION) {
+    return onuCache.get(cacheKey)
   }
-
-  return entry
+  
+  // Fetch from database
+  const onuRepo = getOnuRepository()
+  let onus
+  
+  if (oltId) {
+    onus = await onuRepo.findByOltId(oltId)
+  } else {
+    onus = await onuRepo.findAll()
+  }
+  
+  // Update cache
+  onuCache.set(cacheKey, onus)
+  cacheTimestamp = now
+  
+  return onus
 }
 
 /**
@@ -149,57 +491,20 @@ function getCachedAggregate(key: string): AggregateCacheEntry | null {
  * /api/onus:
  *   get:
  *     summary: Get all ONUs
- *     description: Mengambil daftar semua ONU dengan filter, pagination, dan summary signal quality
+ *     description: Mendapatkan semua data ONU
  *     tags: [ONUs]
  *     security:
  *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
  *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Items per page
- *       - in: query
  *         name: oltId
  *         schema:
  *           type: string
  *         description: Filter by OLT ID
- *       - in: query
- *         name: card
- *         schema:
- *           type: string
- *         description: Filter by card (format Frame/Slot)
- *       - in: query
- *         name: port
- *         schema:
- *           type: string
- *         description: Filter by port (format Frame/Slot/Port)
- *       - in: query
- *         name: type
- *         schema:
- *           type: string
- *         description: Filter by ONU type
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search in name, description, gponOnu, pppoe, serialNumber
- *       - in: query
- *         name: forceRefresh
- *         schema:
- *           type: boolean
- *         description: Force refresh from database (skip cache)
  *     responses:
  *       200:
- *         description: List of ONUs with summary
+ *         description: List of ONUs
  *         content:
  *           application/json:
  *             schema:
@@ -209,38 +514,14 @@ function getCachedAggregate(key: string): AggregateCacheEntry | null {
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/ONU'
- *                 pagination:
- *                   $ref: '#/components/schemas/PaginationMeta'
- *                 summary:
- *                   type: object
- *                   properties:
- *                     total:
- *                       type: integer
- *                     good:
- *                       type: object
- *                       properties:
- *                         count:
- *                           type: integer
- *                         percentage:
- *                           type: string
- *                     warning:
- *                       type: object
- *                     critical:
- *                       type: object
- *                     other:
- *                       type: object
- *                 types:
- *                   type: array
- *                   items:
- *                     type: string
- *                 cards:
- *                   type: array
- *                   items:
- *                     type: object
- *                 fromCache:
- *                   type: boolean
  *       401:
  *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
  *         content:
  *           application/json:
  *             schema:
@@ -249,463 +530,22 @@ function getCachedAggregate(key: string): AggregateCacheEntry | null {
 export async function GET(req: NextRequest) {
   try {
     // Authentication check
-    const user = await verifyAuth(req);
+    const user = await verifyAuth(req)
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const searchParams = req.nextUrl.searchParams
+    const { searchParams } = new URL(req.url)
+    const oltId = searchParams.get('oltId')
+    
+    // Get ONUs (with caching)
+    const onus = await getCachedOnus(oltId || undefined)
 
-    const limit = parseInt(searchParams.get('limit') || '10', 10)
-    const pageParam = parseInt(searchParams.get('page') || '1', 10)
-    const page = Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam
-    const search = searchParams.get('search') || ''
-    const oltId = searchParams.get('oltId') || null
-    const card = searchParams.get('card') || null
-    const port = searchParams.get('port') || null
-    const type = searchParams.get('type') || null
-    const forceRefresh = searchParams.get('forceRefresh') === 'true'
-    const cursorParam = searchParams.get('cursor')
-    const cursor = cursorParam !== null ? Math.max(parseInt(cursorParam, 10) || 0, 0) : null
-
-    // Log request untuk debugging
-    console.log(`[All-ONU] Request received: oltId=${oltId || 'ALL'}, page=${page}, limit=${limit}, card=${card || 'ALL'}, port=${port || 'ALL'}, type=${type || 'ALL'}, forceRefresh=${forceRefresh}`)
-
-    // Cache key yang konsisten: selalu gunakan key untuk SEMUA data (tanpa filter)
-    // Filter akan dilakukan setelah fetch, bukan sebelum
-    // Ini memastikan data selalu konsisten dan tidak berbeda-beda
-    const baseCacheKey = 'onu:all:all:all:all:' // Key konsisten untuk semua data
-    const aggregateCacheKey = 'aggregate:all:all:all:all'
-
-    // Check cache untuk base data (semua data, tanpa filter)
-    // Skip cache jika forceRefresh=true (untuk refresh manual)
-    const cachedAggregate = forceRefresh ? null : getCachedAggregate(aggregateCacheKey)
-    const cachedEntry = forceRefresh ? null : getCachedData(baseCacheKey)
-
-    let allOnuData: Array<{
-      oltId: string
-      oltName: string
-      name: string
-      description: string | null
-      pppoe: string | null
-      gponOnu: string
-      status: string
-      rxOlt: string | null
-      rxOnu: string | null
-      serialNumber: string | null
-      actualType: string | null
-    }> = []
-
-    let fromCache = false
-    let fromDatabase = false
-
-    // Prioritas 1: Gunakan cache jika tersedia dan tidak force refresh
-    if (cachedEntry && !forceRefresh) {
-      console.log(`[All-ONU] Using cached data (${cachedEntry.data.length} ONUs, age: ${Math.round((Date.now() - cachedEntry.timestamp) / 1000)}s)`)
-      allOnuData = cachedEntry.data
-      fromCache = true
-    } else {
-      // Prioritas 2: Ambil dari database (lebih cepat dari SNMP)
-      // Hanya fetch dari SNMP jika forceRefresh=true atau data tidak ada di database
-      const onuRepo = getOnuRepository()
-      const oltRepo = getOLTRepository()
-
-      // HANYA ambil dari database (yang sudah di-sync dari menu OLT)
-      // Jangan fetch langsung dari SNMP - biarkan menu OLT yang handle sync
-      // SELALU ambil SEMUA data dari database untuk konsistensi cache
-      // Filter akan dilakukan setelah fetch, bukan sebelum
-      console.log(`[All-ONU] Fetching ALL ONU data from database (for consistent caching)...`)
-
-      try {
-        // SELALU ambil SEMUA data ONU dari database (semua OLT)
-        // Ini memastikan cache selalu konsisten dan tidak berbeda-beda
-        const allOnusInDb = await onuRepo.findAll()
-        console.log(`[All-ONU] Fetched ${allOnusInDb.length} ONUs from database (sorted by oltId, gponOnu)`)
-
-        if (allOnusInDb.length > 0) {
-          // Get OLT names untuk mapping
-          const allOlts = await oltRepo.findAll()
-          const oltNameMap = new Map<string, string>()
-          allOlts.forEach(olt => {
-            oltNameMap.set(olt.id, olt.name)
-          })
-
-          // Convert semua data ONU
-          const convertedData = allOnusInDb.map(onu => ({
-            id: onu.gponOnu,
-            oltId: onu.oltId,
-            oltName: oltNameMap.get(onu.oltId) || `OLT ${onu.oltId}`, // Use OLT name if available, otherwise fallback
-            name: onu.name,
-            description: onu.description,
-            pppoe: onu.pppoe,
-            gponOnu: onu.gponOnu,
-            status: onu.status,
-            rxOlt: onu.rxOlt,
-            rxOnu: onu.rxOnu,
-            serialNumber: onu.serialNumber,
-            actualType: onu.actualType,
-            // SNMP OID fields
-            statusOid: onu.statusOid || null,
-            rxOltOid: onu.rxOltOid || null,
-            rxOnuOid: onu.rxOnuOid || null,
-            nameOid: onu.nameOid || null,
-            descOid: onu.descOid || null,
-            compositeIndex: onu.compositeIndex || null,
-          }))
-
-          allOnuData.push(...convertedData)
-          fromDatabase = true
-
-          const oltIdsInDb = new Set(allOnusInDb.map(onu => onu.oltId))
-          console.log(`[All-ONU] Loaded ${allOnuData.length} ONUs from database untuk ${oltIdsInDb.size} OLT ID(s): ${Array.from(oltIdsInDb).join(', ')}`)
-        } else {
-          console.log(`[All-ONU] No ONU data in database`)
-        }
-
-        // Cache hasil jika ada data (selalu cache semua data, tanpa filter)
-        // Ini memastikan data konsisten untuk semua request berikutnya
-        if (allOnuData.length > 0) {
-          cache.set(baseCacheKey, {
-            data: allOnuData,
-            timestamp: Date.now()
-          })
-          console.log(`[All-ONU] Cached ${allOnuData.length} ONUs from database (all OLTs, no filters) for ${CACHE_TTL / 1000}s`)
-        }
-
-        // Hapus logika lama yang kompleks - sekarang lebih sederhana
-        // Jika oltId ada, hanya ambil data untuk OLT tersebut
-        // Jika tidak, ambil semua data dari database
-      } catch (error: any) {
-        console.error(`[All-ONU] Error fetching from database:`, error.message)
-      }
-
-      // Hapus logika fetch dari SNMP - biarkan menu OLT yang handle sync
-      // Data akan tersedia setelah sync dari menu OLT
-      // Jika forceRefresh=true, tetap hanya ambil dari database (tidak fetch dari SNMP)
-      // User harus sync dari menu OLT terlebih dahulu
-    }
-
-    // Filter berdasarkan oltId (jika sudah di-filter di atas, ini akan tetap sama)
-    // Tapi tetap perlu filter di sini untuk memastikan konsistensi
-    let filteredOnus = allOnuData
-
-    if (oltId) {
-      filteredOnus = filteredOnus.filter(onu => onu.oltId === oltId)
-    }
-
-    if (card) {
-      filteredOnus = filteredOnus.filter(onu => {
-        const parsed = parseGponOnu(onu.gponOnu)
-        if (!parsed) return false
-        const cardKey = `${parsed.frame}/${parsed.slot}`
-        return cardKey === card
-      })
-    }
-
-    if (port) {
-      filteredOnus = filteredOnus.filter(onu => {
-        const parsed = parseGponOnu(onu.gponOnu)
-        if (!parsed) return false
-        const portKey = `${parsed.frame}/${parsed.slot}/${parsed.port}`
-        return portKey === port
-      })
-    }
-
-    if (type) {
-      filteredOnus = filteredOnus.filter(onu => onu.actualType === type)
-    }
-
-    if (search) {
-      const searchLower = search.toLowerCase()
-      filteredOnus = filteredOnus.filter(onu =>
-        onu.name?.toLowerCase().includes(searchLower) ||
-        onu.description?.toLowerCase().includes(searchLower) ||
-        onu.gponOnu?.toLowerCase().includes(searchLower) ||
-        onu.pppoe?.toLowerCase().includes(searchLower) ||
-        onu.serialNumber?.toLowerCase().includes(searchLower)
-      )
-    }
-
-    // Sort data secara konsisten untuk memastikan pagination stabil
-    // Sort berdasarkan: OLT Name -> GPON ONU (card/port/onu)
-    // Gunakan sorting yang sama dengan database untuk konsistensi
-    filteredOnus.sort((a, b) => {
-      // Sort by OLT ID first (lebih stabil daripada name)
-      if (a.oltId !== b.oltId) {
-        return a.oltId.localeCompare(b.oltId)
-      }
-      // Then sort by GPON ONU (format: card/port/onu)
-      // Gunakan helper function yang sama untuk konsistensi
-      const aGpon = parseGponOnu(a.gponOnu)
-      const bGpon = parseGponOnu(b.gponOnu)
-
-      if (!aGpon || !bGpon) {
-        // Jika salah satu tidak bisa di-parse, sort berdasarkan string
-        return (a.gponOnu || '').localeCompare(b.gponOnu || '')
-      }
-
-      if (aGpon.frame !== bGpon.frame) return aGpon.frame - bGpon.frame
-      if (aGpon.slot !== bGpon.slot) return aGpon.slot - bGpon.slot
-      if (aGpon.port !== bGpon.port) return aGpon.port - bGpon.port
-      // Handle onu yang mungkin null
-      const aOnu = aGpon.onu ?? 0
-      const bOnu = bGpon.onu ?? 0
-      return aOnu - bOnu
-    })
-
-    let goodCount = 0
-    let warningCount = 0
-    let criticalCount = 0
-    let otherCount = 0
-    let goodRxOlt = 0
-    let goodRxOnu = 0
-    let warningRxOlt = 0
-    let warningRxOnu = 0
-    let criticalRxOlt = 0
-    let criticalRxOnu = 0
-    let losCount = 0
-    let naCount = 0
-
-    filteredOnus.forEach((onu) => {
-      const rxOlt = onu.rxOlt ? parseFloat(onu.rxOlt.replace(/[^\d.-]/g, '')) : null
-      const rxOnu = onu.rxOnu ? parseFloat(onu.rxOnu.replace(/[^\d.-]/g, '')) : null
-
-      if (rxOlt !== null && rxOlt >= -26.0) {
-        goodCount++
-        goodRxOlt++
-        if (rxOnu !== null) goodRxOnu++
-      } else if (rxOlt !== null && rxOlt >= -28.0 && rxOlt < -26.0) {
-        warningCount++
-        warningRxOlt++
-        if (rxOnu !== null) warningRxOnu++
-      } else if (rxOlt !== null && rxOlt < -28.0) {
-        criticalCount++
-        criticalRxOlt++
-        if (rxOnu !== null) criticalRxOnu++
-      } else {
-        otherCount++
-        if (onu.status === 'LOS') losCount++
-        else naCount++
-      }
-    })
-
-    // Gunakan cache agregat jika tersedia, atau hitung dari allOnuData
-    let summaryData: any
-    let typesArray: string[]
-    let typeCountsObj: Record<string, number>
-    let cardsSummary: CardSummary[]
-    let totalOnusCount: number
-
-    // Hitung total dari filteredOnus (untuk filter yang aktif)
-    // Ini memastikan pagination dan summary sesuai dengan data yang benar-benar ada setelah filtering
-    const total = filteredOnus.length
-
-    if (cachedAggregate && !forceRefresh) {
-      // Gunakan cached aggregate hanya untuk types, cards, dan totalOnus (untuk dropdown/filter)
-      // Tapi summary harus dihitung dari filteredOnus untuk akurasi
-      console.log(`[All-ONU] Using cached aggregate data for types/cards (age: ${Math.round((Date.now() - cachedAggregate.timestamp) / 1000)}s)`)
-      typesArray = cachedAggregate.types
-      typeCountsObj = cachedAggregate.typeCounts
-      cardsSummary = cachedAggregate.cards
-      totalOnusCount = cachedAggregate.totalOnus
-
-      // Hitung summary dari filteredOnus (bukan dari cache)
-      const goodPercentage = total > 0 ? ((goodCount / total) * 100).toFixed(1) : '0'
-      const warningPercentage = total > 0 ? ((warningCount / total) * 100).toFixed(1) : '0'
-      const criticalPercentage = total > 0 ? ((criticalCount / total) * 100).toFixed(1) : '0'
-      const otherPercentage = total > 0 ? ((otherCount / total) * 100).toFixed(1) : '0'
-
-      summaryData = {
-        total,
-        good: {
-          count: goodCount,
-          percentage: goodPercentage,
-          rxOlt: goodRxOlt,
-          rxOnu: goodRxOnu,
-        },
-        warning: {
-          count: warningCount,
-          percentage: warningPercentage,
-          rxOlt: warningRxOlt,
-          rxOnu: warningRxOnu,
-        },
-        critical: {
-          count: criticalCount,
-          percentage: criticalPercentage,
-          rxOlt: criticalRxOlt,
-          rxOnu: criticalRxOnu,
-        },
-        other: {
-          count: otherCount,
-          percentage: otherPercentage,
-          los: losCount,
-          na: naCount,
-        },
-      }
-    } else {
-      // Hitung semua dari filteredOnus
-      const goodPercentage = total > 0 ? ((goodCount / total) * 100).toFixed(1) : '0'
-      const warningPercentage = total > 0 ? ((warningCount / total) * 100).toFixed(1) : '0'
-      const criticalPercentage = total > 0 ? ((criticalCount / total) * 100).toFixed(1) : '0'
-      const otherPercentage = total > 0 ? ((otherCount / total) * 100).toFixed(1) : '0'
-
-      summaryData = {
-        total,
-        good: {
-          count: goodCount,
-          percentage: goodPercentage,
-          rxOlt: goodRxOlt,
-          rxOnu: goodRxOnu,
-        },
-        warning: {
-          count: warningCount,
-          percentage: warningPercentage,
-          rxOlt: warningRxOlt,
-          rxOnu: warningRxOnu,
-        },
-        critical: {
-          count: criticalCount,
-          percentage: criticalPercentage,
-          rxOlt: criticalRxOlt,
-          rxOnu: criticalRxOnu,
-        },
-        other: {
-          count: otherCount,
-          percentage: otherPercentage,
-          los: losCount,
-          na: naCount,
-        },
-      }
-
-      // Extract unique types for dropdown dari allOnuData (semua data, bukan filtered)
-      const typeMap = new Map<string, number>()
-      allOnuData.forEach((onu) => {
-        if (onu.actualType) {
-          const count = typeMap.get(onu.actualType) || 0
-          typeMap.set(onu.actualType, count + 1)
-        }
-      })
-      typesArray = Array.from(typeMap.keys()).sort()
-      typeCountsObj = {}
-      typeMap.forEach((count, type) => {
-        typeCountsObj[type] = count
-      })
-
-      cardsSummary = extractCardsFromOnuData(allOnuData)
-      totalOnusCount = allOnuData.length
-
-      // Cache agregat untuk penggunaan berikutnya (TTL lebih panjang)
-      aggregateCache.set(aggregateCacheKey, {
-        summary: summaryData,
-        types: typesArray,
-        typeCounts: typeCountsObj,
-        cards: cardsSummary,
-        totalOnus: totalOnusCount,
-        timestamp: Date.now()
-      })
-      console.log(`[All-ONU] Cached aggregate data for ${AGGREGATE_CACHE_TTL / 1000}s`)
-    }
-
-    // Pagination - selalu gunakan startIndex dari page untuk pagination tradisional
-    // total sudah dihitung dari filteredOnus.length di atas
-    const startIndex = (page - 1) * limit
-    const endIndex = Math.min(startIndex + limit, total)
-    const paginatedOnus = filteredOnus.slice(startIndex, endIndex)
-    const totalPages = Math.ceil(total / limit)
-
-    // Log untuk debugging perubahan jumlah data
-    console.log(`[All-ONU] Pagination: page=${page}, limit=${limit}, total=${total}, filtered=${filteredOnus.length}, paginated=${paginatedOnus.length}, totalPages=${totalPages}`)
-    // nextCursor untuk tracking, tapi tidak digunakan untuk pagination
-    const nextCursor = endIndex < total ? endIndex : null
-    const currentPage = page
-
-    // Calculate cache age untuk logging
-    const cacheAge = cachedEntry ? Math.round((Date.now() - cachedEntry.timestamp) / 1000) : null
-
-    return NextResponse.json({
-      onus: paginatedOnus,
-      pagination: {
-        page: currentPage,
-        limit,
-        total,
-        totalPages,
-      },
-      summary: summaryData,
-      types: typesArray,
-      typeCounts: typeCountsObj,
-      totalOnus: totalOnusCount,
-      nextCursor,
-      cards: cardsSummary,
-      fromCache, // Flag untuk menandai apakah data dari cache
-      fromDatabase, // Flag untuk menandai apakah data dari database (bukan SNMP)
-      cacheAge, // Umur cache dalam detik (untuk debugging)
-    })
+    return NextResponse.json({ onus })
   } catch (error: any) {
     console.error('Error fetching ONUs:', error)
-    return NextResponse.json({
-      onus: [],
-      pagination: {
-        page: 1,
-        limit: 10,
-        total: 0,
-        totalPages: 0,
-      },
-      summary: {
-        total: 0,
-        good: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
-        warning: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
-        critical: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
-        other: { count: 0, percentage: '0', los: 0, na: 0 },
-      },
-      error: error.message || 'Gagal mengambil data ONU',
-    }, { status: 500 })
-  }
-}
-
-export async function DELETE(req: NextRequest) {
-  try {
-    // Authentication check
-    const user = await verifyAuth(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const searchParams = req.nextUrl.searchParams
-    const oltId = searchParams.get('oltId')
-
-    const onuRepo = getOnuRepository()
-
-    if (oltId) {
-      // Hapus ONU dari OLT tertentu
-      await onuRepo.deleteByOltId(oltId)
-      const count = await onuRepo.countByOltId(oltId)
-
-      return NextResponse.json({
-        success: true,
-        message: `Berhasil menghapus semua ONU dari OLT`,
-        deleted: true,
-        remaining: count,
-      })
-    } else {
-      // Hapus semua ONU
-      const allOnus = await onuRepo.findAll()
-      const totalCount = allOnus.length
-
-      // Hapus semua ONU
-      for (const onu of allOnus) {
-        await onuRepo.delete(onu.id)
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: `Berhasil menghapus ${totalCount} ONU`,
-        deleted: totalCount,
-      })
-    }
-  } catch (error: any) {
-    console.error('Error deleting ONUs:', error)
     return NextResponse.json(
-      { error: error.message || 'Gagal menghapus data ONU' },
+      { error: error?.message || 'Internal Server Error' },
       { status: 500 }
     )
   }

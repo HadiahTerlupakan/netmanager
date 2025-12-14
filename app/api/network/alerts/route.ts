@@ -1,0 +1,308 @@
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authConfig } from '@/lib/auth'
+import { networkAlertCreateSchema, networkAlertQuerySchema } from '@/lib/validations/network-performance'
+import { prisma } from '@/lib/prisma'
+
+async function requireAdmin() {
+  const session: any = await getServerSession(authConfig as any)
+  if (!session || false) {
+    return null
+  }
+  return session
+}
+
+/**
+ * @swagger
+ * /api/network/alerts:
+ *   get:
+ *     summary: Get all network alerts
+ *     description: Mengambil semua alert jaringan dengan filter
+ *     tags: [Network Alerts]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: deviceId
+ *         schema:
+ *           type: string
+ *         description: Filter by device ID
+ *       - in: query
+ *         name: deviceType
+ *         schema:
+ *           type: string
+ *           enum: [OLT, MIKROTIK, ONU]
+ *         description: Filter by device type
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [ACTIVE, ACKNOWLEDGED, RESOLVED, SUPPRESSED]
+ *         description: Filter by alert status
+ *       - in: query
+ *         name: severity
+ *         schema:
+ *           type: string
+ *           enum: [CRITICAL, WARNING, INFO]
+ *         description: Filter by alert severity
+ *       - in: query
+ *         name: acknowledged
+ *         schema:
+ *           type: boolean
+ *         description: Filter by acknowledgment status
+ *       - in: query
+ *         name: resolved
+ *         schema:
+ *           type: boolean
+ *         description: Filter by resolution status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Network alerts retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/NetworkAlert'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     total:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+export async function GET(req: Request) {
+  try {
+    const session = await requireAdmin()
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { searchParams } = new URL(req.url)
+    const queryParams = Object.fromEntries(searchParams.entries())
+    
+    const parsed = networkAlertQuerySchema.safeParse(queryParams)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    }
+
+    const filters = parsed.data
+    const where: any = { isActive: true }
+
+    if (filters.deviceId) where.deviceId = filters.deviceId
+    if (filters.deviceType) where.deviceType = filters.deviceType
+    if (filters.status) where.status = filters.status
+    if (filters.severity) where.severity = filters.severity
+    if (filters.alertType) where.alertType = filters.alertType
+    if (filters.acknowledged !== undefined) where.acknowledged = filters.acknowledged
+    if (filters.resolved !== undefined) where.resolved = filters.resolved
+
+    const page = filters.page || 1
+    const limit = filters.limit || 20
+    const skip = (page - 1) * limit
+
+    const orderBy: any = {}
+    if (filters.sortBy) {
+      orderBy[filters.sortBy] = filters.sortOrder || 'desc'
+    } else {
+      orderBy.createdAt = 'desc'
+    }
+
+    try {
+      // @ts-ignore - Will work after schema update
+      const [data, total] = await Promise.all([
+        prisma.networkAlert.findMany({
+          where,
+          orderBy,
+          skip,
+          take: limit,
+        }),
+        prisma.networkAlert.count({ where }),
+      ])
+
+      return NextResponse.json({
+        data,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      })
+    } catch (prismaError: any) {
+      // Handle case where model doesn't exist yet
+      if (prismaError.code === 'P2021') {
+        return NextResponse.json({
+          data: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            totalPages: 0,
+          },
+          message: 'Network alerts will be available after database migration'
+        })
+      }
+      throw prismaError
+    }
+  } catch (error: any) {
+    console.error('Error fetching network alerts:', error)
+    return NextResponse.json(
+      { error: error.message || 'Gagal memuat data alert jaringan' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * @swagger
+ * /api/network/alerts:
+ *   post:
+ *     summary: Create new network alert
+ *     description: Membuat alert jaringan baru
+ *     tags: [Network Alerts]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - deviceId
+ *               - deviceType
+ *               - title
+ *               - message
+ *               - severity
+ *             properties:
+ *               deviceId:
+ *                 type: string
+ *                 description: Device ID
+ *               deviceType:
+ *                 type: string
+ *                 enum: [OLT, MIKROTIK, ONU]
+ *                 description: Device type
+ *               alertType:
+ *                 type: string
+ *                 enum: [CRITICAL, WARNING, INFO]
+ *                 description: Alert type
+ *               title:
+ *                 type: string
+ *                 description: Alert title
+ *               message:
+ *                 type: string
+ *                 description: Alert message
+ *               severity:
+ *                 type: string
+ *                 enum: [CRITICAL, WARNING, INFO]
+ *                 description: Alert severity
+ *               threshold:
+ *                 type: number
+ *                 description: Alert threshold value
+ *               currentValue:
+ *                 type: number
+ *                 description: Current value that triggered the alert
+ *               metricName:
+ *                 type: string
+ *                 description: Name of the metric that triggered the alert
+ *               autoResolve:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Whether the alert should auto-resolve
+ *               autoResolveTime:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: Auto-resolve time in minutes
+ *     responses:
+ *       201:
+ *         description: Network alert created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+export async function POST(req: Request) {
+  try {
+    const session = await requireAdmin()
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const json = await req.json()
+    const parsed = networkAlertCreateSchema.safeParse(json)
+    
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    }
+
+    const data = parsed.data
+    
+    try {
+      // @ts-ignore - Will work after schema update
+      const result = await prisma.networkAlert.create({
+        data: {
+          deviceId: data.deviceId,
+          deviceType: data.deviceType,
+          alertType: data.alertType as any,
+          title: data.title,
+          message: data.message,
+          severity: data.severity as any,
+          threshold: data.threshold,
+          currentValue: data.currentValue,
+          metricName: data.metricName,
+          autoResolve: data.autoResolve || false,
+          autoResolveTime: data.autoResolveTime,
+        },
+      })
+
+      return NextResponse.json({ id: result.id }, { status: 201 })
+    } catch (prismaError: any) {
+      // Handle case where model doesn't exist yet
+      if (prismaError.code === 'P2021') {
+        return NextResponse.json(
+          { error: 'Network alerts will be available after database migration' },
+          { status: 503 }
+        )
+      }
+      throw prismaError
+    }
+  } catch (error: any) {
+    console.error('Error creating network alert:', error)
+    return NextResponse.json(
+      { error: error.message || 'Gagal membuat alert jaringan' },
+      { status: 500 }
+    )
+  }
+}

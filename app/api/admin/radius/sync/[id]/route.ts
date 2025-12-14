@@ -15,6 +15,7 @@ export async function POST(
 ) {
     try {
         const { id } = await params
+    const { provider } = await params
         // Auth check
         const session = await getServerSession(authConfig);
         if (!session?.user || false) {

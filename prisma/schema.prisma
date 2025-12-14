@@ -86,6 +86,10 @@ model Olt {
   onus               Onu[]
   onuTypes           OnuType[]
   speedProfiles      SpeedProfile[]
+  networkPerformance  NetworkPerformance[] @relation("NetworkPerformanceOlt")
+  networkAlerts      NetworkAlert[] @relation("NetworkAlertOlt")
+  // deviceBackups      DeviceBackup[] @relation("DeviceBackupOlt")
+  configurationRestores ConfigurationRestore[] @relation("ConfigurationRestoreOlt")
 }
 
 model Otb {
@@ -304,6 +308,10 @@ model Onu {
   rxOnuOid               String?
   statusOid              String?
   olt                    Olt       @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  networkPerformance     NetworkPerformance[] @relation("NetworkPerformanceOnu")
+  networkAlerts          NetworkAlert[] @relation("NetworkAlertOnu")
+  // deviceBackups          DeviceBackup[] @relation("DeviceBackupOnu")
+  configurationRestores  ConfigurationRestore[] @relation("ConfigurationRestoreOnu")
 
   @@unique([oltId, gponOnu])
   @@index([oltId])
@@ -392,6 +400,10 @@ model MikroTikRouter {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   profilePPPs     ProfilePPP[]
+  networkPerformance NetworkPerformance[] @relation("NetworkPerformanceMikroTik")
+  networkAlerts     NetworkAlert[] @relation("NetworkAlertMikroTik")
+  // deviceBackups     DeviceBackup[] @relation("DeviceBackupMikroTik")
+  configurationRestores ConfigurationRestore[] @relation("ConfigurationRestoreMikroTik")
 
   @@index([pingStatus])
 }
@@ -522,6 +534,9 @@ model Pelanggan {
   odp                           Odp?          @relation(fields: [odpId], references: [id])
   user                          User?         @relation(fields: [userId], references: [id])
   workOrders                    WorkOrder[]
+  customerUsage                  CustomerUsage[]
+  serviceSuspensions             ServiceSuspension[]
+  invoices                      Invoice[]
 
   @@index([idPelanggan])
   @@index([hargaPaketId])
@@ -595,20 +610,69 @@ model OAuthProviderConfig {
 }
 
 model Payment {
-  id            String    @id @default(cuid())
+  id            String      @id @default(cuid())
+  invoiceId     String?
   pelangganId   String
   amount        BigInt
   paymentDate   DateTime
-  paymentMethod String
+  paymentMethod PaymentMethod
   reference     String?
   notes         String?
   verifiedBy    String?
   verifiedAt    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
+  invoice       Invoice?    @relation(fields: [invoiceId], references: [id])
+  
   @@index([pelangganId])
+  @@index([invoiceId])
   @@index([paymentDate])
+}
+
+model Invoice {
+  id              String       @id @default(cuid())
+  invoiceNumber   String       @unique
+  pelangganId     String
+  issueDate       DateTime     @default(now())
+  dueDate         DateTime
+  status          InvoiceStatus @default(DRAFT)
+  subtotal        BigInt       @default(0)
+  taxAmount       BigInt       @default(0)
+  discountAmount  BigInt       @default(0)
+  totalAmount     BigInt       @default(0)
+  paidAmount      BigInt       @default(0)
+  notes           String?
+  terms           String?
+  sentAt          DateTime?
+  paidAt          DateTime?
+  createdBy       String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  pelanggan       Pelanggan    @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  items           InvoiceItem[]
+  payments        Payment[]
+  
+  @@index([pelangganId])
+  @@index([invoiceNumber])
+  @@index([status])
+  @@index([issueDate])
+  @@index([dueDate])
+}
+
+model InvoiceItem {
+  id          String      @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Int         @default(1)
+  unitPrice   BigInt
+  totalPrice  BigInt
+  itemType    ItemType    @default(SERVICE)
+  
+  invoice     Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([invoiceId])
 }
 
 model ARAgingSnapshot {
@@ -715,6 +779,9 @@ model Department {
   positions       Position[]
   workOrders      WorkOrder[]
   notifications   Notification[]
+  workOrderTemplates WorkOrderTemplate[]
+  slas            SLA[]
+  escalations     WorkOrderEscalation[]
 
   @@map("departments")
 }
@@ -800,6 +867,9 @@ model Employee {
 
   // Relations for work orders and inventory
   workOrdersCreated    WorkOrder[]           @relation("WorkOrderCreatedBy")
+  workOrderTemplatesCreated WorkOrderTemplate[] @relation("WorkOrderTemplateCreatedBy")
+  slasCreated          SLA[]                 @relation("SLACreatedBy")
+  escalationsCreated   WorkOrderEscalation[]  @relation("WorkOrderEscalationCreatedBy")
 
   // Relations to organization structure
   department           Department?           @relation(fields: [departmentId], references: [id])
@@ -1026,6 +1096,8 @@ model WorkOrder {
   customerFeedback    String?
   rating              Int?
   disconnectionReason String?
+  templateId          String?
+  slaId               String?
   createdById         String?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
@@ -1038,6 +1110,8 @@ model WorkOrder {
   department          Department?           @relation(fields: [departmentId], references: [id])
   pelanggan           Pelanggan?            @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
   site                Site?                 @relation(fields: [siteId], references: [id])
+  template            WorkOrderTemplate?    @relation(fields: [templateId], references: [id])
+  sla                 SLA?                  @relation(fields: [slaId], references: [id])
 
   @@index([pelangganId])
   @@index([siteId])
@@ -1048,6 +1122,8 @@ model WorkOrder {
   @@index([type])
   @@index([priority])
   @@index([workOrderNumber])
+  @@index([templateId])
+  @@index([slaId])
   @@map("work_orders")
 }
 
@@ -1118,6 +1194,89 @@ model WorkOrderAttachment {
   @@index([workOrderId])
   @@index([uploadedAt])
   @@map("work_order_attachments")
+}
+
+model WorkOrderTemplate {
+  id                String                @id @default(cuid())
+  name              String
+  description       String?
+  type              WorkOrderType
+  priority          WorkOrderPriority     @default(NORMAL)
+  departmentId      String?
+  estimatedHours    Float?
+  estimatedCost     Float?
+  requiredMaterials Json?
+  tasks             Json?
+  checklist         Json?
+  isActive          Boolean               @default(true)
+  createdById       String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  createdBy         Employee?             @relation("WorkOrderTemplateCreatedBy", fields: [createdById], references: [id])
+  department        Department?           @relation(fields: [departmentId], references: [id])
+  workOrders        WorkOrder[]
+
+  @@index([type])
+  @@index([departmentId])
+  @@index([isActive])
+  @@map("work_order_templates")
+}
+
+model SLA {
+  id                String            @id @default(cuid())
+  name              String
+  description       String?
+  workOrderType     WorkOrderType?
+  priority          WorkOrderPriority?
+  departmentId      String?
+  responseTime      Int               // in minutes
+  resolutionTime    Int               // in minutes
+  businessHoursOnly Boolean           @default(true)
+  isActive          Boolean           @default(true)
+  createdById       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  createdBy         Employee?         @relation("SLACreatedBy", fields: [createdById], references: [id])
+  department        Department?       @relation(fields: [departmentId], references: [id])
+  workOrders        WorkOrder[]
+  escalations       WorkOrderEscalation[]
+
+  @@index([workOrderType])
+  @@index([priority])
+  @@index([departmentId])
+  @@index([isActive])
+  @@map("sla")
+}
+
+model WorkOrderEscalation {
+  id                String            @id @default(cuid())
+  name              String
+  description       String?
+  slaId             String?
+  workOrderType     WorkOrderType?
+  priority          WorkOrderPriority?
+  departmentId      String?
+  triggerCondition  String            // JSON condition for triggering escalation
+  escalationLevel   Int               @default(1)
+  notifyRole        String?           // Role to notify
+  notifyEmployees    String[]          // Array of employee IDs to notify
+  notifyDepartments String[]          // Array of department IDs to notify
+  delayMinutes      Int               @default(0) // Delay before triggering escalation
+  isActive          Boolean           @default(true)
+  createdById       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  createdBy         Employee?         @relation("WorkOrderEscalationCreatedBy", fields: [createdById], references: [id])
+  sla               SLA?              @relation(fields: [slaId], references: [id])
+  department        Department?       @relation(fields: [departmentId], references: [id])
+
+  @@index([slaId])
+  @@index([workOrderType])
+  @@index([priority])
+  @@index([departmentId])
+  @@index([escalationLevel])
+  @@index([isActive])
+  @@map("work_order_escalations")
 }
 
 model Gudang {
@@ -1470,6 +1629,33 @@ enum TaskStatus {
   SKIPPED
 }
 
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  OVERDUE
+  PAID
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  E_WALLET
+  CREDIT_CARD
+  DEBIT_CARD
+  CHECK
+  OTHER
+}
+
+enum ItemType {
+  SERVICE
+  PRODUCT
+  SETUP_FEE
+  MONTHLY_FEE
+  ONE_TIME_FEE
+  OTHER
+}
+
 // Role-Based Access Control Models
 
 
@@ -1528,4 +1714,237 @@ model PushSubscription {
   @@index([employeeId])
   @@index([isActive])
   @@map("push_subscriptions")
+}
+
+// Customer Usage Tracking Model
+model CustomerUsage {
+  id                String   @id @default(cuid())
+  pelangganId        String
+  sessionId         String?  @map("session_id")
+  sessionStartTime   DateTime @map("session_start_time")
+  sessionEndTime     DateTime? @map("session_end_time")
+  sessionDuration    BigInt?  @map("session_duration") // in seconds
+  uploadBytes       BigInt?  @map("upload_bytes")
+  downloadBytes     BigInt?  @map("download_bytes")
+  totalBytes        BigInt?  @map("total_bytes")
+  nasIpAddress      String?  @map("nas_ip_address")
+  callingStationId  String?  @map("calling_station_id")
+  calledStationId   String?  @map("called_station_id")
+  terminateCause    String?  @map("terminate_cause")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  pelanggan         Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  
+  @@index([pelangganId])
+  @@index([sessionStartTime])
+  @@index([sessionEndTime])
+  @@index([nasIpAddress])
+  @@map("customer_usage")
+}
+
+// Service Suspension Model
+model ServiceSuspension {
+  id                String   @id @default(cuid())
+  pelangganId        String
+  suspensionType     String   @map("suspension_type") // PAYMENT, VIOLATION, MAINTENANCE, REQUEST
+  reason            String?
+  suspendedAt        DateTime @default(now()) @map("suspended_at")
+  suspendedBy        String?  @map("suspended_by") // User ID who suspended
+  expectedResumeAt   DateTime? @map("expected_resume_at")
+  actualResumeAt     DateTime? @map("actual_resume_at")
+  resumedBy          String?  @map("resumed_by") // User ID who resumed
+  notes             String?
+  isActive          Boolean  @default(true) @map("is_active") // true if currently suspended
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  pelanggan         Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  
+  @@index([pelangganId])
+  @@index([suspensionType])
+  @@index([suspendedAt])
+  @@index([isActive])
+  @@map("service_suspension")
+}
+
+// Network Performance Monitoring Models
+model NetworkPerformance {
+  id                String      @id @default(cuid())
+  deviceId          String      // Reference to OLT, MikroTik Router, or ONU
+  deviceType        String      // 'OLT', 'MIKROTIK', 'ONU'
+  timestamp         DateTime    @default(now())
+  cpuUsage          Float?      // CPU usage percentage
+  memoryUsage       Float?      // Memory usage percentage
+  temperature       Float?      // Device temperature in Celsius
+  uptime            BigInt?     // Device uptime in seconds
+  rxBytes          BigInt?     // Received bytes
+  txBytes          BigInt?     // Transmitted bytes
+  rxPackets        BigInt?     // Received packets
+  txPackets        BigInt?     // Transmitted packets
+  rxDrops          BigInt?     // Dropped received packets
+  txDrops          BigInt?     // Dropped transmitted packets
+  rxErrors         BigInt?     // Received packet errors
+  txErrors         BigInt?     // Transmitted packet errors
+  interfaceStatus  Json?       // Interface status information
+  connectionCount   Int?        // Number of active connections
+  bandwidthUsage   Float?      // Current bandwidth usage in Mbps
+  signalStrength   Float?      // Signal strength in dBm (for wireless devices)
+  powerLevel       String?     // Power level status
+  customMetrics    Json?       // Custom device-specific metrics
+  olt              Olt?        @relation("NetworkPerformanceOlt", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_olt_fkey")
+  mikroTikRouter   MikroTikRouter? @relation("NetworkPerformanceMikroTik", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_mikrotik_fkey")
+  onu              Onu?        @relation("NetworkPerformanceOnu", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_onu_fkey")
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([deviceId, deviceType])
+  @@index([timestamp])
+  @@index([deviceType])
+  @@index([deviceId, timestamp])
+  @@map("network_performance")
+}
+
+model NetworkAlert {
+  id              String            @id @default(cuid())
+  deviceId        String            // Reference to OLT, MikroTik Router, or ONU
+  deviceType      String            // 'OLT', 'MIKROTIK', 'ONU'
+  alertType       AlertSeverity     // 'CRITICAL', 'WARNING', 'INFO'
+  title           String
+  message         String
+  severity        AlertSeverity
+  status          AlertStatus       @default(ACTIVE)
+  threshold       Float?            // Alert threshold value
+  currentValue    Float?            // Current value that triggered the alert
+  metricName      String?           // Name of the metric that triggered the alert
+  acknowledged    Boolean           @default(false)
+  acknowledgedBy  String?           // User ID who acknowledged
+  acknowledgedAt  DateTime?
+  resolved        Boolean           @default(false)
+  resolvedBy      String?           // User ID who resolved
+  resolvedAt      DateTime?
+  autoResolve     Boolean           @default(false)
+  autoResolveTime Int?              // Auto-resolve time in minutes
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  olt             Olt?              @relation("NetworkAlertOlt", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_olt_fkey")
+  mikrotikRouter   MikroTikRouter?    @relation("NetworkAlertMikroTik", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_mikrotik_fkey")
+  onu             Onu?              @relation("NetworkAlertOnu", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_onu_fkey")
+
+  @@index([deviceId, deviceType])
+  @@index([status])
+  @@index([severity])
+  @@index([alertType])
+  @@index([createdAt])
+  @@index([isActive])
+  @@map("network_alerts")
+}
+
+model DeviceBackup {
+  id              String            @id @default(cuid())
+  deviceId        String            // Reference to OLT, MikroTik Router, or ONU
+  deviceType      String            // 'OLT', 'MIKROTIK', 'ONU'
+  backupName      String
+  description     String?
+  backupType      BackupType        @default(MANUAL)
+  filePath        String            // Path to backup file
+  fileSize        Int               // File size in bytes
+  fileHash        String?           // File hash for integrity verification
+  compressionType String?           @default("gzip")
+  isEncrypted     Boolean           @default(false)
+  encryptionKey   String?           // Encryption key (encrypted)
+  backupMethod    String?           // 'SNMP', 'API', 'SSH', 'TELNET'
+  status          BackupStatus      @default(PENDING)
+  errorMessage    String?
+  scheduledAt     DateTime?
+  completedAt     DateTime?
+  createdBy       String?           // User ID who created the backup
+  retentionDays   Int               @default(30) // Number of days to retain backup
+  isAutoCleanup   Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  // olt             Olt?              @relation("DeviceBackupOlt", fields: [deviceId], references: [id], onDelete: Cascade, map: "device_backup_olt_fkey")
+  // mikrotikRouter   MikroTikRouter?    @relation("DeviceBackupMikroTik", fields: [deviceId], references: [id], onDelete: Cascade, map: "device_backup_mikrotik_fkey")
+  // onu             Onu?              @relation("DeviceBackupOnu", fields: [deviceId], references: [id], onDelete: Cascade, map: "device_backup_onu_fkey")
+  configurationRestores ConfigurationRestore[] @relation("ConfigurationRestoreBackup")
+
+  @@index([deviceId, deviceType])
+  @@index([status])
+  @@index([backupType])
+  @@index([createdAt])
+  @@index([scheduledAt])
+  @@map("device_backups")
+}
+
+model ConfigurationRestore {
+  id              String            @id @default(cuid())
+  deviceId        String            // Reference to OLT, MikroTik Router, or ONU
+  deviceType      String            // 'OLT', 'MIKROTIK', 'ONU'
+  backupId        String            // Reference to DeviceBackup
+  restoreName     String
+  description     String?
+  restoreMethod   String?           // 'SNMP', 'API', 'SSH', 'TELNET'
+  status          RestoreStatus     @default(PENDING)
+  progress        Int               @default(0) // Progress percentage
+  errorMessage    String?
+  warningMessage  String?
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  rollbackEnabled Boolean           @default(false)
+  rollbackData    Json?             // Data for rollback if needed
+  createdBy       String?           // User ID who initiated restore
+  verifiedBy      String?           // User ID who verified restore
+  verifiedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  olt             Olt?              @relation("ConfigurationRestoreOlt", fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_olt_fkey")
+  mikrotikRouter   MikroTikRouter?    @relation("ConfigurationRestoreMikroTik", fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_mikrotik_fkey")
+  onu             Onu?              @relation("ConfigurationRestoreOnu", fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_onu_fkey")
+  backup          DeviceBackup      @relation("ConfigurationRestoreBackup", fields: [backupId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, deviceType])
+  @@index([status])
+  @@index([backupId])
+  @@index([createdAt])
+  @@index([scheduledAt])
+  @@map("configuration_restores")
+}
+
+// Enums for Network Models
+enum AlertSeverity {
+  CRITICAL
+  WARNING
+  INFO
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+  SUPPRESSED
+}
+
+enum BackupType {
+  MANUAL
+  SCHEDULED
+  AUTOMATIC
+}
+
+enum BackupStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum RestoreStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+  ROLLED_BACK
 }

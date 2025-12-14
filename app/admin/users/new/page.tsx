@@ -97,10 +97,10 @@ export default function UserNewPage() {
 
   const fetchDepartments = async () => {
     try {
-      const res = await fetch('/api/departments')
+      const res = await fetch('/api/admin/departments')
       const data = await res.json()
       if (res.ok) {
-        setDepartments(data.departments || [])
+        setDepartments(data.data || [])
       }
     } catch (error) {
       console.error('Error fetching departments:', error)
@@ -122,7 +122,7 @@ export default function UserNewPage() {
   const generateEmployeeId = async () => {
     try {
       setGeneratingEmployeeId(true)
-      const res = await fetch('/api/hris/employees/next-id')
+      const res = await fetch('/api/employees/next-id')
       const data = await res.json()
       if (res.ok && data.nextId) {
         setFormData(prev => ({ ...prev, employeeId: data.nextId }))
@@ -212,7 +212,7 @@ export default function UserNewPage() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/users', {
+      const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
