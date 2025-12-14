@@ -30,14 +30,14 @@ export default function OnuTypeNewPage() {
       setLoadingOlts(true)
       setError(null)
       const res = await fetch('/api/olts')
-      
+
       if (!res.ok) {
         // Jika unauthorized, mungkin session expired
         if (res.status === 401) {
           setError('Session expired. Silakan refresh halaman dan login kembali.')
           return
         }
-        
+
         const errorData = await res.json().catch(() => ({}))
         console.error('Error response:', errorData)
         // Tetap coba set data jika ada, meskipun ada error
@@ -48,19 +48,19 @@ export default function OnuTypeNewPage() {
         }
         return
       }
-      
+
       const data = await res.json()
       const oltList = data.olts || []
-      console.log('✅ Loaded OLTs:', oltList.length, 'items')
-      console.log('✅ OLT Data:', oltList)
-      
+      console.log('Loaded OLTs:', oltList.length, 'items')
+      console.log('OLT Data:', oltList)
+
       // Pastikan data adalah array dan memiliki struktur yang benar
       if (Array.isArray(oltList) && oltList.length > 0) {
         // Validasi setiap item memiliki id dan name
         const validOlts = oltList.filter((olt: any) => olt && olt.id && olt.name)
-        console.log('✅ Valid OLTs:', validOlts.length)
+        console.log('Valid OLTs:', validOlts.length)
         setOlts(validOlts)
-        
+
         if (validOlts.length === 0) {
           setError('Data OLT tidak valid. Silakan refresh halaman.')
         } else {
@@ -68,7 +68,7 @@ export default function OnuTypeNewPage() {
           setError(null)
         }
       } else {
-        console.warn('⚠️ No OLTs found or invalid data structure')
+        console.warn('No OLTs found or invalid data structure')
         setOlts([])
         setError('Tidak ada OLT yang tersedia. Silakan tambahkan OLT terlebih dahulu.')
       }
@@ -203,68 +203,68 @@ export default function OnuTypeNewPage() {
               />
             </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Ethernet Ports</label>
-              <input
-                type="number"
-                min={0}
-                value={ethernetPorts}
-                onChange={(e) => setEthernetPorts(parseInt(e.target.value) || 0)}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-                placeholder="0"
-              />
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Ethernet Ports</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={ethernetPorts}
+                  onChange={(e) => setEthernetPorts(parseInt(e.target.value) || 0)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                  placeholder="0"
+                />
+              </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Wifi</label>
-              <input
-                type="number"
-                min={0}
-                value={wifi}
-                onChange={(e) => setWifi(parseInt(e.target.value) || 0)}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-                placeholder="0"
-              />
-            </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Wifi</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={wifi}
+                  onChange={(e) => setWifi(parseInt(e.target.value) || 0)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                  placeholder="0"
+                />
+              </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-800 dark:text-gray-200">VoIP Ports</label>
-              <input
-                type="number"
-                min={0}
-                value={voipPorts}
-                onChange={(e) => setVoipPorts(parseInt(e.target.value) || 0)}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-                placeholder="0"
-              />
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-800 dark:text-gray-200">VoIP Ports</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={voipPorts}
+                  onChange={(e) => setVoipPorts(parseInt(e.target.value) || 0)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                  placeholder="0"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {error && (
-          <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
-            {error}
+          {error && (
+            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-md bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {loading ? 'Menyimpan...' : 'Simpan'}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm"
+            >
+              Batal
+            </button>
           </div>
-        )}
-
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
-          >
-            {loading ? 'Menyimpan...' : 'Simpan'}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm"
-          >
-            Batal
-          </button>
-        </div>
-      </form>
+        </form>
       )}
 
       {/* Pesan jika OLT belum dipilih */}

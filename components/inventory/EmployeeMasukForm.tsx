@@ -8,7 +8,8 @@ import {
   HiOutlineXMark,
   HiOutlineCamera,
   HiOutlinePhoto,
-  HiOutlineCube
+  HiOutlineCube,
+  HiOutlineInformationCircle
 } from 'react-icons/hi2'
 import { PhotoUpload, type UploadedPhoto } from './PhotoUpload'
 
@@ -157,7 +158,7 @@ export default function EmployeeMasukForm() {
     }
   }
 
- const uploadTransactionPhotos = async (txId: string) => {
+  const uploadTransactionPhotos = async (txId: string) => {
     if (photos.length === 0) return
 
     setUploadingPhotos(true)
@@ -244,7 +245,7 @@ export default function EmployeeMasukForm() {
     }
   }
 
- return (
+  return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-green-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
@@ -260,7 +261,7 @@ export default function EmployeeMasukForm() {
       {/* Instructions */}
       <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
         <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2">
-          📌 Petunjuk Penggunaan
+          <HiOutlineInformationCircle className="inline w-4 h-4 mr-1" /> Petunjuk Penggunaan
         </h3>
         <div className="space-y-2">
           <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
@@ -406,9 +407,9 @@ export default function EmployeeMasukForm() {
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-50 dark:bg-gray-700 dark:text-white transition-colors"
               required
             >
-              <option value="BARU">🟢 Baru</option>
-              <option value="BEKAS">🟡 Bekas</option>
-              <option value="RUSAK">🔴 Rusak</option>
+              <option value="BARU">Baru</option>
+              <option value="BEKAS">Bekas</option>
+              <option value="RUSAK">Rusak</option>
             </select>
             <div className="mt-1">
               <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiColor(formData.kondisi)}`}>

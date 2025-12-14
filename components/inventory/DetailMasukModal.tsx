@@ -1,6 +1,6 @@
 'use client'
 
-import { FiX, FiCalendar, FiPackage, FiHome, FiUser, FiEdit3, FiPaperclip, FiCamera } from 'react-icons/fi'
+import { FiX, FiCalendar, FiPackage, FiHome, FiUser, FiEdit3, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle } from 'react-icons/fi'
 
 interface BarangMasuk {
   id: string
@@ -62,12 +62,12 @@ export function DetailMasukModal({ masuk, isOpen, onClose, onEdit }: DetailMasuk
   }
 
   const getKondisiLabel = (kondisi: string) => {
-    const labels = {
-      BARU: '🟢 Baru',
-      BEKAS: '🟡 Bekas',
-      RUSAK: '🔴 Rusak'
+    switch (kondisi) {
+      case 'BARU': return <span className="flex items-center gap-1"><FiCheckCircle className="w-3 h-3" /> Baru</span>
+      case 'BEKAS': return <span className="flex items-center gap-1"><FiAlertTriangle className="w-3 h-3" /> Bekas</span>
+      case 'RUSAK': return <span className="flex items-center gap-1"><FiXCircle className="w-3 h-3" /> Rusak</span>
+      default: return kondisi
     }
-    return labels[kondisi as keyof typeof labels] || labels.BARU
   }
 
   return (
@@ -178,8 +178,8 @@ export function DetailMasukModal({ masuk, isOpen, onClose, onEdit }: DetailMasuk
               </h3>
               {masuk.user ? (
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    👤 {masuk.user.name || 'Unknown'}
+                  <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                    <FiUser className="w-4 h-4" /> {masuk.user.name || 'Unknown'}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     {masuk.user.email}

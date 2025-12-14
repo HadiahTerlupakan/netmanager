@@ -306,9 +306,9 @@ export default function EmployeeMasukForm() {
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-colors"
               required
             >
-              <option value="BARU">🟢 Baru</option>
-              <option value="BEKAS">🟡 Bekas</option>
-              <option value="RUSAK">🔴 Rusak</option>
+              <option value="BARU">Baru</option>
+              <option value="BEKAS">Bekas</option>
+              <option value="RUSAK">Rusak</option>
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Pilih kondisi barang yang dimasukkan

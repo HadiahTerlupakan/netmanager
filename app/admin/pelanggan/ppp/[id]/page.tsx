@@ -16,7 +16,10 @@ import {
   HiOutlineKey,
   HiOutlinePhoto,
   HiPencil,
-  HiTrash
+  HiTrash,
+  HiOutlineExclamationTriangle,
+  HiOutlineCalendar,
+  HiArrowPath
 } from 'react-icons/hi2'
 
 // Force dynamic rendering untuk menghindari cache
@@ -130,7 +133,11 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
         />
         <StatCard
           label="Jatuh Tempo"
-          value={isJatuhTempo() ? '⚠️ Jatuh Tempo' : formatDate(pelanggan.jatuhTempo)}
+          value={isJatuhTempo() ? (
+            <span className="flex items-center gap-1">
+              <HiOutlineExclamationTriangle className="w-4 h-4" /> Jatuh Tempo
+            </span>
+          ) : formatDate(pelanggan.jatuhTempo)}
           color={isJatuhTempo() ? 'red' : 'blue'}
           icon={<HiOutlineClock className="w-5 h-5" />}
         />
@@ -168,7 +175,15 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                     ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                     : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
                     }`}>
-                    {pelanggan.tipe === 'REGULER' ? '📅 Reguler' : '🔄 Non Reguler'}
+                    {pelanggan.tipe === 'REGULER' ? (
+                      <>
+                        <HiOutlineCalendar className="w-3 h-3 mr-1" /> Reguler
+                      </>
+                    ) : (
+                      <>
+                        <HiArrowPath className="w-3 h-3 mr-1" /> Non Reguler
+                      </>
+                    )}
                   </span>
                 }
                 icon={<HiOutlineUser className="w-3 h-3" />}
@@ -183,7 +198,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                 value={
                   <span className={isJatuhTempo() ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
                     {formatDate(pelanggan.jatuhTempo)}
-                    {isJatuhTempo() && ' ⚠️'}
+                    {isJatuhTempo() && <HiOutlineExclamationTriangle className="w-3 h-3 inline ml-1" />}
                   </span>
                 }
                 icon={<HiOutlineClock className="w-3 h-3" />}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { RestockSettingsForm } from '@/components/inventory/RestockSettingsForm'
 import { Modal } from '@/components/ui/Modal'
+import { FiTrendingUp, FiTrendingDown, FiMinus, FiAlertTriangle, FiAlertCircle, FiCheckCircle, FiXCircle } from 'react-icons/fi'
 
 interface PredictionData {
   barangId: string
@@ -101,14 +102,14 @@ export default function RestockPage() {
     }
 
     const icons = {
-      CRITICAL: '🔴',
-      HIGH: '🟠',
-      MEDIUM: '🟡',
-      LOW: '🟢'
+      CRITICAL: <FiXCircle className="text-red-600" />,
+      HIGH: <FiAlertTriangle className="text-orange-600" />,
+      MEDIUM: <FiAlertCircle className="text-yellow-600" />,
+      LOW: <FiCheckCircle className="text-green-600" />
     }
 
     return (
-      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${colors[urgency as keyof typeof colors] || colors.LOW}`}>
+      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${colors[urgency as keyof typeof colors] || colors.LOW}`}>
         {icons[urgency as keyof typeof icons]} {urgency}
       </span>
     )
@@ -130,9 +131,9 @@ export default function RestockPage() {
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
-      case 'INCREASING': return '📈'
-      case 'DECREASING': return '📉'
-      default: return '➡️'
+      case 'INCREASING': return <FiTrendingUp className="text-red-500" />
+      case 'DECREASING': return <FiTrendingDown className="text-green-500" />
+      default: return <FiMinus className="text-gray-400" />
     }
   }
 
@@ -217,10 +218,10 @@ export default function RestockPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               <option value="">Semua Level</option>
-              <option value="CRITICAL">🔴 Critical</option>
-              <option value="HIGH">🟠 High</option>
-              <option value="MEDIUM">🟡 Medium</option>
-              <option value="LOW">🟢 Low</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
             </select>
           </div>
         </div>
@@ -249,7 +250,7 @@ export default function RestockPage() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold">!</span>
+                  <FiXCircle className="text-white w-5 h-5" />
                 </div>
               </div>
               <div className="ml-4">
@@ -263,7 +264,7 @@ export default function RestockPage() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold">⚠</span>
+                  <FiAlertTriangle className="text-white w-5 h-5" />
                 </div>
               </div>
               <div className="ml-4">

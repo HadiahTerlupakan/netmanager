@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FiEdit, FiTrash2, FiEye, FiPaperclip, FiCamera } from 'react-icons/fi'
+import { FiEdit, FiTrash2, FiEye, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText, FiUser } from 'react-icons/fi'
 
 interface BarangKeluar {
   id: string
@@ -196,18 +196,18 @@ export function KeluarTable({ onEdit, onView, refreshTrigger = 0 }: KeluarTableP
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col gap-1">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${keluar.kondisi === 'BARU'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                          : keluar.kondisi === 'BEKAS'
-                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                        : keluar.kondisi === 'BEKAS'
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
                         }`}>
-                        {keluar.kondisi === 'BARU' && '🟢 Baru'}
-                        {keluar.kondisi === 'BEKAS' && '🟡 Bekas'}
-                        {keluar.kondisi === 'RUSAK' && '🔴 Rusak'}
+                        {keluar.kondisi === 'BARU' && <><FiCheckCircle className="mr-1" /> Baru</>}
+                        {keluar.kondisi === 'BEKAS' && <><FiAlertTriangle className="mr-1" /> Bekas</>}
+                        {keluar.kondisi === 'RUSAK' && <><FiXCircle className="mr-1" /> Rusak</>}
                       </span>
                       {keluar.isHilang && (
                         <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
-                          🟣 HILANG
+                          <FiMinusCircle className="mr-1" /> HILANG
                         </span>
                       )}
                     </div>
@@ -217,7 +217,7 @@ export function KeluarTable({ onEdit, onView, refreshTrigger = 0 }: KeluarTableP
                       {keluar.keterangan || '-'}
                       {keluar.purpose && (
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          📝 {keluar.purpose}
+                          <FiFileText className="mr-1 inline" /> {keluar.purpose}
                         </div>
                       )}
                     </div>
@@ -226,14 +226,14 @@ export function KeluarTable({ onEdit, onView, refreshTrigger = 0 }: KeluarTableP
                     {keluar.user ? (
                       <div className="text-sm">
                         <div className="font-medium text-indigo-600 dark:text-indigo-400">
-                          👤 {keluar.user.name || 'Unknown'}
+                          <FiUser className="mr-1 inline" /> {keluar.user.name || 'Unknown'}
                         </div>
                         <div className="text-gray-500 dark:text-gray-400">
                           {keluar.user.email}
                         </div>
                         {keluar.purpose && (
                           <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            📝 {keluar.purpose}
+                            <FiFileText className="mr-1 inline" /> {keluar.purpose}
                           </div>
                         )}
                       </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FiEdit, FiTrash2, FiEye, FiCamera, FiPaperclip } from 'react-icons/fi'
+import { FiEdit, FiTrash2, FiEye, FiCamera, FiPaperclip, FiCheckCircle, FiAlertTriangle, FiXCircle, FiUser } from 'react-icons/fi'
 
 interface BarangMasuk {
   id: string
@@ -193,16 +193,15 @@ export function MasukTable({ onEdit, onView, refreshTrigger = 0 }: MasukTablePro
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                      masuk.kondisi === 'BARU'
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${masuk.kondisi === 'BARU'
                         ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
                         : masuk.kondisi === 'BEKAS'
-                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-                    }`}>
-                      {masuk.kondisi === 'BARU' && '🟢 Baru'}
-                      {masuk.kondisi === 'BEKAS' && '🟡 Bekas'}
-                      {masuk.kondisi === 'RUSAK' && '🔴 Rusak'}
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                      }`}>
+                      {masuk.kondisi === 'BARU' && <><FiCheckCircle className="mr-1" /> Baru</>}
+                      {masuk.kondisi === 'BEKAS' && <><FiAlertTriangle className="mr-1" /> Bekas</>}
+                      {masuk.kondisi === 'RUSAK' && <><FiXCircle className="mr-1" /> Rusak</>}
                     </span>
                   </td>
                   <td className="px-6 py-4">
@@ -214,7 +213,7 @@ export function MasukTable({ onEdit, onView, refreshTrigger = 0 }: MasukTablePro
                     {masuk.user ? (
                       <div className="text-sm">
                         <div className="font-medium text-green-600 dark:text-green-400">
-                          👤 {masuk.user.name || 'Unknown'}
+                          <FiUser className="mr-1" /> {masuk.user.name || 'Unknown'}
                         </div>
                         <div className="text-gray-500 dark:text-gray-400">
                           {masuk.user.email}

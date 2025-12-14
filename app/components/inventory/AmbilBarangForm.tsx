@@ -9,7 +9,8 @@ import {
   HiOutlineCheckCircle,
   HiOutlineXMark,
   HiOutlineCamera,
-  HiOutlinePhoto
+  HiOutlinePhoto,
+  HiOutlineInformationCircle
 } from 'react-icons/hi2'
 import { PhotoUpload, type UploadedPhoto } from './PhotoUpload'
 
@@ -344,13 +345,13 @@ export default function AmbilBarangForm() {
               required
             >
               <option value="BARU" disabled={stockPerKondisi.BARU === 0}>
-                🟢 Baru {stockPerKondisi.BARU > 0 ? `(${stockPerKondisi.BARU})` : '(Tidak tersedia)'}
+                Baru {stockPerKondisi.BARU > 0 ? `(${stockPerKondisi.BARU})` : '(Tidak tersedia)'}
               </option>
               <option value="BEKAS" disabled={stockPerKondisi.BEKAS === 0}>
-                🟡 Bekas {stockPerKondisi.BEKAS > 0 ? `(${stockPerKondisi.BEKAS})` : '(Tidak tersedia)'}
+                Bekas {stockPerKondisi.BEKAS > 0 ? `(${stockPerKondisi.BEKAS})` : '(Tidak tersedia)'}
               </option>
               <option value="RUSAK" disabled={stockPerKondisi.RUSAK === 0}>
-                🔴 Rusak {stockPerKondisi.RUSAK > 0 ? `(${stockPerKondisi.RUSAK})` : '(Tidak tersedia)'}
+                Rusak {stockPerKondisi.RUSAK > 0 ? `(${stockPerKondisi.RUSAK})` : '(Tidak tersedia)'}
               </option>
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -512,8 +513,9 @@ export default function AmbilBarangForm() {
 
       {/* Instructions */}
       <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-        <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2">
-          📌 Petunjuk Penggunaan
+        <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2 flex items-center gap-2">
+          <HiOutlineInformationCircle className="w-5 h-5" />
+          Petunjuk Penggunaan
         </h3>
         <div className="space-y-3">
           <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1">

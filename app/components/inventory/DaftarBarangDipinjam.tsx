@@ -12,7 +12,8 @@ import {
   HiOutlineTag,
   HiOutlineChevronLeft,
   HiOutlineChevronRight,
-  HiOutlineXMark
+  HiOutlineXMark,
+  HiOutlineInformationCircle
 } from 'react-icons/hi2'
 import type { EmployeeReturnItem } from '@/types/inventory-returns'
 
@@ -22,10 +23,10 @@ interface DaftarBarangDipinjamProps {
   showSelectButton?: boolean
 }
 
-export default function DaftarBarangDipinjam({ 
-  onItemSelect, 
+export default function DaftarBarangDipinjam({
+  onItemSelect,
   selectedItemId,
-  showSelectButton = true 
+  showSelectButton = true
 }: DaftarBarangDipinjamProps) {
   const [items, setItems] = useState<EmployeeReturnItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -49,12 +50,12 @@ export default function DaftarBarangDipinjam({
         limit: '10',
         ...(searchTerm && { search: searchTerm })
       })
-      
+
       const response = await fetch(`/api/inventory/employee/returns?${params}`)
       if (!response.ok) {
         throw new Error('Gagal memuat data barang dipinjam')
       }
-      
+
       const data = await response.json()
       setItems(data.returns || [])
       setTotalPages(data.pagination?.totalPages || 1)
@@ -152,7 +153,7 @@ export default function DaftarBarangDipinjam({
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
@@ -225,11 +226,10 @@ export default function DaftarBarangDipinjam({
               {items.map((item) => (
                 <div
                   key={item.id}
-                  className={`border rounded-lg p-4 transition-all ${
-                    selectedItemId === item.id
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                  }`}
+                  className={`border rounded-lg p-4 transition-all ${selectedItemId === item.id
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     {/* Item Info */}
@@ -245,7 +245,7 @@ export default function DaftarBarangDipinjam({
                           {item.kondisi}
                         </span>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
                         <div className="flex items-center gap-2">
                           <HiOutlineTag className="w-4 h-4 text-gray-400" />
@@ -253,14 +253,14 @@ export default function DaftarBarangDipinjam({
                             Jumlah: <span className="font-medium text-gray-900 dark:text-white">{item.jumlah} {item.barang.satuan}</span>
                           </span>
                         </div>
-                        
+
                         <div className="flex items-center gap-2">
                           <HiOutlineBuildingOffice className="w-4 h-4 text-gray-400" />
                           <span className="text-gray-600 dark:text-gray-400">
                             Gudang: <span className="font-medium text-gray-900 dark:text-white">{item.gudang.nama}</span>
                           </span>
                         </div>
-                        
+
                         <div className="flex items-center gap-2">
                           <HiOutlineCalendar className="w-4 h-4 text-gray-400" />
                           <span className="text-gray-600 dark:text-gray-400">
@@ -284,16 +284,15 @@ export default function DaftarBarangDipinjam({
                       {showSelectButton && (
                         <button
                           onClick={() => handleItemSelect(item)}
-                          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                            selectedItemId === item.id
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-900/30'
-                          }`}
+                          className={`px-4 py-2 rounded-lg font-medium transition-colors ${selectedItemId === item.id
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-900/30'
+                            }`}
                         >
                           {selectedItemId === item.id ? 'Dipilih' : 'Pilih'}
                         </button>
                       )}
-                      
+
                       <Link
                         href={`/employee/inventory/returns/${item.id}`}
                         className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
@@ -324,7 +323,7 @@ export default function DaftarBarangDipinjam({
                   <HiOutlineChevronLeft className="w-4 h-4" />
                   Previous
                 </button>
-                
+
                 <div className="flex items-center gap-1">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     const pageNum = i + 1
@@ -333,18 +332,17 @@ export default function DaftarBarangDipinjam({
                       <button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`w-8 h-8 rounded-lg font-medium transition-colors ${
-                          isActive
-                            ? 'bg-blue-600 text-white'
-                            : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        }`}
+                        className={`w-8 h-8 rounded-lg font-medium transition-colors ${isActive
+                          ? 'bg-blue-600 text-white'
+                          : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }`}
                       >
                         {pageNum}
                       </button>
                     )
                   })}
                 </div>
-                
+
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
@@ -361,8 +359,9 @@ export default function DaftarBarangDipinjam({
 
       {/* Instructions */}
       <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-        <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2">
-          📌 Informasi
+        <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2 flex items-center gap-2">
+          <HiOutlineInformationCircle className="w-5 h-5" />
+          Informasi
         </h3>
         <div className="space-y-2">
           <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1">

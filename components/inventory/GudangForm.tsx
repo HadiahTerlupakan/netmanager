@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { FiInfo } from 'react-icons/fi'
 
 interface GudangFormProps {
   initialData?: {
@@ -86,8 +87,8 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
       {/* Show automatic code info for new gudang */}
       {!initialData?.id && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            💡 Kode gudang akan di-generate otomatis
+          <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
+            <FiInfo className="w-4 h-4 flex-shrink-0" /> Kode gudang akan di-generate otomatis
           </p>
         </div>
       )}

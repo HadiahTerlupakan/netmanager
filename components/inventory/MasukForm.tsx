@@ -454,9 +454,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             disabled={loading || !!initialData}
           >
-            <option value="BARU">🟢 Baru</option>
-            <option value="BEKAS">🟡 Bekas</option>
-            <option value="RUSAK">🔴 Rusak</option>
+            <option value="BARU">Baru</option>
+            <option value="BEKAS">Bekas</option>
+            <option value="RUSAK">Rusak</option>
           </select>
           <div className="mt-1">
             <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiColor(formData.kondisi)}`}>

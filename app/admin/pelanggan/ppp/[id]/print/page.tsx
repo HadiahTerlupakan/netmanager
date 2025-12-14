@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { HiPrinter, HiXMark } from 'react-icons/hi2'
+import { HiPrinter, HiXMark, HiXCircle } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
 type Pelanggan = {
@@ -262,7 +262,9 @@ export default function PrintTagihanPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="mb-4 text-4xl">❌</div>
+          <div className="mb-4 text-4xl text-red-500">
+            <HiXCircle className="w-16 h-16 mx-auto" />
+          </div>
           <p className="text-sm text-red-600 dark:text-red-400">
             {error || 'Data tidak ditemukan'}
           </p>

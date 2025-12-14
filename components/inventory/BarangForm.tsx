@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { FiInfo } from 'react-icons/fi'
 
 interface BarangFormProps {
   initialData?: {
@@ -132,8 +133,8 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
 
       {!initialData?.id && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            💡 Kode barang akan di-generate otomatis
+          <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
+            <FiInfo className="w-4 h-4 flex-shrink-0" /> Kode barang akan di-generate otomatis
           </p>
         </div>
       )}

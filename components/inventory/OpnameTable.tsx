@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FiEdit2, FiTrash2, FiEye, FiSearch, FiFilter } from 'react-icons/fi'
+import { FiEdit2, FiTrash2, FiEye, FiSearch, FiFilter, FiMinusCircle } from 'react-icons/fi'
 
 interface StockOpnameRecord {
   id: string
@@ -343,8 +343,8 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
                             <span className="text-orange-600">{opname.kondisiExpire}</span>
                           </div>
                           {qualityBadge && (
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${qualityBadge.color} justify-center`}>
-                              {qualityBadge.text}
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                              <FiMinusCircle className="w-3 h-3" /> HILANG
                             </span>
                           )}
                         </div>
@@ -438,11 +438,10 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                          currentPage === page
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === page
                             ? 'z-10 bg-blue-50 border-blue-500 text-blue-600 dark:bg-blue-900/20'
                             : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'
-                        }`}
+                          }`}
                       >
                         {page}
                       </button>

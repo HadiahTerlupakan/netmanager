@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FiEdit, FiTrash2, FiEye } from 'react-icons/fi'
+import { FiEdit, FiTrash2, FiEye, FiSearch, FiLayers } from 'react-icons/fi'
 
 interface Barang {
   id: string
@@ -120,16 +120,19 @@ export function BarangTable() {
 
       {/* Filters */}
       <div className="mb-4 flex flex-wrap gap-3 items-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-        <div className="flex-1 min-w-[200px]">
+        <div className="flex-1 min-w-[200px] relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <FiSearch className="h-5 w-5 text-gray-400" />
+          </div>
           <input
             type="text"
-            placeholder="🔍 Cari barang..."
+            placeholder="Cari barang..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
               setPage(1)
             }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           />
         </div>
 
@@ -142,7 +145,7 @@ export function BarangTable() {
             }}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
-            <option value="">🏢 Semua Gudang</option>
+            <option value="">Semua Gudang</option>
             {gudangs.map((gudang: any) => (
               <option key={gudang.id} value={gudang.id}>
                 {gudang.kode} - {gudang.nama}
@@ -212,13 +215,12 @@ export function BarangTable() {
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-center">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      barang.totalStock === 0
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${barang.totalStock === 0
                         ? 'bg-red-100 text-red-800'
                         : barang.totalStock < 5
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-green-100 text-green-800'
-                    }`}>
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-green-100 text-green-800'
+                      }`}>
                       {barang.totalStock}
                     </span>
                   </td>
@@ -238,13 +240,12 @@ export function BarangTable() {
                                 {stock.gudangKode}:
                               </span>
                               <span
-                                className={`px-1.5 py-0.5 text-xs rounded ${
-                                  stock.stok === 0
+                                className={`px-1.5 py-0.5 text-xs rounded ${stock.stok === 0
                                     ? 'bg-red-100 text-red-800'
                                     : stock.stok < 5
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-green-100 text-green-800'
-                                }`}
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : 'bg-green-100 text-green-800'
+                                  }`}
                               >
                                 {stock.stok}
                               </span>

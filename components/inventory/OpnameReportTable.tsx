@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FiEdit2, FiTrash2, FiEye, FiFilter, FiDownload } from 'react-icons/fi'
+import { FiEdit2, FiTrash2, FiEye, FiFilter, FiDownload, FiMinusCircle } from 'react-icons/fi'
 import type { StockOpnameRecord } from '@/lib/types/inventory'
 
 
@@ -218,7 +218,7 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
               <p className="text-2xl font-bold text-purple-600">{totalHilang}</p>
             </div>
             <div className="p-3 bg-purple-100 rounded-full">
-              <span className="text-xl">🟣</span>
+              <FiMinusCircle className="h-6 w-6 text-purple-600" />
             </div>
           </div>
         </div>
@@ -355,8 +355,8 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
                             {selisihBadge.text}
                           </span>
                           {selisihBadge.isHilang && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
-                              🟣 HILANG
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                              <FiMinusCircle className="w-3 h-3" /> HILANG
                             </span>
                           )}
                         </div>

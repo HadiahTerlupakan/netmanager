@@ -5,7 +5,8 @@ import {
     HiOutlineArrowPath,
     HiOutlineCog6Tooth,
     HiOutlineCheckCircle,
-    HiOutlineXCircle
+    HiOutlineXCircle,
+    HiOutlineDevicePhoneMobile
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
@@ -107,9 +108,9 @@ export default function WhatsAppSettingsPage() {
             const result = await response.json()
 
             if (result.success) {
-                alert('✅ Test message sent successfully!\n\nCheck your WhatsApp.')
+                alert('Test message sent successfully!\n\nCheck your WhatsApp.')
             } else {
-                alert(`❌ Test failed!\n\n${result.message}`)
+                alert(`Test failed!\n\n${result.message}`)
             }
         } catch (error: any) {
             console.error('Error testing WhatsApp:', error)
@@ -244,8 +245,8 @@ export default function WhatsAppSettingsPage() {
 
                     {/* Info Box */}
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                        <h3 className="font-medium text-blue-900 dark:text-blue-400 mb-2">
-                            📱 {settings.whatsappProvider === 'WABLAS' ? 'Wablas' : 'Fonnte'} Setup Guide:
+                        <h3 className="font-medium text-blue-900 dark:text-blue-400 mb-2 flex items-center gap-2">
+                            <HiOutlineDevicePhoneMobile className="w-5 h-5" /> {settings.whatsappProvider === 'WABLAS' ? 'Wablas' : 'Fonnte'} Setup Guide:
                         </h3>
                         {settings.whatsappProvider === 'WABLAS' ? (
                             <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-decimal list-inside">

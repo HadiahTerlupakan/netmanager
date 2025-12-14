@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FiPackage, FiMapPin, FiAlertTriangle, FiCheckCircle, FiDownload, FiRefreshCw } from 'react-icons/fi'
+import { FiPackage, FiMapPin, FiAlertTriangle, FiCheckCircle, FiDownload, FiRefreshCw, FiXCircle, FiMinusCircle } from 'react-icons/fi'
 
 interface StockItem {
     barangId: string
@@ -201,13 +201,13 @@ export function StockReport() {
                                 </p>
                             </div>
                             <div className="bg-white/10 rounded-lg p-4">
-                                <p className="text-blue-100 text-sm">🔴 Barang Rusak</p>
+                                <p className="text-blue-100 text-sm flex items-center"><FiXCircle className="mr-1" /> Barang Rusak</p>
                                 <p className="text-2xl font-bold text-red-300">
                                     {gudangData.items.reduce((sum, i) => sum + i.stokRusak, 0)}
                                 </p>
                             </div>
                             <div className="bg-white/10 rounded-lg p-4">
-                                <p className="text-blue-100 text-sm">🟣 Barang Hilang</p>
+                                <p className="text-blue-100 text-sm flex items-center"><FiMinusCircle className="mr-1" /> Barang Hilang</p>
                                 <p className="text-2xl font-bold text-purple-300">{gudangData.totalHilang}</p>
                             </div>
                         </div>
@@ -242,10 +242,10 @@ export function StockReport() {
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Barang</th>
                                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Stok Total</th>
-                                        <th className="px-4 py-3 text-center text-xs font-medium text-green-600 uppercase">🟢 Baru</th>
-                                        <th className="px-4 py-3 text-center text-xs font-medium text-yellow-600 uppercase">🟡 Bekas</th>
-                                        <th className="px-4 py-3 text-center text-xs font-medium text-red-600 uppercase">🔴 Rusak</th>
-                                        <th className="px-4 py-3 text-center text-xs font-medium text-purple-600 uppercase">🟣 Hilang</th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-green-600 uppercase"><span className="flex items-center justify-center"><FiCheckCircle className="mr-1" /> Baru</span></th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-yellow-600 uppercase"><span className="flex items-center justify-center"><FiAlertTriangle className="mr-1" /> Bekas</span></th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-red-600 uppercase"><span className="flex items-center justify-center"><FiXCircle className="mr-1" /> Rusak</span></th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-purple-600 uppercase"><span className="flex items-center justify-center"><FiMinusCircle className="mr-1" /> Hilang</span></th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -318,7 +318,7 @@ export function StockReport() {
                                             Rusak: {gudangData.items.reduce((sum, i) => sum + i.stokRusak, 0)}
                                         </span>
                                         <span className="text-purple-600 font-medium">
-                                            🟣 Hilang: {gudangData.totalHilang}
+                                            <FiMinusCircle className="mr-1" /> Hilang: {gudangData.totalHilang}
                                         </span>
                                     </div>
                                 </div>

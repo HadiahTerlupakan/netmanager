@@ -1,6 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import {
+  FiCheckCircle,
+  FiAlertTriangle,
+  FiXCircle
+} from 'react-icons/fi'
 
 interface TransferTableProps {
   transfers: any[]
@@ -45,11 +50,11 @@ export function TransferTable({ transfers, onRefresh, onViewDetails, onDelete }:
     }
 
     return (
-      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${colors[kondisi as keyof typeof colors] || colors.BARU}`}>
-        {kondisi === 'BARU' && '🟢'}
-        {kondisi === 'BEKAS' && '🟡'}
-        {kondisi === 'RUSAK' && '🔴'}
-        {' '}{kondisi}
+      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${colors[kondisi as keyof typeof colors] || colors.BARU}`}>
+        {kondisi === 'BARU' && <FiCheckCircle className="w-3 h-3" />}
+        {kondisi === 'BEKAS' && <FiAlertTriangle className="w-3 h-3" />}
+        {kondisi === 'RUSAK' && <FiXCircle className="w-3 h-3" />}
+        <span>{kondisi}</span>
       </span>
     )
   }

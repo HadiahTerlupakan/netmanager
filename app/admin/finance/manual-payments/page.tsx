@@ -75,7 +75,7 @@ export default function ManualPaymentsPage() {
             })
 
             if (response.ok) {
-                alert('✅ Pembayaran approved! Tagihan menjadi LUNAS.')
+                alert('Pembayaran approved! Tagihan menjadi LUNAS.')
                 fetchPayments()
                 setModalOpen(false)
             }
@@ -98,7 +98,7 @@ export default function ManualPaymentsPage() {
             })
 
             if (response.ok) {
-                alert('❌ Pembayaran rejected')
+                alert('Pembayaran rejected')
                 setRejectionReason('')
                 fetchPayments()
                 setModalOpen(false)
@@ -149,9 +149,9 @@ export default function ManualPaymentsPage() {
                                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                                 }`}
                         >
-                            {status === 'PENDING' && '⏳ Pending'}
-                            {status === 'APPROVED' && '✅ Approved'}
-                            {status === 'REJECTED' && '❌ Rejected'}
+                            {status === 'PENDING' && <span className="flex items-center gap-1"><HiOutlineClock className="w-4 h-4" /> Pending</span>}
+                            {status === 'APPROVED' && <span className="flex items-center gap-1"><HiOutlineCheckCircle className="w-4 h-4" /> Approved</span>}
+                            {status === 'REJECTED' && <span className="flex items-center gap-1"><HiOutlineXCircle className="w-4 h-4" /> Rejected</span>}
                             <span className="ml-2 text-xs">
                                 ({payments.filter((p) => p.status === status).length})
                             </span>

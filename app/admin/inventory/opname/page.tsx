@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { FiClipboard, FiList, FiPieChart } from 'react-icons/fi'
+import { FiClipboard, FiList, FiPieChart, FiBarChart2 } from 'react-icons/fi'
 import { StockOpnameRecorder } from '@/components/inventory/StockOpnameRecorder'
 import { OpnameReportTable } from '@/components/inventory/OpnameReportTable'
 import { OpnameForm } from '@/components/inventory/OpnameForm'
@@ -107,8 +107,8 @@ export default function StockOpnamePage() {
                 <FiClipboard className="h-5 w-5 text-blue-400" />
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">
-                  📊 Stock Opname - Pencatatan Stok Fisik:
+                <h3 className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                  <FiBarChart2 className="w-4 h-4" /> Stock Opname - Pencatatan Stok Fisik:
                 </h3>
                 <div className="mt-2 text-sm text-blue-700">
                   <ol className="list-decimal list-inside space-y-1">

@@ -12,7 +12,8 @@ import {
   FiFileText,
   FiCheck,
   FiX,
-  FiAlertTriangle
+  FiAlertTriangle,
+  FiBarChart2
 } from 'react-icons/fi'
 
 interface StockOpnameRecorderProps {
@@ -234,8 +235,8 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
 
           {selectedGudang && (
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-              <p className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                📊 Input Stock Opname - Stok Fisik
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-300 flex items-center gap-2">
+                <FiBarChart2 className="w-4 h-4" /> Input Stock Opname - Stok Fisik
               </p>
               <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
                 Input hasil hitungan stok fisik dan kondisi aktual di {selectedGudang.nama}
@@ -336,11 +337,10 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
                         </td>
                         <td className="px-2 py-3 text-center">
                           <div className="flex flex-col items-center">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              item.stokSistem === 0 ? 'bg-red-100 text-red-800' :
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${item.stokSistem === 0 ? 'bg-red-100 text-red-800' :
                               item.stokSistem < 5 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-green-100 text-green-800'
-                            }`}>
+                                'bg-green-100 text-green-800'
+                              }`}>
                               {item.stokSistem}
                             </span>
                             <span className="text-xs text-gray-500 mt-1">Sistem</span>
@@ -356,10 +356,10 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
                               const updatedData = calculatedData.map(d =>
                                 d.barangId === item.barangId
                                   ? {
-                                      ...d,
-                                      kondisiBaik: newValue,
-                                      stokFisik: newValue + item.kondisiRusak + item.kondisiExpire
-                                    }
+                                    ...d,
+                                    kondisiBaik: newValue,
+                                    stokFisik: newValue + item.kondisiRusak + item.kondisiExpire
+                                  }
                                   : d
                               )
                               setCalculatedData(updatedData)
@@ -378,10 +378,10 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
                               const updatedData = calculatedData.map(d =>
                                 d.barangId === item.barangId
                                   ? {
-                                      ...d,
-                                      kondisiRusak: newValue,
-                                      stokFisik: item.kondisiBaik + newValue + item.kondisiExpire
-                                    }
+                                    ...d,
+                                    kondisiRusak: newValue,
+                                    stokFisik: item.kondisiBaik + newValue + item.kondisiExpire
+                                  }
                                   : d
                               )
                               setCalculatedData(updatedData)
@@ -400,10 +400,10 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
                               const updatedData = calculatedData.map(d =>
                                 d.barangId === item.barangId
                                   ? {
-                                      ...d,
-                                      kondisiExpire: newValue,
-                                      stokFisik: item.kondisiBaik + item.kondisiRusak + newValue
-                                    }
+                                    ...d,
+                                    kondisiExpire: newValue,
+                                    stokFisik: item.kondisiBaik + item.kondisiRusak + newValue
+                                  }
                                   : d
                               )
                               setCalculatedData(updatedData)
@@ -414,9 +414,8 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
                         </td>
                         <td className="px-2 py-3 text-center">
                           <div className="flex flex-col items-center">
-                            <span className={`font-bold text-sm ${
-                              item.stokFisik !== item.stokSistem ? 'text-orange-600' : 'text-blue-600'
-                            }`}>
+                            <span className={`font-bold text-sm ${item.stokFisik !== item.stokSistem ? 'text-orange-600' : 'text-blue-600'
+                              }`}>
                               {item.stokFisik}
                             </span>
                             {item.stokFisik !== item.stokSistem && (

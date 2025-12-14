@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath, HiPrinter, HiArrowPathRoundedSquare } from 'react-icons/hi2'
+import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath, HiPrinter, HiArrowPathRoundedSquare, HiOutlineCalendar, HiOutlineExclamationTriangle } from 'react-icons/hi2'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
@@ -259,7 +259,11 @@ export default function PelangganPPPPage() {
                           : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
                           }`}
                       >
-                        {pelanggan.tipe === 'REGULER' ? '📅 Reguler' : '🔄 Non Reguler'}
+                        {pelanggan.tipe === 'REGULER' ? (
+                          <span className="flex items-center gap-1"><HiOutlineCalendar className="w-3 h-3" /> Reguler</span>
+                        ) : (
+                          <span className="flex items-center gap-1"><HiArrowPath className="w-3 h-3" /> Non Reguler</span>
+                        )}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -281,7 +285,9 @@ export default function PelangganPPPPage() {
                       </div>
                       {isJatuhTempo(pelanggan.jatuhTempo) && (
                         <div className="text-xs text-red-600 dark:text-red-400 font-medium mt-1">
-                          ⚠️ Jatuh Tempo
+                          <div className="flex items-center gap-1">
+                            <HiOutlineExclamationTriangle className="w-3 h-3" /> Jatuh Tempo
+                          </div>
                         </div>
                       )}
                     </td>

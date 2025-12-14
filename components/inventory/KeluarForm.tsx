@@ -2,6 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import {
+  FiCheckCircle,
+  FiAlertTriangle,
+  FiXCircle,
+  FiMinusCircle,
+  FiInfo
+} from 'react-icons/fi'
 import { PhotoUpload } from './PhotoUpload'
 import type { PhotoUploadRef } from './PhotoUpload'
 
@@ -50,7 +57,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
         const gudangData = await gudangResponse.json()
         setGudangs(gudangData.gudangs || [])
 
-  
+
         // If in edit mode, populate form with initial data
         if (initialData) {
           setFormData({
@@ -168,7 +175,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
             isHilang: false,
             keterangan: '',
             tanggal: new Date().toISOString().split('T')[0],
-                                  })
+          })
           setCurrentStock(0)
           setUploadedPhotos([])
           setTransactionId(null)
@@ -425,15 +432,21 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Stok tersedia per kondisi:</p>
                 <div className="space-y-1">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600 dark:text-gray-400">🟢 Baru:</span>
+                    <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+                      <FiCheckCircle className="w-3 h-3 text-green-500" /> Baru:
+                    </span>
                     <span className="text-sm font-medium text-green-600">{stockByCondition.BARU}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600 dark:text-gray-400">🟡 Bekas:</span>
+                    <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+                      <FiAlertTriangle className="w-3 h-3 text-yellow-500" /> Bekas:
+                    </span>
                     <span className="text-sm font-medium text-yellow-600">{stockByCondition.BEKAS}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600 dark:text-gray-400">🔴 Rusak:</span>
+                    <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+                      <FiXCircle className="w-3 h-3 text-red-500" /> Rusak:
+                    </span>
                     <span className="text-sm font-medium text-red-600">{stockByCondition.RUSAK}</span>
                   </div>
                   <div className="pt-1 mt-1 border-t border-gray-200 dark:border-gray-600">
@@ -534,8 +547,8 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
                     formData.kondisi === 'RUSAK' ? stockByCondition.RUSAK :
                       stockByCondition.totalStok
               ) && (
-                  <p className="text-xs text-red-600 font-medium">
-                    ⚠️ Jumlah disesuaikan ke maksimal stock tersedia
+                  <p className="flex items-center gap-1 text-xs text-red-600 font-medium">
+                    <FiAlertTriangle className="w-3 h-3" /> Jumlah disesuaikan ke maksimal stock tersedia
                   </p>
                 )}
               {(
@@ -543,8 +556,8 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
                 (formData.kondisi === 'BEKAS' && stockByCondition.BEKAS === 0) ||
                 (formData.kondisi === 'RUSAK' && stockByCondition.RUSAK === 0)
               ) && (
-                  <p className="text-xs text-red-600 font-medium">
-                    ❌ Stock kondisi {formData.kondisi} = 0, input dinonaktifkan
+                  <p className="flex items-center gap-1 text-xs text-red-600 font-medium">
+                    <FiXCircle className="w-3 h-3" /> Stock kondisi {formData.kondisi} = 0, input dinonaktifkan
                   </p>
                 )}
             </div>
@@ -562,9 +575,9 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             disabled={loading}
           >
-            <option value="BARU">🟢 Baru</option>
-            <option value="BEKAS">🟡 Bekas</option>
-            <option value="RUSAK">🔴 Rusak</option>
+            <option value="BARU">Baru</option>
+            <option value="BEKAS">Bekas</option>
+            <option value="RUSAK">Rusak</option>
           </select>
           <div className="mt-1">
             <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiColor(formData.kondisi)}`}>
@@ -583,13 +596,13 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
                 className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                 disabled={loading}
               />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                🟣 Barang Hilang (tidak ada fisiknya)
+              <span className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <FiMinusCircle className="w-4 h-4 text-purple-600" /> Barang Hilang (tidak ada fisiknya)
               </span>
             </label>
             {formData.isHilang && (
-              <p className="mt-1 text-xs text-purple-600 dark:text-purple-400">
-                ⚠️ Barang ini ditandai sebagai hilang/tidak ditemukan
+              <p className="mt-1 ml-6 flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400">
+                <FiAlertTriangle className="w-3 h-3" /> Barang ini ditandai sebagai hilang/tidak ditemukan
               </p>
             )}
           </div>
@@ -617,11 +630,11 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
 
       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
         <p className="text-sm text-blue-800 dark:text-blue-200">
-          <strong>ℹ️ Informasi:</strong> Pelaksana barang keluar akan dicatat secara otomatis menggunakan akun Anda yang sedang aktif.
+          <strong><FiInfo className="inline w-4 h-4 mr-1" /> Informasi:</strong> Pelaksana barang keluar akan dicatat secara otomatis menggunakan akun Anda yang sedang aktif.
         </p>
       </div>
 
-  
+
       <div>
         <label htmlFor="keterangan" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Keterangan
@@ -668,7 +681,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
           />
         </div>
       )}
-          {initialData && !transactionId && (
+      {initialData && !transactionId && (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
           <p className="text-sm text-yellow-800">
             <strong>Perhatian:</strong> Data transaksi sedang dimuat. Foto dapat ditambahkan setelah data tersedia.

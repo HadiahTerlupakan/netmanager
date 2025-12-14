@@ -11,17 +11,18 @@ import {
     HiOutlineCog6Tooth,
     HiOutlineCheckCircle,
     HiOutlineXCircle,
+    HiCube
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
 const PROVIDERS = [
-    { id: 'XENDIT', name: 'Xendit', logo: '🟢' },
-    { id: 'MIDTRANS', name: 'Midtrans', logo: '🔵' },
-    { id: 'DUITKU', name: 'Duitku', logo: '🟡' },
-    { id: 'TRIPAY', name: 'Tripay', logo: '🟣' },
-    { id: 'DANA', name: 'DANA', logo: '💙' },
-    { id: 'BRI', name: 'BRI API', logo: '🔷' },
-    { id: 'BCA', name: 'BCA API', logo: '🔶' },
+    { id: 'XENDIT', name: 'Xendit', icon: HiCube, color: 'text-green-500' },
+    { id: 'MIDTRANS', name: 'Midtrans', icon: HiCube, color: 'text-blue-500' },
+    { id: 'DUITKU', name: 'Duitku', icon: HiCube, color: 'text-yellow-500' },
+    { id: 'TRIPAY', name: 'Tripay', icon: HiCube, color: 'text-purple-500' },
+    { id: 'DANA', name: 'DANA', icon: HiCube, color: 'text-blue-400' },
+    { id: 'BRI', name: 'BRI API', icon: HiCube, color: 'text-blue-600' },
+    { id: 'BCA', name: 'BCA API', icon: HiCube, color: 'text-blue-700' },
 ]
 
 export default function PaymentGatewayTab() {
@@ -110,9 +111,9 @@ export default function PaymentGatewayTab() {
             const result = await response.json()
 
             if (result.success) {
-                alert(`✅ Connection successful!\n\n${result.message}`)
+                alert(`Connection successful!\n\n${result.message}`)
             } else {
-                alert(`❌ Connection failed!\n\n${result.message}`)
+                alert(`Connection failed!\n\n${result.message}`)
             }
         } catch (error) {
             console.error('Error testing connection:', error)
@@ -173,7 +174,9 @@ export default function PaymentGatewayTab() {
                             {/* Provider Header */}
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="text-4xl">{provider.logo}</div>
+                                    <div className={`text-4xl ${provider.color}`}>
+                                        <provider.icon className="w-10 h-10" />
+                                    </div>
                                     <div>
                                         <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                                             {provider.name}

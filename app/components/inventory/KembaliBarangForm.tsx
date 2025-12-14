@@ -8,7 +8,8 @@ import {
   HiOutlineXMark,
   HiOutlineCamera,
   HiOutlinePhoto,
-  HiOutlineCube
+  HiOutlineCube,
+  HiOutlineInformationCircle
 } from 'react-icons/hi2'
 import { PhotoUpload } from './PhotoUpload'
 import type { UploadedPhoto } from './PhotoUpload'
@@ -216,8 +217,9 @@ export default function KembaliBarangForm() {
 
       {/* Instructions */}
       <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-        <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2">
-          📌 Petunjuk Penggunaan
+        <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2 flex items-center gap-2">
+          <HiOutlineInformationCircle className="w-5 h-5" />
+          Petunjuk Penggunaan
         </h3>
         <div className="space-y-2">
           <ul className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
@@ -277,8 +279,8 @@ export default function KembaliBarangForm() {
               <div
                 key={item.id}
                 className={`border rounded-lg p-4 cursor-pointer transition-all ${selectedItem?.id === item.id
-                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                 onClick={() => handleItemSelect(item.id)}
               >
@@ -310,8 +312,8 @@ export default function KembaliBarangForm() {
                   <div className="ml-4">
                     <button
                       className={`px-4 py-2 rounded-lg font-medium transition-colors ${selectedItem?.id === item.id
-                          ? 'bg-green-600 text-white'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                         }`}
                     >
                       {selectedItem?.id === item.id ? 'Dipilih' : 'Pilih'}

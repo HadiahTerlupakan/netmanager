@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import {
+  FiCheckCircle,
+  FiAlertTriangle,
+  FiXCircle
+} from 'react-icons/fi'
 import { PhotoUpload } from './PhotoUpload'
 import type { PhotoUploadRef } from './PhotoUpload'
 
@@ -279,13 +284,13 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
             disabled={loading}
           >
             <option value="BARU" disabled={stockPerKondisi.BARU === 0}>
-              🟢 Baru {stockPerKondisi.BARU > 0 ? `(${stockPerKondisi.BARU})` : '(Tidak tersedia)'}
+              Baru {stockPerKondisi.BARU > 0 ? `(${stockPerKondisi.BARU})` : '(Tidak tersedia)'}
             </option>
             <option value="BEKAS" disabled={stockPerKondisi.BEKAS === 0}>
-              🟡 Bekas {stockPerKondisi.BEKAS > 0 ? `(${stockPerKondisi.BEKAS})` : '(Tidak tersedia)'}
+              Bekas {stockPerKondisi.BEKAS > 0 ? `(${stockPerKondisi.BEKAS})` : '(Tidak tersedia)'}
             </option>
             <option value="RUSAK" disabled={stockPerKondisi.RUSAK === 0}>
-              🔴 Rusak {stockPerKondisi.RUSAK > 0 ? `(${stockPerKondisi.RUSAK})` : '(Tidak tersedia)'}
+              Rusak {stockPerKondisi.RUSAK > 0 ? `(${stockPerKondisi.RUSAK})` : '(Tidak tersedia)'}
             </option>
           </select>
           <div className="mt-1">
@@ -395,13 +400,19 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
             </div>
             <div className="text-right">
               {stockSumber === 0 && (
-                <p className="text-sm text-red-500">⚠️ Stok habis!</p>
+                <p className="flex items-center justify-end gap-1 text-sm text-red-500">
+                  <FiXCircle className="w-4 h-4" /> Stok habis!
+                </p>
               )}
               {stockSumber > 0 && stockSumber < 5 && (
-                <p className="text-sm text-yellow-500">⚠️ Stok menipis!</p>
+                <p className="flex items-center justify-end gap-1 text-sm text-yellow-500">
+                  <FiAlertTriangle className="w-4 h-4" /> Stok menipis!
+                </p>
               )}
               {stockSumber >= 5 && (
-                <p className="text-sm text-green-500">✅ Stok tersedia</p>
+                <p className="flex items-center justify-end gap-1 text-sm text-green-500">
+                  <FiCheckCircle className="w-4 h-4" /> Stok tersedia
+                </p>
               )}
             </div>
           </div>

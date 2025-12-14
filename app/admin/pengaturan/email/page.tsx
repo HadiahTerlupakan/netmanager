@@ -102,9 +102,9 @@ export default function EmailSettingsPage() {
             const result = await response.json()
 
             if (result.success) {
-                alert('✅ Test email sent successfully!')
+                alert('Test email sent successfully!')
             } else {
-                alert(`❌ Test failed: ${result.message}`)
+                alert(`Test failed: ${result.message}`)
             }
         } catch (error) {
             console.error('Error testing email:', error)
@@ -284,7 +284,9 @@ export default function EmailSettingsPage() {
 
                 {/* Help Section */}
                 <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <h3 className="font-medium text-blue-900 dark:text-blue-400 mb-2">📧 Gmail Setup Guide:</h3>
+                    <h3 className="font-medium text-blue-900 dark:text-blue-400 mb-2 flex items-center gap-2">
+                        <HiOutlineEnvelope className="w-5 h-5" /> Gmail Setup Guide:
+                    </h3>
                     <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-decimal list-inside">
                         <li>Go to Google Account → Security</li>
                         <li>Enable 2-Step Verification</li>

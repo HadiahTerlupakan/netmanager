@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { HiOutlineChartBar, HiPencil, HiTrash } from 'react-icons/hi2'
+import { HiOutlineChartBar, HiPencil, HiTrash, HiArrowPath } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
 type MikroTikRouter = {
@@ -138,7 +138,7 @@ export default function MikroTikRouterPage() {
             onClick={handleCheckStatus}
             className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm"
           >
-            <span>🔄</span>
+            <HiArrowPath className="w-4 h-4" />
             Cek Status Semua Router
           </button>
           <Link
@@ -250,8 +250,8 @@ export default function MikroTikRouterPage() {
                     <td className="px-4 py-4 whitespace-nowrap">
                       <span
                         className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${router.pingStatus === 'online'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                           }`}
                       >
                         {router.pingStatus === 'online' ? '✔ online' : '✗ offline'}
@@ -322,8 +322,8 @@ export default function MikroTikRouterPage() {
                 key={page}
                 onClick={() => setCurrentPage(page)}
                 className={`px-3 py-1 text-sm border rounded ${currentPage === page
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
               >
                 {page}

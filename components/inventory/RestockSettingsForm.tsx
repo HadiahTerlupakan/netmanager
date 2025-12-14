@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { FiActivity } from 'react-icons/fi'
 
 interface RestockSettingsFormProps {
   initialData?: any
@@ -353,7 +354,9 @@ export function RestockSettingsForm({ initialData, onClose, onSuccess }: Restock
       {/* Prediction Preview */}
       {minStok > 0 && maxStok > 0 && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-3">🔮 Prediksi Berdasarkan Parameter</h3>
+          <h3 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
+            <FiActivity className="w-4 h-4" /> Prediksi Berdasarkan Parameter
+          </h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600 dark:text-gray-400">Reorder Point:</span>
@@ -377,9 +380,9 @@ export function RestockSettingsForm({ initialData, onClose, onSuccess }: Restock
               <span className="text-sm text-gray-600 dark:text-gray-400">Status Saat Ini:</span>
               <span className={`font-medium ${getRecommendationColor()}`}>
                 {currentStock === 0 ? 'STOK HABIS - Segera order!' :
-                 currentStock <= minStok ? 'STOK RENDAH - Perlu order' :
-                 currentStock <= reorderPoint ? 'STOK WASPADA - Pertimbangkan order' :
-                 'STOK AMAN'}
+                  currentStock <= minStok ? 'STOK RENDAH - Perlu order' :
+                    currentStock <= reorderPoint ? 'STOK WASPADA - Pertimbangkan order' :
+                      'STOK AMAN'}
               </span>
             </div>
           </div>
