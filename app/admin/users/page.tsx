@@ -2,21 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlinePlus, HiOutlineBriefcase, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUserGroup, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye } from 'react-icons/hi2'
+import { HiOutlinePlus, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUserGroup, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
 interface User {
   id: string
   email: string
   name: string | null
+  phone: string | null
+  departmentId: string | null
+  siteId: string | null
+  isActive: boolean
   createdAt: string
-  employee: {
-    id: string
-    employeeId: string
-    department: { id: string; name: string } | null
-    position: { id: string; title: string } | null
-    employmentStatus: string
-  } | null
+  department: { id: string; name: string } | null
+  site: { id: string; code: string; name: string } | null
 }
 
 export default function UsersPage() {
@@ -47,13 +46,13 @@ export default function UsersPage() {
 
   const filteredUsers = users.filter(user => {
     // Filter logic simplified - no role filtering needed
-    
+
     const matchesSearch = searchTerm === '' ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.employee?.employeeId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.employee?.department?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-    
+      user.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.department?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+
     return matchesSearch
   })
 
@@ -144,15 +143,14 @@ export default function UsersPage() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Pengguna
                   </th>
-                  {/* Role column removed */}
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    ID Pegawai
+                    Telepon
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Departemen
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Dibuat
+                    Status
                   </th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Aksi
@@ -165,11 +163,7 @@ export default function UsersPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                          {user.employee ? (
-                            <HiOutlineBriefcase className="w-5 h-5 text-white" />
-                          ) : (
-                            <HiOutlineUserCircle className="w-5 h-5 text-white" />
-                          )}
+                          <HiOutlineUserCircle className="w-5 h-5 text-white" />
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -179,19 +173,26 @@ export default function UsersPage() {
                         </div>
                       </div>
                     </td>
-                    {/* Role column removed */}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      {user.employee?.employeeId || '-'}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {user.phone || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {user.employee?.department?.name ? (
+                      {user.department?.name ? (
                         <span className="inline-flex items-center gap-1.5">
                           <HiOutlineBuildingOffice className="w-3.5 h-3.5 text-gray-400" />
-                          {user.employee.department.name}
+                          {user.department.name}
                         </span>
                       ) : (
                         '-'
                       )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isActive
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        }`}>
+                        {user.isActive ? 'Aktif' : 'Nonaktif'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                       {new Date(user.createdAt).toLocaleDateString('id-ID', {

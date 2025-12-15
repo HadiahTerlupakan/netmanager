@@ -2,6 +2,10 @@ export interface UserSelect {
   id: boolean
   name: boolean
   email: boolean
+  phone?: boolean
+  departmentId?: boolean
+  siteId?: boolean
+  isActive?: boolean
   createdAt: boolean
   passwordHash?: boolean
 }
@@ -10,17 +14,29 @@ export interface UserCreateData {
   email: string
   name?: string | null
   passwordHash: string
+  phone?: string | null
+  departmentId?: string | null
+  siteId?: string | null
+  isActive?: boolean
 }
 
 export interface UserUpdateData {
   name?: string | null
   passwordHash?: string
+  phone?: string | null
+  departmentId?: string | null
+  siteId?: string | null
+  isActive?: boolean
 }
 
 export interface UserPublic {
   id: string
   name: string | null
   email: string
+  phone: string | null
+  departmentId: string | null
+  siteId: string | null
+  isActive: boolean
   createdAt: Date
 }
 

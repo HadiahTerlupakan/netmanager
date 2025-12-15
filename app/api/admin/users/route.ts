@@ -55,6 +55,14 @@ export async function GET(req: NextRequest) {
         orderBy: {
           createdAt: 'desc',
         },
+        include: {
+          department: {
+            select: { id: true, name: true },
+          },
+          site: {
+            select: { id: true, code: true, name: true },
+          },
+        },
       })
 
       logger.dbOperation('findMany', 'User', Date.now() - dbStart)
