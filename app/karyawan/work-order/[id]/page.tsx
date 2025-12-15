@@ -73,6 +73,7 @@ interface WorkOrderDetail {
     usedMaterials: any
     tasks: WorkOrderTask[]
     updates: WorkOrderUpdate[]
+    startedAt: string | null
 }
 
 export default function WorkOrderDetailPage() {
@@ -424,6 +425,14 @@ export default function WorkOrderDetailPage() {
                                     <p className="text-xs text-gray-500 dark:text-gray-400">
                                         {workOrder.scheduledTimeStart} - {workOrder.scheduledTimeEnd || 'selesai'}
                                     </p>
+                                )}
+                                {workOrder.startedAt && (
+                                    <>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Waktu Mulai</p>
+                                        <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                                            {formatDate(workOrder.startedAt)} • {new Date(workOrder.startedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </>
                                 )}
                             </div>
                         </div>
