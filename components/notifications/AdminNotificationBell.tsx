@@ -1,0 +1,231 @@
+'use client'
+
+import { useState, useEffect, useCallback, useRef } from 'react'
+import Link from 'next/link'
+import { HiOutlineBell, HiCheck, HiXMark, HiOutlineWrench, HiOutlineExclamationTriangle, HiOutlineInformationCircle } from 'react-icons/hi2'
+import { formatDistanceToNow } from 'date-fns'
+import { id } from 'date-fns/locale'
+
+interface Notification {
+    id: string
+    type: string
+    priority: string
+    title: string
+    message: string
+    link?: string
+    isRead: boolean
+    createdAt: string
+}
+
+export function AdminNotificationBell() {
+    const [unreadCount, setUnreadCount] = useState(0)
+    const [notifications, setNotifications] = useState<Notification[]>([])
+    const [isOpen, setIsOpen] = useState(false)
+    const [loading, setLoading] = useState(true)
+    const dropdownRef = useRef<HTMLDivElement>(null)
+
+    const loadNotifications = useCallback(async () => {
+        try {
+            const [countRes, listRes] = await Promise.all([
+                fetch('/api/notifications/unread-count'),
+                fetch('/api/notifications?limit=5')
+            ])
+
+            if (countRes.ok) {
+                const countData = await countRes.json()
+                setUnreadCount(countData.count || 0)
+            }
+
+            if (listRes.ok) {
+                const listData = await listRes.json()
+                setNotifications(listData.notifications || [])
+            }
+        } catch (error) {
+            console.error('Error loading notifications:', error)
+        } finally {
+            setLoading(false)
+        }
+    }, [])
+
+    // Mark notification as read
+    const markAsRead = async (notificationId: string) => {
+        try {
+            await fetch(`/api/notifications/${notificationId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isRead: true })
+            })
+            // Refresh notifications
+            loadNotifications()
+        } catch (error) {
+            console.error('Error marking notification as read:', error)
+        }
+    }
+
+    // Mark all as read
+    const markAllAsRead = async () => {
+        try {
+            await fetch('/api/notifications', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ markAllRead: true })
+            })
+            loadNotifications()
+        } catch (error) {
+            console.error('Error marking all as read:', error)
+        }
+    }
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
+    // Load and poll notifications
+    useEffect(() => {
+        loadNotifications()
+        const interval = setInterval(loadNotifications, 30000)
+        return () => clearInterval(interval)
+    }, [loadNotifications])
+
+    const getTypeIcon = (type: string) => {
+        switch (type) {
+            case 'WORK_ORDER':
+                return <HiOutlineWrench className="w-5 h-5 text-blue-500" />
+            case 'ALERT':
+                return <HiOutlineExclamationTriangle className="w-5 h-5 text-red-500" />
+            default:
+                return <HiOutlineInformationCircle className="w-5 h-5 text-gray-500" />
+        }
+    }
+
+    const getPriorityColor = (priority: string) => {
+        switch (priority) {
+            case 'URGENT':
+            case 'CRITICAL':
+                return 'border-l-red-500'
+            case 'HIGH':
+                return 'border-l-orange-500'
+            default:
+                return 'border-l-indigo-500'
+        }
+    }
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            {/* Bell Button */}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="relative p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 rounded-full transition-all duration-200 group"
+                aria-label="Notifications"
+            >
+                <HiOutlineBell className="w-6 h-6" />
+                {!loading && unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white dark:border-gray-900 group-hover:scale-110 transition-transform px-1">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                )}
+            </button>
+
+            {/* Dropdown */}
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Notifikasi</h3>
+                        {unreadCount > 0 && (
+                            <button
+                                onClick={markAllAsRead}
+                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                            >
+                                <HiCheck className="w-3.5 h-3.5" />
+                                Tandai semua dibaca
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Notification List */}
+                    <div className="max-h-[400px] overflow-y-auto">
+                        {notifications.length === 0 ? (
+                            <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+                                <HiOutlineBell className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                                <p className="text-sm">Tidak ada notifikasi</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                                {notifications.map((notification) => (
+                                    <div
+                                        key={notification.id}
+                                        className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 ${getPriorityColor(notification.priority)} ${!notification.isRead ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''
+                                            }`}
+                                    >
+                                        <div className="flex gap-3">
+                                            <div className="shrink-0 mt-0.5">
+                                                {getTypeIcon(notification.type)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <p className={`text-sm font-medium truncate ${!notification.isRead ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
+                                                        {notification.title}
+                                                    </p>
+                                                    {!notification.isRead && (
+                                                        <button
+                                                            onClick={() => markAsRead(notification.id)}
+                                                            className="shrink-0 p-1 text-gray-400 hover:text-indigo-600 rounded"
+                                                            title="Tandai dibaca"
+                                                        >
+                                                            <HiCheck className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                                                    {notification.message}
+                                                </p>
+                                                <div className="flex items-center justify-between mt-2">
+                                                    <span className="text-[10px] text-gray-400">
+                                                        {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: id })}
+                                                    </span>
+                                                    {notification.link && (
+                                                        <Link
+                                                            href={notification.link}
+                                                            onClick={() => {
+                                                                markAsRead(notification.id)
+                                                                setIsOpen(false)
+                                                            }}
+                                                            className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                                                        >
+                                                            Lihat Detail →
+                                                        </Link>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    {notifications.length > 0 && (
+                        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
+                            <Link
+                                href="/admin/notifications"
+                                onClick={() => setIsOpen(false)}
+                                className="block text-center text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                            >
+                                Lihat Semua Notifikasi
+                            </Link>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}

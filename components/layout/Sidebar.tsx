@@ -44,9 +44,11 @@ import {
   HiOutlineArrowUpTray,
   HiOutlineCurrencyDollar,
   HiXMark, // For close button
+  HiArrowRightOnRectangle, // For logout visual
+  HiSparkles,
 } from 'react-icons/hi2'
 import { useSettings } from '@/hooks/useSettings'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 
 // Context for sidebar state
 const SidebarContext = createContext<{
@@ -75,9 +77,6 @@ export default function Sidebar() {
   const { data: session } = useSession()
   const appName = settings?.namaAplikasi || 'NetManager'
   const [isOpen, setIsOpen] = useState(false)
-
-  // No permission filtering - show all menus
-  // Role system has been removed, all users have access to all menus
 
   // Filter menu items - now just returns all items without filtering
   const filterNavItem = (item: NavItem): NavItem | null => {
@@ -184,7 +183,7 @@ export default function Sidebar() {
         { href: '/admin/pengaturan/logo', label: 'Logo Perusahaan', icon: <HiOutlinePhoto className="w-4 h-4" />, permission: 'PENGATURAN' },
         { href: '/admin/pengaturan/email', label: 'Email', icon: <HiOutlineEnvelope className="w-4 h-4" />, permission: 'PENGATURAN' },
         { href: '/admin/pengaturan/whatsapp', label: 'WhatsApp', icon: <HiOutlineChatBubbleLeftRight className="w-4 h-4" />, permission: 'PENGATURAN' },
-        { href: '/admin/pengaturan/oauth', label: 'OAuth', icon: <HiOutlineKey className="w-4 h-4" />, permission: 'PENGATURAN' },
+        // Removed OAuth as per previous instructions, keeping others
         { href: '/admin/pengaturan/payment-gateway', label: 'Payment Gateway', icon: <HiOutlineCreditCard className="w-4 h-4" />, permission: 'PENGATURAN' },
         { href: '/admin/pengaturan/api', label: 'API', icon: <HiOutlineCodeBracket className="w-4 h-4" />, permission: 'PENGATURAN' },
       ]
@@ -262,115 +261,173 @@ export default function Sidebar() {
   return (
     <SidebarContext.Provider value={{ isOpen, setIsOpen }}>
       <>
-        {/* Mobile Overlay */}
+        {/* Mobile Overlay with Blur */}
         {isOpen && (
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300"
+            className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300 ease-out"
             onClick={() => setIsOpen(false)}
           />
         )}
 
         <aside
-          className={`fixed md:sticky top-0 left-0 h-screen w-64 shrink-0 bg-white border-r border-gray-200 dark:bg-gray-900 dark:border-gray-800 z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-            }`}
+          className={`fixed md:sticky top-0 left-0 h-screen w-72 shrink-0 bg-white dark:bg-gray-950 border-r border-gray-100 dark:border-gray-800 z-50 transform transition-transform duration-300 cubic-bezier(0.4, 0, 0.2, 1) flex flex-col ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+            } shadow-2xl md:shadow-none`}
         >
-          <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200 dark:border-gray-800">
-            <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent truncate" title={appName}>
-              {appName}
-            </h2>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 md:hidden"
-            >
-              <HiXMark className="w-6 h-6 text-gray-500" />
-            </button>
+          {/* Modern Logo Section */}
+          <div className="h-24 flex items-center px-8 relative overflow-hidden shrink-0">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <HiSparkles className="w-24 h-24 text-indigo-500 rotate-12" />
+            </div>
+
+            <div className="relative z-10 flex items-center gap-3 w-full">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white transform rotate-3 hover:rotate-6 transition-transform duration-300">
+                <span className="font-bold text-xl">{appName.charAt(0)}</span>
+              </div>
+              <div className="flex flex-col justify-center overflow-hidden">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white truncate tracking-tight leading-none" title={appName}>
+                  {appName}
+                </h2>
+                <span className="text-[10px] font-medium text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mt-1">Admin Portal</span>
+              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="ml-auto p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 md:hidden text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close menu"
+              >
+                <HiXMark className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
-          <nav className="p-3 space-y-1 overflow-y-auto h-[calc(100vh-4rem)]">
-            {navItems.map((item) => {
-              // Parent is active if active child exists
-              const isActive = item.exact
-                ? pathname === item.href
-                : (pathname === item.href || pathname?.startsWith(item.href + '/'))
+          {/* Scrollable Navigation Area */}
+          <nav className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800 scrollbar-track-transparent hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-gray-700">
+            <div className="space-y-1">
+              {navItems.map((item) => {
+                const isActive = item.exact
+                  ? pathname === item.href
+                  : (pathname === item.href || pathname?.startsWith(item.href + '/'))
 
-              const hasChildren = item.children && item.children.length > 0
-              const isExpanded = hasChildren ? isMenuExpanded(item.href) : false
-
-              if (hasChildren) {
-                const hasActiveChild = item.children!.some(
+                const hasChildren = item.children && item.children.length > 0
+                const isExpanded = hasChildren ? isMenuExpanded(item.href) : false
+                const hasActiveChild = hasChildren && item.children!.some(
                   (child) => {
-                    if (child.exact) {
-                      return pathname === child.href
-                    }
+                    if (child.exact) return pathname === child.href
                     return pathname === child.href || pathname?.startsWith(child.href + '/')
                   }
                 )
 
-                return (
-                  <div key={item.href} className="space-y-0.5">
-                    <button
-                      onClick={() => toggleMenu(item.href)}
-                      className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group ${isActive || hasActiveChild
-                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                        }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className={`transition-colors duration-200 ${isActive || hasActiveChild ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'}`}>
-                          {item.icon}
-                        </span>
-                        <span>{item.label}</span>
-                      </div>
-                      <HiChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                    </button>
-                    <div
-                      className={`grid transition-all duration-200 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
-                    >
-                      <div className="overflow-hidden">
-                        <div className="relative border-l-2 border-gray-100 dark:border-gray-800 ml-5 my-1 pl-3 space-y-1">
-                          {item.children!.map((child) => {
-                            const isChildActive = child.exact
-                              ? pathname === child.href
-                              : pathname === child.href || pathname?.startsWith(child.href + '/')
+                if (hasChildren) {
+                  return (
+                    <div key={item.href} className="space-y-1 mb-1">
+                      <button
+                        onClick={() => toggleMenu(item.href)}
+                        className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive || hasActiveChild
+                          ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
+                          }`}
+                      >
+                        {/* Active Indicator Line */}
+                        {(isActive || hasActiveChild) && (
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />
+                        )}
 
-                            return (
-                              <Link
-                                key={child.href}
-                                href={child.href}
-                                className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-150 ${isChildActive
-                                  ? 'bg-indigo-50/80 text-indigo-600 dark:bg-indigo-900/10 dark:text-indigo-400'
-                                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/30'
-                                  }`}
-                              >
-                                <span className="opacity-70">{child.icon}</span>
-                                <span>{child.label}</span>
-                              </Link>
-                            )
-                          })}
+                        <div className="flex items-center gap-3.5 z-10">
+                          <span className={`transition-colors duration-200 ${isActive || hasActiveChild ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                            {item.icon}
+                          </span>
+                          <span>{item.label}</span>
+                        </div>
+                        <HiChevronDown
+                          className={`w-4 h-4 text-gray-400 transition-transform duration-300 ease-in-out ${isExpanded ? 'rotate-180 text-indigo-500' : ''}`}
+                        />
+                      </button>
+
+                      <div
+                        className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 translate-y-0' : 'grid-rows-[0fr] opacity-0 -translate-y-2'}`}
+                      >
+                        <div className="overflow-hidden">
+                          <div className="relative border-l-2 border-gray-100 dark:border-gray-800 ml-6 my-1 pl-3 space-y-1">
+                            {item.children!.map((child) => {
+                              const isChildActive = child.exact
+                                ? pathname === child.href
+                                : pathname === child.href || pathname?.startsWith(child.href + '/')
+
+                              return (
+                                <Link
+                                  key={child.href}
+                                  href={child.href}
+                                  className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group/child ${isChildActive
+                                    ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/40'
+                                    }`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${isChildActive ? 'bg-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-900/30' : 'bg-gray-300 dark:bg-gray-600 group-hover/child:bg-gray-400'
+                                    }`} />
+                                  <span>{child.label}</span>
+                                </Link>
+                              )
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )
-              }
+                  )
+                }
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group ${isActive
-                    ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                    }`}
-                >
-                  <div className={`transition-colors duration-200 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'}`}>
-                    {item.icon}
-                  </div>
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden mb-1 ${isActive
+                      ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10 shadow-sm shadow-indigo-100/50 dark:shadow-none'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
+                      }`}
+                  >
+                    {/* Active Indicator Line */}
+                    {isActive && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />
+                    )}
+
+                    <div className={`transition-colors duration-200 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                      {item.icon}
+                    </div>
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
           </nav>
+
+          {/* User Profile Section */}
+          <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 shrink-0">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-900 dark:to-violet-900 flex items-center justify-center border-2 border-white dark:border-gray-700 shadow-sm shrink-0">
+                {session?.user?.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={session.user.image} alt={session.user.name || 'User'} className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  <span className="text-lg font-bold text-indigo-600 dark:text-indigo-300">
+                    {(session?.user?.name || 'U').charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                  {session?.user?.name || 'User'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {session?.user?.email || 'admin@example.com'}
+                </p>
+              </div>
+              <button
+                onClick={() => signOut()}
+                className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                title="Sign Out"
+              >
+                <HiArrowRightOnRectangle className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
         </aside>
       </>
     </SidebarContext.Provider>
