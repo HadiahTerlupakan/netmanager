@@ -1,9 +1,46 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { HiOutlineHome, HiOutlineArrowLeft, HiOutlineExclamationCircle } from 'react-icons/hi2'
 
 export default function NotFound() {
+  const pathname = usePathname()
+
+  // Determine dashboard URL based on current path
+  const getDashboardUrl = () => {
+    if (pathname?.startsWith('/karyawan')) {
+      return '/karyawan/dashboard'
+    }
+    if (pathname?.startsWith('/pelanggan') ||
+      pathname === '/dashboard' ||
+      pathname === '/tagihan' ||
+      pathname === '/riwayat' ||
+      pathname === '/profil' ||
+      pathname === '/koneksi' ||
+      pathname === '/dukungan' ||
+      pathname === '/paket') {
+      return '/dashboard'
+    }
+    // Default to admin
+    return '/admin'
+  }
+
+  const getDashboardLabel = () => {
+    if (pathname?.startsWith('/karyawan')) {
+      return 'Dashboard Karyawan'
+    }
+    if (pathname?.startsWith('/pelanggan') ||
+      pathname === '/dashboard' ||
+      pathname === '/tagihan') {
+      return 'Dashboard Pelanggan'
+    }
+    return 'Dashboard'
+  }
+
+  const dashboardUrl = getDashboardUrl()
+  const dashboardLabel = getDashboardLabel()
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
@@ -12,28 +49,28 @@ export default function NotFound() {
             <HiOutlineExclamationCircle className="w-10 h-10 text-yellow-600 dark:text-yellow-400" />
           </div>
         </div>
-        
+
         <h1 className="text-6xl font-bold text-gray-900 dark:text-white mb-4">
           404
         </h1>
-        
+
         <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-3">
           Halaman Tidak Ditemukan
         </h2>
-        
+
         <p className="text-gray-600 dark:text-gray-400 mb-8">
           Maaf, halaman yang Anda cari tidak ditemukan. Halaman mungkin telah dipindahkan atau dihapus.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            href="/admin"
+            href={dashboardUrl}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
           >
             <HiOutlineHome className="w-5 h-5" />
-            Kembali ke Dashboard
+            Kembali ke {dashboardLabel}
           </Link>
-          
+
           <button
             onClick={() => {
               if (typeof window !== 'undefined') {
@@ -50,4 +87,3 @@ export default function NotFound() {
     </div>
   )
 }
-
