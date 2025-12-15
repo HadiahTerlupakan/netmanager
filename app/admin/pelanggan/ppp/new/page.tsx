@@ -1768,7 +1768,7 @@ export default function PelangganPPPNewPage() {
                         </button>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-500">
-                        Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk login di portal pelanggan (/pelanggan/login).
+                        Default: 12345, bisa diubah manual jika diperlukan. Password ini digunakan untuk login di portal pelanggan (/login).
                       </p>
                     </div>
                   </div>

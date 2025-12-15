@@ -539,6 +539,9 @@ model Pelanggan {
   useDiscount                   Boolean       @default(false)
   usePPN                        Boolean       @default(true)
   useProrate                    Boolean       @default(false)
+  is2FAEnabled                  Boolean       @default(false)
+  isBillNotifEnabled            Boolean       @default(true)
+  isPromoEnabled                Boolean       @default(false)
   jenisDokumen                  String?
   noDokumen                     String?
   fileBAST                      String?

@@ -20,7 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const session: any = await getServerSession(authConfig as any)
   if (!session) {
-    redirect('/login?callbackUrl=/admin')
+    redirect('/admin/login?callbackUrl=/admin')
   }
 
   // Akses ke admin portal diizinkan untuk semua user yang terautentikasi.
