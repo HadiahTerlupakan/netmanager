@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
-import { WorkOrderStatus, WorkOrder, SupportTicket, WorkOrderAttachment, TicketStatus } from "@prisma/client"
+import type { WorkOrder, SupportTicket, WorkOrderAttachment } from "@prisma/client"
+import { WorkOrderStatus, TicketStatus } from "@prisma/client"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
 

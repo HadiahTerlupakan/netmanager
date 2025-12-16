@@ -15,6 +15,8 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
+  // Enable gzip compression for API responses
+  compress: true,
   reactStrictMode: false, // Temporarily disabled to suppress React warnings from swagger-ui-react
   // Next.js 16: serverActions configuration is now handled differently
 

@@ -55,11 +55,11 @@ export async function extractAndSaveKmz(
 
   // Find KML file in the zip
   let kmlEntry = zipEntries.find((entry) => entry.entryName.toLowerCase().endsWith('.kml'))
-  
+
   if (!kmlEntry) {
     // If no .kml file found, try to find doc.kml (common in KMZ files)
-    kmlEntry = zipEntries.find((entry) => 
-      entry.entryName.toLowerCase() === 'doc.kml' || 
+    kmlEntry = zipEntries.find((entry) =>
+      entry.entryName.toLowerCase() === 'doc.kml' ||
       entry.entryName.toLowerCase().endsWith('/doc.kml')
     )
   }
@@ -70,7 +70,7 @@ export async function extractAndSaveKmz(
 
   // Extract KML content
   let kmlContent = zip.readAsText(kmlEntry)
-  
+
   // Remove external icon references to prevent CORS errors
   // This regex removes all <href> tags containing http:// or https:// URLs
   // It handles both <Icon><href>...</href></Icon> and standalone <href>...</href> patterns
@@ -98,7 +98,7 @@ export async function extractAndSaveKmz(
 
   // Also remove any remaining external URLs in icon-related tags
   kmlContent = kmlContent.replace(/<icon>https?:\/\/[^<]*<\/icon>/gi, '<icon></icon>')
-  
+
   const kmlPath = path.join(kmzDir, 'doc.kml')
   await fs.writeFile(kmlPath, kmlContent, 'utf-8')
 
@@ -112,7 +112,7 @@ export async function extractAndSaveKmz(
 // Delete KMZ files and directory
 export async function deleteKmzFiles(kmzId: string): Promise<void> {
   const kmzDir = path.join(UPLOAD_DIR, kmzId)
-  
+
   try {
     await fs.rm(kmzDir, { recursive: true, force: true })
   } catch (error) {
@@ -121,14 +121,17 @@ export async function deleteKmzFiles(kmzId: string): Promise<void> {
   }
 }
 
-// Get file buffer from FormData
-export async function getFileBuffer(formData: FormData, fieldName: string): Promise<Buffer> {
-  const file = formData.get(fieldName) as File | null
-  if (!file) {
-    throw new Error(`File ${fieldName} tidak ditemukan`)
-  }
-
-  const arrayBuffer = await file.arrayBuffer()
-  return Buffer.from(arrayBuffer)
+// Get file buffer from FormData - optimized for large files
+export async function getFileBuffer(
+  formData: FormData,
+  fieldName: string,
+  options?: { onProgress?: (loaded: number, total: number) => void }
+): Promise<Buffer> {
+  // Use stream processor for memory-efficient large file handling
+  const { getFileWithProgress } = await import('./stream-processor')
+  const { buffer } = await getFileWithProgress(formData, fieldName, {
+    streamThreshold: 10 * 1024 * 1024, // 10MB threshold
+    onProgress: options?.onProgress
+  })
+  return buffer
 }
-

@@ -133,9 +133,7 @@ export default async function PelangganPPPDetailPage({ params }: { params: Promi
                 <div className="bg-gray-50 dark:bg-gray-800/30 rounded-lg px-4 border border-gray-100 dark:border-gray-800">
                   <FormField label="Nama Lengkap" value={pelanggan.nama} />
                   <FormField label="Nomor Identitas (KTP/SIM)" value={pelanggan.noDokumen} />
-                  <FormField label="Jenis Kelamin" value={pelanggan.jenisKelamin ? (pelanggan.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan') : '-'} />
-                  <FormField label="Tempat, Tanggal Lahir" value={pelanggan.tempatLahir && pelanggan.tanggalLahir ? `${pelanggan.tempatLahir}, ${formatDate(pelanggan.tanggalLahir)}` : '-'} />
-                  <FormField label="Pekerjaan" value={pelanggan.pekerjaan} />
+                  <FormField label="Jenis Dokumen" value={pelanggan.jenisDokumen} />
                 </div>
               </section>
 
