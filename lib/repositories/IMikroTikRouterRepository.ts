@@ -56,8 +56,26 @@ export interface MikroTikRouterStatistics {
   totalUserOnline: number
 }
 
+export interface RouterFilters {
+  search?: string
+}
+
+export interface PaginationOptions {
+  page: number
+  limit: number
+}
+
+export interface PaginatedRouterResult {
+  routers: MikroTikRouterPublic[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
 export interface IMikroTikRouterRepository {
   findAll(): Promise<MikroTikRouterPublic[]>
+  findWithFilters(filters: RouterFilters, pagination: PaginationOptions): Promise<PaginatedRouterResult>
   findById(id: string): Promise<MikroTikRouterPublic | null>
   create(data: MikroTikRouterCreateData): Promise<{ id: string }>
   update(id: string, data: MikroTikRouterUpdateData): Promise<void>

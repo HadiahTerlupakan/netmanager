@@ -3,7 +3,7 @@ import type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRoute
 import { prisma } from '@/lib/prisma'
 
 export class MikroTikRouterRepository implements IMikroTikRouterRepository {
-  constructor(private client: PrismaClient = prisma) {}
+  constructor(private client: PrismaClient = prisma) { }
 
   async findAll(): Promise<MikroTikRouterPublic[]> {
     try {
@@ -18,6 +18,45 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     } catch (error: any) {
       console.error('Error in MikroTikRouterRepository.findAll:', error)
       throw error
+    }
+  }
+
+  async findWithFilters(
+    filters: import('./IMikroTikRouterRepository').RouterFilters,
+    pagination: import('./IMikroTikRouterRepository').PaginationOptions
+  ): Promise<import('./IMikroTikRouterRepository').PaginatedRouterResult> {
+    const { search } = filters
+    const { page, limit } = pagination
+    const skip = (page - 1) * limit
+
+    const whereClause: any = {} // Using any to avoid complex Prisma types import for now, or use Prisma.MikroTikRouterWhereInput
+
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { ipAddress: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    const [routers, total] = await Promise.all([
+      this.client.mikroTikRouter.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.client.mikroTikRouter.count({ where: whereClause }),
+    ])
+
+    const totalPages = Math.ceil(total / limit)
+
+    return {
+      routers,
+      total,
+      page,
+      limit,
+      totalPages,
     }
   }
 
@@ -90,7 +129,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     const offline = await this.client.mikroTikRouter.count({
       where: { pingStatus: 'offline' }
     })
-    
+
     const routers = await this.client.mikroTikRouter.findMany({
       select: { userOnline: true }
     })

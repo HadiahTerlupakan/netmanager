@@ -1,9 +1,12 @@
 "use client"
-import { useEffect, useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { HiOutlineChartBar, HiPencil, HiTrash, HiArrowPath } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import { useSocketEvent } from '@/hooks/useSocket'
+import { useDebounce } from '@/hooks/useDebounce'
+import { toast } from 'react-hot-toast'
 
 type MikroTikRouter = {
   id: string
@@ -16,23 +19,88 @@ type MikroTikRouter = {
   lastStatusCheck: Date | null
 }
 
+type PaginatedResult = {
+  routers: MikroTikRouter[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+const INITIAL_DATA: PaginatedResult = {
+  routers: [],
+  total: 0,
+  page: 1,
+  limit: 10,
+  totalPages: 0
+}
+
 export default function MikroTikRouterPage() {
   const router = useRouter()
-  const [routers, setRouters] = useState<MikroTikRouter[]>([])
+  const searchParams = useSearchParams()
+
+  // State
+  const [data, setData] = useState<PaginatedResult>(INITIAL_DATA)
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [pageSize, setPageSize] = useState(10)
-  const [currentPage, setCurrentPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 500)
 
+  // Pagination State
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+
+  // Fetch Data Function
+  const fetchRouters = useCallback(async () => {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      })
+      if (debouncedSearch) params.append('search', debouncedSearch)
+
+      const res = await fetch(`/api/mikrotik-routers?${params.toString()}`)
+      if (!res.ok) throw new Error('Failed to fetch routers')
+
+      const result = await res.json()
+      setData(result)
+    } catch (error) {
+      console.error('Error loading routers:', error)
+      toast.error('Gagal memuat data Router')
+    } finally {
+      setLoading(false)
+    }
+  }, [page, limit, debouncedSearch])
+
+  // Initial Load & Refetch on dependencies change
   useEffect(() => {
-    loadRouters()
-    // Auto refresh setiap 1 menit
-    const interval = setInterval(() => {
-      loadRouters()
-    }, 60000)
-    return () => clearInterval(interval)
-  }, [])
+    fetchRouters()
+  }, [fetchRouters])
 
+  // WebSocket Integration
+  useSocketEvent('mikrotik:update', (updateData: any) => {
+    // When an update occurs, we can either:
+    // 1. Refetch the current page to get updated statuses
+    // 2. Optimistically update if the payload contains map of IDs -> Status
+
+    // For simplicity and accuracy with pagination, we refetch
+    // But we avoid showing loading state to make it seamless
+    console.log('Received MikroTik update:', updateData)
+
+    // Silent refetch
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    })
+    if (debouncedSearch) params.append('search', debouncedSearch)
+
+    fetch(`/api/mikrotik-routers?${params.toString()}`)
+      .then(res => res.json())
+      .then(result => setData(result))
+      .catch(console.error)
+  })
+
+  // Handlers
   const handleCheckStatus = async () => {
     try {
       const res = await fetch('/api/mikrotik-routers/check-status', {
@@ -40,56 +108,16 @@ export default function MikroTikRouterPage() {
       })
       if (res.ok) {
         const result = await res.json()
-        alert(`Status check completed. Updated ${result.count} routers.`)
-        await loadRouters()
+        toast.success(`Status check completed. Updated ${result.count} routers.`)
+        fetchRouters()
       } else {
         const error = await res.json()
-        alert(error.error || 'Gagal check status')
+        toast.error(error.error || 'Gagal check status')
       }
     } catch (error: any) {
-      console.error('Error checking status:', error)
-      alert('Terjadi kesalahan saat check status: ' + (error.message || 'Unknown error'))
+      toast.error('Terjadi kesalahan saat check status')
     }
   }
-
-  const loadRouters = async () => {
-    try {
-      const res = await fetch('/api/mikrotik-routers')
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}))
-        const errorMessage = errorData?.error || 'Gagal memuat data Router'
-        console.error('Error loading routers:', errorMessage)
-        setRouters([])
-        return
-      }
-      const data = await res.json()
-      setRouters(data.routers || [])
-    } catch (error: any) {
-      console.error('Error loading routers:', error?.message || error)
-      setRouters([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filteredRouters = useMemo(() => {
-    if (!searchQuery) return routers
-    const query = searchQuery.toLowerCase()
-    return routers.filter(
-      (r) =>
-        r.name.toLowerCase().includes(query) ||
-        r.ipAddress.toLowerCase().includes(query) ||
-        (r.description && r.description.toLowerCase().includes(query))
-    )
-  }, [routers, searchQuery])
-
-  const paginatedRouters = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    const end = start + pageSize
-    return filteredRouters.slice(start, end)
-  }, [filteredRouters, currentPage, pageSize])
-
-  const totalPages = Math.ceil(filteredRouters.length / pageSize)
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus router "${name}"?`)) return
@@ -101,14 +129,14 @@ export default function MikroTikRouterPage() {
 
       if (!res.ok) {
         const error = await res.json()
-        alert(error.error || 'Gagal menghapus router')
+        toast.error(error.error || 'Gagal menghapus router')
         return
       }
 
-      await loadRouters()
+      toast.success('Router berhasil dihapus')
+      fetchRouters()
     } catch (error: any) {
-      console.error('Error deleting router:', error)
-      alert('Terjadi kesalahan saat menghapus router: ' + (error.message || 'Unknown error'))
+      toast.error('Gagal menghapus router')
     }
   }
 
@@ -122,10 +150,6 @@ export default function MikroTikRouterPage() {
       minute: '2-digit',
       second: '2-digit',
     })
-  }
-
-  if (loading) {
-    return <PageLoader />
   }
 
   return (
@@ -155,8 +179,7 @@ export default function MikroTikRouterPage() {
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
         <div className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">INFO:</div>
         <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1 list-disc list-inside">
-          <li>Sistem akan mengecek status API connection ke router setiap 5 menit</li>
-          <li>Tabel Router akan di refresh otomatis setiap 1 menit</li>
+          <li>Sistem akan mengecek status API connection ke router secara otomatis (Real-time).</li>
         </ul>
       </div>
 
@@ -166,10 +189,10 @@ export default function MikroTikRouterPage() {
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
             <select
-              value={pageSize}
+              value={limit}
               onChange={(e) => {
-                setPageSize(Number(e.target.value))
-                setCurrentPage(1)
+                setLimit(Number(e.target.value))
+                setPage(1)
               }}
               className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
             >
@@ -184,10 +207,10 @@ export default function MikroTikRouterPage() {
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Search:</label>
             <input
               type="text"
-              value={searchQuery}
+              value={search}
               onChange={(e) => {
-                setSearchQuery(e.target.value)
-                setCurrentPage(1)
+                setSearch(e.target.value)
+                setPage(1)
               }}
               placeholder="Search router..."
               className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
@@ -196,103 +219,114 @@ export default function MikroTikRouterPage() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto relative min-h-[200px]">
+          {loading && (
+            <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center z-10">
+              <PageLoader />
+            </div>
+          )}
+
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  API
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[50px]">
+
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Status Ping
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[100px]">
+                  Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Nama Router
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   IP Address
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Zona Waktu
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Deskripsi
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[120px]">
                   User Online
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Cek Status Terakhir
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">
+                  Deskripsi
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Last Check
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[100px]">
                   Aksi
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-              {paginatedRouters.length === 0 ? (
+              {data.routers.length === 0 && !loading ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    {searchQuery ? 'Tidak ada router yang sesuai dengan pencarian.' : 'Tidak ada data Router. Klik "TAMBAH ROUTER [NAS]" untuk menambahkan.'}
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <span className="text-gray-400 text-lg">📭</span>
+                      <span>{search ? 'Tidak ada router yang sesuai dengan pencarian.' : 'Belum ada data Router.'}</span>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                paginatedRouters.map((router) => (
-                  <tr key={router.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                    <td className="px-4 py-4 whitespace-nowrap">
+                data.routers.map((router) => (
+                  <tr key={router.id} className="group hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {/* API Test Button */}
                       <button
-                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                        title="API"
+                        className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                        title="Test API Connection"
                       >
-                        <span>▶</span>
+                        <HiArrowPath className="w-4 h-4" />
                       </button>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap text-center">
                       <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${router.pingStatus === 'online'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${router.pingStatus === 'online'
+                          ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
+                          : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
                           }`}
                       >
-                        {router.pingStatus === 'online' ? '✔ online' : '✗ offline'}
+                        <span className={`w-1.5 h-1.5 rounded-full ${router.pingStatus === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                        {router.pingStatus === 'online' ? 'Online' : 'Offline'}
                       </span>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-medium">
-                      {router.name}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">{router.name}</div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400 font-mono">
                       {router.ipAddress}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                       {router.timezone}
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">
-                      {router.description || '-'}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex items-center gap-1">
-                        <HiOutlineChartBar className="text-xs" />
-                        <span>{router.userOnline} active</span>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
+                        <HiOutlineChartBar className="w-3.5 h-3.5" />
+                        <span className="text-[11px] font-medium">{router.userOnline} Active</span>
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-[200px] truncate hidden md:table-cell">
+                      {router.description || '-'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-gray-500">
                       {formatDateTime(router.lastStatusCheck)}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Link
                           href={`/admin/network/mikrotik/${router.id}/edit`}
-                          className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                          className="p-1.5 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                           title="Edit"
                         >
-                          <HiPencil className="w-5 h-5" />
+                          <HiPencil className="w-4 h-4" />
                         </Link>
                         <button
                           onClick={() => handleDelete(router.id, router.name)}
-                          className="p-2 text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded transition-colors"
+                          className="p-1.5 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                           title="Delete"
                         >
-                          <HiTrash className="w-5 h-5" />
+                          <HiTrash className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -306,32 +340,23 @@ export default function MikroTikRouterPage() {
         {/* Pagination */}
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            Showing {filteredRouters.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} to{' '}
-            {Math.min(currentPage * pageSize, filteredRouters.length)} of {filteredRouters.length} entries
+            Showing {data.total === 0 ? 0 : (page - 1) * limit + 1} to{' '}
+            {Math.min(page * limit, data.total)} of {data.total} entries
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page === 1}
               className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 text-sm border rounded ${currentPage === page
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                  }`}
-              >
-                {page}
-              </button>
-            ))}
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Page {page} of {Math.max(1, data.totalPages)}
+            </span>
             <button
-              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
+              onClick={() => setPage((prev) => Math.min(data.totalPages, prev + 1))}
+              disabled={page >= data.totalPages}
               className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
@@ -342,4 +367,5 @@ export default function MikroTikRouterPage() {
     </div>
   )
 }
+
 

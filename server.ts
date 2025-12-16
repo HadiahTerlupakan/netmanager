@@ -98,6 +98,12 @@ app.prepare().then(() => {
         getOnuService().setSocketServer(io)
     })
 
+    // Start MikroTik Monitoring Service
+    import('./lib/services/MikroTikMonitor').then(({ mikroTikMonitor }) => {
+        mikroTikMonitor.setSocketServer(io)
+        mikroTikMonitor.start()
+    }).catch(err => console.error('[Server] Failed to start MikroTik monitoring:', err))
+
     // Inject IO into OltSyncService
     import('./lib/services/OltSyncService').then(({ getOltSyncService }) => {
         getOltSyncService().setSocketServer(io)

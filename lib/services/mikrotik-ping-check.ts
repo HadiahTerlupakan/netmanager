@@ -50,7 +50,7 @@ async function testMikroTikAPI(
           // Get active PPP users
           const pppActive = await conn.write('/ppp/active/print')
           const userOnline = Array.isArray(pppActive) ? pppActive.length : 0
-          
+
           cleanup()
           clearTimeout(timer)
           resolve({ success: true, userOnline })
@@ -77,9 +77,9 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
   try {
     const routerRepository = getMikroTikRouterRepository()
     const routers = await routerRepository.findAll()
-    
+
     let updatedCount = 0
-    
+
     // Check status untuk setiap router secara parallel
     const checkPromises = routers.map(async (router) => {
       try {
@@ -91,14 +91,14 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
           router.apiPassword,
           5000
         )
-        
+
         // Update status di database berdasarkan API connection
         await routerRepository.update(router.id, {
           pingStatus: apiResult.success ? 'online' : 'offline',
           userOnline: apiResult.userOnline ?? 0,
           lastStatusCheck: new Date(),
         })
-        
+
         updatedCount++
         return { id: router.id, success: apiResult.success, userOnline: apiResult.userOnline ?? 0 }
       } catch (error: any) {
@@ -116,13 +116,46 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
         return { id: router.id, success: false, userOnline: 0 }
       }
     })
-    
+
     await Promise.all(checkPromises)
-    
+
     return updatedCount
   } catch (error: any) {
     console.error('Error checking MikroTik router status:', error)
     throw error
+  }
+}
+
+/**
+ * Cek status API connection satu router spesifik dan update di database
+ */
+export async function checkSingleMikroTikRouterStatus(id: string): Promise<boolean> {
+  try {
+    const routerRepository = getMikroTikRouterRepository()
+    const router = await routerRepository.findById(id)
+
+    if (!router) return false
+
+    // Test API connection dan ambil jumlah user online
+    const apiResult = await testMikroTikAPI(
+      router.ipAddress,
+      router.apiPort,
+      router.apiUsername,
+      router.apiPassword,
+      5000
+    )
+
+    // Update status di database
+    await routerRepository.update(router.id, {
+      pingStatus: apiResult.success ? 'online' : 'offline',
+      userOnline: apiResult.userOnline ?? 0,
+      lastStatusCheck: new Date(),
+    })
+
+    return apiResult.success
+  } catch (error) {
+    console.error(`Error checking single router ${id}:`, error)
+    return false
   }
 }
 

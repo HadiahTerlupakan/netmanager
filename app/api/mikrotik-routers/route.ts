@@ -127,14 +127,26 @@ export async function GET(req: NextRequest) {
   try {
     // Cek autentikasi admin menggunakan fungsi terpusat
     const session = await requireAdmin(req)
+    const { searchParams } = new URL(req.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const search = searchParams.get('search') || undefined
+
     const routerRepository = getMikroTikRouterRepository()
-    const routers = await routerRepository.findAll()
-    return NextResponse.json({ routers })
+
+    // Use findWithFilters if pagination params are present, otherwise findAll for backward compatibility if needed
+    // But better to always use paginated response for consistency on this route
+    const result = await routerRepository.findWithFilters(
+      { search },
+      { page, limit }
+    )
+
+    return NextResponse.json(result)
   } catch (error: any) {
     console.error('Error fetching MikroTik Routers:', error)
     const errorMessage = error?.message || error?.toString() || 'Gagal memuat data Router'
     return NextResponse.json(
-      { error: errorMessage, routers: [] },
+      { error: errorMessage, routers: [], total: 0, page: 1, limit: 10, totalPages: 0 },
       { status: 500 }
     )
   }
@@ -165,6 +177,16 @@ export async function POST(req: NextRequest) {
       isolirUrl: data.isolirUrl,
       description: data.description,
     })
+
+    // Trigger initial status check (running in background so response isn't delayed too much, 
+    // or await it if fast enough. 5s timeout is acceptable for "Add" action)
+    try {
+      const { checkSingleMikroTikRouterStatus } = await import('@/lib/services/mikrotik-ping-check')
+      await checkSingleMikroTikRouterStatus(router.id)
+    } catch (err) {
+      console.error('Failed to perform initial router check:', err)
+    }
+
     return NextResponse.json({ id: router.id })
   } catch (e: any) {
     return NextResponse.json({ error: 'IP Address sudah terpakai atau terjadi kesalahan' }, { status: 409 })
