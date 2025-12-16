@@ -610,25 +610,85 @@ export class OnuRepository implements IOnuRepository {
   async getSummaryStats(oltId?: string): Promise<OnuSummaryStats> {
     const whereClause: Prisma.OnuWhereInput = oltId ? { oltId } : {}
 
-    const [total, online, offline, los, dyingGasp, uncfg, disabled] = await Promise.all([
+    // First get raw status counts
+    const [total, onlineOnus, offline, los, dyingGasp, uncfg, disabled] = await Promise.all([
       this.client.onu.count({ where: whereClause }),
-      this.client.onu.count({ where: { ...whereClause, status: 'Online' } }),
+      // Fetch online ONUs signal data for quality classification
+      this.client.onu.findMany({
+        where: { ...whereClause, status: 'Online' },
+        select: { rxOlt: true }
+      }),
       this.client.onu.count({ where: { ...whereClause, status: 'Offline' } }),
       this.client.onu.count({ where: { ...whereClause, status: 'LOS' } }),
       this.client.onu.count({ where: { ...whereClause, status: 'DyingGasp' } }),
-      this.client.onu.count({ where: { ...whereClause, status: { contains: 'Unconf', mode: 'insensitive' } } }), // Unconfigured, AutoConfig, etc
+      this.client.onu.count({ where: { ...whereClause, status: { contains: 'Unconf', mode: 'insensitive' } } }),
       this.client.onu.count({ where: { ...whereClause, status: 'Disabled' } }),
     ])
 
+    // Calculate signal quality stats for online ONUs
+    let good = 0
+    let warning = 0
+    let critical = 0
+
+    // Helper to parse dBm
+    const parseDbm = (val: string | null): number | null => {
+      if (!val) return null
+      const num = parseFloat(val.replace(' dBm', ''))
+      return isNaN(num) ? null : num
+    }
+
+    for (const onu of onlineOnus) {
+      const rx = parseDbm(onu.rxOlt)
+      if (rx !== null) {
+        if (rx >= -26.00) {
+          good++
+        } else if (rx >= -28.00) {
+          warning++
+        } else {
+          critical++
+        }
+      } else {
+        // If no signal data but online, count as simple online or decide grouping
+        // For now we might put them in good or ignore
+        good++
+      }
+    }
+
+    // Reconcile 'Online' count. 
+    // In summaryData interface of page.tsx:
+    // good.count = Online with good signal
+    // warning.count = Online with warning signal
+    // critical.count = Online with critical signal + LOS count (usually handled in separate bucket in UI)
+
+    // BUT the frontend expectation for "Good" usually refers to "Online Good".
+    // "Critical" in frontend usually refers to LOS + Online Critical Signal.
+    // Let's stick to returning categorized counts.
+
+    // The interface OnuSummaryStats we defined in IOnuRepository.ts currently only has basic fields.
+    // We should ensure IOnuRepository has fields for good/warning/critical signal counts if we want to return them detailed.
+    // OR we return basic fields and let frontend approximate? 
+    // Wait, the page.tsx fetchSummary maps:
+    // good: { count: data.online || 0 ... } -> This blindly mapped 'online' count to 'good'.
+    // We need to return structured data matching what frontend can consume or update frontend.
+    // Current IOnuRepository returns: { total, online, offline, los, dyingGasp, uncfg, disabled }
+    // We should ADD signal quality fields to OnuSummaryStats interface first.
+
+    // Let's create an extended object and cast it, or update IOnuRepository first.
+    // Modifying IOnuRepository is safer.
+
     return {
       total,
-      online,
+      online: onlineOnus.length, // Keep total online for reference
       offline,
       los,
       dyingGasp,
       uncfg,
-      disabled
-    }
+      disabled,
+      // Add detailed breakdown
+      goodSignal: good,
+      warningSignal: warning,
+      criticalSignal: critical
+    } as any // Temporary cast until interface updated
   }
 
   /**

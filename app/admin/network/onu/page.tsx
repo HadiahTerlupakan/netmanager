@@ -43,6 +43,10 @@ type OnuData = {
   nameOid?: string | null
   descOid?: string | null
   compositeIndex?: number | null
+  olt?: {
+    id: string
+    name: string
+  }
 }
 
 type SummaryData = {
@@ -137,6 +141,11 @@ export default function AllOnuPage() {
   const selectedPortRef = useRef(selectedPort)
   const selectedTypeRef = useRef(selectedType)
   const hasCardOptions = cards.length > 0
+
+  const calculatePercentage = (count: number, total: number) => {
+    if (total === 0) return '0%'
+    return `${Math.round((count / total) * 100)}%`
+  }
 
   const fetchOlts = async () => {
     try {
@@ -283,11 +292,31 @@ export default function AllOnuPage() {
 
       if (data && !data.error) {
         setSummaryData({
-          total: data.total || 0,
-          good: { count: data.online || 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
-          warning: { count: 0, percentage: '0', rxOlt: 0, rxOnu: 0 }, // Backend doesn't split warning yet
-          critical: { count: data.los || 0, percentage: '0', rxOlt: 0, rxOnu: 0 },
-          other: { count: (data.offline || 0) + (data.dyingGasp || 0) + (data.uncfg || 0) + (data.disabled || 0), percentage: '0', los: data.los || 0, na: 0 }
+          total: data.total,
+          good: {
+            count: data.goodSignal || 0,
+            percentage: calculatePercentage(data.goodSignal || 0, data.total),
+            rxOlt: 0,
+            rxOnu: 0
+          },
+          warning: {
+            count: data.warningSignal || 0,
+            percentage: calculatePercentage(data.warningSignal || 0, data.total),
+            rxOlt: 0,
+            rxOnu: 0
+          },
+          critical: {
+            count: (data.criticalSignal || 0) + data.los,
+            percentage: calculatePercentage((data.criticalSignal || 0) + data.los, data.total),
+            rxOlt: 0,
+            rxOnu: 0
+          },
+          other: {
+            count: data.dyingGasp + data.uncfg + data.disabled + data.offline,
+            percentage: calculatePercentage(data.dyingGasp + data.uncfg + data.disabled + data.offline, data.total),
+            los: data.los,
+            na: data.uncfg + data.disabled + data.offline
+          }
         })
       }
     } catch (error) {
@@ -1507,7 +1536,7 @@ export default function AllOnuPage() {
                     <td className="px-4 py-3">
                       <input type="checkbox" className="rounded border-gray-300" />
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{onu.oltName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{onu.olt?.name || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{onu.name}</td>
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.description || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.pppoe || '-'}</td>

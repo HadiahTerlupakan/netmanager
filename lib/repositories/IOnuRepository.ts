@@ -210,6 +210,9 @@ export interface OnuSummaryStats {
   dyingGasp: number
   uncfg: number
   disabled: number
+  goodSignal?: number
+  warningSignal?: number
+  criticalSignal?: number
 }
 
 export interface IOnuRepository {
