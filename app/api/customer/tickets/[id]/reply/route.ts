@@ -1,0 +1,91 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { requireCustomerAuth } from '@/lib/customer-auth'
+import { TicketStatus } from '@prisma/client'
+
+interface RouteParams {
+    params: Promise<{ id: string }>
+}
+
+/**
+ * POST /api/customer/tickets/[id]/reply
+ * Customer replies to ticket
+ */
+export async function POST(request: NextRequest, { params }: RouteParams) {
+    const auth = await requireCustomerAuth(request)
+    if (auth.response) return auth.response
+
+    const { session } = auth
+    const { id } = await params
+
+    try {
+        const body = await request.json()
+        const { message, attachments } = body
+
+        if ((!message || message.trim().length === 0) && (!attachments || attachments.length === 0)) {
+            return NextResponse.json(
+                { success: false, error: 'Pesan atau lampiran tidak boleh kosong' },
+                { status: 400 }
+            )
+        }
+
+        // Find ticket and verify ownership
+        const ticket = await prisma.supportTicket.findFirst({
+            where: {
+                id,
+                pelangganId: session.id,
+            },
+        })
+
+        if (!ticket) {
+            return NextResponse.json(
+                { success: false, error: 'Tiket tidak ditemukan' },
+                { status: 404 }
+            )
+        }
+
+        // Check if ticket is closed
+        if (ticket.status === TicketStatus.CLOSED) {
+            return NextResponse.json(
+                { success: false, error: 'Tiket sudah ditutup dan tidak dapat dibalas' },
+                { status: 400 }
+            )
+        }
+
+        // Create reply
+        const reply = await prisma.ticketReply.create({
+            data: {
+                ticketId: id,
+                pelangganId: session.id,
+                isFromAdmin: false,
+                message: message ? message.trim() : '',
+                attachments: attachments || undefined,
+            },
+        })
+
+        // Update ticket status to IN_PROGRESS if it was WAITING_CUSTOMER
+        if (ticket.status === TicketStatus.WAITING_CUSTOMER) {
+            await prisma.supportTicket.update({
+                where: { id },
+                data: { status: TicketStatus.IN_PROGRESS },
+            })
+        }
+
+        return NextResponse.json({
+            success: true,
+            message: 'Balasan berhasil dikirim',
+            reply: {
+                id: reply.id,
+                message: reply.message,
+                createdAt: reply.createdAt,
+                isFromAdmin: reply.isFromAdmin,
+            },
+        })
+    } catch (error) {
+        console.error('[Customer Tickets Reply POST] Error:', error)
+        return NextResponse.json(
+            { success: false, error: 'Gagal mengirim balasan' },
+            { status: 500 }
+        )
+    }
+}

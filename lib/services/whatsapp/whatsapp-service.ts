@@ -13,9 +13,32 @@ export class WhatsAppService {
     }
 
     /**
-     * Load WhatsApp configuration from database
+     * Check if WhatsApp is configured
      */
-    private async loadConfig(): Promise<WhatsAppConfig> {
+    async isConfigured(): Promise<boolean> {
+        try {
+            const settings = await this.prisma.settings.findMany({
+                where: {
+                    key: {
+                        in: ['WHATSAPP_API_KEY']
+                    }
+                }
+            })
+
+            const apiKey = settings.find(s => s.key === 'WHATSAPP_API_KEY')?.value
+            const envKey = process.env.FONNTE_API_KEY
+
+            return !!(apiKey || envKey)
+        } catch {
+            return false
+        }
+    }
+
+    /**
+     * Load WhatsApp configuration from database
+     * Returns null if not configured
+     */
+    private async loadConfig(): Promise<WhatsAppConfig | null> {
         const settings = await this.prisma.settings.findMany({
             where: {
                 key: {
@@ -45,7 +68,8 @@ export class WhatsAppService {
         const apiKey = settingsMap['WHATSAPP_API_KEY'] || process.env.FONNTE_API_KEY || ''
 
         if (!apiKey) {
-            throw new Error('WhatsApp API key not configured')
+            console.warn('[WhatsApp] API key not configured, skipping message')
+            return null
         }
 
         return {
@@ -62,6 +86,15 @@ export class WhatsAppService {
     async sendMessage(params: SendMessageParams): Promise<SendResult> {
         try {
             const config = await this.loadConfig()
+
+            // Return gracefully if not configured
+            if (!config) {
+                return {
+                    success: false,
+                    error: 'WhatsApp not configured'
+                }
+            }
+
             const provider = WhatsAppFactory.createProvider(config)
 
             console.log(`[WhatsApp] Sending via ${config.provider} to ${params.phone}`)
@@ -90,6 +123,15 @@ export class WhatsAppService {
     async sendFile(params: SendFileParams): Promise<SendResult> {
         try {
             const config = await this.loadConfig()
+
+            // Return gracefully if not configured
+            if (!config) {
+                return {
+                    success: false,
+                    error: 'WhatsApp not configured'
+                }
+            }
+
             const provider = WhatsAppFactory.createProvider(config)
 
             // Check if provider supports file sending

@@ -168,57 +168,40 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
  *                       type: string
  *                       format: email
  *                       example: user@example.com
+ *                     phone:
+ *                       type: string
+ *                       nullable: true
+ *                       example: +62812345678
+ *                     isActive:
+ *                       type: boolean
+ *                       example: true
+ *                     departmentId:
+ *                       type: string
+ *                       nullable: true
+ *                     siteId:
+ *                       type: string
+ *                       nullable: true
  *                     createdAt:
  *                       type: string
  *                       format: date-time
- *                     employee:
+ *                     department:
  *                       type: object
  *                       nullable: true
  *                       properties:
  *                         id:
  *                           type: string
- *                         employeeId:
+ *                         name:
  *                           type: string
- *                         fullName:
+ *                     site:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         id:
  *                           type: string
- *                         email:
+ *                         code:
  *                           type: string
- *                         phone:
+ *                         name:
  *                           type: string
- *                         departmentId:
- *                           type: string
- *                         positionId:
- *                           type: string
- *                         siteId:
- *                           type: string
- *                         joinDate:
- *                           type: string
- *                           format: date-time
- *                         status:
- *                           type: string
- *                         department:
- *                           type: object
- *                           properties:
- *                             id:
- *                               type: string
- *                             name:
- *                               type: string
- *                         position:
- *                           type: object
- *                           properties:
- *                             id:
- *                               type: string
- *                             title:
- *                               type: string
- *                         site:
- *                           type: object
- *                           properties:
- *                             id:
- *                               type: string
- *                             code:
- *                               type: string
- *                             name:
- *                               type: string
  *       401:
  *         description: Unauthorized
  *         content:

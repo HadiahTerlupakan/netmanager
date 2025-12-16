@@ -65,7 +65,7 @@ export const authConfig: NextAuthOptions = {
     }
   },
   pages: {
-    signIn: '/login',
+    signIn: '/admin/login',
     error: '/error',
   },
   providers: [

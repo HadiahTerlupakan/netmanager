@@ -173,6 +173,7 @@ export default function Sidebar() {
         { href: '/admin/workorders/departments', label: 'Departments', icon: <HiOutlineUserGroup className="w-4 h-4" />, permission: 'WORKORDERS' },
       ],
     },
+    { href: '/admin/support', label: 'Dukungan', icon: <HiOutlineChatBubbleLeftRight className="w-5 h-5" />, permission: 'SUPPORT' },
     {
       href: '/admin/pengaturan',
       label: 'Pengaturan',

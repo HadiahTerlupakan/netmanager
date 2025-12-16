@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCustomerAuth } from '@/components/customer/CustomerAuthProvider'
+import { CustomerNotificationBell } from '@/components/customer/CustomerNotificationBell'
 import {
-    MdNotifications,
     MdRouter,
     MdBolt,
     MdCheckCircle,
@@ -127,12 +127,7 @@ export default function CustomerDashboardPage() {
                         <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] text-[#111418] dark:text-white">Dashboard</h2>
                     </div>
                     <div className="flex size-10 items-center justify-end">
-                        <button className="flex items-center justify-center rounded-full size-10 hover:bg-black/5 dark:hover:bg-white/10 transition-colors relative">
-                            {data.pendingInvoice && (
-                                <span className="absolute top-2.5 right-2.5 size-2 rounded-full bg-red-500 ring-2 ring-[#f6f7f8] dark:ring-[#101922]"></span>
-                            )}
-                            <MdNotifications className="text-2xl text-[#111418] dark:text-white" />
-                        </button>
+                        <CustomerNotificationBell />
                     </div>
                 </div>
 

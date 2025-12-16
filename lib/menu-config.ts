@@ -119,7 +119,13 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'WORKORDERS.LIST', name: 'All Work Orders', path: '/admin/workorders/list', icon: 'HiOutlineClipboard' },
         ],
     },
-      {
+    {
+        code: 'SUPPORT',
+        name: 'Dukungan',
+        path: '/admin/support',
+        icon: 'HiOutlineChatBubbleLeftRight',
+    },
+    {
         code: 'PENGATURAN',
         name: 'Pengaturan',
         path: '/admin/pengaturan',

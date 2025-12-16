@@ -234,12 +234,16 @@ export default function PelangganPPPPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {pelanggan.idPelanggan}
+                        <Link href={`/admin/pelanggan/ppp/${pelanggan.id}`} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                          {pelanggan.idPelanggan}
+                        </Link>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {pelanggan.nama}
+                        <Link href={`/admin/pelanggan/ppp/${pelanggan.id}`} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                          {pelanggan.nama}
+                        </Link>
                       </div>
                       {pelanggan.email && (
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">

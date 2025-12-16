@@ -65,8 +65,19 @@ async function checkAuthAccess(request: NextRequest, pathname: string): Promise<
         )
       }
 
-      // For pages, redirect to login page
-      const loginUrl = new URL('/login', request.url)
+      // For pages, redirect to appropriate login page
+      // Determine which login page to redirect to based on the requested path
+      let loginPath = '/login' // Default to customer login
+      if (pathname.startsWith('/admin')) {
+        loginPath = '/admin/login'
+      } else if (pathname.startsWith('/karyawan')) {
+        loginPath = '/karyawan/login'
+      } else if (pathname.startsWith('/finance')) {
+        loginPath = '/finance/login'
+      } else if (pathname.startsWith('/helpdesk')) {
+        loginPath = '/helpdesk/login'
+      }
+      const loginUrl = new URL(loginPath, request.url)
       loginUrl.searchParams.set('callbackUrl', pathname)
       return NextResponse.redirect(loginUrl)
     }
@@ -102,7 +113,7 @@ async function checkAuthAccess(request: NextRequest, pathname: string): Promise<
 // Create auth middleware dengan callback URL yang menjaga subdomain
 const authMiddleware = withAuth({
   pages: {
-    signIn: '/login',
+    signIn: '/admin/login',
   },
   callbacks: {
     authorized({ token, req }) {
@@ -241,6 +252,9 @@ export default async function proxy(request: NextRequest) {
     const isPublicRoute =
       pathname.startsWith('/api/auth/') ||
       pathname === '/login' ||
+      pathname === '/admin/login' ||                  // Admin login page
+      pathname.startsWith('/karyawan/login') ||       // Karyawan login page
+      pathname.startsWith('/api/customer/auth/') ||   // Customer auth API endpoints
       pathname === '/' ||
       pathname === '/api/settings/public' ||         // Public settings for branding
       pathname.startsWith('/api/superadmin/') ||      // Super admin has its own auth

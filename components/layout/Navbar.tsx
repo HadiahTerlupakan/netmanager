@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { signOut, useSession } from 'next-auth/react'
 import { HiBars3, HiMagnifyingGlass, HiOutlineCog6Tooth } from 'react-icons/hi2'
 import { AdminNotificationBell } from '@/components/notifications/AdminNotificationBell'
+import { CustomerSupportBell } from '@/components/notifications/CustomerSupportBell'
 
 export default function Navbar() {
   const { data: session } = useSession()
@@ -42,6 +43,9 @@ export default function Navbar() {
 
         {/* Right: Actions & Profile */}
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+
+          {/* Customer Support Tickets */}
+          <CustomerSupportBell />
 
           {/* Notifications */}
           <AdminNotificationBell />

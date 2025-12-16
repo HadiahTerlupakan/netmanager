@@ -43,6 +43,10 @@ model User {
   notifications         Notification[]        @relation("UserNotifications")
   pushSubscriptions     PushSubscription[]    @relation("UserPushSubscriptions")
   
+  // Support Ticket Relations
+  ticketsAssigned       SupportTicket[]       @relation("TicketAssignedTo")
+  ticketReplies         TicketReply[]         @relation("TicketReplySender")
+  
   @@index([departmentId])
   @@index([siteId])
   @@index([isActive])
@@ -564,6 +568,7 @@ model Pelanggan {
   customerUsage                  CustomerUsage[]
   serviceSuspensions             ServiceSuspension[]
   invoices                      Invoice[]
+  supportTickets                SupportTicket[]
 
   @@index([idPelanggan])
   @@index([hargaPaketId])
@@ -1910,4 +1915,75 @@ enum RestoreStatus {
   FAILED
   CANCELLED
   ROLLED_BACK
+}
+
+// Support Ticket System Enums
+enum TicketStatus {
+  OPEN            // Baru dibuat, belum ada respon
+  IN_PROGRESS     // Sedang ditangani
+  WAITING_CUSTOMER // Menunggu respon pelanggan
+  RESOLVED        // Selesai
+  CLOSED          // Ditutup
+}
+
+enum TicketCategory {
+  TECHNICAL       // Masalah teknis (internet mati, lambat, dll)
+  BILLING         // Masalah tagihan/pembayaran
+  ACCOUNT         // Masalah akun
+  OTHER           // Lainnya
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// Support Ticket Model
+model SupportTicket {
+  id            String          @id @default(cuid())
+  ticketNumber  String          @unique
+  pelangganId   String
+  category      TicketCategory
+  priority      TicketPriority  @default(MEDIUM)
+  subject       String
+  description   String          @db.Text
+  status        TicketStatus    @default(OPEN)
+  assignedToId  String?
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  pelanggan     Pelanggan       @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  assignedTo    User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
+  replies       TicketReply[]
+
+  @@index([pelangganId])
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([ticketNumber])
+  @@map("support_tickets")
+}
+
+// Ticket Reply Model
+model TicketReply {
+  id            String        @id @default(cuid())
+  ticketId      String
+  senderId      String?       // NULL jika dari pelanggan (login via customer auth)
+  pelangganId   String?       // ID pelanggan jika pengirim adalah pelanggan
+  isFromAdmin   Boolean       @default(false)
+  message       String        @db.Text
+  attachments   Json?         // Array of file URLs
+  createdAt     DateTime      @default(now())
+
+  ticket        SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender        User?         @relation("TicketReplySender", fields: [senderId], references: [id])
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("ticket_replies")
 }
