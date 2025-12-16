@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 import { TicketStatus } from '@prisma/client'
 import { WhatsAppService } from '@/lib/services/whatsapp/whatsapp-service'
+import { socketEmitter } from '@/lib/websocket/emitter'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -88,6 +89,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 status: newStatus,
                 assignedToId: ticket.assignedToId || user.id, // Auto-assign if not assigned
             },
+        })
+
+        // Emit WebSocket event for real-time chat
+        socketEmitter.ticketMessage(id, {
+            id: reply.id,
+            message: reply.message,
+            isFromAdmin: true,
+            createdAt: reply.createdAt.toISOString(),
+            sender: reply.sender ? {
+                id: reply.sender.id,
+                name: reply.sender.name || 'Admin',
+            } : null,
+            attachments: reply.attachments as string[] | null,
         })
 
         // Send WhatsApp notification to customer

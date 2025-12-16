@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireCustomerAuth } from '@/lib/customer-auth'
 import { TicketStatus } from '@prisma/client'
+import { socketEmitter } from '@/lib/websocket/emitter'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -34,6 +35,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             where: {
                 id,
                 pelangganId: session.id,
+            },
+            include: {
+                pelanggan: {
+                    select: {
+                        nama: true,
+                    },
+                },
             },
         })
 
@@ -71,6 +79,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             })
         }
 
+        // Emit WebSocket event for real-time chat
+        socketEmitter.ticketMessage(id, {
+            id: reply.id,
+            message: reply.message,
+            isFromAdmin: false,
+            createdAt: reply.createdAt.toISOString(),
+            sender: {
+                id: session.id,
+                name: ticket.pelanggan.nama,
+            },
+            attachments: reply.attachments as string[] | null,
+        })
+
         return NextResponse.json({
             success: true,
             message: 'Balasan berhasil dikirim',
@@ -89,3 +110,4 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         )
     }
 }
+

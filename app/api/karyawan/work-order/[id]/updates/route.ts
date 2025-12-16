@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { socketEmitter } from '@/lib/websocket/emitter'
 
 // POST - Add update/comment to work order with optional photos
 export async function POST(
@@ -84,6 +85,19 @@ export async function POST(
                 )
             )
         }
+
+        // Emit WebSocket event for real-time Activity Timeline
+        socketEmitter.workOrderActivity(id, {
+            id: update.id,
+            type: photos && photos.length > 0 ? 'attachment' : 'comment',
+            message: update.message,
+            updateType: update.updateType,
+            createdAt: update.createdAt.toISOString(),
+            createdBy: update.createdBy ? {
+                id: update.createdBy.id,
+                name: update.createdBy.name || undefined,
+            } : null,
+        })
 
         return NextResponse.json({
             success: true,

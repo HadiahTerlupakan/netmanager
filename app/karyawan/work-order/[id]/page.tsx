@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useKaryawanAuth } from '@/components/karyawan/KaryawanAuthProvider'
 import {
@@ -24,6 +24,8 @@ import {
     MdImage
 } from 'react-icons/md'
 import Link from 'next/link'
+import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
+import { SOCKET_EVENTS, type WorkOrderActivityPayload } from '@/lib/websocket/types'
 
 interface WorkOrderTask {
     id: string
@@ -43,6 +45,15 @@ interface WorkOrderUpdate {
     newStatus: string | null
     createdAt: string
     createdBy: { id: string; name: string } | null
+}
+
+interface WorkOrderAttachment {
+    id: string
+    fileName: string
+    filePath: string
+    fileType: string
+    uploadedAt: string
+    uploadedBy: { id: string; name: string } | null
 }
 
 interface WorkOrderDetail {
@@ -70,9 +81,10 @@ interface WorkOrderDetail {
         id: string
         name: string
     } | null
-    usedMaterials: any
+    usedMaterials: any[]
     tasks: WorkOrderTask[]
     updates: WorkOrderUpdate[]
+    attachments?: WorkOrderAttachment[]
     startedAt: string | null
 }
 
@@ -103,6 +115,38 @@ export default function WorkOrderDetailPage() {
             fetchWorkOrder()
         }
     }, [isAuthenticated, id])
+
+    // WebSocket for real-time Activity Timeline
+    const { socket, isConnected } = useSocket()
+
+    // Join/leave workorder room for real-time updates
+    useEffect(() => {
+        if (!socket || !isConnected || !id) return
+
+        console.log(`[KaryawanWorkOrder] Joining room workorder:${id}`)
+        socket.emit(SOCKET_EVENTS.JOIN_ROOM, { room: `workorder:${id}` })
+
+        return () => {
+            console.log(`[KaryawanWorkOrder] Leaving room workorder:${id}`)
+            socket.emit(SOCKET_EVENTS.LEAVE_ROOM, { room: `workorder:${id}` })
+        }
+    }, [socket, isConnected, id])
+
+    // Handle real-time activity updates
+    const handleNewActivity = useCallback(
+        (payload: WorkOrderActivityPayload) => {
+            if (payload.workOrderId !== id) return
+
+            console.log('[KaryawanWorkOrder] New activity received:', payload.activity.type)
+
+            // Refresh data to get the new activity
+            fetchWorkOrder()
+        },
+        [id]
+    )
+
+    // Subscribe to WebSocket activity events
+    useSocketEvent(SOCKET_EVENTS.WORKORDER_ACTIVITY, handleNewActivity)
 
     const fetchWorkOrder = async () => {
         try {
@@ -253,9 +297,10 @@ export default function WorkOrderDetailPage() {
         for (const photo of updatePhotos) {
             const formData = new FormData()
             formData.append('file', photo)
-            formData.append('folder', 'work-order-updates')
+            formData.append('type', 'work-order-updates')
+            formData.append('subFolder', id)
             try {
-                const res = await fetch('/api/inventory/upload-photo', {
+                const res = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData
                 })
@@ -367,6 +412,12 @@ export default function WorkOrderDetailPage() {
     if (!workOrder) {
         return null
     }
+
+    // Combine updates and attachments for timeline
+    const timelineItems = [
+        ...(workOrder.updates || []).map(u => ({ ...u, type: 'update' })),
+        ...(workOrder.attachments || []).map(a => ({ ...a, type: 'attachment', createdAt: a.uploadedAt }))
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
     return (
         <div className="min-h-screen w-full bg-[#f6f7f8] dark:bg-[#101922] text-[#111418] dark:text-white font-sans antialiased">
@@ -614,27 +665,47 @@ export default function WorkOrderDetailPage() {
 
                         {/* Timeline List */}
                         <div className="space-y-3">
-                            {workOrder.updates && workOrder.updates.length > 0 ? (
-                                workOrder.updates.map((update) => (
-                                    <div key={update.id} className="flex gap-3">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${update.updateType === 'STATUS_CHANGE'
-                                            ? 'bg-blue-100 dark:bg-blue-900/30'
-                                            : update.updateType === 'TASK_UPDATE'
-                                                ? 'bg-green-100 dark:bg-green-900/30'
-                                                : 'bg-gray-100 dark:bg-gray-800'
+                            {timelineItems.length > 0 ? (
+                                timelineItems.map((item: any) => (
+                                    <div key={`${item.type}-${item.id}`} className="flex gap-3">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${item.type === 'attachment'
+                                            ? 'bg-purple-100 dark:bg-purple-900/30'
+                                            : item.updateType === 'STATUS_CHANGE'
+                                                ? 'bg-blue-100 dark:bg-blue-900/30'
+                                                : item.updateType === 'TASK_UPDATE'
+                                                    ? 'bg-green-100 dark:bg-green-900/30'
+                                                    : 'bg-gray-100 dark:bg-gray-800'
                                             }`}>
-                                            {update.updateType === 'STATUS_CHANGE' ? (
+                                            {item.type === 'attachment' ? (
+                                                <MdImage className="text-purple-600 text-sm" />
+                                            ) : item.updateType === 'STATUS_CHANGE' ? (
                                                 <MdPlayArrow className="text-blue-600 text-sm" />
-                                            ) : update.updateType === 'TASK_UPDATE' ? (
+                                            ) : item.updateType === 'TASK_UPDATE' ? (
                                                 <MdCheck className="text-green-600 text-sm" />
                                             ) : (
                                                 <MdComment className="text-gray-500 text-sm" />
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm dark:text-white">{update.message}</p>
-                                            <p className="text-xs text-gray-500 mt-0.5">
-                                                {update.createdBy?.name || 'System'} • {formatTime(update.createdAt)}
+                                            {item.type === 'attachment' ? (
+                                                <div className="space-y-1">
+                                                    <p className="text-sm dark:text-white">Mengupload foto</p>
+                                                    <div className="mt-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 max-w-[200px]">
+                                                        <img
+                                                            src={item.filePath}
+                                                            alt={item.fileName}
+                                                            className="w-full h-auto object-cover"
+                                                            loading="lazy"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm dark:text-white">{item.message}</p>
+                                            )}
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {item.type === 'attachment'
+                                                    ? (item.uploadedBy?.name || 'System')
+                                                    : (item.createdBy?.name || 'System')} • {formatTime(item.createdAt)}
                                             </p>
                                         </div>
                                     </div>

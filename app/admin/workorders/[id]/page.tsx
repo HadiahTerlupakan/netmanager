@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -20,6 +20,31 @@ import {
     HiChatBubbleLeft,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
+import { SOCKET_EVENTS, type WorkOrderActivityPayload } from '@/lib/websocket/types'
+
+interface WorkOrderUpdateType {
+    id: string
+    updateType: string
+    message: string
+    createdAt: string
+    createdBy?: {
+        firstName: string
+        lastName: string
+    } | null
+}
+
+interface WorkOrderAttachment {
+    id: string
+    fileName: string
+    filePath: string
+    fileType: string
+    caption: string | null
+    uploadedAt: string
+    uploadedBy?: {
+        name: string
+    } | null
+}
 
 interface WorkOrderDetail {
     id: string
@@ -64,28 +89,14 @@ interface WorkOrderDetail {
         status: string
         order: number
     }>
-    updates?: Array<{
-        id: string
-        updateType: string
-        message: string
-        createdAt: string
-        createdBy?: {
-            firstName: string
-            lastName: string
-        } | null
-    }>
-    attachments?: Array<{
-        id: string
-        fileName: string
-        filePath: string
-        fileType: string
-        caption: string | null
-        uploadedAt: string
-        uploadedBy?: {
-            name: string
-        } | null
-    }>
+    updates?: Array<WorkOrderUpdateType>
+    attachments?: Array<WorkOrderAttachment>
 }
+
+type TimelineItem =
+    | { type: 'comment'; date: Date; id: string; data: WorkOrderUpdateType }
+    | { type: 'update'; date: Date; id: string; data: WorkOrderUpdateType }
+    | { type: 'attachment'; date: Date; id: string; data: WorkOrderAttachment }
 
 const statusColors: Record<string, string> = {
     PENDING: 'bg-gray-100 text-gray-800',
@@ -122,6 +133,38 @@ export default function WorkOrderDetailPage() {
     const [cancelReason, setCancelReason] = useState('')
     const [processingApproval, setProcessingApproval] = useState(false)
 
+    // WebSocket for real-time Activity Timeline
+    const { socket, isConnected } = useSocket()
+
+    // Join/leave workorder room for real-time updates
+    useEffect(() => {
+        if (!socket || !isConnected || !workOrderId) return
+
+        console.log(`[WorkOrder] Joining room workorder:${workOrderId}`)
+        socket.emit(SOCKET_EVENTS.JOIN_ROOM, { room: `workorder:${workOrderId}` })
+
+        return () => {
+            console.log(`[WorkOrder] Leaving room workorder:${workOrderId}`)
+            socket.emit(SOCKET_EVENTS.LEAVE_ROOM, { room: `workorder:${workOrderId}` })
+        }
+    }, [socket, isConnected, workOrderId])
+
+    // Handle real-time activity updates
+    const handleNewActivity = useCallback(
+        (payload: WorkOrderActivityPayload) => {
+            if (payload.workOrderId !== workOrderId) return
+
+            console.log('[WorkOrder] New activity received:', payload.activity.type)
+
+            // Refresh data to get the new activity
+            fetchWorkOrder()
+        },
+        [workOrderId]
+    )
+
+    // Subscribe to WebSocket activity events
+    useSocketEvent(SOCKET_EVENTS.WORKORDER_ACTIVITY, handleNewActivity)
+
     useEffect(() => {
         if (status === 'unauthenticated') {
             router.push('/login')
@@ -138,6 +181,7 @@ export default function WorkOrderDetailPage() {
             const response = await fetch(`/api/admin/workorders/${workOrderId}`)
             if (response.ok) {
                 const result = await response.json()
+                console.log('[WorkOrder] Fetched w/ attachments:', result.data.attachments?.length)
                 setWorkOrder(result.data)
                 setEditValues({
                     status: result.data.status,
@@ -336,16 +380,21 @@ export default function WorkOrderDetailPage() {
     const progressPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
 
     // Process timeline items
-    const timelineItems = [
+    const timelineItems: TimelineItem[] = [
         ...(workOrder.updates || []).map(u => ({
-            type: u.updateType === 'COMMENT' ? 'comment' : 'update',
+            type: (u.updateType === 'COMMENT' ? 'comment' : 'update') as 'comment' | 'update',
             date: new Date(u.createdAt),
             id: u.id,
             data: u
         })),
         ...(workOrder.attachments || [])
             .filter(a => !a.caption?.startsWith('[COMPLETION]'))
-            .map(a => ({ type: 'attachment', date: new Date(a.uploadedAt), id: a.id, data: a }))
+            .map(a => ({
+                type: 'attachment' as const,
+                date: new Date(a.uploadedAt),
+                id: a.id,
+                data: a
+            }))
     ].sort((a, b) => b.date.getTime() - a.date.getTime())
 
     // Filter completion photos
@@ -583,61 +632,52 @@ export default function WorkOrderDetailPage() {
                             {timelineItems.length > 0 ? (
                                 timelineItems.map((item) => (
                                     <div key={item.id} className="flex gap-3">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                            // @ts-ignore
-                                            item.type === 'comment' ? 'bg-indigo-100' :
-                                                // @ts-ignore
-                                                item.type === 'update' ? 'bg-sky-100' : 'bg-orange-100'
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${item.type === 'comment' ? 'bg-indigo-100' :
+                                            item.type === 'update' ? 'bg-sky-100' : 'bg-orange-100'
                                             }`}>
-                                            {
-                                                // @ts-ignore
-                                                item.type === 'comment' ? (
-                                                    <HiChatBubbleLeft className="w-4 h-4 text-indigo-600" />
-                                                ) :
-                                                    // @ts-ignore
-                                                    item.type === 'update' ? (
-                                                        <HiClock className="w-4 h-4 text-sky-600" />
-                                                    ) : (
-                                                        <HiPhoto className="w-4 h-4 text-orange-600" />
-                                                    )}
+                                            {item.type === 'comment' ? (
+                                                <HiChatBubbleLeft className="w-4 h-4 text-indigo-600" />
+                                            ) : item.type === 'update' ? (
+                                                <HiClock className="w-4 h-4 text-sky-600" />
+                                            ) : (
+                                                <HiPhoto className="w-4 h-4 text-orange-600" />
+                                            )}
                                         </div>
                                         <div className="flex-1">
-                                            {
-                                                // @ts-ignore
-                                                item.type === 'update' || item.type === 'comment' ? (
-                                                    <div className={`${(item.data as any).updateType === 'COMMENT' ? 'bg-gray-50 p-3 rounded-lg border border-gray-100' : ''}`}>
-                                                        <p className="text-sm text-gray-900 whitespace-pre-wrap">{(item.data as any).message}</p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-1 inline-block">
-                                                        <a
-                                                            href={(item.data as any).filePath}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="block"
-                                                        >
-                                                            <img
-                                                                src={(item.data as any).filePath}
-                                                                alt={(item.data as any).caption || 'Attachment'}
-                                                                className="h-40 rounded-lg object-cover mb-2"
-                                                            />
-                                                        </a>
-                                                        {(item.data as any).caption && (
-                                                            <p className="text-xs text-gray-600 italic">
-                                                                {(item.data as any).caption.replace(/^\[(HOLD|NOTE)\]\s*/, '')}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                )}
+                                            {item.type === 'update' || item.type === 'comment' ? (
+                                                <div className={`${(item.data as any).updateType === 'COMMENT' ? 'bg-gray-50 p-3 rounded-lg border border-gray-100' : ''}`}>
+                                                    <p className="text-sm text-gray-900 whitespace-pre-wrap">{(item.data as any).message}</p>
+                                                </div>
+                                            ) : (
+                                                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-1 inline-block">
+                                                    <a
+                                                        href={item.data.filePath}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="block"
+                                                    >
+                                                        <img
+                                                            src={item.data.filePath}
+                                                            alt={item.data.caption || 'Attachment'}
+                                                            className="h-40 rounded-lg object-cover mb-2"
+                                                        />
+                                                    </a>
+                                                    {item.data.caption && (
+                                                        <p className="text-xs text-gray-600 italic">
+                                                            {item.data.caption.replace(/^\[(HOLD|NOTE)\]\s*/, '')}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
                                             <p className="text-xs text-gray-500 mt-1">
-                                                {item.type === 'update' ? (
+                                                {item.type === 'update' || item.type === 'comment' ? (
                                                     <>
                                                         {(item.data as any).createdBy && `${(item.data as any).createdBy.firstName} ${(item.data as any).createdBy.lastName} · `}
                                                         {format(item.date, 'dd MMM yyyy HH:mm', { locale: localeId })}
                                                     </>
                                                 ) : (
                                                     <>
-                                                        {(item.data as any).uploadedBy && `${(item.data as any).uploadedBy.name} · `}
+                                                        {item.data.uploadedBy && `${item.data.uploadedBy.name} · `}
                                                         {format(item.date, 'dd MMM yyyy HH:mm', { locale: localeId })}
                                                     </>
                                                 )}

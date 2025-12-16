@@ -1,17 +1,22 @@
 import type { Server as SocketIOServer, Socket } from 'socket.io'
 import { SOCKET_EVENTS, type SocketData } from './types'
 
-// Singleton instance
-let io: SocketIOServer | null = null
+// Declare global type for Socket.io server instance
+declare global {
+    // eslint-disable-next-line no-var
+    var socketIOServer: SocketIOServer | undefined
+}
+
+// Use globalThis to persist socket instance across hot reloads and API routes
 
 /**
  * Initialize Socket.io server with authentication middleware
  */
 export function initializeSocketServer(socketServer: SocketIOServer) {
-    io = socketServer
+    globalThis.socketIOServer = socketServer
 
     // Authentication middleware
-    io.use(async (socket, next) => {
+    globalThis.socketIOServer.use(async (socket, next) => {
         try {
             const auth = socket.handshake.auth
             const userId = auth?.userId as string
@@ -38,7 +43,7 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
     })
 
     // Connection handler
-    io.on('connection', (socket: Socket) => {
+    globalThis.socketIOServer.on('connection', (socket: Socket) => {
         const { userId, userRole, departmentId } = socket.data as SocketData
 
         console.log(`[WS] User connected: ${userId} (${userRole})`)
@@ -59,18 +64,24 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
         }
 
         // Handle dynamic room joining
-        socket.on(SOCKET_EVENTS.JOIN_ROOM, (room: string) => {
+        socket.on(SOCKET_EVENTS.JOIN_ROOM, (data: { room: string } | string) => {
+            const room = typeof data === 'string' ? data : data.room
             // Validate room name to prevent unauthorized access
-            if (isRoomAllowed(socket, room)) {
+            if (room && isRoomAllowed(socket, room)) {
                 socket.join(room)
                 console.log(`[WS] ${userId} joined room: ${room}`)
+            } else {
+                console.warn(`[WS] ${userId} not allowed to join room: ${room}`)
             }
         })
 
         // Handle room leaving
-        socket.on(SOCKET_EVENTS.LEAVE_ROOM, (room: string) => {
-            socket.leave(room)
-            console.log(`[WS] ${userId} left room: ${room}`)
+        socket.on(SOCKET_EVENTS.LEAVE_ROOM, (data: { room: string } | string) => {
+            const room = typeof data === 'string' ? data : data.room
+            if (room) {
+                socket.leave(room)
+                console.log(`[WS] ${userId} left room: ${room}`)
+            }
         })
 
         // Handle disconnect
@@ -85,7 +96,7 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
     })
 
     console.log('[WS] Socket.io server initialized')
-    return io
+    return globalThis.socketIOServer
 }
 
 /**
@@ -103,6 +114,14 @@ function isRoomAllowed(socket: Socket, room: string): boolean {
     // Anyone can join their department room
     if (room.startsWith('department:')) return true
 
+    // Allow joining ticket-specific rooms for chat (both admin and customers)
+    // TODO: Add proper validation to ensure user has access to this ticket
+    if (room.startsWith('ticket:')) return true
+
+    // Allow joining work order rooms for Activity Timeline updates
+    // TODO: Add proper validation to ensure user has access to this work order
+    if (room.startsWith('workorder:')) return true
+
     return false
 }
 
@@ -110,12 +129,12 @@ function isRoomAllowed(socket: Socket, room: string): boolean {
  * Get the Socket.io server instance
  */
 export function getSocketServer(): SocketIOServer | null {
-    return io
+    return globalThis.socketIOServer || null
 }
 
 /**
  * Check if WebSocket server is initialized
  */
 export function isSocketServerReady(): boolean {
-    return io !== null
+    return globalThis.socketIOServer !== undefined
 }

@@ -7,6 +7,33 @@ import {
     type CountPayload,
 } from './types'
 
+const INTERNAL_WS_SECRET = process.env.INTERNAL_WS_SECRET || 'netmanager-ws-internal-2024'
+const WS_SERVER_URL = process.env.WS_SERVER_URL || 'http://localhost:3000'
+
+/**
+ * Fallback: Emit via internal HTTP endpoint when Socket.io server is not available
+ * in the current process (e.g., API routes in development mode)
+ */
+async function emitViaHttp(event: string, room: string, payload: unknown): Promise<boolean> {
+    try {
+        const response = await fetch(`${WS_SERVER_URL}/_internal/emit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event, room, payload, secret: INTERNAL_WS_SECRET }),
+        })
+        if (response.ok) {
+            console.log(`[WS HTTP] Emitted ${event} to ${room}`)
+            return true
+        } else {
+            console.error(`[WS HTTP] Failed to emit ${event}:`, await response.text())
+            return false
+        }
+    } catch (error) {
+        console.error(`[WS HTTP] Error emitting ${event}:`, error)
+        return false
+    }
+}
+
 /**
  * Socket emitter helper for server-side code
  * Use this to emit WebSocket events from API routes and services
@@ -94,6 +121,37 @@ export const socketEmitter = {
     },
 
     /**
+     * Emit real-time chat message to ticket room
+     * This is for instant message display in chat UI
+     */
+    ticketMessage(ticketId: string, reply: {
+        id: string
+        message: string
+        isFromAdmin: boolean
+        createdAt: string
+        sender?: { id: string; name: string; image?: string } | null
+        attachments?: string[] | null
+    }) {
+        const io = getSocketServer()
+        const payload = { ticketId, reply }
+        const room = `ticket:${ticketId}`
+
+        if (io) {
+            // Direct emit when Socket.io server is available in this process
+            io.to(room).emit(SOCKET_EVENTS.TICKET_MESSAGE, payload)
+            console.log(`[WS] Emitted chat message to ${room}`)
+
+            // Debug: Check how many sockets are in the room
+            const roomData = io.sockets.adapter.rooms.get(room)
+            console.log(`[WS DEBUG] Sockets in room ${room}:`, roomData?.size || 0)
+        } else {
+            // Fallback: Use internal HTTP endpoint for cross-process emit
+            console.log(`[WS] Socket server not in this process, using HTTP fallback for ${room}`)
+            emitViaHttp(SOCKET_EVENTS.TICKET_MESSAGE, room, payload)
+        }
+    },
+
+    /**
      * Update ticket count for admins
      */
     updateTicketCount(count: number) {
@@ -140,6 +198,38 @@ export const socketEmitter = {
         const io = getSocketServer()
         if (io) {
             io.to(`user:${assignedToId}`).emit(SOCKET_EVENTS.WORKORDER_ASSIGNED, workOrder)
+        }
+    },
+
+    /**
+     * Emit real-time activity update for Work Order Activity Timeline
+     * This includes comments, status updates, and attachments
+     */
+    workOrderActivity(workOrderId: string, activity: {
+        id: string
+        type: 'comment' | 'update' | 'attachment'
+        message?: string
+        updateType?: string
+        createdAt: string
+        createdBy?: { id: string; firstName?: string; lastName?: string; name?: string } | null
+        attachment?: { id: string; fileName: string; filePath: string; fileType: string; caption?: string | null } | null
+    }) {
+        const io = getSocketServer()
+        const payload = { workOrderId, activity }
+        const room = `workorder:${workOrderId}`
+
+        if (io) {
+            // Direct emit when Socket.io server is available in this process
+            io.to(room).emit(SOCKET_EVENTS.WORKORDER_ACTIVITY, payload)
+            console.log(`[WS] Emitted activity to ${room}`)
+
+            // Debug: Check how many sockets are in the room
+            const roomData = io.sockets.adapter.rooms.get(room)
+            console.log(`[WS DEBUG] Sockets in room ${room}:`, roomData?.size || 0)
+        } else {
+            // Fallback: Use internal HTTP endpoint for cross-process emit
+            console.log(`[WS] Socket server not in this process, using HTTP fallback for ${room}`)
+            emitViaHttp(SOCKET_EVENTS.WORKORDER_ACTIVITY, room, payload)
         }
     },
 

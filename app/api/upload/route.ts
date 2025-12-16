@@ -29,7 +29,13 @@ export async function POST(request: NextRequest) {
         }
 
         if (!type) {
-            return NextResponse.json({ error: 'Upload type is required' }, { status: 400 })
+            // Allow 'folder' as fallback for backwards compatibility
+            const folder = formData.get('folder') as string | null
+            if (!folder) {
+                return NextResponse.json({ error: 'Upload type is required' }, { status: 400 })
+            }
+            // Redirect to work-order-updates type
+            // (handled below in switch case)
         }
 
         // Validate file is an image
@@ -66,8 +72,17 @@ export async function POST(request: NextRequest) {
             case 'employee-attendance':
                 uploadDir = path.join(process.cwd(), 'public', 'uploads', 'employee', 'attendance')
                 break
+            case 'work-order-updates':
+                uploadDir = path.join(process.cwd(), 'public', 'uploads', 'workorder', 'updates')
+                break
             default:
-                uploadDir = path.join(process.cwd(), 'public', 'uploads', 'general')
+                // Handle 'folder' parameter for backwards compatibility
+                const folder = formData.get('folder') as string | null
+                if (folder) {
+                    uploadDir = path.join(process.cwd(), 'public', 'uploads', folder)
+                } else {
+                    uploadDir = path.join(process.cwd(), 'public', 'uploads', 'general')
+                }
         }
 
         // If subFolder (e.g., workOrderId), append to path
@@ -80,7 +95,7 @@ export async function POST(request: NextRequest) {
             file,
             uploadDir,
             fileName,
-            type,
+            type ?? undefined,
             subFolder
         )
 

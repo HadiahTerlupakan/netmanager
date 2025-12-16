@@ -26,6 +26,7 @@ import {
 } from 'react-icons/md'
 import { formatDistanceToNow, format } from 'date-fns'
 import { id } from 'date-fns/locale'
+import { useRealtimeTicketChat, type ChatReply } from '@/lib/websocket/hooks/useRealtimeTicketChat'
 
 interface Reply {
     id: string
@@ -92,6 +93,12 @@ export default function TicketDetailPage() {
     const [uploading, setUploading] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
+    // Real-time chat via WebSocket
+    const { replies, isConnected, setReplies, addReply } = useRealtimeTicketChat({
+        ticketId,
+        initialReplies: ticket?.replies || [],
+    })
+
     const loadTicket = useCallback(async (showLoading = false) => {
         if (showLoading) setLoading(true)
         try {
@@ -100,53 +107,69 @@ export default function TicketDetailPage() {
                 const data = await res.json()
                 setTicket(data.ticket)
                 setStatus(data.ticket.status)
+                // Update replies for WebSocket hook
+                setReplies(data.ticket.replies || [])
             }
         } catch (error) {
             console.error('Error loading ticket:', error)
         } finally {
             if (showLoading) setLoading(false)
         }
-    }, [ticketId])
+    }, [ticketId, setReplies])
 
-    // Initial load
+    // Initial load only (no polling)
     useEffect(() => {
         loadTicket(true)
     }, [loadTicket])
 
-    // Polling for new messages every 5 seconds
-    useEffect(() => {
-        const interval = setInterval(() => {
-            loadTicket(false)
-        }, 5000)
-        return () => clearInterval(interval)
-    }, [loadTicket])
-
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [ticket?.replies])
+    }, [replies])
 
     const handleSendReply = async () => {
         if ((!message.trim() && attachments.length === 0) || sending) return
 
+        const messageToSend = message.trim()
+        const attachmentsToSend = [...attachments]
+
         setSending(true)
+        setMessage('')
+        setAttachments([])
+
         try {
             const res = await fetch(`/api/admin/support-tickets/${ticketId}/reply`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: message.trim(),
+                    message: messageToSend,
                     updateStatus: status === 'OPEN' ? 'IN_PROGRESS' : undefined,
-                    attachments: attachments.length > 0 ? attachments : undefined
+                    attachments: attachmentsToSend.length > 0 ? attachmentsToSend : undefined
                 }),
             })
 
             if (res.ok) {
-                setMessage('')
-                setAttachments([])
-                loadTicket(false) // Reload to get new reply
+                const data = await res.json()
+                // Optimistic update - add the reply from API response immediately
+                if (data.reply) {
+                    addReply({
+                        id: data.reply.id,
+                        message: data.reply.message,
+                        isFromAdmin: data.reply.isFromAdmin,
+                        createdAt: data.reply.createdAt,
+                        sender: data.reply.sender,
+                        attachments: attachmentsToSend.length > 0 ? attachmentsToSend : null,
+                    })
+                }
+            } else {
+                // Restore message on error
+                setMessage(messageToSend)
+                setAttachments(attachmentsToSend)
             }
         } catch (error) {
             console.error('Error sending reply:', error)
+            // Restore message on error
+            setMessage(messageToSend)
+            setAttachments(attachmentsToSend)
         } finally {
             setSending(false)
         }
@@ -308,7 +331,14 @@ export default function TicketDetailPage() {
                             <h1 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
                                 {ticket.subject}
                             </h1>
-                            <p className="text-sm text-gray-500 font-mono">#{ticket.ticketNumber}</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-sm text-gray-500 font-mono">#{ticket.ticketNumber}</p>
+                                {isConnected && (
+                                    <span className="text-[10px] text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded animate-pulse">
+                                        Live
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <select
                             value={status}
@@ -350,7 +380,7 @@ export default function TicketDetailPage() {
                     </div>
 
                     {/* Replies */}
-                    {ticket.replies.map((reply) => (
+                    {replies.map((reply) => (
                         <div
                             key={reply.id}
                             className={`flex ${reply.isFromAdmin ? 'justify-end' : 'justify-start'}`}

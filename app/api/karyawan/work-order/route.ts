@@ -73,7 +73,9 @@ export async function POST(req: NextRequest) {
             where: { id: workOrderId },
             data: {
                 assignedToId: session.user.id,
-                status: 'ASSIGNED'
+                status: 'ASSIGNED',
+                scheduledDate: new Date(),
+                scheduledTimeStart: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
             }
         })
 

@@ -54,6 +54,17 @@ export async function GET(
                             }
                         }
                     }
+                },
+                attachments: {
+                    orderBy: { uploadedAt: 'desc' },
+                    include: {
+                        uploadedBy: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
+                    }
                 }
             }
         })

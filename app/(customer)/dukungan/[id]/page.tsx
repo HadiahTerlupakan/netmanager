@@ -17,6 +17,7 @@ import {
 } from 'react-icons/md'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
+import { useRealtimeTicketChat, type ChatReply } from '@/lib/websocket/hooks/useRealtimeTicketChat'
 
 interface Reply {
     id: string
@@ -64,6 +65,12 @@ export default function TicketDetailPage() {
     const [uploading, setUploading] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
+    // Real-time chat via WebSocket
+    const { replies, isConnected, setReplies, addReply } = useRealtimeTicketChat({
+        ticketId,
+        initialReplies: ticket?.replies || [],
+    })
+
     const loadTicket = useCallback(async (showLoading = false) => {
         if (showLoading) setLoading(true)
         try {
@@ -71,13 +78,15 @@ export default function TicketDetailPage() {
             if (res.ok) {
                 const data = await res.json()
                 setTicket(data.ticket)
+                // Update replies for WebSocket hook
+                setReplies(data.ticket.replies || [])
             }
         } catch (error) {
             console.error('Error loading ticket:', error)
         } finally {
             if (showLoading) setLoading(false)
         }
-    }, [ticketId])
+    }, [ticketId, setReplies])
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
@@ -89,41 +98,54 @@ export default function TicketDetailPage() {
         }
     }, [authLoading, isAuthenticated, router, loadTicket])
 
-    // Polling for new messages every 5 seconds
-    useEffect(() => {
-        if (!isAuthenticated) return
-
-        const interval = setInterval(() => {
-            loadTicket(false)
-        }, 5000)
-        return () => clearInterval(interval)
-    }, [isAuthenticated, loadTicket])
-
+    // Scroll to bottom when replies change
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [ticket?.replies])
+    }, [replies])
 
     const handleSendReply = async () => {
         if ((!message.trim() && attachments.length === 0) || sending) return
 
+        const messageToSend = message.trim()
+        const attachmentsToSend = [...attachments]
+
         setSending(true)
+        setMessage('')
+        setAttachments([])
+
         try {
             const res = await fetch(`/api/customer/tickets/${ticketId}/reply`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: message.trim(),
-                    attachments: attachments.length > 0 ? attachments : undefined
+                    message: messageToSend,
+                    attachments: attachmentsToSend.length > 0 ? attachmentsToSend : undefined
                 }),
             })
 
             if (res.ok) {
-                setMessage('')
-                setAttachments([])
-                loadTicket(false)
+                const data = await res.json()
+                // Optimistic update - add the reply from API response immediately
+                if (data.reply) {
+                    addReply({
+                        id: data.reply.id,
+                        message: data.reply.message,
+                        isFromAdmin: data.reply.isFromAdmin,
+                        createdAt: data.reply.createdAt,
+                        sender: customer ? { id: customer.id, name: customer.nama } : null,
+                        attachments: attachmentsToSend.length > 0 ? attachmentsToSend : null,
+                    })
+                }
+            } else {
+                // Restore message on error
+                setMessage(messageToSend)
+                setAttachments(attachmentsToSend)
             }
         } catch (error) {
             console.error('Error sending reply:', error)
+            // Restore message on error
+            setMessage(messageToSend)
+            setAttachments(attachmentsToSend)
         } finally {
             setSending(false)
         }
@@ -267,7 +289,14 @@ export default function TicketDetailPage() {
                             <h2 className="text-[#111418] dark:text-white text-base font-bold leading-tight truncate">
                                 {ticket.subject}
                             </h2>
-                            <p className="text-xs text-gray-500 font-mono">#{ticket.ticketNumber}</p>
+                            <div className="flex items-center justify-center gap-2">
+                                <p className="text-xs text-gray-500 font-mono">#{ticket.ticketNumber}</p>
+                                {isConnected && (
+                                    <span className="text-[10px] text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded animate-pulse">
+                                        Live
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <div className="w-10"></div>
                     </div>
@@ -306,7 +335,7 @@ export default function TicketDetailPage() {
                     </div>
 
                     {/* Replies */}
-                    {ticket.replies.map((reply) => {
+                    {replies.map((reply) => {
                         // Check if this is a closing prompt message
                         const isClosingPrompt = reply.isFromAdmin &&
                             reply.message.includes('tutup tiket') &&

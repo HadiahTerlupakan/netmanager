@@ -15,8 +15,47 @@ const app = next({ dev, hostname, port })
 const handle = app.getRequestHandler()
 
 app.prepare().then(() => {
-    const server = createServer((req, res) => {
+    // Keep reference to io for the internal emit endpoint
+    let ioRef: SocketIOServer | null = null
+
+    const server = createServer(async (req, res) => {
         const parsedUrl = parse(req.url!, true)
+
+        // Internal endpoint for emitting WebSocket events from API routes
+        // This bypasses the globalThis issue in development mode
+        if (req.method === 'POST' && parsedUrl.pathname === '/_internal/emit') {
+            let body = ''
+            req.on('data', chunk => { body += chunk })
+            req.on('end', () => {
+                try {
+                    const data = JSON.parse(body)
+                    const { event, room, payload, secret } = data
+
+                    // Simple secret check (in production, use proper authentication)
+                    if (secret !== process.env.INTERNAL_WS_SECRET && secret !== 'netmanager-ws-internal-2024') {
+                        res.writeHead(401, { 'Content-Type': 'application/json' })
+                        res.end(JSON.stringify({ error: 'Unauthorized' }))
+                        return
+                    }
+
+                    if (ioRef && event && room) {
+                        ioRef.to(room).emit(event, payload)
+                        console.log(`[WS Internal] Emitted ${event} to ${room}`)
+                        res.writeHead(200, { 'Content-Type': 'application/json' })
+                        res.end(JSON.stringify({ success: true }))
+                    } else {
+                        res.writeHead(400, { 'Content-Type': 'application/json' })
+                        res.end(JSON.stringify({ error: 'Missing required fields or io not ready' }))
+                    }
+                } catch (error) {
+                    console.error('[WS Internal] Error:', error)
+                    res.writeHead(500, { 'Content-Type': 'application/json' })
+                    res.end(JSON.stringify({ error: 'Internal error' }))
+                }
+            })
+            return
+        }
+
         handle(req, res, parsedUrl)
     })
 
@@ -36,6 +75,9 @@ app.prepare().then(() => {
         // Allow upgrades from polling to websocket
         allowUpgrades: true,
     })
+
+    // Set reference for internal emit endpoint
+    ioRef = io
 
     // Initialize WebSocket handlers
     initializeSocketServer(io)
