@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-helpers'
-import { prisma } from '@/lib/prisma'
+import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 
 /**
@@ -106,47 +106,14 @@ export async function GET(req: NextRequest) {
     try {
       const dbStart = Date.now()
 
-      // Build where clause
-      const where: any = {}
-      if (barangId) where.barangId = barangId
-      if (gudangId) where.gudangId = gudangId
+      const inventoryRepository = getInventoryRepository()
 
-      const [masukList, total] = await Promise.all([
-        prisma.barangMasuk.findMany({
-          where,
-          include: {
-            barang: {
-              select: {
-                id: true,
-                kode: true,
-                nama: true,
-                satuan: true
-              }
-            },
-            gudang: {
-              select: {
-                id: true,
-                kode: true,
-                nama: true
-              }
-            },
-            // Include user info
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
-          },
-          orderBy: {
-            tanggal: 'desc'
-          },
-          skip: offset,
-          take: limit
-        }),
-        prisma.barangMasuk.count({ where })
-      ])
+      const { items: masukList, total } = await inventoryRepository.getHistoryMasuk({
+        skip: offset,
+        take: limit,
+        barangId: barangId || undefined,
+        gudangId: gudangId || undefined
+      })
 
       logger.dbOperation('findMany', 'BarangMasuk+Relations', Date.now() - dbStart)
 
@@ -330,76 +297,45 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      const inventoryRepository = getInventoryRepository()
       const dbStart = Date.now()
-      const masukRecord = await prisma.$transaction(async (tx) => {
-        // Check if barang exists
-        const barang = await tx.barang.findUnique({
-          where: { id: barangId }
-        })
 
-        if (!barang) {
-          throw new Error('Barang tidak ditemukan')
-        }
-
-        // Check if gudang exists
-        const gudang = await tx.gudang.findUnique({
-          where: { id: gudangId, isActive: true }
-        })
-
-        if (!gudang) {
-          throw new Error('Gudang tidak ditemukan atau tidak aktif')
-        }
-
-        // Create stock-in record
-        const newMasukRecord = await tx.barangMasuk.create({
-          data: {
-            barangId,
-            gudangId,
-            jumlah: parsedJumlah,
-            kondisi: kondisi || 'BARU',
-            keterangan,
-            userId: session.user.id,
-            fotoBukti: fotoBukti || [],
-            fotoMetadata: fotoMetadata || null
-          }
-        })
-
-        // Update or create BarangGudang record
-        const existingStock = await tx.barangGudang.findUnique({
-          where: { barangId_gudangId: { barangId, gudangId } }
-        })
-
-        if (existingStock) {
-          // Update existing stock
-          await tx.barangGudang.update({
-            where: { barangId_gudangId: { barangId, gudangId } },
-            data: {
-              stok: existingStock.stok + parsedJumlah
-            }
-          })
-        } else {
-          // Create new stock record
-          await tx.barangGudang.create({
-            data: {
-              barangId,
-              gudangId,
-              stok: parsedJumlah
-            }
-          })
-        }
-
-        logger.dbOperation('transaction', 'BarangMasuk+BarangGudang', Date.now() - dbStart)
-
-        logger.apiRequest('POST', '/api/inventory/masuk', 201, Date.now() - startTime, {
-          userId: session.user.id,
-          barangId,
-          gudangId,
-          jumlah: parsedJumlah,
-          masukId: newMasukRecord.id,
-        })
-
-        return newMasukRecord
+      // Use repository to add stock
+      const masukRecord = await inventoryRepository.addStock({
+        barangId,
+        gudangId,
+        jumlah: parsedJumlah,
+        kondisi: kondisi || 'BARU',
+        keterangan,
+        userId: session.user.id,
+        fotoBukti: fotoBukti || [],
+        fotoMetadata: fotoMetadata || null,
+        tanggal: new Date()
       })
+
+      // Get updated stock level for WebSocket broadcast
+      // We do this separately as repository method handles the transaction internally
+      const finalStock = await inventoryRepository.getStockLevel(barangId, gudangId)
+
+      logger.dbOperation('transaction', 'BarangMasuk+BarangGudang', Date.now() - dbStart)
+
+      logger.apiRequest('POST', '/api/inventory/masuk', 201, Date.now() - startTime, {
+        userId: session.user.id,
+        barangId,
+        gudangId,
+        jumlah: parsedJumlah,
+        masukId: masukRecord.id,
+      })
+
+      // Broadcast inventory update
+      const { socketEmitter } = await import('@/lib/websocket/emitter');
+      socketEmitter.inventoryUpdate({
+        type: 'masuk',
+        barangId,
+        gudangId,
+        jumlah: parsedJumlah,
+        totalStok: finalStock
+      });
 
       return NextResponse.json(
         {

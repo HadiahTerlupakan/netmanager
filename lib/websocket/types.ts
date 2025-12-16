@@ -20,6 +20,9 @@ export const SOCKET_EVENTS = {
     WORKORDER_ASSIGNED: 'workorder:assigned',
     WORKORDER_ACTIVITY: 'workorder:activity', // Real-time Activity Timeline
 
+    // Inventory
+    INVENTORY_UPDATE: 'inventory:update',
+
     // Connection management
     JOIN_ROOM: 'join:room',
     LEAVE_ROOM: 'leave:room',

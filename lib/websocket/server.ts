@@ -61,6 +61,7 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
             socket.join('admin:notifications')
             socket.join('admin:tickets')
             socket.join('admin:workorders')
+            socket.join('admin:inventory')
         }
 
         // Handle dynamic room joining

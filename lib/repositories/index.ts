@@ -26,6 +26,8 @@ import { PengeluaranRepository } from './PengeluaranRepository'
 import type { IPengeluaranRepository } from './IPengeluaranRepository'
 import { PemasukanRepository } from './PemasukanRepository'
 import type { IPemasukanRepository } from './IPemasukanRepository'
+import { InventoryRepository } from './InventoryRepository'
+import type { IInventoryRepository } from './IInventoryRepository'
 
 let userRepositoryInstance: IUserRepository | null = null
 let oltRepositoryInstance: IOLTRepository | null = null
@@ -168,3 +170,14 @@ export { PengeluaranRepository } from './PengeluaranRepository'
 export type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateData, PengeluaranPublic } from './IPengeluaranRepository'
 export { PemasukanRepository } from './PemasukanRepository'
 export type { IPemasukanRepository, PemasukanCreateData, PemasukanUpdateData, PemasukanPublic } from './IPemasukanRepository'
+export { InventoryRepository } from './InventoryRepository'
+export type { IInventoryRepository, CreateBarangInput, UpdateBarangInput, CreateBarangMasukInput, CreateBarangKeluarInput, BarangWithStock } from './IInventoryRepository'
+
+let inventoryRepositoryInstance: IInventoryRepository | null = null
+
+export function getInventoryRepository(): IInventoryRepository {
+  if (!inventoryRepositoryInstance) {
+    inventoryRepositoryInstance = new InventoryRepository()
+  }
+  return inventoryRepositoryInstance
+}

@@ -234,6 +234,18 @@ export const socketEmitter = {
     },
 
     /**
+     * Emit inventory update event (broadcast to all admins)
+     */
+    inventoryUpdate(data: { type: 'masuk' | 'keluar', barangId: string, gudangId: string, jumlah: number, totalStok: number }) {
+        const io = getSocketServer()
+        if (io) {
+            // Broadcast to admin:inventory room
+            io.to('admin:inventory').emit(SOCKET_EVENTS.INVENTORY_UPDATE, data)
+            console.log(`[WS] Emitted inventory update to admin:inventory: ${data.type} ${data.jumlah} items`)
+        }
+    },
+
+    /**
      * Broadcast to all connected clients (use sparingly)
      */
     broadcast(event: string, data: unknown) {

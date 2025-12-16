@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, getCurrentSession } from '@/lib/auth-helpers'
-import { prisma } from '@/lib/prisma'
+import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 
 /**
@@ -157,41 +157,14 @@ export async function GET(req: NextRequest) {
     try {
       const dbStart = Date.now()
 
-      // Build where clause
-      const where: any = {}
+      const inventoryRepository = getInventoryRepository()
 
-      if (search) {
-        where.OR = [
-          { kode: { contains: search, mode: 'insensitive' } },
-          { nama: { contains: search, mode: 'insensitive' } }
-        ]
-      }
-
-      const [barangs, total] = await Promise.all([
-        prisma.barang.findMany({
-          where,
-          orderBy: {
-            createdAt: 'desc'
-          },
-          skip: offset,
-          take: limit,
-          include: {
-            // Get ALL stocks for total calculation
-            stok: {
-              include: {
-                gudang: {
-                  select: {
-                    id: true,
-                    kode: true,
-                    nama: true
-                  }
-                }
-              }
-            }
-          }
-        }),
-        prisma.barang.count({ where })
-      ])
+      const { items: barangs, total } = await inventoryRepository.findAllBarang({
+        skip: offset,
+        take: limit,
+        search: search || undefined,
+        gudangId: gudangId || undefined
+      })
 
       // Calculate total stock per item and filter by gudang if needed
       const barangsWithStock = barangs.map(barang => {
@@ -290,6 +263,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const dbStart = Date.now()
+      const inventoryRepository = getInventoryRepository()
 
       // Generate unique kode
       let kode: string
@@ -298,9 +272,7 @@ export async function POST(req: NextRequest) {
 
       do {
         kode = await generateBarangCode()
-        const existingBarang = await prisma.barang.findUnique({
-          where: { kode }
-        })
+        const existingBarang = await inventoryRepository.findBarangByKode(kode)
 
         if (!existingBarang) break
         attempts++
@@ -310,12 +282,10 @@ export async function POST(req: NextRequest) {
         throw new Error('Gagal generate kode unik')
       }
 
-      const barang = await prisma.barang.create({
-        data: {
-          kode,
-          nama,
-          satuan
-        }
+      const barang = await inventoryRepository.createBarang({
+        kode,
+        nama,
+        satuan
       })
 
       logger.dbOperation('create', 'Barang', Date.now() - dbStart)

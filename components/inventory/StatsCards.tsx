@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSocketEvent } from '@/hooks/useSocket'
 
 interface StatsData {
   totalBarang: number
@@ -18,42 +19,48 @@ export function StatsCards() {
   })
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const response = await fetch('/api/inventory/barang?limit=1')
-        const data = await response.json()
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/inventory/barang?limit=1')
+      const data = await response.json()
 
-        // Get gudang count
-        const gudangResponse = await fetch('/api/inventory/gudang')
-        const gudangData = await gudangResponse.json()
+      // Get gudang count
+      const gudangResponse = await fetch('/api/inventory/gudang')
+      const gudangData = await gudangResponse.json()
 
-        // Calculate stats
-        const totalBarang = data.pagination?.total || 0
-        const totalStok = data.barangs?.reduce((sum: number, item: any) => sum + (item.totalStock || 0), 0)
-        const totalGudang = gudangData.gudangs?.length || 0
+      // Calculate stats
+      const totalBarang = data.pagination?.total || 0
+      const totalStok = data.barangs?.reduce((sum: number, item: any) => sum + (item.totalStock || 0), 0)
+      const totalGudang = gudangData.gudangs?.length || 0
 
-        // Get low stock items (stok < 5)
-        const lowStockResponse = await fetch('/api/inventory/barang?limit=100')
-        const lowStockData = await lowStockResponse.json()
-        const lowStock = lowStockData.barangs?.filter((item: any) => {
-          const minStock = Math.min(...(item.stockPerGudang?.map((s: any) => s.stok) || [Infinity]))
-          return minStock < 5
-        }).length || 0
+      // Get low stock items (stok < 5)
+      const lowStockResponse = await fetch('/api/inventory/barang?limit=100')
+      const lowStockData = await lowStockResponse.json()
+      const lowStock = lowStockData.barangs?.filter((item: any) => {
+        const minStock = Math.min(...(item.stockPerGudang?.map((s: any) => s.stok) || [Infinity]))
+        return minStock < 5
+      }).length || 0
 
-        setStats({
-          totalBarang,
-          totalStok,
-          totalGudang,
-          lowStock
-        })
-      } catch (error) {
-        console.error('Failed to fetch inventory stats:', error)
-      } finally {
-        setLoading(false)
-      }
+      setStats({
+        totalBarang,
+        totalStok,
+        totalGudang,
+        lowStock
+      })
+    } catch (error) {
+      console.error('Failed to fetch inventory stats:', error)
+    } finally {
+      setLoading(false)
     }
+  }
 
+  // Listen for inventory updates
+  useSocketEvent('inventory:update', () => {
+    console.log('[Inventory] Stats received update, refreshing...')
+    fetchStats()
+  })
+
+  useEffect(() => {
     fetchStats()
   }, [])
 

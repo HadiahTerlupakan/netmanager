@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { authConfig } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 
 async function requireAdmin() {
@@ -25,68 +25,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-        const { id } = await params
-        try {
+    const { id } = await params
+    const inventoryRepository = getInventoryRepository()
+
+    try {
       const dbStart = Date.now()
 
-      const barang = await prisma.barang.findUnique({
-        where: { id },
-        include: {
-          stok: {
-            include: {
-              gudang: {
-                select: {
-                  id: true,
-                  kode: true,
-                  nama: true
-                }
-              }
-            }
-          },
-          masuk: {
-            include: {
-              gudang: {
-                select: {
-                  kode: true,
-                  nama: true
-                }
-              }
-            },
-            orderBy: {
-              tanggal: 'desc'
-            },
-            take: 10
-          },
-          keluar: {
-            include: {
-              gudang: {
-                select: {
-                  kode: true,
-                  nama: true
-                }
-              }
-            },
-            orderBy: {
-              tanggal: 'desc'
-            },
-            take: 10
-          },
-          opname: {
-            include: {
-              gudang: {
-                select: {
-                  kode: true,
-                  nama: true
-                }
-              }
-            },
-            orderBy: {
-              tanggal: 'desc'
-            },
-            take: 10
-          }
-        }
-      })
+      const barang = await inventoryRepository.findBarangDetail(id)
 
       if (!barang) {
         return NextResponse.json(
@@ -98,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       // Calculate total stock
       let totalStock = 0
       if (barang.stok) {
-        totalStock = barang.stok.reduce((sum, stock) => sum + stock.stok, 0)
+        totalStock = barang.stok.reduce((sum: number, stock: any) => sum + stock.stok, 0)
       }
 
       const barangWithStats = {
@@ -155,13 +100,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       )
     }
 
+    const inventoryRepository = getInventoryRepository()
+
     try {
       const dbStart = Date.now()
 
       // Check if barang exists
-      const existingBarang = await prisma.barang.findUnique({
-        where: { id }
-      })
+      const existingBarang = await inventoryRepository.findBarangById(id)
 
       if (!existingBarang) {
         return NextResponse.json(
@@ -171,27 +116,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
 
       // Check if kode conflicts with another barang
-      const kodeConflict = await prisma.barang.findFirst({
-        where: {
-          kode,
-          id: { not: id }
-        }
-      })
+      const kodeConflict = await inventoryRepository.findBarangByKode(kode)
 
-      if (kodeConflict) {
+      if (kodeConflict && kodeConflict.id !== id) {
         return NextResponse.json(
           { error: 'Kode barang sudah digunakan' },
           { status: 400 }
         )
       }
 
-      const updatedBarang = await prisma.barang.update({
-        where: { id },
-        data: {
-          kode,
-          nama,
-          satuan
-        }
+      const updatedBarang = await inventoryRepository.updateBarang(id, {
+        kode,
+        nama,
+        satuan
       })
 
       logger.dbOperation('update', 'Barang', Date.now() - dbStart)
@@ -231,14 +168,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-        const { id } = await params
-        try {
+    const { id } = await params
+    const inventoryRepository = getInventoryRepository()
+
+    try {
       const dbStart = Date.now()
 
       // Check if barang exists
-      const existingBarang = await prisma.barang.findUnique({
-        where: { id }
-      })
+      const existingBarang = await inventoryRepository.findBarangById(id)
 
       if (!existingBarang) {
         return NextResponse.json(
@@ -247,30 +184,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         )
       }
 
-      // Use transaction to safely delete barang and all related records
-      await prisma.$transaction(async (tx) => {
-        // Delete all related records in correct order
-        await tx.barangMasuk.deleteMany({
-          where: { barangId: id }
-        })
-
-        await tx.barangKeluar.deleteMany({
-          where: { barangId: id }
-        })
-
-        await tx.stockOpname.deleteMany({
-          where: { barangId: id }
-        })
-
-        await tx.barangGudang.deleteMany({
-          where: { barangId: id }
-        })
-
-        // Finally delete the barang
-        await tx.barang.delete({
-          where: { id }
-        })
-      })
+      // Safe delete via repository
+      await inventoryRepository.deleteBarang(id)
 
       logger.dbOperation('delete', 'Barang', Date.now() - dbStart)
 

@@ -20,6 +20,8 @@ interface Barang {
   updatedAt: string
 }
 
+import { useSocketEvent } from '@/hooks/useSocket'
+
 export function BarangTable() {
   const [barangs, setBarangs] = useState<Barang[]>([])
   const [loading, setLoading] = useState(true)
@@ -33,6 +35,11 @@ export function BarangTable() {
     limit: 10,
     total: 0,
     totalPages: 0
+  })
+
+  // Listen for inventory updates
+  useSocketEvent('inventory:update', () => {
+    fetchBarangs()
   })
 
   // Fetch gudangs for filter
@@ -51,36 +58,36 @@ export function BarangTable() {
   }, [])
 
   // Fetch barang data
-  useEffect(() => {
-    async function fetchBarangs() {
-      setLoading(true)
-      setError(null)
+  const fetchBarangs = async () => {
+    setLoading(true)
+    setError(null)
 
-      try {
-        const params = new URLSearchParams({
-          page: page.toString(),
-          limit: '10',
-          ...(search && { search }),
-          ...(gudangId && { gudangId })
-        })
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10',
+        ...(search && { search }),
+        ...(gudangId && { gudangId })
+      })
 
-        const response = await fetch(`/api/inventory/barang?${params}`)
-        const data = await response.json()
+      const response = await fetch(`/api/inventory/barang?${params}`)
+      const data = await response.json()
 
-        if (!response.ok) {
-          throw new Error(data.error || 'Gagal memuat data')
-        }
-
-        setBarangs(data.barangs || [])
-        setPagination(data.pagination || pagination)
-      } catch (error) {
-        console.error('Failed to fetch barang:', error)
-        setError(error instanceof Error ? error.message : 'Gagal memuat data')
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        throw new Error(data.error || 'Gagal memuat data')
       }
-    }
 
+      setBarangs(data.barangs || [])
+      setPagination(data.pagination || pagination)
+    } catch (error) {
+      console.error('Failed to fetch barang:', error)
+      setError(error instanceof Error ? error.message : 'Gagal memuat data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchBarangs()
   }, [search, gudangId, page])
 
@@ -216,10 +223,10 @@ export function BarangTable() {
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-center">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${barang.totalStock === 0
-                        ? 'bg-red-100 text-red-800'
-                        : barang.totalStock < 5
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-green-100 text-green-800'
+                      ? 'bg-red-100 text-red-800'
+                      : barang.totalStock < 5
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-green-100 text-green-800'
                       }`}>
                       {barang.totalStock}
                     </span>
@@ -241,10 +248,10 @@ export function BarangTable() {
                               </span>
                               <span
                                 className={`px-1.5 py-0.5 text-xs rounded ${stock.stok === 0
-                                    ? 'bg-red-100 text-red-800'
-                                    : stock.stok < 5
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : 'bg-green-100 text-green-800'
+                                  ? 'bg-red-100 text-red-800'
+                                  : stock.stok < 5
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-green-100 text-green-800'
                                   }`}
                               >
                                 {stock.stok}
