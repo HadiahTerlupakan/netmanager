@@ -235,6 +235,21 @@ export async function POST(request: NextRequest) {
             assignedToId: workOrder.assignedToId,
         });
 
+        // Broadcast new WO event for dashboards
+        const { socketEmitter } = await import('@/lib/websocket/emitter');
+        socketEmitter.newWorkOrder({
+            id: workOrder.id,
+            workOrderNumber: workOrder.workOrderNumber,
+            title: workOrder.title,
+            status: workOrder.status,
+            priority: workOrder.priority,
+            departmentId: workOrder.departmentId || undefined,
+            department: workOrder.departmentId ? { id: workOrder.departmentId, name: '' } : undefined,
+            assignedToId: workOrder.assignedToId || undefined,
+            assignedTo: workOrder.assignedToId ? { id: workOrder.assignedToId, name: '' } : undefined,
+            createdAt: workOrder.createdAt.toISOString()
+        }, workOrder.departmentId || undefined);
+
         // Link to Ticket and Auto-Reply if ticketId is present
         if (ticketId) {
             try {

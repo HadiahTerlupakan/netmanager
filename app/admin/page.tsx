@@ -1,6 +1,8 @@
 import { getUserRepository, getMikroTikRouterRepository } from '@/lib/repositories'
 import { HiOutlineUsers } from 'react-icons/hi2'
 import { HiOutlineServer } from 'react-icons/hi2'
+import { DashboardSocketUpdate } from '@/components/dashboard/DashboardSocketUpdate'
+
 
 // Force dynamic rendering to avoid database queries during build
 export const dynamic = 'force-dynamic'
@@ -14,6 +16,7 @@ export default async function AdminHome() {
 
   return (
     <div className="space-y-6">
+      <DashboardSocketUpdate />
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white">Selamat Datang</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Overview sistem dan statistik pengguna</p>

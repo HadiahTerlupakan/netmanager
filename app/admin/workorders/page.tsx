@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { HiClipboardDocumentList, HiClock, HiCheckCircle, HiWrenchScrewdriver, HiChevronRight, HiExclamationCircle, HiUserGroup, HiChartBar, HiBuildingOffice2, HiArchiveBoxArrowDown } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import { useSocketEvent } from '@/hooks/useSocket'
 
 type Statistics = { total: number; pending: number; assigned: number; inProgress: number; onHold: number; completed: number; verified: number; closed: number; cancelled: number; urgentOpen: number; avgCompletionTimeHours: number; totalCost: number; avgRating: number | null; totalWithRating: number }
 type WorkOrder = { id: string; workOrderNumber: string; title: string; status: string; priority: string; type: string; contactName?: string | null; pelanggan?: { nama: string } | null; assignedTo: { name: string } | null; department: { name: string } | null; createdAt: string }
@@ -40,7 +41,20 @@ export default function WorkOrderDashboard() {
         }
     }, [performancePeriod, session, status])
 
+    // Real-time updates
+    const handleUpdate = () => {
+        if (session?.user && status === 'authenticated') {
+            fetchDashboardData()
+            fetchDetailedStats()
+        }
+    }
+
+    useSocketEvent('workorder:new', handleUpdate)
+    useSocketEvent('workorder:update', handleUpdate)
+    useSocketEvent('workorder:assigned', handleUpdate)
+
     const fetchDashboardData = async () => {
+
         try {
             const [statsRes, recentRes, workloadRes] = await Promise.all([
                 fetch('/api/admin/workorders/stats'),

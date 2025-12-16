@@ -73,7 +73,12 @@ export interface WorkOrderPayload {
     status: string
     priority: string
     assignedToId?: string
+    departmentId?: string
+    department?: { id: string; name: string }
+    assignedTo?: { id: string; name: string }
+    createdAt?: string
 }
+
 
 // Work order activity payload for real-time Activity Timeline
 export interface WorkOrderActivityPayload {
