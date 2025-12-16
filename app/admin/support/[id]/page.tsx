@@ -17,6 +17,13 @@ import {
     HiCheck,
     HiPaperClip,
 } from 'react-icons/hi2'
+import {
+    MdChat,
+    MdSend,
+    MdMoreVert,
+    MdCheckCircle as MdCheckCircleOutline, // Renamed to avoid conflict with HiCheckCircle
+    MdAssignment
+} from 'react-icons/md'
 import { formatDistanceToNow, format } from 'date-fns'
 import { id } from 'date-fns/locale'
 
@@ -546,12 +553,22 @@ export default function TicketDetailPage() {
                             >
                                 Lihat Profil Pelanggan
                             </Link>
-                            <Link
-                                href={`/admin/workorders/new?pelangganId=${ticket.pelanggan.id}`}
-                                className="block w-full px-4 py-2 text-sm text-center bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                            <button
+                                onClick={() => {
+                                    const params = new URLSearchParams({
+                                        ticketId: ticket.id,
+                                        pelangganId: ticket.pelanggan.id,
+                                        title: `[TIKET-${ticket.ticketNumber}] ${ticket.subject}`,
+                                        description: ticket.description,
+                                        priority: ticket.priority,
+                                    })
+                                    router.push(`/admin/workorders/new?${params.toString()}`)
+                                }}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors border border-indigo-200 dark:border-indigo-800"
                             >
+                                <MdAssignment className="text-xl" />
                                 Buat Work Order
-                            </Link>
+                            </button>
                             {/* Send Closing Message Button */}
                             {status !== 'CLOSED' && (
                                 <button

@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/lib/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
 import { onWorkOrderCreated } from '@/lib/services/WorkOrderNotifications';
+import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -207,8 +209,17 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Include ticketId in Work Order data
+        const { ticketId, ...restBody } = body;
+
+        // Pass everything to repo including ticketId (now supported by type and schema)
+        const workOrderData = {
+            ...restBody,
+            ticketId: ticketId
+        };
+
         const workOrder = await workOrderRepo.create({
-            ...body,
+            ...workOrderData,
             createdById: user.id,
         });
 
@@ -223,6 +234,43 @@ export async function POST(request: NextRequest) {
             departmentId: workOrder.departmentId,
             assignedToId: workOrder.assignedToId,
         });
+
+        // Link to Ticket and Auto-Reply if ticketId is present
+        if (ticketId) {
+            try {
+                const scheduledTime = workOrder.scheduledDate
+                    ? format(new Date(workOrder.scheduledDate), 'dd MMMM yyyy HH:mm', { locale: id })
+                    : 'Belum Dijadwalkan';
+
+                const replyMessage = `Work Order #${workOrder.workOrderNumber} telah dibuat untuk tiket ini.\n\n` +
+                    `Judul: ${workOrder.title}\n` +
+                    `Tipe: ${workOrder.type}\n` +
+                    `Jadwal: ${scheduledTime}`;
+
+                await prisma.ticketReply.create({
+                    data: {
+                        ticketId: ticketId,
+                        message: replyMessage,
+                        isFromAdmin: true,
+                        senderId: user.id, // Support Admin who created the WO
+                    }
+                });
+
+                // Update Ticket Status to IN_PROGRESS
+                await prisma.supportTicket.update({
+                    where: { id: ticketId },
+                    data: {
+                        status: 'IN_PROGRESS',
+                        // Optional: Assign ticket to WO creator if assignedToId is not strict
+                    }
+                });
+
+                console.log(`Auto-replied to ticket ${ticketId} for Work Order ${workOrder.workOrderNumber}`);
+            } catch (ticketError) {
+                console.error('Error sending auto-reply to ticket:', ticketError);
+                // Non-blocking error
+            }
+        }
 
         return NextResponse.json({
             success: true,

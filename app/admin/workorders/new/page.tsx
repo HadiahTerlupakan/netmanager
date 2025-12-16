@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { HiArrowLeft, HiSparkles, HiBolt, HiUserCircle, HiMagnifyingGlass, HiMapPin, HiWifi, HiClock, HiArchiveBoxArrowDown, HiPlusCircle } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
@@ -41,9 +41,11 @@ export default function NewWorkOrderPage() {
     const [searchingPelanggan, setSearchingPelanggan] = useState(false)
     const [pelangganList, setPelangganList] = useState<Pelanggan[]>([])
     const [searchQuery, setSearchQuery] = useState('')
+    const searchParams = useSearchParams()
 
     // Form states
     const [formData, setFormData] = useState({
+        ticketId: '',
         pelangganId: '',
         pelangganDisplay: '',
         siteId: '',
@@ -68,6 +70,60 @@ export default function NewWorkOrderPage() {
             fetchDepartments()
         }
     }, [status, router])
+
+    // Handle URL params for Ticket integration
+    useEffect(() => {
+        const ticketId = searchParams.get('ticketId')
+
+        if (ticketId) {
+            setLoading(true)
+            fetch(`/api/admin/support-tickets/${ticketId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.ticket) {
+                        const ticket = data.ticket
+
+                        setFormData(prev => ({
+                            ...prev,
+                            ticketId: ticket.id,
+                            title: ticket.title || '',
+                            description: ticket.description || '',
+                            priority: ticket.priority || 'NORMAL',
+                        }))
+
+                        if (ticket.pelanggan) {
+                            const p = ticket.pelanggan
+                            const customerData: Pelanggan = {
+                                id: p.id,
+                                idPelanggan: p.idPelanggan,
+                                nama: p.nama,
+                                alamat: p.alamat || '', // Handle null alamat
+                                noTelp: p.noTelp || '' // Handle null noTelp
+                            }
+
+                            // Directly populate customer data and switch mode
+                            selectPelanggan(customerData)
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error("Error fetching ticket details:", err)
+                    // Fallback to URL params if fetch fails
+                    const title = searchParams.get('title')
+                    const description = searchParams.get('description')
+                    const priority = searchParams.get('priority')
+
+                    setFormData(prev => ({
+                        ...prev,
+                        ticketId: ticketId || '',
+                        title: title || '',
+                        description: description || '',
+                        priority: priority || 'NORMAL',
+                    }))
+                })
+                .finally(() => setLoading(false))
+        }
+    }, [searchParams])
 
     const fetchSites = async () => {
         try {
@@ -122,14 +178,14 @@ export default function NewWorkOrderPage() {
     }
 
     const selectPelanggan = (p: Pelanggan) => {
-        setFormData({
-            ...formData,
+        setFormData(prev => ({
+            ...prev,
             pelangganId: p.id,
             pelangganDisplay: `${p.nama} (${p.idPelanggan})`,
             contactName: p.nama,
             contactPhone: p.noTelp || '',
             locationAddress: p.alamat || ''
-        })
+        }))
         setSearchQuery('')
         setPelangganList([])
         setIsGuest(false) // Switch to linked mode
@@ -223,6 +279,7 @@ export default function NewWorkOrderPage() {
 
         // Prepare payload
         const payload = {
+            ticketId: formData.ticketId || undefined, // Include ticketId
             pelangganId: isGuest ? null : formData.pelangganId,
             siteId: formData.siteId || undefined,
             departmentId: formData.departmentId || undefined,

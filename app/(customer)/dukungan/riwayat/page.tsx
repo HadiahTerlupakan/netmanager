@@ -75,7 +75,7 @@ export default function TicketHistoryPage() {
             case 'OPEN': return 'Menunggu'
             case 'IN_PROGRESS': return 'Diproses'
             case 'WAITING_CUSTOMER': return 'Perlu Balasan'
-            case 'RESOLVED': return 'Selesai'
+            case 'RESOLVED': return 'Selesai Dikerjakan'
             case 'CLOSED': return 'Ditutup'
             default: return status
         }

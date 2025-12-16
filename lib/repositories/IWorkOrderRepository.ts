@@ -62,6 +62,7 @@ export interface CreateWorkOrderData {
     internalNotes?: string;
     disconnectionReason?: string;
     createdById?: string;
+    ticketId?: string;
 }
 
 export interface UpdateWorkOrderData {

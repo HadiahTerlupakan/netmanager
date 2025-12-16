@@ -11,6 +11,7 @@ import type {
     WorkOrderFilters,
     WorkOrderStatistics,
 } from './IWorkOrderRepository';
+import { syncWoStatusToTicket } from '@/lib/services/WorkOrderSyncService';
 
 export class WorkOrderRepository implements IWorkOrderRepository {
     constructor(private prisma: PrismaClient) { }
@@ -355,7 +356,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             createdById: userId,
         });
 
-        return this.update(id, updateData);
+        const updatedWo = await this.update(id, updateData);
+
+        // Sync to Ticket
+        await syncWoStatusToTicket(id, status);
+
+        return updatedWo;
     }
 
     async start(id: string, userId?: string): Promise<WorkOrder> {

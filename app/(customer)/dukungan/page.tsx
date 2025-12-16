@@ -125,9 +125,9 @@ export default function CustomerSupportPage() {
     const getStatusLabel = (status: string) => {
         switch (status) {
             case 'OPEN': return 'Baru'
-            case 'IN_PROGRESS': return 'Diproses'
+            case 'IN_PROGRESS': return 'Sedang Dikerjakan'
             case 'WAITING_CUSTOMER': return 'Menunggu Anda'
-            case 'RESOLVED': return 'Selesai'
+            case 'RESOLVED': return 'Selesai Dikerjakan'
             case 'CLOSED': return 'Ditutup'
             default: return status
         }
@@ -205,7 +205,9 @@ export default function CustomerSupportPage() {
                                         <span className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">#{latestTicket.ticketNumber}</span>
                                         <h4 className="text-base font-bold leading-snug text-slate-900 dark:text-white line-clamp-1">{latestTicket.subject}</h4>
                                         <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
-                                            Update: {formatDistanceToNow(new Date(latestTicket.updatedAt), { addSuffix: true, locale: id })}
+                                            Update: {latestTicket.updatedAt && !isNaN(new Date(latestTicket.updatedAt).getTime())
+                                                ? formatDistanceToNow(new Date(latestTicket.updatedAt), { addSuffix: true, locale: id })
+                                                : '-'}
                                         </p>
                                     </div>
                                 </div>

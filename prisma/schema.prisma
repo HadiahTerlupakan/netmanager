@@ -1080,6 +1080,8 @@ model WorkOrder {
   site                Site?                 @relation(fields: [siteId], references: [id])
   template            WorkOrderTemplate?    @relation(fields: [templateId], references: [id])
   sla                 SLA?                  @relation(fields: [slaId], references: [id])
+  ticketId            String?
+  ticket              SupportTicket?        @relation(fields: [ticketId], references: [id])
 
   @@index([pelangganId])
   @@index([siteId])
@@ -1092,6 +1094,7 @@ model WorkOrder {
   @@index([workOrderNumber])
   @@index([templateId])
   @@index([slaId])
+  @@index([ticketId])
   @@map("work_orders")
 }
 
@@ -1959,6 +1962,7 @@ model SupportTicket {
   pelanggan     Pelanggan       @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
   assignedTo    User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
   replies       TicketReply[]
+  workOrders    WorkOrder[]
 
   @@index([pelangganId])
   @@index([status])

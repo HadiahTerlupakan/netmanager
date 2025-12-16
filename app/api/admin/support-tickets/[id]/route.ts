@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 import { TicketStatus } from '@prisma/client'
+import { closeWoOnTicketClose } from '@/lib/services/WorkOrderSyncService'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -152,6 +153,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                 },
             },
         })
+
+        // Handle closing logic side effects
+        if (status === TicketStatus.CLOSED) {
+            // 1. Send closing note if exists
+            const { closingNote } = body
+            if (closingNote) {
+                await prisma.ticketReply.create({
+                    data: {
+                        ticketId: id,
+                        message: closingNote,
+                        isFromAdmin: true,
+                        senderId: user.id
+                    }
+                })
+            }
+
+            // 2. Auto-close related Work Orders
+            await closeWoOnTicketClose(id)
+        }
 
         return NextResponse.json({
             success: true,

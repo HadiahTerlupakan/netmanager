@@ -30,7 +30,7 @@ interface WorkOrder {
         idPelanggan: string
     } | null
     assignedTo?: {
-        fullName: string
+        name: string
     } | null
     department?: {
         name: string
@@ -427,7 +427,7 @@ export default function WorkOrderListPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-900">
-                                            {wo.assignedTo ? wo.assignedTo.fullName : (
+                                            {wo.assignedTo ? wo.assignedTo.name : (
                                                 <span className="text-gray-400">Unassigned</span>
                                             )}
                                         </td>

@@ -53,7 +53,7 @@ interface WorkOrderDetail {
     } | null
     assignedTo?: {
         id: string
-        fullName: string
+        name: string
     } | null
     department?: {
         name: string
@@ -82,7 +82,7 @@ interface WorkOrderDetail {
         caption: string | null
         uploadedAt: string
         uploadedBy?: {
-            fullName: string
+            name: string
         } | null
     }>
 }
@@ -637,7 +637,7 @@ export default function WorkOrderDetailPage() {
                                                     </>
                                                 ) : (
                                                     <>
-                                                        {(item.data as any).uploadedBy && `${(item.data as any).uploadedBy.fullName} · `}
+                                                        {(item.data as any).uploadedBy && `${(item.data as any).uploadedBy.name} · `}
                                                         {format(item.date, 'dd MMM yyyy HH:mm', { locale: localeId })}
                                                     </>
                                                 )}
@@ -702,7 +702,7 @@ export default function WorkOrderDetailPage() {
                             <div className="text-sm">
                                 <p className="text-gray-600">Assigned to:</p>
                                 <p className="font-medium text-gray-900">
-                                    {workOrder.assignedTo.fullName}
+                                    {workOrder.assignedTo.name}
                                 </p>
                             </div>
                         ) : (

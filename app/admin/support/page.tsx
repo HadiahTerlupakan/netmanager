@@ -134,7 +134,7 @@ export default function SupportTicketsPage() {
             case 'OPEN': return 'Baru'
             case 'IN_PROGRESS': return 'Dalam Proses'
             case 'WAITING_CUSTOMER': return 'Menunggu Pelanggan'
-            case 'RESOLVED': return 'Selesai'
+            case 'RESOLVED': return 'Selesai Dikerjakan'
             case 'CLOSED': return 'Ditutup'
             default: return status
         }
