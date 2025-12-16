@@ -33,10 +33,12 @@ export default function WorkOrderSelesaiPage() {
         for (const photo of photos) {
             const formData = new FormData()
             formData.append('file', photo)
-            formData.append('folder', 'work-order-completion')
+            formData.append('type', 'workorder-completion')
+            // Optional: group by work order ID
+            formData.append('workOrderId', id)
 
             try {
-                const res = await fetch('/api/inventory/upload-photo', {
+                const res = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData
                 })

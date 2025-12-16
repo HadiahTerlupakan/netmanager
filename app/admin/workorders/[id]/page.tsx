@@ -62,6 +62,7 @@ interface WorkOrderDetail {
     contactPhone: string | null
     estimatedHours: number | null
     actualHours: number | null
+    resolutionNotes: string | null
     createdAt: string
     startedAt: string | null
     completedAt: string | null
@@ -734,6 +735,56 @@ export default function WorkOrderDetailPage() {
                             )}
                         </div>
                     </div>
+
+                    {/* Completion Report - Only Show if Completed */}
+                    {(workOrder.status === 'COMPLETED' || workOrder.status === 'VERIFIED' || workOrder.status === 'CLOSED') && (
+                        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-emerald-500">
+                            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <HiCheckCircle className="w-5 h-5 text-emerald-600" />
+                                Laporan Penyelesaian
+                            </h3>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-700 mb-1">Catatan Penyelesaian</h4>
+                                    <div className="bg-emerald-50 rounded-lg p-3 text-sm text-gray-800">
+                                        {workOrder.resolutionNotes || <span className="text-gray-400 italic">Tidak ada catatan</span>}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-700 mb-2">Foto Dokumentasi ({completionAttachments.length})</h4>
+                                    {completionAttachments.length > 0 ? (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {completionAttachments.map((att) => (
+                                                <a
+                                                    key={att.id}
+                                                    href={att.filePath}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="block group relative aspect-square"
+                                                >
+                                                    <img
+                                                        src={att.filePath}
+                                                        alt="Bukti Selesai"
+                                                        className="w-full h-full object-cover rounded-lg border border-gray-200 group-hover:border-emerald-500 transition-colors"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg" />
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-gray-500 italic">Tidak ada foto dokumentasi</p>
+                                    )}
+                                </div>
+
+                                <div className="pt-2 border-t border-gray-100 flex justify-between text-xs text-gray-500">
+                                    <span>Diselesaikan oleh: {workOrder.assignedTo?.name}</span>
+                                    <span>{workOrder.completedAt ? format(new Date(workOrder.completedAt), 'dd MMM HH:mm', { locale: localeId }) : '-'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Assignment */}
                     <div className="bg-white rounded-lg shadow p-6">

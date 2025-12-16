@@ -74,8 +74,9 @@ export async function POST(
                         workOrderId: id,
                         fileName: url.split('/').pop() || 'photo.jpg',
                         filePath: url,
-                        fileSize: 0,
-                        fileType: 'image/jpeg',
+                        fileSize: 0, // Should be calculated or passed
+                        fileType: 'image/jpeg', // Defaulting to jpeg for now since type is lost
+                        caption: '[COMPLETION] Bukti Penyelesaian',
                         uploadedById: session.user.id
                     }
                 })
