@@ -1,6 +1,8 @@
 import { sendPushNotifications, type PushPayload } from './PushNotificationService';
 import { prisma } from '@/lib/prisma';
 import type { PushSubscription } from '@prisma/client';
+import { socketEmitter } from '@/lib/websocket/emitter';
+
 
 export type NotificationType = 'WORK_ORDER' | 'SYSTEM' | 'TICKET' | 'ALERT';
 export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
@@ -28,10 +30,10 @@ export interface WorkOrderNotificationData {
 }
 
 /**
- * Create a notification in the database
+ * Create a notification in the database and emit WebSocket event
  */
 export async function createNotification(data: CreateNotificationData) {
-    return prisma.notification.create({
+    const notification = await prisma.notification.create({
         data: {
             type: data.type,
             priority: data.priority || 'NORMAL',
@@ -44,7 +46,36 @@ export async function createNotification(data: CreateNotificationData) {
             sourceId: data.sourceId,
         },
     });
+
+    // Prepare WebSocket payload
+    const wsPayload = {
+        id: notification.id,
+        type: notification.type,
+        priority: notification.priority,
+        title: notification.title,
+        message: notification.message,
+        link: notification.link || undefined,
+        createdAt: notification.createdAt.toISOString(),
+    };
+
+    // Emit WebSocket event to specific user
+    if (data.userId) {
+        socketEmitter.notifyUser(data.userId, wsPayload);
+    }
+
+    // Emit to department if specified
+    if (data.departmentId) {
+        socketEmitter.notifyDepartment(data.departmentId, wsPayload);
+    }
+
+    // Also notify admins for important notifications
+    if (data.priority === 'HIGH' || data.priority === 'URGENT' || data.type === 'ALERT') {
+        socketEmitter.notifyAdmins(wsPayload);
+    }
+
+    return notification;
 }
+
 
 /**
  * Send push notification to a user

@@ -1,80 +1,24 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { HiOutlineBell, HiCheck, HiXMark, HiOutlineWrench, HiOutlineExclamationTriangle, HiOutlineInformationCircle } from 'react-icons/hi2'
+import { HiOutlineBell, HiCheck, HiOutlineWrench, HiOutlineExclamationTriangle, HiOutlineInformationCircle } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
-
-interface Notification {
-    id: string
-    type: string
-    priority: string
-    title: string
-    message: string
-    link?: string
-    isRead: boolean
-    createdAt: string
-}
+import { useRealtimeNotifications } from '@/lib/websocket/hooks/useRealtimeNotifications'
 
 export function AdminNotificationBell() {
-    const [unreadCount, setUnreadCount] = useState(0)
-    const [notifications, setNotifications] = useState<Notification[]>([])
+    const {
+        notifications,
+        unreadCount,
+        loading,
+        isConnected,
+        markAsRead,
+        markAllAsRead,
+    } = useRealtimeNotifications({ limit: 5 })
+
     const [isOpen, setIsOpen] = useState(false)
-    const [loading, setLoading] = useState(true)
     const dropdownRef = useRef<HTMLDivElement>(null)
-
-    const loadNotifications = useCallback(async () => {
-        try {
-            const [countRes, listRes] = await Promise.all([
-                fetch('/api/notifications/unread-count'),
-                fetch('/api/notifications?limit=5')
-            ])
-
-            if (countRes.ok) {
-                const countData = await countRes.json()
-                setUnreadCount(countData.count || 0)
-            }
-
-            if (listRes.ok) {
-                const listData = await listRes.json()
-                setNotifications(listData.notifications || [])
-            }
-        } catch (error) {
-            console.error('Error loading notifications:', error)
-        } finally {
-            setLoading(false)
-        }
-    }, [])
-
-    // Mark notification as read
-    const markAsRead = async (notificationId: string) => {
-        try {
-            await fetch(`/api/notifications/${notificationId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isRead: true })
-            })
-            // Refresh notifications
-            loadNotifications()
-        } catch (error) {
-            console.error('Error marking notification as read:', error)
-        }
-    }
-
-    // Mark all as read
-    const markAllAsRead = async () => {
-        try {
-            await fetch('/api/notifications', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ markAllRead: true })
-            })
-            loadNotifications()
-        } catch (error) {
-            console.error('Error marking all as read:', error)
-        }
-    }
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -86,13 +30,6 @@ export function AdminNotificationBell() {
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
-
-    // Load and poll notifications
-    useEffect(() => {
-        loadNotifications()
-        const interval = setInterval(loadNotifications, 30000)
-        return () => clearInterval(interval)
-    }, [loadNotifications])
 
     const getTypeIcon = (type: string) => {
         switch (type) {
@@ -131,6 +68,10 @@ export function AdminNotificationBell() {
                         {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                 )}
+                {/* WebSocket connection indicator */}
+                {isConnected && (
+                    <span className="absolute bottom-1 right-1 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" title="Real-time connected" />
+                )}
             </button>
 
             {/* Dropdown */}
@@ -138,7 +79,14 @@ export function AdminNotificationBell() {
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Notifikasi</h3>
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Notifikasi</h3>
+                            {isConnected && (
+                                <span className="text-[10px] text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
+                                    Live
+                                </span>
+                            )}
+                        </div>
                         {unreadCount > 0 && (
                             <button
                                 onClick={markAllAsRead}

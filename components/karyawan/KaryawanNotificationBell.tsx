@@ -1,32 +1,23 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { MdNotifications, MdClose, MdCheck, MdWork, MdInventory } from 'react-icons/md'
+import { MdNotifications, MdWork, MdInventory } from 'react-icons/md'
 import Link from 'next/link'
-
-interface Notification {
-    id: string
-    type: string
-    title: string
-    message: string
-    link?: string
-    isRead: boolean
-    createdAt: string
-}
+import { useRealtimeNotifications } from '@/lib/websocket/hooks/useRealtimeNotifications'
 
 export function KaryawanNotificationBell() {
-    const [notifications, setNotifications] = useState<Notification[]>([])
-    const [unreadCount, setUnreadCount] = useState(0)
+    const {
+        notifications,
+        unreadCount,
+        loading,
+        isConnected,
+        markAsRead,
+        markAllAsRead,
+    } = useRealtimeNotifications({ limit: 10 })
+
     const [isOpen, setIsOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        fetchNotifications()
-        // Poll every 30 seconds
-        const interval = setInterval(fetchNotifications, 30000)
-        return () => clearInterval(interval)
-    }, [])
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -38,39 +29,10 @@ export function KaryawanNotificationBell() {
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    const fetchNotifications = async () => {
-        try {
-            const res = await fetch('/api/karyawan/notifications')
-            if (res.ok) {
-                const data = await res.json()
-                setNotifications(data.notifications || [])
-                setUnreadCount(data.unreadCount || 0)
-            }
-        } catch (error) {
-            console.error('Failed to fetch notifications:', error)
-        }
-    }
-
-    const markAsRead = async (id: string) => {
-        try {
-            await fetch(`/api/karyawan/notifications/${id}/read`, { method: 'POST' })
-            setNotifications(notifications.map(n =>
-                n.id === id ? { ...n, isRead: true } : n
-            ))
-            setUnreadCount(Math.max(0, unreadCount - 1))
-        } catch (error) {
-            console.error('Failed to mark as read:', error)
-        }
-    }
-
-    const markAllAsRead = async () => {
+    const handleMarkAllAsRead = async () => {
         setIsLoading(true)
         try {
-            await fetch('/api/karyawan/notifications/read-all', { method: 'POST' })
-            setNotifications(notifications.map(n => ({ ...n, isRead: true })))
-            setUnreadCount(0)
-        } catch (error) {
-            console.error('Failed to mark all as read:', error)
+            await markAllAsRead()
         } finally {
             setIsLoading(false)
         }
@@ -111,16 +73,27 @@ export function KaryawanNotificationBell() {
                         {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                 )}
+                {/* WebSocket connection indicator */}
+                {isConnected && (
+                    <span className="absolute bottom-0.5 right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" title="Real-time connected" />
+                )}
             </button>
 
             {isOpen && (
                 <div className="absolute right-0 top-12 w-80 max-h-[70vh] bg-white dark:bg-[#1c2936] rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50">
                     {/* Header */}
                     <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
-                        <h3 className="font-bold text-gray-900 dark:text-white">Notifikasi</h3>
+                        <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-gray-900 dark:text-white">Notifikasi</h3>
+                            {isConnected && (
+                                <span className="text-[10px] text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
+                                    Live
+                                </span>
+                            )}
+                        </div>
                         {unreadCount > 0 && (
                             <button
-                                onClick={markAllAsRead}
+                                onClick={handleMarkAllAsRead}
                                 disabled={isLoading}
                                 className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                             >
@@ -131,7 +104,12 @@ export function KaryawanNotificationBell() {
 
                     {/* Notifications List */}
                     <div className="max-h-80 overflow-y-auto">
-                        {notifications.length === 0 ? (
+                        {loading ? (
+                            <div className="py-8 px-4 text-center text-gray-500">
+                                <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2" />
+                                <p className="text-sm">Memuat...</p>
+                            </div>
+                        ) : notifications.length === 0 ? (
                             <div className="py-8 px-4 text-center text-gray-500">
                                 <MdNotifications className="text-4xl mx-auto mb-2 opacity-30" />
                                 <p className="text-sm">Belum ada notifikasi</p>

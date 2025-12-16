@@ -1,76 +1,23 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { HiOutlineChatBubbleOvalLeft } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
-
-interface TicketPreview {
-    id: string
-    ticketNumber: string
-    subject: string
-    status: string
-    priority: string
-    category: string
-    createdAt: string
-    pelanggan: {
-        nama: string
-        idPelanggan: string
-    }
-    lastReply?: {
-        isFromAdmin: boolean
-        createdAt: string
-    } | null
-}
-
-// Polling interval in milliseconds
-const POLLING_INTERVAL = 15000 // 15 seconds for more responsive updates
+import { useRealtimeSupportTickets, type TicketPreview } from '@/lib/websocket/hooks/useRealtimeSupportTickets'
 
 export function CustomerSupportBell() {
-    const [unreadCount, setUnreadCount] = useState(0)
-    const [tickets, setTickets] = useState<TicketPreview[]>([])
+    const {
+        tickets,
+        unreadCount,
+        loading,
+        isConnected,
+        refresh,
+    } = useRealtimeSupportTickets({ limit: 5 })
+
     const [isOpen, setIsOpen] = useState(false)
-    const [loading, setLoading] = useState(true)
     const dropdownRef = useRef<HTMLDivElement>(null)
-    const lastCountRef = useRef(0)
-
-    const loadTickets = useCallback(async () => {
-        try {
-            const [countRes, listRes] = await Promise.all([
-                fetch('/api/admin/support-tickets/unread-count'),
-                fetch('/api/admin/support-tickets?limit=5'),
-            ])
-
-            if (countRes.ok) {
-                const countData = await countRes.json()
-                const newCount = countData.count || 0
-
-                // Play notification sound if count increased
-                if (newCount > lastCountRef.current && lastCountRef.current > 0) {
-                    // Optional: Play a notification sound
-                    // new Audio('/sounds/notification.mp3').play().catch(() => {})
-                    console.log('[CustomerSupportBell] New ticket notification!')
-                }
-                lastCountRef.current = newCount
-                setUnreadCount(newCount)
-            }
-
-            if (listRes.ok) {
-                const listData = await listRes.json()
-                setTickets(listData.tickets || [])
-            }
-        } catch (error) {
-            console.error('Error loading support tickets:', error)
-        } finally {
-            setLoading(false)
-        }
-    }, [])
-
-    // Manual refresh function
-    const refresh = useCallback(() => {
-        loadTickets()
-    }, [loadTickets])
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -83,26 +30,19 @@ export function CustomerSupportBell() {
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    // Load and poll tickets with configurable interval
-    useEffect(() => {
-        loadTickets()
-        const interval = setInterval(loadTickets, POLLING_INTERVAL)
-        return () => clearInterval(interval)
-    }, [loadTickets])
-
     // Refresh when dropdown is opened
     useEffect(() => {
         if (isOpen) {
-            loadTickets()
+            refresh()
         }
-    }, [isOpen, loadTickets])
+    }, [isOpen, refresh])
 
     // Listen for custom refresh event (can be triggered from other components)
     useEffect(() => {
-        const handleRefresh = () => loadTickets()
+        const handleRefresh = () => refresh()
         window.addEventListener('refreshSupportTickets', handleRefresh)
         return () => window.removeEventListener('refreshSupportTickets', handleRefresh)
-    }, [loadTickets])
+    }, [refresh])
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -162,8 +102,8 @@ export function CustomerSupportBell() {
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`relative p-2 rounded-full transition-all duration-200 group ${unreadCount > 0
-                        ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20'
-                        : 'text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/10'
+                    ? 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20'
+                    : 'text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/10'
                     }`}
                 aria-label="Customer Support Tickets"
                 title="Tiket Dukungan Pelanggan"
@@ -173,6 +113,10 @@ export function CustomerSupportBell() {
                     <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[20px] h-[20px] text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse px-1">
                         {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
+                )}
+                {/* WebSocket connection indicator */}
+                {isConnected && (
+                    <span className="absolute bottom-1 right-1 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" title="Real-time connected" />
                 )}
             </button>
 
@@ -184,6 +128,11 @@ export function CustomerSupportBell() {
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                             <HiOutlineChatBubbleOvalLeft className="w-4 h-4 text-teal-600" />
                             Tiket Dukungan
+                            {isConnected && (
+                                <span className="text-[10px] text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
+                                    Live
+                                </span>
+                            )}
                         </h3>
                         <div className="flex items-center gap-2">
                             {unreadCount > 0 && (

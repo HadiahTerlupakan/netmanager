@@ -1,56 +1,23 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { MdNotifications, MdChatBubble, MdCheck } from 'react-icons/md'
+import { MdNotifications, MdChatBubble } from 'react-icons/md'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
-
-interface Notification {
-    id: string
-    type: string
-    title: string
-    message: string
-    preview: string
-    ticketId: string
-    ticketNumber: string
-    ticketSubject: string
-    createdAt: string
-    isRead: boolean
-    sender: string
-}
-
-const POLLING_INTERVAL = 20000 // 20 seconds
+import { useCustomerNotifications } from '@/lib/websocket/hooks/useCustomerNotifications'
 
 export function CustomerNotificationBell() {
-    const [unreadCount, setUnreadCount] = useState(0)
-    const [notifications, setNotifications] = useState<Notification[]>([])
+    const {
+        notifications,
+        unreadCount,
+        loading,
+        isConnected,
+        refresh,
+    } = useCustomerNotifications({ limit: 5 })
+
     const [isOpen, setIsOpen] = useState(false)
-    const [loading, setLoading] = useState(true)
     const dropdownRef = useRef<HTMLDivElement>(null)
-
-    const loadNotifications = useCallback(async () => {
-        try {
-            const [countRes, listRes] = await Promise.all([
-                fetch('/api/customer/notifications/unread-count'),
-                fetch('/api/customer/notifications?limit=5'),
-            ])
-
-            if (countRes.ok) {
-                const countData = await countRes.json()
-                setUnreadCount(countData.count || 0)
-            }
-
-            if (listRes.ok) {
-                const listData = await listRes.json()
-                setNotifications(listData.notifications || [])
-            }
-        } catch (error) {
-            console.error('Error loading notifications:', error)
-        } finally {
-            setLoading(false)
-        }
-    }, [])
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -63,19 +30,12 @@ export function CustomerNotificationBell() {
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    // Load and poll notifications
-    useEffect(() => {
-        loadNotifications()
-        const interval = setInterval(loadNotifications, POLLING_INTERVAL)
-        return () => clearInterval(interval)
-    }, [loadNotifications])
-
     // Refresh when dropdown is opened
     useEffect(() => {
         if (isOpen) {
-            loadNotifications()
+            refresh()
         }
-    }, [isOpen, loadNotifications])
+    }, [isOpen, refresh])
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -83,8 +43,8 @@ export function CustomerNotificationBell() {
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${unreadCount > 0
-                        ? 'text-[#0d9488] bg-teal-50 dark:bg-teal-900/20'
-                        : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'text-[#0d9488] bg-teal-50 dark:bg-teal-900/20'
+                    : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
                 aria-label="Notifikasi"
             >
@@ -93,6 +53,10 @@ export function CustomerNotificationBell() {
                     <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse px-1">
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
+                )}
+                {/* WebSocket connection indicator */}
+                {isConnected && (
+                    <span className="absolute bottom-0.5 right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900" title="Real-time connected" />
                 )}
             </button>
 
@@ -104,6 +68,11 @@ export function CustomerNotificationBell() {
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                             <MdNotifications className="w-4 h-4 text-[#0d9488]" />
                             Notifikasi
+                            {isConnected && (
+                                <span className="text-[10px] text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
+                                    Live
+                                </span>
+                            )}
                         </h3>
                         {unreadCount > 0 && (
                             <span className="text-xs font-medium text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded-full">
@@ -131,8 +100,8 @@ export function CustomerNotificationBell() {
                                     >
                                         <div className="flex items-start gap-3">
                                             <div className={`p-2 rounded-full ${!notif.isRead
-                                                    ? 'bg-[#0d9488]/10 text-[#0d9488]'
-                                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                                                ? 'bg-[#0d9488]/10 text-[#0d9488]'
+                                                : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
                                                 }`}>
                                                 <MdChatBubble className="w-4 h-4" />
                                             </div>
