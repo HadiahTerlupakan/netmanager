@@ -1,59 +1,89 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+/* Google Fonts now loaded via next/font/google in layout.tsx for better performance */
 @import "tailwindcss";
 
 /* Enhanced Design System Variables */
 :root {
   /* Default Theme Colors (will be overridden by theme classes) */
-  --color-bg-primary: 15 15 30; /* #0F0F1E - Deep space blue */
-  --color-bg-surface: 26 26 46; /* #1A1A2E - Elevated surface */
-  --color-bg-surface-variant: 22 33 62; /* #16213E - Secondary surface */
-  --color-text-primary: 255 255 255; /* #FFFFFF - White text */
-  --color-text-secondary: 255 255 255; /* #FFFFFF - White text */
-  --color-text-tertiary: 255 255 255 / 0.7; /* rgba(255, 255, 255, 0.7) - Muted white */
-  --color-text-placeholder: 255 255 255 / 0.5; /* rgba(255, 255, 255, 0.5) - Placeholder white */
-  --color-border: 255 255 255 / 0.1; /* rgba(255, 255, 255, 0.1) - Subtle white border */
-  --color-primary: 79 70 229; /* #4F46E5 - Indigo 600 */
-  --color-primary-variant: 99 102 241; /* #6366F1 - Indigo 500 */
-  --color-secondary: 6 182 212; /* #06B6D4 - Cyan 500 */
-  --color-accent: 245 158 11; /* #F59E0B - Amber 500 */
-  
+  --color-bg-primary: 15 15 30;
+  /* #0F0F1E - Deep space blue */
+  --color-bg-surface: 26 26 46;
+  /* #1A1A2E - Elevated surface */
+  --color-bg-surface-variant: 22 33 62;
+  /* #16213E - Secondary surface */
+  --color-text-primary: 255 255 255;
+  /* #FFFFFF - White text */
+  --color-text-secondary: 255 255 255;
+  /* #FFFFFF - White text */
+  --color-text-tertiary: 255 255 255 / 0.7;
+  /* rgba(255, 255, 255, 0.7) - Muted white */
+  --color-text-placeholder: 255 255 255 / 0.5;
+  /* rgba(255, 255, 255, 0.5) - Placeholder white */
+  --color-border: 255 255 255 / 0.1;
+  /* rgba(255, 255, 255, 0.1) - Subtle white border */
+  --color-primary: 79 70 229;
+  /* #4F46E5 - Indigo 600 */
+  --color-primary-variant: 99 102 241;
+  /* #6366F1 - Indigo 500 */
+  --color-secondary: 6 182 212;
+  /* #06B6D4 - Cyan 500 */
+  --color-accent: 245 158 11;
+  /* #F59E0B - Amber 500 */
+
   /* Semantic Colors (Same for both themes) */
-  --color-success: 16 185 129; /* #10B981 - Emerald 500 */
-  --color-warning: 245 158 11; /* #F59E0B - Amber 500 */
-  --color-error: 239 68 68; /* #EF4444 - Red 500 */
-  --color-info: 59 130 246; /* #3B82F6 - Blue 500 */
-  
+  --color-success: 16 185 129;
+  /* #10B981 - Emerald 500 */
+  --color-warning: 245 158 11;
+  /* #F59E0B - Amber 500 */
+  --color-error: 239 68 68;
+  /* #EF4444 - Red 500 */
+  --color-info: 59 130 246;
+  /* #3B82F6 - Blue 500 */
+
   /* Enhanced Spacing Scale */
-  --spacing-xs: 0.25rem; /* 4px */
-  --spacing-sm: 0.5rem; /* 8px */
-  --spacing-md: 1rem; /* 16px */
-  --spacing-lg: 1.5rem; /* 24px */
-  --spacing-xl: 2rem; /* 32px */
-  --spacing-2xl: 3rem; /* 48px */
-  --spacing-3xl: 4rem; /* 64px */
-  --spacing-4xl: 6rem; /* 96px */
-  
+  --spacing-xs: 0.25rem;
+  /* 4px */
+  --spacing-sm: 0.5rem;
+  /* 8px */
+  --spacing-md: 1rem;
+  /* 16px */
+  --spacing-lg: 1.5rem;
+  /* 24px */
+  --spacing-xl: 2rem;
+  /* 32px */
+  --spacing-2xl: 3rem;
+  /* 48px */
+  --spacing-3xl: 4rem;
+  /* 64px */
+  --spacing-4xl: 6rem;
+  /* 96px */
+
   /* Enhanced Border Radius */
-  --radius-xs: 0.25rem; /* 4px */
-  --radius-sm: 0.5rem; /* 8px */
-  --radius-md: 0.75rem; /* 12px */
-  --radius-lg: 1rem; /* 16px */
-  --radius-xl: 1.5rem; /* 24px */
-  --radius-2xl: 2rem; /* 32px */
-  
+  --radius-xs: 0.25rem;
+  /* 4px */
+  --radius-sm: 0.5rem;
+  /* 8px */
+  --radius-md: 0.75rem;
+  /* 12px */
+  --radius-lg: 1rem;
+  /* 16px */
+  --radius-xl: 1.5rem;
+  /* 24px */
+  --radius-2xl: 2rem;
+  /* 32px */
+
   /* Neumorphism 2.0 Shadows */
   --shadow-neumorphic-inset: inset 6px 6px 12px rgba(0, 0, 0, 0.3), inset -6px -6px 12px rgba(255, 255, 255, 0.1);
   --shadow-neumorphic-raised: 6px 6px 12px rgba(0, 0, 0, 0.3), -6px -6px 12px rgba(255, 255, 255, 0.1);
   --shadow-neumorphic-soft: 4px 4px 8px rgba(0, 0, 0, 0.2), -4px -4px 8px rgba(255, 255, 255, 0.1);
   --shadow-neumorphic-hover: 8px 8px 16px rgba(0, 0, 0, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.1);
-  
+
   /* Standard Shadows */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
   --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-  
+
   /* Enhanced Animation Timing Functions */
   --transition-fast: 150ms cubic-bezier(0.4, 0.0, 0.2, 1);
   --transition-base: 250ms cubic-bezier(0.4, 0.0, 0.2, 1);
@@ -61,7 +91,7 @@
   --transition-bounce: 500ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
   --transition-entrance: 600ms cubic-bezier(0.0, 0.0, 0.2, 1);
   --transition-exit: 400ms cubic-bezier(0.4, 0.0, 1, 1);
-  
+
   /* Typography Scale */
   --font-display: 48px / 56px;
   --font-h1: 36px / 44px;
@@ -81,26 +111,53 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   transition: background-color var(--transition-slow), color var(--transition-slow);
 }
 
 /* Theme-aware opacity classes */
-.light .opacity-40 { color: rgb(var(--color-light-text-tertiary)); }
-.light .opacity-50 { color: rgb(var(--color-light-text-placeholder)); }
-.light .opacity-60 { color: rgb(var(--color-light-text-tertiary)); }
-.light .opacity-70 { color: rgb(var(--color-light-text-secondary)); }
+.light .opacity-40 {
+  color: rgb(var(--color-light-text-tertiary));
+}
 
-.dark .opacity-40 { color: rgb(var(--color-text-placeholder)); }
-.dark .opacity-50 { color: rgb(var(--color-text-placeholder)); }
-.dark .opacity-60 { color: rgb(var(--color-text-tertiary)); }
-.dark .opacity-70 { color: rgb(var(--color-text-tertiary)); }
+.light .opacity-50 {
+  color: rgb(var(--color-light-text-placeholder));
+}
+
+.light .opacity-60 {
+  color: rgb(var(--color-light-text-tertiary));
+}
+
+.light .opacity-70 {
+  color: rgb(var(--color-light-text-secondary));
+}
+
+.dark .opacity-40 {
+  color: rgb(var(--color-text-placeholder));
+}
+
+.dark .opacity-50 {
+  color: rgb(var(--color-text-placeholder));
+}
+
+.dark .opacity-60 {
+  color: rgb(var(--color-text-tertiary));
+}
+
+.dark .opacity-70 {
+  color: rgb(var(--color-text-tertiary));
+}
 
 /* Theme-aware background opacity */
-.light .bg-opacity-20 { background-color: rgba(var(--color-light-text-tertiary), 0.2); }
-.dark .bg-opacity-20 { background-color: rgba(255, 255, 255, 0.2); }
+.light .bg-opacity-20 {
+  background-color: rgba(var(--color-light-text-tertiary), 0.2);
+}
+
+.dark .bg-opacity-20 {
+  background-color: rgba(255, 255, 255, 0.2);
+}
 
 /* Theme Transitions */
 html,
@@ -112,25 +169,33 @@ body,
 .btn-neumorphic,
 .glass-card {
   transition: background-color var(--transition-slow),
-              color var(--transition-slow),
-              border-color var(--transition-slow),
-              box-shadow var(--transition-slow);
+    color var(--transition-slow),
+    border-color var(--transition-slow),
+    box-shadow var(--transition-slow);
 }
 
 /* Light Theme Styles */
 .light {
   color-scheme: light;
-  
+
   /* Override CSS variables for light theme - Enhanced Professional Design */
-  --color-bg-primary: 248 250 252; /* #F8FAFC - Subtle blue-white */
-  --color-bg-surface: 255 255 255; /* #FFFFFF - Pure white */
-  --color-bg-surface-variant: 241 245 249; /* #F1F5F9 - Light blue-gray */
-  --color-text-primary: 15 23 42; /* #0F172A - Dark slate */
-  --color-text-secondary: 30 41 59; /* #1E293B - Medium slate */
-  --color-text-tertiary: 71 85 105; /* #475569 - Muted slate */
-  --color-text-placeholder: 148 163 184; /* #94A3B8 - Light slate */
-  --color-border: 226 232 240; /* #E2E8F0 - Soft border */
-  
+  --color-bg-primary: 248 250 252;
+  /* #F8FAFC - Subtle blue-white */
+  --color-bg-surface: 255 255 255;
+  /* #FFFFFF - Pure white */
+  --color-bg-surface-variant: 241 245 249;
+  /* #F1F5F9 - Light blue-gray */
+  --color-text-primary: 15 23 42;
+  /* #0F172A - Dark slate */
+  --color-text-secondary: 30 41 59;
+  /* #1E293B - Medium slate */
+  --color-text-tertiary: 71 85 105;
+  /* #475569 - Muted slate */
+  --color-text-placeholder: 148 163 184;
+  /* #94A3B8 - Light slate */
+  --color-border: 226 232 240;
+  /* #E2E8F0 - Soft border */
+
   /* Enhanced shadows for light theme */
   --shadow-neumorphic-raised: 8px 8px 16px rgba(0, 0, 0, 0.08), -8px -8px 16px rgba(255, 255, 255, 0.95);
   --shadow-neumorphic-inset: inset 8px 8px 16px rgba(0, 0, 0, 0.08), inset -8px -8px 16px rgba(255, 255, 255, 0.95);
@@ -240,16 +305,24 @@ body,
 /* Dark Theme Styles (Default) */
 .dark {
   color-scheme: dark;
-  
+
   /* Override CSS variables for dark theme */
-  --color-bg-primary: 15 15 30; /* #0F0F1E - Deep space blue */
-  --color-bg-surface: 26 26 46; /* #1A1A2E - Elevated surface */
-  --color-bg-surface-variant: 22 33 62; /* #16213E - Secondary surface */
-  --color-text-primary: 255 255 255; /* #FFFFFF - White text */
-  --color-text-secondary: 255 255 255; /* #FFFFFF - White text */
-  --color-text-tertiary: 255 255 255 / 0.7; /* rgba(255, 255, 255, 0.7) - Muted white */
-  --color-text-placeholder: 255 255 255 / 0.5; /* rgba(255, 255, 255, 0.5) - Placeholder white */
-  --color-border: 255 255 255 / 0.1; /* rgba(255, 255, 255, 0.1) - Subtle white border */
+  --color-bg-primary: 15 15 30;
+  /* #0F0F1E - Deep space blue */
+  --color-bg-surface: 26 26 46;
+  /* #1A1A2E - Elevated surface */
+  --color-bg-surface-variant: 22 33 62;
+  /* #16213E - Secondary surface */
+  --color-text-primary: 255 255 255;
+  /* #FFFFFF - White text */
+  --color-text-secondary: 255 255 255;
+  /* #FFFFFF - White text */
+  --color-text-tertiary: 255 255 255 / 0.7;
+  /* rgba(255, 255, 255, 0.7) - Muted white */
+  --color-text-placeholder: 255 255 255 / 0.5;
+  /* rgba(255, 255, 255, 0.5) - Placeholder white */
+  --color-border: 255 255 255 / 0.1;
+  /* rgba(255, 255, 255, 0.1) - Subtle white border */
 }
 
 .dark,
@@ -376,15 +449,19 @@ a.touch-target {
   0% {
     background-position: -1000px 0;
   }
+
   100% {
     background-position: 1000px 0;
   }
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
@@ -395,6 +472,7 @@ a.touch-target {
     transform: translateY(20px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -406,6 +484,7 @@ a.touch-target {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -413,18 +492,24 @@ a.touch-target {
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-10px);
   }
 }
 
 @keyframes glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 20px rgba(var(--color-primary), 0.3);
   }
+
   50% {
     box-shadow: 0 0 40px rgba(var(--color-primary), 0.6);
   }
@@ -435,6 +520,7 @@ a.touch-target {
     transform: scale(0);
     opacity: 1;
   }
+
   100% {
     transform: scale(4);
     opacity: 0;
@@ -442,28 +528,48 @@ a.touch-target {
 }
 
 @keyframes bounce {
-  0%, 20%, 53%, 80%, 100% {
+
+  0%,
+  20%,
+  53%,
+  80%,
+  100% {
     transform: translate3d(0, 0, 0);
   }
-  40%, 43% {
+
+  40%,
+  43% {
     transform: translate3d(0, -30px, 0);
   }
+
   70% {
     transform: translate3d(0, -15px, 0);
   }
+
   90% {
     transform: translate3d(0, -4px, 0);
   }
 }
 
 @keyframes shake {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateX(0);
   }
-  10%, 30%, 50%, 70%, 90% {
+
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
     transform: translateX(-10px);
   }
-  20%, 40%, 60%, 80% {
+
+  20%,
+  40%,
+  60%,
+  80% {
     transform: translateX(10px);
   }
 }
@@ -471,12 +577,10 @@ a.touch-target {
 /* Enhanced Animation Classes */
 .shimmer {
   animation: shimmer 2s infinite linear;
-  background: linear-gradient(
-    90deg,
-    rgba(var(--color-bg-surface), 0.3) 25%,
-    rgba(var(--color-bg-surface-variant), 0.5) 50%,
-    rgba(var(--color-bg-surface), 0.3) 75%
-  );
+  background: linear-gradient(90deg,
+      rgba(var(--color-bg-surface), 0.3) 25%,
+      rgba(var(--color-bg-surface-variant), 0.5) 50%,
+      rgba(var(--color-bg-surface), 0.3) 75%);
   background-size: 1000px 100%;
 }
 
@@ -622,18 +726,22 @@ a.touch-target {
 
 /* Input field with left icon - ensure proper spacing */
 .input-with-left-icon {
-  padding-left: 3.5rem !important; /* 56px - space for icon + padding */
+  padding-left: 3.5rem !important;
+  /* 56px - space for icon + padding */
 }
 
 /* Input field with right icon - ensure proper spacing */
 .input-with-right-icon {
-  padding-right: 3.5rem !important; /* 56px - space for icon + padding */
+  padding-right: 3.5rem !important;
+  /* 56px - space for icon + padding */
 }
 
 /* Input field with both left and right icons */
 .input-with-both-icons {
-  padding-left: 3.5rem !important; /* 56px - space for left icon + padding */
-  padding-right: 3.5rem !important; /* 56px - space for right icon + padding */
+  padding-left: 3.5rem !important;
+  /* 56px - space for left icon + padding */
+  padding-right: 3.5rem !important;
+  /* 56px - space for right icon + padding */
 }
 
 .input-neumorphic:focus {
@@ -678,12 +786,10 @@ a.touch-target {
 
 /* Loading States */
 .skeleton-enhanced {
-  background: linear-gradient(
-    90deg,
-    rgba(var(--color-bg-surface), 0.3) 25%,
-    rgba(var(--color-bg-surface-variant), 0.5) 50%,
-    rgba(var(--color-bg-surface), 0.3) 75%
-  );
+  background: linear-gradient(90deg,
+      rgba(var(--color-bg-surface), 0.3) 25%,
+      rgba(var(--color-bg-surface-variant), 0.5) 50%,
+      rgba(var(--color-bg-surface), 0.3) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: var(--radius-md);
@@ -779,6 +885,7 @@ a.touch-target {
 
 /* Mobile-specific optimizations */
 @media (max-width: 640px) {
+
   /* Prevent zoom on input focus (iOS) - ensure 16px minimum */
   input[type="text"],
   input[type="email"],
@@ -855,6 +962,7 @@ a.touch-target {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -867,23 +975,19 @@ a.touch-target {
 
 /* Skeleton Loading Improved */
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(229, 231, 235, 1) 25%,
-    rgba(243, 244, 246, 1) 50%,
-    rgba(229, 231, 235, 1) 75%
-  );
+  background: linear-gradient(90deg,
+      rgba(229, 231, 235, 1) 25%,
+      rgba(243, 244, 246, 1) 50%,
+      rgba(229, 231, 235, 1) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
 .dark .skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(55, 65, 81, 1) 25%,
-    rgba(75, 85, 99, 1) 50%,
-    rgba(55, 65, 81, 1) 75%
-  );
+  background: linear-gradient(90deg,
+      rgba(55, 65, 81, 1) 25%,
+      rgba(75, 85, 99, 1) 50%,
+      rgba(55, 65, 81, 1) 75%);
   background-size: 200% 100%;
 }
 
@@ -944,6 +1048,7 @@ a.touch-target {
 
 /* Enhanced Responsive Design */
 @media (max-width: 767px) {
+
   /* Mobile Typography Scale */
   :root {
     --font-display: 42px / 50px;
@@ -956,7 +1061,7 @@ a.touch-target {
     --font-caption: 12px / 16px;
     --font-label: 11px / 14px;
   }
-  
+
   /* Mobile Touch Targets (44px minimum) */
   .mobile-touch-target {
     min-width: 44px;
@@ -965,13 +1070,13 @@ a.touch-target {
     align-items: center;
     justify-content: center;
   }
-  
+
   /* Mobile card adjustments */
   .glass-card {
     border-radius: var(--radius-lg);
     padding: var(--spacing-lg);
   }
-  
+
   /* Mobile neumorphism adjustments */
   .neumorphic {
     border-radius: var(--radius-lg);
@@ -979,6 +1084,7 @@ a.touch-target {
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
+
   /* Tablet Typography Scale */
   :root {
     --font-display: 45px / 53px;
@@ -998,6 +1104,7 @@ a.touch-target {
 
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -1013,11 +1120,11 @@ a.touch-target {
   .neumorphic {
     border: 2px solid rgb(var(--color-primary));
   }
-  
+
   .input-neumorphic:focus {
     border-width: 3px;
   }
-  
+
   .btn-neumorphic {
     border: 2px solid currentColor;
   }
@@ -1025,18 +1132,19 @@ a.touch-target {
 
 /* Print Styles */
 @media print {
+
   .neumorphic,
   .glass-card {
     box-shadow: none;
     border: 1px solid #000;
   }
-  
+
   .animate-float,
   .animate-glow,
   .animate-pulse-slow {
     animation: none;
   }
-  
+
   /* Checkbox and Radio Button Styles */
   .light input[type="checkbox"],
   .light input[type="radio"] {
@@ -1044,85 +1152,85 @@ a.touch-target {
     background-color: rgb(var(--color-light-bg-surface));
     color: rgb(var(--color-primary));
   }
-  
+
   .dark input[type="checkbox"],
   .dark input[type="radio"] {
     border-color: rgba(255, 255, 255, 0.3);
     background-color: rgba(255, 255, 255, 0.2);
     color: rgb(var(--color-primary));
   }
-  
+
   .light input[type="checkbox"]:checked,
   .light input[type="radio"]:checked {
     background-color: rgb(var(--color-primary));
     border-color: rgb(var(--color-primary));
   }
-  
+
   .dark input[type="checkbox"]:checked,
   .dark input[type="radio"]:checked {
     background-color: rgb(var(--color-primary));
     border-color: rgb(var(--color-primary));
   }
-  
+
   /* Focus ring for checkboxes */
   .light input[type="checkbox"]:focus,
   .light input[type="radio"]:focus {
     box-shadow: 0 0 0 3px rgba(var(--color-primary), 0.2);
   }
-  
+
   .dark input[type="checkbox"]:focus,
   .dark input[type="radio"]:focus {
     box-shadow: 0 0 0 3px rgba(var(--color-primary), 0.3);
   }
-  
+
   /* Button hover states for better accessibility */
   .light .btn-neumorphic:hover {
     color: rgb(var(--color-primary));
   }
-  
+
   .dark .btn-neumorphic:hover {
     color: rgb(var(--color-primary));
   }
-  
+
   /* Link colors */
   .light a {
     color: rgb(var(--color-primary));
   }
-  
+
   .dark a {
     color: rgb(var(--color-primary));
   }
-  
+
   .light a:hover {
     color: rgb(var(--color-primary-variant));
   }
-  
+
   .dark a:hover {
     color: rgb(var(--color-primary-variant));
   }
-  
+
   /* Icon colors */
   .light .text-primary {
     color: rgb(var(--color-primary));
   }
-  
+
   .dark .text-primary {
     color: rgb(var(--color-primary));
   }
-  
+
   /* Enhanced text colors for better contrast */
   .light .text-secondary {
     color: rgb(var(--color-light-text-secondary));
   }
-  
+
   .dark .text-secondary {
     color: rgb(var(--color-text-secondary));
   }
-  
+
   .light .text-tertiary {
     color: rgb(var(--color-light-text-tertiary));
   }
-  
+
   .dark .text-tertiary {
     color: rgb(var(--color-text-tertiary));
   }
@@ -1132,6 +1240,7 @@ a.touch-target {
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;

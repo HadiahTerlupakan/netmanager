@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
     MdWifiTethering,
     MdLogin,
@@ -31,22 +32,20 @@ export default function LandingPage() {
 
                 {/* Hero Section */}
                 <div className="relative bg-gradient-to-b from-teal-50 to-white text-slate-900 pb-20 pt-8 px-6 curved-bottom overflow-hidden shadow-sm z-10 border-b border-slate-100">
-                    <div className="absolute inset-0 z-0 opacity-10">
-                        <img
-                            alt="Background"
-                            className="w-full h-full object-cover grayscale"
-                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7hn1gpa4QH2Ma03Ck1ATL2Oq18wz5SI5H8H0xJyV7e4V0T42hTpLWnBbAZtpxLQJVg_0mUHHXEENbmPJCnnh21iW5LKO05aP0t3hious05iCauF7554HEC3BD5LZCF2bv3heDj4DN-lsxVbb61a8dLEvIgK0W3993ZOndxOQrqJPVoshC_UdyWIYDABli8zPBf2z4opghtoahskgvH_dQjLoM3Ds6VwXy4zfb2xcoSezraaQUKbV0Sd6Gs5HoeJPn-do4J8bQg20"
-                        />
-                    </div>
+                    {/* CSS gradient background instead of external image for better performance */}
+                    <div className="absolute inset-0 z-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-teal-200 via-transparent to-transparent"></div>
                     <div className="absolute inset-0 bg-gradient-to-b from-white/60 to-white/95 z-0"></div>
                     <div className="relative z-10">
                         <div className="flex items-center justify-between mb-8">
                             <div className="flex items-center gap-2">
                                 <div>
-                                    <img
+                                    <Image
                                         src="/images/logo-sbl.png"
                                         alt="PT. Surya Bestari Lestari"
+                                        width={152}
+                                        height={48}
                                         className="h-12 w-auto object-contain"
+                                        priority
                                     />
                                 </div>
                             </div>
