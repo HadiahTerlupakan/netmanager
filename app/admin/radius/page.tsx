@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { StatsCards } from '@/components/admin/radius/stats-cards';
 import { SessionsTable } from '@/components/admin/radius/sessions-table';
 import { SyncControls } from '@/components/admin/radius/sync-controls';
 import { HiOutlineRefresh } from 'react-icons/hi';
+import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext';
 
 interface DashboardStats {
     totalUsers: number;
@@ -37,11 +38,12 @@ interface Session {
 }
 
 export default function RadiusDashboardPage() {
+    const { socket, isConnected } = useSocket();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [autoRefresh, setAutoRefresh] = useState(true);
+    // const [autoRefresh, setAutoRefresh] = useState(true); // Deprecated in favor of WS
 
     const fetchData = async (showRefreshing = false) => {
         if (showRefreshing) setRefreshing(true);
@@ -68,16 +70,35 @@ export default function RadiusDashboardPage() {
         fetchData();
     }, []);
 
-    // Auto-refresh every 30 seconds
+    // Initial load and WebSocket setup
     useEffect(() => {
-        if (!autoRefresh) return;
+        fetchData();
 
-        const interval = setInterval(() => {
-            fetchData();
-        }, 30000); // 30 seconds
+        if (socket && isConnected) {
+            socket.emit('join_room', 'admin:radius');
+            console.log('Joined admin:radius room');
+        }
 
-        return () => clearInterval(interval);
-    }, [autoRefresh]);
+        return () => {
+            if (socket && isConnected) {
+                socket.emit('leave_room', 'admin:radius');
+            }
+        };
+    }, [socket, isConnected]);
+
+    // WebSocket Event Handlers - wrapped in useCallback to prevent re-subscription loops if used in dependencies
+    const handleStatsUpdate = useCallback((newStats: DashboardStats) => {
+        setStats(newStats);
+    }, []);
+
+    const handleSessionsUpdate = useCallback((data: { sessions: Session[], total: number }) => {
+        if (data && data.sessions) {
+            setSessions(data.sessions);
+        }
+    }, []);
+
+    useSocketEvent('radius:stats', handleStatsUpdate);
+    useSocketEvent('radius:sessions', handleSessionsUpdate);
 
     return (
         <div className="flex-1 space-y-6 p-8 pt-6">
@@ -139,8 +160,8 @@ export default function RadiusDashboardPage() {
                             </p>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                            <div className={`h-2 w-2 rounded-full ${autoRefresh ? 'bg-green-600 animate-pulse' : 'bg-gray-400'}`} />
-                            <span>Auto-refresh {autoRefresh ? 'on' : 'off'}</span>
+                            <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-600 animate-pulse' : 'bg-red-500'}`} />
+                            <span>{isConnected ? 'Live Updates' : 'Offline'}</span>
                         </div>
                     </div>
                 </div>

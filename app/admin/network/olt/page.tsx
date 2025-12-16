@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import OLTModal from '@/components/olt/OLTModal'
 import { HiOutlinePlus, HiOutlineSignal, HiArrowPath, HiPencil, HiOutlineCpuChip, HiOutlineFire, HiOutlineSignal as HiSignal, HiOutlineComputerDesktop, HiOutlineClock, HiCheck, HiOutlineCalendar, HiTrash, HiEye, HiOutlineTableCells, HiXMark, HiExclamationTriangle, HiInformationCircle } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
 
 export default function OLTPage() {
   const router = useRouter()
@@ -99,51 +100,26 @@ export default function OLTPage() {
     }
   }
 
-  // Auto-refresh untuk melihat progress sync
-  const [refreshingOltId, setRefreshingOltId] = useState<string | null>(null)
-  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const { socket, isConnected } = useSocket()
 
+  // WebSocket Listeners
+  useSocketEvent<{ oltId: string; progress: string }>('olt:sync:progress', ({ oltId, progress }) => {
+    setOlts(prev => prev.map(o => {
+      if (o.id === oltId) {
+        return { ...o, syncStatus: progress }
+      }
+      return o
+    }))
+  })
+
+  useSocketEvent('olt:updated', () => {
+    loadOlts()
+  })
+
+  // Auto-refresh removed in favor of WebSockets
   const startAutoRefresh = (oltId: string) => {
-    // Stop refresh sebelumnya jika ada
-    if (refreshIntervalRef.current) {
-      clearInterval(refreshIntervalRef.current)
-    }
-
-    setRefreshingOltId(oltId)
-
-    // Refresh setiap 3 detik
-    refreshIntervalRef.current = setInterval(async () => {
-      // Load data terbaru
-      const freshOlts = await fetch('/api/olts', { cache: 'no-store' })
-        .then(res => res.json())
-        .then(data => data.olts || [])
-        .catch(() => [])
-
-      // Update state
-      setOlts(freshOlts)
-
-      // Cek apakah sync sudah selesai (progress = 100%)
-      const olt = freshOlts.find((o: any) => o.id === oltId)
-      if (olt && olt.syncStatus === '100') {
-        // Stop auto-refresh jika sudah selesai
-        if (refreshIntervalRef.current) {
-          clearInterval(refreshIntervalRef.current)
-          refreshIntervalRef.current = null
-        }
-        setRefreshingOltId(null)
-        console.log(`[Auto-Refresh] Sync completed for OLT ${oltId}, stopping auto-refresh`)
-      }
-    }, 3000) // Refresh setiap 3 detik
+    // Legacy auto-refresh fallback (optional, or just empty if we trust WS 100%)
   }
-
-  // Cleanup interval saat component unmount
-  useEffect(() => {
-    return () => {
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current)
-      }
-    }
-  }, [])
 
   const runAutoConnectionTest = async (oltId: string, formData: any) => {
     try {
@@ -475,8 +451,8 @@ export default function OLTPage() {
                       <div className="space-y-1">
                         <span
                           className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${olt.telnetConnected
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                             }`}
                         >
                           Telnet {olt.telnetConnected ? 'Connected' : 'Disconnected'}
@@ -484,8 +460,8 @@ export default function OLTPage() {
                         <br />
                         <span
                           className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${olt.snmpConnected
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                             }`}
                         >
                           SNMP {olt.snmpConnected ? 'Connected' : 'Disconnected'}
@@ -620,12 +596,12 @@ export default function OLTPage() {
                           <td className="px-3 py-2 text-gray-900 dark:text-white">{onu.name || 'N/A'}</td>
                           <td className="px-3 py-2">
                             <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${onu.status === 'Online'
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                : onu.status === 'LOS'
-                                  ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                                  : onu.status === 'DyingGasp'
-                                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
-                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                              : onu.status === 'LOS'
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                                : onu.status === 'DyingGasp'
+                                  ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                               }`}>
                               {onu.status || 'Unknown'}
                             </span>

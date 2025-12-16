@@ -82,6 +82,27 @@ app.prepare().then(() => {
     // Initialize WebSocket handlers
     initializeSocketServer(io)
 
+    // Start Radius Monitoring Service
+    // Dynamic import to avoid issues if module dependencies aren't ready
+    import('./lib/services/RadiusMonitor').then(({ startRadiusMonitoring }) => {
+        startRadiusMonitoring(io)
+    }).catch(err => console.error('[Server] Failed to start Radius monitoring:', err))
+
+    // Start ONU Monitoring Service
+    import('./lib/services/OnuMonitor').then(({ startOnuMonitoring }) => {
+        startOnuMonitoring(io)
+    }).catch(err => console.error('[Server] Failed to start ONU monitoring:', err))
+
+    // Inject IO into OnuService for API-triggered updates
+    import('./lib/services/OnuService').then(({ getOnuService }) => {
+        getOnuService().setSocketServer(io)
+    })
+
+    // Inject IO into OltSyncService
+    import('./lib/services/OltSyncService').then(({ getOltSyncService }) => {
+        getOltSyncService().setSocketServer(io)
+    })
+
     // Log connections count periodically in development
     if (dev) {
         setInterval(() => {

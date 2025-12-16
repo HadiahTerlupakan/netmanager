@@ -8,7 +8,8 @@ import type {
   OnuPublic,
   OnuFilters,
   PaginationOptions,
-  PaginatedOnuResult
+  PaginatedOnuResult,
+  OnuSummaryStats
 } from './IOnuRepository'
 
 export class OnuRepository implements IOnuRepository {
@@ -604,6 +605,30 @@ export class OnuRepository implements IOnuRepository {
     }
 
     return onus
+  }
+
+  async getSummaryStats(oltId?: string): Promise<OnuSummaryStats> {
+    const whereClause: Prisma.OnuWhereInput = oltId ? { oltId } : {}
+
+    const [total, online, offline, los, dyingGasp, uncfg, disabled] = await Promise.all([
+      this.client.onu.count({ where: whereClause }),
+      this.client.onu.count({ where: { ...whereClause, status: 'Online' } }),
+      this.client.onu.count({ where: { ...whereClause, status: 'Offline' } }),
+      this.client.onu.count({ where: { ...whereClause, status: 'LOS' } }),
+      this.client.onu.count({ where: { ...whereClause, status: 'DyingGasp' } }),
+      this.client.onu.count({ where: { ...whereClause, status: { contains: 'Unconf', mode: 'insensitive' } } }), // Unconfigured, AutoConfig, etc
+      this.client.onu.count({ where: { ...whereClause, status: 'Disabled' } }),
+    ])
+
+    return {
+      total,
+      online,
+      offline,
+      los,
+      dyingGasp,
+      uncfg,
+      disabled
+    }
   }
 
   /**

@@ -202,6 +202,16 @@ export interface PaginatedOnuResult {
   totalPages: number
 }
 
+export interface OnuSummaryStats {
+  total: number
+  online: number
+  offline: number
+  los: number
+  dyingGasp: number
+  uncfg: number
+  disabled: number
+}
+
 export interface IOnuRepository {
   findAll(): Promise<OnuPublic[]>
   findByOltId(oltId: string): Promise<OnuPublic[]>
@@ -215,6 +225,7 @@ export interface IOnuRepository {
   count(): Promise<number>
   countByOltId(oltId: string): Promise<number>
   countByStatus(status: string): Promise<number>
+  getSummaryStats(oltId?: string): Promise<OnuSummaryStats>
 
   // New optimized methods with caching
   findPaginatedOptimized(params: {

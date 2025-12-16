@@ -13,7 +13,10 @@ import type {
     IRadiusAccountingStats,
     INas,
     IRadIpPool,
+    IDashboardStats,
+    IRadiusSessionView,
 } from './IRadiusRepository';
+import { Prisma } from '@prisma/client';
 
 export class RadiusRepository implements IRadiusRepository {
     constructor(private prisma: PrismaClient) { }
@@ -587,6 +590,148 @@ export class RadiusRepository implements IRadiusRepository {
             nasIpAddress: pool.nasIpAddress || undefined,
             poolKey: pool.poolKey || undefined,
         }));
+    }
+    /**
+     * Get dashboard statistics
+     */
+    async getDashboardStats(): Promise<IDashboardStats> {
+        // Get unique usernames (since one user might have multiple radcheck entries)
+        const uniqueUsers = await this.prisma.radCheck.groupBy({
+            by: ['username'],
+            where: {
+                attribute: 'Cleartext-Password',
+            },
+        });
+
+        // Get online users (active sessions)
+        const onlineSessions = await this.prisma.radAcct.findMany({
+            where: {
+                acctStopTime: null,
+            },
+            distinct: ['username'],
+        });
+
+        const onlineUsers = onlineSessions.length;
+        const offlineUsers = uniqueUsers.length - onlineUsers;
+
+        // Get today's traffic
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const todaySessions = await this.prisma.radAcct.findMany({
+            where: {
+                acctStartTime: {
+                    gte: today,
+                },
+            },
+        });
+
+        let totalDownloadBytes = BigInt(0);
+        let totalUploadBytes = BigInt(0);
+
+        for (const session of todaySessions) {
+            if (session.acctOutputOctets) {
+                totalDownloadBytes += session.acctOutputOctets;
+            }
+            if (session.acctInputOctets) {
+                totalUploadBytes += session.acctInputOctets;
+            }
+        }
+
+        // Convert to GB
+        const downloadGB = Number(totalDownloadBytes) / 1073741824;
+        const uploadGB = Number(totalUploadBytes) / 1073741824;
+
+        // TODO: Get last sync info from cache/database
+        const lastSyncTime = new Date().toISOString();
+        const lastSyncStats = {
+            created: 0,
+            updated: 0,
+            deleted: 0,
+        };
+
+        return {
+            totalUsers: uniqueUsers.length,
+            onlineUsers,
+            offlineUsers,
+            totalTrafficToday: {
+                download: totalDownloadBytes.toString(),
+                upload: totalUploadBytes.toString(),
+                downloadGB: Math.round(downloadGB * 100) / 100,
+                uploadGB: Math.round(uploadGB * 100) / 100,
+            },
+            lastSyncTime,
+            lastSyncStats,
+        };
+    }
+
+    /**
+     * Get recent sessions with pagination
+     */
+    async getRecentSessions(options: {
+        page?: number;
+        limit?: number;
+        status?: 'active' | 'all'
+    } = {}): Promise<{ sessions: IRadiusSessionView[]; total: number }> {
+        const { page = 1, limit = 50, status = 'active' } = options;
+        const skip = (page - 1) * limit;
+
+        const where: Prisma.RadAcctWhereInput = {};
+        if (status === 'active') {
+            where.acctStopTime = null;
+        }
+
+        const total = await this.prisma.radAcct.count({ where });
+
+        const sessions = await this.prisma.radAcct.findMany({
+            where,
+            orderBy: {
+                acctStartTime: 'desc',
+            },
+            skip,
+            take: limit,
+        });
+
+        const now = new Date();
+        const transformedSessions = sessions.map((session) => {
+            const startTime = session.acctStartTime || new Date();
+            const isOnline = session.acctStopTime === null;
+
+            let uptimeSeconds = 0;
+            if (isOnline) {
+                uptimeSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+            } else if (session.acctSessionTime) {
+                uptimeSeconds = Number(session.acctSessionTime);
+            }
+
+            const uptimeHours = Math.round((uptimeSeconds / 3600) * 100) / 100;
+
+            const downloadMB = session.acctOutputOctets
+                ? Math.round((Number(session.acctOutputOctets) / 1048576) * 100) / 100
+                : 0;
+            const uploadMB = session.acctInputOctets
+                ? Math.round((Number(session.acctInputOctets) / 1048576) * 100) / 100
+                : 0;
+
+            return {
+                radAcctId: session.radAcctId.toString(),
+                username: session.username,
+                nasIpAddress: session.nasIpAddress,
+                framedIpAddress: session.framedIpAddress,
+                acctStartTime: session.acctStartTime?.toISOString() || null,
+                acctStopTime: session.acctStopTime?.toISOString() || null,
+                acctSessionTime: session.acctSessionTime?.toString() || '0',
+                acctInputOctets: session.acctInputOctets?.toString() || '0',
+                acctOutputOctets: session.acctOutputOctets?.toString() || '0',
+                uptimeSeconds,
+                uptimeHours,
+                downloadMB,
+                uploadMB,
+                isOnline,
+            };
+        });
+
+        return { sessions: transformedSessions, total };
     }
 }
 

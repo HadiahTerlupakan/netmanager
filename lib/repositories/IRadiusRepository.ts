@@ -99,4 +99,46 @@ export interface IRadiusRepository {
     returnIpToPool(ipAddress: string): Promise<void>;
     getIpPoolStats(poolName?: string): Promise<{ total: number; used: number; available: number }>;
     getAllIpPools(): Promise<IRadIpPool[]>;
+    // Dashboard Methods
+    getDashboardStats(): Promise<IDashboardStats>;
+    getRecentSessions(options?: {
+        page?: number;
+        limit?: number;
+        status?: 'active' | 'all';
+    }): Promise<{ sessions: IRadiusSessionView[]; total: number }>;
+}
+
+export interface IDashboardStats {
+    totalUsers: number;
+    onlineUsers: number;
+    offlineUsers: number;
+    totalTrafficToday: {
+        download: string;
+        upload: string;
+        downloadGB: number;
+        uploadGB: number;
+    };
+    lastSyncTime: string;
+    lastSyncStats: {
+        created: number;
+        updated: number;
+        deleted: number;
+    };
+}
+
+export interface IRadiusSessionView {
+    radAcctId: string;
+    username: string | null;
+    nasIpAddress: string;
+    framedIpAddress: string | null;
+    acctStartTime: string | null;
+    acctStopTime: string | null;
+    acctSessionTime: string;
+    acctInputOctets: string;
+    acctOutputOctets: string;
+    uptimeSeconds: number;
+    uptimeHours: number;
+    downloadMB: number;
+    uploadMB: number;
+    isOnline: boolean;
 }

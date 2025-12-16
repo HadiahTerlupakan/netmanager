@@ -325,7 +325,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    
+
     // Validate request body
     const validation = onuCreateSchema.safeParse(body)
     if (!validation.success) {
@@ -336,12 +336,12 @@ export async function POST(req: NextRequest) {
     }
 
     const onuRepo = getOnuRepository()
-    
+
     // Check if OLT exists
     const oltExists = await prisma.olt.findUnique({
       where: { id: validation.data.oltId }
     })
-    
+
     if (!oltExists) {
       return NextResponse.json(
         { error: 'OLT tidak ditemukan' },
@@ -351,7 +351,7 @@ export async function POST(req: NextRequest) {
 
     // Check if ONU with same gponOnu already exists for this OLT
     const existingOnu = await onuRepo.findByGponOnu(validation.data.oltId, validation.data.gponOnu)
-    
+
     if (existingOnu) {
       return NextResponse.json(
         { error: 'ONU dengan GPON ID ini sudah ada di OLT yang sama' },
@@ -420,7 +420,7 @@ export async function POST(req: NextRequest) {
 
     // Create ONU
     const result = await onuRepo.create(createData)
-    
+
     // Get created ONU
     const createdOnu = await onuRepo.findByGponOnu(validation.data.oltId, validation.data.gponOnu)
       .catch(() => null)
@@ -428,14 +428,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ onu: createdOnu }, { status: 201 })
   } catch (error: any) {
     console.error('Error creating ONU:', error)
-    
+
     if (error.code === 'P2002') {
       return NextResponse.json(
         { error: 'ONU dengan GPON ID ini sudah ada di OLT yang sama' },
         { status: 409 }
       )
     }
-    
+
     return NextResponse.json(
       { error: error?.message || 'Internal Server Error' },
       { status: 500 }
@@ -463,26 +463,26 @@ export function clearOnuCache() {
 async function getCachedOnus(oltId?: string) {
   const now = Date.now()
   const cacheKey = oltId || 'all'
-  
+
   // Check if cache is valid
   if (onuCache.has(cacheKey) && (now - cacheTimestamp) < CACHE_DURATION) {
     return onuCache.get(cacheKey)
   }
-  
+
   // Fetch from database
   const onuRepo = getOnuRepository()
   let onus
-  
+
   if (oltId) {
     onus = await onuRepo.findByOltId(oltId)
   } else {
     onus = await onuRepo.findAll()
   }
-  
+
   // Update cache
   onuCache.set(cacheKey, onus)
   cacheTimestamp = now
-  
+
   return onus
 }
 
@@ -536,12 +536,29 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const oltId = searchParams.get('oltId')
-    
-    // Get ONUs (with caching)
-    const onus = await getCachedOnus(oltId || undefined)
+    const oltId = searchParams.get('oltId') || undefined
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '50')
+    const search = searchParams.get('search') || undefined
+    const status = searchParams.get('status') || undefined
 
-    return NextResponse.json({ onus })
+    // Validate pagination params
+    const validPage = isNaN(page) || page < 1 ? 1 : page
+    const validLimit = isNaN(limit) || limit < 1 ? 50 : limit
+
+    const onuRepo = getOnuRepository()
+
+    // Use repository pagination
+    const result = await onuRepo.findWithFilters({
+      oltId,
+      search,
+      status
+    }, {
+      page: validPage,
+      limit: validLimit
+    })
+
+    return NextResponse.json(result)
   } catch (error: any) {
     console.error('Error fetching ONUs:', error)
     return NextResponse.json(

@@ -9,6 +9,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { RadiusRepository } from '@/lib/repositories/RadiusRepository';
+
+const radiusRepository = new RadiusRepository(prisma);
 
 export async function GET(req: NextRequest) {
     try {
@@ -21,82 +24,8 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        // Get total users in RADIUS
-        const totalUsers = await prisma.radCheck.count({
-            where: {
-                attribute: 'Cleartext-Password',
-            },
-        });
-
-        // Get unique usernames (since one user might have multiple radcheck entries)
-        const uniqueUsers = await prisma.radCheck.groupBy({
-            by: ['username'],
-            where: {
-                attribute: 'Cleartext-Password',
-            },
-        });
-
-        // Get online users (active sessions)
-        const onlineSessions = await prisma.radAcct.findMany({
-            where: {
-                acctStopTime: null,
-            },
-            distinct: ['username'],
-        });
-
-        const onlineUsers = onlineSessions.length;
-        const offlineUsers = uniqueUsers.length - onlineUsers;
-
-        // Get today's traffic
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const todaySessions = await prisma.radAcct.findMany({
-            where: {
-                acctStartTime: {
-                    gte: today,
-                },
-            },
-        });
-
-        let totalDownloadBytes = BigInt(0);
-        let totalUploadBytes = BigInt(0);
-
-        for (const session of todaySessions) {
-            if (session.acctOutputOctets) {
-                totalDownloadBytes += session.acctOutputOctets;
-            }
-            if (session.acctInputOctets) {
-                totalUploadBytes += session.acctInputOctets;
-            }
-        }
-
-        // Convert to GB
-        const downloadGB = Number(totalDownloadBytes) / 1073741824;
-        const uploadGB = Number(totalUploadBytes) / 1073741824;
-
-        // TODO: Get last sync info from cache/database
-        // For now, return mock data
-        const lastSyncTime = new Date().toISOString();
-        const lastSyncStats = {
-            created: 0,
-            updated: 0,
-            deleted: 0,
-        };
-
-        return NextResponse.json({
-            totalUsers: uniqueUsers.length,
-            onlineUsers,
-            offlineUsers,
-            totalTrafficToday: {
-                download: totalDownloadBytes.toString(),
-                upload: totalUploadBytes.toString(),
-                downloadGB: Math.round(downloadGB * 100) / 100,
-                uploadGB: Math.round(uploadGB * 100) / 100,
-            },
-            lastSyncTime,
-            lastSyncStats,
-        });
+        const stats = await radiusRepository.getDashboardStats();
+        return NextResponse.json(stats);
     } catch (error) {
         console.error('RADIUS dashboard stats error:', error);
         return NextResponse.json(
