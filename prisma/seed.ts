@@ -18,7 +18,8 @@ const RESOURCES = [
   'paket',
   'pelanggan',
   'workorders',
-  'support'
+  'support',
+  'attendance'
 ]
 
 const ACTIONS = ['read', 'create', 'update', 'delete']
