@@ -74,7 +74,7 @@ export async function POST(req: Request) {
         action: 'CREATE',
         subject: 'ONU Type',
         userId: session.user.id,
-        details: { id: created.id, name: parsed.data.name, brand: parsed.data.brand }
+        details: { id: created.id, name: parsed.data.name }
       })
     } catch (e) {
       console.error('Logging failed', e)

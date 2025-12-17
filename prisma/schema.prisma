@@ -46,6 +46,7 @@ model User {
   // Support Ticket Relations
   ticketsAssigned       SupportTicket[]       @relation("TicketAssignedTo")
   ticketReplies         TicketReply[]         @relation("TicketReplySender")
+  expenses              Expense[]
   
   // System Logs
   systemLogs            SystemLog[]
@@ -801,6 +802,23 @@ model CustomerCohort {
 
   @@unique([cohortYear, cohortMonth])
   @@index([cohortYear, cohortMonth])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  date        DateTime @default(now())
+  amount      BigInt
+  category    String   
+  description String?
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  @@index([date])
+  @@index([category])
+  @@index([userId])
 }
 
 model Department {

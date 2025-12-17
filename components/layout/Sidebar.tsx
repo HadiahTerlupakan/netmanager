@@ -178,6 +178,18 @@ export default function Sidebar() {
     },
     { href: '/admin/support', label: 'Dukungan', icon: <HiOutlineChatBubbleLeftRight className="w-5 h-5" />, permission: 'SUPPORT' },
     {
+      href: '/admin/finance',
+      label: 'Data Keuangan',
+      icon: <HiOutlineCurrencyDollar className="w-5 h-5" />,
+      permission: 'FINANCE',
+      children: [
+        { href: '/admin/finance/pendapatan-harian', label: 'Pendapatan Harian', icon: <HiOutlineDocumentText className="w-4 h-4" />, permission: 'FINANCE' },
+        { href: '/admin/finance/pendapatan-periode', label: 'Pendapatan Periode', icon: <HiOutlineCalendar className="w-4 h-4" />, permission: 'FINANCE' },
+        { href: '/admin/finance/pengeluaran', label: 'Pengeluaran', icon: <HiOutlineCreditCard className="w-4 h-4" />, permission: 'FINANCE' },
+        { href: '/admin/finance/laba-rugi', label: 'Laba Rugi', icon: <HiOutlineChartBar className="w-4 h-4" />, permission: 'FINANCE' },
+      ],
+    },
+    {
       href: '/admin/pengaturan',
       label: 'Pengaturan',
       icon: <HiOutlineCog6Tooth className="w-5 h-5" />,

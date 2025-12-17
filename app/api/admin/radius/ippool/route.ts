@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
             poolKey,
         };
 
-        const newPool = await radiusRepo.addIpToPool({
+        const newPool = await radiusRepo.addToIpPool({
             poolName,
             framedIpAddress,
         });
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
                 action: 'CREATE',
                 subject: 'IP Pool',
                 userId: session.user.id,
-                details: { id: newPool.id, poolName: newPool.poolName, ip: newPool.framedIpAddress }
+                details: { id: (newPool as any).id, poolName: (newPool as any).poolName, ip: (newPool as any).framedIpAddress }
             })
         } catch (e) {
             console.error('Logging failed', e)

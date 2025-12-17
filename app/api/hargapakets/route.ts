@@ -266,7 +266,7 @@ export async function POST(req: NextRequest) {
         action: 'CREATE',
         subject: 'Harga Paket',
         userId: session.user.id,
-        details: { id: hargaPaket.id, name: hargaPaket.nama, price: hargaPaket.harga }
+        details: { id: hargaPaket.id, name: hargaPaket.name, price: hargaPaket.harga }
       })
     } catch (e) {
       console.error('Logging failed', e)
