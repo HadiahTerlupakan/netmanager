@@ -26,6 +26,8 @@ export default function RoleFormPage() {
     const [formData, setFormData] = useState({
         name: '',
         description: '',
+        accessAdminPanel: false,
+        accessEmployeePanel: false,
     })
     const [selectedPermissions, setSelectedPermissions] = useState<string[]>([])
     const [availablePermissions, setAvailablePermissions] = useState<Permission[]>([])
@@ -68,7 +70,9 @@ export default function RoleFormPage() {
                 const data = await res.json()
                 setFormData({
                     name: data.name,
-                    description: data.description || ''
+                    description: data.description || '',
+                    accessAdminPanel: data.accessAdminPanel || false,
+                    accessEmployeePanel: data.accessEmployeePanel || false,
                 })
                 setSelectedPermissions(data.permissions.map((p: any) => p.id))
             } else {
@@ -188,6 +192,37 @@ export default function RoleFormPage() {
                                 placeholder="Deskripsi singkat role ini"
                             />
                         </div>
+                    </div>
+                </div>
+
+                {/* Portal Access */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h2 className="text-lg font-semibold mb-4 text-gray-700">Akses Portal</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={formData.accessAdminPanel}
+                                onChange={e => setFormData({ ...formData, accessAdminPanel: e.target.checked })}
+                                className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 mt-0.5"
+                            />
+                            <div>
+                                <span className="block font-medium text-gray-800">Portal Admin</span>
+                                <span className="text-sm text-gray-500">Izinkan akses ke dashboard admin dan manajemen sistem ({`/admin`}).</span>
+                            </div>
+                        </label>
+                        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={formData.accessEmployeePanel}
+                                onChange={e => setFormData({ ...formData, accessEmployeePanel: e.target.checked })}
+                                className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 mt-0.5"
+                            />
+                            <div>
+                                <span className="block font-medium text-gray-800">Portal Karyawan</span>
+                                <span className="text-sm text-gray-500">Izinkan akses ke area kerja karyawan ({`/karyawan`}).</span>
+                            </div>
+                        </label>
                     </div>
                 </div>
 

@@ -181,7 +181,15 @@ export const authConfig: NextAuthOptions = {
           })
 
           token.role = dbUser?.role?.name || 'USER'
+          token.accessAdminPanel = dbUser?.role?.accessAdminPanel ?? false
+          token.accessEmployeePanel = dbUser?.role?.accessEmployeePanel ?? false
           token.permissions = dbUser?.role?.permissions.map(p => `${p.resource}:${p.action}`) || []
+
+          // Handle SUPER_ADMIN special case - they should have access to everything
+          if (token.role === 'SUPER_ADMIN') {
+            token.accessAdminPanel = true
+            token.accessEmployeePanel = true
+          }
 
           // Legacy support (optional)
           token.departmentId = dbUser?.departmentId
@@ -190,11 +198,15 @@ export const authConfig: NextAuthOptions = {
           console.log('[AUTH JWT] Token initialized:', {
             id: token.id,
             role: token.role,
+            accessAdmin: token.accessAdminPanel,
+            accessEmployee: token.accessEmployeePanel,
             permissionsCount: token.permissions?.length
           })
         } catch (error) {
           console.error('[AUTH JWT] Error fetching user role:', error)
           token.role = 'USER'
+          token.accessAdminPanel = false
+          token.accessEmployeePanel = false
           token.permissions = []
         }
       }
@@ -220,6 +232,14 @@ export const authConfig: NextAuthOptions = {
           token.siteId = dbUser.siteId
 
           token.role = dbUser.role?.name || 'USER'
+          token.accessAdminPanel = dbUser.role?.accessAdminPanel ?? false
+          token.accessEmployeePanel = dbUser.role?.accessEmployeePanel ?? false
+
+          if (token.role === 'SUPER_ADMIN') {
+            token.accessAdminPanel = true
+            token.accessEmployeePanel = true
+          }
+
           token.permissions = dbUser.role?.permissions.map(p => `${p.resource}:${p.action}`) || []
         }
       }
@@ -231,6 +251,8 @@ export const authConfig: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
+        (session.user as any).accessAdminPanel = token.accessAdminPanel;
+        (session.user as any).accessEmployeePanel = token.accessEmployeePanel;
         (session.user as any).permissions = token.permissions;
         (session.user as any).departmentId = token.departmentId;
         (session.user as any).siteId = token.siteId;

@@ -3,8 +3,97 @@ import { hash } from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
+const RESOURCES = [
+  'dashboard',
+  'user',
+  'role',
+  'finance',
+  'network',
+  'inventory',
+  'ticket',
+  'settings',
+  'announcement',
+  'log',
+  'ftth',
+  'paket',
+  'pelanggan',
+  'workorders',
+  'support'
+]
+
+const ACTIONS = ['read', 'create', 'update', 'delete']
+
 async function main() {
   console.log('🌱 Seeding database...\n')
+
+  // --- 1. RBAC Setup ---
+  console.log('   Creating permissions...')
+  const permissions = []
+  for (const resource of RESOURCES) {
+    for (const action of ACTIONS) {
+      const permission = await prisma.permission.upsert({
+        where: {
+          resource_action: {
+            resource,
+            action,
+          },
+        },
+        update: {},
+        create: {
+          name: `${action.charAt(0).toUpperCase() + action.slice(1)} ${resource.charAt(0).toUpperCase() + resource.slice(1)}`,
+          resource,
+          action,
+          description: `Allow ${action} on ${resource}`,
+        },
+      })
+      permissions.push(permission)
+    }
+  }
+  console.log(`   ✅ Synced ${permissions.length} permissions.`)
+
+  console.log('   Creating Roles...')
+  // Create SUPER_ADMIN Role
+  const superAdminRole = await prisma.role.upsert({
+    where: { name: 'SUPER_ADMIN' },
+    update: {
+      accessAdminPanel: true,
+      accessEmployeePanel: true,
+      permissions: {
+        connect: permissions.map((p) => ({ id: p.id })),
+      },
+    },
+    create: {
+      name: 'SUPER_ADMIN',
+      description: 'Super Administrator with full access to everything',
+      accessAdminPanel: true,
+      accessEmployeePanel: true,
+      permissions: {
+        connect: permissions.map((p) => ({ id: p.id })),
+      },
+    },
+  })
+  console.log('   ✅ Role: SUPER_ADMIN')
+
+  // Create Teknisi Role
+  const teknisiRole = await prisma.role.upsert({
+    where: { name: 'teknisi' },
+    update: {
+      accessAdminPanel: false, // Teknisi default to Employee Portal Only
+      accessEmployeePanel: true,
+    },
+    create: {
+      name: 'teknisi',
+      description: 'Field Technician',
+      accessAdminPanel: false,
+      accessEmployeePanel: true,
+      // Default permissions for teknisi could be limited here, but for seed we keep it simple or assign specific ones
+      // For now we just create the role. Access rights are usually managed via UI later.
+    },
+  })
+  console.log('   ✅ Role: teknisi')
+
+
+  // --- 2. Organization Setup ---
 
   const passwordHash = await hash('admin123', 10)
 
@@ -117,6 +206,7 @@ async function main() {
       departmentId: dept.id,
       siteId: site.id,
       isActive: true,
+      roleId: superAdminRole.id, // Assign SUPER_ADMIN role
     },
     create: {
       email: 'admin@example.com',
@@ -126,9 +216,10 @@ async function main() {
       departmentId: dept.id,
       siteId: site.id,
       isActive: true,
+      roleId: superAdminRole.id, // Assign SUPER_ADMIN role
     },
   })
-  console.log('✅ User: admin@example.com (Admin)')
+  console.log('✅ User: admin@example.com (Role: SUPER_ADMIN)')
 
   // Create Technician User
   const techPasswordHash = await hash('tech123', 10)
@@ -141,6 +232,7 @@ async function main() {
       departmentId: dept.id,
       siteId: site.id,
       isActive: true,
+      roleId: teknisiRole.id, // Assign teknisi role
     },
     create: {
       email: 'teknisi@example.com',
@@ -150,9 +242,10 @@ async function main() {
       departmentId: dept.id,
       siteId: site.id,
       isActive: true,
+      roleId: teknisiRole.id, // Assign teknisi role
     },
   })
-  console.log('✅ User: teknisi@example.com (Technician)')
+  console.log('✅ User: teknisi@example.com (Role: teknisi)')
 
   console.log('\n✅ Seeding completed!')
   console.log('\n📝 Login credentials:')

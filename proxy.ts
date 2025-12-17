@@ -27,7 +27,8 @@ async function checkAuthAccess(request: NextRequest, pathname: string): Promise<
   const needsAuth = pathname.startsWith('/admin') ||
     pathname.startsWith('/api/') ||
     pathname.startsWith('/finance') ||
-    pathname.startsWith('/helpdesk')
+    pathname.startsWith('/helpdesk') ||
+    pathname.startsWith('/karyawan')
 
   if (!needsAuth) {
     return null
@@ -80,6 +81,31 @@ async function checkAuthAccess(request: NextRequest, pathname: string): Promise<
       const loginUrl = new URL(loginPath, request.url)
       loginUrl.searchParams.set('callbackUrl', pathname)
       return NextResponse.redirect(loginUrl)
+    }
+
+    // Portal Access Control Checks
+    if (pathname.startsWith('/admin')) {
+      if (!token.accessAdminPanel) {
+        logUnauthorizedAccess(request, `User ${token.email} attempted to access Admin Portal without permission`)
+
+        // If user has employee access instead, redirect there
+        if (token.accessEmployeePanel) {
+          return NextResponse.redirect(new URL('/karyawan', request.url))
+        }
+        return NextResponse.rewrite(new URL('/403', request.url))
+      }
+    }
+
+    if (pathname.startsWith('/karyawan')) {
+      if (!token.accessEmployeePanel) {
+        logUnauthorizedAccess(request, `User ${token.email} attempted to access Employee Portal without permission`)
+
+        // If user has admin access instead, redirect there
+        if (token.accessAdminPanel) {
+          return NextResponse.redirect(new URL('/admin', request.url))
+        }
+        return NextResponse.rewrite(new URL('/403', request.url))
+      }
     }
 
     // User is authenticated - allow access

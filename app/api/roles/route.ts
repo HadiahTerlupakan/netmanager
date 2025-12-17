@@ -6,7 +6,9 @@ import { z } from 'zod'
 const roleSchema = z.object({
     name: z.string().min(2),
     description: z.string().optional(),
-    permissions: z.array(z.string()) // Array of permission IDs
+    permissions: z.array(z.string()), // Array of permission IDs
+    accessAdminPanel: z.boolean().optional().default(false),
+    accessEmployeePanel: z.boolean().optional().default(false)
 })
 
 export async function GET() {
@@ -37,12 +39,14 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json()
-        const { name, description, permissions } = roleSchema.parse(body)
+        const { name, description, permissions, accessAdminPanel, accessEmployeePanel } = roleSchema.parse(body)
 
         const role = await prisma.role.create({
             data: {
                 name,
                 description,
+                accessAdminPanel,
+                accessEmployeePanel,
                 permissions: {
                     connect: permissions.map(id => ({ id }))
                 }
@@ -53,7 +57,7 @@ export async function POST(req: Request) {
     } catch (error) {
         console.error('Error creating role:', error)
         if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: 'Validation Error', details: error.errors }, { status: 400 })
+            return NextResponse.json({ error: 'Validation Error', details: error.issues }, { status: 400 })
         }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }

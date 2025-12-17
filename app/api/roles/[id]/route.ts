@@ -6,7 +6,9 @@ import { z } from 'zod'
 const roleUpdateSchema = z.object({
     name: z.string().min(2),
     description: z.string().optional(),
-    permissions: z.array(z.string()) // Array of permission IDs
+    permissions: z.array(z.string()), // Array of permission IDs
+    accessAdminPanel: z.boolean().optional(),
+    accessEmployeePanel: z.boolean().optional()
 })
 
 // Fix for Next.js App Router params type
@@ -49,7 +51,7 @@ export async function PUT(req: Request, { params }: Params) {
 
     try {
         const body = await req.json()
-        const { name, description, permissions } = roleUpdateSchema.parse(body)
+        const { name, description, permissions, accessAdminPanel, accessEmployeePanel } = roleUpdateSchema.parse(body)
 
         // Check if role is SUPER_ADMIN (cannot edit name if it is sensitive, but permissions usually ok. 
         // Actually SUPER_ADMIN usually should effectively encompass all permissions anyway, 
@@ -65,6 +67,8 @@ export async function PUT(req: Request, { params }: Params) {
             data: {
                 name,
                 description,
+                accessAdminPanel,
+                accessEmployeePanel,
                 permissions: {
                     set: permissions.map(pid => ({ id: pid })) // Reset and connect new list
                 }
@@ -75,7 +79,7 @@ export async function PUT(req: Request, { params }: Params) {
     } catch (error) {
         console.error('Error updating role:', error)
         if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: 'Validation Error', details: error.errors }, { status: 400 })
+            return NextResponse.json({ error: 'Validation Error', details: error.issues }, { status: 400 })
         }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }

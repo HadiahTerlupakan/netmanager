@@ -9,6 +9,8 @@ declare module 'next-auth' {
       image?: string | null
       employeeId?: string
       role?: string
+      accessAdminPanel?: boolean
+      accessEmployeePanel?: boolean
       permissions?: string[]
       employee?: {
         id: string
@@ -40,6 +42,8 @@ declare module 'next-auth/jwt' {
     id?: string
     employeeId?: string
     role?: string
+    accessAdminPanel?: boolean
+    accessEmployeePanel?: boolean
     permissions?: string[]
     employee?: {
       id: string
