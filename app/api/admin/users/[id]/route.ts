@@ -36,6 +36,20 @@ import { logger } from '@/lib/logger'
  *               password:
  *                 type: string
  *                 minLength: 8
+ *               phone:
+ *                 type: string
+ *                 nullable: true
+ *               isActive:
+ *                 type: boolean
+ *               departmentId:
+ *                 type: string
+ *                 nullable: true
+ *               siteId:
+ *                 type: string
+ *                 nullable: true
+ *               roleId:
+ *                 type: string
+ *                 nullable: true
  *
  *     responses:
  *       200:
@@ -96,6 +110,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   if (body.phone !== undefined) data.phone = body.phone || null
   if (body.departmentId !== undefined) data.departmentId = body.departmentId || null
   if (body.siteId !== undefined) data.siteId = body.siteId || null
+  if (body.roleId !== undefined) data.roleId = body.roleId || null
   if (body.isActive !== undefined) data.isActive = body.isActive
 
   console.log('[USER-UPDATE] Data to update:', data)
@@ -189,6 +204,9 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
  *                     siteId:
  *                       type: string
  *                       nullable: true
+ *                     roleId:
+ *                       type: string
+ *                       nullable: true
  *                     createdAt:
  *                       type: string
  *                       format: date-time
@@ -207,6 +225,14 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
  *                         id:
  *                           type: string
  *                         code:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                     role:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         id:
  *                           type: string
  *                         name:
  *                           type: string
@@ -255,11 +281,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         createdAt: true,
         departmentId: true,
         siteId: true,
+        roleId: true,
         department: {
           select: { id: true, name: true },
         },
         site: {
           select: { id: true, code: true, name: true },
+        },
+        role: {
+          select: { id: true, name: true },
         },
       },
     })

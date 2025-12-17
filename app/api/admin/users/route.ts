@@ -62,45 +62,38 @@ export async function GET(req: NextRequest) {
           site: {
             select: { id: true, code: true, name: true },
           },
+          role: {
+            select: { id: true, name: true },
+          },
         },
       })
 
-      logger.dbOperation('findMany', 'User', Date.now() - dbStart)
+      logger.dbOperation('findMany', 'User', Date.now() - dbStart, {
+        count: users.length,
+      })
 
-      logger.apiRequest('GET', '/api/users', 200, Date.now() - startTime, {
+      logger.apiRequest('GET', '/api/admin/users', 200, Date.now() - startTime, {
         userId: session.user.id,
-        userCount: users.length,
       })
 
       return NextResponse.json({ users })
-    } finally {
-      // do not disconnect shared prisma client
+    } catch (error: any) {
+      logger.error('Error fetching users', error, {
+        path: '/api/admin/users',
+        method: 'GET',
+      })
+      return NextResponse.json(
+        { error: 'Gagal mengambil daftar pengguna' },
+        { status: 500 }
+      )
     }
   } catch (error: any) {
-    logger.error('Error fetching users', error, {
-      path: '/api/users',
+    logger.warn('Unauthorized access to /api/admin/users', {
+      error: error.message,
+      path: '/api/admin/users',
       method: 'GET',
     })
-
-    // Handle specific database errors
-    if (error.code === 'P1001') {
-      return NextResponse.json(
-        { error: 'Database connection failed' },
-        { status: 503 }
-      )
-    }
-
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Database constraint violation' },
-        { status: 409 }
-      )
-    }
-
-    return NextResponse.json(
-      { error: 'Gagal memuat data pengguna' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: error.message }, { status: error.status || 500 })
   }
 }
 
@@ -108,7 +101,7 @@ export async function GET(req: NextRequest) {
  * @swagger
  * /api/admin/users:
  *   post:
- *     summary: Create new user
+ *     summary: Create a new user
  *     description: Membuat pengguna baru. Hanya bisa diakses oleh ADMIN.
  *     tags: [Users]
  *     security:
@@ -123,19 +116,38 @@ export async function GET(req: NextRequest) {
  *             required:
  *               - email
  *               - password
+ *               - role
  *             properties:
  *               email:
  *                 type: string
  *                 format: email
- *                 example: user@example.com
+ *                 description: Email pengguna
  *               name:
  *                 type: string
- *                 nullable: true
- *                 example: John Doe
+ *                 description: Nama lengkap pengguna
  *               password:
  *                 type: string
- *                 minLength: 8
- *                 example: password123
+ *                 format: password
+ *                 description: Kata sandi pengguna
+ *               phone:
+ *                 type: string
+ *                 description: Nomor telepon pengguna
+ *               departmentId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID departemen pengguna
+ *               siteId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID lokasi pengguna
+ *               isActive:
+ *                 type: boolean
+ *                 description: Status aktif pengguna
+ *                 default: true
+ *               roleId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID peran pengguna
  *     responses:
  *       200:
  *         description: Pengguna berhasil dibuat
@@ -146,9 +158,11 @@ export async function GET(req: NextRequest) {
  *               properties:
  *                 id:
  *                   type: string
- *                   example: clx1234567890
+ *                   format: uuid
+ *                 message:
+ *                   type: string
  *       400:
- *         description: Validation error
+ *         description: Bad Request - Input tidak valid
  *         content:
  *           application/json:
  *             schema:
@@ -160,7 +174,7 @@ export async function GET(req: NextRequest) {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  *       409:
- *         description: Email sudah terpakai
+ *         description: Conflict - Email sudah terdaftar
  *         content:
  *           application/json:
  *             schema:
@@ -190,7 +204,7 @@ export async function POST(req: NextRequest) {
 
     const {
       email, name, password,
-      phone, departmentId, siteId, isActive
+      phone, departmentId, siteId, isActive, roleId
     } = formData
 
     // Validate required fields
@@ -202,6 +216,7 @@ export async function POST(req: NextRequest) {
     logger.info('Creating new user', {
       email,
       createdBy: session.user.id,
+      roleId
     })
 
     const passwordHash = await hash(password, 10)
@@ -216,6 +231,7 @@ export async function POST(req: NextRequest) {
           phone: phone || null,
           departmentId: departmentId || null,
           siteId: siteId || null,
+          roleId: roleId || null,
           isActive: isActive !== undefined ? isActive : true,
         },
       })

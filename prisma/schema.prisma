@@ -19,6 +19,8 @@ model User {
   phone         String?
   departmentId  String?
   siteId        String?
+  roleId        String?
+  role          Role?          @relation(fields: [roleId], references: [id])
   isActive      Boolean        @default(true)
   accounts      Account[]
   pelanggan     Pelanggan[]
@@ -58,6 +60,30 @@ model User {
   @@index([departmentId])
   @@index([siteId])
   @@index([isActive])
+  @@index([roleId])
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String?
+  users       User[]
+  permissions Permission[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String
+  action      String
+  resource    String
+  description String?
+  roles       Role[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([resource, action])
 }
 
 model Account {

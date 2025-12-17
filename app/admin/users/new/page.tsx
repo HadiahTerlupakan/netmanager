@@ -16,12 +16,19 @@ import {
   HiOutlineMap,
   HiOutlineExclamationTriangle,
   HiOutlineCheckCircle,
-  HiOutlineShieldCheck
+  HiOutlineShieldCheck,
+  HiOutlineIdentification
 } from 'react-icons/hi2'
 
 interface Department {
   id: string
   name: string
+}
+
+interface Role {
+  id: string
+  name: string
+  description?: string
 }
 
 interface Site {
@@ -35,6 +42,7 @@ export default function UserNewPage() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showSuccess, setShowSuccess] = useState(false)
@@ -48,12 +56,15 @@ export default function UserNewPage() {
     // Organization
     departmentId: '',
     siteId: '',
+    // Role
+    roleId: '',
     // Status
     isActive: true,
   })
 
   useEffect(() => {
     fetchDepartments()
+    fetchRoles()
     fetchSites()
   }, [])
 
@@ -66,6 +77,18 @@ export default function UserNewPage() {
       }
     } catch (error) {
       console.error('Error fetching departments:', error)
+    }
+  }
+
+  const fetchRoles = async () => {
+    try {
+      const res = await fetch('/api/roles')
+      const data = await res.json()
+      if (res.ok) {
+        setRoles(Array.isArray(data) ? data : [])
+      }
+    } catch (error) {
+      console.error('Error fetching roles:', error)
     }
   }
 
@@ -130,6 +153,10 @@ export default function UserNewPage() {
       newErrors.password = 'Password wajib diisi'
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password minimal 6 karakter'
+    }
+
+    if (!formData.roleId) {
+      newErrors.roleId = 'Peran pengguna wajib dipilih'
     }
 
     setErrors(newErrors)
@@ -241,6 +268,34 @@ export default function UserNewPage() {
                   />
                 </div>
                 {errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
+              </div>
+
+              {/* Role Selection */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Peran Pengguna <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <HiOutlineIdentification className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <select
+                    name="roleId"
+                    required
+                    value={formData.roleId}
+                    onChange={handleChange}
+                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.roleId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
+                      }`}
+                  >
+                    <option value="">Pilih Peran</option>
+                    {roles.map(role => (
+                      <option key={role.id} value={role.id}>
+                        {role.name} {role.description ? `- ${role.description}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {errors.roleId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.roleId}</p>}
               </div>
 
               {/* Name */}

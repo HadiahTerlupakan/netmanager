@@ -162,26 +162,54 @@ export const authConfig: NextAuthOptions = {
       return true
     },
 
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user, trigger, session }) {
       // Initial sign in
       if (user) {
         token.id = user.id
 
-        // Default to USER role until custom RBAC is ready
-        token.role = 'USER'
+        // Fetch role and permissions from DB
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            include: {
+              role: {
+                include: {
+                  permissions: true
+                }
+              }
+            }
+          })
 
-        console.log('[AUTH JWT] Token set:', {
-          id: token.id,
-          email: token.email,
-          role: token.role,
-        })
+          token.role = dbUser?.role?.name || 'USER'
+          token.permissions = dbUser?.role?.permissions.map(p => `${p.resource}:${p.action}`) || []
+
+          // Legacy support (optional)
+          token.departmentId = dbUser?.departmentId
+          token.siteId = dbUser?.siteId
+
+          console.log('[AUTH JWT] Token initialized:', {
+            id: token.id,
+            role: token.role,
+            permissionsCount: token.permissions?.length
+          })
+        } catch (error) {
+          console.error('[AUTH JWT] Error fetching user role:', error)
+          token.role = 'USER'
+          token.permissions = []
+        }
       }
 
       // Handle session updates
       if (trigger === 'update') {
-        // Refresh user data from database
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
+          include: {
+            role: {
+              include: {
+                permissions: true
+              }
+            }
+          }
         })
 
         if (dbUser) {
@@ -191,8 +219,8 @@ export const authConfig: NextAuthOptions = {
           token.departmentId = dbUser.departmentId
           token.siteId = dbUser.siteId
 
-          // Use safe default for now until RBAC is implemented
-          token.role = token.role || 'USER'
+          token.role = dbUser.role?.name || 'USER'
+          token.permissions = dbUser.role?.permissions.map(p => `${p.resource}:${p.action}`) || []
         }
       }
 
@@ -203,6 +231,7 @@ export const authConfig: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
+        (session.user as any).permissions = token.permissions;
         (session.user as any).departmentId = token.departmentId;
         (session.user as any).siteId = token.siteId;
       }

@@ -16,12 +16,19 @@ import {
   HiOutlineCheckCircle,
   HiOutlineShieldCheck,
   HiOutlineExclamationTriangle,
-  HiArrowPath
+  HiArrowPath,
+  HiOutlineIdentification
 } from 'react-icons/hi2'
 
 interface Department {
   id: string
   name: string
+}
+
+interface Role {
+  id: string
+  name: string
+  description?: string
 }
 
 interface Site {
@@ -37,9 +44,11 @@ interface UserData {
   phone: string | null
   departmentId: string | null
   siteId: string | null
+  roleId?: string | null
   isActive: boolean
   department?: { name: string } | null
   site?: { code: string; name: string } | null
+  role?: { name: string } | null
 }
 
 export default function UserEditPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -59,6 +68,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [user, setUser] = useState<UserData | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -70,6 +80,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     password: '',
     departmentId: '',
     siteId: '',
+    roleId: '',
     isActive: true,
   })
 
@@ -77,6 +88,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     Promise.all([
       fetchUser(),
       fetchDepartments(),
+      fetchRoles(),
       fetchSites(),
     ]).finally(() => setLoading(false))
   }, [id])
@@ -90,6 +102,18 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
       }
     } catch (error) {
       console.error('Error fetching departments:', error)
+    }
+  }
+
+  const fetchRoles = async () => {
+    try {
+      const res = await fetch('/api/roles')
+      const data = await res.json()
+      if (res.ok) {
+        setRoles(Array.isArray(data) ? data : [])
+      }
+    } catch (error) {
+      console.error('Error fetching roles:', error)
     }
   }
 
@@ -119,6 +143,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
           password: '',
           departmentId: usr.departmentId || '',
           siteId: usr.siteId || '',
+          roleId: usr.roleId || '',
           isActive: usr.isActive ?? true,
         })
       }
@@ -166,6 +191,10 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
       newErrors.name = 'Nama wajib diisi'
     }
 
+    if (!formData.roleId) {
+      newErrors.roleId = 'Peran pengguna wajib dipilih'
+    }
+
     if (formData.password && formData.password.length < 6) {
       newErrors.password = 'Password minimal 6 karakter jika diisi'
     }
@@ -189,6 +218,7 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
         phone: formData.phone || null,
         departmentId: formData.departmentId || null,
         siteId: formData.siteId || null,
+        roleId: formData.roleId,
         isActive: formData.isActive,
       }
 
@@ -318,6 +348,14 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                   </div>
                   <span className="font-medium">{formData.phone || '-'}</span>
                 </div>
+                <div className="flex items-center text-gray-600 dark:text-gray-300 sm:col-span-2">
+                  <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center mr-3">
+                    <HiOutlineIdentification className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <span className="font-medium">
+                    {user?.role?.name || 'User (Default)'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -406,6 +444,34 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
                   />
                 </div>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Email tidak dapat diubah</p>
+              </div>
+
+              {/* Role Selection */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Peran Pengguna <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <HiOutlineIdentification className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <select
+                    name="roleId"
+                    required
+                    value={formData.roleId}
+                    onChange={handleChange}
+                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.roleId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
+                      }`}
+                  >
+                    <option value="">Pilih Peran</option>
+                    {roles.map(role => (
+                      <option key={role.id} value={role.id}>
+                        {role.name} {role.description ? `- ${role.description}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {errors.roleId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.roleId}</p>}
               </div>
 
               {/* Name */}

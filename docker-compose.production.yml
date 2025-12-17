@@ -1,0 +1,411 @@
+# ==============================================================================
+# NetManager Production Docker Compose
+# ==============================================================================
+# File ini digunakan untuk deployment production ke VPS
+#
+# Cara penggunaan:
+#   1. Salin .env.production.example ke .env dan isi semua nilai
+#   2. Jalankan: docker compose -f docker-compose.production.yml up -d
+#
+# Dengan SSL (Let's Encrypt):
+#   docker compose -f docker-compose.production.yml --profile ssl up -d
+# ==============================================================================
+
+services:
+  # ==========================================================================
+  # DATABASE - PostgreSQL
+  # ==========================================================================
+  db:
+    image: postgres:16-alpine
+    container_name: netmanager-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-netmgr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diisi}
+      POSTGRES_DB: ${POSTGRES_DB:-netmanager}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - internal
+
+  # ==========================================================================
+  # CACHE - Redis
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: netmanager-redis
+    restart: always
+    command: >
+      redis-server 
+      --appendonly yes 
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD wajib diisi}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    networks:
+      - internal
+
+  # ==========================================================================
+  # FREERADIUS - Radius Server
+  # ==========================================================================
+  freeradius:
+    image: freeradius/freeradius-server:3.2.5
+    container_name: netmanager-radius
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+    environment:
+      DB_TYPE: postgresql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-netmanager}
+      DB_USER: ${POSTGRES_USER:-netmgr}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      RADIUS_SECRET: ${RADIUS_SECRET:?RADIUS_SECRET wajib diisi}
+    volumes:
+      - radius_logs:/var/log/freeradius
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - internal
+
+  # ==========================================================================
+  # APPLICATION - Next.js
+  # ==========================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: netmanager-app:${APP_VERSION:-latest}
+    container_name: netmanager-app
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-netmanager}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      
+      # Auth Configuration
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET wajib diisi}
+      AUTH_URL: ${AUTH_URL:-https://${DOMAIN}}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://${DOMAIN}}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET wajib diisi}
+      OAUTH_ENCRYPTION_KEY: ${OAUTH_ENCRYPTION_KEY}
+      
+      # Domain Configuration
+      DOMAIN: ${DOMAIN:?DOMAIN wajib diisi}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://${DOMAIN}}
+      
+      # Cookie Configuration
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-${DOMAIN}}
+      SESSION_COOKIE_SECURE: "true"
+      SESSION_COOKIE_HTTP_ONLY: "true"
+      SESSION_COOKIE_SAME_SITE: "lax"
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: '2'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+    labels:
+      # Traefik Labels
+      - "traefik.enable=true"
+      
+      # Main Domain
+      - "traefik.http.routers.netmanager.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`)"
+      - "traefik.http.routers.netmanager.entrypoints=websecure"
+      - "traefik.http.routers.netmanager.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.netmanager.service=netmanager-service"
+      
+      # Admin Subdomain
+      - "traefik.http.routers.netmanager-admin.rule=Host(`admin.${DOMAIN}`)"
+      - "traefik.http.routers.netmanager-admin.entrypoints=websecure"
+      - "traefik.http.routers.netmanager-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.netmanager-admin.middlewares=admin-path"
+      - "traefik.http.routers.netmanager-admin.service=netmanager-service"
+      - "traefik.http.middlewares.admin-path.replacepathregex.regex=^/(.*)"
+      - "traefik.http.middlewares.admin-path.replacepathregex.replacement=/admin/$$1"
+      
+      # Employee Subdomain
+      - "traefik.http.routers.netmanager-employee.rule=Host(`employee.${DOMAIN}`)"
+      - "traefik.http.routers.netmanager-employee.entrypoints=websecure"
+      - "traefik.http.routers.netmanager-employee.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.netmanager-employee.middlewares=employee-path"
+      - "traefik.http.routers.netmanager-employee.service=netmanager-service"
+      - "traefik.http.middlewares.employee-path.replacepathregex.regex=^/(.*)"
+      - "traefik.http.middlewares.employee-path.replacepathregex.replacement=/employee/$$1"
+      
+      # Helpdesk Subdomain
+      - "traefik.http.routers.netmanager-helpdesk.rule=Host(`helpdesk.${DOMAIN}`)"
+      - "traefik.http.routers.netmanager-helpdesk.entrypoints=websecure"
+      - "traefik.http.routers.netmanager-helpdesk.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.netmanager-helpdesk.middlewares=helpdesk-path"
+      - "traefik.http.routers.netmanager-helpdesk.service=netmanager-service"
+      - "traefik.http.middlewares.helpdesk-path.replacepathregex.regex=^/(.*)"
+      - "traefik.http.middlewares.helpdesk-path.replacepathregex.replacement=/helpdesk/$$1"
+      
+      # Pelanggan Subdomain
+      - "traefik.http.routers.netmanager-pelanggan.rule=Host(`pelanggan.${DOMAIN}`)"
+      - "traefik.http.routers.netmanager-pelanggan.entrypoints=websecure"
+      - "traefik.http.routers.netmanager-pelanggan.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.netmanager-pelanggan.middlewares=pelanggan-path"
+      - "traefik.http.routers.netmanager-pelanggan.service=netmanager-service"
+      - "traefik.http.middlewares.pelanggan-path.replacepathregex.regex=^/(.*)"
+      - "traefik.http.middlewares.pelanggan-path.replacepathregex.replacement=/pelanggan/$$1"
+      
+      # Service
+      - "traefik.http.services.netmanager-service.loadbalancer.server.port=3000"
+    networks:
+      - internal
+      - web
+
+  # ==========================================================================
+  # REVERSE PROXY - Traefik (dengan SSL/HTTPS)
+  # ==========================================================================
+  traefik:
+    image: traefik:v3.2
+    container_name: netmanager-traefik
+    restart: always
+    command:
+      # API Dashboard (disable di production)
+      - "--api.dashboard=false"
+      
+      # Docker provider
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=web"
+      
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      
+      # HTTP to HTTPS redirect
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      
+      # Let's Encrypt SSL
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?ACME_EMAIL wajib diisi untuk SSL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      
+      # Logging
+      - "--log.level=WARN"
+      - "--accesslog=true"
+      - "--accesslog.filepath=/var/log/traefik/access.log"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt_data:/letsencrypt
+      - traefik_logs:/var/log/traefik
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - web
+    profiles:
+      - ssl
+
+  # ==========================================================================
+  # REVERSE PROXY - Nginx (tanpa SSL, untuk di belakang Cloudflare/CDN)
+  # ==========================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: netmanager-nginx
+    restart: always
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - internal
+      - web
+    profiles:
+      - nginx
+
+  # ==========================================================================
+  # UTILITY - Database Backup
+  # ==========================================================================
+  db-backup:
+    image: postgres:16-alpine
+    container_name: netmanager-backup
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-netmgr}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-netmanager}
+    volumes:
+      - ./backups:/backups
+    command: >
+      sh -c "
+        BACKUP_FILE=/backups/netmanager_$$(date +%Y%m%d_%H%M%S).sql.gz
+        echo 'Creating backup: '$$BACKUP_FILE
+        pg_dump | gzip > $$BACKUP_FILE
+        echo 'Backup completed!'
+        ls -lh $$BACKUP_FILE
+      "
+    networks:
+      - internal
+    profiles:
+      - backup
+
+  # ==========================================================================
+  # UTILITY - Database Migrate
+  # ==========================================================================
+  db-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: netmanager-migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-netmanager}
+    command: npx prisma migrate deploy
+    networks:
+      - internal
+    profiles:
+      - migrate
+
+  # ==========================================================================
+  # UTILITY - Database Seed
+  # ==========================================================================
+  db-seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: netmanager-seed
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-netmanager}
+    command: npx prisma db seed
+    networks:
+      - internal
+    profiles:
+      - seed
+
+# ==============================================================================
+# VOLUMES
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  radius_logs:
+    driver: local
+  letsencrypt_data:
+    driver: local
+  traefik_logs:
+    driver: local
+
+# ==============================================================================
+# NETWORKS
+# ==============================================================================
+networks:
+  internal:
+    driver: bridge
+    internal: true
+  web:
+    driver: bridge

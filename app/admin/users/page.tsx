@@ -15,7 +15,15 @@ interface User {
   isActive: boolean
   createdAt: string
   department: { id: string; name: string } | null
-  site: { id: string; code: string; name: string } | null
+  site?: {
+    id: string
+    code: string
+    name: string
+  }
+  role?: {
+    id: string
+    name: string
+  }
 }
 
 export default function UsersPage() {
@@ -224,6 +232,9 @@ export default function UsersPage() {
                       Departemen
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                      Peran
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
@@ -259,6 +270,11 @@ export default function UsersPage() {
                         ) : (
                           '-'
                         )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-gray-100 font-medium">
+                          {user.role?.name || '-'}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isActive

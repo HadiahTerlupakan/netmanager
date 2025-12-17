@@ -52,6 +52,7 @@ import {
   HiOutlineMegaphone,
 } from 'react-icons/hi2'
 import { useSettings } from '@/hooks/useSettings'
+import { usePermission } from '@/hooks/use-permission'
 import { useSession, signOut } from 'next-auth/react'
 
 // Context for sidebar state
@@ -82,16 +83,38 @@ export default function Sidebar() {
   const appName = settings?.namaAplikasi || 'NetManager'
   const [isOpen, setIsOpen] = useState(false)
 
-  // Filter menu items - now just returns all items without filtering
+  const { hasPermission, isLoading } = usePermission()
+
+  // Filter menu items based on permissions
   const filterNavItem = (item: NavItem): NavItem | null => {
-    // Return all items without permission check
+    // If permission is defined, check it
+    if (item.permission && !hasPermission(`${item.permission.toLowerCase()}:read`) && item.permission !== 'DASHBOARD') {
+      // Special case for dashboard which usually is allowed for all logged in users, 
+      // but if you want strict RBAC, you can enforcing it.
+      // For now, let's strictly enforce if permission is set.
+      // Exception: DASHBOARD usually might be a public/common area.
+      // Let's assume 'DASHBOARD' permission is needed if specified.
+      // Note: The permission strings in navItems are like 'NETWORK', 'FTTH'. 
+      // Our seeded permissions are like 'Read Network', 'Create Network'. 
+      // The hasPermission hook expects 'resource:action' format e.g. 'network:read'.
+      // So we convert item.permission (e.g. 'NETWORK') to 'network:read'.
+      return null
+    }
+
     if (item.children) {
       const filteredChildren = item.children
         .map(filterNavItem)
         .filter((child): child is NavItem => child !== null)
 
+      // If no children left, and it's a section header (no href clickability or expected to have children)
+      // we might want to hide it. But for sidebar, usually if children are gone, we hide the parent.
+      if (filteredChildren.length === 0) {
+        return null
+      }
+
       return { ...item, children: filteredChildren }
     }
+
     return item
   }
 
@@ -202,6 +225,7 @@ export default function Sidebar() {
         { href: '/admin/pengaturan/email', label: 'Email', icon: <HiOutlineEnvelope className="w-4 h-4" />, permission: 'PENGATURAN' },
         { href: '/admin/pengaturan/whatsapp', label: 'WhatsApp', icon: <HiOutlineChatBubbleLeftRight className="w-4 h-4" />, permission: 'PENGATURAN' },
         // Removed OAuth as per previous instructions, keeping others
+        { href: '/admin/settings/roles', label: 'Hak Akses & Role', icon: <HiOutlineShieldCheck className="w-4 h-4" />, permission: 'PENGATURAN' },
         { href: '/admin/pengaturan/payment-gateway', label: 'Payment Gateway', icon: <HiOutlineCreditCard className="w-4 h-4" />, permission: 'PENGATURAN' },
         { href: '/admin/pengaturan/api', label: 'API', icon: <HiOutlineCodeBracket className="w-4 h-4" />, permission: 'PENGATURAN' },
       ]
@@ -222,7 +246,7 @@ export default function Sidebar() {
     return allNavItems
       .map(filterNavItem)
       .filter((item): item is NavItem => item !== null)
-  }, [allNavItems])
+  }, [allNavItems, hasPermission])
 
   // Auto-expand menu
   useEffect(() => {
