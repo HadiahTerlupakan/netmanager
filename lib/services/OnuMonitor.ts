@@ -127,3 +127,10 @@ export function startOnuMonitoring(io: SocketIOServer) {
     }
     return monitorInstance;
 }
+
+export function stopOnuMonitoring() {
+    if (monitorInstance) {
+        monitorInstance.stop();
+        monitorInstance = null;
+    }
+}

@@ -1,12 +1,12 @@
-// Custom Next.js Server with Socket.io Integration
-// This file runs Next.js with WebSocket support
-
 import { createServer } from 'http'
 import { parse } from 'url'
 import next from 'next'
 import { Server as SocketIOServer } from 'socket.io'
 import { initializeSocketServer } from './lib/websocket/server'
 import cron from 'node-cron'
+import type { ScheduledTask } from 'node-cron'
+import { stopRadiusMonitoring } from './lib/services/RadiusMonitor'
+import { stopOnuMonitoring } from './lib/services/OnuMonitor'
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = process.env.HOSTNAME || 'localhost'
@@ -18,6 +18,10 @@ const handle = app.getRequestHandler()
 app.prepare().then(() => {
     // Keep reference to io for the internal emit endpoint
     let ioRef: SocketIOServer | null = null
+    // Keep reference to billing cron task to stop it later
+    let billingCronTask: ScheduledTask | null = null
+    // Keep reference to MikroTik monitor to stop it later
+    let mikroTikMonitorRef: any = null
 
     const server = createServer(async (req, res) => {
         const parsedUrl = parse(req.url!, true)
@@ -101,6 +105,7 @@ app.prepare().then(() => {
 
     // Start MikroTik Monitoring Service
     import('./lib/services/MikroTikMonitor').then(({ mikroTikMonitor }) => {
+        mikroTikMonitorRef = mikroTikMonitor
         mikroTikMonitor.setSocketServer(io)
         mikroTikMonitor.start()
     }).catch(err => console.error('[Server] Failed to start MikroTik monitoring:', err))
@@ -112,7 +117,7 @@ app.prepare().then(() => {
 
     // Start Automatic Billing Service (Daily at 01:00 AM)
     import('./lib/services/AutomaticBillingService').then(({ AutomaticBillingService }) => {
-        cron.schedule('0 1 * * *', () => {
+        billingCronTask = cron.schedule('0 1 * * *', () => {
             console.log('[Cron] Running daily billing check')
             AutomaticBillingService.generateDailyInvoices()
         })
@@ -137,26 +142,48 @@ app.prepare().then(() => {
         console.log(``)
     })
 
-    // Graceful shutdown
-    process.on('SIGTERM', () => {
-        console.log('[Server] SIGTERM received, shutting down gracefully')
-        io.close(() => {
-            console.log('[WS] Socket.io server closed')
-        })
-        server.close(() => {
-            console.log('[Server] HTTP server closed')
-            process.exit(0)
-        })
-    })
+    // Graceful shutdown handler
+    const gracefulShutdown = (signal: string) => {
+        console.log(`[Server] ${signal} received, shutting down gracefully`)
 
-    process.on('SIGINT', () => {
-        console.log('[Server] SIGINT received, shutting down gracefully')
-        io.close(() => {
-            console.log('[WS] Socket.io server closed')
-        })
+        // 1. Stop Cron Jobs
+        if (billingCronTask) {
+            billingCronTask.stop()
+            console.log('[Cron] Billing task stopped')
+        }
+
+        // 2. Stop Monitoring Services
+        try {
+            stopRadiusMonitoring()
+            stopOnuMonitoring()
+            if (mikroTikMonitorRef) {
+                mikroTikMonitorRef.stop()
+            }
+            console.log('[Server] Monitoring services stopped')
+        } catch (e) {
+            console.error('[Server] Error stopping services:', e)
+        }
+
+        // 3. Close Socket.io
+        if (ioRef) {
+            ioRef.close(() => {
+                console.log('[WS] Socket.io server closed')
+            })
+        }
+
+        // 4. Close HTTP Server
         server.close(() => {
             console.log('[Server] HTTP server closed')
             process.exit(0)
         })
-    })
+
+        // Force exit if hanging
+        setTimeout(() => {
+            console.error('[Server] Forced exit after timeout')
+            process.exit(1)
+        }, 5000)
+    }
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 })
