@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import AnnouncementBanner from '@/components/announcement/AnnouncementBanner'
 import AnnouncementPopup from '@/components/announcement/AnnouncementPopup'
 import { KaryawanProviders } from '@/components/karyawan/KaryawanProviders'
 import '../globals.css'
@@ -34,7 +33,6 @@ export default function KaryawanLayout({
 }) {
     return (
         <KaryawanProviders>
-            <AnnouncementBanner portal="employee" />
             <AnnouncementPopup portal="employee" />
             {children}
         </KaryawanProviders>

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { HiXMark, HiMegaphone } from 'react-icons/hi2';
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { io, Socket } from 'socket.io-client';
 
 interface Announcement {
     id: string;
@@ -11,6 +12,7 @@ interface Announcement {
     content: string;
     isPinned: boolean;
     createdAt: string;
+    target?: string;
 }
 
 interface AnnouncementPopupProps {
@@ -22,7 +24,62 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isVisible, setIsVisible] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [socket, setSocket] = useState<Socket | null>(null);
 
+    const targetMap = {
+        customer: ['ALL', 'CUSTOMER'],
+        employee: ['ALL', 'EMPLOYEE'],
+    };
+
+    // Handle new announcement from WebSocket
+    const handleNewAnnouncement = useCallback((data: Announcement) => {
+        // Check if this announcement is for this portal
+        if (!data.target || targetMap[portal].includes(data.target)) {
+            // Check if already dismissed
+            const dismissedIds = JSON.parse(localStorage.getItem(`dismissed_announcements_${portal}`) || '[]');
+            if (!dismissedIds.includes(data.id)) {
+                setAnnouncements(prev => {
+                    // Avoid duplicates
+                    if (prev.some(a => a.id === data.id)) return prev;
+                    return [data, ...prev];
+                });
+                setCurrentIndex(0);
+                setIsVisible(true);
+            }
+        }
+    }, [portal]);
+
+    // Connect to WebSocket for real-time announcements
+    useEffect(() => {
+        const socketInstance = io({
+            path: '/api/socket',
+            auth: {
+                userId: `anonymous-${portal}`,
+                userRole: portal === 'customer' ? 'CUSTOMER' : 'EMPLOYEE',
+            },
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 5,
+        });
+
+        socketInstance.on('connect', () => {
+            console.log('[Announcement] WebSocket connected');
+        });
+
+        socketInstance.on('announcement:new', handleNewAnnouncement);
+
+        socketInstance.on('disconnect', (reason) => {
+            console.log('[Announcement] WebSocket disconnected:', reason);
+        });
+
+        setSocket(socketInstance);
+
+        return () => {
+            socketInstance.disconnect();
+        };
+    }, [portal, handleNewAnnouncement]);
+
+    // Fetch existing announcements on mount
     useEffect(() => {
         const fetchAnnouncements = async () => {
             try {
@@ -30,9 +87,15 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.length > 0) {
-                        // Check if user has dismissed these announcements
-                        const dismissedIds = JSON.parse(localStorage.getItem(`dismissed_announcements_${portal}`) || '[]');
-                        const newAnnouncements = data.filter((ann: Announcement) => !dismissedIds.includes(ann.id));
+                        const activeIds = data.map((ann: Announcement) => ann.id);
+                        const dismissedIds: string[] = JSON.parse(localStorage.getItem(`dismissed_announcements_${portal}`) || '[]');
+                        const validDismissedIds = dismissedIds.filter((id: string) => activeIds.includes(id));
+
+                        if (validDismissedIds.length !== dismissedIds.length) {
+                            localStorage.setItem(`dismissed_announcements_${portal}`, JSON.stringify(validDismissedIds));
+                        }
+
+                        const newAnnouncements = data.filter((ann: Announcement) => !validDismissedIds.includes(ann.id));
 
                         if (newAnnouncements.length > 0) {
                             setAnnouncements(newAnnouncements);
@@ -47,7 +110,8 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
             }
         };
 
-        fetchAnnouncements();
+        const timer = setTimeout(fetchAnnouncements, 100);
+        return () => clearTimeout(timer);
     }, [portal]);
 
     const handleDismiss = () => {

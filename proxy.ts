@@ -254,7 +254,9 @@ export default async function proxy(request: NextRequest) {
       pathname === '/login' ||
       pathname === '/admin/login' ||                  // Admin login page
       pathname.startsWith('/karyawan/login') ||       // Karyawan login page
-      pathname.startsWith('/api/customer/auth/') ||   // Customer auth API endpoints
+      pathname.startsWith('/api/customer/') ||        // Customer API endpoints (has own auth)
+      pathname.startsWith('/api/karyawan/') ||        // Karyawan API endpoints (has own auth)
+      pathname.startsWith('/api/announcements') ||    // Announcements API (public for portals)
       pathname === '/' ||
       pathname === '/api/settings/public' ||         // Public settings for branding
       pathname.startsWith('/api/superadmin/') ||      // Super admin has its own auth

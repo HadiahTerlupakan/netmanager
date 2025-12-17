@@ -7,6 +7,9 @@ export const SOCKET_EVENTS = {
     NOTIFICATION_READ: 'notification:read',
     NOTIFICATION_COUNT: 'notification:count',
 
+    // Announcements (public broadcast)
+    ANNOUNCEMENT_NEW: 'announcement:new',
+
     // Support Tickets
     TICKET_NEW: 'ticket:new',
     TICKET_UPDATE: 'ticket:update',

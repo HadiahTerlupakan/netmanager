@@ -65,11 +65,25 @@ export default function CustomerDashboardPage() {
                 fetch('/api/customer/invoices?limit=20'),
             ])
 
+            // Check if profile request failed (e.g., 401 Unauthorized)
+            if (!profileRes.ok) {
+                console.error('Profile API failed:', profileRes.status)
+                setIsLoading(false)
+                return
+            }
+
             const [profileData, usageData, invoicesData] = await Promise.all([
                 profileRes.json(),
-                usageRes.json(),
-                invoicesRes.json(),
+                usageRes.ok ? usageRes.json() : { connection: null },
+                invoicesRes.ok ? invoicesRes.json() : { invoices: [] },
             ])
+
+            // Check if profile data exists
+            if (!profileData?.profile) {
+                console.error('No profile data received')
+                setIsLoading(false)
+                return
+            }
 
             const pendingInvoices = invoicesData.invoices?.filter(
                 (inv: any) => inv.status === 'SENT' || inv.status === 'OVERDUE'
@@ -79,7 +93,7 @@ export default function CustomerDashboardPage() {
 
             setData({
                 profile: profileData.profile,
-                connection: usageData.connection,
+                connection: usageData?.connection || null,
                 pendingInvoice: pendingInvoices.length > 0 ? {
                     count: pendingInvoices.length,
                     totalAmount: pendingInvoices.reduce((sum: number, inv: any) => sum + inv.remainingAmount, 0),
@@ -107,9 +121,9 @@ export default function CustomerDashboardPage() {
         return <div className="p-6 text-center text-gray-500">Gagal memuat data</div>
     }
 
-    const isOnline = data.connection.isOnline
-    const packageName = data.profile.paket?.nama || 'Belum berlangganan'
-    const speed = data.profile.paket?.bandwidth?.download || '0 Mbps'
+    const isOnline = data.connection?.isOnline ?? false
+    const packageName = data.profile?.paket?.nama || 'Belum berlangganan'
+    const speed = data.profile?.paket?.bandwidth?.download || '0 Mbps'
 
     return (
         <div className="min-h-screen w-full bg-[#f6f7f8] dark:bg-[#101922] text-[#111418] dark:text-white font-sans antialiased transition-colors duration-200">

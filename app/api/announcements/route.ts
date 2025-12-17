@@ -1,8 +1,9 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-helpers';
 import { TargetAudience } from '@prisma/client';
+import { getSocketServer } from '@/lib/websocket/server';
+import { SOCKET_EVENTS } from '@/lib/websocket/types';
 
 export async function GET(request: NextRequest) {
     try {
@@ -88,6 +89,21 @@ export async function POST(request: NextRequest) {
                 createdBy: session.user.id
             }
         });
+
+        // Broadcast announcement via WebSocket to all connected clients
+        const socketServer = getSocketServer();
+        if (socketServer && isActive !== false) {
+            // Broadcast to all connected clients (announcement is public)
+            socketServer.emit(SOCKET_EVENTS.ANNOUNCEMENT_NEW, {
+                id: announcement.id,
+                title: announcement.title,
+                content: announcement.content,
+                target: announcement.target,
+                isPinned: announcement.isPinned,
+                createdAt: announcement.createdAt.toISOString(),
+            });
+            console.log('[WS] Broadcast announcement:', announcement.id);
+        }
 
         return NextResponse.json(announcement);
     } catch (error) {
