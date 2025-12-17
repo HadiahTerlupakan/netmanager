@@ -103,7 +103,7 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url)
     const queryParams = Object.fromEntries(searchParams.entries())
-    
+
     const parsed = networkAlertQuerySchema.safeParse(queryParams)
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
@@ -262,13 +262,13 @@ export async function POST(req: Request) {
 
     const json = await req.json()
     const parsed = networkAlertCreateSchema.safeParse(json)
-    
+
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
     }
 
     const data = parsed.data
-    
+
     try {
       // @ts-ignore - Will work after schema update
       const result = await prisma.networkAlert.create({
@@ -286,6 +286,19 @@ export async function POST(req: Request) {
           autoResolveTime: data.autoResolveTime,
         },
       })
+
+      // System Log
+      try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+          action: 'CREATE',
+          subject: 'Network Alert',
+          userId: session.user.id,
+          details: { id: result.id, title: data.title, severity: data.severity, deviceId: data.deviceId }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
 
       return NextResponse.json({ id: result.id }, { status: 201 })
     } catch (prismaError: any) {

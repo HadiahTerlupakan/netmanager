@@ -290,7 +290,7 @@ export async function POST(req: NextRequest) {
     // Generate invoice number
     const currentYear = new Date().getFullYear()
     const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0')
-    
+
     // Count invoices for this month
     const invoiceCount = await prisma.invoice.count({
       where: {
@@ -309,7 +309,7 @@ export async function POST(req: NextRequest) {
       const unitPrice = BigInt(Math.round(item.unitPrice * 100)) / 100n
       const totalPrice = BigInt(item.quantity) * unitPrice
       subtotal += totalPrice
-      
+
       return {
         description: item.description,
         quantity: item.quantity,
@@ -346,6 +346,19 @@ export async function POST(req: NextRequest) {
         payments: true,
       },
     })
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'Invoice',
+        userId: session.user.id,
+        details: { id: invoice.id, number: invoice.invoiceNumber, total: Number(totalAmount) / 100 }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
 
     return NextResponse.json(invoice, { status: 201 })
   } catch (error: any) {

@@ -101,6 +101,19 @@ export async function PATCH(
             },
         });
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger');
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Site',
+                userId: user.id,
+                details: { id: site.id, updates: body }
+            });
+        } catch (e) {
+            console.error('Logging failed', e);
+        }
+
         return NextResponse.json({
             success: true,
             data: site,
@@ -149,6 +162,19 @@ export async function DELETE(
                 data: { isActive: false },
             });
 
+            // System Log
+            try {
+                const { logger } = await import('@/lib/logger');
+                await logger.logActivity({
+                    action: 'UPDATE', // Soft delete / Deactivate
+                    subject: 'Site',
+                    userId: user.id,
+                    details: { id: site.id, name: site.name, status: 'DEACTIVATED' }
+                });
+            } catch (e) {
+                console.error('Logging failed', e);
+            }
+
             return NextResponse.json({
                 success: true,
                 message: 'Site deactivated (has associated users/work orders)',
@@ -159,6 +185,19 @@ export async function DELETE(
         await prisma.site.delete({
             where: { id },
         });
+
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger');
+            await logger.logActivity({
+                action: 'DELETE',
+                subject: 'Site',
+                userId: user.id,
+                details: { id: site.id, name: site.name }
+            });
+        } catch (e) {
+            console.error('Logging failed', e);
+        }
 
         return NextResponse.json({
             success: true,

@@ -1,0 +1,49 @@
+import { NextResponse, NextRequest } from 'next/server'
+import { requireAdmin } from '@/lib/auth-helpers'
+import { prisma } from '@/lib/prisma'
+import { LogType } from '@prisma/client'
+
+export async function GET(req: NextRequest) {
+    try {
+        await requireAdmin(req)
+
+        const { searchParams } = new URL(req.url)
+        const typeKey = searchParams.get('type')
+        const page = parseInt(searchParams.get('page') || '1')
+        const limit = parseInt(searchParams.get('limit') || '20')
+        const skip = (page - 1) * limit
+
+        const where: any = {}
+        if (typeKey && Object.values(LogType).includes(typeKey as LogType)) {
+            where.type = typeKey as LogType
+        }
+
+        const [total, logs] = await Promise.all([
+            prisma.systemLog.count({ where }),
+            prisma.systemLog.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                take: limit,
+                skip,
+                include: {
+                    user: {
+                        select: { name: true, email: true }
+                    }
+                }
+            })
+        ])
+
+        return NextResponse.json({
+            logs,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        })
+    } catch (error) {
+        console.error('Error fetching system logs:', error)
+        return NextResponse.json({ error: 'Failed to fetch logs' }, { status: 500 })
+    }
+}

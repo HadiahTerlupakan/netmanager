@@ -318,7 +318,6 @@ export async function POST(req: NextRequest) {
       const finalStock = await inventoryRepository.getStockLevel(barangId, gudangId)
 
       logger.dbOperation('transaction', 'BarangMasuk+BarangGudang', Date.now() - dbStart)
-
       logger.apiRequest('POST', '/api/inventory/masuk', 201, Date.now() - startTime, {
         userId: session.user.id,
         barangId,
@@ -326,6 +325,18 @@ export async function POST(req: NextRequest) {
         jumlah: parsedJumlah,
         masukId: masukRecord.id,
       })
+
+      // System Log
+      try {
+        await logger.logActivity({
+          action: 'CREATE',
+          subject: 'Inventory In',
+          userId: session.user.id,
+          details: { id: masukRecord.id, barangId, gudangId, quantity: parsedJumlah }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
 
       // Broadcast inventory update
       const { socketEmitter } = await import('@/lib/websocket/emitter');

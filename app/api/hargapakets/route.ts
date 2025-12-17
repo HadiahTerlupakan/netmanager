@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
     const session = await requireAdmin(req)
 
     const body = await req.json()
-    
+
     // Sanitize input
     const sanitizedBody = {
       ...body,
@@ -235,7 +235,7 @@ export async function POST(req: NextRequest) {
       try {
         const { getRateLimitFromBandwidth, updatePPPProfileInMikroTik } = await import('@/lib/services/mikrotik-ppp-profile')
         const rateLimit = await getRateLimitFromBandwidth(hargaPaket.profilePPP.id)
-        
+
         if (rateLimit) {
           console.log('[API HargaPaket] Updating rate limit in MikroTik:', rateLimit)
           const updateResult = await updatePPPProfileInMikroTik(
@@ -245,7 +245,7 @@ export async function POST(req: NextRequest) {
               rateLimit: rateLimit, // Rate limit dari Bandwidth (format: "10M/10M")
             }
           )
-          
+
           if (!updateResult.success) {
             console.error('[API HargaPaket] Failed to update rate limit in MikroTik:', updateResult.error)
             // Jangan gagalkan request, hanya log error
@@ -259,10 +259,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'Harga Paket',
+        userId: session.user.id,
+        details: { id: hargaPaket.id, name: hargaPaket.nama, price: hargaPaket.harga }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json(hargaPaket, { status: 201 })
   } catch (error: any) {
     console.error('Error creating harga paket:', error)
-    
+
     // Handle unique constraint violation
     if (error.code === 'P2002') {
       return NextResponse.json(

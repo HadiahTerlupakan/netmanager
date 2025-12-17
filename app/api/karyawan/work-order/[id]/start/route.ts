@@ -53,6 +53,19 @@ export async function POST(
             }
         })
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Work Order',
+                userId: session.user.id,
+                details: { id, action: 'START_WORK', status: 'IN_PROGRESS' }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
+
         return NextResponse.json({ success: true, workOrder: updated })
     } catch (error) {
         console.error('Error starting work order:', error)

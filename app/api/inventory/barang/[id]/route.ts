@@ -138,6 +138,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         barangId: updatedBarang.id,
       })
 
+      // System Log
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'Barang',
+        userId: session.user.id,
+        details: { id: updatedBarang.id, changes: { kode, nama, satuan } }
+      })
+
       return NextResponse.json({ barang: updatedBarang })
     } finally {
       // do not disconnect shared prisma client
@@ -192,6 +200,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       logger.apiRequest('DELETE', `/api/inventory/barang/${id}`, 200, Date.now() - startTime, {
         userId: session.user.id,
         barangId: id,
+      })
+
+      // System Log
+      await logger.logActivity({
+        action: 'DELETE',
+        subject: 'Barang',
+        userId: session.user.id,
+        details: { id }
       })
 
       return NextResponse.json({ message: 'Barang berhasil dihapus' })

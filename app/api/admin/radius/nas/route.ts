@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const nasData: INas = {
+        const newNas = await radiusRepo.createNas({
             nasname,
             shortname,
             type: type || 'other',
@@ -83,9 +83,20 @@ export async function POST(req: NextRequest) {
             secret,
             community,
             description,
-        };
+        });
 
-        const newNas = await radiusRepo.createNas(nasData);
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'CREATE',
+                subject: 'NAS',
+                userId: session.user.id,
+                details: { id: newNas.id, nasname: newNas.nasname, shortname: newNas.shortname }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
 
         return NextResponse.json({
             success: true,

@@ -149,6 +149,18 @@ export async function POST(req: NextRequest) {
         transferCode: transferRecord.kodeTransfer,
       })
 
+      // System Log
+      try {
+        await logger.logActivity({
+          action: 'CREATE',
+          subject: 'Inventory Transfer',
+          userId: session.user.id,
+          details: { id: transferRecord.id, code: transferRecord.kodeTransfer, barangId, quantity: jumlah }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
+
       return NextResponse.json({
         message: 'Transfer barang antar gudang berhasil',
         transfer: transferRecord,

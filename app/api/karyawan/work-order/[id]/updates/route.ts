@@ -86,6 +86,24 @@ export async function POST(
             )
         }
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Work Order',
+                userId: session.user.id,
+                details: {
+                    id,
+                    action: 'ADD_UPDATE',
+                    type: updateData.updateType,
+                    hasPhotos: !!(photos && photos.length > 0)
+                }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
+
         // Emit WebSocket event for real-time Activity Timeline
         socketEmitter.workOrderActivity(id, {
             id: update.id,

@@ -31,8 +31,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-      const { id } = await params
-const repo = getOdpRepository()
+  const { id } = await params
+  const repo = getOdpRepository()
   const updateData: any = {
     ...(parsed.data.name !== undefined && { name: parsed.data.name }),
     ...(parsed.data.location !== undefined && { location: parsed.data.location }),
@@ -53,6 +53,20 @@ const repo = getOdpRepository()
     }),
   }
   await repo.update(id, updateData)
+
+  // System Log
+  try {
+    const { logger } = await import('@/lib/logger')
+    await logger.logActivity({
+      action: 'UPDATE',
+      subject: 'ODP',
+      userId: session.user.id,
+      details: { id, updates: parsed.data }
+    })
+  } catch (e) {
+    console.error('Logging failed', e)
+  }
+
   return NextResponse.json({ ok: true })
 }
 
@@ -61,26 +75,40 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const repo = getOdpRepository()
   const { id } = await params
-  
+
   // Cek apakah ada output yang masih terhubung (jika ada relasi lain di masa depan)
   const odp = await prisma.odp.findUnique({
     where: { id },
     include: { outputs: true },
   })
-  
+
   if (!odp) {
     return NextResponse.json({ error: 'ODP tidak ditemukan' }, { status: 404 })
   }
-  
-// ODP saat ini tidak punya relasi ke data lain selain outputs yang akan ikut terhapus
+
+  // ODP saat ini tidak punya relasi ke data lain selain outputs yang akan ikut terhapus
   // Tapi kita tetap cek untuk konsistensi
   if (odp.outputs.length > 0) {
     // Output akan ikut terhapus dengan cascade, jadi tidak perlu block
     // Tapi karena kita pakai Restrict, mungkin perlu handle ini
   }
-  
+
   try {
     await repo.delete(id)
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'DELETE',
+        subject: 'ODP',
+        userId: session.user.id,
+        details: { id, name: odp.name }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     if (e?.code === 'P2003') {

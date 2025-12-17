@@ -399,6 +399,18 @@ export async function POST(req: NextRequest) {
         newStock: finalStock,
       })
 
+      // System Log
+      try {
+        await logger.logActivity({
+          action: 'CREATE',
+          subject: 'Inventory Out',
+          userId: session.user.id,
+          details: { id: keluarRecord.id, barangId, gudangId, quantity: jumlah }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
+
       // Broadcast inventory update
       const { socketEmitter } = await import('@/lib/websocket/emitter');
       socketEmitter.inventoryUpdate({

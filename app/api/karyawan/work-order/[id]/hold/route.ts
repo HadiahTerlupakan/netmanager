@@ -38,25 +38,38 @@ export async function POST(
             return NextResponse.json({ error: 'Anda tidak memiliki akses ke work order ini' }, { status: 403 })
         }
 
-        // Update status and create log
-        await prisma.$transaction([
-            prisma.workOrder.update({
-                where: { id },
-                data: { status: 'ON_HOLD' }
-            }),
-            prisma.workOrderUpdate.create({
-                data: {
-                    workOrderId: id,
-                    updateType: 'STATUS_CHANGE',
-                    message: reason || 'Work order di-hold',
-                    oldStatus: 'IN_PROGRESS',
-                    newStatus: 'ON_HOLD',
-                    createdById: session.user.id
-                }
-            })
-        ])
+        // Update status
+        const updated = await prisma.workOrder.update({
+            where: { id },
+            data: { status: 'ON_HOLD' }
+        })
 
-        return NextResponse.json({ success: true, message: 'Work order berhasil di-hold' })
+        // Create update log
+        await prisma.workOrderUpdate.create({
+            data: {
+                workOrderId: id,
+                createdById: session.user.id,
+                updateType: 'STATUS_CHANGE',
+                message: 'Pending: ' + reason,
+                oldStatus: 'IN_PROGRESS',
+                newStatus: 'ON_HOLD'
+            }
+        })
+
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Work Order',
+                userId: session.user.id,
+                details: { id, action: 'HOLD_WORK', status: 'ON_HOLD', reason }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
+
+        return NextResponse.json({ success: true, workOrder: updated })
     } catch (error) {
         console.error('Error holding work order:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

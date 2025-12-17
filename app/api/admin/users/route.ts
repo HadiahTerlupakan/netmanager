@@ -230,6 +230,15 @@ export async function POST(req: NextRequest) {
         newUserId: user.id,
       })
 
+      // System Log
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'User',
+        userId: session.user.id,
+        details: { id: user.id, email: user.email }
+      })
+
+
       return NextResponse.json({
         id: user.id,
         message: 'User created successfully',

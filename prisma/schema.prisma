@@ -47,6 +47,9 @@ model User {
   ticketsAssigned       SupportTicket[]       @relation("TicketAssignedTo")
   ticketReplies         TicketReply[]         @relation("TicketReplySender")
   
+  // System Logs
+  systemLogs            SystemLog[]
+
   @@index([departmentId])
   @@index([siteId])
   @@index([isActive])
@@ -1990,4 +1993,27 @@ model TicketReply {
   @@index([ticketId])
   @@index([createdAt])
   @@map("ticket_replies")
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  type      LogType
+  action    String
+  subject   String
+  details   String?  @db.Text
+  userId    String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([type])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+enum LogType {
+  AUTH
+  ACTIVITY
+  SYSTEM
 }

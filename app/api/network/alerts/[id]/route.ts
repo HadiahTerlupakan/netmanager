@@ -177,6 +177,19 @@ export async function PUT(
         data: updateData,
       })
 
+      // System Log
+      try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+          action: 'UPDATE',
+          subject: 'Network Alert',
+          userId: session.user.id,
+          details: { id, updates: updateData }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
+
       return NextResponse.json({ message: 'Alert berhasil diperbarui' })
     } catch (prismaError: any) {
       throw prismaError
@@ -239,6 +252,19 @@ export async function DELETE(
       await prisma.networkAlert.delete({
         where: { id },
       })
+
+      // System Log
+      try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+          action: 'DELETE',
+          subject: 'Network Alert',
+          userId: session.user.id,
+          details: { id, title: alert.title }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
 
       return NextResponse.json({ message: 'Alert berhasil dihapus' })
     } catch (prismaError: any) {

@@ -191,7 +191,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-        // Cek apakah ini request dari admin (user dengan session valid)
+    // Cek apakah ini request dari admin (user dengan session valid)
     const session = await requireAdmin(req)
     const isAdmin = !(session instanceof NextResponse) // If session is not NextResponse, it's a valid session
 
@@ -471,8 +471,8 @@ export async function PUT(
       return session // Return error response if authentication fails
     }
 
-        const { id } = await params
-        // Debug: Log ID yang diterima
+    const { id } = await params
+    // Debug: Log ID yang diterima
     console.log('[PUT Pelanggan] ID diterima:', id, 'Type:', typeof id)
 
     // Cek apakah ID valid (tidak kosong dan tidak undefined)
@@ -802,6 +802,19 @@ export async function PUT(
       },
     })
 
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'Pelanggan',
+        userId: session?.user?.id,
+        details: { id: pelanggan.id, changes: Object.fromEntries(formData) } // Logging formData keys for simplicity or just ID
+      })
+    } catch (logError) {
+      console.error('Failed to log activity:', logError)
+    }
+
     // Debug: Log data yang dikembalikan
     console.log('[PUT Pelanggan] Data yang dikembalikan:', {
       id: pelanggan.id,
@@ -945,8 +958,8 @@ export async function DELETE(
       return session // Return error response if authentication fails
     }
 
-        const { id } = await params
-        // Debug: Log ID yang diterima
+    const { id } = await params
+    // Debug: Log ID yang diterima
     console.log('[DELETE Pelanggan] ID diterima:', id, 'Type:', typeof id)
 
     // Cek apakah ID valid (tidak kosong dan tidak undefined)

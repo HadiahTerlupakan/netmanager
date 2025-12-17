@@ -203,6 +203,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       isolirUrl: data.isolirUrl,
       description: data.description,
     })
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'MikroTik Router',
+        userId: session.user.id,
+        details: { id, changes: data }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ success: true })
   } catch (e: any) {
     return NextResponse.json({ error: 'Gagal mengupdate router atau IP Address sudah terpakai' }, { status: 409 })
@@ -261,6 +275,20 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const { id } = await params
     const routerRepository = getMikroTikRouterRepository()
     await routerRepository.delete(id)
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'DELETE',
+        subject: 'MikroTik Router',
+        userId: session.user.id,
+        details: { id }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ success: true })
   } catch (e: any) {
     return NextResponse.json({ error: 'Gagal menghapus router' }, { status: 500 })

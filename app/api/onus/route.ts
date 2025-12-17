@@ -425,6 +425,19 @@ export async function POST(req: NextRequest) {
     const createdOnu = await onuRepo.findByGponOnu(validation.data.oltId, validation.data.gponOnu)
       .catch(() => null)
 
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'ONU',
+        userId: user.id,
+        details: { id: result.id, name: createData.name, gpon: createData.gponOnu }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ onu: createdOnu }, { status: 201 })
   } catch (error: any) {
     console.error('Error creating ONU:', error)

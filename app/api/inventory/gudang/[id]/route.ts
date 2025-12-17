@@ -133,6 +133,19 @@ export async function PUT(
         gudangId: updatedGudang.id,
       })
 
+      // System Log
+      try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+          action: 'UPDATE',
+          subject: 'Gudang',
+          userId: session.user.id,
+          details: { id: updatedGudang.id, updates: { kode, nama, lokasi, isActive } }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
+
       return NextResponse.json({ gudang: updatedGudang })
     } finally {
       // do not disconnect shared prisma client
@@ -201,6 +214,19 @@ export async function DELETE(
         userId: session.user.id,
         gudangId: id,
       })
+
+      // System Log
+      try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+          action: 'DELETE',
+          subject: 'Gudang',
+          userId: session.user.id,
+          details: { id: id, name: existingGudang.nama }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
 
       return NextResponse.json({ message: 'Gudang berhasil dihapus' })
     } finally {

@@ -46,6 +46,9 @@ import {
   HiXMark, // For close button
   HiArrowRightOnRectangle, // For logout visual
   HiSparkles,
+  HiOutlineClipboardDocumentList,
+  HiOutlineShieldCheck,
+  HiOutlineDocumentText,
 } from 'react-icons/hi2'
 import { useSettings } from '@/hooks/useSettings'
 import { useSession, signOut } from 'next-auth/react'
@@ -188,6 +191,16 @@ export default function Sidebar() {
         { href: '/admin/pengaturan/payment-gateway', label: 'Payment Gateway', icon: <HiOutlineCreditCard className="w-4 h-4" />, permission: 'PENGATURAN' },
         { href: '/admin/pengaturan/api', label: 'API', icon: <HiOutlineCodeBracket className="w-4 h-4" />, permission: 'PENGATURAN' },
       ]
+    },
+    {
+      href: '/admin/log',
+      label: 'System Log',
+      icon: <HiOutlineClipboardDocumentList className="w-5 h-5" />,
+      permission: 'SYSTEM_LOG',
+      children: [
+        { href: '/admin/log/login', label: 'Log Login', icon: <HiOutlineShieldCheck className="w-4 h-4" />, permission: 'SYSTEM_LOG' },
+        { href: '/admin/log/activity', label: 'Log Aktivitas', icon: <HiOutlineDocumentText className="w-4 h-4" />, permission: 'SYSTEM_LOG' },
+      ],
     },
   ]
 

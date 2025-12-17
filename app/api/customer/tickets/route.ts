@@ -132,6 +132,18 @@ export async function POST(request: NextRequest) {
             },
         })
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger');
+            await logger.logActivity({
+                action: 'CREATE',
+                subject: 'Support Ticket',
+                details: { customerId: session.id, id: ticket.id, ticketNumber: ticket.ticketNumber, subject: ticket.subject }
+            });
+        } catch (e) {
+            console.error('Logging failed', e);
+        }
+
         return NextResponse.json({
             success: true,
             message: 'Tiket berhasil dibuat',

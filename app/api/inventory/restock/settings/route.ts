@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
           if (!existingAlert) {
             const recommendedOrder = maxStok - currentStock.stok
             const urgency = currentStock.stok === 0 ? 'CRITICAL' :
-                           currentStock.stok <= (minStok * 0.5) ? 'HIGH' : 'MEDIUM'
+              currentStock.stok <= (minStok * 0.5) ? 'HIGH' : 'MEDIUM'
 
             await tx.restockAlerts.create({
               data: {
@@ -273,6 +273,19 @@ export async function POST(req: NextRequest) {
         minStok,
         maxStok,
       })
+
+      // System Log
+      try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+          action: 'UPDATE',
+          subject: 'Restock Settings',
+          userId: session.user.id,
+          details: { barangId, gudangId, minStok, maxStok }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
 
       return NextResponse.json(
         {

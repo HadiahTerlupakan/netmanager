@@ -330,12 +330,25 @@ export async function POST(req: NextRequest) {
           where: { id: invoiceId },
           data: {
             paidAmount: totalPaid,
-            status: totalPaid >= invoice.totalAmount ? 'PAID' : 
-                      totalPaid > 0 ? 'SENT' : invoice.status,
+            status: totalPaid >= invoice.totalAmount ? 'PAID' :
+              totalPaid > 0 ? 'SENT' : invoice.status,
             paidAt: totalPaid >= invoice.totalAmount ? new Date() : null,
           },
         })
       }
+    }
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'Payment',
+        userId: session.user.id,
+        details: { id: payment.id, amount: Number(amountInCents) / 100, method: paymentData.paymentMethod }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
     }
 
     return NextResponse.json(payment, { status: 201 })

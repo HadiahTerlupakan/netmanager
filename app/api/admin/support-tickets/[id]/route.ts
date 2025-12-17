@@ -173,6 +173,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             await closeWoOnTicketClose(id)
         }
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger');
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Support Ticket',
+                userId: user.id,
+                details: { id: ticket.id, updates: updateData }
+            });
+        } catch (e) {
+            console.error('Logging failed', e);
+        }
+
         return NextResponse.json({
             success: true,
             message: 'Tiket berhasil diupdate',

@@ -112,6 +112,20 @@ export async function POST(req: Request) {
   }
   const repo = getJoinboxRepository()
   const created = await repo.create(parsed.data as any)
+
+  // System Log
+  try {
+    const { logger } = await import('@/lib/logger')
+    await logger.logActivity({
+      action: 'CREATE',
+      subject: 'Joinbox',
+      userId: session.user.id,
+      details: { id: created.id, name: parsed.data.name }
+    })
+  } catch (e) {
+    console.error('Logging failed', e)
+  }
+
   return NextResponse.json({ id: created.id })
 }
 

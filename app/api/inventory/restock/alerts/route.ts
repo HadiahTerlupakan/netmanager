@@ -266,6 +266,19 @@ export async function POST(req: NextRequest) {
         type
       })
 
+      // System Log
+      try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+          action: 'CREATE',
+          subject: 'Restock Check',
+          userId: session.user.id,
+          details: { type, newAlertsCount: result?.newAlerts?.length || 0 }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
+
       return NextResponse.json(result, { status: 201 })
     } finally {
       // do not disconnect shared prisma client

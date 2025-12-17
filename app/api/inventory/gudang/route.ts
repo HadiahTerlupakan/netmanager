@@ -188,6 +188,18 @@ export async function POST(req: NextRequest) {
         kode: gudang.kode,
       })
 
+      // System Log
+      try {
+        await logger.logActivity({
+          action: 'CREATE',
+          subject: 'Gudang',
+          userId: session.user.id,
+          details: { id: gudang.id, name: gudang.nama, code: gudang.kode }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
+
       return NextResponse.json({ gudang }, { status: 201 })
     } finally {
       // do not disconnect shared prisma client

@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Assign work order to user
-        const updated = await prisma.workOrder.update({
+        const updatedWorkOrder = await prisma.workOrder.update({
             where: { id: workOrderId },
             data: {
                 assignedToId: session.user.id,
@@ -78,6 +78,19 @@ export async function POST(req: NextRequest) {
                 scheduledTimeStart: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
             }
         })
+
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Work Order',
+                userId: session.user.id,
+                details: { id: workOrderId, action: 'ASSIGN_SELF', status: 'ASSIGNED' }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
 
         // Create update log
         await prisma.workOrderUpdate.create({
@@ -91,7 +104,7 @@ export async function POST(req: NextRequest) {
             }
         })
 
-        return NextResponse.json({ success: true, workOrder: updated })
+        return NextResponse.json({ success: true, workOrder: updatedWorkOrder })
     } catch (error) {
         console.error('Error taking work order:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

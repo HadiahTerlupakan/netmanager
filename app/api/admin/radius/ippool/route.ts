@@ -103,12 +103,28 @@ export async function POST(req: NextRequest) {
             poolKey,
         };
 
-        const newIpPool = await radiusRepo.addToIpPool(ipPoolData);
+        const newPool = await radiusRepo.addIpToPool({
+            poolName,
+            framedIpAddress,
+        });
+
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'CREATE',
+                subject: 'IP Pool',
+                userId: session.user.id,
+                details: { id: newPool.id, poolName: newPool.poolName, ip: newPool.framedIpAddress }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
 
         return NextResponse.json({
             success: true,
+            data: newPool,
             message: 'IP added to pool successfully',
-            data: newIpPool,
         });
     } catch (error) {
         console.error('IP Pool creation error:', error);

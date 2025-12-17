@@ -96,6 +96,19 @@ export async function PATCH(
             },
         });
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger');
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Department',
+                userId: user.id,
+                details: { id: department.id, updates: body }
+            });
+        } catch (e) {
+            console.error('Logging failed', e);
+        }
+
         return NextResponse.json({
             success: true,
             data: department,
@@ -155,6 +168,19 @@ export async function DELETE(
         await prisma.department.delete({
             where: { id },
         });
+
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger');
+            await logger.logActivity({
+                action: 'DELETE',
+                subject: 'Department',
+                userId: user.id,
+                details: { id: department.id, name: department.name }
+            });
+        } catch (e) {
+            console.error('Logging failed', e);
+        }
 
         return NextResponse.json({
             success: true,

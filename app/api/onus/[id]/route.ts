@@ -61,7 +61,7 @@ export async function GET(
 
     const { id } = await params
     const onuRepo = getOnuRepository()
-    
+
     const onu = await onuRepo.findByGponOnu('', id) // We'll search by gponOnu instead of ID
       .catch(() => null)
 
@@ -325,7 +325,7 @@ export async function PUT(
 
     const { id } = await params
     const body = await req.json()
-    
+
     // First check if ONU exists
     const onuRepo = getOnuRepository()
     const existingOnu = await onuRepo.findByGponOnu('', id)
@@ -337,7 +337,7 @@ export async function PUT(
 
     // Parse date fields if they exist
     const updateData: any = {}
-    
+
     // Handle all possible fields from the schema
     if (body.name !== undefined) updateData.name = body.name
     if (body.description !== undefined) updateData.description = body.description
@@ -391,6 +391,19 @@ export async function PUT(
     // Get the updated ONU
     const updatedOnu = await onuRepo.findByGponOnu('', id)
       .catch(() => null)
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'ONU',
+        userId: auth.user.id,
+        details: { id, changes: updateData }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
 
     return NextResponse.json({ onu: updatedOnu })
   } catch (error: any) {
@@ -462,7 +475,7 @@ export async function DELETE(
 
     const { id } = await params
     const onuRepo = getOnuRepository()
-    
+
     // First check if ONU exists
     const existingOnu = await onuRepo.findByGponOnu('', id)
       .catch(() => null)
@@ -473,6 +486,19 @@ export async function DELETE(
 
     // Delete the ONU
     await onuRepo.delete(existingOnu.id)
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'DELETE',
+        subject: 'ONU',
+        userId: auth.user.id,
+        details: { id: existingOnu.id, name: existingOnu.name }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
 
     return NextResponse.json({ message: 'ONU berhasil dihapus' })
   } catch (error: any) {

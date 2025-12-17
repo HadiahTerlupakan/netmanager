@@ -36,25 +36,38 @@ export async function POST(
             return NextResponse.json({ error: 'Anda tidak memiliki akses ke work order ini' }, { status: 403 })
         }
 
-        // Update status and create log
-        await prisma.$transaction([
-            prisma.workOrder.update({
-                where: { id },
-                data: { status: 'IN_PROGRESS' }
-            }),
-            prisma.workOrderUpdate.create({
-                data: {
-                    workOrderId: id,
-                    updateType: 'STATUS_CHANGE',
-                    message: 'Melanjutkan pekerjaan',
-                    oldStatus: 'ON_HOLD',
-                    newStatus: 'IN_PROGRESS',
-                    createdById: session.user.id
-                }
-            })
-        ])
+        // Update status
+        const updated = await prisma.workOrder.update({
+            where: { id },
+            data: { status: 'IN_PROGRESS' }
+        })
 
-        return NextResponse.json({ success: true, message: 'Work order dilanjutkan' })
+        // Create update log
+        await prisma.workOrderUpdate.create({
+            data: {
+                workOrderId: id,
+                createdById: session.user.id,
+                updateType: 'STATUS_CHANGE',
+                message: 'Melanjutkan pekerjaan',
+                oldStatus: 'ON_HOLD',
+                newStatus: 'IN_PROGRESS'
+            }
+        })
+
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Work Order',
+                userId: session.user.id,
+                details: { id, action: 'RESUME_WORK', status: 'IN_PROGRESS' }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
+
+        return NextResponse.json({ success: true, workOrder: updated })
     } catch (error) {
         console.error('Error resuming work order:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

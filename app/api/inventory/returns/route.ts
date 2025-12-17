@@ -279,6 +279,23 @@ export async function POST(req: NextRequest) {
         returnId: returnRecord.id
       })
 
+      // System Log
+      try {
+        await logger.logActivity({
+          action: 'CREATE',
+          subject: 'Inventory Return',
+          userId: session.user.id,
+          details: {
+            id: returnRecord.id,
+            barangId: barangKeluar.barangId,
+            gudangId: barangKeluar.gudangId,
+            quantity: jumlahDikembalikan
+          }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
+
       const response: CreateReturnResponse = {
         message: 'Barang berhasil dikembalikan',
         returnId: returnRecord.id,

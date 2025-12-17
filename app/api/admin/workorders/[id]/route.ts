@@ -211,6 +211,19 @@ export async function PATCH(
 
         const workOrder = await workOrderRepo.findById(id);
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Work Order',
+                userId: user.id,
+                details: { id, updates: body }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
+
         return NextResponse.json({
             success: true,
             data: workOrder,
@@ -288,6 +301,19 @@ export async function DELETE(
         const reason = searchParams.get('reason') || 'Cancelled by admin';
 
         await workOrderRepo.cancel(id, reason, user.id);
+
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'DELETE',
+                subject: 'Work Order',
+                userId: user.id,
+                details: { id, reason }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
 
         return NextResponse.json({
             success: true,

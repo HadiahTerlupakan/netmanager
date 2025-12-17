@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth-helpers'
 import { getUserRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
+import { logger } from '@/lib/logger'
 
 /**
  * @swagger
@@ -109,6 +110,13 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
     console.log('[USER-UPDATE] User updated successfully:', {
       id: updatedUser.id,
       email: updatedUser.email,
+    })
+
+    await logger.logActivity({
+      action: 'UPDATE',
+      subject: 'User',
+      userId: session.user.id,
+      details: { id: updatedUser.id, changes: Object.keys(data) }
     })
 
     return NextResponse.json({ ok: true })
@@ -330,6 +338,14 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     const userRepository = getUserRepository()
     await userRepository.delete(id)
+
+    await logger.logActivity({
+      action: 'DELETE',
+      subject: 'User',
+      userId: session.user.id,
+      details: { id }
+    })
+
     return NextResponse.json({ ok: true })
   } catch (error: any) {
     console.error('[USER-DELETE] Error deleting user:', error)

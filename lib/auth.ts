@@ -209,6 +209,21 @@ export const authConfig: NextAuthOptions = {
       return session
     },
   },
+  events: {
+    async signIn({ user, account, isNewUser }) {
+      // Dynamic import to avoid circular dependencies if necessary
+      const { logger } = await import('@/lib/logger')
+
+      await logger.logAuth({
+        action: 'LOGIN',
+        userId: user.id,
+        details: {
+          provider: account?.provider,
+          isNewUser: isNewUser
+        }
+      })
+    }
+  },
 }
 
 // createAuthConfig is simplified - just returns authConfig

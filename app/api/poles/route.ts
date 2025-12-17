@@ -117,15 +117,20 @@ export async function POST(req: Request) {
   }
   const data = parsed.data
   const repo = getPoleRepository()
-  const created = await repo.create({
-    name: data.name,
-    location: data.location ?? null,
-    notes: data.notes ?? null,
-    latitude: data.latitude ?? null,
-    longitude: data.longitude ?? null,
-    cableSlack: data.cableSlack ?? false,
-  })
+  const created = await repo.create(parsed.data as any)
+
+  // System Log
+  try {
+    const { logger } = await import('@/lib/logger')
+    await logger.logActivity({
+      action: 'CREATE',
+      subject: 'Pole',
+      userId: session.user.id,
+      details: { id: created.id, name: parsed.data.name }
+    })
+  } catch (e) {
+    console.error('Logging failed', e)
+  }
+
   return NextResponse.json({ id: created.id })
 }
-
-

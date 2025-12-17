@@ -62,6 +62,19 @@ export async function PUT(
             }
         })
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Payment Gateway Config',
+                userId: user.id,
+                details: { id: config.id, provider: config.provider, isEnabled: config.isEnabled }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
+
         return NextResponse.json({
             ...config,
             apiKey: config.apiKey ? '***ENCRYPTED***' : null,

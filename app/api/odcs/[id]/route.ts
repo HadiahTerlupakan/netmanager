@@ -57,6 +57,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }),
   }
   await repo.update(id, updateData)
+
+  // System Log
+  try {
+    const { logger } = await import('@/lib/logger')
+    await logger.logActivity({
+      action: 'UPDATE',
+      subject: 'ODC',
+      userId: session.user.id,
+      details: { id, updates: parsed.data }
+    })
+  } catch (e) {
+    console.error('Logging failed', e)
+  }
+
   return NextResponse.json({ ok: true })
 }
 
@@ -65,28 +79,42 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   const repo = getOdcRepository()
-  
+
   // Cek apakah ada ODP yang masih menggunakan output dari ODC ini
   const odc = await prisma.odc.findUnique({
     where: { id },
     include: { outputs: { include: { odp: true } } },
   })
-  
+
   if (!odc) {
     return NextResponse.json({ error: 'ODC tidak ditemukan' }, { status: 404 })
   }
-  
-const odpsUsingOutputs = odc.outputs.filter(o => o.odp !== null).map(o => o.odp!.name)
-  
+
+  const odpsUsingOutputs = odc.outputs.filter(o => o.odp !== null).map(o => o.odp!.name)
+
   if (odpsUsingOutputs.length > 0) {
     const odpList = odpsUsingOutputs.join(', ')
-    return NextResponse.json({ 
-      error: `Tidak bisa menghapus ODC "${odc.name}" karena masih digunakan oleh ODP: ${odpList}. Hapus ODP tersebut terlebih dahulu.` 
+    return NextResponse.json({
+      error: `Tidak bisa menghapus ODC "${odc.name}" karena masih digunakan oleh ODP: ${odpList}. Hapus ODP tersebut terlebih dahulu.`
     }, { status: 409 })
   }
-  
+
   try {
     await repo.delete(id)
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'DELETE',
+        subject: 'ODC',
+        userId: session.user.id,
+        details: { id, name: odc.name }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     // Foreign key constraint error

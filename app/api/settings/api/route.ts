@@ -188,6 +188,19 @@ export async function POST(req: NextRequest) {
     // Clear R2 settings cache
     clearR2SettingsCache()
 
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'Settings',
+        userId: session.user.id,
+        details: { type: 'API/R2 Configuration' }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error saving API settings:', error)

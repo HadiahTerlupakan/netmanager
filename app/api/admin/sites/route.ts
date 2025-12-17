@@ -90,6 +90,19 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger');
+            await logger.logActivity({
+                action: 'CREATE',
+                subject: 'Site',
+                userId: user.id,
+                details: { id: site.id, name: site.name, code: site.code }
+            });
+        } catch (e) {
+            console.error('Logging failed', e);
+        }
+
         return NextResponse.json({
             success: true,
             data: site,

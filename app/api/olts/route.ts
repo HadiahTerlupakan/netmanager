@@ -172,7 +172,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   // Cek autentikasi admin menggunakan fungsi terpusat
   const session = await requireAdmin(req)
-  
+
   const json = await req.json()
   const parsed = oltCreateSchema.safeParse(json)
   if (!parsed.success) {
@@ -201,6 +201,21 @@ export async function POST(req: NextRequest) {
       telnetPassword: data.telnetPassword,
       telnetPort: data.telnetPort ?? 23,
     })
+
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'OLT',
+        userId: session.user.id,
+        details: { id: olt.id, name: data.name, ip: data.ipAddress }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ id: olt.id })
   } catch (e: any) {
     return NextResponse.json({ error: 'IP Address sudah terpakai atau terjadi kesalahan' }, { status: 409 })

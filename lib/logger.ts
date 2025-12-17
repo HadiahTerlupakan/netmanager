@@ -41,7 +41,7 @@ class Logger {
     if (!this.shouldLog(level)) return
 
     const formattedMessage = this.formatMessage(level, message, context)
-    
+
     // Log ke console dengan format yang sesuai
     switch (level) {
       case LogLevel.DEBUG:
@@ -98,6 +98,50 @@ class Logger {
       ...context,
       duration: `${duration}ms`,
     })
+  }
+
+  // Database Logging Methods
+  async logActivity(data: { action: string; subject: string; details?: any; userId?: string; ipAddress?: string; userAgent?: string }) {
+    this.info(`[ACTIVITY] ${data.action} ${data.subject}`, data)
+    try {
+      // Dynamic import to avoid circular dependency if any, though prisma is safe here
+      const { prisma } = await import('@/lib/prisma')
+
+      await prisma.systemLog.create({
+        data: {
+          type: 'ACTIVITY',
+          action: data.action,
+          subject: data.subject,
+          details: data.details ? JSON.stringify(data.details) : undefined,
+          userId: data.userId,
+          ipAddress: data.ipAddress,
+          userAgent: data.userAgent,
+        }
+      })
+    } catch (error) {
+      this.error('Failed to save activity log to DB', error as Error)
+    }
+  }
+
+  async logAuth(data: { action: string; userId?: string; details?: any; ipAddress?: string; userAgent?: string }) {
+    this.info(`[AUTH] ${data.action}`, data)
+    try {
+      const { prisma } = await import('@/lib/prisma')
+
+      await prisma.systemLog.create({
+        data: {
+          type: 'AUTH',
+          action: data.action,
+          subject: 'Auth',
+          details: data.details ? JSON.stringify(data.details) : undefined,
+          userId: data.userId,
+          ipAddress: data.ipAddress,
+          userAgent: data.userAgent,
+        }
+      })
+    } catch (error) {
+      this.error('Failed to save auth log to DB', error as Error)
+    }
   }
 }
 

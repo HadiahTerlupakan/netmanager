@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
     const session = await requireAdmin(req)
 
     const body = await req.json()
-    
+
     // Sanitize input
     const sanitizedBody: any = {
       name: body.name ? sanitizeInput(body.name) : undefined,
@@ -249,10 +249,23 @@ export async function POST(req: NextRequest) {
       data: dataToCreate,
     })
 
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'Bandwidth',
+        userId: session.user.id,
+        details: { id: bandwidth.id, name: bandwidth.name }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json(bandwidth, { status: 201 })
   } catch (error: any) {
     console.error('Error creating bandwidth:', error)
-    
+
     // Handle unique constraint violation
     if (error.code === 'P2002') {
       return NextResponse.json(
@@ -267,4 +280,3 @@ export async function POST(req: NextRequest) {
     )
   }
 }
-

@@ -46,6 +46,20 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
 
   try {
     await speedProfileRepository.update(id, data)
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'SpeedProfile',
+        userId: session.user.id,
+        details: { id, updates: data }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: 'Terjadi kesalahan saat mengupdate SpeedProfile' }, { status: 409 })
@@ -58,5 +72,19 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params
   const speedProfileRepository = getSpeedProfileRepository()
   await speedProfileRepository.delete(id)
+
+  // System Log
+  try {
+    const { logger } = await import('@/lib/logger')
+    await logger.logActivity({
+      action: 'DELETE',
+      subject: 'SpeedProfile',
+      userId: session.user.id,
+      details: { id }
+    })
+  } catch (e) {
+    console.error('Logging failed', e)
+  }
+
   return NextResponse.json({ ok: true })
 }

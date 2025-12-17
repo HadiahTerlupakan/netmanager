@@ -164,7 +164,19 @@ export async function POST(req: Request) {
       coreColor: c.coreColor,
     })),
   })
+
+  // System Log
+  try {
+    const { logger } = await import('@/lib/logger')
+    await logger.logActivity({
+      action: 'CREATE',
+      subject: 'OTB',
+      userId: session.user.id,
+      details: { id: created.id, name: parsed.data.name }
+    })
+  } catch (e) {
+    console.error('Logging failed', e)
+  }
+
   return NextResponse.json({ id: created.id })
 }
-
-

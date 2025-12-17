@@ -16,7 +16,7 @@ export async function GET() {
   try {
     const session = await requireAdmin()
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    
+
     try {
       const speedProfileRepository = getSpeedProfileRepository()
       const speedProfiles = await speedProfileRepository.findAll()
@@ -26,9 +26,9 @@ export async function GET() {
       // Jika error terkait model tidak ditemukan
       if (repoError.message?.includes('findMany') || repoError.message?.includes('speedProfile') || repoError.code === 'P2021') {
         return NextResponse.json(
-          { 
+          {
             error: 'Model SpeedProfile belum tersedia. Silakan restart server Next.js setelah menjalankan: npx prisma generate',
-            speedProfiles: [] 
+            speedProfiles: []
           },
           { status: 500 }
         )
@@ -40,9 +40,9 @@ export async function GET() {
     // Jika error terkait tabel tidak ditemukan, beri pesan yang lebih jelas
     if (error.code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('Unknown model')) {
       return NextResponse.json(
-        { 
+        {
           error: 'Tabel SpeedProfile belum dibuat di database. Silakan jalankan: npx prisma db push --accept-data-loss',
-          speedProfiles: [] 
+          speedProfiles: []
         },
         { status: 500 }
       )
@@ -76,6 +76,19 @@ export async function POST(req: Request) {
       assured: data.assured ?? null,
       maximum: data.maximum ?? null,
     })
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'SpeedProfile',
+        userId: session.user.id,
+        details: { id: speedProfile.id, name: data.name }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ id: speedProfile.id })
   } catch (e: any) {
     return NextResponse.json({ error: 'SpeedProfile dengan nama tersebut sudah ada untuk OLT ini atau terjadi kesalahan' }, { status: 409 })

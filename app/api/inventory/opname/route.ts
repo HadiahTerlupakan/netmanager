@@ -269,6 +269,18 @@ export async function POST(req: NextRequest) {
           opnameId: opnameRecord.id,
         })
 
+        // System Log
+        try {
+          await logger.logActivity({
+            action: 'CREATE',
+            subject: 'Stock Opname',
+            userId: session.user.id,
+            details: { id: opnameRecord.id, barangId: barangId, gudangId: gudangId, diff: stokFisik - stokSistem }
+          })
+        } catch (e) {
+          console.error('Logging failed', e)
+        }
+
         return {
           opnameRecord,
           previousStock: stokSistem,

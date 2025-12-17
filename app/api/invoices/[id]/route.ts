@@ -223,7 +223,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const unitPrice = BigInt(Math.round(item.unitPrice * 100)) / 100n
         const totalPrice = BigInt(item.quantity) * unitPrice
         subtotal += totalPrice
-        
+
         return {
           description: item.description,
           quantity: item.quantity,
@@ -274,6 +274,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           payments: true,
         },
       })
+    }
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'Invoice',
+        userId: session.user.id,
+        details: { id: updatedInvoice.id, number: updatedInvoice.invoiceNumber, updates: updateData }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
     }
 
     return NextResponse.json(updatedInvoice)
@@ -366,6 +379,19 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await prisma.invoice.delete({
       where: { id },
     })
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'DELETE',
+        subject: 'Invoice',
+        userId: session.user.id,
+        details: { id: existingInvoice.id, number: existingInvoice.invoiceNumber }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
 
     return NextResponse.json({ message: 'Invoice berhasil dihapus' })
   } catch (error: any) {

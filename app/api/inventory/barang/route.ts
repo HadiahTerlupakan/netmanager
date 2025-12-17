@@ -296,6 +296,15 @@ export async function POST(req: NextRequest) {
         kode: barang.kode,
       })
 
+      // System Log (Persistent)
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'Barang',
+        userId: session.user.id,
+        details: { id: barang.id, nama: barang.nama, kode: barang.kode }
+      })
+
+
       return NextResponse.json({ barang }, { status: 201 })
     } finally {
       // do not disconnect shared prisma client

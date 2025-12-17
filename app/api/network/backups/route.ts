@@ -291,6 +291,19 @@ export async function POST(req: Request) {
         },
       })
 
+      // System Log
+      try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+          action: 'CREATE',
+          subject: 'Device Backup',
+          userId: session?.user?.id,
+          details: { id: result.id, name: data.backupName, deviceId: data.deviceId }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
+
       return NextResponse.json({ id: result.id }, { status: 201 })
     } catch (prismaError: any) {
       throw prismaError

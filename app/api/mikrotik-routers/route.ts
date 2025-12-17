@@ -187,9 +187,22 @@ export async function POST(req: NextRequest) {
       console.error('Failed to perform initial router check:', err)
     }
 
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'MikroTik Router',
+        userId: session.user.id,
+        details: { id: router.id, name: data.name, ip: data.ipAddress }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ id: router.id })
   } catch (e: any) {
     return NextResponse.json({ error: 'IP Address sudah terpakai atau terjadi kesalahan' }, { status: 409 })
   }
 }
-
+```

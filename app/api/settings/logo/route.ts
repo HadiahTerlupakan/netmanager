@@ -111,10 +111,10 @@ export async function POST(req: NextRequest) {
 
     // Konversi dan simpan gambar
     const logoPath = await convertAndSaveImage(file, uploadDir, fileName)
-    
+
     // Pastikan path dimulai dengan /
     const normalizedPath = logoPath.startsWith('/') ? logoPath : `/${logoPath}`
-    
+
     // Verifikasi file benar-benar tersimpan
     const fullPath = path.join(process.cwd(), 'public', normalizedPath)
     const fs = await import('fs/promises')
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
       console.error('Logo file not found after upload:', fullPath)
       throw new Error('File logo gagal disimpan')
     }
-    
+
     console.log('Logo uploaded:', {
       originalPath: logoPath,
       normalizedPath,
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
     })
 
     // Simpan path ke database
-    await prisma.settings.upsert({
+    const updated = await prisma.settings.upsert({
       where: { key: settingKey },
       update: {
         value: normalizedPath,
@@ -145,10 +145,23 @@ export async function POST(req: NextRequest) {
       create: {
         key: settingKey,
         value: normalizedPath,
-        description: type === 'invoice' ? 'Logo untuk invoice' : 'Logo untuk aplikasi',
+        description: type === 'invoice' ? 'Logo untuk invoice' : 'Logo utama aplikasi',
         encrypted: false,
       },
     })
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'Settings',
+        userId: session.user.id,
+        details: { key: settingKey, value: normalizedPath }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
 
     // Hapus logo lama jika ada
     if (oldSetting?.value) {
@@ -212,6 +225,19 @@ export async function DELETE(req: NextRequest) {
     await prisma.settings.delete({
       where: { key: settingKey },
     })
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'DELETE',
+        subject: 'Settings',
+        userId: session.user.id,
+        details: { key: settingKey }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
 
     // Hapus file logo jika ada
     if (oldSetting?.value) {

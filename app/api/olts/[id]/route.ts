@@ -203,6 +203,20 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
 
   try {
     await oltRepository.update(id, data)
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'OLT',
+        userId: session.user.id,
+        details: { id, changes: parsed.data }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: 'IP Address sudah terpakai atau terjadi kesalahan' }, { status: 409 })
@@ -262,5 +276,19 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params
   const oltRepository = getOLTRepository()
   await oltRepository.delete(id)
+
+  // System Log
+  try {
+    const { logger } = await import('@/lib/logger')
+    await logger.logActivity({
+      action: 'DELETE',
+      subject: 'OLT',
+      userId: session.user.id,
+      details: { id }
+    })
+  } catch (e) {
+    console.error('Logging failed', e)
+  }
+
   return NextResponse.json({ ok: true })
 }

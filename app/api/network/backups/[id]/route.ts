@@ -133,6 +133,19 @@ export async function DELETE(
         where: { id },
       })
 
+      // System Log
+      try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+          action: 'DELETE',
+          subject: 'Device Backup',
+          userId: session.user.id,
+          details: { id, name: backup.backupName }
+        })
+      } catch (e) {
+        console.error('Logging failed', e)
+      }
+
       return NextResponse.json({ message: 'Backup berhasil dihapus' })
     } catch (prismaError: any) {
       // Handle case where model doesn't exist yet

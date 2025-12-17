@@ -444,6 +444,19 @@ export async function POST(req: NextRequest) {
     // Invalidate timezone cache agar cron jobs menggunakan timezone baru
     invalidateTimezoneCache()
 
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'Settings',
+        userId: session.user.id,
+        details: { type: 'General', updates: body }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error saving general settings:', error)

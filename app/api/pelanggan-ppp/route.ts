@@ -583,6 +583,19 @@ export async function POST(req: NextRequest) {
     revalidatePath('/admin/pelanggan/ppp')
     revalidatePath('/api/pelanggan-ppp')
 
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'Pelanggan',
+        userId: session?.user?.id,
+        details: { id: pelanggan.id, nama: pelanggan.nama, username: pelanggan.username }
+      })
+    } catch (logError) {
+      console.error('Failed to log activity:', logError)
+    }
+
     return NextResponse.json(pelanggan, {
       status: 201,
       headers: {
