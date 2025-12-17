@@ -70,81 +70,16 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Validate Geofencing
+        // Validate Geofencing - REMOVED strictly as per user request
+        // We still capture potential coords for logging/admin info but DO NOT BLOCK
         const latStr = formData.get('latitude') as string
         const lngStr = formData.get('longitude') as string
 
         if (latStr && lngStr) {
-            const user = await prisma.user.findUnique({
-                where: { id: userId },
-                include: { site: true }
-            })
-
-            if (user?.site) {
-                // Strict Check: If user has a site, we MUST validate geofencing
-                if (!user.site.latitude || !user.site.longitude) {
-                    console.error('Geofencing Error: Site has no coordinates', { siteId: user.site.id, name: user.site.name });
-                    return NextResponse.json({
-                        error: 'Konfigurasi Lokasi (Site) tidak lengkap. Harap hubungi Admin untuk mengatur titik koordinat site.'
-                    }, { status: 400 })
-                }
-
-                if (user.site.attendanceRadius) {
-                    const userLat = parseFloat(latStr)
-                    const userLng = parseFloat(lngStr)
-
-                    if (isNaN(userLat) || isNaN(userLng)) {
-                        return NextResponse.json({ error: 'Koordinat GPS tidak valid.' }, { status: 400 })
-                    }
-
-                    const distance = getDistance(
-                        { latitude: userLat, longitude: userLng },
-                        { latitude: user.site.latitude, longitude: user.site.longitude }
-                    )
-
-                    console.log('Geofencing Check:', {
-                        user: user.name,
-                        distance,
-                        max: user.site.attendanceRadius,
-                        allowed: distance <= user.site.attendanceRadius
-                    })
-
-                    if (isNaN(distance)) {
-                        console.error('Geofencing Error: Distance calculation failed (NaN)')
-                        return NextResponse.json({ error: 'Gagal menghitung jarak lokasi.' }, { status: 400 })
-                    }
-
-                    if (distance > user.site.attendanceRadius) {
-                        return NextResponse.json({
-                            error: `Anda berada di luar jangkauan lokasi absensi (Jarak: ${distance}m, Max: ${user.site.attendanceRadius}m)`
-                        }, { status: 400 })
-                    }
-                }
-            } else {
-                // Fallback for users without site (e.g. mobile techs without fixed site? or legacy)
-                // decided to allow or block?
-                // Assuming strict mode:
-                // return NextResponse.json({ error: 'Anda tidak memiliki lokasi kerja (Site) yang terdaftar.' }, { status: 400 })
-
-                // For now, logging skip but proceeding (preserving backward compatibility if needed,
-                // but user asked "kenapa bisa?", implying they want it blocked.)
-                console.log('Geofencing Skipped: User has no site assigned', { userId })
-            }
+            // Optional: Log location for audit trail
+            console.log('Attendance Check-In Location:', { userId, lat: latStr, lng: lngStr })
         } else {
-            // If lat/long params missing from request
-            console.log('Geofencing Check: No coordinates provided in request', { userId })
-
-            // Only ERROR if user HAS a site that requires checking
-            const userCheck = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { siteId: true }
-            })
-
-            console.log('Geofencing Check: User site check', { hasSite: !!userCheck?.siteId, siteId: userCheck?.siteId })
-
-            if (userCheck?.siteId) {
-                return NextResponse.json({ error: 'Gagal mendeteksi lokasi Anda. Pastikan GPS aktif.' }, { status: 400 })
-            }
+            console.log('Attendance Check-In: No coordinates provided', { userId })
         }
 
         // Buat data attendance

@@ -42,11 +42,8 @@ export default function AttendancePageContent() {
     const videoRef = useRef<HTMLVideoElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
 
-    // Geofencing State
-    const [siteConfig, setSiteConfig] = useState<{ latitude: number, longitude: number, attendanceRadius: number, name: string } | null>(null)
+    // Geofencing State - REMOVED as per user request
     const [coords, setCoords] = useState<{ latitude: number, longitude: number } | null>(null)
-    const [isOutOfRange, setIsOutOfRange] = useState(false)
-    const [distanceInfo, setDistanceInfo] = useState<{ distance: number, max: number } | null>(null)
 
     // Clock State
 
@@ -105,20 +102,6 @@ export default function AttendancePageContent() {
 
     useEffect(() => {
         fetchStatus()
-
-        // Fetch Site Config
-        const fetchConfig = async () => {
-            try {
-                const res = await fetch('/api/attendance/config')
-                const data = await res.json()
-                if (data.success && data.data.site) {
-                    setSiteConfig(data.data.site)
-                }
-            } catch (err) {
-                console.error("Error fetching site config", err)
-            }
-        }
-        fetchConfig()
     }, [fetchStatus])
 
 
@@ -163,21 +146,9 @@ export default function AttendancePageContent() {
                 // Draw video frame
                 context.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-                // --- WATERMARK DRAWING (Timemark Style) ---
                 const W = canvas.width
                 const H = canvas.height
                 const padding = 40
-
-                // OUT OF RANGE WARNING ON WATERMARK (Optional, but useful)
-                if (status === 'idle' && isOutOfRange) {
-                    context.fillStyle = 'rgba(220, 38, 38, 0.8)' // Red background
-                    context.fillRect(0, 0, W, 80)
-                    context.fillStyle = 'white'
-                    context.font = 'bold 32px sans-serif'
-                    context.textAlign = 'center'
-                    context.fillText('DILUAR JANGKAUAN ABSENSI', W / 2, 50)
-                    context.textAlign = 'left' // Reset
-                }
 
                 // 1. Bottom Gradient (Simulate Timemark fade)
                 const gradient = context.createLinearGradient(0, H - 400, 0, H)
@@ -188,8 +159,7 @@ export default function AttendancePageContent() {
                 context.fillRect(0, H - 450, W, 450)
 
                 // 2. Logo "Timemark" style (Top Right)
-                // We'll draw a "Visit" badge/logo in top right or keep it simple as user asked "logonya dimana"
-                // Let's draw a simple Logo placeholder in Top Right
+                // We'll draw a simple Logo placeholder in Top Right
                 const logoSize = 120
                 const logoX = W - logoSize - padding
                 const logoY = padding + 20
@@ -280,23 +250,6 @@ export default function AttendancePageContent() {
 
                     setLocation(`${lat},${lng}`)
                     setCoords({ latitude: lat, longitude: lng })
-
-                    // Geofencing Check
-                    if (siteConfig && siteConfig.latitude && siteConfig.longitude) {
-                        const dist = getDistance(
-                            { latitude: lat, longitude: lng },
-                            { latitude: siteConfig.latitude, longitude: siteConfig.longitude }
-                        )
-
-                        setDistanceInfo({ distance: dist, max: siteConfig.attendanceRadius })
-
-                        if (dist > siteConfig.attendanceRadius) {
-                            setIsOutOfRange(true)
-                            toast.error(`Di luar jangkauan absensi! Jarak: ${dist}m (Max: ${siteConfig.attendanceRadius}m)`)
-                        } else {
-                            setIsOutOfRange(false)
-                        }
-                    }
 
                     fetchAddress(lat, lng)
                     toast.dismiss('geo-loading')
@@ -502,25 +455,12 @@ export default function AttendancePageContent() {
                         </button>
                         <button
                             onClick={handleAttendance}
-                            disabled={loading || !coords || (status === 'idle' && isOutOfRange)}
-                            className={`flex items-center gap-2 px-6 py-3 text-white rounded-xl font-bold shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${status === 'idle' && isOutOfRange
-                                ? 'bg-red-600 shadow-red-600/30'
-                                : 'bg-blue-600 shadow-blue-600/30 hover:bg-blue-700'
-                                }`}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-6 py-3 text-white rounded-xl font-bold shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 shadow-blue-600/30 hover:bg-blue-700"
                         >
-                            {loading ? 'Menyimpan...' : (!coords ? 'Menunggu Lokasi...' : (status === 'checked-in' ? 'Absen Keluar' : 'Absen Masuk'))}
+                            {loading ? 'Menyimpan...' : (status === 'checked-in' ? 'Absen Keluar' : 'Absen Masuk')}
                         </button>
                     </div>
-
-                    {status === 'idle' && isOutOfRange && distanceInfo && (
-                        <div className="px-6 pb-6 text-center">
-                            <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm border border-red-200 dark:border-red-800">
-                                <p className="font-bold">Lokasi tidak sesuai!</p>
-                                <p>Jarak Anda: {distanceInfo.distance}m</p>
-                                <p>Maksimal: {distanceInfo.max}m</p>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         )
