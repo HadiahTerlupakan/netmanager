@@ -143,8 +143,11 @@ export default function AttendancePageContent() {
                 canvas.width = video.videoWidth
                 canvas.height = video.videoHeight
 
-                // Draw video frame
-                context.drawImage(video, 0, 0, canvas.width, canvas.height)
+                // Draw video frame (Mirrored to match preview)
+                context.save()
+                context.scale(-1, 1)
+                context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
+                context.restore()
 
                 const W = canvas.width
                 const H = canvas.height
