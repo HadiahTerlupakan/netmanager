@@ -27,7 +27,8 @@ export default function LabaRugiPage() {
         totalExpenses: 0,
         netProfit: 0,
         paymentCount: 0,
-        expenseCount: 0
+        expenseCount: 0,
+        history: [] as any[]
     });
 
     const [dateRange, setDateRange] = useState({
@@ -56,15 +57,16 @@ export default function LabaRugiPage() {
                     totalExpenses: data.totalExpenses || 0,
                     netProfit: data.netProfit || 0,
                     paymentCount: data.details?.paymentCount || 0,
-                    expenseCount: data.details?.expenseCount || 0
+                    expenseCount: data.details?.expenseCount || 0,
+                    history: data.history || []
                 });
             } else {
                 console.error("Invalid API response for laba rugi:", data);
-                setStats({ totalRevenue: 0, totalExpenses: 0, netProfit: 0, paymentCount: 0, expenseCount: 0 });
+                setStats({ totalRevenue: 0, totalExpenses: 0, netProfit: 0, paymentCount: 0, expenseCount: 0, history: [] });
             }
         } catch (error) {
             toast.error("Gagal memuat data keuangan");
-            setStats({ totalRevenue: 0, totalExpenses: 0, netProfit: 0, paymentCount: 0, expenseCount: 0 });
+            setStats({ totalRevenue: 0, totalExpenses: 0, netProfit: 0, paymentCount: 0, expenseCount: 0, history: [] });
         } finally {
             setLoading(false);
         }
@@ -175,6 +177,53 @@ export default function LabaRugiPage() {
                     </div>
                 </div>
                 {/* Add more detailed breakdown or table here if needed */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Detail Bulanan</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                            <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                                <tr>
+                                    <th scope="col" className="px-6 py-3">Periode</th>
+                                    <th scope="col" className="px-6 py-3">Transaksi</th>
+                                    <th scope="col" className="px-6 py-3">Gross Income</th>
+                                    <th scope="col" className="px-6 py-3">- Fee Seller</th>
+                                    <th scope="col" className="px-6 py-3">- PPN</th>
+                                    <th scope="col" className="px-6 py-3">- Pengeluaran</th>
+                                    <th scope="col" className="px-6 py-3">NET PROFIT</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {stats.history && stats.history.length > 0 ? (
+                                    stats.history.map((month: any, index: number) => (
+                                        <tr key={index} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                            <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                                                {format(new Date(month.period), "MMMM yyyy", { locale: id })}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
+                                                    {month.transactionCount} TRX
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">Rp {month.revenue.toLocaleString('id-ID')}</td>
+                                            <td className="px-6 py-4">Rp 0</td>
+                                            <td className="px-6 py-4">Rp {month.tax?.toLocaleString('id-ID') || 0}</td>
+                                            <td className="px-6 py-4">Rp {month.expenses.toLocaleString('id-ID')}</td>
+                                            <td className={`px-6 py-4 font-bold ${month.netProfit >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                Rp {month.netProfit.toLocaleString('id-ID')}
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={7} className="px-6 py-4 text-center">
+                                            Tidak ada data untuk periode ini
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     );
