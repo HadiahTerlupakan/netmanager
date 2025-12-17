@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session) {
+        if (!session || !session.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -22,8 +22,15 @@ export async function GET(req: Request) {
         let endDate = endOfDay(new Date());
 
         if (startDateParam && endDateParam) {
-            startDate = startOfDay(new Date(startDateParam));
-            endDate = endOfDay(new Date(endDateParam));
+            const start = new Date(startDateParam);
+            const end = new Date(endDateParam);
+
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+            }
+
+            startDate = startOfDay(start);
+            endDate = endOfDay(end);
         }
 
         // 1. Fetch Revenue (Payments)

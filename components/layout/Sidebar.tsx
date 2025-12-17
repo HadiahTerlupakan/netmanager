@@ -49,6 +49,7 @@ import {
   HiOutlineClipboardDocumentList,
   HiOutlineShieldCheck,
   HiOutlineDocumentText,
+  HiOutlineMegaphone,
 } from 'react-icons/hi2'
 import { useSettings } from '@/hooks/useSettings'
 import { useSession, signOut } from 'next-auth/react'
@@ -177,6 +178,7 @@ export default function Sidebar() {
       ],
     },
     { href: '/admin/support', label: 'Dukungan', icon: <HiOutlineChatBubbleLeftRight className="w-5 h-5" />, permission: 'SUPPORT' },
+    { href: '/admin/announcements', label: 'Pengumuman', icon: <HiOutlineMegaphone className="w-5 h-5" />, permission: 'ANNOUNCEMENT' },
     {
       href: '/admin/finance',
       label: 'Data Keuangan',

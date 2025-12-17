@@ -3,6 +3,7 @@ import {
     getNotificationsForUser,
     getUnreadCount,
     markAllAsRead,
+    type NotificationType,
 } from '@/lib/services/NotificationService';
 import { requireAuth } from '@/lib/auth-helpers';
 
@@ -79,10 +80,11 @@ export async function GET(request: NextRequest) {
         const unreadOnly = searchParams.get('unread') === 'true';
         const limit = parseInt(searchParams.get('limit') || '50');
         const offset = parseInt(searchParams.get('offset') || '0');
+        const type = searchParams.get('type') as NotificationType | undefined;
 
         const { notifications, total } = await getNotificationsForUser(
             session.user.id,
-            { unreadOnly, limit, offset }
+            { unreadOnly, limit, offset, type }
         );
 
         const unreadCount = await getUnreadCount(session.user.id);
@@ -145,7 +147,11 @@ export async function PATCH(request: NextRequest) {
         // Cek autentikasi menggunakan fungsi terpusat
         const session = await requireAuth(request);
 
-        await markAllAsRead(session.user.id);
+
+        const body = await request.json().catch(() => ({}));
+        const type = body.type as NotificationType | undefined;
+
+        await markAllAsRead(session.user.id, type);
 
         return NextResponse.json({
             success: true,

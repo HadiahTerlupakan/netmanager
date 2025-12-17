@@ -296,6 +296,7 @@ export async function getNotificationsForUser(
         unreadOnly?: boolean;
         limit?: number;
         offset?: number;
+        type?: NotificationType;
     }
 ) {
     // Get user's department
@@ -313,6 +314,10 @@ export async function getNotificationsForUser(
 
     if (options?.unreadOnly) {
         where.isRead = false;
+    }
+
+    if (options?.type) {
+        where.type = options.type;
     }
 
     const [notifications, total] = await Promise.all([
@@ -364,20 +369,26 @@ export async function markAsRead(notificationId: string) {
 /**
  * Mark all notifications as read for a user
  */
-export async function markAllAsRead(userId: string) {
+export async function markAllAsRead(userId: string, type?: NotificationType) {
     const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { departmentId: true },
     });
 
+    const where: any = {
+        isRead: false,
+        OR: [
+            { userId },
+            ...(user?.departmentId ? [{ departmentId: user.departmentId }] : []),
+        ],
+    };
+
+    if (type) {
+        where.type = type;
+    }
+
     return prisma.notification.updateMany({
-        where: {
-            isRead: false,
-            OR: [
-                { userId },
-                ...(user?.departmentId ? [{ departmentId: user.departmentId }] : []),
-            ],
-        },
+        where,
         data: {
             isRead: true,
             readAt: new Date(),

@@ -6,6 +6,7 @@ import { parse } from 'url'
 import next from 'next'
 import { Server as SocketIOServer } from 'socket.io'
 import { initializeSocketServer } from './lib/websocket/server'
+import cron from 'node-cron'
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = process.env.HOSTNAME || 'localhost'
@@ -108,6 +109,15 @@ app.prepare().then(() => {
     import('./lib/services/OltSyncService').then(({ getOltSyncService }) => {
         getOltSyncService().setSocketServer(io)
     })
+
+    // Start Automatic Billing Service (Daily at 01:00 AM)
+    import('./lib/services/AutomaticBillingService').then(({ AutomaticBillingService }) => {
+        cron.schedule('0 1 * * *', () => {
+            console.log('[Cron] Running daily billing check')
+            AutomaticBillingService.generateDailyInvoices()
+        })
+        console.log('[Server] Automatic billing cron scheduled')
+    }).catch(err => console.error('[Server] Failed to start Automatic Billing Service:', err))
 
     // Log connections count periodically in development
     if (dev) {

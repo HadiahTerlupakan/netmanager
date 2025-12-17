@@ -2,8 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { MdNotifications, MdWork, MdInventory } from 'react-icons/md'
+import { HiMegaphone } from 'react-icons/hi2'
 import Link from 'next/link'
 import { useRealtimeNotifications } from '@/lib/websocket/hooks/useRealtimeNotifications'
+
+interface Announcement {
+    id: string;
+    title: string;
+    content: string;
+    isPinned: boolean;
+    createdAt: string;
+}
 
 export function KaryawanNotificationBell() {
     const {
@@ -17,6 +26,8 @@ export function KaryawanNotificationBell() {
 
     const [isOpen, setIsOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
+    const [announcements, setAnnouncements] = useState<Announcement[]>([])
+    const [announcementsLoading, setAnnouncementsLoading] = useState(true)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -27,6 +38,24 @@ export function KaryawanNotificationBell() {
         }
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
+    // Fetch announcements
+    useEffect(() => {
+        const fetchAnnouncements = async () => {
+            try {
+                const res = await fetch('/api/announcements?portal=employee&active=true')
+                if (res.ok) {
+                    const data = await res.json()
+                    setAnnouncements(data)
+                }
+            } catch (error) {
+                console.error('Failed to fetch announcements', error)
+            } finally {
+                setAnnouncementsLoading(false)
+            }
+        }
+        fetchAnnouncements()
     }, [])
 
     const handleMarkAllAsRead = async () => {
@@ -61,6 +90,8 @@ export function KaryawanNotificationBell() {
         }
     }
 
+    const totalCount = unreadCount + announcements.length
+
     return (
         <div className="relative" ref={dropdownRef}>
             <button
@@ -68,9 +99,9 @@ export function KaryawanNotificationBell() {
                 className="flex items-center justify-center rounded-full size-10 hover:bg-black/5 dark:hover:bg-white/10 transition-colors relative"
             >
                 <MdNotifications className="text-2xl text-blue-600 dark:text-white" />
-                {unreadCount > 0 && (
+                {totalCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full">
-                        {unreadCount > 99 ? '99+' : unreadCount}
+                        {totalCount > 99 ? '99+' : totalCount}
                     </span>
                 )}
                 {/* WebSocket connection indicator */}
@@ -102,19 +133,55 @@ export function KaryawanNotificationBell() {
                         )}
                     </div>
 
+                    {/* Announcements Section */}
+                    {announcements.length > 0 && (
+                        <div className="border-b border-gray-100 dark:border-gray-800">
+                            <div className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20">
+                                <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                                    <HiMegaphone className="w-3 h-3" /> Pengumuman
+                                </span>
+                            </div>
+                            <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                                {announcements.slice(0, 3).map((ann) => (
+                                    <div
+                                        key={ann.id}
+                                        className="p-3 bg-indigo-50/30 dark:bg-indigo-900/10"
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400">
+                                                <HiMegaphone className="w-4 h-4" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                                    {ann.title}
+                                                </span>
+                                                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mt-0.5">
+                                                    {ann.content}
+                                                </p>
+                                                <p className="text-[10px] text-gray-400 mt-1">
+                                                    {formatTime(ann.createdAt)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Notifications List */}
-                    <div className="max-h-80 overflow-y-auto">
+                    <div className="max-h-60 overflow-y-auto">
                         {loading ? (
                             <div className="py-8 px-4 text-center text-gray-500">
                                 <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2" />
                                 <p className="text-sm">Memuat...</p>
                             </div>
-                        ) : notifications.length === 0 ? (
+                        ) : notifications.length === 0 && announcements.length === 0 ? (
                             <div className="py-8 px-4 text-center text-gray-500">
                                 <MdNotifications className="text-4xl mx-auto mb-2 opacity-30" />
                                 <p className="text-sm">Belum ada notifikasi</p>
                             </div>
-                        ) : (
+                        ) : notifications.length === 0 ? null : (
                             notifications.map(notif => (
                                 <div
                                     key={notif.id}

@@ -21,12 +21,20 @@ export async function GET(req: Request) {
         // Build where clause
         const where: any = {};
         if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+            }
+
             where.date = {
-                gte: new Date(startDate),
-                lte: new Date(endDate),
+                gte: start,
+                lte: end,
             };
         }
 
+        // @ts-ignore
         const expenses = await prisma.expense.findMany({
             where,
             orderBy: {
@@ -61,24 +69,36 @@ export async function GET(req: Request) {
     }
 }
 
+import { z } from "zod";
+
+const expenseSchema = z.object({
+    amount: z.union([z.string(), z.number()]).transform((val) => BigInt(val)),
+    date: z.string().or(z.date()).transform((val) => new Date(val)),
+    category: z.string().min(1, "Category is required"),
+    description: z.string().optional(),
+});
+
 export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session) {
+        if (!session || !session.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const body = await req.json();
-        const { amount, date, category, description } = body;
 
-        if (!amount || !category) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        const validation = expenseSchema.safeParse(body);
+        if (!validation.success) {
+            return NextResponse.json({ error: "Invalid input", details: validation.error.format() }, { status: 400 });
         }
 
+        const { amount, date, category, description } = validation.data;
+
+        // @ts-ignore
         const expense = await prisma.expense.create({
             data: {
-                amount: BigInt(amount),
-                date: new Date(date),
+                amount,
+                date,
                 category,
                 description,
                 userId: session.user.id,

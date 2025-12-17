@@ -49,7 +49,11 @@ model User {
   expenses              Expense[]
   
   // System Logs
+  // System Logs
   systemLogs            SystemLog[]
+  
+  // Announcements
+  announcementsCreated  Announcement[]
 
   @@index([departmentId])
   @@index([siteId])
@@ -2034,4 +2038,29 @@ enum LogType {
   AUTH
   ACTIVITY
   SYSTEM
+}
+
+model Announcement {
+  id          String         @id @default(cuid())
+  title       String
+  content     String         @db.Text
+  target      TargetAudience @default(ALL)
+  isActive    Boolean        @default(true)
+  isPinned    Boolean        @default(false)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  createdBy   String?
+  creator     User?          @relation(fields: [createdBy], references: [id])
+
+  @@index([target])
+  @@index([isActive])
+}
+
+enum TargetAudience {
+  ALL
+  CUSTOMER
+  EMPLOYEE
+  ADMIN
 }
