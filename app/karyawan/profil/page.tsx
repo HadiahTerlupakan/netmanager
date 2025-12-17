@@ -28,6 +28,36 @@ export default function ProfilPage() {
         await logout()
     }
 
+    const [siteName, setSiteName] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (isAuthenticated && user?.siteId) {
+            fetch('/api/attendance/config')
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to fetch')
+                    return res.json()
+                })
+                .then(data => {
+                    if (data.data?.site?.name) {
+                        setSiteName(data.data.site.name)
+                    } else if (data.site?.name) {
+                        // Fallback for flat structure if changed
+                        setSiteName(data.site.name)
+                    } else {
+                        // Data retrieved but no name?
+                        console.warn('Site data found but no name:', data)
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching site name:', err)
+                    setSiteName('Gagal memuat')
+                })
+        } else if (isAuthenticated && !user?.siteId) {
+            // confirmed no site
+            setSiteName(null)
+        }
+    }, [isAuthenticated, user?.siteId])
+
     if (authLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-[#f6f7f8] dark:bg-[#101922]">
@@ -83,7 +113,7 @@ export default function ProfilPage() {
                             <MdLocationOn className="text-2xl text-gray-400" />
                             <div>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Site</p>
-                                <p className="font-medium dark:text-white">{user?.siteId ? 'Ada' : 'Belum diatur'}</p>
+                                <p className="font-medium dark:text-white">{siteName || (user?.siteId ? 'Memuat...' : 'Belum diatur')}</p>
                             </div>
                         </div>
                     </div>

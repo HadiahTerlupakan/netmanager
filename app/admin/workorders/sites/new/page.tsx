@@ -26,6 +26,7 @@ export default function NewSitePage() {
         address: '',
         latitude: '',
         longitude: '',
+        attendanceRadius: '100',
     })
 
     // Initialize Leaflet map
@@ -118,6 +119,7 @@ export default function NewSitePage() {
                     ...formData,
                     latitude: formData.latitude || null,
                     longitude: formData.longitude || null,
+                    attendanceRadius: parseInt(formData.attendanceRadius) || 100,
                 }),
             })
 
@@ -288,13 +290,14 @@ export default function NewSitePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Latitude
+                                Latitude <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
                                 name="latitude"
                                 value={formData.latitude}
                                 onChange={handleChange}
+                                required
                                 placeholder="-6.200000"
                                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             />
@@ -302,16 +305,34 @@ export default function NewSitePage() {
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Longitude
+                                Longitude <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
                                 name="longitude"
                                 value={formData.longitude}
                                 onChange={handleChange}
+                                required
                                 placeholder="106.816666"
                                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             />
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Radius Absensi (Meter) <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="number"
+                                name="attendanceRadius"
+                                value={formData.attendanceRadius}
+                                onChange={handleChange}
+                                required
+                                min="10"
+                                placeholder="100"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">Jarak maksimal (meter) dari titik tengah site untuk melakukan absensi.</p>
                         </div>
                     </div>
                 </div>

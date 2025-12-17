@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useKaryawanAuth } from '@/components/karyawan/KaryawanAuthProvider'
 import { KaryawanPushNotification } from '@/components/karyawan/KaryawanPushNotification'
 import { KaryawanNotificationBell } from '@/components/karyawan/KaryawanNotificationBell'
+
 import {
     MdNotifications,
     MdAssignment,
@@ -115,6 +116,7 @@ export default function KaryawanDashboardPage() {
                         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Selamat datang,</p>
                         <h2 className="text-2xl font-bold leading-tight text-[#111418] dark:text-white">{user?.name || 'Karyawan'}</h2>
                     </div>
+
 
                     {/* Push Notification Banner */}
                     <div className="px-4 pb-4">
@@ -245,6 +247,20 @@ export default function KaryawanDashboardPage() {
                                     <div>
                                         <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Riwayat</h2>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Transaksi</p>
+                                    </div>
+                                </button>
+                            </Link>
+
+                            <Link href="/karyawan/absensi">
+                                <button
+                                    className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-colors group text-left"
+                                >
+                                    <div className="size-10 rounded-lg bg-pink-50 dark:bg-pink-900/20 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform">
+                                        <MdAssignment className="text-2xl" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Absensi</h2>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Check In/Out</p>
                                     </div>
                                 </button>
                             </Link>

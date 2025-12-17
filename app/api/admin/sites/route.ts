@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
                 address,
                 latitude: latitude ? parseFloat(latitude) : null,
                 longitude: longitude ? parseFloat(longitude) : null,
+                attendanceRadius: body.attendanceRadius ? parseInt(body.attendanceRadius) : 100,
             },
         });
 

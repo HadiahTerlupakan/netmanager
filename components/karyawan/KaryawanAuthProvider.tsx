@@ -10,6 +10,7 @@ interface KaryawanSession {
     email: string
     departmentId: string | null
     siteId: string | null
+    image: string | null
 }
 
 interface KaryawanAuthContextType {
@@ -35,6 +36,7 @@ export function KaryawanAuthProvider({ children }: { children: ReactNode }) {
                 email: session.user.email ?? '',
                 departmentId: (session.user as any).departmentId ?? null,
                 siteId: (session.user as any).siteId ?? null,
+                image: session.user.image ?? null,
             })
         } else if (status === 'unauthenticated') {
             setUser(null)

@@ -47,19 +47,15 @@ export async function convertAndSaveImage(
     }
 
     // Fallback to local storage
-    await mkdir(uploadDir, { recursive: true })
-    const outputPath = path.join(uploadDir, `${fileName}.webp`)
+    const absoluteUploadDir = path.resolve(process.cwd(), uploadDir)
+    await mkdir(absoluteUploadDir, { recursive: true })
+    const outputPath = path.join(absoluteUploadDir, `${fileName}.webp`)
     await writeFile(outputPath, webpBuffer)
 
     // Return path relatif untuk URL
     const publicPath = path.join(process.cwd(), 'public')
     let relativePath = outputPath.replace(publicPath, '')
     relativePath = relativePath.replace(/\\/g, '/') // Normalize path separator untuk URL
-
-    // Pastikan path dimulai dengan /
-    if (!relativePath.startsWith('/')) {
-      relativePath = '/' + relativePath
-    }
 
     console.log('Image saved locally:', {
       outputPath,

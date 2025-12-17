@@ -56,6 +56,7 @@ model User {
   
   // Announcements
   announcementsCreated  Announcement[]
+  attendances           Attendance[]
 
   @@index([departmentId])
   @@index([siteId])
@@ -879,6 +880,7 @@ model Site {
   address     String?
   latitude    Float?
   longitude   Float?
+  attendanceRadius Int    @default(100)
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -2091,4 +2093,25 @@ enum TargetAudience {
   CUSTOMER
   EMPLOYEE
   ADMIN
+}
+
+model Attendance {
+  id            String    @id @default(cuid())
+  userId        String
+  checkIn       DateTime  @default(now())
+  checkOut      DateTime?
+  checkInPhoto  String?   // URL foto check-in
+  checkOutPhoto String?   // URL foto check-out
+  status        String    @default("PRESENT") // PRESENT, LATE, SICK, LEAVE, etc.
+  notes         String?   // Keterangan tambahan (misal: WFH, Sakit)
+  location      String?   // Koordinat atau nama lokasi check-in
+  checkOutLocation String? // Koordinat atau nama lokasi check-out
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  user          User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([checkIn])
+  @@index([status])
 }

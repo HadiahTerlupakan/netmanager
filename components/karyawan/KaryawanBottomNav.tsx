@@ -10,7 +10,9 @@ import {
     HiHome,
     HiClipboardDocumentList,
     HiArchiveBox,
-    HiUser
+    HiUser,
+    HiOutlineQrCode,
+    HiQrCode
 } from 'react-icons/hi2'
 
 const navItems = [
@@ -31,6 +33,12 @@ const navItems = [
         href: '/karyawan/barang',
         icon: HiOutlineArchiveBox,
         activeIcon: HiArchiveBox,
+    },
+    {
+        name: 'Absensi',
+        href: '/karyawan/absensi',
+        icon: HiOutlineQrCode,
+        activeIcon: HiQrCode,
     },
     {
         name: 'Profil',

@@ -97,6 +97,7 @@ export async function PATCH(
                 ...(address !== undefined && { address }),
                 ...(latitude !== undefined && { latitude: latitude ? parseFloat(latitude) : null }),
                 ...(longitude !== undefined && { longitude: longitude ? parseFloat(longitude) : null }),
+                ...(body.attendanceRadius !== undefined && { attendanceRadius: parseInt(body.attendanceRadius) }),
                 ...(isActive !== undefined && { isActive }),
             },
         });
