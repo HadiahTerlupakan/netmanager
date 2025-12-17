@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 
 async function requireAdmin() {
@@ -28,20 +28,13 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-        const { id } = await params
-        try {
+    const { id } = await params
+    const inventoryRepository = getInventoryRepository()
+
+    try {
       const dbStart = Date.now()
 
-      const gudang = await prisma.gudang.findUnique({
-        where: { id },
-        include: {
-          barang: {
-            include: {
-              barang: true
-            }
-          }
-        }
-      })
+      const gudang = await inventoryRepository.findGudangById(id)
 
       if (!gudang) {
         return NextResponse.json(
@@ -90,7 +83,7 @@ export async function PUT(
       logger.warn('Unauthorized access attempt to PUT /api/inventory/gudang/[id]')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-const body = await req.json()
+    const body = await req.json()
     const { kode, nama, lokasi, isActive } = body
 
     // Validation
@@ -101,13 +94,13 @@ const body = await req.json()
       )
     }
 
+    const inventoryRepository = getInventoryRepository()
+
     try {
       const dbStart = Date.now()
 
       // Check if gudang exists
-      const existingGudang = await prisma.gudang.findUnique({
-        where: { id }
-      })
+      const existingGudang = await inventoryRepository.findGudangById(id)
 
       if (!existingGudang) {
         return NextResponse.json(
@@ -117,28 +110,20 @@ const body = await req.json()
       }
 
       // Check if kode conflicts with another gudang
-      const kodeConflict = await prisma.gudang.findFirst({
-        where: {
-          kode,
-          id: { not: id }
-        }
-      })
+      const kodeConflict = await inventoryRepository.findGudangByKode(kode)
 
-      if (kodeConflict) {
+      if (kodeConflict && kodeConflict.id !== id) {
         return NextResponse.json(
           { error: 'Kode gudang sudah digunakan' },
           { status: 400 }
         )
       }
 
-      const updatedGudang = await prisma.gudang.update({
-        where: { id },
-        data: {
-          kode,
-          nama,
-          lokasi,
-          isActive: isActive !== undefined ? isActive : existingGudang.isActive
-        }
+      const updatedGudang = await inventoryRepository.updateGudang(id, {
+        kode,
+        nama,
+        lokasi,
+        isActive: isActive !== undefined ? isActive : existingGudang.isActive
       })
 
       logger.dbOperation('update', 'Gudang', Date.now() - dbStart)
@@ -181,13 +166,14 @@ export async function DELETE(
       logger.warn('Unauthorized access attempt to DELETE /api/inventory/gudang/[id]')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-try {
+
+    const inventoryRepository = getInventoryRepository()
+
+    try {
       const dbStart = Date.now()
 
       // Check if gudang exists
-      const existingGudang = await prisma.gudang.findUnique({
-        where: { id }
-      })
+      const existingGudang = await inventoryRepository.findGudangById(id)
 
       if (!existingGudang) {
         return NextResponse.json(
@@ -197,22 +183,17 @@ try {
       }
 
       // Check if gudang has stock
-      const stockCount = await prisma.barangGudang.count({
-        where: { gudangId: id }
-      })
+      const hasStock = await inventoryRepository.hasStockInGudang(id)
 
-      if (stockCount > 0) {
+      if (hasStock) {
         return NextResponse.json(
           { error: 'Tidak dapat menghapus gudang yang masih memiliki stok barang' },
           { status: 400 }
         )
       }
 
-      // Soft delete by setting isActive to false
-      await prisma.gudang.update({
-        where: { id },
-        data: { isActive: false }
-      })
+      // Soft delete by setting isActive to false (via repository deleteGudang)
+      await inventoryRepository.deleteGudang(id)
 
       logger.dbOperation('update', 'Gudang', Date.now() - dbStart)
 

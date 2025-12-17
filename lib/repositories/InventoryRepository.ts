@@ -1,6 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import {
+import type {
     IInventoryRepository,
     CreateBarangInput,
     UpdateBarangInput,
@@ -8,7 +8,10 @@ import {
     CreateBarangKeluarInput,
     BarangWithStock,
     BarangMasukWithRelations,
-    BarangKeluarWithRelations
+    BarangKeluarWithRelations,
+    CreateGudangInput,
+    UpdateGudangInput,
+    CreateTransferInput
 } from './IInventoryRepository'
 
 export class InventoryRepository implements IInventoryRepository {
@@ -270,7 +273,311 @@ export class InventoryRepository implements IInventoryRepository {
 
     async getAllGudang(): Promise<any[]> {
         return this.db.gudang.findMany({
+            where: { isActive: true },
             orderBy: { nama: 'asc' }
+        })
+    }
+
+    async findGudangById(id: string): Promise<any | null> {
+        return this.db.gudang.findUnique({
+            where: { id },
+            include: {
+                barang: {
+                    include: { barang: true }
+                }
+            }
+        })
+    }
+
+    async findGudangByKode(kode: string): Promise<any | null> {
+        return this.db.gudang.findUnique({
+            where: { kode }
+        })
+    }
+
+    async createGudang(data: CreateGudangInput): Promise<any> {
+        return this.db.gudang.create({
+            data
+        })
+    }
+
+    async updateGudang(id: string, data: UpdateGudangInput): Promise<any> {
+        return this.db.gudang.update({
+            where: { id },
+            data
+        })
+    }
+
+    async deleteGudang(id: string): Promise<void> {
+        // Soft delete implementation as per requirement
+        await this.db.gudang.update({
+            where: { id },
+            data: { isActive: false }
+        })
+    }
+
+    async hasStockInGudang(id: string): Promise<boolean> {
+        const count = await this.db.barangGudang.count({
+            where: { gudangId: id, stok: { gt: 0 } }
+        })
+        return count > 0
+    }
+
+    // Transfer Implementation
+    async findAllTransfers(params?: {
+        skip?: number
+        take?: number
+        barangId?: string
+        dariGudangId?: string
+        keGudangId?: string
+    }): Promise<{ items: any[]; total: number }> {
+        const { skip, take, barangId, dariGudangId, keGudangId } = params || {}
+        const where: Prisma.TransferAntarGudangWhereInput = {}
+
+        if (barangId) where.barangId = barangId
+        if (dariGudangId) where.dariGudangId = dariGudangId
+        if (keGudangId) where.keGudangId = keGudangId
+
+        const [items, total] = await Promise.all([
+            this.db.transferAntarGudang.findMany({
+                where,
+                include: {
+                    barang: { select: { id: true, kode: true, nama: true, satuan: true } },
+                    dariGudang: { select: { id: true, kode: true, nama: true } },
+                    keGudang: { select: { id: true, kode: true, nama: true } }
+                },
+                orderBy: { tanggal: 'desc' },
+                skip,
+                take
+            }),
+            this.db.transferAntarGudang.count({ where })
+        ])
+
+        return { items, total }
+    }
+
+    async findTransferById(id: string): Promise<any | null> {
+        return this.db.transferAntarGudang.findUnique({
+            where: { id },
+            include: {
+                barang: { select: { id: true, kode: true, nama: true, satuan: true } },
+                dariGudang: { select: { id: true, kode: true, nama: true, lokasi: true } },
+                keGudang: { select: { id: true, kode: true, nama: true, lokasi: true } },
+                masuk: { select: { id: true, tanggal: true, jumlah: true, kondisi: true, keterangan: true } },
+                keluar: { select: { id: true, tanggal: true, jumlah: true, kondisi: true, keterangan: true } }
+            }
+        })
+    }
+
+    async createTransfer(data: CreateTransferInput): Promise<any> {
+        return this.db.$transaction(async (tx) => {
+            const { barangId, dariGudangId, keGudangId, jumlah, kondisi = 'BARU' } = data
+
+            // Check Barang
+            const barang = await tx.barang.findUnique({ where: { id: barangId } })
+            if (!barang) throw new Error('Barang tidak ditemukan')
+
+            // Check Warehouses
+            const [dariGudang, keGudang] = await Promise.all([
+                tx.gudang.findUnique({ where: { id: dariGudangId, isActive: true } }),
+                tx.gudang.findUnique({ where: { id: keGudangId, isActive: true } })
+            ])
+            if (!dariGudang) throw new Error('Gudang sumber tidak ditemukan atau tidak aktif')
+            if (!keGudang) throw new Error('Gudang tujuan tidak ditemukan atau tidak aktif')
+            if (dariGudangId === keGudangId) throw new Error('Gudang sumber dan tujuan tidak boleh sama')
+
+            // Check Condition Stock (Logic similar to getStockBreakdown but inside TX for consistency)
+            // Reuse getStockBreakdown logic but manually here to ensure we use this TX
+            const [masukData, keluarData] = await Promise.all([
+                tx.barangMasuk.findMany({ where: { barangId, gudangId: dariGudangId } }),
+                tx.barangKeluar.findMany({ where: { barangId, gudangId: dariGudangId, isHilang: false } })
+            ])
+
+            let stokAvailable = 0
+            // Calculate specific condition stock
+            // Note: This is simpler than full breakdown if we only care about 'kondisi'
+            // But existing logic iterates all to build state.
+            let sBaru = 0, sBekas = 0, sRusak = 0
+            masukData.forEach(m => {
+                if (m.kondisi === 'BARU') sBaru += m.jumlah
+                else if (m.kondisi === 'BEKAS') sBekas += m.jumlah
+                else if (m.kondisi === 'RUSAK') sRusak += m.jumlah
+                else sBaru += m.jumlah
+            })
+            keluarData.forEach(k => {
+                if (k.kondisi === 'BARU') sBaru = Math.max(0, sBaru - k.jumlah)
+                else if (k.kondisi === 'BEKAS') sBekas = Math.max(0, sBekas - k.jumlah)
+                else if (k.kondisi === 'RUSAK') sRusak = Math.max(0, sRusak - k.jumlah)
+                else sBaru = Math.max(0, sBaru - k.jumlah)
+            })
+
+            if (kondisi === 'BARU') stokAvailable = sBaru
+            else if (kondisi === 'BEKAS') stokAvailable = sBekas
+            else if (kondisi === 'RUSAK') stokAvailable = sRusak
+            else stokAvailable = sBaru
+
+            if (stokAvailable < jumlah) {
+                throw new Error(`Stok ${kondisi.toLowerCase()} tidak mencukupi di gudang sumber. Stok tersedia: ${stokAvailable}`)
+            }
+
+            // Create Transfer Record
+            const transferCode = `TRF${Date.now()}`
+            const transfer = await tx.transferAntarGudang.create({
+                data: {
+                    kodeTransfer: transferCode,
+                    barangId,
+                    dariGudangId,
+                    keGudangId,
+                    jumlah,
+                    kondisi,
+                    keterangan: data.keterangan,
+                    fotoBukti: data.fotoBukti || [],
+                    fotoMetadata: data.fotoMetadata || null
+                }
+            })
+
+            // Deduct from Source (Create Keluar + Update BarangGudang)
+            const stockSumber = await tx.barangGudang.findUnique({
+                where: { barangId_gudangId: { barangId, gudangId: dariGudangId } }
+            })
+            // Should not be null if calculation above found stock, but safety check:
+            if (!stockSumber || stockSumber.stok < jumlah) throw new Error('Stok total tidak mencukupi di gudang sumber')
+
+            await tx.barangKeluar.create({
+                data: {
+                    barangId,
+                    gudangId: dariGudangId,
+                    transferId: transfer.id,
+                    jumlah,
+                    kondisi,
+                    keterangan: `Transfer ke ${keGudang.nama} (${keGudang.kode})${data.keterangan ? ` - ${data.keterangan}` : ''}`,
+                    userId: data.userId,
+                    isHilang: false
+                }
+            })
+
+            await tx.barangGudang.update({
+                where: { id: stockSumber.id },
+                data: { stok: stockSumber.stok - jumlah }
+            })
+
+            // Add to Dest (Create Masuk + Update/Create BarangGudang)
+            await tx.barangMasuk.create({
+                data: {
+                    barangId,
+                    gudangId: keGudangId,
+                    transferId: transfer.id,
+                    jumlah,
+                    kondisi,
+                    keterangan: `Transfer dari ${dariGudang.nama} (${dariGudang.kode})${data.keterangan ? ` - ${data.keterangan}` : ''}`,
+                    userId: data.userId
+                }
+            })
+
+            const stockTujuan = await tx.barangGudang.findUnique({
+                where: { barangId_gudangId: { barangId, gudangId: keGudangId } }
+            })
+
+            if (stockTujuan) {
+                await tx.barangGudang.update({
+                    where: { id: stockTujuan.id },
+                    data: { stok: stockTujuan.stok + jumlah }
+                })
+            } else {
+                await tx.barangGudang.create({
+                    data: { barangId, gudangId: keGudangId, stok: jumlah }
+                })
+            }
+
+            return transfer
+        })
+    }
+
+    async updateTransfer(id: string, data: { keterangan?: string }): Promise<any> {
+        return this.db.transferAntarGudang.update({
+            where: { id },
+            data,
+            include: {
+                barang: { select: { id: true, kode: true, nama: true } },
+                dariGudang: { select: { id: true, kode: true, nama: true } },
+                keGudang: { select: { id: true, kode: true, nama: true } }
+            }
+        })
+    }
+
+    async deleteTransfer(id: string): Promise<void> {
+        await this.db.$transaction(async (tx) => {
+            const transfer = await tx.transferAntarGudang.findUnique({
+                where: { id },
+                include: { masuk: true, keluar: true }
+            })
+            if (!transfer) throw new Error('Record transfer tidak ditemukan')
+
+            // Logic to revert:
+            // 1. Check if Dest has enough stock to return (condition-wise)?
+            // (Re-using similar logic to createTransfer condition check but for Destination)
+            const [masukData, keluarData] = await Promise.all([
+                tx.barangMasuk.findMany({ where: { barangId: transfer.barangId, gudangId: transfer.keGudangId } }),
+                tx.barangKeluar.findMany({ where: { barangId: transfer.barangId, gudangId: transfer.keGudangId, isHilang: false } })
+            ])
+            let sBaru = 0, sBekas = 0, sRusak = 0
+            masukData.forEach(m => {
+                if (m.kondisi === 'BARU') sBaru += m.jumlah
+                else if (m.kondisi === 'BEKAS') sBekas += m.jumlah
+                else if (m.kondisi === 'RUSAK') sRusak += m.jumlah
+                else sBaru += m.jumlah
+            })
+            keluarData.forEach(k => {
+                if (k.kondisi === 'BARU') sBaru = Math.max(0, sBaru - k.jumlah)
+                else if (k.kondisi === 'BEKAS') sBekas = Math.max(0, sBekas - k.jumlah)
+                else if (k.kondisi === 'RUSAK') sRusak = Math.max(0, sRusak - k.jumlah)
+                else sBaru = Math.max(0, sBaru - k.jumlah)
+            })
+
+            let stokAvailable = 0
+            if (transfer.kondisi === 'BARU') stokAvailable = sBaru
+            else if (transfer.kondisi === 'BEKAS') stokAvailable = sBekas
+            else if (transfer.kondisi === 'RUSAK') stokAvailable = sRusak
+            else stokAvailable = sBaru
+
+            if (stokAvailable < transfer.jumlah) {
+                throw new Error('Stok di gudang tujuan tidak mencukupi untuk pembatalan transfer')
+            }
+
+            // 2. Reduce Dest Stock
+            const stockTujuan = await tx.barangGudang.findUnique({
+                where: { barangId_gudangId: { barangId: transfer.barangId, gudangId: transfer.keGudangId } }
+            })
+            if (!stockTujuan) throw new Error('Stok tidak ditemukan di gudang tujuan')
+
+            if (stockTujuan.stok - transfer.jumlah === 0) {
+                await tx.barangGudang.delete({ where: { id: stockTujuan.id } })
+            } else {
+                await tx.barangGudang.update({
+                    where: { id: stockTujuan.id },
+                    data: { stok: stockTujuan.stok - transfer.jumlah }
+                })
+            }
+
+            // 3. Add back to Source Stock
+            const stockSumber = await tx.barangGudang.findUnique({
+                where: { barangId_gudangId: { barangId: transfer.barangId, gudangId: transfer.dariGudangId } }
+            })
+            if (stockSumber) {
+                await tx.barangGudang.update({
+                    where: { id: stockSumber.id },
+                    data: { stok: stockSumber.stok + transfer.jumlah }
+                })
+            } else {
+                await tx.barangGudang.create({
+                    data: { barangId: transfer.barangId, gudangId: transfer.dariGudangId, stok: transfer.jumlah }
+                })
+            }
+
+            // 4. Delete Masuk/Keluar/Transfer
+            await tx.barangMasuk.deleteMany({ where: { transferId: id } })
+            await tx.barangKeluar.deleteMany({ where: { transferId: id } })
+            await tx.transferAntarGudang.delete({ where: { id } })
         })
     }
 

@@ -72,8 +72,72 @@ export type BarangDetail = BarangWithStock & {
     opname: any[]
 }
 
+// Gudang Types
+export interface CreateGudangInput {
+    kode: string
+    nama: string
+    lokasi?: string | null
+    isActive?: boolean
+}
+
+export interface UpdateGudangInput {
+    kode?: string
+    nama?: string
+    lokasi?: string | null
+    isActive?: boolean
+}
+
+// ... existing inputs ...
+
+// Transfer Types
+export interface CreateTransferInput {
+    barangId: string
+    dariGudangId: string
+    keGudangId: string
+    jumlah: number
+    kondisi?: KondisiBarang
+    keterangan?: string
+    userId: string
+    fotoBukti?: string[]
+    fotoMetadata?: any
+}
+
+export interface UpdateTransferInput {
+    keterangan?: string
+}
+
 export interface IInventoryRepository {
-    // Barang CRUD
+    // ... existing Barang methods ...
+
+    // Transfer CRUD
+    findAllTransfers(params?: {
+        skip?: number
+        take?: number
+        barangId?: string
+        dariGudangId?: string
+        keGudangId?: string
+    }): Promise<{ items: any[]; total: number }>
+
+    findTransferById(id: string): Promise<any | null>
+
+    createTransfer(data: CreateTransferInput): Promise<any>
+
+    updateTransfer(id: string, data: UpdateTransferInput): Promise<any>
+
+    deleteTransfer(id: string): Promise<void> // Revert transfer
+
+    // ... existing Gudang methods ...
+
+    // Gudang CRUD
+    // Note: getAllGudang already exists, equivalent to findAllGudang
+    findGudangById(id: string): Promise<Gudang | null>
+    findGudangByKode(kode: string): Promise<Gudang | null>
+    createGudang(data: CreateGudangInput): Promise<Gudang>
+    updateGudang(id: string, data: UpdateGudangInput): Promise<Gudang>
+    deleteGudang(id: string): Promise<void> // Hard or soft delete implementation detail
+    hasStockInGudang(id: string): Promise<boolean>
+
+    // ... existing Stock methods ...
     findAllBarang(params?: {
         skip?: number
         take?: number

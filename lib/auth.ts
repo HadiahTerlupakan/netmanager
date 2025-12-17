@@ -1,12 +1,18 @@
-import NextAuth from 'next-auth'
+import _NextAuth from 'next-auth'
 import type { NextAuthOptions } from 'next-auth'
-import Credentials from 'next-auth/providers/credentials'
+
+// Fix for default import interop in tsx/ESM
+const NextAuth = (_NextAuth as any).default || _NextAuth
+import _CredentialsProvider from 'next-auth/providers/credentials'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from '@/lib/prisma'
 import { getUserRepository } from '@/lib/repositories'
 import { compare } from 'bcryptjs'
 import { checkRateLimit } from '@/lib/redis'
 import { redis } from '@/lib/redis'
+
+// Fix for default import interop in tsx/ESM
+const CredentialsProvider = (_CredentialsProvider as any).default || _CredentialsProvider
 
 // Database connection validation
 async function validateDatabaseConnection(): Promise<boolean> {
@@ -70,7 +76,7 @@ export const authConfig: NextAuthOptions = {
   },
   providers: [
     // Credentials Provider (for email/password login)
-    Credentials({
+    CredentialsProvider({
       name: 'Credentials',
       credentials: {
         username: { label: 'Email', type: 'text' },
@@ -78,11 +84,12 @@ export const authConfig: NextAuthOptions = {
         identifier: { label: 'Identifier', type: 'text' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials: Record<string, string> | undefined) {
         try {
           // Support 'identifier', 'email', or 'username' fields
-          const identifier = (credentials?.identifier || credentials?.username || credentials?.email)?.toLowerCase().trim()
-          const password = credentials?.password ?? ''
+          const creds = credentials as Record<string, string> | undefined
+          const identifier = (creds?.identifier || creds?.username || creds?.email)?.toLowerCase().trim()
+          const password = creds?.password ?? ''
 
           console.log('[AUTH] Login attempt with identifier:', identifier?.substring(0, 3) + '***')
 
@@ -160,8 +167,8 @@ export const authConfig: NextAuthOptions = {
       if (user) {
         token.id = user.id
 
-        // All authenticated users are now ADMIN
-        token.role = 'ADMIN'
+        // Default to USER role until custom RBAC is ready
+        token.role = 'USER'
 
         console.log('[AUTH JWT] Token set:', {
           id: token.id,
@@ -184,8 +191,8 @@ export const authConfig: NextAuthOptions = {
           token.departmentId = dbUser.departmentId
           token.siteId = dbUser.siteId
 
-          // All authenticated users are now ADMIN
-          token.role = 'ADMIN'
+          // Use safe default for now until RBAC is implemented
+          token.role = token.role || 'USER'
         }
       }
 

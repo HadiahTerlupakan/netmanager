@@ -159,10 +159,16 @@ export async function uploadInventoryPhotos(
       throw new Error('Tidak ada file gambar yang valid')
     }
 
+    // Validate and sanitize transactionId to prevent path traversal
+    const safeTransactionId = transactionId.replace(/[^a-zA-Z0-9_\-]/g, '')
+    if (!safeTransactionId || safeTransactionId.length === 0) {
+      throw new Error('Invalid transaction ID for file upload')
+    }
+
     // Upload each image with a sequential index
     for (let i = 0; i < imageFiles.length; i++) {
       const file = imageFiles[i]
-      const fileName = `${transactionId}_photo_${i + 1}`
+      const fileName = `${safeTransactionId}_photo_${i + 1}`
 
       // Use the existing convertAndSaveImage function
       const url = await convertAndSaveImage(
@@ -170,7 +176,7 @@ export async function uploadInventoryPhotos(
         uploadDir,
         fileName,
         transactionType,
-        transactionId
+        safeTransactionId // Use safe, sanitized ID for key generation too
       )
 
       uploadedUrls.push(url)

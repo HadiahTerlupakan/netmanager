@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
-import { prisma } from '@/lib/prisma'
+import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 
 /**
@@ -55,17 +55,12 @@ export async function GET(req: NextRequest) {
       return session // Return error response if authentication fails
     }
 
+    const inventoryRepository = getInventoryRepository()
+
     try {
       const dbStart = Date.now()
 
-      const gudangs = await prisma.gudang.findMany({
-        where: {
-          isActive: true
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      })
+      const gudangs = await inventoryRepository.getAllGudang()
 
       logger.dbOperation('findMany', 'Gudang', Date.now() - dbStart)
 
@@ -159,6 +154,8 @@ export async function POST(req: NextRequest) {
       return session // Return error response if authentication fails
     }
 
+    const inventoryRepository = getInventoryRepository()
+
     const body = await req.json()
     const { nama, lokasi, isActive } = body
 
@@ -176,13 +173,11 @@ export async function POST(req: NextRequest) {
       // Generate automatic gudang code
       const kode = await generateGudangCode()
 
-      const gudang = await prisma.gudang.create({
-        data: {
-          kode,
-          nama,
-          lokasi,
-          isActive: isActive ?? true
-        }
+      const gudang = await inventoryRepository.createGudang({
+        kode,
+        nama,
+        lokasi,
+        isActive: isActive ?? true
       })
 
       logger.dbOperation('create', 'Gudang', Date.now() - dbStart)

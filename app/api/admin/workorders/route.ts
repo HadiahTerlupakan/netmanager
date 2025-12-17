@@ -241,6 +241,7 @@ export async function POST(request: NextRequest) {
             id: workOrder.id,
             workOrderNumber: workOrder.workOrderNumber,
             title: workOrder.title,
+            type: workOrder.type,
             status: workOrder.status,
             priority: workOrder.priority,
             departmentId: workOrder.departmentId || undefined,

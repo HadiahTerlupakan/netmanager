@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { compare } from 'bcryptjs'
 import { generatePelangganTokenPair } from '@/lib/jwt'
 import { setCustomerAuthCookies } from '@/lib/customer-auth'
+import { checkRateLimit } from '@/lib/redis'
 
 export async function POST(request: NextRequest) {
     try {
@@ -14,6 +15,21 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 { error: 'ID Pelanggan/Email dan password harus diisi' },
                 { status: 400 }
+            )
+        }
+
+        // Rate Limiting (Prevent Brute Force)
+        const identifierKey = identifier ? identifier.toLowerCase().trim() : 'unknown'
+        // Limit: 10 attempts per 60 seconds (Strict for customer portal)
+        const allowed = await checkRateLimit(`customer_login:${identifierKey}`, 10, 60)
+
+        if (!allowed) {
+            return NextResponse.json(
+                {
+                    error: 'Terlalu banyak percobaan login',
+                    message: 'Silakan tunggu 1 menit sebelum mencoba lagi.'
+                },
+                { status: 429 }
             )
         }
 

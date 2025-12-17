@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { authConfig } from '@/lib/auth'
 import { logger } from '@/lib/logger'
+import { getInventoryRepository } from '@/lib/repositories'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)

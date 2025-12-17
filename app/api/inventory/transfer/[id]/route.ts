@@ -1,78 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { requireAdmin } from '@/lib/auth-helpers'
+import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
-
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
-
-async function getStockByCondition(barangId: string, gudangId: string) {
-  // Get ALL transactions for this barang to calculate current condition breakdown
-  const [masukData, keluarData] = await Promise.all([
-    prisma.barangMasuk.findMany({
-      where: { barangId, gudangId },
-      orderBy: { tanggal: 'desc' }
-    }),
-    prisma.barangKeluar.findMany({
-      where: { barangId, gudangId, isHilang: false },
-      orderBy: { tanggal: 'desc' }
-    })
-  ])
-
-  // Calculate current stock by condition
-  let stokBaru = 0
-  let stokBekas = 0
-  let stokRusak = 0
-
-  // Process barang masuk
-  masukData.forEach((masuk: any) => {
-    switch (masuk.kondisi) {
-      case 'BARU':
-        stokBaru += masuk.jumlah
-        break
-      case 'BEKAS':
-        stokBekas += masuk.jumlah
-        break
-      case 'RUSAK':
-        stokRusak += masuk.jumlah
-        break
-      default:
-        stokBaru += masuk.jumlah
-        break
-    }
-  })
-
-  // Process barang keluar
-  keluarData.forEach((keluar: any) => {
-    switch (keluar.kondisi) {
-      case 'BARU':
-        stokBaru = Math.max(0, stokBaru - keluar.jumlah)
-        break
-      case 'BEKAS':
-        stokBekas = Math.max(0, stokBekas - keluar.jumlah)
-        break
-      case 'RUSAK':
-        stokRusak = Math.max(0, stokRusak - keluar.jumlah)
-        break
-      default:
-        stokBaru = Math.max(0, stokBaru - keluar.jumlah)
-        break
-    }
-  })
-
-  return {
-    stokBaru,
-    stokBekas,
-    stokRusak,
-    totalStok: stokBaru + stokBekas + stokRusak
-  }
-}
 
 /**
  * GET /api/inventory/transfer/[id]
@@ -84,63 +13,18 @@ export async function GET(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to GET /api/inventory/transfer/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAdmin(req)
+    if (session instanceof NextResponse) {
+      return session
     }
 
-        const { id } = await params
-        try {
+    const { id } = await params
+    const inventoryRepository = getInventoryRepository()
+
+    try {
       const dbStart = Date.now()
 
-      const transferRecord = await prisma.transferAntarGudang.findUnique({
-        where: { id },
-        include: {
-          barang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true,
-              satuan: true
-            }
-          },
-          dariGudang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true,
-              lokasi: true
-            }
-          },
-          keGudang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true,
-              lokasi: true
-            }
-          },
-          masuk: {
-            select: {
-              id: true,
-              tanggal: true,
-              jumlah: true,
-              kondisi: true,
-              keterangan: true
-            }
-          },
-          keluar: {
-            select: {
-              id: true,
-              tanggal: true,
-              jumlah: true,
-              kondisi: true,
-              keterangan: true
-            }
-          }
-        }
-      })
+      const transferRecord = await inventoryRepository.findTransferById(id)
 
       logger.dbOperation('findUnique', 'TransferAntarGudang+Relations', Date.now() - dbStart)
 
@@ -148,7 +32,7 @@ export async function GET(
         return NextResponse.json({ error: 'Record transfer tidak ditemukan' }, { status: 404 })
       }
 
-      logger.apiRequest('GET', '/api/inventory/transfer/[id]', 200, Date.now() - startTime, {
+      logger.apiRequest('GET', `/api/inventory/transfer/${id}`, 200, Date.now() - startTime, {
         userId: session.user.id,
         transferId: id,
       })
@@ -171,7 +55,7 @@ export async function GET(
 
 /**
  * PUT /api/inventory/transfer/[id]
- * Update transfer record (not typically used, but included for completeness)
+ * Update transfer record (only description)
  */
 export async function PUT(
   req: NextRequest,
@@ -179,57 +63,30 @@ export async function PUT(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to PUT /api/inventory/transfer/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAdmin(req)
+    if (session instanceof NextResponse) {
+      return session
     }
 
-        const { id } = await params
+    const { id } = await params
     const body = await req.json()
     const { keterangan } = body
+
+    const inventoryRepository = getInventoryRepository()
 
     try {
       const dbStart = Date.now()
 
-      const transferRecord = await prisma.transferAntarGudang.update({
-        where: { id },
-        data: {
-          keterangan
-        },
-        include: {
-          barang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true
-            }
-          },
-          dariGudang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true
-            }
-          },
-          keGudang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true
-            }
-          }
-        }
-      })
+      const transferRecord = await inventoryRepository.updateTransfer(id, { keterangan })
 
       logger.dbOperation('update', 'TransferAntarGudang', Date.now() - dbStart)
 
-      logger.apiRequest('PUT', '/api/inventory/transfer/[id]', 200, Date.now() - startTime, {
+      logger.apiRequest('PUT', `/api/inventory/transfer/${id}`, 200, Date.now() - startTime, {
         userId: session.user.id,
         transferId: id,
       })
 
-      return NextResponse.json({ message: 'Transfer record berhasil diperbarui' })
+      return NextResponse.json({ message: 'Transfer record berhasil diperbarui', transfer: transferRecord })
     } finally {
       // do not disconnect shared prisma client
     }
@@ -260,117 +117,22 @@ export async function DELETE(
 ) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to DELETE /api/inventory/transfer/[id]')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAdmin(req)
+    if (session instanceof NextResponse) {
+      return session
     }
 
-        const { id } = await params
-        try {
+    const { id } = await params
+    const inventoryRepository = getInventoryRepository()
+
+    try {
       const dbStart = Date.now()
 
-      await prisma.$transaction(async (tx) => {
-        // Get the transfer record to be deleted
-        const transferRecord = await tx.transferAntarGudang.findUnique({
-          where: { id },
-          include: {
-            barang: true,
-            dariGudang: true,
-            keGudang: true,
-            masuk: true,
-            keluar: true
-          }
-        })
+      await inventoryRepository.deleteTransfer(id)
 
-        if (!transferRecord) {
-          throw new Error('Record transfer tidak ditemukan')
-        }
+      logger.dbOperation('transaction', 'TransferAntarGudang+RelatedRecords+BarangGudang', Date.now() - dbStart)
 
-        // Restore stock to source warehouse
-        const stockSumber = await tx.barangGudang.findUnique({
-          where: { barangId_gudangId: { barangId: transferRecord.barangId, gudangId: transferRecord.dariGudangId } }
-        })
-
-        if (stockSumber) {
-          await tx.barangGudang.update({
-            where: { barangId_gudangId: { barangId: transferRecord.barangId, gudangId: transferRecord.dariGudangId } },
-            data: {
-              stok: stockSumber.stok + transferRecord.jumlah
-            }
-          })
-        } else {
-          // If no stock record exists, create one
-          await tx.barangGudang.create({
-            data: {
-              barangId: transferRecord.barangId,
-              gudangId: transferRecord.dariGudangId,
-              stok: transferRecord.jumlah
-            }
-          })
-        }
-
-        // Check condition-specific stock in destination warehouse before rollback
-        const stockTujuanByKondisi = await getStockByCondition(transferRecord.barangId, transferRecord.keGudangId)
-        const availableStockInTujuan = stockTujuanByKondisi[
-          transferRecord.kondisi === 'BARU' ? 'stokBaru' :
-          transferRecord.kondisi === 'BEKAS' ? 'stokBekas' :
-          transferRecord.kondisi === 'RUSAK' ? 'stokRusak' : 'stokBaru'
-        ] || 0
-
-        if (availableStockInTujuan < transferRecord.jumlah) {
-          throw new Error(
-            `Stok ${transferRecord.kondisi.toLowerCase()} di gudang tujuan tidak mencukupi untuk pembatalan transfer. ` +
-            `Stok tersedia: ${availableStockInTujuan}, Diperlukan: ${transferRecord.jumlah}`
-          )
-        }
-
-        // Reduce stock from destination warehouse (using BarangGudang for atomicity)
-        const stockTujuan = await tx.barangGudang.findUnique({
-          where: { barangId_gudangId: { barangId: transferRecord.barangId, gudangId: transferRecord.keGudangId } }
-        })
-
-        if (stockTujuan) {
-          const newStock = stockTujuan.stok - transferRecord.jumlah
-
-          if (newStock === 0) {
-            // If stock becomes 0, delete the BarangGudang record
-            await tx.barangGudang.delete({
-              where: { barangId_gudangId: { barangId: transferRecord.barangId, gudangId: transferRecord.keGudangId } }
-            })
-          } else {
-            // Update with reduced stock
-            await tx.barangGudang.update({
-              where: { barangId_gudangId: { barangId: transferRecord.barangId, gudangId: transferRecord.keGudangId } },
-              data: { stok: newStock }
-            })
-          }
-        } else {
-          throw new Error('Stok tidak ditemukan di gudang tujuan')
-        }
-
-        // Delete related barang masuk and keluar records
-        if (transferRecord.masuk && transferRecord.masuk.length > 0) {
-          await tx.barangMasuk.deleteMany({
-            where: { transferId: id }
-          })
-        }
-
-        if (transferRecord.keluar && transferRecord.keluar.length > 0) {
-          await tx.barangKeluar.deleteMany({
-            where: { transferId: id }
-          })
-        }
-
-        // Delete the transfer record
-        await tx.transferAntarGudang.delete({
-          where: { id }
-        })
-
-        logger.dbOperation('transaction', 'TransferAntarGudang+RelatedRecords+BarangGudang', Date.now() - dbStart)
-      })
-
-      logger.apiRequest('DELETE', '/api/inventory/transfer/[id]', 200, Date.now() - startTime, {
+      logger.apiRequest('DELETE', `/api/inventory/transfer/${id}`, 200, Date.now() - startTime, {
         userId: session.user.id,
         transferId: id,
       })

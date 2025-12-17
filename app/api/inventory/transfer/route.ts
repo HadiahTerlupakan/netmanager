@@ -1,78 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { requireAdmin } from '@/lib/auth-helpers'
+import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
-
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
-
-async function getStockByCondition(barangId: string, gudangId: string) {
-  // Get ALL transactions for this barang to calculate current condition breakdown
-  const [masukData, keluarData] = await Promise.all([
-    prisma.barangMasuk.findMany({
-      where: { barangId, gudangId },
-      orderBy: { tanggal: 'desc' }
-    }),
-    prisma.barangKeluar.findMany({
-      where: { barangId, gudangId, isHilang: false },
-      orderBy: { tanggal: 'desc' }
-    })
-  ])
-
-  // Calculate current stock by condition
-  let stokBaru = 0
-  let stokBekas = 0
-  let stokRusak = 0
-
-  // Process barang masuk
-  masukData.forEach((masuk: any) => {
-    switch (masuk.kondisi) {
-      case 'BARU':
-        stokBaru += masuk.jumlah
-        break
-      case 'BEKAS':
-        stokBekas += masuk.jumlah
-        break
-      case 'RUSAK':
-        stokRusak += masuk.jumlah
-        break
-      default:
-        stokBaru += masuk.jumlah
-        break
-    }
-  })
-
-  // Process barang keluar
-  keluarData.forEach((keluar: any) => {
-    switch (keluar.kondisi) {
-      case 'BARU':
-        stokBaru = Math.max(0, stokBaru - keluar.jumlah)
-        break
-      case 'BEKAS':
-        stokBekas = Math.max(0, stokBekas - keluar.jumlah)
-        break
-      case 'RUSAK':
-        stokRusak = Math.max(0, stokRusak - keluar.jumlah)
-        break
-      default:
-        stokBaru = Math.max(0, stokBaru - keluar.jumlah)
-        break
-    }
-  })
-
-  return {
-    stokBaru,
-    stokBekas,
-    stokRusak,
-    totalStok: stokBaru + stokBekas + stokRusak
-  }
-}
 
 /**
  * GET /api/inventory/transfer
@@ -81,64 +10,31 @@ async function getStockByCondition(barangId: string, gudangId: string) {
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to GET /api/inventory/transfer')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAdmin(req)
+    if (session instanceof NextResponse) {
+      return session
     }
 
     const searchParams = req.nextUrl.searchParams
-    const barangId = searchParams.get('barangId')
-    const dariGudangId = searchParams.get('dariGudangId')
-    const keGudangId = searchParams.get('keGudangId')
+    const barangId = searchParams.get('barangId') || undefined
+    const dariGudangId = searchParams.get('dariGudangId') || undefined
+    const keGudangId = searchParams.get('keGudangId') || undefined
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
 
+    const inventoryRepository = getInventoryRepository()
+
     try {
       const dbStart = Date.now()
 
-      // Build where clause
-      const where: any = {}
-      if (barangId) where.barangId = barangId
-      if (dariGudangId) where.dariGudangId = dariGudangId
-      if (keGudangId) where.keGudangId = keGudangId
-
-      const [transferList, total] = await Promise.all([
-        prisma.transferAntarGudang.findMany({
-          where,
-          include: {
-            barang: {
-              select: {
-                id: true,
-                kode: true,
-                nama: true,
-                satuan: true
-              }
-            },
-            dariGudang: {
-              select: {
-                id: true,
-                kode: true,
-                nama: true
-              }
-            },
-            keGudang: {
-              select: {
-                id: true,
-                kode: true,
-                nama: true
-              }
-            }
-          },
-          orderBy: {
-            tanggal: 'desc'
-          },
-          skip: offset,
-          take: limit
-        }),
-        prisma.transferAntarGudang.count({ where })
-      ])
+      const { items: transferList, total } = await inventoryRepository.findAllTransfers({
+        barangId,
+        dariGudangId,
+        keGudangId,
+        skip: offset,
+        take: limit
+      })
 
       logger.dbOperation('findMany', 'TransferAntarGudang+Relations', Date.now() - dbStart)
 
@@ -184,11 +80,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
-      logger.warn('Unauthorized access attempt to POST /api/inventory/transfer')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await requireAdmin(req)
+    if (session instanceof NextResponse) {
+      return session
     }
+
+    const inventoryRepository = getInventoryRepository()
 
     const body = await req.json()
     const {
@@ -225,159 +122,39 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (fotoMetadata && typeof fotoMetadata !== 'object') {
-      return NextResponse.json(
-        { error: 'fotoMetadata harus berupa object JSON' },
-        { status: 400 }
-      )
-    }
-
     try {
       const dbStart = Date.now()
 
-      // Generate transfer code
-      const transferCode = `TRF${Date.now()}`
-
-      await prisma.$transaction(async (tx) => {
-        // Check if barang exists
-        const barang = await tx.barang.findUnique({
-          where: { id: barangId }
-        })
-
-        if (!barang) {
-          throw new Error('Barang tidak ditemukan')
-        }
-
-        // Check if gudang exists and active
-        const [dariGudang, keGudang] = await Promise.all([
-          tx.gudang.findUnique({ where: { id: dariGudangId, isActive: true } }),
-          tx.gudang.findUnique({ where: { id: keGudangId, isActive: true } })
-        ])
-
-        if (!dariGudang) {
-          throw new Error('Gudang sumber tidak ditemukan atau tidak aktif')
-        }
-
-        if (!keGudang) {
-          throw new Error('Gudang tujuan tidak ditemukan atau tidak aktif')
-        }
-
-        // Check condition-specific stock in source warehouse
-        const stockByKondisi = await getStockByCondition(barangId, dariGudangId)
-        const availableStockForCondition = stockByKondisi[
-          kondisi === 'BARU' ? 'stokBaru' :
-            kondisi === 'BEKAS' ? 'stokBekas' :
-              kondisi === 'RUSAK' ? 'stokRusak' : 'stokBaru'
-        ] || 0
-
-        if (availableStockForCondition < jumlah) {
-          throw new Error(`Stok ${kondisi.toLowerCase()} tidak mencukupi di gudang sumber. Stok tersedia: ${availableStockForCondition}`)
-        }
-
-        // Create transfer record
-        const transferRecord = await tx.transferAntarGudang.create({
-          data: {
-            kodeTransfer: transferCode,
-            barangId,
-            dariGudangId,
-            keGudangId,
-            jumlah,
-            kondisi: kondisi || 'BARU',
-            keterangan,
-            fotoBukti: fotoBukti || [],
-            fotoMetadata: fotoMetadata || null
-          }
-        })
-
-        // Get current stock in source warehouse
-        const stockSumber = await tx.barangGudang.findUnique({
-          where: { barangId_gudangId: { barangId, gudangId: dariGudangId } }
-        })
-
-        if (!stockSumber || stockSumber.stok < jumlah) {
-          throw new Error('Stok tidak mencukupi di gudang sumber')
-        }
-
-        // Create barang keluar record from source warehouse
-        await tx.barangKeluar.create({
-          data: {
-            barangId,
-            gudangId: dariGudangId,
-            transferId: transferRecord.id,
-            jumlah,
-            kondisi: kondisi || 'BARU',
-            keterangan: `Transfer ke ${keGudang.nama} (${keGudang.kode})${keterangan ? ` - ${keterangan}` : ''}`,
-            userId: session.user.id
-          }
-        })
-
-        // Update stock in source warehouse
-        await tx.barangGudang.update({
-          where: { barangId_gudangId: { barangId, gudangId: dariGudangId } },
-          data: {
-            stok: stockSumber.stok - jumlah
-          }
-        })
-
-        // Update or create stock in destination warehouse
-        const stockTujuan = await tx.barangGudang.findUnique({
-          where: { barangId_gudangId: { barangId, gudangId: keGudangId } }
-        })
-
-        if (stockTujuan) {
-          // Update existing stock
-          await tx.barangGudang.update({
-            where: { barangId_gudangId: { barangId, gudangId: keGudangId } },
-            data: {
-              stok: stockTujuan.stok + jumlah
-            }
-          })
-        } else {
-          // Create new stock record
-          await tx.barangGudang.create({
-            data: {
-              barangId,
-              gudangId: keGudangId,
-              stok: jumlah
-            }
-          })
-        }
-
-        // Create barang masuk record to destination warehouse
-        await tx.barangMasuk.create({
-          data: {
-            barangId,
-            gudangId: keGudangId,
-            transferId: transferRecord.id,
-            jumlah,
-            kondisi: kondisi || 'BARU',
-            keterangan: `Transfer dari ${dariGudang.nama} (${dariGudang.kode})${keterangan ? ` - ${keterangan}` : ''}`,
-            userId: session.user.id
-          }
-        })
-
-        logger.dbOperation('transaction', 'TransferAntarGudang+BarangMasuk+BarangKeluar+BarangGudang', Date.now() - dbStart)
-
-        logger.apiRequest('POST', '/api/inventory/transfer', 201, Date.now() - startTime, {
-          userId: session.user.id,
-          barangId,
-          dariGudangId,
-          keGudangId,
-          jumlah,
-          transferId: transferRecord.id,
-          transferCode,
-        })
-
-        return transferRecord
+      const transferRecord = await inventoryRepository.createTransfer({
+        barangId,
+        dariGudangId,
+        keGudangId,
+        jumlah,
+        kondisi,
+        keterangan,
+        userId: session.user.id,
+        fotoBukti,
+        fotoMetadata
       })
 
-      return NextResponse.json(
-        {
-          message: 'Transfer barang antar gudang berhasil',
-          kodeTransfer: transferCode
-        },
-        { status: 201 }
-      )
+      logger.dbOperation('transaction', 'TransferAntarGudang+BarangMasuk+BarangKeluar+BarangGudang', Date.now() - dbStart)
+
+      logger.apiRequest('POST', '/api/inventory/transfer', 201, Date.now() - startTime, {
+        userId: session.user.id,
+        barangId,
+        dariGudangId,
+        keGudangId,
+        jumlah,
+        transferId: transferRecord.id,
+        transferCode: transferRecord.kodeTransfer,
+      })
+
+      return NextResponse.json({
+        message: 'Transfer barang antar gudang berhasil',
+        transfer: transferRecord,
+        kodeTransfer: transferRecord.kodeTransfer
+      }, { status: 201 })
+
     } finally {
       // do not disconnect shared prisma client
     }
@@ -390,16 +167,10 @@ export async function POST(req: NextRequest) {
     if (error.message === 'Barang tidak ditemukan') {
       return NextResponse.json({ error: error.message }, { status: 404 })
     }
-    if (error.message === 'Gudang sumber tidak ditemukan atau tidak aktif') {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-    if (error.message === 'Gudang tujuan tidak ditemukan atau tidak aktif') {
+    if (error.message.includes('Gudang') && (error.message.includes('tidak ditemukan') || error.message.includes('tidak aktif') || error.message.includes('sama'))) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
     if (error.message.includes('Stok tidak mencukupi') || error.message.includes('tidak mencukupi')) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-    if (error.message === 'Gudang sumber dan tujuan tidak boleh sama') {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
