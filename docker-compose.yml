@@ -1,8 +1,4 @@
 services:
-  # ==========================================================================
-  # INFRASTRUCTURE SERVICES (Used in both dev and prod)
-  # ==========================================================================
-  
   db:
     image: postgres:16
     container_name: netmanager-postgres
@@ -14,11 +10,11 @@ services:
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
       POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -42,8 +38,8 @@ services:
     container_name: netmanager-redis
     restart: unless-stopped
     ports:
-      - "6380:6379"
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-}"]
+      - "6379:6379"
+    command: [ "redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-}" ]
     volumes:
       - redis_data:/data
     security_opt:
@@ -96,173 +92,6 @@ services:
     networks:
       - netmanager-network
 
-  # ==========================================================================
-  # PRODUCTION SERVICES (Only started with --profile prod)
-  # ==========================================================================
-
-  # Traefik Reverse Proxy for subdomain routing
-  traefik:
-    image: traefik:v3.2
-    container_name: netmanager-traefik
-    restart: unless-stopped
-    command:
-      - "--api.insecure=false"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--log.level=INFO"
-    ports:
-      - "80:80"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: '0.25'
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "3"
-    networks:
-      - netmanager-network
-    profiles:
-      - prod
-
-  # Next.js Application
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: netmanager-app:latest
-    container_name: netmanager-app
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD:-netmgr}@db:5432/${POSTGRES_DB:-netmanager}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - AUTH_SECRET=${AUTH_SECRET}
-      - AUTH_URL=${AUTH_URL:-http://localhost:3000}
-    expose:
-      - "3000"
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1'
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "20m"
-        max-file: "5"
-    labels:
-      # Enable Traefik for this service
-      - "traefik.enable=true"
-      
-      # Main domain route (landing page)
-      - "traefik.http.routers.app-main.rule=Host(`${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.app-main.entrypoints=web"
-      - "traefik.http.routers.app-main.service=app-service"
-      
-      # Admin subdomain - rewrite to /admin path
-      - "traefik.http.routers.app-admin.rule=Host(`admin.${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.app-admin.entrypoints=web"
-      - "traefik.http.routers.app-admin.middlewares=admin-redirect"
-      - "traefik.http.routers.app-admin.service=app-service"
-      - "traefik.http.middlewares.admin-redirect.replacepathregex.regex=^/(.*)"
-      - "traefik.http.middlewares.admin-redirect.replacepathregex.replacement=/admin/$$1"
-      
-      # Employee subdomain - rewrite to /employee path
-      - "traefik.http.routers.app-employee.rule=Host(`employee.${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.app-employee.entrypoints=web"
-      - "traefik.http.routers.app-employee.middlewares=employee-redirect"
-      - "traefik.http.routers.app-employee.service=app-service"
-      - "traefik.http.middlewares.employee-redirect.replacepathregex.regex=^/(.*)"
-      - "traefik.http.middlewares.employee-redirect.replacepathregex.replacement=/employee/$$1"
-      
-      # Finance subdomain - rewrite to /finance path
-      - "traefik.http.routers.app-finance.rule=Host(`finance.${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.app-finance.entrypoints=web"
-      - "traefik.http.routers.app-finance.middlewares=finance-redirect"
-      - "traefik.http.routers.app-finance.service=app-service"
-      - "traefik.http.middlewares.finance-redirect.replacepathregex.regex=^/(.*)"
-      - "traefik.http.middlewares.finance-redirect.replacepathregex.replacement=/finance/$$1"
-      
-      # Helpdesk subdomain - rewrite to /helpdesk path
-      - "traefik.http.routers.app-helpdesk.rule=Host(`helpdesk.${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.app-helpdesk.entrypoints=web"
-      - "traefik.http.routers.app-helpdesk.middlewares=helpdesk-redirect"
-      - "traefik.http.routers.app-helpdesk.service=app-service"
-      - "traefik.http.middlewares.helpdesk-redirect.replacepathregex.regex=^/(.*)"
-      - "traefik.http.middlewares.helpdesk-redirect.replacepathregex.replacement=/helpdesk/$$1"
-      
-      # Pelanggan (Customer) subdomain - rewrite to /pelanggan path
-      - "traefik.http.routers.app-pelanggan.rule=Host(`pelanggan.${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.app-pelanggan.entrypoints=web"
-      - "traefik.http.routers.app-pelanggan.middlewares=pelanggan-redirect"
-      - "traefik.http.routers.app-pelanggan.service=app-service"
-      - "traefik.http.middlewares.pelanggan-redirect.replacepathregex.regex=^/(.*)"
-      - "traefik.http.middlewares.pelanggan-redirect.replacepathregex.replacement=/pelanggan/$$1"
-      
-      # Service definition
-      - "traefik.http.services.app-service.loadbalancer.server.port=3000"
-    networks:
-      - netmanager-network
-    profiles:
-      - prod
-
-  # ==========================================================================
-  # UTILITY SERVICES (On-demand)
-  # ==========================================================================
-
-  db-backup:
-    image: postgres:16
-    container_name: netmanager-postgres-backup
-    restart: "no"
-    depends_on:
-      - db
-    environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:-netmgr}
-    volumes:
-      - ./backups:/backups
-      - ./scripts/backup-db.sh:/backup.sh:ro
-    entrypoint: ["/bin/sh", "-c"]
-    command: ["chmod +x /backup.sh && /backup.sh"]
-    networks:
-      - netmanager-network
-    profiles:
-      - backup
-
-  db-restore:
-    image: postgres:16
-    container_name: netmanager-postgres-restore
-    restart: "no"
-    depends_on:
-      - db
-    environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:-netmgr}
-    volumes:
-      - ./backups:/backups:ro
-      - ./scripts/restore-db.sh:/restore.sh:ro
-    entrypoint: ["/bin/sh", "-c"]
-    command: ["chmod +x /restore.sh && echo 'Use: docker-compose --profile restore run --rm db-restore /restore.sh your-backup-file.sql.gz'"]
-    networks:
-      - netmanager-network
-    profiles:
-      - restore
-
 volumes:
   db_data:
     driver: local
@@ -274,6 +103,3 @@ volumes:
 networks:
   netmanager-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 192.168.220.0/24
