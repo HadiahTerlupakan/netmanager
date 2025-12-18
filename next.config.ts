@@ -16,15 +16,16 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
   images: {
-    domains: ['localhost', 'radpro.id', 'admin.radpro.id', 'finance.radpro.id', 'pelanggan.radpro.id', 'karyawan.radpro.id', 'staging.radpro.id', 'admin-staging.radpro.id'],
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
+      { protocol: 'http', hostname: 'localhost' },
+      { protocol: 'http', hostname: '127.0.0.1' },
+      { protocol: 'https', hostname: '**.radpro.id' },
+      { protocol: 'https', hostname: '**.r2.dev' },
+      { protocol: 'https', hostname: 'cdn.radpro.id' },
+      { protocol: 'https', hostname: '**' }
     ],
-    // Allow unoptimized images if needed for local uploads in some environments
-    unoptimized: process.env.NODE_ENV === 'development',
+    // Temporarily unoptimize for production to debug 400 error
+    unoptimized: true,
   },
   // Enable gzip compression for API responses
   compress: true,
