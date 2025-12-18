@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { join } from 'path'
-import { writeFile, mkdir } from 'fs/promises'
 import { v4 as uuidv4 } from 'uuid'
+import { convertAndSaveImage } from '@/lib/utils/image-upload'
 
 // Limit file size to 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024
@@ -34,27 +33,26 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const buffer = Buffer.from(await file.arrayBuffer())
-
-        // Create unique filename
+        // Use convertAndSaveImage which handles both Local and R2 storage
+        // It also handles webp conversion for optimization
+        const uploadDir = 'public/uploads/tickets'
         const fileExtension = file.name.split('.').pop()
-        const fileName = `${uuidv4()}.${fileExtension}`
+        const uniqueId = uuidv4()
 
-        // Ensure upload directory exists
-        const uploadDir = join(process.cwd(), 'public/uploads/tickets')
-        await mkdir(uploadDir, { recursive: true })
+        // Note: convertAndSaveImage will append .webp extension
+        // We pass uniqueId as filename
 
-        const filePath = join(uploadDir, fileName)
-
-        await writeFile(filePath, buffer)
-
-        // Return public URL
-        const publicUrl = `/uploads/tickets/${fileName}`
+        const publicUrl = await convertAndSaveImage(
+            file,
+            uploadDir,
+            uniqueId,
+            'tickets'
+        )
 
         return NextResponse.json({
             success: true,
             url: publicUrl,
-            fileName: fileName,
+            fileName: `${uniqueId}.webp`,
             originalName: file.name
         })
 

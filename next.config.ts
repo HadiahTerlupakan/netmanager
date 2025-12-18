@@ -15,6 +15,17 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
+  images: {
+    domains: ['localhost', 'radpro.id', 'admin.radpro.id', 'finance.radpro.id', 'pelanggan.radpro.id', 'karyawan.radpro.id', 'staging.radpro.id', 'admin-staging.radpro.id'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+    // Allow unoptimized images if needed for local uploads in some environments
+    unoptimized: process.env.NODE_ENV === 'development',
+  },
   // Enable gzip compression for API responses
   compress: true,
   reactStrictMode: false, // Temporarily disabled to suppress React warnings from swagger-ui-react
