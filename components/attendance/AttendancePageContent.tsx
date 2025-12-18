@@ -218,7 +218,7 @@ export default function AttendancePageContent() {
                 context.textAlign = 'left'
                 context.shadowColor = 'black'
                 context.shadowBlur = 4
-                context.fillStyle = 'rgba(255, 255, 255, 0.35)'
+                context.fillStyle = 'rgba(255, 255, 255, 0.95)'
 
                 // Time (Large)
                 const timeString = format(new Date(), 'HH:mm')

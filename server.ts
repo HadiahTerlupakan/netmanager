@@ -58,7 +58,42 @@ app.prepare().then(() => {
                     res.end(JSON.stringify({ error: 'Internal error' }))
                 }
             })
-            return
+        }
+        // Helper to determine mime type
+        const getMimeType = (filePath: string) => {
+            const ext = filePath.split('.').pop()?.toLowerCase()
+            switch (ext) {
+                case 'png': return 'image/png'
+                case 'jpg':
+                case 'jpeg': return 'image/jpeg'
+                case 'webp': return 'image/webp'
+                case 'gif': return 'image/gif'
+                case 'pdf': return 'application/pdf'
+                default: return 'application/octet-stream'
+            }
+        }
+
+        // Manual Static File Serving for Uploads (Bypassing Next.js static handling for runtime uploads)
+        if (parsedUrl.pathname?.startsWith('/uploads/') && req.method === 'GET') {
+            const fs = await import('fs')
+            const path = await import('path')
+
+            // Construct absolute path to the file in public/uploads
+            const safePath = parsedUrl.pathname || ''
+            const filePath = path.join(process.cwd(), 'public', safePath)
+
+            // Check if file exists
+            if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+                const stat = fs.statSync(filePath)
+                res.writeHead(200, {
+                    'Content-Type': getMimeType(filePath),
+                    'Content-Length': stat.size
+                })
+                const readStream = fs.createReadStream(filePath)
+                readStream.pipe(res)
+                return
+            }
+            // If file not found, let Next.js handle it (maybe 404 or other route)
         }
 
         handle(req, res, parsedUrl)
