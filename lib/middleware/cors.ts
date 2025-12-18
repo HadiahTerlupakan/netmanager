@@ -42,10 +42,11 @@ function getAllowedOrigins(): CorsOptions['origin'] {
 
     // Default production origins (should be overridden by environment variable)
     return [
-      'https://netmanager.yourdomain.com',
-      'https://admin.netmanager.yourdomain.com',
-      'https://finance.netmanager.yourdomain.com',
-      'https://pelanggan.netmanager.yourdomain.com'
+      'https://radpro.id',
+      'https://admin.radpro.id',
+      'https://finance.radpro.id',
+      'https://pelanggan.radpro.id',
+      'https://karyawan.radpro.id'
     ]
   }
 
@@ -79,8 +80,8 @@ function getAllowedOrigins(): CorsOptions['origin'] {
   // Staging: moderate restrictions
   if (nodeEnv === 'staging') {
     return [
-      'https://staging.netmanager.yourdomain.com',
-      'https://admin-staging.netmanager.yourdomain.com'
+      'https://staging.radpro.id',
+      'https://admin-staging.radpro.id'
     ]
   }
 
@@ -272,9 +273,9 @@ export function addSecurityHeaders(
 
   // Permissions Policy
   res.headers.set('Permissions-Policy', [
-    'camera=()',
-    'microphone=()',
-    'geolocation=()',
+    'camera=(self)',
+    'microphone=(self)',
+    'geolocation=(self)',
     'payment=()',
     'usb=()',
     'magnetometer=()',
