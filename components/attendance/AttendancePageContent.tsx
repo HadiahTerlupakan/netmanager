@@ -499,203 +499,204 @@ export default function AttendancePageContent() {
                         </button>
                     </div>
                 </div>
-                )
+            </div>
+        )
     }
 
     const getGreeting = () => {
         const hour = currentTime.getHours()
-                if (hour < 10) return 'Selamat Pagi,'
-                if (hour < 15) return 'Selamat Siang,'
-                if (hour < 18) return 'Selamat Sore,'
-                return 'Selamat Malam,'
+        if (hour < 10) return 'Selamat Pagi,'
+        if (hour < 15) return 'Selamat Siang,'
+        if (hour < 18) return 'Selamat Sore,'
+        return 'Selamat Malam,'
     }
 
-                return (
-                <div className="min-h-screen w-full bg-[#f6f7f8] dark:bg-[#101922] text-[#111418] dark:text-white font-sans antialiased transition-colors duration-200">
-                    <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto bg-[#f6f7f8] dark:bg-[#101922] shadow-xl pb-24">
-                        {renderCameraModal()}
-                        {renderPhotoPreviewModal()}
+    return (
+        <div className="min-h-screen w-full bg-[#f6f7f8] dark:bg-[#101922] text-[#111418] dark:text-white font-sans antialiased transition-colors duration-200">
+            <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto bg-[#f6f7f8] dark:bg-[#101922] shadow-xl pb-24">
+                {renderCameraModal()}
+                {renderPhotoPreviewModal()}
 
-                        {/* Top Bar - Standardized */}
-                        <div className="sticky top-0 z-20 flex items-center bg-[#f6f7f8] dark:bg-[#101922] p-4 pb-2 justify-between border-b border-gray-100 dark:border-gray-800">
-                            <div className="flex size-10 shrink-0 items-center">
-                                <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-full size-10 flex items-center justify-center text-white font-bold text-lg">
-                                    {user?.name?.charAt(0)?.toUpperCase() || 'K'}
-                                </div>
-                            </div>
-                            <div className="flex flex-col items-center">
-                                <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] text-[#111418] dark:text-white">Absensi</h2>
-                                <p className="text-xs font-medium text-slate-500 dark:text-gray-400">{getGreeting()}</p>
-                            </div>
-                            <div className="flex size-10 items-center justify-end">
-                                <KaryawanNotificationBell />
-                            </div>
-                        </div>
-
-                        {/* Time & Date */}
-                        <div className="flex flex-col items-center pt-2 pb-6 px-4">
-                            <div className="relative z-10 text-center">
-                                <h1 className="text-[42px] font-bold text-[#111418] dark:text-white tracking-tighter leading-none mb-1">
-                                    {format(currentTime, 'HH:mm')}<span className="text-2xl font-medium text-slate-400 ml-1"></span>
-                                </h1>
-                                <h2 className="text-slate-500 dark:text-gray-400 font-medium text-sm">
-                                    {format(currentTime, 'EEEE, d MMMM yyyy', { locale: id })}
-                                </h2>
-                            </div>
-                        </div>
-
-                        {/* Main Content Card */}
-                        <div className="px-4 w-full">
-                            <div className="bg-white dark:bg-[#1c2936] rounded-xl p-4 shadow-sm border border-slate-200 dark:border-gray-800 relative overflow-hidden transition-colors">
-                                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
-
-                                {/* Location Section */}
-                                <div className="relative w-full h-28 rounded-xl overflow-hidden mb-5 group shadow-sm bg-gray-100 dark:bg-gray-900">
-                                    {/* We can use a better static map later, specifically requesting a location if available */}
-                                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDiCTCdRfxIYEDuIQXvjeGjg9MAYh03iWivTCXqyKFx5Byh75Ax_vOUgE4u5uHeVgOP_VhdJ5YtDOgugpqJ6TUEEyaoIjfyEnpV665iPqTDjBn5nwiP5Kjfu9FFjnDpSBmwNqytA2VjtZijnJV2vWF0P_AnMsd4ky6gv6C46DVVGQ5ORuRT1FxQtkgE1MxENbYGmLHA7msbFo2bmf_w1udHRmx-vfpeQp4wQlK0myq_8eoTnrgNqW3AW5yQyn8yjxkv1w40QzNztHI")' }}></div>
-                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent"></div>
-
-                                    <div className="absolute bottom-3 left-3 flex items-center gap-2 text-white z-10">
-                                        <div className="flex items-center justify-center size-7 rounded-full bg-white/20 backdrop-blur-md border border-white/10">
-                                            <MdNearMe className="text-sm text-white" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-white/80 font-medium leading-none mb-0.5">Lokasi Terkini</p>
-                                            <p className="text-xs font-bold leading-none">{location ? 'Lokasi Terdeteksi' : 'Mencari Lokasi...'}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Status Info */}
-                                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 mb-5 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="size-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-sm">
-                                            <MdWorkHistory className="text-xl" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wide mb-0.5">Status: {status === 'checked-in' ? 'Bekerja' : status === 'checked-out' ? 'Selesai' : 'Belum Absen'}</p>
-                                            <p className="text-xs font-medium text-slate-600 dark:text-gray-300">
-                                                {status === 'checked-in' ? 'Sudah Absen Masuk' : status === 'checked-out' ? 'Sudah Absen Keluar' : 'Silakan Check-in'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Durasi Kerja</p>
-                                        <p className="text-lg font-bold text-[#111418] dark:text-white font-mono leading-none">{workDuration}</p>
-                                    </div>
-                                </div>
-
-                                {/* Stats Grid */}
-                                <div className="grid grid-cols-2 gap-4 mb-6">
-                                    <div className={`relative overflow-hidden p-4 rounded-xl border ${checkInTime ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30 opacity-80'}`}>
-                                        <div className="absolute right-0 top-0 p-2 opacity-10 pointer-events-none">
-                                            <MdLogin className="text-5xl text-emerald-600" />
-                                        </div>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Jam Masuk</p>
-                                            <MdCheckCircle className="text-sm text-emerald-600 dark:text-emerald-400" />
-                                        </div>
-                                        <p className="text-2xl font-bold text-[#111418] dark:text-white">{checkInTime || '--:--'}</p>
-                                        <p className="text-[10px] text-emerald-700 dark:text-emerald-300 mt-1 font-medium">{checkInTime ? 'Tepat Waktu' : 'Belum Absen'}</p>
-                                    </div>
-                                    <div className={`relative overflow-hidden p-4 rounded-xl border ${checkOutTime ? 'bg-slate-50 dark:bg-[#1c2936] border-dashed border-slate-300 dark:border-gray-700' : 'bg-slate-50 dark:bg-[#1c2936] border-dashed border-slate-300 dark:border-gray-700'}`}>
-                                        <div className="absolute right-0 top-0 p-2 opacity-5 pointer-events-none">
-                                            <MdLogout className="text-5xl text-slate-500" />
-                                        </div>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Jam Keluar</p>
-                                            <MdPending className="text-sm text-slate-300 dark:text-gray-600" />
-                                        </div>
-                                        <p className="text-2xl font-bold text-slate-300 dark:text-gray-600">{checkOutTime || '--:--'}</p>
-                                        <p className="text-[10px] text-slate-400 mt-1 font-medium">{checkOutTime ? 'Selesai' : 'Belum Absen'}</p>
-                                    </div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        onClick={status === 'idle' ? startCamera : undefined}
-                                        disabled={status !== 'idle'}
-                                        className={`h-12 rounded-xl text-sm flex items-center justify-center gap-2 font-bold border ${status === 'idle'
-                                            ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 active:scale-95 transition-all border-transparent'
-                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-transparent'
-                                            }`}
-                                    >
-                                        <MdFingerprint className="text-[20px]" />
-                                        <span>Absen Masuk</span>
-                                    </button>
-                                    <button
-                                        onClick={status === 'checked-in' ? startCamera : undefined}
-                                        disabled={status !== 'checked-in'}
-                                        className={`h-12 rounded-xl text-sm flex items-center justify-center gap-2 font-bold shadow-lg active:scale-95 transition-all ${status === 'checked-in'
-                                            ? 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 text-white shadow-red-500/20'
-                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-transparent box-shadow-none'
-                                            }`}
-                                    >
-                                        <MdLogout className="text-[20px]" />
-                                        <span>Absen Keluar</span>
-                                    </button>
-                                </div>
-
-                                <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-4 font-medium">Pastikan anda berada di area kantor sebelum absen.</p>
-                            </div>
-                        </div>
-
-                        {/* History Section */}
-                        <div className="mt-8 px-4 w-full max-w-full">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold text-[#111418] dark:text-white tracking-tight">Riwayat Absensi</h3>
-                                <div className="flex p-1 bg-slate-100 dark:bg-[#1c2936] rounded-lg border border-slate-200 dark:border-gray-800">
-                                    <button className="px-3 py-1 text-[10px] font-bold rounded-md bg-white dark:bg-[#101922] text-[#111418] dark:text-white shadow-sm transition-all border border-slate-200 dark:border-gray-700">Mingguan</button>
-                                    <button className="px-3 py-1 text-[10px] font-medium rounded-md text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all">Bulanan</button>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3 pb-6">
-                                {history.map((record) => {
-                                    const recDate = new Date(record.checkIn)
-                                    const recCheckIn = format(recDate, 'HH:mm')
-                                    const recCheckOut = record.checkOut ? format(new Date(record.checkOut), 'HH:mm') : '--:--'
-
-                                    let durationText = 'Belum selesai'
-                                    if (record.checkOut) {
-                                        const diff = new Date(record.checkOut).getTime() - recDate.getTime()
-                                        const hours = Math.floor(diff / 3600000)
-                                        durationText = `Total ${hours} jam kerja`
-                                    }
-
-                                    return (
-                                        <div key={record.id} className="flex items-center justify-between bg-white dark:bg-[#1c2936] p-3.5 rounded-xl border border-slate-100 dark:border-gray-800 shadow-sm transition-colors">
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex flex-col items-center justify-center size-11 rounded-lg bg-slate-50 dark:bg-[#101922] text-[#111418] dark:text-white border border-slate-100 dark:border-gray-700">
-                                                    <span className="text-[9px] uppercase font-bold text-slate-400">{format(recDate, 'EEE', { locale: id })}</span>
-                                                    <span className="text-base font-bold leading-none mt-0.5">{format(recDate, 'dd')}</span>
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="font-bold text-[#111418] dark:text-white text-sm">{recCheckIn}</p>
-                                                        <span className="text-slate-300 text-xs">•</span>
-                                                        <p className="font-bold text-[#111418] dark:text-white text-sm">{recCheckOut}</p>
-                                                    </div>
-                                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5">{durationText}</p>
-                                                    {record.location && (
-                                                        <div className="flex items-center gap-1 mt-1 text-slate-500 dark:text-gray-400">
-                                                            <MdNearMe className="text-[10px]" />
-                                                            <p className="text-[10px] line-clamp-1 max-w-[150px]">{record.location}</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-[9px] font-bold uppercase tracking-wide border border-emerald-100 dark:border-emerald-900/30">Hadir</span>
-                                        </div>
-                                    )
-                                })}
-                                {history.length === 0 && (
-                                    <p className="text-center text-sm text-gray-400 py-4">Belum ada riwayat absensi</p>
-                                )}
-                            </div>
+                {/* Top Bar - Standardized */}
+                <div className="sticky top-0 z-20 flex items-center bg-[#f6f7f8] dark:bg-[#101922] p-4 pb-2 justify-between border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex size-10 shrink-0 items-center">
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-full size-10 flex items-center justify-center text-white font-bold text-lg">
+                            {user?.name?.charAt(0)?.toUpperCase() || 'K'}
                         </div>
                     </div>
+                    <div className="flex flex-col items-center">
+                        <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] text-[#111418] dark:text-white">Absensi</h2>
+                        <p className="text-xs font-medium text-slate-500 dark:text-gray-400">{getGreeting()}</p>
+                    </div>
+                    <div className="flex size-10 items-center justify-end">
+                        <KaryawanNotificationBell />
+                    </div>
                 </div>
-                )
+
+                {/* Time & Date */}
+                <div className="flex flex-col items-center pt-2 pb-6 px-4">
+                    <div className="relative z-10 text-center">
+                        <h1 className="text-[42px] font-bold text-[#111418] dark:text-white tracking-tighter leading-none mb-1">
+                            {format(currentTime, 'HH:mm')}<span className="text-2xl font-medium text-slate-400 ml-1"></span>
+                        </h1>
+                        <h2 className="text-slate-500 dark:text-gray-400 font-medium text-sm">
+                            {format(currentTime, 'EEEE, d MMMM yyyy', { locale: id })}
+                        </h2>
+                    </div>
+                </div>
+
+                {/* Main Content Card */}
+                <div className="px-4 w-full">
+                    <div className="bg-white dark:bg-[#1c2936] rounded-xl p-4 shadow-sm border border-slate-200 dark:border-gray-800 relative overflow-hidden transition-colors">
+                        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+                        {/* Location Section */}
+                        <div className="relative w-full h-28 rounded-xl overflow-hidden mb-5 group shadow-sm bg-gray-100 dark:bg-gray-900">
+                            {/* We can use a better static map later, specifically requesting a location if available */}
+                            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDiCTCdRfxIYEDuIQXvjeGjg9MAYh03iWivTCXqyKFx5Byh75Ax_vOUgE4u5uHeVgOP_VhdJ5YtDOgugpqJ6TUEEyaoIjfyEnpV665iPqTDjBn5nwiP5Kjfu9FFjnDpSBmwNqytA2VjtZijnJV2vWF0P_AnMsd4ky6gv6C46DVVGQ5ORuRT1FxQtkgE1MxENbYGmLHA7msbFo2bmf_w1udHRmx-vfpeQp4wQlK0myq_8eoTnrgNqW3AW5yQyn8yjxkv1w40QzNztHI")' }}></div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent"></div>
+
+                            <div className="absolute bottom-3 left-3 flex items-center gap-2 text-white z-10">
+                                <div className="flex items-center justify-center size-7 rounded-full bg-white/20 backdrop-blur-md border border-white/10">
+                                    <MdNearMe className="text-sm text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-white/80 font-medium leading-none mb-0.5">Lokasi Terkini</p>
+                                    <p className="text-xs font-bold leading-none">{location ? 'Lokasi Terdeteksi' : 'Mencari Lokasi...'}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Status Info */}
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 mb-5 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="size-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-sm">
+                                    <MdWorkHistory className="text-xl" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wide mb-0.5">Status: {status === 'checked-in' ? 'Bekerja' : status === 'checked-out' ? 'Selesai' : 'Belum Absen'}</p>
+                                    <p className="text-xs font-medium text-slate-600 dark:text-gray-300">
+                                        {status === 'checked-in' ? 'Sudah Absen Masuk' : status === 'checked-out' ? 'Sudah Absen Keluar' : 'Silakan Check-in'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Durasi Kerja</p>
+                                <p className="text-lg font-bold text-[#111418] dark:text-white font-mono leading-none">{workDuration}</p>
+                            </div>
+                        </div>
+
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className={`relative overflow-hidden p-4 rounded-xl border ${checkInTime ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30 opacity-80'}`}>
+                                <div className="absolute right-0 top-0 p-2 opacity-10 pointer-events-none">
+                                    <MdLogin className="text-5xl text-emerald-600" />
+                                </div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Jam Masuk</p>
+                                    <MdCheckCircle className="text-sm text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <p className="text-2xl font-bold text-[#111418] dark:text-white">{checkInTime || '--:--'}</p>
+                                <p className="text-[10px] text-emerald-700 dark:text-emerald-300 mt-1 font-medium">{checkInTime ? 'Tepat Waktu' : 'Belum Absen'}</p>
+                            </div>
+                            <div className={`relative overflow-hidden p-4 rounded-xl border ${checkOutTime ? 'bg-slate-50 dark:bg-[#1c2936] border-dashed border-slate-300 dark:border-gray-700' : 'bg-slate-50 dark:bg-[#1c2936] border-dashed border-slate-300 dark:border-gray-700'}`}>
+                                <div className="absolute right-0 top-0 p-2 opacity-5 pointer-events-none">
+                                    <MdLogout className="text-5xl text-slate-500" />
+                                </div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Jam Keluar</p>
+                                    <MdPending className="text-sm text-slate-300 dark:text-gray-600" />
+                                </div>
+                                <p className="text-2xl font-bold text-slate-300 dark:text-gray-600">{checkOutTime || '--:--'}</p>
+                                <p className="text-[10px] text-slate-400 mt-1 font-medium">{checkOutTime ? 'Selesai' : 'Belum Absen'}</p>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={status === 'idle' ? startCamera : undefined}
+                                disabled={status !== 'idle'}
+                                className={`h-12 rounded-xl text-sm flex items-center justify-center gap-2 font-bold border ${status === 'idle'
+                                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 active:scale-95 transition-all border-transparent'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-transparent'
+                                    }`}
+                            >
+                                <MdFingerprint className="text-[20px]" />
+                                <span>Absen Masuk</span>
+                            </button>
+                            <button
+                                onClick={status === 'checked-in' ? startCamera : undefined}
+                                disabled={status !== 'checked-in'}
+                                className={`h-12 rounded-xl text-sm flex items-center justify-center gap-2 font-bold shadow-lg active:scale-95 transition-all ${status === 'checked-in'
+                                    ? 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 text-white shadow-red-500/20'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-transparent box-shadow-none'
+                                    }`}
+                            >
+                                <MdLogout className="text-[20px]" />
+                                <span>Absen Keluar</span>
+                            </button>
+                        </div>
+
+                        <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-4 font-medium">Pastikan anda berada di area kantor sebelum absen.</p>
+                    </div>
+                </div>
+
+                {/* History Section */}
+                <div className="mt-8 px-4 w-full max-w-full">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-bold text-[#111418] dark:text-white tracking-tight">Riwayat Absensi</h3>
+                        <div className="flex p-1 bg-slate-100 dark:bg-[#1c2936] rounded-lg border border-slate-200 dark:border-gray-800">
+                            <button className="px-3 py-1 text-[10px] font-bold rounded-md bg-white dark:bg-[#101922] text-[#111418] dark:text-white shadow-sm transition-all border border-slate-200 dark:border-gray-700">Mingguan</button>
+                            <button className="px-3 py-1 text-[10px] font-medium rounded-md text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all">Bulanan</button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3 pb-6">
+                        {history.map((record) => {
+                            const recDate = new Date(record.checkIn)
+                            const recCheckIn = format(recDate, 'HH:mm')
+                            const recCheckOut = record.checkOut ? format(new Date(record.checkOut), 'HH:mm') : '--:--'
+
+                            let durationText = 'Belum selesai'
+                            if (record.checkOut) {
+                                const diff = new Date(record.checkOut).getTime() - recDate.getTime()
+                                const hours = Math.floor(diff / 3600000)
+                                durationText = `Total ${hours} jam kerja`
+                            }
+
+                            return (
+                                <div key={record.id} className="flex items-center justify-between bg-white dark:bg-[#1c2936] p-3.5 rounded-xl border border-slate-100 dark:border-gray-800 shadow-sm transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex flex-col items-center justify-center size-11 rounded-lg bg-slate-50 dark:bg-[#101922] text-[#111418] dark:text-white border border-slate-100 dark:border-gray-700">
+                                            <span className="text-[9px] uppercase font-bold text-slate-400">{format(recDate, 'EEE', { locale: id })}</span>
+                                            <span className="text-base font-bold leading-none mt-0.5">{format(recDate, 'dd')}</span>
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-bold text-[#111418] dark:text-white text-sm">{recCheckIn}</p>
+                                                <span className="text-slate-300 text-xs">•</span>
+                                                <p className="font-bold text-[#111418] dark:text-white text-sm">{recCheckOut}</p>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5">{durationText}</p>
+                                            {record.location && (
+                                                <div className="flex items-center gap-1 mt-1 text-slate-500 dark:text-gray-400">
+                                                    <MdNearMe className="text-[10px]" />
+                                                    <p className="text-[10px] line-clamp-1 max-w-[150px]">{record.location}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-[9px] font-bold uppercase tracking-wide border border-emerald-100 dark:border-emerald-900/30">Hadir</span>
+                                </div>
+                            )
+                        })}
+                        {history.length === 0 && (
+                            <p className="text-center text-sm text-gray-400 py-4">Belum ada riwayat absensi</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
 }
