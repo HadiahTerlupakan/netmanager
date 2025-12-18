@@ -48,11 +48,19 @@ export function proxy(request: NextRequest) {
 
     // Rewrite logic
     if (subdomain === 'admin') {
-        const newUrl = new URL(`/admin${url.pathname}`, request.url);
+        let rewritePath = url.pathname;
+        if (!rewritePath.startsWith('/admin')) {
+            rewritePath = `/admin${rewritePath}`;
+        }
+        const newUrl = new URL(rewritePath, request.url);
         newUrl.search = url.search;
         response = NextResponse.rewrite(newUrl);
     } else if (subdomain === 'karyawan') {
-        const newUrl = new URL(`/karyawan${url.pathname}`, request.url);
+        let rewritePath = url.pathname;
+        if (!rewritePath.startsWith('/karyawan')) {
+            rewritePath = `/karyawan${rewritePath}`;
+        }
+        const newUrl = new URL(rewritePath, request.url);
         newUrl.search = url.search;
         response = NextResponse.rewrite(newUrl);
     } else {
