@@ -60,10 +60,9 @@ export interface RouterFilters {
   search?: string
 }
 
-export interface PaginationOptions {
-  page: number
-  limit: number
-}
+// Use PaginationOptions from IOnuRepository
+import type { PaginationOptions } from './IOnuRepository'
+export type { PaginationOptions }
 
 export interface PaginatedRouterResult {
   routers: MikroTikRouterPublic[]

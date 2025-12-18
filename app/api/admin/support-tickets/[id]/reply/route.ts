@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 import { TicketStatus } from '@prisma/client'
-import { WhatsAppService } from '@/lib/services/whatsapp/whatsapp-service'
+import { WhatsAppService } from '@/modules/notification/services/whatsapp/whatsapp-service'
 import { socketEmitter } from '@/lib/websocket/emitter'
 
 interface RouteParams {

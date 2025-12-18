@@ -13,11 +13,11 @@ import { logger } from '@/lib/logger'
 import { verifyAuth } from '@/lib/auth'
 export async function GET(req: NextRequest) {
   try {
-        // Authentication check
-        const user = await verifyAuth(req);
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+    // Authentication check
+    const user = await verifyAuth(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { searchParams } = new URL(req.url)
 
@@ -91,16 +91,16 @@ export async function GET(req: NextRequest) {
 // POST untuk clear cache
 export async function POST(req: NextRequest) {
   try {
-        // Authentication check
-        const user = await verifyAuth(req);
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+    // Authentication check
+    const user = await verifyAuth(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { action } = await req.json()
 
     if (action === 'clear-cache') {
-      const { clearSNMPCache } = await import('@/lib/services/snmp-optimized')
+      const { clearSNMPCache } = await import('@/modules/network/services/snmp-optimized')
       clearSNMPCache()
 
       return NextResponse.json({

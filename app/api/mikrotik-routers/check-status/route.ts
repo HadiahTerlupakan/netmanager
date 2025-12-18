@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { checkAllMikroTikRouterStatus } from '@/lib/services/mikrotik-ping-check'
+import { checkAllMikroTikRouterStatus } from '@/modules/network/services/mikrotik-ping-check'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
-import { ONUDataFetcher } from '@/lib/services/onu-sync/onu-data-fetcher'
+import { ONUDataFetcher } from '@/modules/network/services/onu-sync/onu-data-fetcher'
 import type { OnuSyncData } from '@/lib/types/onu-sync'
 
 export type { OnuSyncData } from '@/lib/types/onu-sync'

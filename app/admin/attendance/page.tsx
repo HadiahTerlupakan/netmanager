@@ -14,6 +14,7 @@ interface Attendance {
     checkOut: string | null
     checkInPhoto: string | null
     checkOutPhoto: string | null
+    checkOutLocation: string | null
     status: string
     notes: string | null
     location: string | null
@@ -218,13 +219,13 @@ export default function AdminAttendancePage() {
                                                         <FaSearch className="text-[10px]" /> Masuk (Peta)
                                                     </a>
                                                 )}
-                                                {item['checkOutLocation'] && (
+                                                {item.checkOutLocation && (
                                                     <a
-                                                        href={`https://www.google.com/maps?q=${item['checkOutLocation']}`}
+                                                        href={`https://www.google.com/maps?q=${item.checkOutLocation}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="flex items-center gap-1 text-xs text-orange-500 hover:text-orange-700 hover:underline"
-                                                        title={`Keluar: ${item['checkOutLocation']}`}
+                                                        title={`Keluar: ${item.checkOutLocation}`}
                                                     >
                                                         <FaSearch className="text-[10px]" /> Keluar (Peta)
                                                     </a>
@@ -234,7 +235,7 @@ export default function AdminAttendancePage() {
                                                         "{item.notes}"
                                                     </p>
                                                 )}
-                                                {!item.location && !item['checkOutLocation'] && !item.notes && <span className="text-gray-400">-</span>}
+                                                {!item.location && !item.checkOutLocation && !item.notes && <span className="text-gray-400">-</span>}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
