@@ -169,6 +169,7 @@ export default function Sidebar() {
       permission: 'PELANGGAN',
       children: [
         { href: '/admin/pelanggan/ppp', label: 'Pelanggan PPP', icon: <HiOutlineUser className="w-4 h-4" />, permission: 'PELANGGAN' },
+        { href: '/admin/registrations', label: 'Pendaftaran Baru', icon: <HiOutlineDocumentText className="w-4 h-4" />, permission: 'PELANGGAN' },
       ],
     },
     {

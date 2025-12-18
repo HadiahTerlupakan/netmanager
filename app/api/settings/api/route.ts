@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
         key: {
           in: [
             'GOOGLE_GEMINI_API_KEY',
+            'GEMINI_ENABLED',
             'R2_ACCOUNT_ID',
             'R2_ACCESS_KEY_ID',
             'R2_SECRET_ACCESS_KEY',
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest) {
     // Return settings (tidak return secret key untuk keamanan)
     return NextResponse.json({
       googleGeminiApiKey: settingsMap.get('GOOGLE_GEMINI_API_KEY') || '',
+      geminiEnabled: settingsMap.get('GEMINI_ENABLED') === 'true',
       r2AccountId: settingsMap.get('R2_ACCOUNT_ID') || '',
       r2AccessKeyId: settingsMap.get('R2_ACCESS_KEY_ID') || '',
       r2SecretAccessKey: settingsMap.get('R2_SECRET_ACCESS_KEY') ? '********' : '',
@@ -79,6 +81,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const {
       googleGeminiApiKey,
+      geminiEnabled,
       r2AccountId,
       r2AccessKeyId,
       r2SecretAccessKey,
@@ -100,6 +103,20 @@ export async function POST(req: NextRequest) {
           key: 'GOOGLE_GEMINI_API_KEY',
           value: googleGeminiApiKey.trim() || null,
           description: 'Google Gemini API Key untuk OCR KTP',
+          encrypted: false,
+        },
+      })
+    }
+
+    // Upsert Gemini Enabled
+    if (geminiEnabled !== undefined) {
+      await prisma.settings.upsert({
+        where: { key: 'GEMINI_ENABLED' },
+        update: { value: geminiEnabled ? 'true' : 'false', updatedAt: new Date() },
+        create: {
+          key: 'GEMINI_ENABLED',
+          value: geminiEnabled ? 'true' : 'false',
+          description: 'Enable Google Gemini API for OCR',
           encrypted: false,
         },
       })

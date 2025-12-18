@@ -2115,3 +2115,36 @@ model Attendance {
   @@index([checkIn])
   @@index([status])
 }
+
+model Registration {
+  id              String             @id @default(cuid())
+  name            String
+  email           String
+  phone           String
+  address         String
+  packageName     String?
+  location        String?
+  latitude        Float?
+  longitude       Float?
+  ipAddress       String?
+  status          RegistrationStatus @default(PENDING)
+  notes           String?
+  rejectionReason String?
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@map("registrations")
+}
+
+enum RegistrationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SURVEYED
+  INSTALLED
+  CANCELLED
+}
+
+// Temporary append to trigger manual edit via tool if needed, but I can just append field line using replacement

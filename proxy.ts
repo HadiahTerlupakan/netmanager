@@ -283,7 +283,11 @@ export default async function proxy(request: NextRequest) {
       pathname.startsWith('/api/customer/') ||        // Customer API endpoints (has own auth)
       pathname.startsWith('/api/karyawan/') ||        // Karyawan API endpoints (has own auth)
       pathname.startsWith('/api/announcements') ||    // Announcements API (public for portals)
+      pathname === '/api/registrations' ||            // Public registration endpoint
+      pathname.startsWith('/api/public/') ||          // All public API endpoints
+      pathname === '/api/ip-info' ||                  // IP geolocation lookup
       pathname === '/' ||
+      pathname === '/register' ||                     // Public registration page
       pathname === '/api/settings/public' ||         // Public settings for branding
       pathname.startsWith('/api/superadmin/') ||      // Super admin has its own auth
       pathname.startsWith('/api/docs') ||             // API documentation should be publicly accessible

@@ -8,6 +8,7 @@ import { HiTrash } from 'react-icons/hi2'
 const MapPicker = dynamic(() => import('@/components/common/MapPicker').then(m => m.default), { ssr: false })
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
 import Modal from '@/components/common/Modal'
+import SearchableDropdown from '@/components/common/SearchableDropdown'
 
 type Otb = { id: string; name: string }
 type OtbCore = { id: string; idx: number; slotName: string; tubeColor: string; coreColor: string }
@@ -42,6 +43,7 @@ export default function OdcNewPage() {
   const [slots, setSlots] = useState<OtbCore[]>([])
   const [selectedSlotId, setSelectedSlotId] = useState<string>('')
   const [jumlahCore, setJumlahCore] = useState<number>(0)
+  const [existingLocations, setExistingLocations] = useState<string[]>([])
 
   // OUTPUT Section
   const [outputCores, setOutputCores] = useState<OutputCore[]>([])
@@ -90,7 +92,7 @@ export default function OdcNewPage() {
   }, [latitude, longitude])
 
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       try {
         const res = await fetch('/api/otbs')
         if (!res.ok) throw new Error('Gagal memuat OTB')
@@ -101,11 +103,26 @@ export default function OdcNewPage() {
         setError(e.message)
       }
     })()
+
+      // Fetch unique locations
+      ; (async () => {
+        try {
+          const res = await fetch('/api/odcs/locations')
+          if (res.ok) {
+            const data = await res.json()
+            if (Array.isArray(data)) {
+              setExistingLocations(data)
+            }
+          }
+        } catch (e) {
+          console.error('Failed to fetch locations', e)
+        }
+      })()
   }, [])
 
   useEffect(() => {
     if (!selectedOtbId) { setSlots([]); setSelectedSlotId(''); return }
-    ;(async () => {
+    ; (async () => {
       try {
         const res = await fetch(`/api/otbs/${selectedOtbId}`)
         if (!res.ok) throw new Error('Gagal memuat slot OTB')
@@ -200,7 +217,12 @@ export default function OdcNewPage() {
 
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Lokasi (opsional)</label>
-              <input value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: Jl. Merdeka No. 1" />
+              <SearchableDropdown
+                value={location}
+                onChange={setLocation}
+                options={existingLocations}
+                placeholder="Pilih atau ketik lokasi baru..."
+              />
             </div>
 
             <div className="space-y-1">

@@ -4,17 +4,19 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useKaryawanAuth } from '@/components/karyawan/KaryawanAuthProvider'
 import {
-    MdArrowBack,
     MdLogout,
     MdEmail,
     MdBusiness,
     MdLocationOn
 } from 'react-icons/md'
-import Link from 'next/link'
 import { KaryawanNotificationBell } from '@/components/karyawan/KaryawanNotificationBell'
 
 export default function ProfilPage() {
     const { isLoading: authLoading, isAuthenticated, user, logout } = useKaryawanAuth()
+    const [profileData, setProfileData] = useState<{
+        department?: { name: string } | null
+        site?: { name: string } | null
+    } | null>(null)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
     const router = useRouter()
 
@@ -24,40 +26,23 @@ export default function ProfilPage() {
         }
     }, [authLoading, isAuthenticated, router])
 
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetch('/api/karyawan/me')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.data) {
+                        setProfileData(data.data)
+                    }
+                })
+                .catch(err => console.error('Error fetching profile:', err))
+        }
+    }, [isAuthenticated])
+
     const handleLogout = async () => {
         setIsLoggingOut(true)
         await logout()
     }
-
-    const [siteName, setSiteName] = useState<string | null>(null)
-
-    useEffect(() => {
-        if (isAuthenticated && user?.siteId) {
-            fetch('/api/attendance/config')
-                .then(res => {
-                    if (!res.ok) throw new Error('Failed to fetch')
-                    return res.json()
-                })
-                .then(data => {
-                    if (data.data?.site?.name) {
-                        setSiteName(data.data.site.name)
-                    } else if (data.site?.name) {
-                        // Fallback for flat structure if changed
-                        setSiteName(data.site.name)
-                    } else {
-                        // Data retrieved but no name?
-                        console.warn('Site data found but no name:', data)
-                    }
-                })
-                .catch(err => {
-                    console.error('Error fetching site name:', err)
-                    setSiteName('Gagal memuat')
-                })
-        } else if (isAuthenticated && !user?.siteId) {
-            // confirmed no site
-            setSiteName(null)
-        }
-    }, [isAuthenticated, user?.siteId])
 
     if (authLoading) {
         return (
@@ -111,14 +96,14 @@ export default function ProfilPage() {
                             <MdBusiness className="text-2xl text-gray-400" />
                             <div>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Department</p>
-                                <p className="font-medium dark:text-white">{user?.departmentId ? 'Ada' : 'Belum diatur'}</p>
+                                <p className="font-medium dark:text-white">{profileData?.department?.name || 'Belum diatur'}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-4 p-4">
                             <MdLocationOn className="text-2xl text-gray-400" />
                             <div>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Site</p>
-                                <p className="font-medium dark:text-white">{siteName || (user?.siteId ? 'Memuat...' : 'Belum diatur')}</p>
+                                <p className="font-medium dark:text-white">{profileData?.site?.name || 'Belum diatur'}</p>
                             </div>
                         </div>
                     </div>
