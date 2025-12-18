@@ -3,18 +3,18 @@
  * Digunakan oleh scheduler untuk polling data ONU secara berkala
  */
 
-import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
+import { OLTRepository, OnuRepository } from '../repositories'
 import { getC300GponOnuDataViaSNMP, countOnuFromSNMP } from '@/app/api/onus/sync/route'
-import { fetchOnuDataPaginated } from '@/lib/services/snmp-optimized'
-import { clearOnuCache } from '@/app/api/onus/route'
+import { fetchOnuDataPaginated } from './snmp-optimized'
+import { onuCacheService } from './onu-cache-service';
 
 /**
  * Sync ONU data dari semua OLT yang terhubung via SNMP (Optimized Version)
  * @returns Jumlah total ONU yang berhasil di-sync
  */
 export async function syncAllOnuData(): Promise<number> {
-  const oltRepo = getOLTRepository()
-  const onuRepo = getOnuRepository()
+  const oltRepo = new OLTRepository()
+  const onuRepo = new OnuRepository()
 
   // Get all OLTs dengan SNMP connected dan onuSyncEnabled = true
   const olts = await oltRepo.findAll()
@@ -177,13 +177,13 @@ export async function syncAllOnuData(): Promise<number> {
   }
 
   console.log(`[ONU-Sync] Total synced: ${totalSynced} ONUs from ${connectedOlts.length} OLTs`)
-  
+
   // Clear cache setelah sync untuk memastikan data fresh
   if (totalSynced > 0) {
-    clearOnuCache()
+    onuCacheService.invalidateAllCaches()
     console.log(`[ONU-Sync] Cleared ONU cache after sync to ensure fresh data`)
   }
-  
+
   return totalSynced
 }
 
@@ -197,8 +197,8 @@ export async function syncOnuDataByOltId(
   oltId: string,
   onProgress?: (percentage: number) => Promise<void>
 ): Promise<number> {
-  const oltRepo = getOLTRepository()
-  const onuRepo = getOnuRepository()
+  const oltRepo = new OLTRepository()
+  const onuRepo = new OnuRepository()
 
   const olt = await oltRepo.findById(oltId)
   if (!olt) {
@@ -243,7 +243,7 @@ export async function syncOnuDataByOltId(
       olt.snmpVersion
     )
     console.log(`[ONU-Sync] Found ${totalOnuCount} ONUs on OLT ${olt.name}`)
-    
+
     // Update progress: 5% setelah menghitung jumlah ONU
     if (onProgress && totalOnuCount > 0) {
       await onProgress(5)
@@ -257,7 +257,7 @@ export async function syncOnuDataByOltId(
   // STEP 2: Fetch semua data ONU dari SNMP secara bertahap
   console.log(`[ONU-Sync] Step 2: Fetching ONU data from SNMP...`)
   console.log(`[ONU-Sync] Expected ONU count from Step 1: ${totalOnuCount}`)
-  
+
   // JANGAN gunakan maxResults untuk memastikan semua data terambil
   // Pass totalOnuCount sebagai expectedCount untuk validasi dan retry mechanism
   const onuData = await getC300GponOnuDataViaSNMP(
@@ -270,13 +270,13 @@ export async function syncOnuDataByOltId(
     totalOnuCount > 0 ? totalOnuCount : undefined // expectedCount dari Step 1
   )
   console.log(`[ONU-Sync] Fetched ${onuData.length} ONUs from SNMP`)
-  
+
   // Bandingkan jumlah ONU yang di-count vs yang di-fetch
   if (totalOnuCount > 0 && onuData.length !== totalOnuCount) {
     console.warn(`[ONU-Sync] WARNING: Count mismatch! Expected ${totalOnuCount} ONUs but fetched ${onuData.length} ONUs`)
     console.warn(`[ONU-Sync] Using fetched count (${onuData.length}) for progress tracking as it's more accurate`)
   }
-  
+
   // Gunakan onuData.length sebagai expectedCount karena lebih akurat (data yang benar-benar di-fetch)
   // Hanya gunakan totalOnuCount jika onuData.length adalah 0 (untuk kasus edge case)
   const expectedCount = onuData.length > 0 ? onuData.length : (totalOnuCount > 0 ? totalOnuCount : 0)
@@ -309,8 +309,8 @@ export async function syncOnuDataByOltId(
   // Pastikan minimal 10 batch untuk progress yang lebih smooth
   // Jika ONU sedikit, bagi menjadi batch yang lebih kecil
   const minBatches = 10
-  const totalBatches = actualTotal >= minBatches 
-    ? minBatches 
+  const totalBatches = actualTotal >= minBatches
+    ? minBatches
     : Math.max(1, actualTotal) // Jika ONU < 10, gunakan jumlah ONU sebagai batch
   const batchSize = Math.max(1, Math.ceil(actualTotal / totalBatches))
   let savedCount = 0
@@ -323,7 +323,7 @@ export async function syncOnuDataByOltId(
   for (let batchStart = 0; batchStart < onuData.length; batchStart += batchSize) {
     const batchEnd = Math.min(batchStart + batchSize, onuData.length)
     const batch = onuData.slice(batchStart, batchEnd)
-    
+
     currentBatch++
     console.log(`[ONU-Sync] Processing batch ${currentBatch}/${totalBatches} (ONUs ${batchStart + 1}-${batchEnd} of ${onuData.length})...`)
 
@@ -331,7 +331,7 @@ export async function syncOnuDataByOltId(
     let batchSavedCount = 0
     let batchUpdatedCount = 0
     let batchSkippedCount = 0
-    
+
     // Batch operations untuk performa lebih baik
     const upsertPromises = batch.map(async (onu) => {
       try {
@@ -400,7 +400,7 @@ export async function syncOnuDataByOltId(
 
     // Wait for all upserts in batch to complete
     const results = await Promise.all(upsertPromises)
-    
+
     for (const result of results) {
       if (result) {
         batchSavedCount++
@@ -412,22 +412,22 @@ export async function syncOnuDataByOltId(
         }
       }
     }
-    
+
     console.log(`[ONU-Sync] Batch ${currentBatch}/${totalBatches}: ${batchSavedCount} processed (${batchUpdatedCount} updated, ${batchSkippedCount} skipped - no changes)`)
-    
+
     // Update progress setelah batch selesai
     if (onProgress && savedCount > 0) {
       // Progress dari 10% sampai 95% berdasarkan savedCount / actualTotal
       // Formula: 10 + (savedCount / actualTotal) * 85
-      let currentProgress = actualTotal > 0 
+      let currentProgress = actualTotal > 0
         ? Math.min(95, Math.floor(10 + (savedCount / actualTotal) * 85))
         : 95
-      
+
       // Pastikan progress selalu naik, tidak turun
       if (currentProgress < lastProgress) {
         currentProgress = lastProgress
       }
-      
+
       // Update progress jika ada perubahan
       if (currentProgress > lastProgress) {
         try {
@@ -450,27 +450,27 @@ export async function syncOnuDataByOltId(
       // Hitung progress berdasarkan jumlah ONU yang sudah disimpan
       // Range: 10% (setelah fetch) sampai 95% (sebelum final 100%)
       progressPercentage = Math.min(95, Math.floor(10 + (savedCount / actualTotal) * 85))
-      
+
       // Pastikan progress minimal naik sesuai dengan batch number
       // Hitung total batch berdasarkan actualTotal, bukan expectedCount
-      const actualTotalBatches = actualTotal >= minBatches 
-        ? minBatches 
+      const actualTotalBatches = actualTotal >= minBatches
+        ? minBatches
         : Math.max(1, actualTotal)
       const batchBasedProgress = Math.min(95, Math.floor(10 + (currentBatch / actualTotalBatches) * 85))
       progressPercentage = Math.max(progressPercentage, batchBasedProgress)
     } else {
       progressPercentage = 95
     }
-    
+
     // Pastikan progress tidak turun (harus selalu naik)
     // Maksimal 95% sebelum final 100% (setelah semua proses benar-benar selesai)
     let finalProgress = Math.min(95, progressPercentage)
-    
+
     // Pastikan progress selalu naik dari progress terakhir
     if (finalProgress < lastProgress) {
       finalProgress = lastProgress
     }
-    
+
     if (onProgress && finalProgress > lastProgress) {
       console.log(`[ONU-Sync] Batch ${currentBatch}/${totalBatches} completed: ${batchSavedCount}/${batch.length} ONUs saved (Total: ${savedCount}/${actualTotal}). Calling onProgress(${finalProgress})...`)
       try {
@@ -478,7 +478,7 @@ export async function syncOnuDataByOltId(
         // Pastikan progress di-update dengan await
         await onProgress(finalProgress)
         console.log(`[ONU-Sync] onProgress(${finalProgress}) completed successfully`)
-        
+
         // Tambahkan delay kecil untuk memastikan progress terlihat dan database update selesai
         // Delay dikurangi untuk menghindari timeout, tapi tetap cukup untuk progress terlihat
         const delay = currentBatch < totalBatches ? 100 : 150 // 100ms untuk batch biasa, 150ms untuk batch terakhir
@@ -504,11 +504,11 @@ export async function syncOnuDataByOltId(
   let verificationAttempts = 0
   const maxVerificationAttempts = 10 // Increase retry attempts
   let verificationSuccess = false
-  
+
   while (verificationAttempts < maxVerificationAttempts) {
     actualSavedCount = await onuRepo.countByOltId(olt.id)
     console.log(`[ONU-Sync] Verification attempt ${verificationAttempts + 1}/${maxVerificationAttempts}: ${actualSavedCount} ONUs found in database (expected: ${savedCount}, total data: ${onuData.length})`)
-    
+
     // Jika count sudah sesuai atau mendekati (dalam toleransi 5%), anggap berhasil
     // Minimal harus ada data di database (tidak boleh 0)
     const minRequired = Math.max(1, Math.floor(onuData.length * 0.95))
@@ -517,7 +517,7 @@ export async function syncOnuDataByOltId(
       verificationSuccess = true
       break
     }
-    
+
     // Jika belum sesuai, tunggu dan coba lagi
     verificationAttempts++
     if (verificationAttempts < maxVerificationAttempts) {
@@ -529,14 +529,14 @@ export async function syncOnuDataByOltId(
       console.warn(`[ONU-Sync] This might indicate database commit delay or save operation failure.`)
     }
   }
-  
+
   // Update OLT onuLastSync - pastikan ini benar-benar commit sebelum update progress
   console.log(`[ONU-Sync] Updating OLT onuLastSync...`)
   await oltRepo.update(olt.id, {
     onuLastSync: new Date(),
   })
   console.log(`[ONU-Sync] OLT onuLastSync updated successfully`)
-  
+
   // Delay lagi untuk memastikan onuLastSync commit
   await new Promise(resolve => setTimeout(resolve, 500))
 
@@ -544,7 +544,7 @@ export async function syncOnuDataByOltId(
   // Gunakan actualSavedCount dari database sebagai acuan utama, bukan savedCount dari counter
   // Karena actualSavedCount adalah data yang benar-benar ada di database
   const finalCount = actualSavedCount > 0 ? actualSavedCount : savedCount
-  
+
   if (onProgress) {
     // Hanya update progress 100% jika verifikasi berhasil (ada data di database)
     if (verificationSuccess && actualSavedCount > 0) {
@@ -554,12 +554,12 @@ export async function syncOnuDataByOltId(
       console.log(`[ONU-Sync] Database verification: ${actualSavedCount} ONUs found in database`)
       console.log(`[ONU-Sync] Expected: ${onuData.length} ONUs, Attempted to save: ${savedCount} ONUs`)
       console.log(`[ONU-Sync] ========================================`)
-      
+
       try {
         // Update progress ke 100% dengan delay tambahan untuk memastikan UI update
         await onProgress(100)
         console.log(`[ONU-Sync] Progress updated to 100% successfully`)
-        
+
         // Delay lagi untuk memastikan progress update terlihat di frontend dan database commit
         await new Promise(resolve => setTimeout(resolve, 1000))
         console.log(`[ONU-Sync] All sync processes completed. Final count: ${actualSavedCount} ONUs in database`)
@@ -576,7 +576,7 @@ export async function syncOnuDataByOltId(
       console.warn(`[ONU-Sync] Expected: ${onuData.length} ONUs, Attempted to save: ${savedCount} ONUs`)
       console.warn(`[ONU-Sync] Progress will remain at 95% until data is verified in database`)
       console.warn(`[ONU-Sync] ========================================`)
-      
+
       try {
         // Update progress ke 95% untuk menunjukkan masih ada proses final
         await onProgress(95)
@@ -592,7 +592,7 @@ export async function syncOnuDataByOltId(
   }
 
   console.log(`[ONU-Sync] Successfully saved ${savedCount}/${onuData.length} ONUs for OLT ${olt.name}`)
-  
+
   // STEP 3: Cleanup ONU yang sudah tidak ada di SNMP lagi (OPTIONAL - HATI-HATI!)
   // PENTING: JANGAN hapus data jika fetch tidak lengkap atau ada error
   // Hanya lakukan cleanup jika:
@@ -602,43 +602,43 @@ export async function syncOnuDataByOltId(
   // 4. JANGAN cleanup jika onuData.length === 0 (fetch gagal)
   // Ini mencegah data hilang jika SNMP fetch gagal atau tidak lengkap
   const existingCountBeforeSync = existingCount
-  
+
   // Validasi ketat untuk mencegah penghapusan data yang tidak seharusnya
   // JANGAN cleanup jika:
   // - Tidak ada data yang di-fetch (fetch gagal)
   // - Data yang di-fetch terlalu sedikit dibanding existing (fetch tidak lengkap)
   // - Tidak ada data yang berhasil di-save
-  const minDataRequired = existingCountBeforeSync > 0 
+  const minDataRequired = existingCountBeforeSync > 0
     ? Math.max(1, Math.floor(existingCountBeforeSync * 0.8)) // Minimal 80% dari existing
     : 1 // Jika tidak ada existing, minimal 1 data
-  
-  const shouldCleanup = savedCount > 0 && 
-                        onuData.length > 0 && 
-                        onuData.length >= minDataRequired &&
-                        existingCountBeforeSync > 0 // Hanya cleanup jika sebelumnya ada data
-  
+
+  const shouldCleanup = savedCount > 0 &&
+    onuData.length > 0 &&
+    onuData.length >= minDataRequired &&
+    existingCountBeforeSync > 0 // Hanya cleanup jika sebelumnya ada data
+
   if (shouldCleanup) {
     try {
       console.log(`[ONU-Sync] Cleanup phase: Checking for ONUs that no longer exist in SNMP...`)
       console.log(`[ONU-Sync] Existing before sync: ${existingCountBeforeSync}, Fetched: ${onuData.length}, Saved: ${savedCount}`)
-      
+
       // Ambil semua gponOnu yang baru saja di-sync dari SNMP
       const syncedGponOnus = new Set(onuData.map(onu => onu.gponOnu))
-      
+
       // Ambil semua ONU dari database untuk OLT ini
       const allDbOnus = await onuRepo.findByOltId(olt.id)
-      
+
       // Cari ONU yang ada di database tapi tidak ada di SNMP (sudah dicabut/dihapus dari OLT)
       const onusToDelete = allDbOnus.filter(dbOnu => !syncedGponOnus.has(dbOnu.gponOnu))
-      
+
       if (onusToDelete.length > 0) {
         // HANYA hapus jika jumlah yang akan dihapus tidak terlalu banyak (max 10% dari total)
         // Ini mencegah penghapusan massal jika ada masalah dengan fetch
         const maxDeleteAllowed = Math.max(1, Math.floor(allDbOnus.length * 0.1))
-        
+
         if (onusToDelete.length <= maxDeleteAllowed) {
           console.log(`[ONU-Sync] Found ${onusToDelete.length} ONUs that no longer exist in SNMP (will be deleted, within safe limit: ${maxDeleteAllowed})...`)
-          
+
           // Hapus ONU yang sudah tidak ada di SNMP (cleanup)
           // Ini dilakukan SETELAH semua upsert selesai, sehingga tidak mengganggu jumlah data
           for (const onuToDelete of onusToDelete) {
@@ -648,7 +648,7 @@ export async function syncOnuDataByOltId(
               console.error(`[ONU-Sync] Error deleting ONU ${onuToDelete.gponOnu}:`, error.message)
             }
           }
-          
+
           console.log(`[ONU-Sync] Cleanup completed: Deleted ${onusToDelete.length} ONUs that no longer exist in SNMP`)
         } else {
           console.warn(`[ONU-Sync] SKIPPING cleanup: Too many ONUs to delete (${onusToDelete.length} > ${maxDeleteAllowed})`)
@@ -665,13 +665,13 @@ export async function syncOnuDataByOltId(
     console.log(`[ONU-Sync] SKIPPING cleanup: Conditions not met (savedCount: ${savedCount}, onuData.length: ${onuData.length}, existing: ${existingCountBeforeSync})`)
     console.log(`[ONU-Sync] This prevents data loss if SNMP fetch failed or incomplete`)
   }
-  
+
   // Clear cache setelah sync untuk memastikan data fresh
   if (savedCount > 0) {
-    clearOnuCache()
+    onuCacheService.invalidateAllCaches()
     console.log(`[ONU-Sync] Cleared ONU cache after sync to ensure fresh data`)
   }
-  
+
   return savedCount
 }
 

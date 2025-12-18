@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { getNotificationsForUser, getUnreadCount } from '@/lib/services/NotificationService'
+import { getNotificationsForUser, getUnreadCount } from '@/modules/notification';
 
 // GET - Get notifications for current user
 export async function GET(req: NextRequest) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { markAsRead } from '@/lib/services/NotificationService';
+import { markAsRead } from '@/modules/notification';
 import { requireAuth } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 

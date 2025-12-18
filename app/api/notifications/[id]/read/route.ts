@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
-import { markAsRead } from '@/lib/services/NotificationService';
+import { markAsRead } from '@/modules/notification';
 
 // PATCH /api/notifications/[id]/read - Mark notification as read
 export async function PATCH(

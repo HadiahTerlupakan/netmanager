@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { subscribeDevice } from '@/lib/services/NotificationService';
-import { getVapidPublicKey, isPushConfigured } from '@/lib/services/PushNotificationService';
+import { subscribeDevice } from '@/modules/notification';
+import { getVapidPublicKey, isPushConfigured } from '@/modules/notification/services/PushNotificationService';
 
 // GET /api/notifications/subscribe - Get VAPID public key
 export async function GET() {

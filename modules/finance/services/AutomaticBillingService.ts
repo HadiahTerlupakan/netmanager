@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { createNotification } from './NotificationService';
+import { createNotification } from '@/modules/notification';
 import { logger } from '@/lib/logger';
 
 export class AutomaticBillingService {

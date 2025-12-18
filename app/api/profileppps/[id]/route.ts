@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
-import { updatePPPProfileInMikroTik, deletePPPProfileInMikroTik } from '@/lib/services/mikrotik-ppp-profile'
+import { updatePPPProfileInMikroTik, deletePPPProfileInMikroTik } from '@/modules/network/services/mikrotik-ppp-profile'
 
 /**
  * @swagger
@@ -133,7 +133,7 @@ export async function GET(
     let ipRange: string | null = null
     if (profilePPP.mikroTikRouterId && profilePPP.mikroTikRouter) {
       try {
-        const { getIPPoolRanges } = await import('@/lib/services/mikrotik-ppp-profile')
+        const { getIPPoolRanges } = await import('@/modules/network/services/mikrotik-ppp-profile')
         const poolResult = await getIPPoolRanges(profilePPP.mikroTikRouterId, profilePPP.remoteAddress)
         if (poolResult.success && poolResult.ranges) {
           ipRange = poolResult.ranges
@@ -285,7 +285,7 @@ export async function PUT(
 
     const { id } = await params
     const body = await req.json()
-    
+
     // Ambil data profile lama untuk cek router sebelumnya
     const oldProfile = await prisma.profilePPP.findUnique({
       where: { id },
@@ -297,7 +297,7 @@ export async function PUT(
     if (!oldProfile) {
       return NextResponse.json({ error: 'Profile PPP tidak ditemukan' }, { status: 404 })
     }
-    
+
     // Sanitize input dan convert empty strings to undefined/null
     const sanitizedBody = {
       name: body.name ? sanitizeInput(body.name) : undefined,
@@ -344,18 +344,18 @@ export async function PUT(
     if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {
       try {
         console.log('[API ProfilePPP] Attempting to update profile in MikroTik router:', validation.data.mikroTikRouterId)
-        
+
         // Ambil rate limit dari Bandwidth
         // Prioritas: 1. bandwidthId langsung (jika disediakan), 2. HargaPaket yang terkait
-        const { getRateLimitFromBandwidth } = await import('@/lib/services/mikrotik-ppp-profile')
+        const { getRateLimitFromBandwidth } = await import('@/modules/network/services/mikrotik-ppp-profile')
         const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId)
-        
+
         if (rateLimit) {
           console.log('[API ProfilePPP] Rate limit from Bandwidth:', rateLimit)
         } else {
           console.log('[API ProfilePPP] No rate limit found from Bandwidth, updating profile without rate limit')
         }
-        
+
         // Kirim semua field yang diupdate ke MikroTik untuk memastikan sinkronisasi
         const mikrotikResult = await updatePPPProfileInMikroTik(
           validation.data.mikroTikRouterId,
@@ -482,7 +482,7 @@ export async function DELETE(
     }
 
     const { id } = await params
-    
+
     // Ambil data profile sebelum dihapus untuk hapus di MikroTik
     const profile = await prisma.profilePPP.findUnique({
       where: { id },
@@ -537,4 +537,3 @@ export async function DELETE(
     )
   }
 }
-

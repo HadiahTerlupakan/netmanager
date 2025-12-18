@@ -101,7 +101,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
-import { RadiusRepository } from '@/lib/repositories/RadiusRepository';
+import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
 
 export async function GET(req: NextRequest) {
     try {

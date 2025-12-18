@@ -11,7 +11,8 @@
  * 4. Track sync metadata for optimization
  */
 
-import { getOnuRepository } from '@/lib/repositories'
+import { OnuRepository } from '../repositories'
+import { onuCacheService } from './onu-cache-service';
 import { logger } from '@/lib/logger'
 import crypto from 'crypto'
 
@@ -56,7 +57,7 @@ export class OnuIncrementalSyncService {
      * Get current state snapshot from database
      */
     private async getCurrentSnapshot(oltId: string): Promise<Map<string, OnuSnapshot>> {
-        const onuRepo = getOnuRepository()
+        const onuRepo = new OnuRepository()
         const existingOnus = await onuRepo.findByOltId(oltId)
 
         const snapshot = new Map<string, OnuSnapshot>()
@@ -175,7 +176,7 @@ export class OnuIncrementalSyncService {
                 deleteRemovedOnus,
             })
 
-            const onuRepo = getOnuRepository()
+            const onuRepo = new OnuRepository()
             let processedCount = 0
 
             // Process new ONUs (insert)

@@ -6,7 +6,7 @@
  */
 
 import { PrismaClient, Status } from '@prisma/client';
-import { RadiusSyncService } from '../services/radius-sync-service';
+import { RadiusSyncService } from '@/modules/network';
 
 export interface SyncResult {
     success: boolean;

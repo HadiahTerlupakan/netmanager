@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
-import { createPPPProfileInMikroTik } from '@/lib/services/mikrotik-ppp-profile'
+import { createPPPProfileInMikroTik } from '@/modules/network/services/mikrotik-ppp-profile'
 import { requireAdmin, requireAuth } from '@/lib/auth-helpers'
 
 /**
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
     const session = await requireAdmin(req)
 
     const body = await req.json()
-    
+
     // Sanitize input dan convert empty strings to undefined/null
     const sanitizedBody = {
       name: body.name ? sanitizeInput(body.name) : undefined,
@@ -233,18 +233,18 @@ export async function POST(req: NextRequest) {
     if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {
       try {
         console.log('[API ProfilePPP] Attempting to create profile in MikroTik router:', validation.data.mikroTikRouterId)
-        
+
         // Ambil rate limit dari Bandwidth
         // Prioritas: 1. bandwidthId langsung (jika disediakan), 2. HargaPaket yang terkait
-        const { getRateLimitFromBandwidth } = await import('@/lib/services/mikrotik-ppp-profile')
+        const { getRateLimitFromBandwidth } = await import('@/modules/network/services/mikrotik-ppp-profile')
         const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId)
-        
+
         if (rateLimit) {
           console.log('[API ProfilePPP] Rate limit from Bandwidth:', rateLimit)
         } else {
           console.log('[API ProfilePPP] No rate limit found from Bandwidth, creating profile without rate limit')
         }
-        
+
         const mikrotikResult = await createPPPProfileInMikroTik(
           validation.data.mikroTikRouterId,
           {
@@ -280,7 +280,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(profilePPP, { status: 201 })
   } catch (error: any) {
     console.error('Error creating profile PPP:', error)
-    
+
     // Handle unique constraint violation
     if (error.code === 'P2002') {
       return NextResponse.json(

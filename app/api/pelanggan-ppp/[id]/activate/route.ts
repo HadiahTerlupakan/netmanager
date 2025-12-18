@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { RadiusSyncService } from '@/lib/services/radius-sync-service'
+import { RadiusSyncService } from '@/modules/network'
 import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
 
@@ -129,7 +129,7 @@ export async function POST(
     }
 
     const { id } = await params
-// Get customer information
+    // Get customer information
     const pelanggan = await prisma.pelanggan.findUnique({
       where: { id },
       include: {
@@ -218,8 +218,8 @@ export async function POST(
       await tx.pelanggan.update({
         where: { id },
         data: {
-          catatan: pelanggan.catatan 
-            ? `${pelanggan.catatan}\n\n${activationNote}` 
+          catatan: pelanggan.catatan
+            ? `${pelanggan.catatan}\n\n${activationNote}`
             : activationNote,
         },
       })
@@ -229,12 +229,12 @@ export async function POST(
 
     // 5. Handle RADIUS operations outside transaction
     const radiusService = new RadiusSyncService(prisma)
-    
+
     if (syncToRadius) {
       try {
         // Restore user in RADIUS to enable authentication
         await radiusService.handleStatusChange(id, 'AKTIF')
-        
+
         console.log(`[ACTIVATE] Restored RADIUS access for user ${pelanggan.username}`)
       } catch (radiusError) {
         console.error('Error handling RADIUS operations during activation:', radiusError)
@@ -271,7 +271,7 @@ export async function POST(
     })
   } catch (error: any) {
     console.error('Error activating customer service:', error)
-    
+
     // Handle specific errors
     if (error.code === 'P2025') {
       return NextResponse.json(
@@ -286,7 +286,7 @@ export async function POST(
         { status: 400 }
       )
     }
-    
+
     return NextResponse.json(
       { error: error?.message || 'Internal Server Error' },
       { status: 500 }

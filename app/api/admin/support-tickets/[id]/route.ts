@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 import { TicketStatus } from '@prisma/client'
-import { closeWoOnTicketClose } from '@/lib/services/WorkOrderSyncService'
+import { closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
 
 interface RouteParams {
     params: Promise<{ id: string }>

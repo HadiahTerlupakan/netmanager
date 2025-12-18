@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { checkAllMikroTikRouterStatus } from '@/lib/services/mikrotik-ping-check'
+import { checkAllMikroTikRouterStatus } from './mikrotik-ping-check'
 import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { type Server as SocketIOServer } from 'socket.io'
 

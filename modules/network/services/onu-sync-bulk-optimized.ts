@@ -11,7 +11,7 @@
  * Target: Sync 1000 ONUs in 3-5 minutes (vs 20-30 minutes before)
  */
 
-import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
+import { OLTRepository, OnuRepository } from '../repositories'
 import { logger } from '@/lib/logger'
 import snmp from 'net-snmp'
 
@@ -50,8 +50,8 @@ export class OnuBulkSyncService {
         const startTime = Date.now()
 
         try {
-            const oltRepo = getOLTRepository()
-            const onuRepo = getOnuRepository()
+            const oltRepo = new OLTRepository()
+            const onuRepo = new OnuRepository()
 
             // Get OLT info
             const olt = await oltRepo.findById(oltId)

@@ -1,7 +1,7 @@
 
 import { type Server as SocketIOServer } from 'socket.io';
 import { prisma } from '@/lib/prisma';
-import { RadiusRepository } from '@/lib/repositories/RadiusRepository';
+import { RadiusRepository } from '../repositories/RadiusRepository';
 
 const POLL_INTERVAL = 30 * 1000; // 30 seconds
 

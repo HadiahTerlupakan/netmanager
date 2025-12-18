@@ -17,6 +17,7 @@ import {
     MdCameraAlt,
     MdImage
 } from 'react-icons/md'
+import { KaryawanNotificationBell } from '@/components/karyawan/KaryawanNotificationBell'
 import { useKaryawanAuth } from '@/components/karyawan/KaryawanAuthProvider'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
@@ -478,34 +479,24 @@ export default function AttendancePageContent() {
     }
 
     return (
-        <div className="font-display min-h-screen w-full flex justify-center bg-[#f6f7f8] dark:bg-[#101922] transition-colors duration-200">
-            <div className="w-full max-w-md bg-[#f6f7f8] dark:bg-[#101922] min-h-screen shadow-2xl relative pb-40">
+        <div className="min-h-screen w-full bg-[#f6f7f8] dark:bg-[#101922] text-[#111418] dark:text-white font-sans antialiased transition-colors duration-200">
+            <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto bg-[#f6f7f8] dark:bg-[#101922] shadow-xl pb-24">
                 {renderCameraModal()}
                 {renderPhotoPreviewModal()}
 
-                {/* Top Bar */}
-                <div className="flex items-center justify-between p-4 pt-6 sticky top-0 z-30 bg-[#f6f7f8]/95 dark:bg-[#101922]/95 backdrop-blur-md border-b border-transparent dark:border-gray-800">
-                    <div className="flex items-center gap-3">
-                        <div className="relative">
-                            <div className="bg-center bg-no-repeat bg-cover rounded-full size-12 ring-2 ring-blue-500/20 object-cover bg-gray-200 flex items-center justify-center overflow-hidden">
-                                {user?.image ? (
-                                    <Image src={user.image} alt={user.name || 'User'} width={48} height={48} className="object-cover w-full h-full" />
-                                ) : (
-                                    <span className="text-xl font-bold text-gray-500">{user?.name?.charAt(0)}</span>
-                                )}
-                            </div>
-                            <div className="absolute bottom-0 right-0 size-3 bg-green-500 rounded-full border-2 border-white dark:border-[#101922]"></div>
-                        </div>
-                        <div className="flex flex-col">
-                            <p className="text-xs font-medium text-slate-500 dark:text-gray-400">{getGreeting()}</p>
-                            <h2 className="text-lg font-bold leading-tight tracking-tight text-[#111418] dark:text-white">{user?.name || 'Karyawan'}</h2>
+                {/* Top Bar - Standardized */}
+                <div className="sticky top-0 z-20 flex items-center bg-[#f6f7f8] dark:bg-[#101922] p-4 pb-2 justify-between border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex size-10 shrink-0 items-center">
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-full size-10 flex items-center justify-center text-white font-bold text-lg">
+                            {user?.name?.charAt(0)?.toUpperCase() || 'K'}
                         </div>
                     </div>
-                    <div className="flex items-center">
-                        <button className="flex size-10 items-center justify-center rounded-full bg-white dark:bg-[#1c2936] text-slate-600 dark:text-white shadow-sm ring-1 ring-slate-900/5 dark:ring-gray-700 relative hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                            <MdNotifications className="text-xl" />
-                            <span className="absolute top-2.5 right-2.5 size-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#1c2936]"></span>
-                        </button>
+                    <div className="flex flex-col items-center">
+                        <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] text-[#111418] dark:text-white">Absensi</h2>
+                        <p className="text-xs font-medium text-slate-500 dark:text-gray-400">{getGreeting()}</p>
+                    </div>
+                    <div className="flex size-10 items-center justify-end">
+                        <KaryawanNotificationBell />
                     </div>
                 </div>
 
@@ -523,7 +514,7 @@ export default function AttendancePageContent() {
 
                 {/* Main Content Card */}
                 <div className="px-4 w-full">
-                    <div className="bg-white dark:bg-[#1c2936] rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-gray-800 relative overflow-hidden transition-colors">
+                    <div className="bg-white dark:bg-[#1c2936] rounded-xl p-4 shadow-sm border border-slate-200 dark:border-gray-800 relative overflow-hidden transition-colors">
                         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
                         {/* Location Section */}

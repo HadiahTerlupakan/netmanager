@@ -11,7 +11,7 @@ import type {
     WorkOrderFilters,
     WorkOrderStatistics,
 } from './IWorkOrderRepository';
-import { syncWoStatusToTicket } from '@/lib/services/WorkOrderSyncService';
+import { syncWoStatusToTicket } from '../services/WorkOrderSyncService';
 
 export class WorkOrderRepository implements IWorkOrderRepository {
     constructor(private prisma: PrismaClient) { }

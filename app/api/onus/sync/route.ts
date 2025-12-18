@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
+import { OLTRepository, OnuRepository } from '@/modules/network/repositories'
 import { snmpGetBulkSimple, snmpTable } from '@/lib/utils/snmp-helpers'
 import { ONU_OIDS } from '@/lib/utils/onu-oids'
 import type { OnuSyncData } from '@/lib/types/onu-sync'
-import { buildGponPortMap, buildCompositeIndex, parseCompositeIndex, parseGponOnu, decodeCompositeIndex } from '@/lib/services/onu-sync-helpers'
+import { buildGponPortMap, buildCompositeIndex, parseCompositeIndex, parseGponOnu, decodeCompositeIndex } from '@/modules/network'
 import { clearOnuCache } from '../route'
 import { verifyAuth } from '@/lib/auth'
 import {
@@ -2186,11 +2186,11 @@ export async function getC300GponOnuDataViaSNMP(
 
 export async function POST(req: NextRequest) {
   try {
-        // Authentication check
-        const user = await verifyAuth(req);
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+    // Authentication check
+    const user = await verifyAuth(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const body = await req.json()
     const { oltId, clear = false, forceRefresh = false } = body
@@ -2198,8 +2198,8 @@ export async function POST(req: NextRequest) {
     console.log(`[All-ONU] Starting sync from ${oltId ? 'specific' : 'all'} OLTs...`)
     console.log(`[All-ONU] Cache enabled: ${!forceRefresh} (TTL: ${SYNC_CACHE_TTL / 1000 / 60} minutes)`)
 
-    const oltRepo = getOLTRepository()
-    const onuRepo = getOnuRepository()
+    const oltRepo = new OLTRepository()
+    const onuRepo = new OnuRepository()
 
     let connectedOlts
 
@@ -2341,7 +2341,7 @@ export async function POST(req: NextRequest) {
             if (existingOnus.length > 0) {
               console.log(`[All-ONU] Found ${existingOnus.length} existing ONUs in database, populating OIDs...`)
 
-              const { buildCompositeIndex } = await import('@/lib/services/onu-sync-helpers')
+              const { buildCompositeIndex } = await import('@/modules/network')
               let oidPopulatedCount = 0
 
               for (const existingOnu of existingOnus) {

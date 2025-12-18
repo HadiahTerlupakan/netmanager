@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
     // Update rate limit di Profile PPP di MikroTik jika ada router
     if (hargaPaket.profilePPP?.mikroTikRouterId && hargaPaket.profilePPP?.mikroTikRouter) {
       try {
-        const { getRateLimitFromBandwidth, updatePPPProfileInMikroTik } = await import('@/lib/services/mikrotik-ppp-profile')
+        const { getRateLimitFromBandwidth, updatePPPProfileInMikroTik } = await import('@/modules/network/services/mikrotik-ppp-profile')
         const rateLimit = await getRateLimitFromBandwidth(hargaPaket.profilePPP.id)
 
         if (rateLimit) {

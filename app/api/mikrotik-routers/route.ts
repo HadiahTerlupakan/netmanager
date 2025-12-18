@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
     // Trigger initial status check (running in background so response isn't delayed too much, 
     // or await it if fast enough. 5s timeout is acceptable for "Add" action)
     try {
-      const { checkSingleMikroTikRouterStatus } = await import('@/lib/services/mikrotik-ping-check')
+      const { checkSingleMikroTikRouterStatus } = await import('@/modules/network/services/mikrotik-ping-check')
       await checkSingleMikroTikRouterStatus(router.id)
     } catch (err) {
       console.error('Failed to perform initial router check:', err)

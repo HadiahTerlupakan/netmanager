@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { RadiusRepository } from '@/lib/repositories/RadiusRepository';
+import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
 
 const radiusRepository = new RadiusRepository(prisma);
 

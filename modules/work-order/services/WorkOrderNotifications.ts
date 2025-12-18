@@ -10,7 +10,7 @@ import {
     notifyWorkOrderAssigned,
     notifyWorkOrderStatusChange,
     notifyWorkOrderUpdate,
-} from './NotificationService';
+} from '@/modules/notification';
 
 interface WorkOrderData {
     id: string;

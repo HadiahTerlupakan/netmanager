@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository } from '@/lib/repositories/WorkOrderRepository';
+import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
-import { onWorkOrderCreated } from '@/lib/services/WorkOrderNotifications';
+import { onWorkOrderCreated } from '@/modules/work-order/services/WorkOrderNotifications';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 

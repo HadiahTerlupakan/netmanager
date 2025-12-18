@@ -1,6 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { onuCacheService } from '@/lib/services/onu-cache-service'
+import { onuCacheService } from '../services/onu-cache-service'
 import type {
   IOnuRepository,
   OnuCreateData,

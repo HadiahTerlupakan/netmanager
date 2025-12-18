@@ -4,7 +4,7 @@ import {
     getUnreadCount,
     markAllAsRead,
     type NotificationType,
-} from '@/lib/services/NotificationService';
+} from '@/modules/notification';
 import { requireAuth } from '@/lib/auth-helpers';
 
 /**

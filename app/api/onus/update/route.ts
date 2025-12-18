@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
-import { getOnuService } from '@/lib/services/OnuService'
+import { getOnuService } from '@/modules/network'
 
 export async function POST(req: NextRequest) {
   try {

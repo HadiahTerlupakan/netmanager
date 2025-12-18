@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository } from '@/lib/repositories/WorkOrderRepository';
+import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { requireAuth } from '@/lib/auth-helpers';
 
 const workOrderRepo = new WorkOrderRepository(prisma);

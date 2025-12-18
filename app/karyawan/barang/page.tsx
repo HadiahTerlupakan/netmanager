@@ -17,8 +17,10 @@ interface DashboardStats {
     barangMasukToday: number
 }
 
+import { KaryawanNotificationBell } from '@/components/karyawan/KaryawanNotificationBell'
+
 export default function BarangIndexPage() {
-    const { isLoading: authLoading, isAuthenticated } = useKaryawanAuth()
+    const { isLoading: authLoading, isAuthenticated, user } = useKaryawanAuth()
     const [stats, setStats] = useState<DashboardStats>({ barangMasukToday: 0, barangKeluarToday: 0 })
     const router = useRouter()
 
@@ -58,18 +60,21 @@ export default function BarangIndexPage() {
     }
 
     return (
-        <div className="min-h-screen w-full bg-[#f6f6f8] dark:bg-[#111621] text-gray-900 dark:text-white font-sans antialiased transition-colors duration-200">
-            <div className="relative flex h-full min-h-screen w-full flex-col overflow-hidden max-w-md mx-auto bg-[#f6f6f8] dark:bg-[#111621]">
+        <div className="min-h-screen w-full bg-[#f6f7f8] dark:bg-[#101922] text-[#111418] dark:text-white font-sans antialiased transition-colors duration-200">
+            <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto bg-[#f6f7f8] dark:bg-[#101922] shadow-xl">
 
                 {/* Top App Bar */}
-                <header className="flex items-center justify-between px-4 py-3 bg-[#f6f6f8] dark:bg-[#111621] z-10 sticky top-0">
-                    <h2 className="text-xl font-bold leading-tight tracking-tight flex-1">Daftar Barang</h2>
-                    <div className="flex items-center justify-end">
-                        <Link href="/karyawan/profil">
-                            <button className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors">
-                                <MdPerson className="text-gray-600 dark:text-gray-300 text-3xl" />
-                            </button>
-                        </Link>
+                <header className="sticky top-0 z-20 flex items-center justify-between p-4 pb-2 bg-[#f6f7f8] dark:bg-[#101922] border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex size-10 shrink-0 items-center">
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-full size-10 flex items-center justify-center text-white font-bold text-lg">
+                            {user?.name?.charAt(0)?.toUpperCase() || 'K'}
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] text-[#111418] dark:text-white">Daftar Barang</h2>
+                    </div>
+                    <div className="flex size-10 items-center justify-end">
+                        <KaryawanNotificationBell />
                     </div>
                 </header>
 

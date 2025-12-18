@@ -1,7 +1,7 @@
 
 import { Server } from 'socket.io'
-import { getOLTRepository, getOnuRepository } from '@/lib/repositories'
-import { syncOnuDataByOltId } from '@/lib/services/onu-sync'
+import { OLTRepository, OnuRepository } from '../repositories'
+import { syncOnuDataByOltId } from '@/modules/network'
 import snmp from 'net-snmp'
 import '@/lib/utils/event-emitter-config'
 
@@ -123,7 +123,7 @@ export class OltSyncService {
 
     public async startSync(oltId: string) {
         console.log(`[OltSyncService] Starting sync for OLT ${oltId}...`)
-        const oltRepository = getOLTRepository()
+        const oltRepository = new OLTRepository()
 
         // Helper to emit progress
         const emitProgress = (progress: number, message?: string) => {
@@ -215,7 +215,7 @@ export class OltSyncService {
                 const onuCount = await syncOnuDataByOltId(oltId, onProgress)
 
                 // Final verification
-                const onuRepo = getOnuRepository()
+                const onuRepo = new OnuRepository()
                 const finalOnuCount = await onuRepo.countByOltId(oltId)
 
                 await new Promise(resolve => setTimeout(resolve, 500))

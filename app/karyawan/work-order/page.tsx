@@ -13,6 +13,8 @@ import {
 } from 'react-icons/md'
 import Link from 'next/link'
 
+import { KaryawanNotificationBell } from '@/components/karyawan/KaryawanNotificationBell'
+
 interface WorkOrder {
     id: string
     workOrderNumber: string
@@ -122,13 +124,17 @@ export default function WorkOrderListPage() {
                 {/* Header */}
                 <div className="sticky top-0 z-20 bg-[#f6f7f8] dark:bg-[#101922] border-b border-gray-100 dark:border-gray-800">
                     <div className="flex items-center p-4 pb-2 justify-between">
-                        <Link href="/karyawan/dashboard" className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                            <MdArrowBack className="text-2xl" />
-                        </Link>
-                        <h2 className="text-lg font-bold leading-tight">Work Order</h2>
-                        <button className="flex size-10 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                            <MdFilterList className="text-2xl" />
-                        </button>
+                        <div className="flex size-10 shrink-0 items-center">
+                            <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-full size-10 flex items-center justify-center text-white font-bold text-lg">
+                                {user?.name?.charAt(0)?.toUpperCase() || 'K'}
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-center">
+                            <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] text-[#111418] dark:text-white">Work Order</h2>
+                        </div>
+                        <div className="flex size-10 items-center justify-end">
+                            <KaryawanNotificationBell />
+                        </div>
                     </div>
 
                     {/* Tabs */}
@@ -175,8 +181,8 @@ export default function WorkOrderListPage() {
                                 const isCompleted = wo.status === 'COMPLETED'
                                 const CardContent = (
                                     <div className={`rounded-xl p-4 shadow-sm border transition-colors ${isCompleted
-                                            ? 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 opacity-75'
-                                            : 'bg-white dark:bg-[#1c2936] border-gray-100 dark:border-gray-800 hover:border-blue-500/50'
+                                        ? 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 opacity-75'
+                                        : 'bg-white dark:bg-[#1c2936] border-gray-100 dark:border-gray-800 hover:border-blue-500/50'
                                         }`}>
                                         <div className="flex items-start justify-between mb-2">
                                             <div className="flex-1">
@@ -184,8 +190,8 @@ export default function WorkOrderListPage() {
                                                     {wo.workOrderNumber}
                                                 </p>
                                                 <h3 className={`font-semibold line-clamp-2 ${isCompleted
-                                                        ? 'text-gray-600 dark:text-gray-400'
-                                                        : 'text-[#111418] dark:text-white'
+                                                    ? 'text-gray-600 dark:text-gray-400'
+                                                    : 'text-[#111418] dark:text-white'
                                                     }`}>
                                                     {wo.title}
                                                 </h3>

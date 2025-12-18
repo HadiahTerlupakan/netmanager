@@ -5,6 +5,7 @@
 
 import snmp from 'net-snmp'
 import { snmpGetBulkSimple } from '@/lib/utils/snmp-helpers'
+import { onuCacheService } from './onu-cache-service'
 
 // Cache configuration
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
@@ -361,25 +362,25 @@ export async function fetchOnuDataPaginated(
   // Cache key khusus untuk status dengan TTL lebih lama
   const statusCacheKey = getCacheKey(ipAddress, oidStatusNew)
   let statusData: Record<string, string> | null = getFromCache(statusCacheKey, STATUS_CACHE_TTL)
-  
+
   // Jika cache expired atau tidak ada, fetch baru
   if (!statusData) {
     console.log(`[SNMP-Optimized] Fetching status data (total count) for pagination...`)
-    statusData = await snmpWalkOptimized(ipAddress, port, community, version, oidStatusNew, { 
+    statusData = await snmpWalkOptimized(ipAddress, port, community, version, oidStatusNew, {
       useCache: false, // Don't use normal cache, we'll cache manually with longer TTL
-      timeout: SNMP_TIMEOUT 
+      timeout: SNMP_TIMEOUT
     }).catch(() => ({}))
 
     if (Object.keys(statusData).length === 0) {
       // Fallback to old status OID
       const baseOid = "1.3.6.1.4.1.3902.1012.3.28.1.1"
       const oidStatusOld = `${baseOid}.6`
-      statusData = await snmpWalkOptimized(ipAddress, port, community, version, oidStatusOld, { 
+      statusData = await snmpWalkOptimized(ipAddress, port, community, version, oidStatusOld, {
         useCache: false,
-        timeout: SNMP_TIMEOUT 
+        timeout: SNMP_TIMEOUT
       }).catch(() => ({}))
     }
-    
+
     // Cache status data dengan TTL lebih lama
     if (statusData && Object.keys(statusData).length > 0) {
       cache.set(statusCacheKey, {
@@ -418,7 +419,7 @@ export async function fetchOnuDataPaginated(
   // Gunakan cache untuk mengurangi beban SNMP
   const dataTimeout = totalOnus > 500 ? SNMP_TIMEOUT : 60000 // 3 min untuk besar, 1 min untuk kecil
   console.log(`[SNMP-Optimized] Fetching ONU data with timeout ${dataTimeout / 1000}s (total ONUs: ${totalOnus})`)
-  
+
   const [nameData, descData, rxOltData, rxOnuData, snData, actualTypeData, pppoeData] = await Promise.all([
     snmpWalkOptimized(ipAddress, port, community, version, oidName, { useCache: true, timeout: dataTimeout }).catch(() => ({})),
     snmpWalkOptimized(ipAddress, port, community, version, oidDesc, { useCache: true, timeout: dataTimeout }).catch(() => ({})),

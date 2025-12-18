@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
-import { getUnreadCount } from '@/lib/services/NotificationService';
+import { getUnreadCount } from '@/modules/notification';
 
 // GET /api/notifications/unread-count - Get unread notification count
 export async function GET(request: NextRequest) {

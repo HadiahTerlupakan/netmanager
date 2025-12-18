@@ -5,8 +5,8 @@ import { Server as SocketIOServer } from 'socket.io'
 import { initializeSocketServer } from './lib/websocket/server'
 import cron from 'node-cron'
 import type { ScheduledTask } from 'node-cron'
-import { stopRadiusMonitoring } from './lib/services/RadiusMonitor'
-import { stopOnuMonitoring } from './lib/services/OnuMonitor'
+import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
+import { stopOnuMonitoring } from './modules/network/services/OnuMonitor'
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = process.env.HOSTNAME || 'localhost'
@@ -89,34 +89,34 @@ app.prepare().then(() => {
 
     // Start Radius Monitoring Service
     // Dynamic import to avoid issues if module dependencies aren't ready
-    import('./lib/services/RadiusMonitor').then(({ startRadiusMonitoring }) => {
+    import('./modules/network/services/RadiusMonitor').then(({ startRadiusMonitoring }) => {
         startRadiusMonitoring(io)
     }).catch(err => console.error('[Server] Failed to start Radius monitoring:', err))
 
     // Start ONU Monitoring Service
-    import('./lib/services/OnuMonitor').then(({ startOnuMonitoring }) => {
+    import('./modules/network/services/OnuMonitor').then(({ startOnuMonitoring }) => {
         startOnuMonitoring(io)
     }).catch(err => console.error('[Server] Failed to start ONU monitoring:', err))
 
     // Inject IO into OnuService for API-triggered updates
-    import('./lib/services/OnuService').then(({ getOnuService }) => {
+    import('./modules/network/services/OnuService').then(({ getOnuService }) => {
         getOnuService().setSocketServer(io)
     })
 
     // Start MikroTik Monitoring Service
-    import('./lib/services/MikroTikMonitor').then(({ mikroTikMonitor }) => {
+    import('./modules/network/services/MikroTikMonitor').then(({ mikroTikMonitor }) => {
         mikroTikMonitorRef = mikroTikMonitor
         mikroTikMonitor.setSocketServer(io)
         mikroTikMonitor.start()
     }).catch(err => console.error('[Server] Failed to start MikroTik monitoring:', err))
 
     // Inject IO into OltSyncService
-    import('./lib/services/OltSyncService').then(({ getOltSyncService }) => {
+    import('./modules/network/services/OltSyncService').then(({ getOltSyncService }) => {
         getOltSyncService().setSocketServer(io)
     })
 
     // Start Automatic Billing Service (Daily at 01:00 AM)
-    import('./lib/services/AutomaticBillingService').then(({ AutomaticBillingService }) => {
+    import('./modules/finance/services/AutomaticBillingService').then(({ AutomaticBillingService }) => {
         billingCronTask = cron.schedule('0 1 * * *', () => {
             console.log('[Cron] Running daily billing check')
             AutomaticBillingService.generateDailyInvoices()

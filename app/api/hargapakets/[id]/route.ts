@@ -184,7 +184,7 @@ export async function PUT(
 
     const { id } = await params
     const body = await req.json()
-    
+
     // Sanitize input
     const sanitizedBody = {
       ...body,
@@ -225,9 +225,9 @@ export async function PUT(
     // Rate limit akan diupdate jika bandwidthId berubah atau jika profile PPP memiliki router
     if (hargaPaket.profilePPP?.mikroTikRouterId && hargaPaket.profilePPP?.mikroTikRouter) {
       try {
-        const { getRateLimitFromBandwidth, updatePPPProfileInMikroTik } = await import('@/lib/services/mikrotik-ppp-profile')
+        const { getRateLimitFromBandwidth, updatePPPProfileInMikroTik } = await import('@/modules/network/services/mikrotik-ppp-profile')
         const rateLimit = await getRateLimitFromBandwidth(hargaPaket.profilePPP.id)
-        
+
         if (rateLimit) {
           console.log('[API HargaPaket] Updating rate limit in MikroTik:', rateLimit)
           const updateResult = await updatePPPProfileInMikroTik(
@@ -237,7 +237,7 @@ export async function PUT(
               rateLimit: rateLimit, // Rate limit dari Bandwidth (format: "10M/10M")
             }
           )
-          
+
           if (!updateResult.success) {
             console.error('[API HargaPaket] Failed to update rate limit in MikroTik:', updateResult.error)
             // Jangan gagalkan request, hanya log error

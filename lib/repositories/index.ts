@@ -1,33 +1,36 @@
 import { UserRepository } from './UserRepository'
 import type { IUserRepository } from './IUserRepository'
-import { OLTRepository } from './OLTRepository'
-import type { IOLTRepository } from './IOLTRepository'
-import { OtbRepository } from './OtbRepository'
-import type { IOtbRepository } from './IOtbRepository'
-import { OdcRepository } from './OdcRepository'
-import type { IOdcRepository } from './IOdcRepository'
-import { OdpRepository } from './OdpRepository'
-import type { IOdpRepository } from './IOdpRepository'
-import { JoinboxRepository } from './JoinboxRepository'
-import type { IJoinboxRepository } from './IJoinboxRepository'
-import { PoleRepository } from './PoleRepository'
-import type { IPoleRepository } from './IPoleRepository'
-import { KmzRepository } from './KmzRepository'
-import type { IKmzRepository } from './IKmzRepository'
-import { OnuRepository } from './OnuRepository'
-import type { IOnuRepository } from './IOnuRepository'
-import { OnuTypeRepository } from './OnuTypeRepository'
-import type { IOnuTypeRepository } from './IOnuTypeRepository'
-import { SpeedProfileRepository } from './SpeedProfileRepository'
-import type { ISpeedProfileRepository } from './ISpeedProfileRepository'
-import { MikroTikRouterRepository } from './MikroTikRouterRepository'
-import type { IMikroTikRouterRepository } from './IMikroTikRouterRepository'
-import { PengeluaranRepository } from './PengeluaranRepository'
-import type { IPengeluaranRepository } from './IPengeluaranRepository'
-import { PemasukanRepository } from './PemasukanRepository'
-import type { IPemasukanRepository } from './IPemasukanRepository'
-import { InventoryRepository } from './InventoryRepository'
-import type { IInventoryRepository } from './IInventoryRepository'
+import { OLTRepository } from '@/modules/network/repositories'
+import type { IOLTRepository, OLTCreateData, OLTUpdateData, OLTPublic } from '@/modules/network/repositories'
+import { OtbRepository } from '@/modules/network/repositories'
+import type { IOtbRepository, OtbCreateData, OtbUpdateData, OtbPublic } from '@/modules/network/repositories'
+import { OdcRepository } from '@/modules/network/repositories'
+import type { IOdcRepository, OdcCreateData, OdcUpdateData, OdcPublic } from '@/modules/network/repositories'
+import { OdpRepository } from '@/modules/network/repositories'
+import type { IOdpRepository, OdpCreateData, OdpUpdateData, OdpPublic } from '@/modules/network/repositories'
+import { JoinboxRepository } from '@/modules/network/repositories'
+import type { IJoinboxRepository, JoinboxCreateData, JoinboxUpdateData, JoinboxPublic } from '@/modules/network/repositories'
+import { PoleRepository } from '@/modules/network/repositories'
+import type { IPoleRepository, PoleCreateData, PoleUpdateData, PolePublic } from '@/modules/network/repositories'
+import { KmzRepository } from '@/modules/network/repositories'
+import type { IKmzRepository, KmzFileCreateData, KmzFileUpdateData, KmzFilePublic } from '@/modules/network/repositories'
+import { OnuRepository } from '@/modules/network/repositories'
+import type { IOnuRepository, OnuCreateData, OnuUpdateData, OnuPublic } from '@/modules/network/repositories'
+import { OnuTypeRepository } from '@/modules/network/repositories'
+import type { IOnuTypeRepository, OnuTypeCreateData, OnuTypeUpdateData, OnuTypePublic } from '@/modules/network/repositories'
+import { SpeedProfileRepository } from '@/modules/network/repositories'
+import type { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from '@/modules/network/repositories'
+import { MikroTikRouterRepository } from '@/modules/network/repositories'
+import type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from '@/modules/network/repositories'
+import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository'
+import type { IRadiusRepository } from '@/modules/network/repositories/IRadiusRepository'
+import { InventoryRepository } from '@/modules/inventory'
+import type { IInventoryRepository, CreateBarangInput, UpdateBarangInput, CreateBarangMasukInput, CreateBarangKeluarInput, BarangWithStock } from '@/modules/inventory'
+import type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateData, PengeluaranPublic, IPemasukanRepository, PemasukanCreateData, PemasukanUpdateData, PemasukanPublic } from '@/modules/finance/repositories'
+import { PengeluaranRepository, PemasukanRepository } from '@/modules/finance/repositories'
+import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
+import type { IWorkOrderRepository } from '@/modules/work-order/repositories/IWorkOrderRepository'
+import { prisma } from '@/lib/prisma'
 
 let userRepositoryInstance: IUserRepository | null = null
 let oltRepositoryInstance: IOLTRepository | null = null
@@ -128,6 +131,15 @@ export function getMikroTikRouterRepository(): IMikroTikRouterRepository {
   return mikroTikRouterRepositoryInstance
 }
 
+let radiusRepositoryInstance: IRadiusRepository | null = null
+
+export function getRadiusRepository(): IRadiusRepository {
+  if (!radiusRepositoryInstance) {
+    radiusRepositoryInstance = new RadiusRepository(prisma)
+  }
+  return radiusRepositoryInstance
+}
+
 export function getPengeluaranRepository(): IPengeluaranRepository {
   if (!pengeluaranRepositoryInstance) {
     pengeluaranRepositoryInstance = new PengeluaranRepository()
@@ -144,34 +156,38 @@ export function getPemasukanRepository(): IPemasukanRepository {
 
 export { UserRepository } from './UserRepository'
 export type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
-export { OLTRepository } from './OLTRepository'
-export type { IOLTRepository, OLTCreateData, OLTUpdateData, OLTPublic } from './IOLTRepository'
-export { OtbRepository } from './OtbRepository'
-export type { IOtbRepository, OtbCreateData, OtbUpdateData, OtbPublic } from './IOtbRepository'
-export { OdcRepository } from './OdcRepository'
-export type { IOdcRepository, OdcCreateData, OdcUpdateData, OdcPublic } from './IOdcRepository'
-export { OdpRepository } from './OdpRepository'
-export type { IOdpRepository, OdpCreateData, OdpUpdateData, OdpPublic } from './IOdpRepository'
-export { JoinboxRepository } from './JoinboxRepository'
-export type { IJoinboxRepository, JoinboxCreateData, JoinboxUpdateData, JoinboxPublic } from './IJoinboxRepository'
-export { PoleRepository } from './PoleRepository'
-export type { IPoleRepository, PoleCreateData, PoleUpdateData, PolePublic } from './IPoleRepository'
-export { KmzRepository } from './KmzRepository'
-export type { IKmzRepository, KmzFileCreateData, KmzFileUpdateData, KmzFilePublic } from './IKmzRepository'
-export { OnuRepository } from './OnuRepository'
-export type { IOnuRepository, OnuCreateData, OnuUpdateData, OnuPublic } from './IOnuRepository'
-export { OnuTypeRepository } from './OnuTypeRepository'
-export type { IOnuTypeRepository, OnuTypeCreateData, OnuTypeUpdateData, OnuTypePublic } from './IOnuTypeRepository'
-export { SpeedProfileRepository } from './SpeedProfileRepository'
-export type { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from './ISpeedProfileRepository'
-export { MikroTikRouterRepository } from './MikroTikRouterRepository'
-export type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from './IMikroTikRouterRepository'
-export { PengeluaranRepository } from './PengeluaranRepository'
-export type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateData, PengeluaranPublic } from './IPengeluaranRepository'
-export { PemasukanRepository } from './PemasukanRepository'
-export type { IPemasukanRepository, PemasukanCreateData, PemasukanUpdateData, PemasukanPublic } from './IPemasukanRepository'
-export { InventoryRepository } from './InventoryRepository'
-export type { IInventoryRepository, CreateBarangInput, UpdateBarangInput, CreateBarangMasukInput, CreateBarangKeluarInput, BarangWithStock } from './IInventoryRepository'
+export { OLTRepository } from '@/modules/network/repositories'
+export type { IOLTRepository, OLTCreateData, OLTUpdateData, OLTPublic } from '@/modules/network/repositories'
+export { OtbRepository } from '@/modules/network/repositories'
+export type { IOtbRepository, OtbCreateData, OtbUpdateData, OtbPublic } from '@/modules/network/repositories'
+export { OdcRepository } from '@/modules/network/repositories'
+export type { IOdcRepository, OdcCreateData, OdcUpdateData, OdcPublic } from '@/modules/network/repositories'
+export { OdpRepository } from '@/modules/network/repositories'
+export type { IOdpRepository, OdpCreateData, OdpUpdateData, OdpPublic } from '@/modules/network/repositories'
+export { JoinboxRepository } from '@/modules/network/repositories'
+export type { IJoinboxRepository, JoinboxCreateData, JoinboxUpdateData, JoinboxPublic } from '@/modules/network/repositories'
+export { PoleRepository } from '@/modules/network/repositories'
+export type { IPoleRepository, PoleCreateData, PoleUpdateData, PolePublic } from '@/modules/network/repositories'
+export { KmzRepository } from '@/modules/network/repositories'
+export type { IKmzRepository, KmzFileCreateData, KmzFileUpdateData, KmzFilePublic } from '@/modules/network/repositories'
+export { OnuRepository } from '@/modules/network/repositories'
+export type { IOnuRepository, OnuCreateData, OnuUpdateData, OnuPublic } from '@/modules/network/repositories'
+export { OnuTypeRepository } from '@/modules/network/repositories'
+export type { IOnuTypeRepository, OnuTypeCreateData, OnuTypeUpdateData, OnuTypePublic } from '@/modules/network/repositories'
+export { SpeedProfileRepository } from '@/modules/network/repositories'
+export type { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from '@/modules/network/repositories'
+export { MikroTikRouterRepository } from '@/modules/network/repositories'
+export type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from '@/modules/network/repositories'
+export { RadiusRepository } from '@/modules/network/repositories/RadiusRepository'
+export type { IRadiusRepository } from '@/modules/network/repositories/IRadiusRepository'
+export { PengeluaranRepository } from '@/modules/finance/repositories'
+export type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateData, PengeluaranPublic } from '@/modules/finance/repositories'
+export { PemasukanRepository } from '@/modules/finance/repositories'
+export type { IPemasukanRepository, PemasukanCreateData, PemasukanUpdateData, PemasukanPublic } from '@/modules/finance/repositories'
+export { InventoryRepository } from '@/modules/inventory'
+export type { IInventoryRepository, CreateBarangInput, UpdateBarangInput, CreateBarangMasukInput, CreateBarangKeluarInput, BarangWithStock } from '@/modules/inventory'
+export { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
+export type { IWorkOrderRepository, WorkOrderWithRelations, CreateWorkOrderData, UpdateWorkOrderData } from '@/modules/work-order/repositories/IWorkOrderRepository'
 
 let inventoryRepositoryInstance: IInventoryRepository | null = null
 
@@ -180,4 +196,13 @@ export function getInventoryRepository(): IInventoryRepository {
     inventoryRepositoryInstance = new InventoryRepository()
   }
   return inventoryRepositoryInstance
+}
+
+let workOrderRepositoryInstance: IWorkOrderRepository | null = null
+
+export function getWorkOrderRepository(): IWorkOrderRepository {
+  if (!workOrderRepositoryInstance) {
+    workOrderRepositoryInstance = new WorkOrderRepository(prisma)
+  }
+  return workOrderRepositoryInstance
 }

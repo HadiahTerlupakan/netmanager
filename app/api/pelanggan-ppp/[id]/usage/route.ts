@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { RadiusSyncService } from '@/lib/services/radius-sync-service'
+import { RadiusSyncService } from '@/modules/network'
 
 /**
  * @swagger
@@ -133,12 +133,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-        // Check authentication
-        const session: any = await getServerSession(authConfig as any)
-        if (!session) {
-          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-// Get customer information
+    // Check authentication
+    const session: any = await getServerSession(authConfig as any)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    // Get customer information
     const pelanggan = await prisma.pelanggan.findUnique({
       where: { id },
       select: {
@@ -268,7 +268,7 @@ export async function GET(
       totalInputOctets: radiusStats.totalInputOctets,
       totalOutputOctets: radiusStats.totalOutputOctets,
       activeSessions: radiusStats.activeSessions,
-      
+
       // Database stats (additional tracking)
       dbSessionCount: customerUsage.length,
       dbTotalSessionTime: dbStats.totalSessionTime,
@@ -287,7 +287,7 @@ export async function GET(
       dbTotalUploadBytes: dbStats.totalUploadBytes.toString(),
       dbTotalDownloadBytes: dbStats.totalDownloadBytes.toString(),
       dbTotalBytes: dbStats.totalBytes.toString(),
-      
+
       // Human-readable formats
       totalSessionTimeHours: Number(combinedStats.totalSessionTime) / 3600,
       totalInputGB: Number(combinedStats.totalInputOctets) / 1073741824,

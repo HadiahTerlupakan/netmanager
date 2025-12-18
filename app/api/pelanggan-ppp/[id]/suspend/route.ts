@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { RadiusSyncService } from '@/lib/services/radius-sync-service'
+import { RadiusSyncService } from '@/modules/network'
 import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
 
@@ -142,7 +142,7 @@ export async function POST(
     }
 
     const { id } = await params
-// Get customer information
+    // Get customer information
     const pelanggan = await prisma.pelanggan.findUnique({
       where: { id },
       include: {
@@ -220,8 +220,8 @@ export async function POST(
       await tx.pelanggan.update({
         where: { id },
         data: {
-          catatan: pelanggan.catatan 
-            ? `${pelanggan.catatan}\n\n${suspensionNote}` 
+          catatan: pelanggan.catatan
+            ? `${pelanggan.catatan}\n\n${suspensionNote}`
             : suspensionNote,
         },
       })
@@ -231,15 +231,15 @@ export async function POST(
 
     // 4. Handle RADIUS operations outside transaction
     const radiusService = new RadiusSyncService(prisma)
-    
+
     try {
       // Remove from RADIUS to disable authentication
       await radiusService.handleStatusChange(id, 'NONAKTIF')
-      
+
       // Terminate active sessions if requested
       if (terminateActiveSessions) {
         const activeSessions = await radiusService.getCustomerActiveSessions(pelanggan.username)
-        
+
         // Log active sessions that were terminated
         for (const session of activeSessions) {
           console.log(`[SUSPEND] Terminated active session ${session.acctSessionId} for user ${pelanggan.username}`)
@@ -279,7 +279,7 @@ export async function POST(
     })
   } catch (error: any) {
     console.error('Error suspending customer service:', error)
-    
+
     // Handle specific errors
     if (error.code === 'P2002') {
       return NextResponse.json(
@@ -287,7 +287,7 @@ export async function POST(
         { status: 400 }
       )
     }
-    
+
     if (error.code === 'P2025') {
       return NextResponse.json(
         { error: 'Customer not found' },

@@ -1,7 +1,7 @@
-
 import { type Server as SocketIOServer } from 'socket.io';
 import { getOLTRepository, getOnuRepository } from '@/lib/repositories';
-import { updateMultipleOnusViaGetWithOids } from '@/lib/services/onu-update-snmp-get';
+import { updateMultipleOnusViaGetWithOids } from './onu-update-snmp-get';
+import { onuCacheService } from './onu-cache-service';
 
 export class OnuService {
     private io: SocketIOServer | null = null;
@@ -118,13 +118,13 @@ export class OnuService {
                         }
 
                     } catch (err) {
-                        console.error(`[OnuService] Update error ${uData.gponOnu}:`, err);
+                        console.error(`[OnuService] Update error ${uData.gponOnu}: `, err);
                         updatedOnus.push({ gponOnu: uData.gponOnu, oltId, updated: false });
                     }
                 }
 
             } catch (err) {
-                console.error(`[OnuService] OLT ${oltId} error:`, err);
+                console.error(`[OnuService] OLT ${oltId} error: `, err);
                 onus.forEach(o => updatedOnus.push({ gponOnu: o.gponOnu, oltId, updated: false }));
             }
         }

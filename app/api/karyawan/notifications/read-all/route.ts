@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { markAllAsRead } from '@/lib/services/NotificationService'
+import { markAllAsRead } from '@/modules/notification';
 
 // POST - Mark all notifications as read
 export async function POST(req: NextRequest) {

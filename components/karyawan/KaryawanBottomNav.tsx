@@ -3,48 +3,48 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-    HiOutlineHome,
-    HiOutlineClipboardDocumentList,
-    HiOutlineArchiveBox,
-    HiOutlineUser,
-    HiHome,
-    HiClipboardDocumentList,
-    HiArchiveBox,
-    HiUser,
-    HiOutlineQrCode,
-    HiQrCode
-} from 'react-icons/hi2'
+    MdOutlineHome,
+    MdHome,
+    MdOutlineAssignment,
+    MdAssignment,
+    MdOutlineInventory2,
+    MdInventory2,
+    MdOutlineQrCode,
+    MdQrCode,
+    MdOutlinePerson,
+    MdPerson
+} from 'react-icons/md'
 
 const navItems = [
     {
         name: 'Beranda',
         href: '/karyawan/dashboard',
-        icon: HiOutlineHome,
-        activeIcon: HiHome,
+        icon: MdOutlineHome,
+        activeIcon: MdHome,
     },
     {
         name: 'Work Order',
         href: '/karyawan/work-order',
-        icon: HiOutlineClipboardDocumentList,
-        activeIcon: HiClipboardDocumentList,
+        icon: MdOutlineAssignment,
+        activeIcon: MdAssignment,
     },
     {
         name: 'Barang',
         href: '/karyawan/barang',
-        icon: HiOutlineArchiveBox,
-        activeIcon: HiArchiveBox,
+        icon: MdOutlineInventory2,
+        activeIcon: MdInventory2,
     },
     {
         name: 'Absensi',
         href: '/karyawan/absensi',
-        icon: HiOutlineQrCode,
-        activeIcon: HiQrCode,
+        icon: MdOutlineQrCode,
+        activeIcon: MdQrCode,
     },
     {
         name: 'Profil',
         href: '/karyawan/profil',
-        icon: HiOutlineUser,
-        activeIcon: HiUser,
+        icon: MdOutlinePerson,
+        activeIcon: MdPerson,
     },
 ]
 

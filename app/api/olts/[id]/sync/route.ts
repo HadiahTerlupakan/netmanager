@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getOLTRepository } from '@/lib/repositories'
-import { getOltSyncService } from '@/lib/services/OltSyncService'
+import { getOltSyncService } from '@/modules/network'
 
 export const maxDuration = 600 // 10 menit dalam detik
 export const dynamic = 'force-dynamic'

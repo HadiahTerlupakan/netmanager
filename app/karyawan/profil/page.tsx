@@ -11,6 +11,7 @@ import {
     MdLocationOn
 } from 'react-icons/md'
 import Link from 'next/link'
+import { KaryawanNotificationBell } from '@/components/karyawan/KaryawanNotificationBell'
 
 export default function ProfilPage() {
     const { isLoading: authLoading, isAuthenticated, user, logout } = useKaryawanAuth()
@@ -71,13 +72,17 @@ export default function ProfilPage() {
             <div className="relative flex h-full min-h-screen w-full flex-col max-w-md mx-auto bg-[#f6f7f8] dark:bg-[#101922] shadow-xl">
 
                 {/* Header */}
-                <div className="sticky top-0 z-20 bg-[#f6f7f8] dark:bg-[#101922] border-b border-gray-100 dark:border-gray-800">
-                    <div className="flex items-center p-4 justify-between">
-                        <Link href="/karyawan/dashboard" className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                            <MdArrowBack className="text-2xl" />
-                        </Link>
-                        <h2 className="text-lg font-bold leading-tight">Profil</h2>
-                        <div className="w-10" />
+                <div className="sticky top-0 z-20 flex items-center bg-[#f6f7f8] dark:bg-[#101922] p-4 pb-2 justify-between border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex size-10 shrink-0 items-center">
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-full size-10 flex items-center justify-center text-white font-bold text-lg">
+                            {user?.name?.charAt(0)?.toUpperCase() || 'K'}
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] text-[#111418] dark:text-white">Profil</h2>
+                    </div>
+                    <div className="flex size-10 items-center justify-end">
+                        <KaryawanNotificationBell />
                     </div>
                 </div>
 

@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { onuBulkSyncService } from '@/lib/services/onu-sync-bulk-optimized'
-import { onuIncrementalSyncService } from '@/lib/services/onu-sync-incremental'
+import { onuBulkSyncService } from '@/modules/network'
+import { onuIncrementalSyncService } from '@/modules/network'
 import { logger } from '@/lib/logger'
 
 import { verifyAuth } from '@/lib/auth'

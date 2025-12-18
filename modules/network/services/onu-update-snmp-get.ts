@@ -6,7 +6,8 @@
 import { snmpGet, snmpGetMultiple, snmpGetBulkSimple, snmpTable } from '@/lib/utils/snmp-helpers'
 import type { OnuSyncData } from '@/lib/types/onu-sync'
 import { ONU_OIDS } from '@/lib/utils/onu-oids'
-import { buildCompositeIndex } from '@/lib/services/onu-sync/onu-sync-helpers'
+import { onuCacheService } from './onu-cache-service';
+import { buildCompositeIndex } from './onu-sync-helpers'
 import {
   parseStatus,
   parseRxOlt,

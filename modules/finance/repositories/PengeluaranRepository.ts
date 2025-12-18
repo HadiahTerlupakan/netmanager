@@ -87,7 +87,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
 
     if (data.kategori && 'budget' in this.client) {
       try {
-        const { getBudgetCategory } = await import('@/lib/services/budget-integration')
+        const { getBudgetCategory } = await import('@/modules/finance/services/budget-integration')
         const budgetCategory = getBudgetCategory(data.kategori)
 
         if (budgetCategory) {
@@ -528,23 +528,23 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       if (!('pengeluaran' in this.client)) {
         return BigInt(0)
       }
-      
+
       const where: any = {}
-      
+
       if (month !== undefined && year !== undefined) {
         where.tanggal = {
           gte: new Date(year, month - 1, 1), // Start of month
           lt: new Date(year, month, 1), // Start of next month
         }
       }
-      
+
       const result = await (this.client as any).pengeluaran.aggregate({
         where,
         _sum: {
           jumlah: true,
         },
       })
-      
+
       return result._sum.jumlah || BigInt(0)
     } catch (error: any) {
       if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
@@ -559,23 +559,23 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       if (!('pengeluaran' in this.client)) {
         return BigInt(0)
       }
-      
+
       const where: any = { tipePengeluaran }
-      
+
       if (month !== undefined && year !== undefined) {
         where.tanggal = {
           gte: new Date(year, month - 1, 1), // Start of month
           lt: new Date(year, month, 1), // Start of next month
         }
       }
-      
+
       const result = await (this.client as any).pengeluaran.aggregate({
         where,
         _sum: {
           jumlah: true,
         },
       })
-      
+
       return result._sum.jumlah || BigInt(0)
     } catch (error: any) {
       if (error.message?.includes('Unknown model') || error.message?.includes('does not exist') || error.message?.includes('Cannot read properties')) {
@@ -590,16 +590,16 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       if (!('pengeluaran' in this.client)) {
         return []
       }
-      
+
       const where: any = {}
-      
+
       if (month !== undefined && year !== undefined) {
         where.tanggal = {
           gte: new Date(year, month - 1, 1), // Start of month
           lt: new Date(year, month, 1), // Start of next month
         }
       }
-      
+
       const items = await (this.client as any).pengeluaran.groupBy({
         by: ['kategori', 'tipePengeluaran'],
         where,
@@ -610,7 +610,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
           id: true,
         },
       })
-      
+
       return items.map((item: any) => ({
         kategori: item.kategori || 'Lainnya',
         tipePengeluaran: item.tipePengeluaran || 'OPEX',

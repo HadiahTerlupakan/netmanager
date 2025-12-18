@@ -8,8 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { RadiusRepository } from '@/lib/repositories/RadiusRepository';
-import type { INas } from '@/lib/repositories/IRadiusRepository';
+import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
+import type { INas } from '@/modules/network/repositories/IRadiusRepository';
 
 export async function GET(req: NextRequest) {
     try {

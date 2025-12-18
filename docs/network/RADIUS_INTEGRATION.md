@@ -254,7 +254,7 @@ Response:
 When customer status changes to NONAKTIF:
 
 ```typescript
-import { RadiusSyncService } from '@/lib/services/radius-sync-service';
+import { RadiusSyncService } from '@/modules/network';
 
 const syncService = new RadiusSyncService(prisma);
 await syncService.handleStatusChange(pelangganId, 'NONAKTIF');
