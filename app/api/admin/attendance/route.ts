@@ -17,37 +17,37 @@ export async function GET(request: NextRequest) {
         const startDateStr = searchParams.get('startDate')
         const endDateStr = searchParams.get('endDate')
         const userId = searchParams.get('userId')
+        const siteId = searchParams.get('siteId')
+        const departmentId = searchParams.get('departmentId')
 
         const where: any = {}
 
         if (startDateStr && endDateStr) {
             const start = new Date(startDateStr)
             start.setHours(0, 0, 0, 0)
-
             const end = new Date(endDateStr)
             end.setHours(23, 59, 59, 999)
 
-            where.checkIn = {
-                gte: start,
-                lte: end
-            }
+            where.checkIn = { gte: start, lte: end }
         } else if (startDateStr) {
             const start = new Date(startDateStr)
             start.setHours(0, 0, 0, 0)
             const end = new Date(startDateStr)
             end.setHours(23, 59, 59, 999)
 
-            where.checkIn = {
-                gte: start,
-                lte: end
+            where.checkIn = { gte: start, lte: end }
+        }
+
+        // Apply filters to User relation
+        if (userId || siteId || departmentId) {
+            where.user = {
+                ...(userId && { id: userId }),
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
             }
         }
 
-        if (userId) {
-            where.userId = userId
-        }
-
-        const [attendances, total] = await Promise.all([
+        const [attendances, total, statusSummary] = await Promise.all([
             prisma.attendance.findMany({
                 where,
                 include: {
@@ -56,9 +56,8 @@ export async function GET(request: NextRequest) {
                             name: true,
                             email: true,
                             image: true,
-                            department: {
-                                select: { name: true }
-                            }
+                            department: { select: { name: true } },
+                            site: { select: { name: true } }
                         }
                     }
                 },
@@ -66,12 +65,26 @@ export async function GET(request: NextRequest) {
                 take: limit,
                 skip
             }),
-            prisma.attendance.count({ where })
+            prisma.attendance.count({ where }),
+            prisma.attendance.groupBy({
+                by: ['status'],
+                where,
+                _count: {
+                    _all: true
+                }
+            })
         ])
+
+        // Format summary
+        const summary = statusSummary.reduce((acc, curr) => {
+            acc[curr.status] = curr._count._all
+            return acc
+        }, {} as Record<string, number>)
 
         return NextResponse.json({
             success: true,
             data: attendances,
+            summary,
             pagination: {
                 page,
                 limit,

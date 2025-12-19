@@ -6,15 +6,46 @@ import { authOptions } from '@/lib/auth'
 export async function GET(request: Request) {
     try {
         const session = await getServerSession(authOptions)
-        // Add logic to check if user is admin if necessary, currently just checking authentication
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const service = new OvertimeService()
-        const history = await service.getAllRequests()
+        const { searchParams } = new URL(request.url)
+        const page = parseInt(searchParams.get('page') || '1')
+        const limit = parseInt(searchParams.get('limit') || '10')
+        const skip = (page - 1) * limit
 
-        return NextResponse.json(history)
+        const siteId = searchParams.get('siteId') || undefined
+        const departmentId = searchParams.get('departmentId') || undefined
+        const status = searchParams.get('status') || undefined
+        const startDateStr = searchParams.get('startDate')
+        const endDateStr = searchParams.get('endDate')
+
+        const filters: any = { skip, take: limit, siteId, departmentId, status }
+
+        if (startDateStr && endDateStr) {
+            const start = new Date(startDateStr)
+            start.setHours(0, 0, 0, 0)
+            const end = new Date(endDateStr)
+            end.setHours(23, 59, 59, 999)
+            filters.startDate = start
+            filters.endDate = end
+        }
+
+        const service = new OvertimeService()
+        const result = await service.getAllRequests(filters)
+
+        return NextResponse.json({
+            success: true,
+            data: result.data,
+            summary: result.summary,
+            pagination: {
+                page,
+                limit,
+                total: result.total,
+                totalPages: Math.ceil(result.total / limit)
+            }
+        })
     } catch (error: any) {
         return NextResponse.json(
             { error: error.message },

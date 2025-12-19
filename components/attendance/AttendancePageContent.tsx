@@ -275,52 +275,42 @@ export default function AttendancePageContent() {
         }
     }
 
-    const getLocation = () => {
-        if (navigator.geolocation) {
-            toast.loading('Mencari lokasi...', { id: 'geo-loading' })
+    const getLocationPromise = (): Promise<string | null> => {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+                resolve(null)
+                return
+            }
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const lat = position.coords.latitude
                     const lng = position.coords.longitude
+                    const loc = `${lat},${lng}`
 
-                    setLocation(`${lat},${lng}`)
+                    setLocation(loc)
                     setCoords({ latitude: lat, longitude: lng })
-
                     fetchAddress(lat, lng)
-                    toast.dismiss('geo-loading')
-                    toast.success('Lokasi berhasil didapatkan')
+                    resolve(loc)
                 },
                 (err) => {
-                    toast.dismiss('geo-loading')
-                    // Log raw error to see what we are getting
-                    console.error("Geolocation Error RAW:", err)
-
-                    // Fallback if code is missing
-                    const code = err.code || 0
-                    const message = err.message || 'Unknown error'
-
-                    console.error("Geolocation Error Parsed:", { code, message })
-
-                    let msg = `Gagal mendapatkan lokasi`
-
-                    if (code === 1) { // PERMISSION_DENIED
-                        msg = "Izin lokasi ditolak. Harap izinkan akses lokasi di browser."
-                    } else if (code === 2) { // POSITION_UNAVAILABLE
-                        msg = "Lokasi tidak tersedia. Pastikan GPS aktif."
-                        if (!window.isSecureContext) {
-                            msg += " (Peringatan: Akses via HTTP mungkin memblokir lokasi. Gunakan HTTPS atau Localhost)"
-                        }
-                    } else if (code === 3) { // TIMEOUT
-                        msg = "Waktu habis saat mencari lokasi. Coba lagi di tempat terbuka."
-                    } else {
-                        // Generic fallback
-                        msg += ` (Error: ${message})`
-                    }
-
-                    toast.error(msg)
+                    console.error("Geo error", err)
+                    resolve(null)
                 },
-                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             )
+        })
+    }
+
+    const getLocation = async () => {
+        if (navigator.geolocation) {
+            toast.loading('Mencari lokasi...', { id: 'geo-loading' })
+            const loc = await getLocationPromise()
+            toast.dismiss('geo-loading')
+            if (loc) {
+                toast.success('Lokasi berhasil didapatkan')
+            } else {
+                toast.error("Gagal mendapatkan lokasi. Pastikan GPS aktif.")
+            }
         } else {
             toast.error("Browser tidak mendukung geolocation")
         }
@@ -373,9 +363,16 @@ export default function AttendancePageContent() {
             const file = new File([blob], "selfie.jpg", { type: "image/jpeg" })
             console.log('Blob created:', file.size, file.type)
 
+            // Ensure location is present
+            let finalLocation = location
+            if (!finalLocation) {
+                toast.loading('Sedang mengambil data lokasi...', { id: toastId })
+                finalLocation = await getLocationPromise()
+            }
+
             const formData = new FormData()
             formData.append('photo', file)
-            if (location) formData.append('location', location)
+            if (finalLocation) formData.append('location', finalLocation)
 
             // Add coordinates for backend validation
             if (coords) {

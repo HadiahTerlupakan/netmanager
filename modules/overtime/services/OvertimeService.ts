@@ -152,8 +152,21 @@ export class OvertimeService {
         return this.repository.findAll({ userId })
     }
 
-    async getAllRequests(filters?: { status?: OvertimeStatus }) {
-        return this.repository.findAll(filters)
+    async getAllRequests(filters?: {
+        status?: OvertimeStatus
+        startDate?: Date
+        endDate?: Date
+        siteId?: string
+        departmentId?: string
+        skip?: number
+        take?: number
+    }) {
+        const [data, total, summary] = await Promise.all([
+            this.repository.findAll(filters),
+            this.repository.count(filters),
+            this.repository.countByStatus(filters)
+        ])
+        return { data, total, summary }
     }
 
     async approveRequest(id: string, approverId: string) {
