@@ -67,9 +67,9 @@ export default function BarangKeluarPage() {
             const res = await fetch('/api/inventory/gudang')
             if (res.ok) {
                 const data = await res.json()
-                setGudangs(data.gudangList || [])
-                if (data.gudangList?.length > 0) {
-                    setFormData(f => ({ ...f, gudangId: data.gudangList[0].id }))
+                setGudangs(data.gudangs || [])
+                if (data.gudangs?.length > 0) {
+                    setFormData(f => ({ ...f, gudangId: data.gudangs[0].id }))
                 }
             }
         } catch (error) {
@@ -84,7 +84,7 @@ export default function BarangKeluarPage() {
             const res = await fetch(`/api/inventory/barang?gudangId=${formData.gudangId}`)
             if (res.ok) {
                 const data = await res.json()
-                setBarangs(data.barangList || [])
+                setBarangs(data.barangs || [])
             }
         } catch (error) {
             console.error('Failed to fetch barangs:', error)
