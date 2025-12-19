@@ -62,13 +62,13 @@ export default function BarangMasukPage() {
             ])
             if (barangRes.ok) {
                 const data = await barangRes.json()
-                setBarangs(data.barangList || [])
+                setBarangs(data.barangs || [])
             }
             if (gudangRes.ok) {
                 const data = await gudangRes.json()
-                setGudangs(data.gudangList || [])
-                if (data.gudangList?.length > 0) {
-                    setFormData(f => ({ ...f, gudangId: data.gudangList[0].id }))
+                setGudangs(data.gudangs || [])
+                if (data.gudangs?.length > 0) {
+                    setFormData(f => ({ ...f, gudangId: data.gudangs[0].id }))
                 }
             }
         } catch (error) {
