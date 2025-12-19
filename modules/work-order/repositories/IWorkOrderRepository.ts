@@ -154,6 +154,8 @@ export interface WorkOrderStatistics {
 
 export interface TopPerformer {
     userName: string;
+    role?: string;
+    site?: string;
     count: number;
     avgCompletionTime: number;
 }
@@ -217,6 +219,8 @@ export interface IWorkOrderRepository {
     getIssueStatistics(limit?: number, dateFrom?: Date, dateTo?: Date): Promise<IssueStatistic[]>;
     getSiteStatistics(limit?: number, dateFrom?: Date, dateTo?: Date): Promise<SiteStatistic[]>;
     getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date): Promise<Array<{ reason: string; count: number }>>;
+    getUserWorkOrderStats(dateFrom: Date, dateTo: Date): Promise<Array<{ userId: string; count: number }>>;
+    getSiteStatsByType(types: WorkOrderType[], limit: number, dateFrom: Date, dateTo: Date): Promise<Array<{ siteId: string; siteName: string; count: number }>>;
 
     // Comments
     addComment(workOrderId: string, message: string, userId: string): Promise<any>;

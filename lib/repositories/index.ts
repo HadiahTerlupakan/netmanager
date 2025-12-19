@@ -30,6 +30,7 @@ import type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateDa
 import { PengeluaranRepository, PemasukanRepository } from '@/modules/finance/repositories'
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
 import type { IWorkOrderRepository } from '@/modules/work-order/repositories/IWorkOrderRepository'
+import { AttendanceRepository } from '@/modules/attendance/repositories/AttendanceRepository'
 import { prisma } from '@/lib/prisma'
 
 let userRepositoryInstance: IUserRepository | null = null
@@ -205,4 +206,13 @@ export function getWorkOrderRepository(): IWorkOrderRepository {
     workOrderRepositoryInstance = new WorkOrderRepository(prisma)
   }
   return workOrderRepositoryInstance
+}
+
+let attendanceRepositoryInstance: AttendanceRepository | null = null
+
+export function getAttendanceRepository(): AttendanceRepository {
+  if (!attendanceRepositoryInstance) {
+    attendanceRepositoryInstance = new AttendanceRepository()
+  }
+  return attendanceRepositoryInstance
 }

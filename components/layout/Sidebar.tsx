@@ -208,6 +208,7 @@ export default function Sidebar() {
       icon: <HiOutlineClock className="w-5 h-5" />,
       permission: 'ATTENDANCE',
       children: [
+        { href: '/admin/kehadiran/laporan', label: 'Laporan', icon: <HiOutlinePresentationChartLine className="w-4 h-4" />, permission: 'ATTENDANCE' },
         { href: '/admin/attendance', label: 'Absensi', icon: <HiOutlineClock className="w-4 h-4" />, permission: 'ATTENDANCE' },
         { href: '/admin/lembur', label: 'Lembur', icon: <HiOutlineBriefcase className="w-4 h-4" />, permission: 'ATTENDANCE' },
       ],

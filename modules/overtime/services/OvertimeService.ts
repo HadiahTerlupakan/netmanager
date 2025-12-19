@@ -222,4 +222,26 @@ export class OvertimeService {
     async deleteOvertime(id: string) {
         return this.repository.delete(id)
     }
+
+    async getReportData(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+        const [stats, dailyStats, groupedBySite, groupedByDept, topEmployees] = await Promise.all([
+            this.repository.getStatsByDateRange(startDate, endDate, siteId, departmentId),
+            this.repository.getDailyStats(startDate, endDate, siteId, departmentId),
+            this.repository.getGroupedStats(startDate, endDate, 'site'),
+            this.repository.getGroupedStats(startDate, endDate, 'department'),
+            this.repository.getTopEmployees(startDate, endDate, 5, siteId, departmentId)
+        ])
+
+        return {
+            summary: {
+                totalRequests: stats.totalRequests,
+                totalDuration: stats.totalDuration,
+                avgDuration: stats.totalRequests > 0 ? Math.round(stats.totalDuration / stats.totalRequests) : 0
+            },
+            trends: dailyStats,
+            bySite: groupedBySite,
+            byDepartment: groupedByDept,
+            topEmployees
+        }
+    }
 }

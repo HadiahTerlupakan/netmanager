@@ -11,7 +11,7 @@ import { useSocketEvent } from '@/hooks/useSocket'
 type Statistics = { total: number; pending: number; assigned: number; inProgress: number; onHold: number; completed: number; verified: number; closed: number; cancelled: number; urgentOpen: number; avgCompletionTimeHours: number; totalCost: number; avgRating: number | null; totalWithRating: number }
 type WorkOrder = { id: string; workOrderNumber: string; title: string; status: string; priority: string; type: string; contactName?: string | null; pelanggan?: { nama: string } | null; assignedTo: { name: string } | null; department: { name: string } | null; createdAt: string }
 type DepartmentWorkload = { departmentName: string; total: number; pending: number; inProgress: number; completed: number }
-type TopPerformer = { employeeName: string; count: number; avgCompletionTime: number }
+type TopPerformer = { userName: string; role?: string; site?: string; count: number; avgCompletionTime: number }
 type IssueStatistic = { issue: string; count: number }
 type SiteStatistic = { siteName: string; count: number; mostCommonIssue: string }
 
@@ -255,12 +255,13 @@ export default function WorkOrderDashboard() {
                                         {topPerformers.map((performer, index) => (
                                             <div key={index} className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-600">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-600 shrink-0">
                                                         {index + 1}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-medium text-gray-900">{performer.employeeName}</p>
-                                                        <p className="text-xs text-gray-500">{formatHours(performer.avgCompletionTime)} avg</p>
+                                                        <p className="text-sm font-medium text-gray-900">{performer.userName}</p>
+                                                        <p className="text-xs text-gray-600">{performer.role || '-'} {performer.site ? `• ${performer.site}` : ''}</p>
+                                                        <p className="text-xs text-gray-500 mt-0.5">{formatHours(performer.avgCompletionTime)} avg</p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">

@@ -12,7 +12,7 @@ interface Department {
     createdAt: string
     updatedAt: string
     _count?: {
-        employees: number
+        users: number
         workOrders: number
     }
 }
@@ -196,7 +196,7 @@ export default function DepartmentsPage() {
                                         <td className="px-6 py-4 text-center">
                                             <span className="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
                                                 <HiOutlineUserGroup className="h-4 w-4" />
-                                                {dept._count?.employees || 0}
+                                                {dept._count?.users || 0}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

@@ -140,4 +140,167 @@ export class OvertimeRepository implements IOvertimeRepository {
             where: { id },
         })
     }
+
+    async getStatsByDateRange(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+        const where: Prisma.OvertimeWhereInput = {
+            createdAt: {
+                gte: startDate,
+                lte: endDate
+            }
+        }
+
+        if (siteId || departmentId) {
+            where.user = {
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            }
+        }
+
+        const stats = await prisma.overtime.aggregate({
+            _count: { _all: true },
+            _sum: { duration: true },
+            where
+        })
+
+        return {
+            totalRequests: stats._count._all,
+            totalDuration: stats._sum.duration || 0
+        }
+    }
+
+    async getDailyStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+        const where: Prisma.OvertimeWhereInput = {
+            createdAt: { gte: startDate, lte: endDate }
+        }
+
+        if (siteId || departmentId) {
+            where.user = {
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            }
+        }
+
+        const records = await prisma.overtime.findMany({
+            where,
+            select: {
+                createdAt: true,
+                duration: true
+            }
+        })
+
+        const dailyMap = new Map<string, { requests: number, duration: number }>()
+
+        records.forEach(rec => {
+            const dateKey = rec.createdAt.toISOString().split('T')[0]
+            if (!dailyMap.has(dateKey)) {
+                dailyMap.set(dateKey, { requests: 0, duration: 0 })
+            }
+            const stat = dailyMap.get(dateKey)!
+            stat.requests++
+            stat.duration += (rec.duration || 0)
+        })
+
+        return Array.from(dailyMap.entries()).map(([date, stat]) => ({
+            date,
+            ...stat
+        })).sort((a, b) => a.date.localeCompare(b.date))
+    }
+
+    async getGroupedStats(startDate: Date, endDate: Date, groupBy: 'department' | 'site') {
+        const overtimes = await prisma.overtime.findMany({
+            where: {
+                createdAt: { gte: startDate, lte: endDate }
+            },
+            include: {
+                user: {
+                    include: { site: true, department: true }
+                }
+            }
+        })
+
+        const groups = new Map<string, { name: string, requests: number, duration: number }>()
+
+        overtimes.forEach(ot => {
+            const user = ot.user
+            if (!user) return
+
+            let groupKey = 'Unknown'
+            let groupName = 'Unknown'
+
+            if (groupBy === 'site' && user.site) {
+                groupKey = user.site.id
+                groupName = user.site.name
+            } else if (groupBy === 'department' && user.department) {
+                groupKey = user.department.name // Group by name
+                groupName = user.department.name
+            }
+
+            if (!groups.has(groupKey)) {
+                groups.set(groupKey, { name: groupName, requests: 0, duration: 0 })
+            }
+
+            const stat = groups.get(groupKey)!
+            stat.requests++
+            stat.duration += (ot.duration || 0)
+        })
+
+        return Array.from(groups.values())
+    }
+
+    async getTopEmployees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
+        const where: Prisma.OvertimeWhereInput = {
+            createdAt: { gte: startDate, lte: endDate },
+            status: 'COMPLETED'
+        }
+
+        if (siteId || departmentId) {
+            where.user = {
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            }
+        }
+
+        const groups = await prisma.overtime.groupBy({
+            by: ['userId'],
+            where,
+            _sum: { duration: true }
+        })
+
+        // Sort by total duration desc
+        groups.sort((a, b) => (b._sum.duration || 0) - (a._sum.duration || 0))
+        const topIds = groups.slice(0, limit)
+
+        const users = await prisma.user.findMany({
+            where: { id: { in: topIds.map(g => g.userId) } },
+            select: { id: true, name: true, image: true, site: { select: { name: true } }, department: { select: { name: true } } }
+        })
+
+        return topIds.map(g => {
+            const user = users.find(u => u.id === g.userId)
+            return {
+                user,
+                totalDuration: g._sum.duration || 0
+            }
+        }).filter(item => item.user != null)
+    }
+
+    async getUserOvertimeStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+        const where: Prisma.OvertimeWhereInput = {
+            createdAt: { gte: startDate, lte: endDate },
+            status: 'COMPLETED'
+        }
+
+        if (siteId || departmentId) {
+            where.user = {
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            }
+        }
+
+        return prisma.overtime.groupBy({
+            by: ['userId'],
+            where,
+            _sum: { duration: true }
+        })
+    }
 }

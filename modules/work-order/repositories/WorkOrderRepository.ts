@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import type { WorkOrder, WorkOrderTask, WorkOrderAssignment, WorkOrderUpdate, WorkOrderAttachment, WorkOrderStatus, WorkOrderPriority, TaskStatus } from '@prisma/client';
+import type { WorkOrder, WorkOrderTask, WorkOrderAssignment, WorkOrderUpdate, WorkOrderAttachment, WorkOrderStatus, WorkOrderPriority, TaskStatus, WorkOrderType } from '@prisma/client';
 import type {
     IWorkOrderRepository,
     WorkOrderWithRelations,
@@ -10,6 +10,7 @@ import type {
     AddUpdateData,
     WorkOrderFilters,
     WorkOrderStatistics,
+    TopPerformer,
 } from './IWorkOrderRepository';
 import { syncWoStatusToTicket } from '../services/WorkOrderSyncService';
 
@@ -616,7 +617,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     /**
      * Get top performers based on completed tasks and average completion time
      */
-    async getTopPerformers(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<Array<{ userName: string; count: number; avgCompletionTime: number }>> {
+    async getTopPerformers(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<TopPerformer[]> {
         const where: any = {
             status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
             assignedToId: { not: null },
@@ -636,6 +637,16 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 assignedTo: {
                     select: {
                         name: true,
+                        role: {
+                            select: {
+                                name: true
+                            }
+                        },
+                        site: {
+                            select: {
+                                name: true
+                            }
+                        }
                     },
                 },
                 startedAt: true,
@@ -643,15 +654,17 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             },
         });
 
-        const userStats: Record<string, { count: number; totalHours: number }> = {};
+        const userStats: Record<string, { count: number; totalHours: number; role?: string; site?: string }> = {};
 
         completedWorkOrders.forEach((wo) => {
             if (wo.assignedTo && wo.startedAt && wo.completedAt) {
                 const name = wo.assignedTo.name || 'Unknown';
+                const role = wo.assignedTo.role?.name;
+                const site = wo.assignedTo.site?.name;
                 const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
 
                 if (!userStats[name]) {
-                    userStats[name] = { count: 0, totalHours: 0 };
+                    userStats[name] = { count: 0, totalHours: 0, role, site };
                 }
 
                 userStats[name].count += 1;
@@ -661,6 +674,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         const topPerformers = Object.entries(userStats).map(([name, stats]) => ({
             userName: name,
+            role: stats.role,
+            site: stats.site,
             count: stats.count,
             avgCompletionTime: stats.totalHours / stats.count,
         }));
@@ -670,6 +685,87 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             if (b.count !== a.count) return b.count - a.count;
             return a.avgCompletionTime - b.avgCompletionTime;
         }).slice(0, limit);
+    }
+
+    /**
+     * Get user work order statistics (count of completed orders)
+     */
+    async getUserWorkOrderStats(dateFrom: Date, dateTo: Date): Promise<Array<{ userId: string; count: number }>> {
+        const where: any = {
+            status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
+            assignedToId: { not: null },
+            completedAt: {
+                gte: dateFrom,
+                lte: dateTo,
+            },
+        };
+
+        const stats = await this.prisma.workOrder.groupBy({
+            by: ['assignedToId'],
+            where,
+            _count: {
+                _all: true,
+            },
+        });
+
+        return stats
+            .filter((s) => s.assignedToId !== null)
+            .map((s) => ({
+                userId: s.assignedToId as string,
+                count: s._count._all,
+            }));
+    }
+
+    /**
+     * Get site statistics by work order type
+     */
+    async getSiteStatsByType(types: WorkOrderType[], limit: number, dateFrom: Date, dateTo: Date): Promise<Array<{ siteId: string; siteName: string; count: number }>> {
+        const where: any = {
+            type: { in: types },
+            status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
+            siteId: { not: null },
+            createdAt: {
+                gte: dateFrom,
+                lte: dateTo,
+            },
+        };
+
+        const stats = await this.prisma.workOrder.groupBy({
+            by: ['siteId'],
+            where,
+            _count: {
+                _all: true,
+            },
+            orderBy: {
+                _count: {
+                    siteId: 'desc', // Note: Prisma aggregation sorting might be limited, handling sort in JS typically safer for complex objects
+                },
+            },
+        });
+
+        // Prisma groupBy doesn't allow automatic relation fetch unlike findMany
+        // We need to fetch site names manually or assume stats are small enough
+        const siteIds = stats.map(s => s.siteId).filter(id => id !== null) as string[];
+
+        const sites = await this.prisma.site.findMany({
+            where: { id: { in: siteIds } },
+            select: { id: true, name: true }
+        });
+
+        const result = stats
+            .map(s => {
+                const site = sites.find(site => site.id === s.siteId);
+                return {
+                    siteId: s.siteId as string,
+                    siteName: site?.name || 'Unknown',
+                    count: s._count._all
+                };
+            })
+            .filter(item => item.siteId !== null)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, limit);
+
+        return result;
     }
 
     /**
