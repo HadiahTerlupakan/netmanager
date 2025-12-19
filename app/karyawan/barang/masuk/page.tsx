@@ -73,9 +73,6 @@ export default function BarangMasukPage() {
             if (gudangRes.ok) {
                 const data = await gudangRes.json()
                 setGudangs(data.gudangs || [])
-                if (data.gudangs?.length > 0) {
-                    setFormData(f => ({ ...f, gudangId: data.gudangs[0].id }))
-                }
             }
         } catch (error) {
             console.error('Failed to fetch data:', error)
@@ -188,7 +185,7 @@ export default function BarangMasukPage() {
                             onChange={(e) => setFormData({ ...formData, gudangId: e.target.value })}
                             className="w-full px-4 py-3 rounded-xl bg-white dark:bg-[#1c2936] border border-gray-200 dark:border-gray-700"
                         >
-                            <option value="">Pilih Gudang</option>
+                            <option value="">Silakan Pilih Gudang...</option>
                             {gudangs.map(g => (
                                 <option key={g.id} value={g.id}>{g.nama}</option>
                             ))}
