@@ -14,7 +14,7 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
-  output: 'standalone',
+  // output: 'standalone', // Disabled because we use a custom server (server.ts)
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost' },
