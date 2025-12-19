@@ -57,6 +57,7 @@ model User {
   // Announcements
   announcementsCreated  Announcement[]
   attendances           Attendance[]
+  overtimes             Overtime[]
 
   @@index([departmentId])
   @@index([siteId])
@@ -2114,6 +2115,49 @@ model Attendance {
   @@index([userId])
   @@index([checkIn])
   @@index([status])
+
+
+  overtimes     Overtime[]
+}
+
+model Overtime {
+  id              String         @id @default(cuid())
+  userId          String
+  attendanceId    String?        // Optional - linked when starting overtime
+  
+  // Request Info
+  reason          String         // Alasan lembur (Diisi saat pengajuan)
+  
+  // Real-time tracking
+  startTime       DateTime?      // Diisi saat Start
+  endTime         DateTime?      // Diisi saat Stop
+  startPhoto      String?        // Base64 or URL
+  startLocation   String?        // Location string/coords
+  endPhoto        String?
+  endLocation     String?
+  
+  duration        Int?           // Calculated on finish (minutes)
+  
+  status          OvertimeStatus @default(PENDING)
+  rejectionReason String?
+  approvedBy      String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user            User           @relation(fields: [userId], references: [id])
+  attendance      Attendance?    @relation(fields: [attendanceId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([startTime])
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
 }
 
 model Registration {

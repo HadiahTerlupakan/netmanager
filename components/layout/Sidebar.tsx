@@ -50,6 +50,7 @@ import {
   HiOutlineShieldCheck,
   HiOutlineDocumentText,
   HiOutlineMegaphone,
+  HiOutlineBriefcase,
 } from 'react-icons/hi2'
 import { useSettings } from '@/hooks/useSettings'
 import { usePermission } from '@/hooks/use-permission'
@@ -202,6 +203,7 @@ export default function Sidebar() {
       ],
     },
     { href: '/admin/attendance', label: 'Absensi', icon: <HiOutlineClock className="w-5 h-5" />, permission: 'ATTENDANCE' },
+    { href: '/admin/lembur', label: 'Lembur', icon: <HiOutlineBriefcase className="w-5 h-5" />, permission: 'ATTENDANCE' },
     { href: '/admin/support', label: 'Dukungan', icon: <HiOutlineChatBubbleLeftRight className="w-5 h-5" />, permission: 'SUPPORT' },
     { href: '/admin/announcements', label: 'Pengumuman', icon: <HiOutlineMegaphone className="w-5 h-5" />, permission: 'ANNOUNCEMENT' },
     {

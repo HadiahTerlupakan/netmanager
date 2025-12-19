@@ -467,7 +467,7 @@ export default function AttendancePageContent() {
         if (!photo || showCamera) return null
 
         return (
-            <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4">
+            <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 pb-24">
                 <div className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-2xl">
                     <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-700">
                         <h3 className="font-bold text-gray-900 dark:text-white">Preview Selfie</h3>

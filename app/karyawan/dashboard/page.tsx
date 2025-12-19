@@ -264,6 +264,20 @@ export default function KaryawanDashboardPage() {
                                     </div>
                                 </button>
                             </Link>
+
+                            <Link href="/karyawan/lembur">
+                                <button
+                                    className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-colors group text-left"
+                                >
+                                    <div className="size-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+                                        <MdWork className="text-2xl" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Lembur</h2>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Ajukan Lembur</p>
+                                    </div>
+                                </button>
+                            </Link>
                         </div>
                     </div>
                 </div>

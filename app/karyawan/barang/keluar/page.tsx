@@ -206,18 +206,18 @@ export default function BarangKeluarPage() {
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="flex-1 pb-32 px-4 pt-4 space-y-4">
                     {/* Gudang */}
-                    <div>
+                    <div className="z-20 relative">
                         <label className="block text-sm font-medium mb-2">Gudang</label>
-                        <select
+                        <Combobox
                             value={formData.gudangId}
-                            onChange={(e) => setFormData({ ...formData, gudangId: e.target.value, barangId: '' })}
-                            className="w-full px-4 py-3 rounded-xl bg-white dark:bg-[#1c2936] border border-gray-200 dark:border-gray-700"
-                        >
-                            <option value="">Silakan Pilih Gudang...</option>
-                            {gudangs.map(g => (
-                                <option key={g.id} value={g.id}>{g.nama}</option>
-                            ))}
-                        </select>
+                            onChange={(val) => setFormData({ ...formData, gudangId: val, barangId: '' })}
+                            options={gudangs.map(g => ({
+                                value: g.id,
+                                label: g.nama,
+                                searchLabel: g.nama
+                            }))}
+                            placeholder="Silakan Pilih Gudang..."
+                        />
                     </div>
 
                     {/* Barang */}
