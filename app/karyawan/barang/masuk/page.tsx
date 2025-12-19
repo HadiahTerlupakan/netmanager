@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Combobox } from '@/components/ui/Combobox'
 import { useRouter } from 'next/navigation'
 import { useKaryawanAuth } from '@/components/karyawan/KaryawanAuthProvider'
 import { ImageUpload } from '@/components/karyawan/ImageUpload'
@@ -57,12 +58,17 @@ export default function BarangMasukPage() {
     const fetchData = async () => {
         try {
             const [barangRes, gudangRes] = await Promise.all([
-                fetch('/api/inventory/barang'),
+                fetch('/api/inventory/barang?limit=1000'),
                 fetch('/api/inventory/gudang')
             ])
             if (barangRes.ok) {
                 const data = await barangRes.json()
-                setBarangs(data.barangs || [])
+                // Fix: Map API response to match Barang interface
+                const mappedBarangs = (data.barangs || []).map((b: any) => ({
+                    ...b,
+                    stok: b.totalStock || 0
+                }))
+                setBarangs(mappedBarangs)
             }
             if (gudangRes.ok) {
                 const data = await gudangRes.json()
@@ -190,18 +196,18 @@ export default function BarangMasukPage() {
                     </div>
 
                     {/* Barang */}
-                    <div>
+                    <div className="z-10 relative">
                         <label className="block text-sm font-medium mb-2">Barang</label>
-                        <select
+                        <Combobox
                             value={formData.barangId}
-                            onChange={(e) => setFormData({ ...formData, barangId: e.target.value })}
-                            className="w-full px-4 py-3 rounded-xl bg-white dark:bg-[#1c2936] border border-gray-200 dark:border-gray-700"
-                        >
-                            <option value="">Pilih Barang</option>
-                            {barangs.map(b => (
-                                <option key={b.id} value={b.id}>{b.kode} - {b.nama}</option>
-                            ))}
-                        </select>
+                            onChange={(val) => setFormData({ ...formData, barangId: val })}
+                            options={barangs.map(b => ({
+                                value: b.id,
+                                label: `${b.kode} - ${b.nama}`,
+                                searchLabel: `${b.kode} ${b.nama}`
+                            }))}
+                            placeholder="Cari & Pilih Barang"
+                        />
                     </div>
 
                     {/* Jumlah */}

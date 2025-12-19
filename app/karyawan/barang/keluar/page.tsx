@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Combobox } from '@/components/ui/Combobox'
 import { useRouter } from 'next/navigation'
 import { useKaryawanAuth } from '@/components/karyawan/KaryawanAuthProvider'
 import { ImageUpload } from '@/components/karyawan/ImageUpload'
@@ -81,10 +82,18 @@ export default function BarangKeluarPage() {
 
     const fetchBarangs = async () => {
         try {
-            const res = await fetch(`/api/inventory/barang?gudangId=${formData.gudangId}`)
+            const res = await fetch(`/api/inventory/barang?gudangId=${formData.gudangId}&limit=1000`)
             if (res.ok) {
                 const data = await res.json()
-                setBarangs(data.barangs || [])
+                // Fix: Map API response to match Barang interface
+                // API returns { ...barang, totalStock, stockPerGudang: [...] }
+                const mappedBarangs = (data.barangs || [])
+                    .map((b: any) => ({
+                        ...b,
+                        stok: b.totalStock || 0 // Use totalStock from API as the display stock
+                    }))
+                    .filter((b: any) => b.stok > 0)
+                setBarangs(mappedBarangs)
             }
         } catch (error) {
             console.error('Failed to fetch barangs:', error)
@@ -215,20 +224,20 @@ export default function BarangKeluarPage() {
                     </div>
 
                     {/* Barang */}
-                    <div>
+                    <div className="z-10 relative">
                         <label className="block text-sm font-medium mb-2">Barang</label>
-                        <select
+                        <Combobox
                             value={formData.barangId}
-                            onChange={(e) => handleBarangChange(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-white dark:bg-[#1c2936] border border-gray-200 dark:border-gray-700"
-                        >
-                            <option value="">Pilih Barang</option>
-                            {barangs.map(b => (
-                                <option key={b.id} value={b.id} disabled={b.stok <= 0}>
-                                    {b.kode} - {b.nama} (Stok: {b.stok})
-                                </option>
-                            ))}
-                        </select>
+                            onChange={(val) => handleBarangChange(val)}
+                            options={barangs.map(b => ({
+                                value: b.id,
+                                label: `${b.kode} - ${b.nama} (Stok: ${b.stok})`,
+                                searchLabel: `${b.kode} ${b.nama}`,
+                                disabled: b.stok <= 0
+                            }))}
+                            placeholder="Cari & Pilih Barang"
+                            disabled={!formData.gudangId}
+                        />
                         {selectedBarang && (
                             <p className="mt-2 text-sm text-gray-500">
                                 Stok tersedia: <span className="font-semibold text-green-600">{selectedBarang.stok} {selectedBarang.satuan}</span>

@@ -172,13 +172,13 @@ export async function GET(req: NextRequest) {
         let stockPerGudang: any[] = []
 
         if (barang.stok) {
-          // Calculate TOTAL stock from ALL warehouses
-          totalStock = barang.stok.reduce((sum, stock) => sum + stock.stok, 0)
-
           // Filter stocks by gudangId if specified, otherwise show all
           const filteredStocks = gudangId
             ? barang.stok.filter(stock => stock.gudangId === gudangId)
             : barang.stok
+
+          // Calculate TOTAL stock from FILTERED stocks (so it reflects the specific warehouse if filtered)
+          totalStock = filteredStocks.reduce((sum, stock) => sum + stock.stok, 0)
 
           stockPerGudang = filteredStocks.map(stock => ({
             gudangId: stock.gudangId,
