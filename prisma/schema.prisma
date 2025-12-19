@@ -58,6 +58,14 @@ model User {
   announcementsCreated  Announcement[]
   attendances           Attendance[]
   overtimes             Overtime[]
+  
+  // Working Hours Configuration
+  workingHourMode       WorkingHourMode @default(FIXED)
+  startWorkTime         String?         // Format "HH:mm" e.g "09:00"
+  endWorkTime           String?         // Format "HH:mm" e.g "17:00"
+  workDays              String?         // CSV format "Mon,Tue,Wed,Thu,Fri"
+  shiftId               String?         // Future: link to Shift model
+  flexibleTargetHour    Int?            // Target hours per day for Flexible mode
 
   @@index([departmentId])
   @@index([siteId])
@@ -2192,3 +2200,9 @@ enum RegistrationStatus {
 }
 
 // Temporary append to trigger manual edit via tool if needed, but I can just append field line using replacement
+
+enum WorkingHourMode {
+  FIXED
+  SHIFT
+  FLEXIBLE
+}

@@ -113,6 +113,14 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   if (body.roleId !== undefined) data.roleId = body.roleId || null
   if (body.isActive !== undefined) data.isActive = body.isActive
 
+  // Working Hours
+  if (body.workingHourMode !== undefined) data.workingHourMode = body.workingHourMode
+  if (body.startWorkTime !== undefined) data.startWorkTime = body.startWorkTime
+  if (body.endWorkTime !== undefined) data.endWorkTime = body.endWorkTime
+  if (body.workDays !== undefined) data.workDays = body.workDays
+  if (body.flexibleTargetHour !== undefined) data.flexibleTargetHour = body.flexibleTargetHour
+  if (body.shiftId !== undefined) data.shiftId = body.shiftId
+
   console.log('[USER-UPDATE] Data to update:', data)
 
   try {
@@ -282,6 +290,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         departmentId: true,
         siteId: true,
         roleId: true,
+        workingHourMode: true,
+        startWorkTime: true,
+        endWorkTime: true,
+        workDays: true,
+        flexibleTargetHour: true,
+        shiftId: true,
         department: {
           select: { id: true, name: true },
         },

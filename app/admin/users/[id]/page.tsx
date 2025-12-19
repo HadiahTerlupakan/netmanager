@@ -19,6 +19,7 @@ import {
   HiArrowPath,
   HiOutlineIdentification
 } from 'react-icons/hi2'
+import WorkingHoursSettings from './WorkingHoursSettings'
 
 interface Department {
   id: string
@@ -49,30 +50,30 @@ interface UserData {
   department?: { name: string } | null
   site?: { code: string; name: string } | null
   role?: { name: string } | null
+  // New fields
+  workingHourMode?: string
+  startWorkTime?: string | null
+  endWorkTime?: string | null
+  workDays?: string | null
+  flexibleTargetHour?: number | null
+  shiftId?: string | null
 }
 
 export default function UserEditPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  const router = useRouter()
   const { id } = use(params)
-  const [isViewMode, setIsViewMode] = useState(false)
-
-  useEffect(() => {
-    if (searchParams) {
-      searchParams.then(p => {
-        setIsViewMode(p?.view === 'true')
-      })
-    }
-  }, [searchParams])
+  const router = useRouter()
+  const searchParamsValue = use(searchParams || Promise.resolve({} as { [key: string]: string | string[] | undefined }))
+  const isViewMode = searchParamsValue['view'] === 'true'
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
-  const [roles, setRoles] = useState<Role[]>([])
   const [sites, setSites] = useState<Site[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [user, setUser] = useState<UserData | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [showSuccess, setShowSuccess] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -82,6 +83,13 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
     siteId: '',
     roleId: '',
     isActive: true,
+    // Working Hours
+    workingHourMode: 'FIXED',
+    startWorkTime: '',
+    endWorkTime: '',
+    workDays: '',
+    flexibleTargetHour: 8,
+    shiftId: ''
   })
 
   useEffect(() => {
@@ -145,6 +153,13 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
           siteId: usr.siteId || '',
           roleId: usr.roleId || '',
           isActive: usr.isActive ?? true,
+          // Working Hours
+          workingHourMode: usr.workingHourMode || 'FIXED',
+          startWorkTime: usr.startWorkTime || '',
+          endWorkTime: usr.endWorkTime || '',
+          workDays: usr.workDays || '',
+          flexibleTargetHour: usr.flexibleTargetHour || 8,
+          shiftId: usr.shiftId || ''
         })
       }
     } catch (error) {
@@ -220,6 +235,13 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
         siteId: formData.siteId || null,
         roleId: formData.roleId,
         isActive: formData.isActive,
+        // Working Hours
+        workingHourMode: formData.workingHourMode,
+        startWorkTime: formData.startWorkTime || null,
+        endWorkTime: formData.endWorkTime || null,
+        workDays: formData.workDays || null,
+        flexibleTargetHour: formData.flexibleTargetHour || null,
+        shiftId: formData.shiftId || null,
       }
 
       if (formData.password) {
@@ -656,6 +678,19 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
             </div>
           </div>
         </div>
+
+        {/* Working Hours Section */}
+        <WorkingHoursSettings
+          initialData={{
+            workingHourMode: formData.workingHourMode,
+            startWorkTime: formData.startWorkTime,
+            endWorkTime: formData.endWorkTime,
+            workDays: formData.workDays,
+            flexibleTargetHour: formData.flexibleTargetHour,
+            shiftId: formData.shiftId
+          }}
+          onChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
+        />
 
         {/* Error Message */}
         {errors.submit && (
