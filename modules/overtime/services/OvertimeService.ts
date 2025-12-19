@@ -1,6 +1,7 @@
 import { OvertimeRepository } from '../repositories/OvertimeRepository'
 import { OvertimeStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { createNotification } from '../../notification/services/NotificationService'
 
 export class OvertimeService {
     private repository: OvertimeRepository
@@ -42,11 +43,37 @@ export class OvertimeService {
         }
 
         // Buat request tanpa attendance link (akan di-link saat start)
-        return this.repository.create({
+        const request = await this.repository.create({
             user: { connect: { id: userId } },
             reason: data.reason,
             status: OvertimeStatus.PENDING,
         })
+
+        // Notify Admins
+        try {
+            const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
+            const admins = await prisma.user.findMany({
+                where: { role: { name: 'ADMIN' } },
+                select: { id: true }
+            })
+
+            for (const admin of admins) {
+                await createNotification({
+                    type: 'SYSTEM',
+                    priority: 'NORMAL',
+                    title: '🔔 Pengajuan Lembur Baru',
+                    message: `${user?.name || 'Karyawan'} mengajukan lembur: ${data.reason}`,
+                    link: '/admin/lembur',
+                    userId: admin.id,
+                    sourceType: 'OVERTIME',
+                    sourceId: request.id
+                })
+            }
+        } catch (error) {
+            console.error('Failed to send notification:', error)
+        }
+
+        return request
     }
 
     // 2. Start Overtime (Wajib sudah APPROVED dan sudah CHECKOUT)
@@ -130,17 +157,53 @@ export class OvertimeService {
     }
 
     async approveRequest(id: string, approverId: string) {
-        return this.repository.update(id, {
+        const result = await this.repository.update(id, {
             status: OvertimeStatus.APPROVED,
             approvedBy: approverId
         })
+
+        // Notify User
+        try {
+            await createNotification({
+                type: 'SYSTEM',
+                priority: 'HIGH',
+                title: '✅ Pengajuan Lembur Disetujui',
+                message: 'Pengajuan lembur Anda telah disetujui. Silakan mulai lembur setelah checkout.',
+                link: '/karyawan/lembur',
+                userId: result.userId,
+                sourceType: 'OVERTIME',
+                sourceId: result.id
+            })
+        } catch (error) {
+            console.error('Failed to send notification:', error)
+        }
+
+        return result
     }
 
     async rejectRequest(id: string, reason: string) {
-        return this.repository.update(id, {
+        const result = await this.repository.update(id, {
             status: OvertimeStatus.REJECTED,
             rejectionReason: reason
         })
+
+        // Notify User
+        try {
+            await createNotification({
+                type: 'SYSTEM',
+                priority: 'HIGH',
+                title: '❌ Pengajuan Lembur Ditolak',
+                message: `Alasan: ${reason}`,
+                link: '/karyawan/lembur',
+                userId: result.userId,
+                sourceType: 'OVERTIME',
+                sourceId: result.id
+            })
+        } catch (error) {
+            console.error('Failed to send notification:', error)
+        }
+
+        return result
     }
 
     async deleteOvertime(id: string) {
