@@ -79,6 +79,7 @@ model Role {
   description         String?
   accessAdminPanel    Boolean      @default(false)
   accessEmployeePanel Boolean      @default(false)
+  isRestricted        Boolean      @default(false)
   users               User[]
   permissions Permission[]
   createdAt   DateTime @default(now())

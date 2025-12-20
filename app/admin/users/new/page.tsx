@@ -82,7 +82,7 @@ export default function UserNewPage() {
 
   const fetchRoles = async () => {
     try {
-      const res = await fetch('/api/roles')
+      const res = await fetch('/api/roles?filterRestricted=true')
       const data = await res.json()
       if (res.ok) {
         setRoles(Array.isArray(data) ? data : [])

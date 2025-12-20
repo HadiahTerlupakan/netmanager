@@ -28,6 +28,7 @@ export default function RoleFormPage() {
         description: '',
         accessAdminPanel: false,
         accessEmployeePanel: false,
+        isRestricted: false,
     })
     const [selectedPermissions, setSelectedPermissions] = useState<string[]>([])
     const [availablePermissions, setAvailablePermissions] = useState<Permission[]>([])
@@ -73,6 +74,7 @@ export default function RoleFormPage() {
                     description: data.description || '',
                     accessAdminPanel: data.accessAdminPanel || false,
                     accessEmployeePanel: data.accessEmployeePanel || false,
+                    isRestricted: data.isRestricted || false,
                 })
                 setSelectedPermissions(data.permissions.map((p: any) => p.id))
             } else {
@@ -224,6 +226,26 @@ export default function RoleFormPage() {
                             </div>
                         </label>
                     </div>
+                </div>
+
+                {/* Role Type */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h2 className="text-lg font-semibold mb-4 text-gray-700">Tipe Role</h2>
+                    <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                        <input
+                            type="checkbox"
+                            checked={formData.isRestricted}
+                            onChange={e => setFormData({ ...formData, isRestricted: e.target.checked })}
+                            className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 mt-0.5"
+                        />
+                        <div>
+                            <span className="block font-medium text-gray-800">Role Terbatas (Restricted)</span>
+                            <span className="text-sm text-gray-500">
+                                Jika aktif, role ini <strong>tidak akan muncul</strong> pada dropdown "Peran Pengguna" di menu Tambah/Edit Pengguna,
+                                KECUALI user yang sedang login juga memiliki role ini.
+                            </span>
+                        </div>
+                    </label>
                 </div>
 
                 {/* Permission Matrix */}

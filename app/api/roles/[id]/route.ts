@@ -8,7 +8,8 @@ const roleUpdateSchema = z.object({
     description: z.string().optional(),
     permissions: z.array(z.string()), // Array of permission IDs
     accessAdminPanel: z.boolean().optional(),
-    accessEmployeePanel: z.boolean().optional()
+    accessEmployeePanel: z.boolean().optional(),
+    isRestricted: z.boolean().optional()
 })
 
 // Fix for Next.js App Router params type
@@ -51,7 +52,7 @@ export async function PUT(req: Request, { params }: Params) {
 
     try {
         const body = await req.json()
-        const { name, description, permissions, accessAdminPanel, accessEmployeePanel } = roleUpdateSchema.parse(body)
+        const { name, description, permissions, accessAdminPanel, accessEmployeePanel, isRestricted } = roleUpdateSchema.parse(body)
 
         // Check if role is SUPER_ADMIN (cannot edit name if it is sensitive, but permissions usually ok. 
         // Actually SUPER_ADMIN usually should effectively encompass all permissions anyway, 
@@ -69,6 +70,7 @@ export async function PUT(req: Request, { params }: Params) {
                 description,
                 accessAdminPanel,
                 accessEmployeePanel,
+                isRestricted,
                 permissions: {
                     set: permissions.map(pid => ({ id: pid })) // Reset and connect new list
                 }
