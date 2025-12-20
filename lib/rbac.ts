@@ -30,3 +30,11 @@ export async function getCurrentUser() {
     const session = await getServerSession(authConfig)
     return session?.user
 }
+
+export async function ensurePermission(requiredPermission: string, redirectTo: string = '/admin') {
+    const has = await hasPermission(requiredPermission)
+    if (!has) {
+        const { redirect } = await import('next/navigation')
+        redirect(redirectTo)
+    }
+}
