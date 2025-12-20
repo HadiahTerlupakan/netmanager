@@ -2,7 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { HiOutlineMapPin } from 'react-icons/hi2'
-import Script from 'next/script'
+import 'ol/ol.css'
+import Map from 'ol/Map'
+import View from 'ol/View'
+import TileLayer from 'ol/layer/Tile'
+import OSM from 'ol/source/OSM'
+import VectorLayer from 'ol/layer/Vector'
+import VectorSource from 'ol/source/Vector'
+import Feature from 'ol/Feature'
+import Point from 'ol/geom/Point'
+import { Style, Icon } from 'ol/style'
+import { fromLonLat, toLonLat } from 'ol/proj'
+import { defaults as defaultControls } from 'ol/control'
 
 interface MapPickerProps {
     latitude: string
@@ -11,96 +22,118 @@ interface MapPickerProps {
     label?: string
 }
 
-declare global {
-    interface Window {
-        L: any
-    }
-}
-
 export default function MapPicker({ latitude, longitude, onChange, label = "Lokasi di Peta" }: MapPickerProps) {
     const mapRef = useRef<HTMLDivElement>(null)
-    const mapInstanceRef = useRef<any>(null)
-    const markerRef = useRef<any>(null)
-    const [isLeafletLoaded, setIsLeafletLoaded] = useState(false)
+    const mapInstanceRef = useRef<Map | null>(null)
+    const vectorSourceRef = useRef<VectorSource | null>(null)
+    const markerFeatureRef = useRef<Feature | null>(null)
 
-    // Helper to ensure map is correctly sized
-    const invalidateMapSize = () => {
-        if (mapInstanceRef.current) {
-            mapInstanceRef.current.invalidateSize()
+    // Helper to parse coordinates safely
+    const getCoordinates = () => {
+        const lat = parseFloat(latitude)
+        const lng = parseFloat(longitude)
+        if (!isNaN(lat) && !isNaN(lng)) {
+            return { lat, lng }
         }
+        return null
     }
 
-    // Initialize Map once Leaflet is loaded
+    // Initialize Map
     useEffect(() => {
-        if (!isLeafletLoaded || !mapRef.current || mapInstanceRef.current) return
+        if (!mapRef.current) return
 
-        const L = window.L
+        // Vector Source and Layer for the marker
+        const vectorSource = new VectorSource()
+        vectorSourceRef.current = vectorSource
 
-        // Ensure default icon paths are correct
-        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        // Marker Style (using a standard pin icon)
+        const markerStyle = new Style({
+            image: new Icon({
+                anchor: [0.5, 1], // Bottom center
+                src: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png', // Reusing a reliable CDN asset for the pin
+                scale: 1
+            })
+        })
 
-        L.Icon.Default.mergeOptions({
-            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-        });
+        const vectorLayer = new VectorLayer({
+            source: vectorSource,
+            style: markerStyle
+        })
 
-        const initialLat = latitude ? parseFloat(latitude) : -6.200000 // Jakarta
-        const initialLng = longitude ? parseFloat(longitude) : 106.816666
-        const initialZoom = latitude && longitude ? 15 : 10
+        // Determine initial center
+        const coords = getCoordinates()
+        const initialCenter = coords
+            ? fromLonLat([coords.lng, coords.lat])
+            : fromLonLat([106.8456, -6.2088]) // Jakarta default
 
-        const map = L.map(mapRef.current).setView([initialLat, initialLng], initialZoom)
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map)
-
-        // Click handler
-        map.on('click', (e: any) => {
-            const { lat, lng } = e.latlng
-            onChange(lat.toFixed(6), lng.toFixed(6))
+        const map = new Map({
+            target: mapRef.current,
+            layers: [
+                new TileLayer({
+                    source: new OSM()
+                }),
+                vectorLayer
+            ],
+            view: new View({
+                center: initialCenter,
+                zoom: coords ? 15 : 10
+            }),
+            controls: defaultControls({ zoom: true, attribution: false }) // Simplified controls
         })
 
         mapInstanceRef.current = map
 
-        // Force resize calculation after a momentary delay to ensure container is fully rendered
-        setTimeout(invalidateMapSize, 200)
+        // Click handler to pick location
+        map.on('click', (event) => {
+            const coordinates = toLonLat(event.coordinate)
+            const [lng, lat] = coordinates
+            onChange(lat.toFixed(6), lng.toFixed(6))
+        })
 
+        // Ensure map is correctly sized
+        setTimeout(() => map.updateSize(), 100)
+
+        // Cleanup
         return () => {
-            if (mapInstanceRef.current) {
-                mapInstanceRef.current.remove()
-                mapInstanceRef.current = null
-            }
-        }
-    }, [isLeafletLoaded])
-
-    // Update marker and view when props change
-    useEffect(() => {
-        if (!mapInstanceRef.current || !isLeafletLoaded) return
-
-        const lat = parseFloat(latitude)
-        const lng = parseFloat(longitude)
-
-        if (!isNaN(lat) && !isNaN(lng)) {
-            const L = window.L
-            if (markerRef.current) {
-                markerRef.current.setLatLng([lat, lng])
-            } else {
-                markerRef.current = L.marker([lat, lng]).addTo(mapInstanceRef.current)
-            }
-            mapInstanceRef.current.setView([lat, lng], 15)
-        }
-    }, [latitude, longitude, isLeafletLoaded])
-
-    // Load CSS manually
-    useEffect(() => {
-        if (!document.querySelector('link[href*="leaflet.css"]')) {
-            const link = document.createElement('link')
-            link.rel = 'stylesheet'
-            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-            document.head.appendChild(link)
+            map.setTarget(undefined)
+            mapInstanceRef.current = null
         }
     }, [])
+
+    // React to props change (updates marker position)
+    useEffect(() => {
+        const coords = getCoordinates()
+
+        if (coords && vectorSourceRef.current) {
+            const pointGeom = new Point(fromLonLat([coords.lng, coords.lat]))
+
+            if (!markerFeatureRef.current) {
+                // Create new marker if none exists
+                const feature = new Feature({
+                    geometry: pointGeom
+                })
+                markerFeatureRef.current = feature
+                vectorSourceRef.current.addFeature(feature)
+            } else {
+                // Update existing marker geometry
+                markerFeatureRef.current.setGeometry(pointGeom)
+            }
+
+            // Sync View if needed (Optional: only if map is ready and user explicitly updated via form inputs, 
+            // but we usually let the user pan manually to avoid jumping around too much. 
+            // However, on first load or direct input, it might be nice. 
+            // Let's rely on the map's initial view for the first load, and 'Current Location' button for explicit centering.)
+            if (mapInstanceRef.current) {
+                // Check if the current view is very far off? 
+                // For now, let's just ensure the marker is updated.
+            }
+
+        } else if (!coords && markerFeatureRef.current && vectorSourceRef.current) {
+            // Remove marker if coordinates become invalid
+            vectorSourceRef.current.removeFeature(markerFeatureRef.current)
+            markerFeatureRef.current = null
+        }
+    }, [latitude, longitude])
 
     const getCurrentLocation = () => {
         if (navigator.geolocation) {
@@ -108,9 +141,14 @@ export default function MapPicker({ latitude, longitude, onChange, label = "Loka
                 (position) => {
                     const { latitude, longitude } = position.coords
                     onChange(latitude.toFixed(6), longitude.toFixed(6))
-                    // Center map if initialized
+
+                    // Animate map to new location
                     if (mapInstanceRef.current) {
-                        mapInstanceRef.current.setView([latitude, longitude], 15)
+                        mapInstanceRef.current.getView().animate({
+                            center: fromLonLat([longitude, latitude]),
+                            zoom: 16,
+                            duration: 1000
+                        })
                     }
                 },
                 (error) => {
@@ -125,14 +163,6 @@ export default function MapPicker({ latitude, longitude, onChange, label = "Loka
 
     return (
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-            {/* Load Leaflet JS via next/script */}
-            <Script
-                src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-                strategy="afterInteractive"
-                onLoad={() => setIsLeafletLoaded(true)}
-                onReady={() => setIsLeafletLoaded(true)}
-            />
-
             <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {label}
@@ -148,13 +178,13 @@ export default function MapPicker({ latitude, longitude, onChange, label = "Loka
             </div>
 
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                Klik pada peta untuk memilih titik lokasi. Pastikan marker muncul untuk menyimpan koordinat.
+                Klik pada peta untuk memilih titik lokasi.
             </p>
 
             <div className="relative w-full h-[400px] rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700 isolate">
                 <div
                     ref={mapRef}
-                    className="absolute inset-0 z-0 bg-gray-100"
+                    className="absolute inset-0 z-0 bg-gray-50"
                     style={{ height: '100%', width: '100%' }}
                 />
             </div>
