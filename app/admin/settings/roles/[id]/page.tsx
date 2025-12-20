@@ -99,7 +99,7 @@ export default function RoleFormPage() {
 
     if (authLoading || loading) return <div className="p-8 text-center">Loading...</div>
 
-    const requiredPerm = isNew ? 'role:create' : 'role:update'
+    const requiredPerm = isNew ? 'roles:create' : 'roles:update'
     if (!hasPermission(requiredPerm)) {
         return <div className="p-8 text-center text-red-500">Anda tidak memiliki akses untuk {isNew ? 'membuat' : 'mengedit'} role.</div>
     }

@@ -1,4 +1,4 @@
-import { Overtime, OvertimeStatus, Prisma } from '@prisma/client'
+import { type Overtime, type OvertimeStatus, Prisma } from '@prisma/client'
 
 export interface IOvertimeRepository {
     findById(id: string): Promise<Overtime | null>

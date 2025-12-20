@@ -896,6 +896,7 @@ model Site {
   updatedAt   DateTime    @updatedAt
   users       User[]
   workOrders  WorkOrder[]
+  gudangs     Gudang[]
 
   @@index([isActive])
   @@map("sites")
@@ -1320,6 +1321,8 @@ model Gudang {
   kode            String                @unique
   nama            String
   lokasi          String?
+  siteId          String?
+  site            Site?                 @relation(fields: [siteId], references: [id])
   isActive        Boolean               @default(true)
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
@@ -1333,6 +1336,7 @@ model Gudang {
   transferKe      TransferAntarGudang[] @relation("TransferKeGudang")
   usageAnalytics  UsageAnalytics[]
 
+  @@index([siteId])
   @@map("gudang")
 }
 

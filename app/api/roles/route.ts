@@ -15,7 +15,7 @@ const roleSchema = z.object({
 })
 
 export async function GET(req: Request) {
-    if (!await hasPermission('role:read')) {
+    if (!await hasPermission('roles:read')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -70,13 +70,33 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!await hasPermission('role:create')) {
+    if (!await hasPermission('roles:create')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     try {
         const body = await req.json()
-        const { name, description, permissions, accessAdminPanel, accessEmployeePanel, isRestricted } = roleSchema.parse(body)
+        const { name, description, permissions, accessAdminPanel, accessEmployeePanel } = roleSchema.parse(body)
+
+        // Deduplicate permissions
+        const uniquePermissions = [...new Set(permissions)] as string[]
+
+        // Parse requested permissions into resource:action pairs
+        const requestedPairs = uniquePermissions.map((p) => {
+            const [resource, action] = p.split(':')
+            return { resource, action }
+        })
+
+        // Query database for existing permissions that match the requested pairs
+        const existingPermissions = await prisma.permission.findMany({
+            where: {
+                OR: requestedPairs.map(pair => ({
+                    resource: pair.resource,
+                    action: pair.action
+                }))
+            },
+            select: { id: true }
+        })
 
         const role = await prisma.role.create({
             data: {
@@ -84,19 +104,10 @@ export async function POST(req: Request) {
                 description,
                 accessAdminPanel,
                 accessEmployeePanel,
-                isRestricted,
                 permissions: {
-                    connect: permissions.map(p => {
-                        const [resource, action] = p.split(':')
-                        return {
-                            resource_action: {
-                                resource,
-                                action
-                            }
-                        }
-                    })
-                }
-            }
+                    connect: existingPermissions.map((p) => ({ id: p.id })),
+                },
+            },
         })
 
         return NextResponse.json(role)

@@ -11,11 +11,27 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = session.user.id
+        // Check for Site-Based Restriction Policy
+        const user = session.user as any
+        const userId = user.id
+        const userPermissions = (user.permissions as string[]) || []
+        const isSiteRestricted = userPermissions.includes('k_barang:site_only')
+
+        let whereClauseMasuk: any = { userId }
+        let whereClauseKeluar: any = { userId }
+
+        if (isSiteRestricted) {
+            if (!user.siteId) {
+                return NextResponse.json({ transactions: [] })
+            }
+            // Filter transactions where the specific Gudang belongs to the user's Site
+            whereClauseMasuk.gudang = { siteId: user.siteId }
+            whereClauseKeluar.gudang = { siteId: user.siteId }
+        }
 
         // Get barang masuk
         const barangMasuk = await prisma.barangMasuk.findMany({
-            where: { userId },
+            where: whereClauseMasuk,
             include: {
                 barang: { select: { kode: true, nama: true, satuan: true } },
                 gudang: { select: { nama: true } }
@@ -26,7 +42,7 @@ export async function GET(req: NextRequest) {
 
         // Get barang keluar
         const barangKeluar = await prisma.barangKeluar.findMany({
-            where: { userId },
+            where: whereClauseKeluar,
             include: {
                 barang: { select: { kode: true, nama: true, satuan: true } },
                 gudang: { select: { nama: true } }

@@ -20,7 +20,7 @@ type Params = {
 }
 
 export async function GET(req: Request, { params }: Params) {
-    if (!await hasPermission('role:read')) {
+    if (!await hasPermission('roles:read')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -51,7 +51,7 @@ export async function PUT(req: Request, { params }: Params) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!await hasPermission('role:update')) {
+    if (!await hasPermission('roles:update')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -59,37 +59,51 @@ export async function PUT(req: Request, { params }: Params) {
 
     try {
         const body = await req.json()
-        const { name, description, permissions, accessAdminPanel, accessEmployeePanel, isRestricted } = roleUpdateSchema.parse(body)
+        const { name, description, permissions, accessAdminPanel, accessEmployeePanel } = roleUpdateSchema.parse(body)
 
         // Don't allow modifying super admin role structure too much (safety check)
         const currentRole = await prisma.role.findUnique({ where: { id } })
+        if (!currentRole) {
+            return NextResponse.json({ error: 'Role not found' }, { status: 404 })
+        }
         if (currentRole?.name === 'SUPER_ADMIN' && name !== 'SUPER_ADMIN') {
             return NextResponse.json({ error: 'Cannot rename SUPER_ADMIN role' }, { status: 400 })
         }
 
-        const role = await prisma.role.update({
+        // Deduplicate permissions
+        const uniquePermissions = [...new Set(permissions)] as string[]
+
+        // Parse requested permissions into resource:action pairs
+        const requestedPairs = uniquePermissions.map((p) => {
+            const [resource, action] = p.split(':')
+            return { resource, action }
+        })
+
+        // Query database for existing permissions that match the requested pairs
+        const existingPermissions = await prisma.permission.findMany({
+            where: {
+                OR: requestedPairs.map(pair => ({
+                    resource: pair.resource,
+                    action: pair.action
+                }))
+            },
+            select: { id: true }
+        })
+
+        const updatedRole = await prisma.role.update({
             where: { id },
             data: {
                 name,
                 description,
                 accessAdminPanel,
                 accessEmployeePanel,
-                isRestricted,
                 permissions: {
-                    set: permissions.map(p => {
-                        const [resource, action] = p.split(':')
-                        return {
-                            resource_action: {
-                                resource,
-                                action
-                            }
-                        }
-                    })
-                }
-            }
+                    set: existingPermissions.map((p) => ({ id: p.id })),
+                },
+            },
         })
 
-        return NextResponse.json(role)
+        return NextResponse.json(updatedRole)
     } catch (error) {
         console.error('Error updating role:', error)
         if (error instanceof z.ZodError) {
@@ -100,7 +114,7 @@ export async function PUT(req: Request, { params }: Params) {
 }
 
 export async function DELETE(req: Request, { params }: Params) {
-    if (!await hasPermission('role:delete')) {
+    if (!await hasPermission('roles:delete')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

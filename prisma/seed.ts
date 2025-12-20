@@ -3,10 +3,12 @@ import { hash } from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
-import { PERMISSION_GROUPS, ACTIONS } from '../lib/permission-config'
+import { PERMISSION_GROUPS, PERMISSION_GROUPS_KARYAWAN, ACTIONS } from '../lib/permission-config'
 
-// Flatten resources from groups
-const RESOURCES = Object.values(PERMISSION_GROUPS).flat()
+// Flatten resources from both admin and karyawan groups
+const ADMIN_RESOURCES = Object.values(PERMISSION_GROUPS).flat()
+const KARYAWAN_RESOURCES = Object.values(PERMISSION_GROUPS_KARYAWAN).flat()
+const ALL_RESOURCES = [...new Set([...ADMIN_RESOURCES, ...KARYAWAN_RESOURCES])]
 
 async function main() {
   console.log('🌱 Seeding database...\n')
@@ -14,7 +16,9 @@ async function main() {
   // --- 1. RBAC Setup ---
   console.log('   Creating permissions...')
   const permissions = []
-  for (const resource of RESOURCES) {
+
+  // 1a. Seed Permissions from PERMISSION_GROUPS (Legacy/Granular)
+  for (const resource of ALL_RESOURCES) {
     for (const action of ACTIONS) {
       const permission = await prisma.permission.upsert({
         where: {
@@ -34,6 +38,7 @@ async function main() {
       permissions.push(permission)
     }
   }
+
   console.log(`   ✅ Synced ${permissions.length} permissions.`)
 
   console.log('   Creating Roles...')
@@ -44,6 +49,7 @@ async function main() {
       accessAdminPanel: true,
       accessEmployeePanel: true,
       permissions: {
+        set: [], // Clear existing to ensure clean slate before connecting all
         connect: permissions.map((p) => ({ id: p.id })),
       },
     },

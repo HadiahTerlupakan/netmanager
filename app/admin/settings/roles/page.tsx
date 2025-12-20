@@ -68,7 +68,7 @@ export default function RolesPage() {
         return <div className="p-8 text-center">Loading...</div>
     }
 
-    if (!hasPermission('role:read')) {
+    if (!hasPermission('roles:read')) {
         return <div className="p-8 text-center text-red-500">Anda tidak memiliki akses ke halaman ini.</div>
     }
 
@@ -79,7 +79,7 @@ export default function RolesPage() {
                     <h1 className="text-2xl font-bold text-gray-800">Manajemen Role</h1>
                     <p className="text-gray-600">Atur hak akses pengguna aplikasi</p>
                 </div>
-                {hasPermission('role:create') && (
+                {hasPermission('roles:create') && (
                     <Link
                         href="/admin/settings/roles/new"
                         className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
@@ -111,7 +111,7 @@ export default function RolesPage() {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex justify-end gap-2">
-                                        {hasPermission('role:update') && (
+                                        {hasPermission('roles:update') && (
                                             <Link
                                                 href={`/admin/settings/roles/${role.id}`}
                                                 className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -120,11 +120,15 @@ export default function RolesPage() {
                                                 <FiEdit2 />
                                             </Link>
                                         )}
-                                        {hasPermission('role:delete') && role.name !== 'SUPER_ADMIN' && (role._count?.users || 0) === 0 && (
+                                        {hasPermission('roles:delete') && role.name !== 'SUPER_ADMIN' && (
                                             <button
                                                 onClick={() => handleDelete(role.id, role.name)}
-                                                className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                title="Hapus Role"
+                                                disabled={(role._count?.users || 0) > 0}
+                                                className={`p-2 rounded-lg transition-colors ${(role._count?.users || 0) > 0
+                                                        ? 'text-gray-300 cursor-not-allowed'
+                                                        : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
+                                                    }`}
+                                                title={(role._count?.users || 0) > 0 ? 'Tidak dapat menghapus role yang memiliki user aktif' : 'Hapus Role'}
                                             >
                                                 <FiTrash2 />
                                             </button>

@@ -4,7 +4,7 @@ import { hasPermission } from '@/lib/rbac'
 
 export async function GET() {
     // Allow read if user can manage roles
-    if (!await hasPermission('role:read') && !await hasPermission('role:create') && !await hasPermission('role:update')) {
+    if (!await hasPermission('roles:read') && !await hasPermission('roles:create') && !await hasPermission('roles:update')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

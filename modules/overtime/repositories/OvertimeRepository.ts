@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
-import { IOvertimeRepository } from './IOvertimeRepository'
-import { Overtime, OvertimeStatus, Prisma } from '@prisma/client'
+import { type IOvertimeRepository } from './IOvertimeRepository'
+import { type Overtime, type OvertimeStatus, Prisma } from '@prisma/client'
 
 export class OvertimeRepository implements IOvertimeRepository {
     async findById(id: string): Promise<Overtime | null> {

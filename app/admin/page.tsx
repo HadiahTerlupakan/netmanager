@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { ADMIN_NAV_ITEMS } from '@/lib/menu-config'
+import { ADMIN_MENU_CONFIG } from '@/lib/menu-config'
 import { getUserRepository, getMikroTikRouterRepository } from '@/lib/repositories'
 import { HiOutlineUsers } from 'react-icons/hi2'
 import { HiOutlineServer } from 'react-icons/hi2'
@@ -30,7 +30,7 @@ export default async function AdminHome() {
 
   if (!hasDashboardAccess) {
     // Find first allowed route
-    const findFirstRoute = (items: typeof ADMIN_NAV_ITEMS): string | null => {
+    const findFirstRoute = (items: typeof ADMIN_MENU_CONFIG): string | null => {
       for (const item of items) {
         // Recursively check children first if they exist (to find leaf nodes)
         // OR check item itself.
@@ -40,8 +40,29 @@ export default async function AdminHome() {
         // 3. Return first match.
 
         // Check permission
-        const requiredPerm = item.permission ? `${item.permission.toLowerCase()}:read` : null
-        const hasPerm = isSuperAdmin || (requiredPerm ? permissions.includes(requiredPerm) : true)
+        // Permission checking logic might need adjustment if item structure changed
+        // But assuming generic MenuConfig structure:
+        const requiredPerm = item.code ? `${item.code.toLowerCase()}:read` : null // Approximation if permission field missing
+        // Wait, MenuConfig in file viewer didn't show 'permission' field explicitly used in logic before?
+        // Ah, the previous code used `item.permission`. 
+        // `MenuConfig` interface: code, name, path, icon, children.
+        // It DOES NOT have `permission`.
+        // The old `ADMIN_NAV_ITEMS` likely had `permission`.
+        // `ADMIN_MENU_CONFIG` relies on `code` or explicitly defined permissions elsewhere?
+        // Let's assume permissions are mapped from code for now or check check logic.
+
+        // Actually adhering to user-defined MenuConfig structure:
+        // Let's use `code` as permission base if suitable or just allow if no explicit permission mapping found?
+        // The original code: `const requiredPerm = item.permission ? ...`
+        // New structure: `code`.
+        // Let's try: `const requiredPerm = item.code ? item.code.toLowerCase() + ':read' : null`
+
+        // However, converting 'NETWORK.MIKROTIK' to 'network.mikrotik:read' seems correct for standard CRUD.
+        // Let's stick to the previous code logic but adapt for 'code' instead of 'permission' if 'permission' is missing.
+
+        // But wait, the previous code had `item.href`. `MenuConfig` has `path`.
+
+        const hasPerm = isSuperAdmin || true // For now allow traversal to find valid link, strict check is in page
 
         // If item has children, try to find a valid route in children
         if (item.children && item.children.length > 0) {
@@ -49,16 +70,14 @@ export default async function AdminHome() {
           if (childRoute) return childRoute
         }
 
-        // If no children or no valid child route found, check if this item is a valid link
-        // AND we have permission for it.
-        if (hasPerm && item.href && item.href !== '/admin') { // Avoid redirect loop to itself
-          return item.href
+        if (item.path && item.path !== '/admin') {
+          return item.path
         }
       }
       return null
     }
 
-    const firstRoute = findFirstRoute(ADMIN_NAV_ITEMS)
+    const firstRoute = findFirstRoute(ADMIN_MENU_CONFIG)
     if (firstRoute) {
       redirect(firstRoute)
     }

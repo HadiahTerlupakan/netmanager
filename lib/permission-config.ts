@@ -1,6 +1,6 @@
 export const PERMISSION_GROUPS = {
     DASHBOARD: ['dashboard'],
-    NETWORK: ['network', 'mikrotik', 'radius', 'olt', 'onu', 'onutype', 'speedprofile', 'vlan'],
+    NETWORK: ['network', 'mikrotik', 'radius', 'olt', 'onu', 'onutype', 'speedprofiles', 'vlan'],
     FTTH: ['ftth', 'otb', 'odc', 'odp', 'closure', 'pole', 'kmz', 'map'],
     PAKET: ['paket', 'bandwidth', 'profileppp', 'harga'],
     PELANGGAN: ['pelanggan', 'ppp', 'registration'],
@@ -26,4 +26,4 @@ export const PERMISSION_GROUPS_KARYAWAN = {
 } as const
 
 export type PermissionGroup = keyof typeof PERMISSION_GROUPS
-export const ACTIONS = ['read', 'create', 'update', 'delete'] as const
+export const ACTIONS = ['read', 'create', 'update', 'delete', 'site_only'] as const

@@ -187,7 +187,7 @@ export default function BarangMasukClient() {
                             <div className="h-10 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
                         ) : (
                             <Combobox
-                                items={barangs.map(b => ({ value: b.id, label: `${b.nama} (${b.kode})` }))}
+                                options={barangs.map(b => ({ value: b.id, label: `${b.nama} (${b.kode})` }))}
                                 value={formData.barangId}
                                 onChange={(val) => setFormData({ ...formData, barangId: val })}
                                 placeholder="Cari barang..."

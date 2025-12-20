@@ -67,7 +67,64 @@ const SidebarContext = createContext<{
 
 export const useSidebar = () => useContext(SidebarContext)
 
-import { ADMIN_NAV_ITEMS, NavItem } from '@/lib/menu-config'
+import { ADMIN_MENU_CONFIG, type MenuConfig } from '@/lib/menu-config'
+
+// Icon Mapping
+const IconMap: Record<string, React.ElementType> = {
+  HiOutlineChartBar,
+  HiOutlineGlobeAlt,
+  HiOutlineServer,
+  HiOutlinePresentationChartLine,
+  HiOutlineDevicePhoneMobile,
+  HiPlus,
+  HiOutlineClipboard,
+  HiOutlineBolt,
+  HiOutlineLink,
+  HiOutlineHome,
+  HiOutlineMap,
+  HiOutlineUsers,
+  HiChevronRight,
+  HiChevronDown,
+  HiOutlineWifi,
+  HiOutlineArchiveBox,
+  HiOutlineSquares2X2,
+  HiOutlineQueueList,
+  HiOutlineDocument,
+  HiOutlineShoppingCart,
+  HiOutlineCircleStack,
+  HiOutlineUser,
+  HiOutlineArrowTrendingUp,
+  HiOutlineCreditCard,
+  HiOutlineKey,
+  HiOutlineCog6Tooth,
+  HiOutlinePhoto,
+  HiOutlineEnvelope,
+  HiOutlineChatBubbleLeftRight,
+  HiOutlineCodeBracket,
+  HiOutlineClock,
+  HiOutlineCalendar,
+  HiOutlineUserGroup,
+  HiOutlineWrench,
+  HiOutlineCube,
+  HiOutlineTruck,
+  HiOutlineArrowDownTray,
+  HiOutlineArrowUpTray,
+  HiOutlineCurrencyDollar,
+  HiXMark,
+  HiArrowRightOnRectangle,
+  HiSparkles,
+  HiOutlineClipboardDocumentList,
+  HiOutlineShieldCheck,
+  HiOutlineDocumentText,
+  HiOutlineMegaphone,
+  HiOutlineBriefcase,
+}
+
+const getIcon = (name: string | undefined, className: string) => {
+  if (!name || !IconMap[name]) return null;
+  const Icon = IconMap[name];
+  return <Icon className={className} />;
+}
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -80,24 +137,28 @@ export default function Sidebar() {
   const { hasPermission, isLoading } = usePermission()
 
   // Filter menu items based on permissions
-  const filterNavItem = (item: NavItem): NavItem | null => {
-    let filteredChildren: NavItem[] | undefined = undefined
+  const filterNavItem = (item: MenuConfig): MenuConfig | null => {
+    let filteredChildren: MenuConfig[] | undefined = undefined
 
     if (item.children) {
       filteredChildren = item.children
         .map(filterNavItem)
-        .filter((child): child is NavItem => child !== null)
+        .filter((child): child is MenuConfig => child !== null)
     }
 
     // Check strict permission for the item itself
-    // We convert item.permission (e.g. 'NETWORK') to lowercase 'network:read'
-    const hasItemPermission = item.permission
-      ? hasPermission(`${item.permission.toLowerCase()}:read`)
+    // Use the last part of the code (e.g. "NETWORK.MIKROTIK" -> "MIKROTIK")
+    const permissionResource = item.code
+      ? (item.code.includes('.') ? item.code.split('.').pop()! : item.code)
+      : ''
+
+    const hasItemPermission = permissionResource
+      ? hasPermission(`${permissionResource.toLowerCase()}:read`)
       : true
 
     // If it has children, and some are visible, we should show this parent 
     // EVEN IF the parent permission itself is false. 
-    // (This allows "MikroTik" access to implicitly show "Network" menu)
+    // (This allows "NETWORK.MIKROTIK" access to implicitly show "Network" menu)
     if (filteredChildren && filteredChildren.length > 0) {
       return { ...item, children: filteredChildren }
     }
@@ -110,12 +171,12 @@ export default function Sidebar() {
     return { ...item, children: filteredChildren }
   }
 
-  const allNavItems = ADMIN_NAV_ITEMS
+  const allNavItems = ADMIN_MENU_CONFIG
 
   const navItems = useMemo(() => {
     return allNavItems
       .map(filterNavItem)
-      .filter((item): item is NavItem => item !== null)
+      .filter((item): item is MenuConfig => item !== null)
   }, [allNavItems, hasPermission])
 
   // Auto-expand menu
@@ -126,14 +187,16 @@ export default function Sidebar() {
         // Parent is active if any child is active
         const hasActiveChild = item.children.some(
           (child) => {
+            const childPath = child.path || ''
             if (child.exact) {
-              return pathname === child.href
+              return pathname === childPath
             }
-            return pathname === child.href || pathname?.startsWith(child.href + '/')
+            return pathname === childPath || pathname?.startsWith(childPath + '/')
           }
         )
-        if (hasActiveChild && !expandedMenus.has(item.href)) {
-          menusToExpand.push(item.href)
+        // Use item.code as key for expansion tracking since path might be null for parents
+        if (hasActiveChild && !expandedMenus.has(item.code)) {
+          menusToExpand.push(item.code)
         }
       }
     })
@@ -141,26 +204,26 @@ export default function Sidebar() {
     if (menusToExpand.length > 0) {
       setExpandedMenus((prev) => {
         const newSet = new Set(prev)
-        menusToExpand.forEach(href => newSet.add(href))
+        menusToExpand.forEach(code => newSet.add(code))
         return newSet
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
-  const toggleMenu = (href: string) => {
+  const toggleMenu = (code: string) => {
     setExpandedMenus((prev) => {
       const newSet = new Set(prev)
-      if (newSet.has(href)) {
-        newSet.delete(href)
+      if (newSet.has(code)) {
+        newSet.delete(code)
       } else {
-        newSet.add(href)
+        newSet.add(code)
       }
       return newSet
     })
   }
 
-  const isMenuExpanded = (href: string) => expandedMenus.has(href)
+  const isMenuExpanded = (code: string) => expandedMenus.has(code)
 
   // Mobile toggle integration
   useEffect(() => {
@@ -225,24 +288,26 @@ export default function Sidebar() {
           <nav className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800 scrollbar-track-transparent hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-gray-700">
             <div className="space-y-1">
               {navItems.map((item) => {
+                const itemPath = item.path || '' // Fallback for parent items
                 const isActive = item.exact
-                  ? pathname === item.href
-                  : (pathname === item.href || pathname?.startsWith(item.href + '/'))
+                  ? pathname === itemPath
+                  : (itemPath && (pathname === itemPath || pathname?.startsWith(itemPath + '/')))
 
                 const hasChildren = item.children && item.children.length > 0
-                const isExpanded = hasChildren ? isMenuExpanded(item.href) : false
+                const isExpanded = hasChildren ? isMenuExpanded(item.code) : false
                 const hasActiveChild = hasChildren && item.children!.some(
                   (child) => {
-                    if (child.exact) return pathname === child.href
-                    return pathname === child.href || pathname?.startsWith(child.href + '/')
+                    const childPath = child.path || ''
+                    if (child.exact) return pathname === childPath
+                    return pathname === childPath || pathname?.startsWith(childPath + '/')
                   }
                 )
 
                 if (hasChildren) {
                   return (
-                    <div key={item.href} className="space-y-1 mb-1">
+                    <div key={item.code} className="space-y-1 mb-1">
                       <button
-                        onClick={() => toggleMenu(item.href)}
+                        onClick={() => toggleMenu(item.code)}
                         className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive || hasActiveChild
                           ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10'
                           : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
@@ -255,9 +320,9 @@ export default function Sidebar() {
 
                         <div className="flex items-center gap-3.5 z-10">
                           <span className={`transition-colors duration-200 ${isActive || hasActiveChild ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
-                            {item.icon}
+                            {getIcon(item.icon, "w-5 h-5")}
                           </span>
-                          <span>{item.label}</span>
+                          <span>{item.name}</span>
                         </div>
                         <HiChevronDown
                           className={`w-4 h-4 text-gray-400 transition-transform duration-300 ease-in-out ${isExpanded ? 'rotate-180 text-indigo-500' : ''}`}
@@ -270,22 +335,29 @@ export default function Sidebar() {
                         <div className="overflow-hidden">
                           <div className="relative border-l-2 border-gray-100 dark:border-gray-800 ml-6 my-1 pl-3 space-y-1">
                             {item.children!.map((child) => {
+                              const childPath = child.path || '#'
                               const isChildActive = child.exact
-                                ? pathname === child.href
-                                : pathname === child.href || pathname?.startsWith(child.href + '/')
+                                ? pathname === childPath
+                                : pathname === childPath || pathname?.startsWith(childPath + '/')
 
                               return (
                                 <Link
-                                  key={child.href}
-                                  href={child.href}
+                                  key={child.code}
+                                  href={childPath}
                                   className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group/child ${isChildActive
                                     ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20'
                                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/40'
                                     }`}
                                 >
-                                  <span className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${isChildActive ? 'bg-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-900/30' : 'bg-gray-300 dark:bg-gray-600 group-hover/child:bg-gray-400'
-                                    }`} />
-                                  <span>{child.label}</span>
+                                  {child.icon ? (
+                                    <span className={`transition-colors duration-200 ${isChildActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                                      {getIcon(child.icon, "w-4 h-4")}
+                                    </span>
+                                  ) : (
+                                    <span className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${isChildActive ? 'bg-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-900/30' : 'bg-gray-300 dark:bg-gray-600 group-hover/child:bg-gray-400'
+                                      }`} />
+                                  )}
+                                  <span>{child.name}</span>
                                 </Link>
                               )
                             })}
@@ -298,8 +370,8 @@ export default function Sidebar() {
 
                 return (
                   <Link
-                    key={item.href}
-                    href={item.href}
+                    key={item.code}
+                    href={itemPath}
                     className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden mb-1 ${isActive
                       ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10 shadow-sm shadow-indigo-100/50 dark:shadow-none'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
@@ -311,9 +383,9 @@ export default function Sidebar() {
                     )}
 
                     <div className={`transition-colors duration-200 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
-                      {item.icon}
+                      {getIcon(item.icon, "w-5 h-5")}
                     </div>
-                    <span>{item.label}</span>
+                    <span>{item.name}</span>
                   </Link>
                 )
               })}

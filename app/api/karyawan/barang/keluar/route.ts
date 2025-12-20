@@ -29,6 +29,31 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Stok tidak mencukupi' }, { status: 400 })
         }
 
+        // Check for Site-Based Restriction Policy
+        const userPermissions = (session.user as any).permissions || []
+        const isSiteRestricted = userPermissions.includes('k_barang:site_only')
+        const userSiteId = (session.user as any).siteId
+
+        if (isSiteRestricted) {
+            if (!userSiteId) {
+                return NextResponse.json({ error: 'Access denied: No site assigned' }, { status: 403 })
+            }
+
+            // Verify the target gudang belongs to user's site
+            const targetGudang = await prisma.gudang.findUnique({
+                where: { id: gudangId },
+                select: { siteId: true }
+            })
+
+            if (!targetGudang) {
+                return NextResponse.json({ error: 'Gudang not found' }, { status: 404 })
+            }
+
+            if (targetGudang.siteId !== userSiteId) {
+                return NextResponse.json({ error: 'Access denied: Gudang outside your site' }, { status: 403 })
+            }
+        }
+
         // Create barang keluar and update stock in transaction
         const result = await prisma.$transaction(async (tx) => {
             // Create barang keluar

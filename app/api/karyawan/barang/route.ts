@@ -18,12 +18,30 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'gudangId required' }, { status: 400 })
         }
 
+        // Check for Site-Based Restriction Policy
+        const user = session.user as any
+        const userPermissions = (user.permissions as string[]) || []
+        const isSiteRestricted = userPermissions.includes('k_barang:site_only')
+
+        let whereClause: any = {
+            gudangId,
+            stok: { gt: 0 }
+        }
+
+        if (isSiteRestricted) {
+            if (!user.siteId) {
+                // If restricted but no site assigned, return empty
+                return NextResponse.json({ barangList: [] })
+            }
+            // Filter by Gudang that belongs to user's Site
+            whereClause.gudang = {
+                siteId: user.siteId
+            }
+        }
+
         // Get barang with stock in the specified gudang using BarangGudang
         const barangGudangs = await prisma.barangGudang.findMany({
-            where: {
-                gudangId,
-                stok: { gt: 0 }
-            },
+            where: whereClause,
             include: {
                 barang: {
                     select: {

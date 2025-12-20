@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, ReactNode } from 'react'
+import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { MdExpandMore, MdSearch, MdClose } from 'react-icons/md'
 
 export interface ComboboxOption {
