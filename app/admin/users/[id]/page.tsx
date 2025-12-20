@@ -2,6 +2,7 @@
 import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 import {
   HiOutlineArrowLeft,
   HiOutlineEye,
@@ -62,6 +63,7 @@ interface UserData {
 export default function UserEditPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const { data: session } = useSession()
   const searchParamsValue = use(searchParams || Promise.resolve({} as { [key: string]: string | string[] | undefined }))
   const isViewMode = searchParamsValue['view'] === 'true'
 
@@ -317,13 +319,15 @@ export default function UserEditPage({ params, searchParams }: { params: Promise
               <p className="text-sm text-gray-500 dark:text-gray-400">Detail informasi pengguna</p>
             </div>
           </div>
-          <Link
-            href={`/admin/users/${id}`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm font-medium"
-          >
-            <HiOutlineKey className="w-4 h-4" />
-            Edit Data
-          </Link>
+          {(session?.user?.role === 'SUPER_ADMIN' || session?.user?.permissions?.includes('user:update')) && (
+            <Link
+              href={`/admin/users/${id}`}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm font-medium"
+            >
+              <HiOutlineKey className="w-4 h-4" />
+              Edit Data
+            </Link>
+          )}
         </div>
 
         {/* Profile Header Card */}

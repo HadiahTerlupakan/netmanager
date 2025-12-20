@@ -1,13 +1,28 @@
 "use client"
+import { useState, useRef, useEffect } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { signOut, useSession } from 'next-auth/react'
-import { HiBars3, HiMagnifyingGlass, HiOutlineCog6Tooth } from 'react-icons/hi2'
+import { HiBars3, HiMagnifyingGlass, HiOutlineCog6Tooth, HiOutlineUser, HiArrowRightOnRectangle } from 'react-icons/hi2'
 import { AdminNotificationBell } from '@/components/notifications/AdminNotificationBell'
 import { CustomerSupportBell } from '@/components/notifications/CustomerSupportBell'
 
 export default function Navbar() {
   const { data: session } = useSession()
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [])
 
   return (
     <header className="h-16 bg-white dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-30 transition-colors duration-300">
@@ -60,30 +75,64 @@ export default function Navbar() {
 
           {/* User Profile Card */}
           {session?.user && (
-            <div className="hidden sm:flex items-center gap-3 pl-2 pr-3 py-1.5 rounded-full bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer">
-              {/* Avatar */}
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
-                <div className="h-full w-full rounded-full bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
-                  {session.user.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={session.user.image} alt="Profile" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                      {(session.user.name || 'U').charAt(0).toUpperCase()}
-                    </span>
-                  )}
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="hidden sm:flex items-center gap-3 pl-2 pr-3 py-1.5 rounded-full bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500/20"
+              >
+                {/* Avatar */}
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
+                  <div className="h-full w-full rounded-full bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+                    {session.user.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={session.user.image} alt="Profile" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                        {(session.user.name || 'U').charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* User Info */}
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-medium text-gray-900 dark:text-white truncate leading-tight">
-                  {session.user.name || 'User'}
-                </span>
-                <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate leading-tight">
-                  {(session.user as any).employee?.department?.name || 'Administrator'}
-                </span>
-              </div>
+                {/* User Info */}
+                <div className="flex flex-col min-w-0 text-left">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white truncate leading-tight">
+                    {session.user.name || 'User'}
+                  </span>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate leading-tight">
+                    {(session.user as any).employee?.department?.name || 'Administrator'}
+                  </span>
+                </div>
+              </button>
+
+              {/* Dropdown Menu */}
+              {isProfileOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-2 z-50 transform origin-top-right transition-all duration-200">
+                  <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 mb-1">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{session.user.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{session.user.email}</p>
+                  </div>
+
+                  <Link
+                    href={`/admin/users/${session.user.id}?view=true`}
+                    onClick={() => setIsProfileOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  >
+                    <HiOutlineUser className="w-4 h-4 text-gray-500" />
+                    Detail Profile
+                  </Link>
+
+                  <div className="my-1 border-t border-gray-100 dark:border-gray-700"></div>
+
+                  <button
+                    onClick={() => signOut()}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left"
+                  >
+                    <HiArrowRightOnRectangle className="w-4 h-4" />
+                    Keluar Aplikasi
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

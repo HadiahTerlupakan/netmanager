@@ -2,7 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlineMapPin, HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiOutlineMagnifyingGlass, HiOutlineUserGroup, HiOutlineClipboardDocumentList } from 'react-icons/hi2'
+import {
+    HiOutlineMapPin,
+    HiOutlinePlus,
+    HiOutlinePencil,
+    HiOutlineTrash,
+    HiOutlineMagnifyingGlass,
+    HiOutlineUserGroup,
+    HiOutlineClipboardDocumentList,
+    HiOutlineSignal
+} from 'react-icons/hi2'
 
 interface Site {
     id: string
@@ -12,11 +21,12 @@ interface Site {
     address: string | null
     latitude: number | null
     longitude: number | null
+    attendanceRadius: number
     isActive: boolean
     createdAt: string
     updatedAt: string
     _count: {
-        employees: number
+        users: number
         workOrders: number
     }
 }
@@ -83,8 +93,8 @@ export default function SitesPage() {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-                    <p className="mt-2 text-gray-600 dark:text-gray-400">Memuat data sites...</p>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                    <p className="text-gray-500 dark:text-gray-400">Memuat data sites...</p>
                 </div>
             </div>
         )
@@ -98,21 +108,21 @@ export default function SitesPage() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                         Manajemen Sites
                     </h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Kelola lokasi/area untuk Work Orders
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Kelola lokasi dan area kerja untuk Work Orders
                     </p>
                 </div>
                 <Link
                     href="/admin/workorders/sites/new"
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-shadow shadow-sm"
                 >
-                    <HiOutlinePlus className="h-4 w-4 mr-2" />
+                    <HiOutlinePlus className="h-5 w-5 mr-2" />
                     Tambah Site
                 </Link>
             </div>
 
             {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
                     <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input
@@ -120,154 +130,162 @@ export default function SitesPage() {
                         placeholder="Cari berdasarkan kode, nama, atau alamat..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                     />
                 </div>
-                <label className="inline-flex items-center">
+                <label className="inline-flex items-center px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors">
                     <input
                         type="checkbox"
                         checked={showInactive}
                         onChange={(e) => setShowInactive(e.target.checked)}
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
                     />
-                    <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Tampilkan tidak aktif</span>
+                    <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Tampilkan Inaktif</span>
                 </label>
             </div>
 
             {error && (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-200">
-                    {error}
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-800 dark:text-red-200 flex items-center gap-3">
+                    <span className="text-2xl">⚠️</span>
+                    <p>{error}</p>
                 </div>
             )}
 
             {/* Sites Table */}
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Daftar Sites ({sites.length})
-                    </h2>
-                </div>
-
+            <div className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                 {sites.length === 0 ? (
-                    <div className="text-center py-12">
-                        <HiOutlineMapPin className="mx-auto h-12 w-12 text-gray-400" />
-                        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Belum ada site</h3>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            Mulai dengan menambah site pertama Anda.
-                        </p>
-                        <div className="mt-6">
-                            <Link
-                                href="/admin/workorders/sites/new"
-                                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            >
-                                <HiOutlinePlus className="h-4 w-4 mr-2" />
-                                Tambah Site
-                            </Link>
+                    <div className="text-center py-16 px-4">
+                        <div className="bg-gray-50 dark:bg-gray-700/50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <HiOutlineMapPin className="h-10 w-10 text-gray-400" />
                         </div>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">Belum ada site ditemukan</h3>
+                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+                            {search ? 'Coba ubah kata kunci pencarian atau filter Anda.' : 'Mulai dengan menambahkan site baru untuk mengelola area kerja.'}
+                        </p>
+                        {!search && (
+                            <div className="mt-6">
+                                <Link
+                                    href="/admin/workorders/sites/new"
+                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-indigo-700 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50 transition-colors"
+                                >
+                                    <HiOutlinePlus className="h-4 w-4 mr-2" />
+                                    Tambah Site Sekarang
+                                </Link>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead className="bg-gray-50 dark:bg-gray-900">
+                            <thead className="bg-gray-50/50 dark:bg-gray-900/50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                        Kode
+                                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Info Site
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                        Nama Site
+                                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Lokasi
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                        Alamat
+                                    <th scope="col" className="px-6 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Radius
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                        Koordinat
+                                    <th scope="col" className="px-6 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Statistik
                                     </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                        Employees
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                        Work Orders
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    <th scope="col" className="px-6 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Status
                                     </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Aksi
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
                                 {sites.map((site) => (
-                                    <tr key={site.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                                                {site.code}
-                                            </span>
-                                        </td>
+                                    <tr key={site.id} className="group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                         <td className="px-6 py-4">
-                                            <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                                {site.name}
-                                            </div>
-                                            {site.description && (
-                                                <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                                                    {site.description}
+                                            <div className="flex items-start gap-3">
+                                                <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                                                    {site.code}
                                                 </div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                                                {site.address || '-'}
+                                                <div>
+                                                    <div className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                                        {site.name}
+                                                    </div>
+                                                    {site.description && (
+                                                        <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mt-0.5">
+                                                            {site.description}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {site.latitude && site.longitude ? (
-                                                <a
-                                                    href={`https://www.google.com/maps?q=${site.latitude},${site.longitude}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 hover:underline"
-                                                >
-                                                    {site.latitude.toFixed(6)}, {site.longitude.toFixed(6)}
-                                                </a>
-                                            ) : (
-                                                <span className="text-sm text-gray-400">-</span>
-                                            )}
+                                        <td className="px-6 py-4">
+                                            <div className="space-y-1">
+                                                <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 max-w-xs">
+                                                    {site.address || '-'}
+                                                </div>
+                                                {site.latitude && site.longitude && (
+                                                    <a
+                                                        href={`https://www.google.com/maps?q=${site.latitude},${site.longitude}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline"
+                                                    >
+                                                        <HiOutlineMapPin className="w-3 h-3" />
+                                                        Lihat Peta
+                                                    </a>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                                                <HiOutlineUserGroup className="h-4 w-4" />
-                                                {site._count.employees}
-                                            </span>
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-medium border border-blue-100 dark:border-blue-900/30">
+                                                <HiOutlineSignal className="w-3.5 h-3.5" />
+                                                {site.attendanceRadius ?? 100}m
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-center gap-4">
+                                                <div className="flex flex-col items-center" title="Total Karyawan">
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Pegawai</span>
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-semibold">
+                                                        <HiOutlineUserGroup className="w-3 h-3" />
+                                                        {site._count.users}
+                                                    </span>
+                                                </div>
+                                                <div className="w-px h-8 bg-gray-200 dark:bg-gray-700"></div>
+                                                <div className="flex flex-col items-center" title="Total Work Orders">
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">WO</span>
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-semibold">
+                                                        <HiOutlineClipboardDocumentList className="w-3 h-3" />
+                                                        {site._count.workOrders}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                                                <HiOutlineClipboardDocumentList className="h-4 w-4" />
-                                                {site._count.workOrders}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${site.isActive
-                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
+                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${site.isActive
+                                                ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/30'
+                                                : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30'
                                                 }`}>
-                                                {site.isActive ? 'Aktif' : 'Tidak Aktif'}
+                                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${site.isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                {site.isActive ? 'Aktif' : 'Non-Aktif'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex justify-end gap-2">
+                                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                                            <div className="flex items-center justify-end gap-2 text-right">
                                                 <Link
                                                     href={`/admin/workorders/sites/${site.id}/edit`}
-                                                    className="p-2 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
-                                                    title="Edit"
+                                                    className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                                                    title="Edit Site"
                                                 >
-                                                    <HiOutlinePencil className="h-4 w-4" />
+                                                    <HiOutlinePencil className="h-5 w-5" />
                                                 </Link>
                                                 <button
                                                     onClick={() => handleDelete(site.id, site.name)}
-                                                    className="p-2 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                                    title="Hapus"
+                                                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                    title="Hapus Site"
                                                 >
-                                                    <HiOutlineTrash className="h-4 w-4" />
+                                                    <HiOutlineTrash className="h-5 w-5" />
                                                 </button>
                                             </div>
                                         </td>
