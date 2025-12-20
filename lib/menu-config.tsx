@@ -42,6 +42,7 @@ import {
     HiOutlineMegaphone,
     HiOutlineBriefcase,
     HiOutlineCreditCard,
+    HiOutlineQrCode,
 } from 'react-icons/hi2'
 import React, { ReactNode } from 'react'
 
@@ -186,5 +187,43 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
             { href: '/admin/log/login', label: 'Log Login', icon: <HiOutlineShieldCheck className="w-4 h-4" />, permission: 'LOGIN' },
             { href: '/admin/log/activity', label: 'Log Aktivitas', icon: <HiOutlineDocumentText className="w-4 h-4" />, permission: 'ACTIVITY' },
         ],
+    },
+]
+
+export const EMPLOYEE_NAV_ITEMS: NavItem[] = [
+    {
+        href: '/karyawan/dashboard',
+        label: 'Beranda',
+        icon: <HiOutlineHome className="w-6 h-6" />,
+        // activeIcon: <HiHome className="w-6 h-6" />,
+        permission: 'DASHBOARD'
+    },
+    {
+        href: '/karyawan/work-order',
+        label: 'Work Order',
+        icon: <HiOutlineClipboard className="w-6 h-6" />,
+        // activeIcon: <HiClipboard className="w-6 h-6" />,
+        permission: 'WORK_ORDER'
+    },
+    {
+        href: '/karyawan/barang',
+        label: 'Barang',
+        icon: <HiOutlineCube className="w-6 h-6" />,
+        // activeIcon: <HiCube className="w-6 h-6" />,
+        permission: 'INVENTORY'
+    },
+    {
+        href: '/karyawan/absensi',
+        label: 'Absensi',
+        icon: <HiOutlineQrCode className="w-6 h-6" />,
+        // activeIcon: <HiQrCode className="w-6 h-6" />,
+        permission: 'ATTENDANCE'
+    },
+    {
+        href: '/karyawan/profil',
+        label: 'Profil',
+        icon: <HiOutlineUser className="w-6 h-6" />,
+        // activeIcon: <HiUser className="w-6 h-6" />,
+        permission: 'PROFILE'
     },
 ]

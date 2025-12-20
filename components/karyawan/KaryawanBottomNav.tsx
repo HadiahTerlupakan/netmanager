@@ -14,44 +14,60 @@ import {
     MdOutlinePerson,
     MdPerson
 } from 'react-icons/md'
-
-const navItems = [
-    {
-        name: 'Beranda',
-        href: '/karyawan/dashboard',
-        icon: MdOutlineHome,
-        activeIcon: MdHome,
-    },
-    {
-        name: 'Work Order',
-        href: '/karyawan/work-order',
-        icon: MdOutlineAssignment,
-        activeIcon: MdAssignment,
-    },
-    {
-        name: 'Barang',
-        href: '/karyawan/barang',
-        icon: MdOutlineInventory2,
-        activeIcon: MdInventory2,
-    },
-    {
-        name: 'Absensi',
-        href: '/karyawan/absensi',
-        icon: MdOutlineQrCode,
-        activeIcon: MdQrCode,
-    },
-    {
-        name: 'Profil',
-        href: '/karyawan/profil',
-        icon: MdOutlinePerson,
-        activeIcon: MdPerson,
-    },
-]
+import { usePermission } from '@/hooks/use-permission'
+import { toast } from 'react-hot-toast'
 
 export default function KaryawanBottomNav() {
     const pathname = usePathname()
+    const { hasPermission } = usePermission()
 
     if (pathname === '/karyawan/login') return null
+
+    // Helper to map icon components (since config has JSX, we need to map back for this specific component structure)
+    // Or better yet, we can refactor this component to use the config directly but since the config uses different icons (HeroIcons vs MaterialIcons here?)
+    // Let's quickly verify if we want to switch icons or map them.
+    // The previous file used Material Icons (Md...). The config I added used HeroIcons (Hi...).
+    // To match the existing design, I'll map the configuration to these icons or just keep using these local definitions but mapped to permissions.
+    // Given the user constraint "untuk portal karyawan pada semua akses menu nya apa bisa di tambahkan juga di matriks izin pengguna"
+    // I should probably stick to the icons they are used to in this bottom nav, but map them to the permissions defined.
+
+    const itemsWithPermissions = [
+        {
+            name: 'Beranda',
+            href: '/karyawan/dashboard',
+            icon: MdOutlineHome,
+            activeIcon: MdHome,
+            permission: 'k_dashboard:read' // Mapping to what I added in config: DASHBOARD: ['k_dashboard']
+        },
+        {
+            name: 'Work Order',
+            href: '/karyawan/work-order',
+            icon: MdOutlineAssignment,
+            activeIcon: MdAssignment,
+            permission: 'k_work_order:read'
+        },
+        {
+            name: 'Barang',
+            href: '/karyawan/barang',
+            icon: MdOutlineInventory2,
+            activeIcon: MdInventory2,
+            permission: 'k_barang:read'
+        },
+        {
+            name: 'Absensi',
+            href: '/karyawan/absensi',
+            icon: MdOutlineQrCode,
+            activeIcon: MdQrCode,
+            permission: 'k_absensi:read'
+        },
+        {
+            name: 'Profil',
+            href: '/karyawan/profil',
+            icon: MdOutlinePerson,
+            activeIcon: MdPerson,
+            permission: 'k_profil:read'
+        },
+    ]
 
     return (
         <nav className="fixed bottom-0 left-0 right-0 z-50">
@@ -60,9 +76,27 @@ export default function KaryawanBottomNav() {
 
             {/* Navigation content */}
             <div className="relative flex items-center justify-around h-20 max-w-lg mx-auto px-4 pb-safe">
-                {navItems.map((item) => {
+                {itemsWithPermissions.map((item) => {
                     const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                     const Icon = isActive ? item.activeIcon : item.icon
+                    const isAllowed = hasPermission(item.permission)
+
+                    if (!isAllowed) {
+                        return (
+                            <button
+                                key={item.name}
+                                onClick={() => toast.error('Anda tidak memiliki akses ke menu ini.')}
+                                className="relative flex flex-col items-center justify-center flex-1 py-3 opacity-40 cursor-not-allowed group"
+                            >
+                                <div className="p-1.5 rounded-xl grayscale">
+                                    <Icon className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                                </div>
+                                <span className="mt-1 text-[11px] font-medium tracking-tight text-slate-400 dark:text-slate-500">
+                                    {item.name}
+                                </span>
+                            </button>
+                        )
+                    }
 
                     return (
                         <Link

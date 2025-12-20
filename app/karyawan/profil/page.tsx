@@ -16,6 +16,10 @@ export default function ProfilPage() {
     const [profileData, setProfileData] = useState<{
         department?: { name: string } | null
         site?: { name: string } | null
+        workingHourMode?: 'FIXED' | 'FLEXIBLE' | 'SHIFT'
+        startWorkTime?: string | null
+        endWorkTime?: string | null
+        workDays?: string | null
     } | null>(null)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
     const router = useRouter()
@@ -104,6 +108,31 @@ export default function ProfilPage() {
                             <div>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Site</p>
                                 <p className="font-medium dark:text-white">{profileData?.site?.name || 'Belum diatur'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4 p-4">
+                            <div className="flex flex-col w-full">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Jam Kerja</p>
+                                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 w-full">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {profileData?.workingHourMode === 'FLEXIBLE' ? 'Flexible' : 'Fixed'}
+                                        </span>
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                            {profileData?.workingHourMode || 'FIXED'}
+                                        </span>
+                                    </div>
+                                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                                        {profileData?.workingHourMode === 'FIXED' ? (
+                                            <>
+                                                <div>{profileData?.startWorkTime || '09:00'} - {profileData?.endWorkTime || '17:00'}</div>
+                                                <div className="text-xs text-gray-500 mt-1">{profileData?.workDays || 'Mon,Tue,Wed,Thu,Fri'}</div>
+                                            </>
+                                        ) : (
+                                            <div>Jam kerja fleksibel</div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

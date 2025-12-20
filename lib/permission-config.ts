@@ -12,7 +12,16 @@ export const PERMISSION_GROUPS = {
     SYSTEM_LOG: ['log', 'login', 'activity'],
     SUPPORT: ['support'],
     ANNOUNCEMENT: ['announcement'],
-    USERS: ['user']
+    USERS: ['user'],
+
+} as const
+
+export const PERMISSION_GROUPS_KARYAWAN = {
+    DASHBOARD: ['k_dashboard'],
+    WORK_ORDER: ['k_work_order'],
+    INVENTORY: ['k_barang'],
+    ATTENDANCE: ['k_absensi'],
+    PROFILE: ['k_profil']
 } as const
 
 export type PermissionGroup = keyof typeof PERMISSION_GROUPS

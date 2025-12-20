@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
 import { FiArrowLeft, FiSave } from 'react-icons/fi'
-import { PERMISSION_GROUPS, ACTIONS } from '@/lib/permission-config'
+import { PERMISSION_GROUPS, PERMISSION_GROUPS_KARYAWAN, ACTIONS } from '@/lib/permission-config'
 
 export default function RoleFormPage() {
     const router = useRouter()
@@ -26,6 +26,7 @@ export default function RoleFormPage() {
     })
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [activeTab, setActiveTab] = useState<'admin' | 'employee'>('admin')
 
     useEffect(() => {
         const fetchData = async () => {
@@ -202,13 +203,32 @@ export default function RoleFormPage() {
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-lg font-semibold text-gray-700">Matrix Hak Akses</h2>
-                        <div className="text-sm text-gray-500">
-                            Atur permission secara spesifik untuk setiap modul.
+                        <div className="flex bg-gray-100 p-1 rounded-lg">
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('admin')}
+                                className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${activeTab === 'admin'
+                                    ? 'bg-white text-gray-800 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                                    }`}
+                            >
+                                Portal Admin
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('employee')}
+                                className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${activeTab === 'employee'
+                                    ? 'bg-white text-gray-800 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                                    }`}
+                            >
+                                Portal Karyawan
+                            </button>
                         </div>
                     </div>
 
                     <div className="space-y-8">
-                        {(Object.entries(PERMISSION_GROUPS) as unknown as [string, string[]][]).map(([groupName, resources]) => {
+                        {(Object.entries(activeTab === 'admin' ? PERMISSION_GROUPS : PERMISSION_GROUPS_KARYAWAN) as unknown as [string, string[]][]).map(([groupName, resources]) => {
                             const groupActions = resources.flatMap(resource =>
                                 ACTIONS.map(action => `${resource}:${action}`)
                             )
@@ -241,7 +261,7 @@ export default function RoleFormPage() {
                                                 onChange={(e) => handleGroupToggle(e.target.checked)}
                                                 className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 cursor-pointer"
                                             />
-                                            <h3 className="font-semibold text-gray-800">{groupName}</h3>
+                                            <h3 className="font-semibold text-gray-800 capitalize">{groupName.toLowerCase().replace(/_/g, ' ')}</h3>
                                         </div>
                                     </div>
 
@@ -278,7 +298,7 @@ export default function RoleFormPage() {
                                                     return (
                                                         <tr key={resource} className="hover:bg-gray-50/50 transition-colors">
                                                             <td className="px-6 py-3 font-medium text-gray-700 capitalize">
-                                                                {resource.replace(/_/g, ' ')}
+                                                                {resource.replace(/^k_/, '').replace(/_/g, ' ')}
                                                             </td>
                                                             {ACTIONS.map(action => {
                                                                 const permissionId = `${resource}:${action}`

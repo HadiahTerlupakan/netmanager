@@ -29,7 +29,11 @@ export async function GET() {
                     select: {
                         name: true
                     }
-                }
+                },
+                workingHourMode: true,
+                startWorkTime: true,
+                endWorkTime: true,
+                workDays: true
             }
         })
 
