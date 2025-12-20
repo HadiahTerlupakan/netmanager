@@ -688,8 +688,15 @@ export default function AttendancePageContent() {
                                             )}
                                         </div>
                                     </div>
-                                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-[9px] font-bold uppercase tracking-wide border border-emerald-100 dark:border-emerald-900/30">Hadir</span>
+
+                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide border ${record.status === 'LATE'
+                                            ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30'
+                                            : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30'
+                                        }`}>
+                                        {record.status === 'LATE' ? 'Terlambat' : 'Tepat Waktu'}
+                                    </span>
                                 </div>
+
                             )
                         })}
                         {history.length === 0 && (

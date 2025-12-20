@@ -70,16 +70,41 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Validate Geofencing - REMOVED strictly as per user request
-        // We still capture potential coords for logging/admin info but DO NOT BLOCK
+
+        // Ambil data user details untuk cek jam kerja
+        const userDetails = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                startWorkTime: true,
+                workingHourMode: true
+            }
+        })
+
+        let status = 'ON_TIME'
+
+        // Logika Status: Jika punya jadwal masuk, cek keterlambatan
+        if (userDetails?.startWorkTime) {
+            const [schedHour, schedMinute] = userDetails.startWorkTime.split(':').map(Number)
+
+            // Buat objek Date untuk jadwal hari ini
+            const scheduleTime = new Date()
+            scheduleTime.setHours(schedHour, schedMinute, 0, 0)
+
+            // Toleransi (optional, misalnya 5 menit? Untuk sekarang strict dulu atau ikut plan)
+            // Di plan tidak ada toleransi, jadi strict > schedule = LATE
+
+            const now = new Date()
+
+            if (now > scheduleTime) {
+                status = 'LATE'
+            }
+        }
+
+        // Log lokasi untuk audit (tetap dipertahankan)
         const latStr = formData.get('latitude') as string
         const lngStr = formData.get('longitude') as string
-
         if (latStr && lngStr) {
-            // Optional: Log location for audit trail
-            console.log('Attendance Check-In Location:', { userId, lat: latStr, lng: lngStr })
-        } else {
-            console.log('Attendance Check-In: No coordinates provided', { userId })
+            console.log('Attendance Check-In Location:', { userId, lat: latStr, lng: lngStr, status })
         }
 
         // Buat data attendance
@@ -90,13 +115,14 @@ export async function POST(request: NextRequest) {
                 checkInPhoto: photoUrl,
                 location,
                 notes,
-                status: 'PRESENT'
+                status: status
             }
         })
 
         logger.apiRequest('POST', '/api/attendance/check-in', 201, Date.now() - startTime, {
             userId,
-            attendanceId: attendance.id
+            attendanceId: attendance.id,
+            status
         })
 
         return NextResponse.json({ success: true, data: attendance })
