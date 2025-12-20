@@ -116,7 +116,9 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineWrench',
         children: [
             { code: 'WORKORDERS.DASHBOARD', name: 'Dashboard', path: '/admin/workorders', icon: 'HiOutlineChartBar', exact: true },
-            { code: 'WORKORDERS.LIST', name: 'All Work Orders', path: '/admin/workorders/list', icon: 'HiOutlineClipboard' },
+            { code: 'WORKORDERS.LIST', name: 'List', path: '/admin/workorders/list', icon: 'HiOutlineClipboardDocumentList' },
+            { code: 'WORKORDERS.SITE', name: 'Site', path: '/admin/workorders/sites', icon: 'HiOutlineBuildingOffice' },
+            { code: 'WORKORDERS.DEPARTMENT', name: 'Department', path: '/admin/workorders/departments', icon: 'HiOutlineUserGroup' },
         ],
     },
     {
