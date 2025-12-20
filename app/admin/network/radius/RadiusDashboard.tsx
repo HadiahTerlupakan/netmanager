@@ -37,7 +37,7 @@ interface Session {
     isOnline: boolean;
 }
 
-export default function RadiusDashboardPage() {
+export default function RadiusDashboard() {
     const { socket, isConnected } = useSocket();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [sessions, setSessions] = useState<Session[]>([]);
