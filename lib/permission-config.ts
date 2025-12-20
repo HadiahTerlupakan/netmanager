@@ -21,7 +21,8 @@ export const PERMISSION_GROUPS_KARYAWAN = {
     WORK_ORDER: ['k_work_order'],
     INVENTORY: ['k_barang'],
     ATTENDANCE: ['k_absensi'],
-    PROFILE: ['k_profil']
+    PROFILE: ['k_profil'],
+    NOTIFICATION: ['k_notification']
 } as const
 
 export type PermissionGroup = keyof typeof PERMISSION_GROUPS

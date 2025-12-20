@@ -5,6 +5,7 @@ import { MdNotifications, MdWork, MdInventory } from 'react-icons/md'
 import { HiMegaphone } from 'react-icons/hi2'
 import Link from 'next/link'
 import { useRealtimeNotifications } from '@/lib/websocket/hooks/useRealtimeNotifications'
+import { usePermission } from '@/hooks/use-permission'
 
 interface Announcement {
     id: string;
@@ -23,6 +24,8 @@ export function KaryawanNotificationBell() {
         markAsRead,
         markAllAsRead,
     } = useRealtimeNotifications({ limit: 10 })
+    const { hasPermission } = usePermission()
+    const canViewNotifications = hasPermission('k_notification:read')
 
     const [isOpen, setIsOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
@@ -91,6 +94,18 @@ export function KaryawanNotificationBell() {
     }
 
     const totalCount = unreadCount + announcements.length
+
+    if (!canViewNotifications) {
+        return (
+            <button
+                disabled
+                className="flex items-center justify-center rounded-full size-10 text-gray-300 dark:text-gray-700 cursor-not-allowed transition-colors relative"
+                title="Anda tidak memiliki akses notifikasi"
+            >
+                <MdNotifications className="text-2xl" />
+            </button>
+        )
+    }
 
     return (
         <div className="relative" ref={dropdownRef}>

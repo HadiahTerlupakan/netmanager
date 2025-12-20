@@ -49,6 +49,7 @@ export default function LoginForm() {
         redirect: false,
         email: values.email,
         password: values.password,
+        portal: 'admin',
         callbackUrl: callbackUrlParam, // Kirim path relatif ke NextAuth
       })
 

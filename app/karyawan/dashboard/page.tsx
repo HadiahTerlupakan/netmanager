@@ -28,8 +28,12 @@ interface DashboardStats {
     barangMasukToday: number
 }
 
+import { toast } from 'react-hot-toast'
+import { usePermission } from '@/hooks/use-permission'
+
 export default function KaryawanDashboardPage() {
     const { isLoading: authLoading, isAuthenticated, user } = useKaryawanAuth()
+    const { hasPermission } = usePermission()
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const router = useRouter()
@@ -84,10 +88,52 @@ export default function KaryawanDashboardPage() {
     if (authLoading || isLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-[#f6f7f8] dark:bg-[#101922]">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                </div>
+                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
             </div>
+        )
+    }
+
+    const renderQuickMenuItem = (
+        href: string,
+        icon: React.ReactNode,
+        title: string,
+        subtitle: string,
+        colorClass: string,
+        iconColorClass: string,
+        permission: string
+    ) => {
+        const isAllowed = hasPermission(permission)
+
+        if (!isAllowed) {
+            return (
+                <button
+                    key={title}
+                    onClick={() => toast.error('Anda tidak memiliki akses ke menu ini.')}
+                    className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 opacity-60 cursor-not-allowed group text-left grayscale"
+                >
+                    <div className={`size-10 rounded-lg ${colorClass} flex items-center justify-center ${iconColorClass}`}>
+                        {icon}
+                    </div>
+                    <div>
+                        <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">{title}</h2>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
+                    </div>
+                </button>
+            )
+        }
+
+        return (
+            <Link key={title} href={href}>
+                <button className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-colors group text-left">
+                    <div className={`size-10 rounded-lg ${colorClass} flex items-center justify-center ${iconColorClass} group-hover:scale-110 transition-transform`}>
+                        {icon}
+                    </div>
+                    <div>
+                        <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">{title}</h2>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
+                    </div>
+                </button>
+            </Link>
         )
     }
 
@@ -144,12 +190,22 @@ export default function KaryawanDashboardPage() {
                                     </p>
                                 </div>
                                 <div className="pt-2">
-                                    <Link href="/karyawan/work-order">
-                                        <button className="w-full bg-white text-blue-600 hover:bg-blue-50 font-bold py-3 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
-                                            <span>Lihat Work Order</span>
+                                    {hasPermission('k_work_order:read') ? (
+                                        <Link href="/karyawan/work-order">
+                                            <button className="w-full bg-white text-blue-600 hover:bg-blue-50 font-bold py-3 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+                                                <span>Lihat Work Order</span>
+                                                <MdArrowForward className="text-sm" />
+                                            </button>
+                                        </Link>
+                                    ) : (
+                                        <button
+                                            onClick={() => toast.error('Anda tidak memiliki akses ke Work Order.')}
+                                            className="w-full bg-white/50 text-white font-bold py-3 px-4 rounded-lg text-sm flex items-center justify-center gap-2 cursor-not-allowed"
+                                        >
+                                            <span>Akses Ditolak</span>
                                             <MdArrowForward className="text-sm" />
                                         </button>
-                                    </Link>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -203,81 +259,60 @@ export default function KaryawanDashboardPage() {
                     <div className="px-4">
                         <h3 className="text-[#111418] dark:text-white text-lg font-bold mb-3 px-1">Menu Cepat</h3>
                         <div className="grid grid-cols-2 gap-3">
-                            <Link href="/karyawan/work-order">
-                                <button className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-colors group text-left">
-                                    <div className="size-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
-                                        <MdWork className="text-2xl" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Ambil Tiket</h2>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Work Order</p>
-                                    </div>
-                                </button>
-                            </Link>
-
-                            <Link href="/karyawan/barang/masuk">
-                                <button className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-colors group text-left">
-                                    <div className="size-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
-                                        <MdAdd className="text-2xl" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Barang Masuk</h2>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Input stok</p>
-                                    </div>
-                                </button>
-                            </Link>
-
-                            <Link href="/karyawan/barang/keluar">
-                                <button className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-colors group text-left">
-                                    <div className="size-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
-                                        <MdRemove className="text-2xl" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Barang Keluar</h2>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Ambil stok</p>
-                                    </div>
-                                </button>
-                            </Link>
-
-                            <Link href="/karyawan/barang/riwayat">
-                                <button className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-colors group text-left">
-                                    <div className="size-10 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
-                                        <MdHistory className="text-2xl" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Riwayat</h2>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Transaksi</p>
-                                    </div>
-                                </button>
-                            </Link>
-
-                            <Link href="/karyawan/absensi">
-                                <button
-                                    className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-colors group text-left"
-                                >
-                                    <div className="size-10 rounded-lg bg-pink-50 dark:bg-pink-900/20 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform">
-                                        <MdAssignment className="text-2xl" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Absensi</h2>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Check In/Out</p>
-                                    </div>
-                                </button>
-                            </Link>
-
-                            <Link href="/karyawan/lembur">
-                                <button
-                                    className="w-full flex flex-col gap-3 rounded-xl bg-white dark:bg-[#1c2936] p-4 items-start shadow-sm border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-colors group text-left"
-                                >
-                                    <div className="size-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
-                                        <MdWork className="text-2xl" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-[#111418] dark:text-white text-sm font-bold leading-tight">Lembur</h2>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Ajukan Lembur</p>
-                                    </div>
-                                </button>
-                            </Link>
+                            {renderQuickMenuItem(
+                                '/karyawan/work-order',
+                                <MdWork className="text-2xl" />,
+                                'Ambil Tiket',
+                                'Work Order',
+                                'bg-blue-50 dark:bg-blue-900/20',
+                                'text-blue-600',
+                                'k_work_order:read'
+                            )}
+                            {renderQuickMenuItem(
+                                '/karyawan/barang/masuk',
+                                <MdAdd className="text-2xl" />,
+                                'Barang Masuk',
+                                'Input stok',
+                                'bg-green-50 dark:bg-green-900/20',
+                                'text-green-600',
+                                'k_barang:read'
+                            )}
+                            {renderQuickMenuItem(
+                                '/karyawan/barang/keluar',
+                                <MdRemove className="text-2xl" />,
+                                'Barang Keluar',
+                                'Ambil stok',
+                                'bg-orange-50 dark:bg-orange-900/20',
+                                'text-orange-600',
+                                'k_barang:read'
+                            )}
+                            {renderQuickMenuItem(
+                                '/karyawan/barang/riwayat',
+                                <MdHistory className="text-2xl" />,
+                                'Riwayat',
+                                'Transaksi',
+                                'bg-purple-50 dark:bg-purple-900/20',
+                                'text-purple-600',
+                                'k_barang:read'
+                            )}
+                            {renderQuickMenuItem(
+                                '/karyawan/absensi',
+                                <MdAssignment className="text-2xl" />,
+                                'Absensi',
+                                'Check In/Out',
+                                'bg-pink-50 dark:bg-pink-900/20',
+                                'text-pink-600',
+                                'k_absensi:read'
+                            )}
+                            {renderQuickMenuItem(
+                                '/karyawan/lembur',
+                                <MdWork className="text-2xl" />,
+                                'Lembur',
+                                'Ajukan Lembur',
+                                'bg-indigo-50 dark:bg-indigo-900/20',
+                                'text-indigo-600',
+                                'k_absensi:read'
+                            )}
                         </div>
                     </div>
                 </div>

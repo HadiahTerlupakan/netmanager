@@ -6,7 +6,10 @@ export const metadata: Metadata = {
     description: 'Halaman absensi harian karyawan',
 }
 
-export default function AbsensiPage() {
+import { ensureEmployeeAccess } from '@/lib/server-auth'
+
+export default async function AbsensiPage() {
+    await ensureEmployeeAccess('k_absensi:read')
     return (
         <AttendancePageContent />
     )

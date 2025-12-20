@@ -141,6 +141,33 @@ export const authConfig: NextAuthOptions = {
             return null
           }
 
+          // Strict Portal Access Control
+          const portal = creds?.portal
+          if (portal) {
+            console.log(`[AUTH] Checking access for portal: ${portal}`)
+            const userWithRole = await prisma.user.findUnique({
+              where: { id: user.id },
+              include: { role: true }
+            })
+
+            const role = userWithRole?.role
+
+            // Super Admin bypass
+            if (role?.name === 'SUPER_ADMIN') {
+              console.log('[AUTH] SUPER_ADMIN access granted')
+            } else {
+              if (portal === 'admin' && !role?.accessAdminPanel) {
+                console.warn('[AUTH] Access denied: User tried to access ADMIN portal without permission')
+                throw new Error('Akses ditolak. Anda tidak memiliki izin untuk mengakses Portal Admin.')
+              }
+
+              if (portal === 'employee' && !role?.accessEmployeePanel) {
+                console.warn('[AUTH] Access denied: User tried to access EMPLOYEE portal without permission')
+                throw new Error('Akses ditolak. Anda tidak memiliki izin untuk mengakses Portal Karyawan.')
+              }
+            }
+          }
+
           console.log('[AUTH] Login successful for:', user.email)
 
           return {

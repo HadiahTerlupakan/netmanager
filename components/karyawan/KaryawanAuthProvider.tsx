@@ -48,6 +48,7 @@ export function KaryawanAuthProvider({ children }: { children: ReactNode }) {
             const result = await signIn('credentials', {
                 identifier: email,
                 password,
+                portal: 'employee',
                 redirect: false,
             })
 
