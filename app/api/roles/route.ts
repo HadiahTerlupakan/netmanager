@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { prisma } from '@/lib/prisma'
 import { hasPermission } from '@/lib/rbac'
 import { z } from 'zod'
@@ -63,6 +65,11 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     if (!await hasPermission('role:create')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
@@ -79,7 +86,15 @@ export async function POST(req: Request) {
                 accessEmployeePanel,
                 isRestricted,
                 permissions: {
-                    connect: permissions.map(id => ({ id }))
+                    connect: permissions.map(p => {
+                        const [resource, action] = p.split(':')
+                        return {
+                            resource_action: {
+                                resource,
+                                action
+                            }
+                        }
+                    })
                 }
             }
         })
@@ -88,7 +103,7 @@ export async function POST(req: Request) {
     } catch (error) {
         console.error('Error creating role:', error)
         if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: 'Validation Error', details: error.issues }, { status: 400 })
+            return NextResponse.json({ error: (error as any).errors[0].message }, { status: 400 })
         }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }

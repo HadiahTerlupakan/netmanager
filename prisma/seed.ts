@@ -3,26 +3,10 @@ import { hash } from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
-const RESOURCES = [
-  'dashboard',
-  'user',
-  'role',
-  'finance',
-  'network',
-  'inventory',
-  'ticket',
-  'settings',
-  'announcement',
-  'log',
-  'ftth',
-  'paket',
-  'pelanggan',
-  'workorders',
-  'support',
-  'attendance'
-]
+import { PERMISSION_GROUPS, ACTIONS } from '../lib/permission-config'
 
-const ACTIONS = ['read', 'create', 'update', 'delete']
+// Flatten resources from groups
+const RESOURCES = Object.values(PERMISSION_GROUPS).flat()
 
 async function main() {
   console.log('🌱 Seeding database...\n')

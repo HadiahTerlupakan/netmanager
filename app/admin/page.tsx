@@ -1,3 +1,7 @@
+import { redirect } from 'next/navigation'
+import { getServerSession } from 'next-auth'
+import { authConfig } from '@/lib/auth'
+import { ADMIN_NAV_ITEMS } from '@/lib/menu-config'
 import { getUserRepository, getMikroTikRouterRepository } from '@/lib/repositories'
 import { HiOutlineUsers } from 'react-icons/hi2'
 import { HiOutlineServer } from 'react-icons/hi2'
@@ -9,6 +13,66 @@ import { getTopEmployees, getTopProblematicSites, getTopDismantleSites, getTopIn
 export const dynamic = 'force-dynamic'
 
 export default async function AdminHome() {
+  const session = await getServerSession(authConfig)
+
+  // If no session, let the layout/middleware handle it, or redirect
+  if (!session?.user) {
+    // This usually shouldn't happen if middleware protects /admin
+    return null
+  }
+
+  const user = session.user
+  const permissions = user.permissions || []
+  const isSuperAdmin = user.role === 'SUPER_ADMIN'
+
+  // Check if user has dashboard access
+  const hasDashboardAccess = isSuperAdmin || permissions.includes('dashboard:read')
+
+  if (!hasDashboardAccess) {
+    // Find first allowed route
+    const findFirstRoute = (items: typeof ADMIN_NAV_ITEMS): string | null => {
+      for (const item of items) {
+        // Recursively check children first if they exist (to find leaf nodes)
+        // OR check item itself.
+        // Strategy: 
+        // 1. Check if item itself is permitted.
+        // 2. If item has children, check children.
+        // 3. Return first match.
+
+        // Check permission
+        const requiredPerm = item.permission ? `${item.permission.toLowerCase()}:read` : null
+        const hasPerm = isSuperAdmin || (requiredPerm ? permissions.includes(requiredPerm) : true)
+
+        // If item has children, try to find a valid route in children
+        if (item.children && item.children.length > 0) {
+          const childRoute = findFirstRoute(item.children)
+          if (childRoute) return childRoute
+        }
+
+        // If no children or no valid child route found, check if this item is a valid link
+        // AND we have permission for it.
+        if (hasPerm && item.href && item.href !== '/admin') { // Avoid redirect loop to itself
+          return item.href
+        }
+      }
+      return null
+    }
+
+    const firstRoute = findFirstRoute(ADMIN_NAV_ITEMS)
+    if (firstRoute) {
+      redirect(firstRoute)
+    }
+
+    // Fallback if no route found
+    return (
+      <div className="p-8 text-center text-gray-500">
+        <h2 className="text-xl font-bold mb-2">Akses Terbatas</h2>
+        <p>Anda tidak memiliki akses ke halaman dashboard atau menu lainnya.</p>
+      </div>
+    )
+  }
+
+  // Ensure these repos are only called if we are staying on the dashboard
   const userRepository = getUserRepository()
   const totalUsers = await userRepository.count()
 
