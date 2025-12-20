@@ -8,6 +8,8 @@ import AnnouncementBanner from '@/components/announcement/AnnouncementBanner'
 import { authConfig } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 
+import { ensureAdminAccess } from '@/lib/server-auth'
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Catatan: Subdomain routing di-handle oleh middleware
   // Di development, tetap bisa akses langsung dari localhost
@@ -19,10 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   //   redirect(`${protocol}://admin.${host.split(':')[0]}${host.includes(':') ? ':' + host.split(':')[1] : ''}`)
   // }
 
-  const session: any = await getServerSession(authConfig as any)
-  if (!session) {
-    redirect('/admin/login?callbackUrl=/admin')
-  }
+  await ensureAdminAccess() // Strict check for admin portal access
 
   // Akses ke admin portal diizinkan untuk semua user yang terautentikasi.
   // Menu yang muncul diatur oleh Sidebar berdasarkan custom role permissions.

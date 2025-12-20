@@ -30,18 +30,26 @@ export function KaryawanAuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (status === 'authenticated' && session?.user) {
+            // Strict check: if user has no employee access, treat as unauthenticated (or handle error)
+            // Middleware should have caught this, but this is a fail-safe for client transitions
+            const sUser = session.user as any
+            if (!sUser.accessEmployeePanel && sUser.role !== 'SUPER_ADMIN') {
+                router.replace('/karyawan/login?error=AccessDenied')
+                return
+            }
+
             setUser({
-                id: (session.user as any).id,
-                name: session.user.name ?? null,
-                email: session.user.email ?? '',
-                departmentId: (session.user as any).departmentId ?? null,
-                siteId: (session.user as any).siteId ?? null,
-                image: session.user.image ?? null,
+                id: sUser.id,
+                name: sUser.name ?? null,
+                email: sUser.email ?? '',
+                departmentId: sUser.departmentId ?? null,
+                siteId: sUser.siteId ?? null,
+                image: sUser.image ?? null,
             })
         } else if (status === 'unauthenticated') {
             setUser(null)
         }
-    }, [session, status])
+    }, [session, status, router])
 
     const login = async (email: string, password: string) => {
         try {

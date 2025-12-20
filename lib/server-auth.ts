@@ -36,3 +36,39 @@ export async function ensureEmployeeAccess(permission?: string) {
 
     return user
 }
+
+export async function ensureAdminAccess(permission?: string) {
+    const session = await getServerSession(authOptions)
+
+    // 1. Check authentication
+    if (!session || !session.user) {
+        redirect('/admin/login')
+    }
+
+    // 2. Check Admin Portal Access
+    const user = session.user as any
+
+    // SUPER_ADMIN bypass
+    if (user.role === 'SUPER_ADMIN') {
+        return user
+    }
+
+    if (!user.accessAdminPanel) {
+        // If logged in but no access to admin portal, redirect to error
+        // Important: This handles the "Session Leakage" case where an Employee session 
+        // is active but tries to access Admin portal.
+        redirect('/admin/login?error=AccessDenied')
+    }
+
+    // 3. Check Specific Permission
+    if (permission) {
+        const userPermissions = (user.permissions as string[]) || []
+        const hasPermission = userPermissions.includes(permission)
+
+        if (!hasPermission) {
+            redirect('/admin/dashboard?error=Unauthorized')
+        }
+    }
+
+    return user
+}

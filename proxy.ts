@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const url = request.nextUrl;
     const hostname = request.headers.get('host') || '';
 
@@ -44,7 +45,40 @@ export function proxy(request: NextRequest) {
         return res;
     }
 
+    // Verify Token for Portal Access
+    // We use next-auth/jwt to check the session token directly at the edge/proxy level
+    // This prevents session leakage between portals
+    const token = await getToken({ req: request });
+
     let response: NextResponse;
+
+    // Reject unauthorized access to Admin Subdomain
+    if (subdomain === 'admin') {
+        const isLoginPage = url.pathname.startsWith('/login') || url.pathname === '/'; // Allow root for redirect? No, root is dashboard usually.
+        // Actually, logic below rewrites / to /admin/
+
+        // If not on login page, check permissions
+        if (!url.pathname.includes('/login') && !url.pathname.startsWith('/api')) { // simple check
+            if (!token?.accessAdminPanel && token?.role !== 'SUPER_ADMIN') {
+                // Determine redirect URL
+                const loginUrl = new URL('/login', request.url);
+                loginUrl.searchParams.set('error', 'AccessDenied');
+                return NextResponse.redirect(loginUrl);
+            }
+        }
+    }
+
+    // Reject unauthorized access to Employee Subdomain
+    if (subdomain === 'karyawan') {
+        // If not on login page, check permissions
+        if (!url.pathname.includes('/login') && !url.pathname.startsWith('/api')) {
+            if (!token?.accessEmployeePanel && token?.role !== 'SUPER_ADMIN') {
+                const loginUrl = new URL('/login', request.url);
+                loginUrl.searchParams.set('error', 'AccessDenied');
+                return NextResponse.redirect(loginUrl);
+            }
+        }
+    }
 
     // Rewrite logic
     if (subdomain === 'admin') {
@@ -65,6 +99,20 @@ export function proxy(request: NextRequest) {
         response = NextResponse.rewrite(newUrl);
     } else {
         // Root domain (radpro.id) -> Customer Portal (Default)
+        // Check direct path access (e.g. radpro.id/admin) - prevent bypass if user tries to access /admin directly without subdomain
+        // Although layout protection covers this, edge protection is better.
+
+        if (url.pathname.startsWith('/admin')) {
+            if (!token?.accessAdminPanel && token?.role !== 'SUPER_ADMIN' && !url.pathname.includes('/login')) {
+                return NextResponse.redirect(new URL('/admin/login', request.url));
+            }
+        }
+        if (url.pathname.startsWith('/karyawan')) {
+            if (!token?.accessEmployeePanel && token?.role !== 'SUPER_ADMIN' && !url.pathname.includes('/login')) {
+                return NextResponse.redirect(new URL('/karyawan/login', request.url));
+            }
+        }
+
         response = NextResponse.next();
     }
 

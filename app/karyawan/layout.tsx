@@ -26,11 +26,15 @@ export const viewport: Viewport = {
     ],
 }
 
-export default function KaryawanLayout({
+import { ensureEmployeeAccess } from '@/lib/server-auth'
+
+export default async function KaryawanLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
+    await ensureEmployeeAccess()
+
     return (
         <KaryawanProviders>
             <AnnouncementPopup portal="employee" />
