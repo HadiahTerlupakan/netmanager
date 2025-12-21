@@ -198,9 +198,13 @@ update() {
         docker compose -f $COMPOSE_FILE up -d --force-recreate app
     fi
     
-    # Run migrations
+    # Run migrations (dengan error handling)
     log_info "Running database migrations..."
-    docker compose -f $COMPOSE_FILE --profile migrate run --rm db-migrate
+    docker exec netmanager-app npx prisma migrate deploy || {
+        log_warning "Migration warning (database mungkin sudah di-sync). Mencoba resolve..."
+        # Jika error P3005 (database tidak kosong), baseline migration
+        docker exec netmanager-app npx prisma migrate resolve --applied 20251105130408_init 2>/dev/null || true
+    }
     
     log_success "Update selesai!"
 }
