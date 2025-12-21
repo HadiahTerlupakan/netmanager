@@ -15,7 +15,13 @@ const roleSchema = z.object({
 })
 
 export async function GET(req: Request) {
-    if (!await hasPermission('roles:read')) {
+    // Allow access if user has roles:read OR users:create OR users:update permission
+    // This enables users who manage users to see the role dropdown
+    const canReadRoles = await hasPermission('roles:read')
+    const canCreateUsers = await hasPermission('users:create')
+    const canUpdateUsers = await hasPermission('users:update')
+
+    if (!canReadRoles && !canCreateUsers && !canUpdateUsers) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
