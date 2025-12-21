@@ -93,7 +93,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: '/admin/inventory',
         icon: 'HiOutlineCube',
         children: [
-            { code: 'INVENTORY.DASHBOARD', name: 'Dashboard', path: '/admin/inventory', icon: 'HiOutlineChartBar', exact: true },
+            { code: 'INVENTORY.INVENTORY', name: 'Dashboard', path: '/admin/inventory', icon: 'HiOutlineChartBar', exact: true },
             { code: 'INVENTORY.BARANG', name: 'Barang', path: '/admin/inventory/barang', icon: 'HiOutlineCube' },
             { code: 'INVENTORY.MASUK', name: 'Barang Masuk', path: '/admin/inventory/masuk', icon: 'HiOutlineArrowDownTray' },
             { code: 'INVENTORY.KELUAR', name: 'Barang Keluar', path: '/admin/inventory/keluar', icon: 'HiOutlineArrowUpTray' },

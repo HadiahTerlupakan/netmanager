@@ -8,11 +8,11 @@ export const PERMISSION_GROUPS = {
     WORKORDERS: ['workorders', 'work_order_dashboard', 'list', 'site', 'department'],
     ATTENDANCE: ['attendance', 'report', 'lembur'],
     FINANCE: ['finance', 'daily_income', 'period_income', 'expense', 'profit_loss'],
-    PENGATURAN: ['pengaturan', 'general', 'logo', 'email', 'whatsapp', 'roles', 'payment_gateway', 'api'],
+    PENGATURAN: ['pengaturan', 'umum', 'logo', 'email', 'whatsapp', 'roles', 'payment_gateway', 'api'],
     SYSTEM_LOG: ['log', 'login', 'activity'],
     SUPPORT: ['support'],
     ANNOUNCEMENT: ['announcement'],
-    USERS: ['user'],
+    USERS: ['users'],
 
 } as const
 
