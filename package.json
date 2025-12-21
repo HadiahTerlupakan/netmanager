@@ -96,6 +96,7 @@
     "prisma": "^6.19.1",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.1.18",
+    "terser-webpack-plugin": "^5.3.16",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
