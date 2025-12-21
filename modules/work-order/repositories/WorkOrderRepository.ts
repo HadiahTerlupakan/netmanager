@@ -688,6 +688,76 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     /**
+     * Get top assists - employees who assist as partners the most
+     */
+    async getTopAssists(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<TopPerformer[]> {
+        const workOrderWhere: any = {
+            status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
+        };
+
+        if (dateFrom || dateTo) {
+            workOrderWhere.completedAt = {};
+            if (dateFrom) workOrderWhere.completedAt.gte = dateFrom;
+            if (dateTo) workOrderWhere.completedAt.lte = dateTo;
+        }
+
+        // Find all partner assignments on completed work orders
+        const partnerAssignments = await this.prisma.workOrderAssignment.findMany({
+            where: {
+                role: 'PARTNER',
+                status: 'APPROVED',
+                workOrder: workOrderWhere
+            },
+            include: {
+                user: {
+                    select: {
+                        name: true,
+                        role: { select: { name: true } },
+                        site: { select: { name: true } }
+                    }
+                },
+                workOrder: {
+                    select: {
+                        startedAt: true,
+                        completedAt: true
+                    }
+                }
+            }
+        });
+
+        const userStats: Record<string, { count: number; totalHours: number; role?: string; site?: string }> = {};
+
+        partnerAssignments.forEach((assignment) => {
+            const name = assignment.user?.name || 'Unknown';
+            const role = assignment.user?.role?.name;
+            const site = assignment.user?.site?.name;
+            const wo = assignment.workOrder;
+
+            if (wo.startedAt && wo.completedAt) {
+                const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
+
+                if (!userStats[name]) {
+                    userStats[name] = { count: 0, totalHours: 0, role, site };
+                }
+
+                userStats[name].count += 1;
+                userStats[name].totalHours += hours;
+            }
+        });
+
+        const topAssists = Object.entries(userStats).map(([name, stats]) => ({
+            userName: name,
+            role: stats.role,
+            site: stats.site,
+            count: stats.count,
+            avgCompletionTime: stats.count > 0 ? stats.totalHours / stats.count : 0,
+        }));
+
+        // Sort by count (desc)
+        return topAssists.sort((a, b) => b.count - a.count).slice(0, limit);
+    }
+
+    /**
      * Get user work order statistics (count of completed orders)
      */
     async getUserWorkOrderStats(dateFrom: Date, dateTo: Date): Promise<Array<{ userId: string; count: number }>> {

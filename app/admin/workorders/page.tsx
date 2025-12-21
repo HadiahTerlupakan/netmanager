@@ -28,6 +28,7 @@ export default function WorkOrderDashboard() {
     const [recentWorkOrders, setRecentWorkOrders] = useState<WorkOrder[]>([])
     const [departmentWorkload, setDepartmentWorkload] = useState<DepartmentWorkload[]>([])
     const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([])
+    const [topAssists, setTopAssists] = useState<TopPerformer[]>([])
     const [issueStats, setIssueStats] = useState<IssueStatistic[]>([])
     const [siteStats, setSiteStats] = useState<SiteStatistic[]>([])
     const [disconnectionStats, setDisconnectionStats] = useState<DisconnectionStatistic[]>([])
@@ -80,6 +81,7 @@ export default function WorkOrderDashboard() {
             if (performersRes.ok) {
                 const result = await performersRes.json()
                 setTopPerformers(result.data)
+                setTopAssists(result.topAssists || [])
             }
             if (analyticsRes.ok) {
                 const result = await analyticsRes.json()
@@ -273,6 +275,37 @@ export default function WorkOrderDashboard() {
                                     </div>
                                 ) : (
                                     <p className="text-sm text-gray-500 text-center">No performance data available</p>
+                                )}
+                            </div>
+
+                            {/* Top Assists */}
+                            <div className="p-6 border-b border-gray-100">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <HiUserGroup className="w-5 h-5 text-purple-400" />
+                                    <h3 className="text-md font-medium text-gray-900">Top Assists</h3>
+                                </div>
+                                {topAssists.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {topAssists.map((assist, index) => (
+                                            <div key={index} className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-sm font-bold text-purple-600 shrink-0">
+                                                        {index + 1}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900">{assist.userName}</p>
+                                                        <p className="text-xs text-gray-600">{assist.role || '-'} {assist.site ? `• ${assist.site}` : ''}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-bold text-purple-600">{assist.count}</p>
+                                                    <p className="text-xs text-gray-500">assists</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500 text-center">No assist data available</p>
                                 )}
                             </div>
 

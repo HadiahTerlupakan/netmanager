@@ -36,11 +36,15 @@ export async function GET(request: NextRequest) {
             dateTo = new Date();
         }
 
-        const topPerformers = await workOrderRepo.getTopPerformers(5, dateFrom, dateTo);
+        const [topPerformers, topAssists] = await Promise.all([
+            workOrderRepo.getTopPerformers(5, dateFrom, dateTo),
+            workOrderRepo.getTopAssists(5, dateFrom, dateTo)
+        ]);
 
         return NextResponse.json({
             success: true,
             data: topPerformers,
+            topAssists: topAssists,
         });
     } catch (error) {
         console.error('Error fetching top performers:', error);
