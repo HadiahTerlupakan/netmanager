@@ -98,6 +98,18 @@ generate_secrets() {
     echo "EMPLOYEE_JWT_SECRET=${EMPLOYEE_JWT_SECRET}"
     echo ""
     echo "============================================"
+    echo ""
+    log_info "Untuk VAPID Keys (Web Push Notifications),"
+    log_info "jalankan perintah berikut di komputer lokal:"
+    echo ""
+    echo "  npx web-push generate-vapid-keys"
+    echo ""
+    log_info "Lalu copy output ke .env:"
+    echo "  NEXT_PUBLIC_VAPID_PUBLIC_KEY=..."
+    echo "  VAPID_PRIVATE_KEY=..."
+    echo "  VAPID_SUBJECT=mailto:admin@radpro.id"
+    echo ""
+    echo "============================================"
     log_warning "Salin nilai-nilai di atas ke file .env Anda!"
 }
 

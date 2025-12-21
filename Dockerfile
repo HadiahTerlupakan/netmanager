@@ -63,6 +63,15 @@ COPY --from=builder --chown=nextjs:nodejs /app/server.ts ./server.ts
 COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/prisma ./prisma
 
+# Copy lib folder (required by server.ts for websocket, etc.)
+COPY --from=builder /app/lib ./lib
+
+# Copy proxy.ts (required by server.ts/middleware)
+COPY --from=builder /app/proxy.ts ./proxy.ts
+
+# Copy tsconfig for path resolution
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+
 USER nextjs
 
 EXPOSE 3000
