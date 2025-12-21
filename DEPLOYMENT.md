@@ -65,23 +65,40 @@ Tambahkan DNS records di domain provider (Cloudflare, dll):
 
 ## 🚀 Langkah 3: Deploy Aplikasi
 
-### Opsi A: Deploy dari Komputer Lokal (Rekomendasi)
+### Opsi A: Menggunakan Git (Rekomendasi) ✅
+
+```bash
+# 1. SSH ke server sebagai user deploy
+ssh deploy@IP_SERVER
+cd /opt/netmanager
+
+# 2. Clone repository (pertama kali)
+git clone https://github.com/YOUR_USERNAME/netmanager.git .
+
+# 3. Setup environment
+cp .env.production.example .env
+./deploy.sh secrets      # Generate credentials
+nano .env                 # Edit dan paste credentials
+
+# 4. Deploy
+./deploy.sh deploy ssl
+```
+
+**Update dengan Git:**
+```bash
+cd /opt/netmanager
+git pull
+./deploy.sh update
+```
+
+---
+
+### Opsi B: Deploy dari Komputer Lokal (tanpa Git)
 
 ```bash
 # Dari folder proyek di komputer lokal
 ./quick-deploy.sh deploy@IP_SERVER
 ```
-
-### Opsi B: Clone dari Git
-
-```bash
-# Di server
-su - deploy
-cd /opt/netmanager
-git clone https://github.com/YOUR_REPO.git .
-```
-
----
 
 ## ⚙️ Langkah 4: Konfigurasi Environment
 
@@ -242,7 +259,7 @@ sudo systemctl stop apache2
                               │
         ┌─────────────────────┼─────────────────────┐
         ▼                     ▼                     ▼
-   radpro.id          admin.radpro.id       employee.radpro.id
+   radpro.id          admin.radpro.id       karyawan.radpro.id
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
