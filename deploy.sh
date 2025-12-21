@@ -62,24 +62,40 @@ check_env() {
 generate_secrets() {
     log_info "Generating secure credentials..."
     
+    # Auth & Security
     AUTH_SECRET=$(openssl rand -base64 32)
     NEXTAUTH_SECRET=$(openssl rand -base64 32)
+    OAUTH_ENCRYPTION_KEY=$(openssl rand -hex 32)
+    ENCRYPTION_KEY=$(openssl rand -base64 32)
+    
+    # Database & Cache
     POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=')
     REDIS_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=')
+    
+    # Services
     RADIUS_SECRET=$(openssl rand -base64 16 | tr -d '/+=')
-    OAUTH_ENCRYPTION_KEY=$(openssl rand -hex 32)
+    INTERNAL_WS_SECRET=$(openssl rand -base64 32)
+    EMPLOYEE_JWT_SECRET=$(openssl rand -base64 32)
     
     echo ""
     echo "============================================"
     echo "  GENERATED CREDENTIALS (Simpan dengan aman!)"
     echo "============================================"
     echo ""
+    echo "# Auth & Security"
     echo "AUTH_SECRET=${AUTH_SECRET}"
     echo "NEXTAUTH_SECRET=${NEXTAUTH_SECRET}"
+    echo "OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}"
+    echo "ENCRYPTION_KEY=${ENCRYPTION_KEY}"
+    echo ""
+    echo "# Database & Cache"
     echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
     echo "REDIS_PASSWORD=${REDIS_PASSWORD}"
+    echo ""
+    echo "# Services"
     echo "RADIUS_SECRET=${RADIUS_SECRET}"
-    echo "OAUTH_ENCRYPTION_KEY=${OAUTH_ENCRYPTION_KEY}"
+    echo "INTERNAL_WS_SECRET=${INTERNAL_WS_SECRET}"
+    echo "EMPLOYEE_JWT_SECRET=${EMPLOYEE_JWT_SECRET}"
     echo ""
     echo "============================================"
     log_warning "Salin nilai-nilai di atas ke file .env Anda!"
