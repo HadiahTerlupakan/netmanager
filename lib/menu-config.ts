@@ -154,7 +154,6 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'PENGATURAN.LOGO', name: 'Logo Perusahaan', path: '/admin/pengaturan/logo', icon: 'HiOutlinePhoto' },
             { code: 'PENGATURAN.EMAIL', name: 'Email', path: '/admin/pengaturan/email', icon: 'HiOutlineEnvelope' },
             { code: 'PENGATURAN.WHATSAPP', name: 'WhatsApp', path: '/admin/pengaturan/whatsapp', icon: 'HiOutlineChatBubbleLeftRight' },
-            { code: 'PENGATURAN.OAUTH', name: 'OAuth', path: '/admin/pengaturan/oauth', icon: 'HiOutlineKey' },
             { code: 'PENGATURAN.ROLES', name: 'Hak Akses & Role', path: '/admin/settings/roles', icon: 'HiOutlineShieldCheck' },
             { code: 'PENGATURAN.PAYMENT_GATEWAY', name: 'Payment Gateway', path: '/admin/pengaturan/payment-gateway', icon: 'HiOutlineCreditCard' },
             { code: 'PENGATURAN.API', name: 'API', path: '/admin/pengaturan/api', icon: 'HiOutlineCodeBracket' },
