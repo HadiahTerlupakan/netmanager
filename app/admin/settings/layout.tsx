@@ -5,6 +5,6 @@ export default async function SettingsSectionLayout({
 }: {
     children: React.ReactNode
 }) {
-    await ensurePermission('pengaturan:read')
+    await ensurePermission('roles:read')
     return <>{children}</>
 }
