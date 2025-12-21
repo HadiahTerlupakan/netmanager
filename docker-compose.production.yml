@@ -182,23 +182,17 @@ services:
       - "traefik.http.routers.netmanager.tls.certresolver=letsencrypt"
       - "traefik.http.routers.netmanager.service=netmanager-service"
 
-      # Admin Subdomain
+      # Admin Subdomain (no path rewriting - handled by proxy.ts)
       - "traefik.http.routers.netmanager-admin.rule=Host(`admin.${DOMAIN}`)"
       - "traefik.http.routers.netmanager-admin.entrypoints=websecure"
       - "traefik.http.routers.netmanager-admin.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.netmanager-admin.middlewares=admin-path"
       - "traefik.http.routers.netmanager-admin.service=netmanager-service"
-      - "traefik.http.middlewares.admin-path.replacepathregex.regex=^/(.*)"
-      - "traefik.http.middlewares.admin-path.replacepathregex.replacement=/admin/$$1"
 
-      # Karyawan Subdomain
+      # Karyawan Subdomain (no path rewriting - handled by proxy.ts)
       - "traefik.http.routers.netmanager-karyawan.rule=Host(`karyawan.${DOMAIN}`)"
       - "traefik.http.routers.netmanager-karyawan.entrypoints=websecure"
       - "traefik.http.routers.netmanager-karyawan.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.netmanager-karyawan.middlewares=karyawan-path"
       - "traefik.http.routers.netmanager-karyawan.service=netmanager-service"
-      - "traefik.http.middlewares.karyawan-path.replacepathregex.regex=^/(.*)"
-      - "traefik.http.middlewares.karyawan-path.replacepathregex.replacement=/karyawan/$$1"
 
       # Service
       - "traefik.http.services.netmanager-service.loadbalancer.server.port=3000"
