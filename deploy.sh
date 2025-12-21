@@ -170,6 +170,7 @@ deploy() {
 
 # Update application
 update() {
+    local profile="${1:-ssl}"
     log_info "Updating NetManager..."
     
     check_docker
@@ -185,12 +186,17 @@ update() {
         git pull
     fi
     
-    # Rebuild and restart
+    # Rebuild and restart with appropriate profile
     log_info "Rebuilding Docker images..."
-    docker compose -f $COMPOSE_FILE build app
-    
-    log_info "Restarting application..."
-    docker compose -f $COMPOSE_FILE up -d app
+    if [ "$profile" = "ssl" ]; then
+        docker compose -f $COMPOSE_FILE --profile ssl build app
+        log_info "Restarting application with SSL..."
+        docker compose -f $COMPOSE_FILE --profile ssl up -d --force-recreate app
+    else
+        docker compose -f $COMPOSE_FILE build app
+        log_info "Restarting application..."
+        docker compose -f $COMPOSE_FILE up -d --force-recreate app
+    fi
     
     # Run migrations
     log_info "Running database migrations..."
