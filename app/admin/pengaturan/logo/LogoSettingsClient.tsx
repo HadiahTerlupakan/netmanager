@@ -8,7 +8,7 @@ type LogoSettings = {
   logoAplikasi: string | null
 }
 
-export function LogoSettingsClient() {
+export function ClientComponent() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)

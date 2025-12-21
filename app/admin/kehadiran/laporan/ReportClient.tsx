@@ -30,7 +30,7 @@ ChartJS.register(
     ArcElement
 )
 
-export function ReportClient() {
+export function ClientComponent() {
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState<any>(null)
 

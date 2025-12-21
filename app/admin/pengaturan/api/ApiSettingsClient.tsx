@@ -175,7 +175,7 @@ function CaptchaSettingsSection() {
   )
 }
 
-export function ApiSettingsClient() {
+export function ClientComponent() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)

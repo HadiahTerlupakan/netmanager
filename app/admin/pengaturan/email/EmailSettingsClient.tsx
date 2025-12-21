@@ -10,7 +10,7 @@ import {
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
-export function EmailSettingsClient() {
+export function ClientComponent() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [testing, setTesting] = useState(false)

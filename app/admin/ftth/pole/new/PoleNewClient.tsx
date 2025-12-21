@@ -1,6 +1,6 @@
 import { PoleForm } from '@/components/pole/PoleForm'
 
-export function PoleNewClient() {
+export function ClientComponent() {
   return (
     <div className="space-y-6">
       <div>

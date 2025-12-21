@@ -16,7 +16,7 @@ interface Role {
     }
 }
 
-export function RolesClient() {
+export function ClientComponent() {
     const [roles, setRoles] = useState<Role[]>([])
     const [loading, setLoading] = useState(true)
     const router = useRouter()

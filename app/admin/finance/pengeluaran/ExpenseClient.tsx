@@ -22,7 +22,7 @@ type Expense = {
     user?: { name: string };
 };
 
-export function ExpenseClient() { // ExpensePage() {
+export function ClientComponent() { // ExpensePage() {
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);

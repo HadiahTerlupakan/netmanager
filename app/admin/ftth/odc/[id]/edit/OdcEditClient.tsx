@@ -30,7 +30,7 @@ async function fetchDetail(id: string) {
   return j.odc
 }
 
-export function OdcEditClient() {
+export function ClientComponent() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)

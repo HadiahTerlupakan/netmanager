@@ -19,7 +19,7 @@ interface SystemLog {
     } | null
 }
 
-export function ActivityLogClient() {
+export function ClientComponent() {
     const [logs, setLogs] = useState<SystemLog[]>([])
     const [loading, setLoading] = useState(true)
     const [pagination, setPagination] = useState({ page: 1, limit: 20, totalPages: 1, total: 0 })

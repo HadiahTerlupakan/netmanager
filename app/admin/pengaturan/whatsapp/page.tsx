@@ -1,5 +1,5 @@
 import { ensurePermission } from '@/lib/rbac'
-import { WhatsappSettingsClient } from './WhatsappSettingsClient'
+import { ClientComponent } from './WhatsappSettingsClient'
 
 export default async function WhatsappSettingsPage() {
     await ensurePermission('whatsapp:read')

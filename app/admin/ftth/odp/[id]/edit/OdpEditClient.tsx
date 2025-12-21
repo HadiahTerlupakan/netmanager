@@ -24,7 +24,7 @@ async function fetchDetail(id: string) {
 const STANDARD_12_COLORS = ['Biru', 'Oranye', 'Hijau', 'Coklat', 'Slate', 'Putih', 'Merah', 'Hitam', 'Kuning', 'Ungu', 'Rose', 'Aqua'] as const
 const TUBE_COLOR_OPTIONS = ['Non-tube', ...STANDARD_12_COLORS] as const
 
-export function OdpEditClient() {
+export function ClientComponent() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)

@@ -31,7 +31,7 @@ interface Attendance {
     }
 }
 
-export function AttendanceClient() {
+export function ClientComponent() {
     const [attendances, setAttendances] = useState<Attendance[]>([])
     const [loading, setLoading] = useState(true)
     const [page, setPage] = useState(1)

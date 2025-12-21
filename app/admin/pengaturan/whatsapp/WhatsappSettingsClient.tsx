@@ -23,7 +23,7 @@ const PROVIDERS = [
     { id: 'OFFICIAL', name: 'Official WhatsApp Business API', enabled: false }
 ]
 
-export function WhatsappSettingsClient() {
+export function ClientComponent() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [testing, setTesting] = useState(false)

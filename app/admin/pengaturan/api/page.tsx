@@ -1,5 +1,5 @@
 import { ensurePermission } from '@/lib/rbac'
-import { ApiSettingsClient } from './ApiSettingsClient'
+import { ClientComponent } from './ApiSettingsClient'
 
 export default async function ApiSettingsPage() {
     await ensurePermission('api:read')

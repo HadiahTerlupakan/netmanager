@@ -1,5 +1,5 @@
 import { ensurePermission } from '@/lib/rbac'
-import { AttendanceClient } from './AttendanceClient'
+import { ClientComponent } from './AttendanceClient'
 
 export default async function AttendancePage() {
     await ensurePermission('attendance:read')

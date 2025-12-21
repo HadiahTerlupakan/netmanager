@@ -1,5 +1,5 @@
 import { ensurePermission } from '@/lib/rbac'
-import { RolesClient } from './RolesClient'
+import { ClientComponent } from './RolesClient'
 
 export default async function RolesPage() {
     await ensurePermission('roles:read')

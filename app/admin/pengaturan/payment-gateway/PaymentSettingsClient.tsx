@@ -5,7 +5,7 @@ import { HiOutlineCreditCard, HiOutlineBanknotes } from 'react-icons/hi2'
 import PaymentGatewayTab from './components/PaymentGatewayTab'
 import ManualTransferTab from './components/ManualTransferTab'
 
-export function PaymentSettingsClient() {
+export function ClientComponent() {
     const [activeTab, setActiveTab] = useState<'gateway' | 'manual'>('gateway')
 
     return (

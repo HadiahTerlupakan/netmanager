@@ -17,7 +17,7 @@ type OutputCore = { idx: number; slotName: string; redaman: string; tubeColor: s
 const STANDARD_12_COLORS = ['Biru', 'Oranye', 'Hijau', 'Coklat', 'Slate', 'Putih', 'Merah', 'Hitam', 'Kuning', 'Ungu', 'Rose', 'Aqua'] as const
 const TUBE_COLOR_OPTIONS = ['Non-tube', ...STANDARD_12_COLORS] as const
 
-export function OdpNewClient() {
+export function ClientComponent() {
   const router = useRouter()
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')

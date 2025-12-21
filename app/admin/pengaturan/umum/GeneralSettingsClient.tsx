@@ -24,7 +24,7 @@ type GeneralSettings = {
   timezone: string
 }
 
-export function GeneralSettingsClient() {
+export function ClientComponent() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)

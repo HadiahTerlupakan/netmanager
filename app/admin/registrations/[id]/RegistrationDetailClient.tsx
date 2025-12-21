@@ -46,7 +46,7 @@ interface IpInfo {
     isp: string
 }
 
-export default function RegistrationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params)
     const router = useRouter()
     const [registration, setRegistration] = useState<Registration | null>(null)

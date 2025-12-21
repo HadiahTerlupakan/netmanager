@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { JoinboxForm } from '@/components/closure/JoinboxForm'
 
-export function ClosureNewClient() {
+export function ClientComponent() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

@@ -24,7 +24,7 @@ type OutputCore = {
 const standard12Colors = ['Biru', 'Oranye', 'Hijau', 'Coklat', 'Slate', 'Putih', 'Merah', 'Hitam', 'Kuning', 'Ungu', 'Rose', 'Aqua']
 const tubeColorOptions = ['Non-tube', ...standard12Colors]
 
-export function OdcNewClient() {
+export function ClientComponent() {
   const router = useRouter()
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')

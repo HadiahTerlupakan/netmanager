@@ -1,5 +1,5 @@
 import { ensurePermission } from '@/lib/rbac'
-import { ReportClient } from './ReportClient'
+import { ClientComponent } from './ReportClient'
 
 export default async function ReportPage() {
     await ensurePermission('report:read')

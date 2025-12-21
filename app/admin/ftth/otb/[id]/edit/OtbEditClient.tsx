@@ -15,7 +15,7 @@ async function fetchDetail(id: string) {
   return j.otb
 }
 
-export function OtbEditClient() {
+export function ClientComponent() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)

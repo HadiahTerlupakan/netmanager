@@ -1,5 +1,5 @@
 import { ensurePermission } from '@/lib/rbac'
-import { ExpenseClient } from './ExpenseClient'
+import { ClientComponent } from './ExpenseClient'
 
 export default async function ExpensePage() {
     await ensurePermission('expense:read')
