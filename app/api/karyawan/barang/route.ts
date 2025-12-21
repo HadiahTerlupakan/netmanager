@@ -33,9 +33,13 @@ export async function GET(req: NextRequest) {
                 // If restricted but no site assigned, return empty
                 return NextResponse.json({ barangList: [] })
             }
-            // Filter by Gudang that belongs to user's Site
+            // Filter by Gudang that belongs to user's Site (many-to-many relation)
             whereClause.gudang = {
-                siteId: user.siteId
+                sites: {
+                    some: {
+                        id: user.siteId
+                    }
+                }
             }
         }
 
@@ -62,7 +66,10 @@ export async function GET(req: NextRequest) {
             kode: bg.barang.kode,
             nama: bg.barang.nama,
             satuan: bg.barang.satuan,
-            stok: bg.stok
+            stok: bg.stok,
+            stokBaru: bg.stokBaru,
+            stokBekas: bg.stokBekas,
+            stokRusak: bg.stokRusak
         }))
 
         return NextResponse.json({ barangList })

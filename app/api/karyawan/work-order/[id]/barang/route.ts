@@ -85,7 +85,8 @@ export async function POST(
                     id: keluar.id,
                     nama: keluar.barang.nama,
                     jumlah,
-                    satuan: keluar.barang.satuan
+                    satuan: keluar.barang.satuan,
+                    kondisi: kondisi || 'BARU'
                 })
             }
 
@@ -95,6 +96,19 @@ export async function POST(
                 where: { id },
                 data: {
                     usedMaterials: [...existingMaterials, ...createdItems]
+                }
+            })
+
+            // Log to Activity Timeline
+            const materialList = createdItems.map(m => `${m.nama} - ${m.kondisi} (${m.jumlah} ${m.satuan})`).join(', ')
+            await tx.workOrderUpdate.create({
+                data: {
+                    workOrderId: id,
+                    createdById: session.user.id,
+                    updateType: 'MATERIAL_PICKUP',
+                    message: `Mengambil barang: ${materialList}`,
+                    oldStatus: workOrder.status,
+                    newStatus: workOrder.status
                 }
             })
 

@@ -92,6 +92,14 @@ interface WorkOrderDetail {
     }>
     updates?: Array<WorkOrderUpdateType>
     attachments?: Array<WorkOrderAttachment>
+    assignments?: Array<{
+        id: string
+        role: string
+        user?: {
+            id: string
+            name: string
+        }
+    }>
 }
 
 type TimelineItem =
@@ -803,6 +811,18 @@ export default function WorkOrderDetailPage() {
                             <div className="text-sm mt-3">
                                 <p className="text-gray-600">Department:</p>
                                 <p className="font-medium text-gray-900">{workOrder.department.name}</p>
+                            </div>
+                        )}
+                        {workOrder.assignments && workOrder.assignments.filter((a: any) => a.role === 'PARTNER').length > 0 && (
+                            <div className="text-sm mt-3">
+                                <p className="text-gray-600">Partner:</p>
+                                <div className="space-y-1 mt-1">
+                                    {workOrder.assignments
+                                        .filter((a: any) => a.role === 'PARTNER')
+                                        .map((a: any) => (
+                                            <p key={a.id} className="font-medium text-gray-900">{a.user?.name || a.user?.firstName + ' ' + a.user?.lastName}</p>
+                                        ))}
+                                </div>
                             </div>
                         )}
                     </div>

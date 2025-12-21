@@ -18,6 +18,9 @@ interface Barang {
     nama: string
     satuan: string
     stok: number
+    stokBaru: number
+    stokBekas: number
+    stokRusak: number
 }
 
 interface Gudang {
@@ -66,7 +69,8 @@ export default function AmbilBarangClient() {
 
     const fetchGudangs = async () => {
         try {
-            const res = await fetch('/api/karyawan/gudang')
+            // Pass workOrderId to allow fetching warehouses from the WO's site
+            const res = await fetch(`/api/karyawan/gudang?workOrderId=${workOrderId}`)
             if (res.ok) {
                 const data = await res.json()
                 console.log('Gudangs fetched:', data)
@@ -102,13 +106,18 @@ export default function AmbilBarangClient() {
         }
     }
 
-    const addItem = (barang: Barang) => {
-        const existing = selectedItems.find(i => i.barangId === barang.id)
+    const addItem = (barang: Barang, kondisi: 'BARU' | 'BEKAS' | 'RUSAK') => {
+        const stokByKondisi = kondisi === 'BARU' ? barang.stokBaru : kondisi === 'BEKAS' ? barang.stokBekas : barang.stokRusak
+        if (stokByKondisi <= 0) return
+
+        const existingKey = `${barang.id}-${kondisi}`
+        const existing = selectedItems.find(i => i.barangId === barang.id && i.kondisi === kondisi)
+
         if (existing) {
-            if (existing.jumlah < barang.stok) {
+            if (existing.jumlah < stokByKondisi) {
                 setSelectedItems(items =>
                     items.map(i =>
-                        i.barangId === barang.id
+                        (i.barangId === barang.id && i.kondisi === kondisi)
                             ? { ...i, jumlah: i.jumlah + 1 }
                             : i
                     )
@@ -120,18 +129,19 @@ export default function AmbilBarangClient() {
                 barang,
                 gudangId: selectedGudang,
                 jumlah: 1,
-                kondisi: 'BARU'
+                kondisi
             }])
         }
     }
 
-    const updateQuantity = (barangId: string, delta: number) => {
+    const updateQuantity = (barangId: string, kondisi: string, delta: number) => {
         setSelectedItems(items =>
             items.map(i => {
-                if (i.barangId === barangId) {
+                if (i.barangId === barangId && i.kondisi === kondisi) {
+                    const stokByKondisi = kondisi === 'BARU' ? i.barang.stokBaru : kondisi === 'BEKAS' ? i.barang.stokBekas : i.barang.stokRusak
                     const newQty = i.jumlah + delta
                     if (newQty <= 0) return i
-                    if (newQty > i.barang.stok) return i
+                    if (newQty > stokByKondisi) return i
                     return { ...i, jumlah: newQty }
                 }
                 return i
@@ -139,8 +149,8 @@ export default function AmbilBarangClient() {
         )
     }
 
-    const removeItem = (barangId: string) => {
-        setSelectedItems(items => items.filter(i => i.barangId !== barangId))
+    const removeItem = (barangId: string, kondisi: string) => {
+        setSelectedItems(items => items.filter(i => !(i.barangId === barangId && i.kondisi === kondisi)))
     }
 
     const handleSubmit = async () => {
@@ -236,27 +246,33 @@ export default function AmbilBarangClient() {
                         </h3>
                         <div className="space-y-2">
                             {selectedItems.map(item => (
-                                <div key={item.barangId} className="flex items-center justify-between bg-white dark:bg-[#1c2936] rounded-lg p-2">
-                                    <div className="flex-1 min-w-0">
+                                <div key={`${item.barangId}-${item.kondisi}`} className="flex items-center justify-between bg-white dark:bg-[#1c2936] rounded-lg p-2">
+                                    <div className="flex-1 min-w-0 mr-2">
                                         <p className="text-sm font-medium dark:text-white truncate">{item.barang.nama}</p>
-                                        <p className="text-xs text-gray-500">{item.barang.satuan}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${item.kondisi === 'BARU' ? 'bg-green-100 text-green-700' :
+                                                item.kondisi === 'BEKAS' ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-red-100 text-red-700'
+                                                }`}>{item.kondisi}</span>
+                                            <p className="text-xs text-gray-500">{item.barang.satuan}</p>
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button
-                                            onClick={() => updateQuantity(item.barangId, -1)}
+                                            onClick={() => updateQuantity(item.barangId, item.kondisi, -1)}
                                             className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center"
                                         >
                                             <MdRemove className="text-sm" />
                                         </button>
                                         <span className="w-8 text-center font-semibold">{item.jumlah}</span>
                                         <button
-                                            onClick={() => updateQuantity(item.barangId, 1)}
+                                            onClick={() => updateQuantity(item.barangId, item.kondisi, 1)}
                                             className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center"
                                         >
                                             <MdAdd className="text-sm" />
                                         </button>
                                         <button
-                                            onClick={() => removeItem(item.barangId)}
+                                            onClick={() => removeItem(item.barangId, item.kondisi)}
                                             className="ml-2 text-red-500 text-xs font-medium"
                                         >
                                             Hapus
@@ -286,31 +302,44 @@ export default function AmbilBarangClient() {
                     ) : (
                         <div className="space-y-2">
                             {filteredBarangs.map(barang => {
-                                const selected = selectedItems.find(i => i.barangId === barang.id)
+                                const hasAnyStock = barang.stokBaru > 0 || barang.stokBekas > 0 || barang.stokRusak > 0
                                 return (
                                     <div
                                         key={barang.id}
-                                        className={`bg-white dark:bg-[#1c2936] rounded-xl p-4 border transition-colors ${selected
-                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                            : 'border-gray-100 dark:border-gray-800'
-                                            }`}
+                                        className={`bg-white dark:bg-[#1c2936] rounded-xl p-4 border transition-colors border-gray-100 dark:border-gray-800`}
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-xs text-gray-500 font-mono">{barang.kode}</p>
-                                                <p className="font-medium dark:text-white truncate">{barang.nama}</p>
-                                                <p className="text-sm text-gray-500">
-                                                    Stok: <span className={barang.stok > 0 ? 'text-green-600' : 'text-red-500'}>{barang.stok}</span> {barang.satuan}
-                                                </p>
-                                            </div>
-                                            <button
-                                                onClick={() => addItem(barang)}
-                                                disabled={barang.stok <= 0 || (selected && selected.jumlah >= barang.stok)}
-                                                className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center disabled:opacity-50 disabled:bg-gray-300"
-                                            >
-                                                <MdAdd className="text-xl" />
-                                            </button>
+                                        <div className="mb-3">
+                                            <p className="text-xs text-gray-500 font-mono">{barang.kode}</p>
+                                            <p className="font-medium dark:text-white truncate">{barang.nama}</p>
+                                            <p className="text-xs text-gray-500 mt-0.5">{barang.satuan}</p>
                                         </div>
+                                        {!hasAnyStock ? (
+                                            <p className="text-sm text-red-500 text-center">Stok Kosong</p>
+                                        ) : (
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => addItem(barang, 'BARU')}
+                                                    disabled={barang.stokBaru <= 0}
+                                                    className="flex-1 py-2 px-2 rounded-lg text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-200 transition-colors"
+                                                >
+                                                    BARU ({barang.stokBaru})
+                                                </button>
+                                                <button
+                                                    onClick={() => addItem(barang, 'BEKAS')}
+                                                    disabled={barang.stokBekas <= 0}
+                                                    className="flex-1 py-2 px-2 rounded-lg text-xs font-semibold bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-yellow-200 transition-colors"
+                                                >
+                                                    BEKAS ({barang.stokBekas})
+                                                </button>
+                                                <button
+                                                    onClick={() => addItem(barang, 'RUSAK')}
+                                                    disabled={barang.stokRusak <= 0}
+                                                    className="flex-1 py-2 px-2 rounded-lg text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-red-200 transition-colors"
+                                                >
+                                                    RUSAK ({barang.stokRusak})
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )
                             })}

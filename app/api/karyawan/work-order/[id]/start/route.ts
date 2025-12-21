@@ -15,9 +15,15 @@ export async function POST(
         }
 
         const { id } = await params
+        const body = await req.json().catch(() => ({}))
+        const { partnerIds } = body // Expect array of user IDs
 
         const workOrder = await prisma.workOrder.findUnique({
-            where: { id }
+            where: { id },
+            include: {
+                site: true,
+                department: true,
+            }
         })
 
         if (!workOrder) {
@@ -32,35 +38,85 @@ export async function POST(
             return NextResponse.json({ error: 'Work order tidak dalam status ASSIGNED' }, { status: 400 })
         }
 
-        // Update status to IN_PROGRESS
-        const updated = await prisma.workOrder.update({
+        // Validate partners if provided
+        let partnerNames: string[] = []
+        if (partnerIds && Array.isArray(partnerIds) && partnerIds.length > 0) {
+            // Check if user's site/dept matches WO's site/dept requirements (or current user's)
+            // Here we assume partners must match the currentUser's context which usually matches WO context for site-based work
+
+            // Fetch validated partners
+            const partners = await prisma.user.findMany({
+                where: {
+                    id: { in: partnerIds },
+                    siteId: workOrder.siteId,
+                    departmentId: workOrder.departmentId,
+                    isActive: true
+                },
+                select: { id: true, name: true }
+            })
+
+            if (partners.length !== partnerIds.length) {
+                return NextResponse.json({ error: 'Satu atau lebih partner tidak valid (berbeda site/departemen)' }, { status: 400 })
+            }
+
+            partnerNames = partners.map(p => p.name || 'Unknown')
+        }
+
+        // Transaction to ensure atomicity
+        await prisma.$transaction(async (tx) => {
+            // Update status to IN_PROGRESS
+            await tx.workOrder.update({
+                where: { id },
+                data: {
+                    status: 'IN_PROGRESS',
+                    startedAt: new Date()
+                }
+            })
+
+            // Add assignments for partners
+            if (partnerIds && Array.isArray(partnerIds) && partnerIds.length > 0) {
+                await tx.workOrderAssignment.createMany({
+                    data: partnerIds.map((userId: string) => ({
+                        workOrderId: id,
+                        userId: userId,
+                        role: 'PARTNER',
+                        assignedById: session.user.id
+                    }))
+                })
+            }
+
+            // Create update log
+            const partnerMsg = partnerNames.length > 0 ? ` bersama partner: ${partnerNames.join(', ')}` : ''
+            await tx.workOrderUpdate.create({
+                data: {
+                    workOrderId: id,
+                    createdById: session.user.id,
+                    updateType: 'STATUS_CHANGE',
+                    message: `Mulai mengerjakan${partnerMsg}`,
+                    oldStatus: 'ASSIGNED',
+                    newStatus: 'IN_PROGRESS'
+                }
+            })
+        })
+
+        // Fetch updated WO
+        const updated = await prisma.workOrder.findUnique({
             where: { id },
-            data: {
-                status: 'IN_PROGRESS',
-                startedAt: new Date()
+            include: {
+                assignments: {
+                    include: { user: true }
+                }
             }
         })
 
-        // Create update log
-        await prisma.workOrderUpdate.create({
-            data: {
-                workOrderId: id,
-                createdById: session.user.id,
-                updateType: 'STATUS_CHANGE',
-                message: 'Mulai mengerjakan',
-                oldStatus: 'ASSIGNED',
-                newStatus: 'IN_PROGRESS'
-            }
-        })
-
-        // System Log
+        // System Log (Fire and forget)
         try {
             const { logger } = await import('@/lib/logger')
             await logger.logActivity({
                 action: 'UPDATE',
                 subject: 'Work Order',
                 userId: session.user.id,
-                details: { id, action: 'START_WORK', status: 'IN_PROGRESS' }
+                details: { id, action: 'START_WORK', status: 'IN_PROGRESS', partners: partnerIds }
             })
         } catch (e) {
             console.error('Logging failed', e)

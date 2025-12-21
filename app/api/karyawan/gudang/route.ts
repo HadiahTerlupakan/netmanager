@@ -19,12 +19,31 @@ export async function GET(req: NextRequest) {
         let whereClause: any = { isActive: true }
 
         if (isSiteRestricted) {
-            if (!user.siteId) {
-                // If restricted but no site assigned, return 403 as requested
+            const { searchParams } = new URL(req.url)
+            const workOrderId = searchParams.get('workOrderId')
+
+            const allowedSiteIds = []
+            if (user.siteId) allowedSiteIds.push(user.siteId)
+
+            if (workOrderId) {
+                const wo = await prisma.workOrder.findUnique({
+                    where: { id: workOrderId },
+                    select: { siteId: true }
+                })
+                if (wo?.siteId) allowedSiteIds.push(wo.siteId)
+            }
+
+            if (allowedSiteIds.length === 0) {
+                // If restricted but no site assigned (and no valid WO site), return 403
                 return NextResponse.json({ error: 'Access denied: No site assigned' }, { status: 403 })
             }
-            // Filter by Site
-            whereClause.siteId = user.siteId
+
+            // Filter by Site (User's site OR WorkOrder's site) using many-to-many relation
+            whereClause.sites = {
+                some: {
+                    id: { in: allowedSiteIds }
+                }
+            }
         }
 
         const gudangs = await prisma.gudang.findMany({

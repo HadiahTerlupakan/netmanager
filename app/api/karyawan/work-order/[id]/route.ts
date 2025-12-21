@@ -65,6 +65,16 @@ export async function GET(
                             }
                         }
                     }
+                },
+                assignments: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
+                    }
                 }
             }
         })

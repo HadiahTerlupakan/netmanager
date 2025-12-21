@@ -13,12 +13,25 @@ export async function GET(req: NextRequest) {
 
         const workOrders = await prisma.workOrder.findMany({
             where: {
-                assignedToId: session.user.id,
-                status: { in: ['ASSIGNED', 'IN_PROGRESS', 'COMPLETED'] }
+                OR: [
+                    { assignedToId: session.user.id },
+                    {
+                        assignments: {
+                            some: {
+                                userId: session.user.id,
+                                role: 'PARTNER'
+                            }
+                        }
+                    }
+                ],
+                status: { in: ['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD'] } // Added ON_HOLD just in case
             },
             include: {
                 pelanggan: {
                     select: { nama: true }
+                },
+                assignedTo: {
+                    select: { id: true, name: true }
                 }
             },
             orderBy: [

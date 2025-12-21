@@ -28,6 +28,7 @@ interface WorkOrder {
         nama: string
     } | null
     assignedTo?: {
+        id: string
         name: string
     } | null
 }
@@ -186,9 +187,16 @@ export default function WorkOrderListPage() {
                                         }`}>
                                         <div className="flex items-start justify-between mb-2">
                                             <div className="flex-1">
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mb-1">
-                                                    {wo.workOrderNumber}
-                                                </p>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                                        {wo.workOrderNumber}
+                                                    </p>
+                                                    {activeTab === 'saya' && wo.assignedTo?.id && user?.id && wo.assignedTo.id !== user.id && (
+                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                                            PARTNER
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <h3 className={`font-semibold line-clamp-2 ${isCompleted
                                                     ? 'text-gray-600 dark:text-gray-400'
                                                     : 'text-[#111418] dark:text-white'

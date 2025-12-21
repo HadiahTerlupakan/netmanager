@@ -86,6 +86,11 @@ interface WorkOrderDetail {
     updates: WorkOrderUpdate[]
     attachments?: WorkOrderAttachment[]
     startedAt: string | null
+    assignments?: {
+        id: string
+        role: string
+        user: { name: string }
+    }[]
 }
 
 export default function WorkOrderDetailClient() {
@@ -163,6 +168,8 @@ export default function WorkOrderDetailClient() {
             setIsLoading(false)
         }
     }
+
+
 
     const handleTakeTicket = async () => {
         if (!workOrder) return
@@ -522,6 +529,8 @@ export default function WorkOrderDetailClient() {
                         </div>
                     )}
 
+
+
                     {/* Tasks Checklist */}
                     {workOrder.tasks && workOrder.tasks.length > 0 && (
                         <div className="bg-white dark:bg-[#1c2936] rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
@@ -583,7 +592,15 @@ export default function WorkOrderDetailClient() {
                                 <div className="space-y-2">
                                     {workOrder.usedMaterials.map((item: any, idx: number) => (
                                         <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
-                                            <span className="text-sm dark:text-white">{item.nama}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm dark:text-white">{item.nama}</span>
+                                                {item.kondisi && (
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${item.kondisi === 'BARU' ? 'bg-green-100 text-green-700' :
+                                                            item.kondisi === 'BEKAS' ? 'bg-yellow-100 text-yellow-700' :
+                                                                'bg-red-100 text-red-700'
+                                                        }`}>{item.kondisi}</span>
+                                                )}
+                                            </div>
                                             <span className="text-sm text-gray-500">{item.jumlah} {item.satuan}</span>
                                         </div>
                                     ))}
@@ -594,12 +611,40 @@ export default function WorkOrderDetailClient() {
                         </div>
                     )}
 
+
+                    {/* Partners Info */}
+                    {workOrder.assignments && workOrder.assignments.filter(a => a.role === 'PARTNER').length > 0 && (
+                        <div className="bg-white dark:bg-[#1c2936] rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
+                            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-2">
+                                <MdPerson className="text-lg" />
+                                Partner Kerja
+                            </h3>
+                            <div className="space-y-2">
+                                {workOrder.assignments
+                                    .filter(a => a.role === 'PARTNER')
+                                    .map(assignment => (
+                                        <div key={assignment.id} className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 font-bold text-xs">
+                                                {assignment.user.name?.charAt(0).toUpperCase()}
+                                            </div>
+                                            <p className="text-sm font-medium dark:text-white">
+                                                {assignment.user.name}
+                                            </p>
+                                        </div>
+                                    ))
+                                }
+                            </div>
+                        </div>
+                    )}
+
                     {/* Activity Timeline */}
                     <div className="bg-white dark:bg-[#1c2936] rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800">
                         <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
                             <MdHistory className="text-lg" />
                             Activity Timeline
                         </h3>
+
+
 
                         {/* Add Update Form */}
                         {isAssignedToMe && (workOrder.status === 'IN_PROGRESS' || workOrder.status === 'ON_HOLD') && (
@@ -730,14 +775,22 @@ export default function WorkOrderDetailClient() {
                         </button>
                     )}
                     {canStartWork && (
-                        <button
-                            onClick={handleStartWork}
-                            disabled={isSubmitting}
-                            className="w-full bg-green-600 text-white font-bold py-3.5 px-4 rounded-xl hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                            <MdPlayArrow className="text-xl" />
-                            {isSubmitting ? 'Memproses...' : 'Mulai Kerjakan'}
-                        </button>
+                        <div className="space-y-3">
+                            <Link href={`/karyawan/work-order/${id}/partners`} className="block w-full">
+                                <button className="w-full bg-white dark:bg-[#1c2936] text-blue-600 font-bold py-3.5 px-4 rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-2">
+                                    <MdPerson className="text-xl" />
+                                    Atur Partner
+                                </button>
+                            </Link>
+                            <button
+                                onClick={handleStartWork}
+                                disabled={isSubmitting}
+                                className="w-full bg-green-600 text-white font-bold py-3.5 px-4 rounded-xl hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                <MdPlayArrow className="text-xl" />
+                                {isSubmitting ? 'Memproses...' : 'Mulai Kerjakan'}
+                            </button>
+                        </div>
                     )}
                     {canHold && (
                         <div className="flex gap-3">
@@ -805,6 +858,7 @@ export default function WorkOrderDetailClient() {
                         </div>
                     </div>
                 )}
+
             </div>
         </div>
     )
