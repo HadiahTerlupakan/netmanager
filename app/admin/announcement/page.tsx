@@ -51,7 +51,7 @@ export default function AnnouncementPage() {
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">Announcements</h1>
-                <Link href="/admin/announcements/create" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                <Link href="/admin/announcement/create" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
                     Create Announcement
                 </Link>
             </div>
@@ -98,7 +98,7 @@ export default function AnnouncementPage() {
                                         {announcement.endDate ? ` - ${new Date(announcement.endDate).toLocaleDateString()}` : ' - Forever'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <Link href={`/admin/announcements/${announcement.id}`} className="text-indigo-600 hover:text-indigo-900 mr-4">Edit</Link>
+                                        <Link href={`/admin/announcement/${announcement.id}`} className="text-indigo-600 hover:text-indigo-900 mr-4">Edit</Link>
                                         <button onClick={() => handleDelete(announcement.id)} className="text-red-600 hover:text-red-900">Delete</button>
                                     </td>
                                 </tr>

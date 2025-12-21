@@ -80,7 +80,7 @@ export default function AnnouncementForm({ initialData, isEdit = false }: Announ
 
             if (!res.ok) throw new Error('Failed to save');
 
-            router.push('/admin/announcements');
+            router.push('/admin/announcement');
             router.refresh();
         } catch (error) {
             console.error(error);
@@ -182,7 +182,7 @@ export default function AnnouncementForm({ initialData, isEdit = false }: Announ
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4 border-t">
-                    <Link href="/admin/announcements" className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    <Link href="/admin/announcement" className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
                         Cancel
                     </Link>
                     <button
