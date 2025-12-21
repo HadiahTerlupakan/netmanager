@@ -38,3 +38,15 @@ export async function ensurePermission(requiredPermission: string, redirectTo: s
         redirect(redirectTo)
     }
 }
+
+/**
+ * Check if user has ANY of the required permissions
+ * Useful for section layouts where user needs at least one submenu permission
+ */
+export async function ensureAnyPermission(requiredPermissions: string[], redirectTo: string = '/admin') {
+    const has = await hasAnyPermission(requiredPermissions)
+    if (!has) {
+        const { redirect } = await import('next/navigation')
+        redirect(redirectTo)
+    }
+}

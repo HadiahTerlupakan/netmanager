@@ -1,8 +1,22 @@
+import { ensureAnyPermission } from '@/lib/rbac'
+
+// Network section permissions
+const NETWORK_PERMISSIONS = [
+    'network:read',
+    'mikrotik:read',
+    'radius:read',
+    'olt:read',
+    'onu:read',
+    'onutype:read',
+    'speedprofiles:read',
+    'vlan:read'
+]
+
 export default async function NetworkSectionLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    // No parent-level permission check - let each page handle its own permission
+    await ensureAnyPermission(NETWORK_PERMISSIONS)
     return <>{children}</>
 }

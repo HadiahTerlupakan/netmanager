@@ -1,9 +1,21 @@
+import { ensureAnyPermission } from '@/lib/rbac'
+
+// Pengaturan section permissions
+const PENGATURAN_PERMISSIONS = [
+    'pengaturan:read',
+    'umum:read',
+    'logo:read',
+    'email:read',
+    'whatsapp:read',
+    'payment_gateway:read',
+    'api:read'
+]
+
 export default async function PengaturanSectionLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    // No parent-level permission check - let each page handle its own permission
-    // This allows users to access specific settings they have permission for
+    await ensureAnyPermission(PENGATURAN_PERMISSIONS)
     return <>{children}</>
 }

@@ -1,9 +1,18 @@
+import { ensureAnyPermission } from '@/lib/rbac'
+
+// Finance section permissions: daily_income, period_income, expense, profit_loss
+const FINANCE_PERMISSIONS = [
+    'daily_income:read',
+    'period_income:read',
+    'expense:read',
+    'profit_loss:read'
+]
+
 export default async function FinanceSectionLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    // No parent-level permission check - let each page handle its own permission
-    // This allows users to access specific finance pages they have permission for
+    await ensureAnyPermission(FINANCE_PERMISSIONS)
     return <>{children}</>
 }
