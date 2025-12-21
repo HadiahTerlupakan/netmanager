@@ -1,10 +1,8 @@
-import { ensurePermission } from '@/lib/rbac'
-
 export default async function KehadiranSectionLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    await ensurePermission('attendance:read')
+    // No parent-level permission check - let each page handle its own permission
     return <>{children}</>
 }

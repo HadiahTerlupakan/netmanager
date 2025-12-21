@@ -1,10 +1,8 @@
-import { ensurePermission } from '@/lib/rbac'
-
-export default async function WorkOrdersSectionLayout({
+export default async function WorkordersSectionLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    await ensurePermission('workorders:read')
+    // No parent-level permission check - let each page handle its own permission
     return <>{children}</>
 }

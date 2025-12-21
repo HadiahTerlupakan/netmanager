@@ -1,10 +1,8 @@
-import { ensurePermission } from '@/lib/rbac'
-
 export default async function PelangganSectionLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    await ensurePermission('pelanggan:read')
+    // No parent-level permission check - let each page handle its own permission
     return <>{children}</>
 }
