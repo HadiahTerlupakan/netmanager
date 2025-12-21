@@ -171,14 +171,45 @@ curl -I https://radpro.id
 
 ## 🔄 Update Aplikasi
 
-```bash
-# Dari komputer lokal
-./quick-deploy.sh deploy@IP_SERVER update
+### Update Kode (Tanpa Perubahan Database)
 
-# Atau di server
-cd /opt/netmanager
+```bash
+# Di server VPS
+cd ~/netmanager
 git pull
-./deploy.sh update
+docker compose -f docker-compose.production.yml --profile ssl up -d --force-recreate --build app
+```
+
+### Update Kode + Schema Database
+
+```bash
+# Di server VPS
+cd ~/netmanager
+git pull
+
+# Rebuild app
+docker compose -f docker-compose.production.yml --profile ssl up -d --force-recreate --build app
+
+# Jalankan migration
+docker exec -it netmanager-app npx prisma migrate deploy
+
+# Jika ada data seed baru
+docker exec -it netmanager-app npx tsx prisma/seed.ts
+```
+
+### Reset Database (Development Only!)
+
+> ⚠️ **Warning**: Ini akan menghapus semua data!
+
+```bash
+# Reset database ke schema terbaru
+docker exec -it netmanager-app npx prisma db push --force-reset
+
+# Seed data awal
+docker exec -it netmanager-app npx tsx prisma/seed.ts
+
+# Restart app
+docker restart netmanager-app
 ```
 
 ---
