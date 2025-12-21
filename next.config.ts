@@ -32,8 +32,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: false, // Temporarily disabled to suppress React warnings from swagger-ui-react
   // Next.js 16: serverActions configuration is now handled differently
 
-  // Webpack configuration to suppress React warnings
-  webpack: (config, { isServer }) => {
+  // Webpack configuration to suppress React warnings and remove console.log in production
+  webpack: (config, { isServer, dev }) => {
     // Suppress React UNSAFE_componentWillReceiveProps warnings from swagger-ui-react
     if (!isServer) {
       config.ignoreWarnings = [
@@ -42,6 +42,23 @@ const nextConfig: NextConfig = {
         /ModelCollapse/
       ]
     }
+
+    // Remove console.log in production (keep console.error and console.warn)
+    if (!dev && !isServer) {
+      const TerserPlugin = require('terser-webpack-plugin')
+      config.optimization.minimizer = config.optimization.minimizer || []
+      config.optimization.minimizer.push(
+        new TerserPlugin({
+          terserOptions: {
+            compress: {
+              drop_console: false, // Don't drop all console
+              pure_funcs: ['console.log', 'console.debug', 'console.info'], // Only drop these
+            },
+          },
+        })
+      )
+    }
+
     return config
   },
 
