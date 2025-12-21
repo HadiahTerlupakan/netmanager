@@ -59,14 +59,40 @@ export const authConfig: NextAuthOptions = {
   // Configure cookies for cross-subdomain support
   cookies: {
     sessionToken: {
-      name: `next-auth.session-token`,
+      // Untuk HTTPS production, gunakan __Secure- prefix
+      name: process.env.NODE_ENV === 'production' && process.env.NEXTAUTH_URL?.startsWith('https://')
+        ? `__Secure-next-auth.session-token`
+        : `next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        // Secure hanya jika production DAN URL diawali https
         secure: process.env.NODE_ENV === 'production' && process.env.NEXTAUTH_URL?.startsWith('https://'),
         domain: process.env.COOKIE_DOMAIN === 'localhost' ? undefined : process.env.COOKIE_DOMAIN
+      }
+    },
+    callbackUrl: {
+      name: process.env.NODE_ENV === 'production' && process.env.NEXTAUTH_URL?.startsWith('https://')
+        ? `__Secure-next-auth.callback-url`
+        : `next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production' && process.env.NEXTAUTH_URL?.startsWith('https://'),
+        domain: process.env.COOKIE_DOMAIN === 'localhost' ? undefined : process.env.COOKIE_DOMAIN
+      }
+    },
+    csrfToken: {
+      name: process.env.NODE_ENV === 'production' && process.env.NEXTAUTH_URL?.startsWith('https://')
+        ? `__Host-next-auth.csrf-token`
+        : `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production' && process.env.NEXTAUTH_URL?.startsWith('https://'),
+        // CSRF token uses __Host- prefix which doesn't allow domain
       }
     }
   },
