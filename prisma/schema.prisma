@@ -1188,7 +1188,9 @@ model WorkOrderAssignment {
   workOrderId  String
   userId       String
   role         String?
+  status       String    @default("PENDING") // PENDING | APPROVED | REJECTED
   assignedAt   DateTime  @default(now())
+  respondedAt  DateTime?
   assignedById String?
   user         User      @relation("UserWorkOrderAssignments", fields: [userId], references: [id], onDelete: Cascade)
   workOrder    WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)

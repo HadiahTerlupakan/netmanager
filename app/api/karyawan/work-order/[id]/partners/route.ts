@@ -35,17 +35,48 @@ export async function POST(
 
         // Validate partners match site/dept requirements
         if (partnerIds.length > 0) {
-            const count = await prisma.user.count({
-                where: {
-                    id: { in: partnerIds },
-                    siteId: workOrder.siteId,
-                    // departmentId: workOrder.departmentId, // Allow cross-department partners
-                    isActive: true
-                }
+            // Use Work Order site/dept, or fallback to current user's site/dept
+            let targetSiteId = workOrder.siteId
+            let targetDeptId = workOrder.departmentId
+
+            if (!targetSiteId) {
+                const currentUser = await prisma.user.findUnique({
+                    where: { id: session.user.id },
+                    select: { siteId: true, departmentId: true }
+                })
+                targetSiteId = currentUser?.siteId || null
+                targetDeptId = currentUser?.departmentId || null
+            }
+
+            const whereClause: any = {
+                id: { in: partnerIds },
+                isActive: true
+            }
+            if (targetSiteId) whereClause.siteId = targetSiteId
+            if (targetDeptId) whereClause.departmentId = targetDeptId
+
+            const validPartners = await prisma.user.findMany({
+                where: whereClause,
+                select: { id: true, name: true, siteId: true, departmentId: true }
             })
 
-            if (count !== partnerIds.length) {
-                return NextResponse.json({ error: 'Beberapa partner tidak valid (beda site/departemen)' }, { status: 400 })
+            console.log('[Partners] Validation:', {
+                requestedIds: partnerIds,
+                targetSiteId,
+                targetDeptId,
+                validPartners: validPartners.map(p => ({ id: p.id, name: p.name, siteId: p.siteId }))
+            })
+
+            if (validPartners.length !== partnerIds.length) {
+                return NextResponse.json({
+                    error: 'Beberapa partner tidak valid (beda site/departemen)',
+                    debug: {
+                        requested: partnerIds.length,
+                        valid: validPartners.length,
+                        targetSiteId,
+                        targetDeptId
+                    }
+                }, { status: 400 })
             }
         }
 
@@ -69,26 +100,27 @@ export async function POST(
                 }
             })
 
-            // Add new partners
+            // Add new partners with PENDING status
             if (partnerIds.length > 0) {
                 await tx.workOrderAssignment.createMany({
                     data: partnerIds.map((userId: string) => ({
                         workOrderId: id,
                         userId: userId,
                         role: 'PARTNER',
+                        status: 'PENDING',
                         assignedById: session.user.id
                     }))
                 })
             }
 
-            // Create Notifications for NEW partners
+            // Create Notifications for NEW partners (with approval request)
             if (newPartnerIds.length > 0) {
                 await tx.notification.createMany({
                     data: newPartnerIds.map((userId: string) => ({
                         userId,
-                        type: 'WORK_ORDER',
-                        title: 'Partner Kerja Baru',
-                        message: `Anda telah ditambahkan sebagai partner kerja di Work Order #${workOrder.workOrderNumber || id.substring(0, 8)}`,
+                        type: 'PARTNER_REQUEST',
+                        title: 'Permintaan Partner Kerja',
+                        message: `Anda diminta menjadi partner kerja di Work Order #${workOrder.workOrderNumber || id.substring(0, 8)}. Silakan berikan tanggapan.`,
                         link: `/karyawan/work-order/${id}`,
                         sourceType: 'WORK_ORDER',
                         sourceId: id,

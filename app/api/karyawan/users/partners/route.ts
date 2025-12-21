@@ -43,20 +43,17 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ users: [] })
         }
 
-        // Fetch users from target site
+        // Fetch users from target site AND department
         const users = await prisma.user.findMany({
             where: {
                 siteId: targetSiteId,
-                // departmentId: targetDeptId, // Allow cross-department partners
+                departmentId: targetDeptId || undefined, // Same site AND department
                 id: { not: session.user.id },
                 isActive: true
             },
             select: {
                 id: true,
-                name: true,
-                role: {
-                    select: { name: true }
-                }
+                name: true
             },
             orderBy: { name: 'asc' }
         })

@@ -89,6 +89,7 @@ interface WorkOrderDetail {
     assignments?: {
         id: string
         role: string
+        status?: string
         user: { name: string }
     }[]
 }
@@ -101,6 +102,8 @@ export default function WorkOrderDetailClient() {
     const [updateMessage, setUpdateMessage] = useState('')
     const [holdReason, setHoldReason] = useState('')
     const [showHoldModal, setShowHoldModal] = useState(false)
+    const [showPartnerResponseModal, setShowPartnerResponseModal] = useState(false)
+    const [partnerResponseLoading, setPartnerResponseLoading] = useState(false)
     const [updatePhotos, setUpdatePhotos] = useState<File[]>([])
     const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
     const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
@@ -211,6 +214,29 @@ export default function WorkOrderDetailClient() {
             console.error('Failed to start work:', error)
         } finally {
             setIsSubmitting(false)
+        }
+    }
+
+    const handlePartnerResponse = async (response: 'APPROVED' | 'REJECTED') => {
+        setPartnerResponseLoading(true)
+        try {
+            const res = await fetch(`/api/karyawan/work-order/${id}/partner-response`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ response })
+            })
+            if (res.ok) {
+                setShowPartnerResponseModal(false)
+                await fetchWorkOrder()
+            } else {
+                const data = await res.json()
+                alert(data.error || 'Gagal merespon')
+            }
+        } catch (error) {
+            console.error('Failed to respond:', error)
+            alert('Terjadi kesalahan')
+        } finally {
+            setPartnerResponseLoading(false)
         }
     }
 
@@ -402,8 +428,13 @@ export default function WorkOrderDetailClient() {
     }
 
     const isAssignedToMe = workOrder?.assignedTo?.id === user?.id
+    const isPartner = workOrder?.assignments?.some(a => a.role === 'PARTNER' && a.user?.name === user?.name)
+    const myPartnerAssignment = workOrder?.assignments?.find(a => a.role === 'PARTNER' && a.user?.name === user?.name)
+    const partnerList = workOrder?.assignments?.filter(a => a.role === 'PARTNER') || []
+    const hasPendingPartners = partnerList.some(a => a.status === 'PENDING')
+    const allPartnersResponded = partnerList.length === 0 || partnerList.every(a => a.status !== 'PENDING')
     const canTakeTicket = workOrder?.status === 'PENDING' && !workOrder?.assignedTo
-    const canStartWork = isAssignedToMe && workOrder?.status === 'ASSIGNED'
+    const canStartWork = isAssignedToMe && workOrder?.status === 'ASSIGNED' && allPartnersResponded
     const canHold = isAssignedToMe && workOrder?.status === 'IN_PROGRESS'
     const canResume = isAssignedToMe && workOrder?.status === 'ON_HOLD'
     const canAddMaterial = isAssignedToMe && workOrder?.status === 'IN_PROGRESS'
@@ -596,8 +627,8 @@ export default function WorkOrderDetailClient() {
                                                 <span className="text-sm dark:text-white">{item.nama}</span>
                                                 {item.kondisi && (
                                                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${item.kondisi === 'BARU' ? 'bg-green-100 text-green-700' :
-                                                            item.kondisi === 'BEKAS' ? 'bg-yellow-100 text-yellow-700' :
-                                                                'bg-red-100 text-red-700'
+                                                        item.kondisi === 'BEKAS' ? 'bg-yellow-100 text-yellow-700' :
+                                                            'bg-red-100 text-red-700'
                                                         }`}>{item.kondisi}</span>
                                                 )}
                                             </div>
@@ -623,13 +654,22 @@ export default function WorkOrderDetailClient() {
                                 {workOrder.assignments
                                     .filter(a => a.role === 'PARTNER')
                                     .map(assignment => (
-                                        <div key={assignment.id} className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 font-bold text-xs">
-                                                {assignment.user.name?.charAt(0).toUpperCase()}
+                                        <div key={assignment.id} className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 font-bold text-xs">
+                                                    {assignment.user.name?.charAt(0).toUpperCase()}
+                                                </div>
+                                                <p className="text-sm font-medium dark:text-white">
+                                                    {assignment.user.name}
+                                                </p>
                                             </div>
-                                            <p className="text-sm font-medium dark:text-white">
-                                                {assignment.user.name}
-                                            </p>
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${assignment.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                                                assignment.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                                    'bg-yellow-100 text-yellow-700'
+                                                }`}>
+                                                {assignment.status === 'APPROVED' ? 'Setuju' :
+                                                    assignment.status === 'REJECTED' ? 'Tolak' : 'Menunggu'}
+                                            </span>
                                         </div>
                                     ))
                                 }
@@ -774,6 +814,16 @@ export default function WorkOrderDetailClient() {
                             {isSubmitting ? 'Memproses...' : 'Ambil Tiket Ini'}
                         </button>
                     )}
+                    {/* Partner Response Button - for partners who haven't responded */}
+                    {isPartner && myPartnerAssignment?.status === 'PENDING' && (
+                        <button
+                            onClick={() => setShowPartnerResponseModal(true)}
+                            className="w-full bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <MdPerson className="text-xl" />
+                            Tanggapi Permintaan Partner
+                        </button>
+                    )}
                     {canStartWork && (
                         <div className="space-y-3">
                             <Link href={`/karyawan/work-order/${id}/partners`} className="block w-full">
@@ -790,6 +840,22 @@ export default function WorkOrderDetailClient() {
                                 <MdPlayArrow className="text-xl" />
                                 {isSubmitting ? 'Memproses...' : 'Mulai Kerjakan'}
                             </button>
+                        </div>
+                    )}
+                    {/* Warning: Waiting for partner response */}
+                    {isAssignedToMe && workOrder?.status === 'ASSIGNED' && hasPendingPartners && (
+                        <div className="space-y-3">
+                            <Link href={`/karyawan/work-order/${id}/partners`} className="block w-full">
+                                <button className="w-full bg-white dark:bg-[#1c2936] text-blue-600 font-bold py-3.5 px-4 rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-2">
+                                    <MdPerson className="text-xl" />
+                                    Atur Partner
+                                </button>
+                            </Link>
+                            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-3 text-center">
+                                <p className="text-sm text-yellow-700 dark:text-yellow-400 font-medium">
+                                    Menunggu tanggapan dari partner kerja sebelum bisa mulai bekerja
+                                </p>
+                            </div>
                         </div>
                     )}
                     {canHold && (
@@ -854,6 +920,36 @@ export default function WorkOrderDetailClient() {
                                 >
                                     {isSubmitting ? 'Menyimpan...' : 'Simpan'}
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Partner Response Modal */}
+                {showPartnerResponseModal && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white dark:bg-[#1c2936] rounded-2xl w-full max-w-sm shadow-xl">
+                            <div className="p-5">
+                                <h3 className="text-lg font-bold dark:text-white mb-2">Konfirmasi Partner</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                    Apakah Anda bersedia menjadi partner di Work Order ini?
+                                </p>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => handlePartnerResponse('REJECTED')}
+                                        disabled={partnerResponseLoading}
+                                        className="flex-1 py-2.5 rounded-lg border border-red-200 dark:border-red-800 text-red-600 font-medium disabled:opacity-50"
+                                    >
+                                        Tolak
+                                    </button>
+                                    <button
+                                        onClick={() => handlePartnerResponse('APPROVED')}
+                                        disabled={partnerResponseLoading}
+                                        className="flex-1 py-2.5 rounded-lg bg-green-600 text-white font-medium disabled:opacity-50"
+                                    >
+                                        {partnerResponseLoading ? 'Memproses...' : 'Setuju'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
