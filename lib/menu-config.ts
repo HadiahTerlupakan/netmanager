@@ -127,8 +127,8 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: '/admin/kehadiran',
         icon: 'HiOutlineClipboardDocumentCheck',
         children: [
-            { code: 'KEHADIRAN.LAPORAN', name: 'Laporan', path: '/admin/kehadiran/laporan', icon: 'HiOutlineDocumentText' },
-            { code: 'KEHADIRAN.ABSENSI', name: 'Data Absensi', path: '/admin/attendance', icon: 'HiOutlineClipboardDocumentList' },
+            { code: 'KEHADIRAN.REPORT', name: 'Laporan', path: '/admin/kehadiran/laporan', icon: 'HiOutlineDocumentText' },
+            { code: 'KEHADIRAN.ATTENDANCE', name: 'Data Absensi', path: '/admin/attendance', icon: 'HiOutlineClipboardDocumentList' },
             { code: 'KEHADIRAN.LEMBUR', name: 'Manajemen Lembur', path: '/admin/lembur', icon: 'HiOutlineClock' },
         ],
     },
