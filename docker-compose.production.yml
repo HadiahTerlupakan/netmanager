@@ -195,32 +195,14 @@ services:
       - "traefik.http.middlewares.admin-path.replacepathregex.regex=^/(.*)"
       - "traefik.http.middlewares.admin-path.replacepathregex.replacement=/admin/$$1"
       
-      # Employee Subdomain
-      - "traefik.http.routers.netmanager-employee.rule=Host(`employee.${DOMAIN}`)"
-      - "traefik.http.routers.netmanager-employee.entrypoints=websecure"
-      - "traefik.http.routers.netmanager-employee.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.netmanager-employee.middlewares=employee-path"
-      - "traefik.http.routers.netmanager-employee.service=netmanager-service"
-      - "traefik.http.middlewares.employee-path.replacepathregex.regex=^/(.*)"
-      - "traefik.http.middlewares.employee-path.replacepathregex.replacement=/employee/$$1"
-      
-      # Helpdesk Subdomain
-      - "traefik.http.routers.netmanager-helpdesk.rule=Host(`helpdesk.${DOMAIN}`)"
-      - "traefik.http.routers.netmanager-helpdesk.entrypoints=websecure"
-      - "traefik.http.routers.netmanager-helpdesk.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.netmanager-helpdesk.middlewares=helpdesk-path"
-      - "traefik.http.routers.netmanager-helpdesk.service=netmanager-service"
-      - "traefik.http.middlewares.helpdesk-path.replacepathregex.regex=^/(.*)"
-      - "traefik.http.middlewares.helpdesk-path.replacepathregex.replacement=/helpdesk/$$1"
-      
-      # Pelanggan Subdomain
-      - "traefik.http.routers.netmanager-pelanggan.rule=Host(`pelanggan.${DOMAIN}`)"
-      - "traefik.http.routers.netmanager-pelanggan.entrypoints=websecure"
-      - "traefik.http.routers.netmanager-pelanggan.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.netmanager-pelanggan.middlewares=pelanggan-path"
-      - "traefik.http.routers.netmanager-pelanggan.service=netmanager-service"
-      - "traefik.http.middlewares.pelanggan-path.replacepathregex.regex=^/(.*)"
-      - "traefik.http.middlewares.pelanggan-path.replacepathregex.replacement=/pelanggan/$$1"
+      # Karyawan Subdomain
+      - "traefik.http.routers.netmanager-karyawan.rule=Host(`karyawan.${DOMAIN}`)"
+      - "traefik.http.routers.netmanager-karyawan.entrypoints=websecure"
+      - "traefik.http.routers.netmanager-karyawan.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.netmanager-karyawan.middlewares=karyawan-path"
+      - "traefik.http.routers.netmanager-karyawan.service=netmanager-service"
+      - "traefik.http.middlewares.karyawan-path.replacepathregex.regex=^/(.*)"
+      - "traefik.http.middlewares.karyawan-path.replacepathregex.replacement=/karyawan/$$1"
       
       # Service
       - "traefik.http.services.netmanager-service.loadbalancer.server.port=3000"
