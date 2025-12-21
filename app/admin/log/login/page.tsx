@@ -3,5 +3,5 @@ import { ClientComponent } from './LoginLogClient'
 
 export default async function LoginLogPage() {
     await ensurePermission('login:read')
-    return <LoginLogClient />
+    return <ClientComponent />
 }

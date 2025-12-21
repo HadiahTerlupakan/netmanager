@@ -34,7 +34,7 @@ const SectionHeader = ({ icon: Icon, title }: { icon: any, title: string }) => (
   </div>
 )
 
-export default async function PelangganPPPDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const pelanggan = await prisma.pelanggan.findUnique({
     where: { id },

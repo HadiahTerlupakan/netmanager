@@ -14,7 +14,7 @@ import {
   HiOutlineDocumentText 
 } from 'react-icons/hi2'
 
-export default async function OtbDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const otb = await prisma.otb.findUnique({
     where: { id },

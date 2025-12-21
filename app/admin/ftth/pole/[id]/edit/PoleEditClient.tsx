@@ -1,7 +1,7 @@
 import { getPoleRepository } from '@/lib/repositories'
 import { PoleForm } from '@/components/pole/PoleForm'
 
-export default async function EditPolePage(ctx: { params: Promise<{ id: string }> }) {
+export async function ClientComponent(ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const repo = getPoleRepository()
   const o = await repo.findById(id)

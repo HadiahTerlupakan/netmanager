@@ -13,7 +13,7 @@ import {
   HiOutlineClock
 } from 'react-icons/hi2'
 
-export default async function JoinboxDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const detail = await prisma.joinbox.findUnique({
     where: { id },

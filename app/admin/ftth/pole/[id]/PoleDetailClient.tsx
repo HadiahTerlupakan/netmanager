@@ -15,7 +15,7 @@ import {
   HiXCircle
 } from 'react-icons/hi2'
 
-export default async function PoleDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const pole = await prisma.pole.findUnique({
     where: { id },

@@ -29,7 +29,7 @@ ChartJS.register(
     Legend
 );
 
-export function PeriodIncomeClientPeriodRevenuePage() {
+export function ClientComponent() {
     const [loading, setLoading] = useState(true);
     const [totalRevenue, setTotalRevenue] = useState(0);
     const [dateRange, setDateRange] = useState({

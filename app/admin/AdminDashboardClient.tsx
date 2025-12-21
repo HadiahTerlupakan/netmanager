@@ -12,7 +12,7 @@ import { getTopEmployees, getTopProblematicSites, getTopDismantleSites, getTopIn
 // Force dynamic rendering to avoid database queries during build
 export const dynamic = 'force-dynamic'
 
-export default async function AdminHome() {
+export async function ClientComponent() {
   const session = await getServerSession(authConfig)
 
   // If no session, let the layout/middleware handle it, or redirect

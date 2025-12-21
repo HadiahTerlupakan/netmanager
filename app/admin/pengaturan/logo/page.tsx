@@ -3,5 +3,5 @@ import { ClientComponent } from './LogoSettingsClient'
 
 export default async function LogoSettingsPage() {
     await ensurePermission('logo:read')
-    return <LogoSettingsClient />
+    return <ClientComponent />
 }

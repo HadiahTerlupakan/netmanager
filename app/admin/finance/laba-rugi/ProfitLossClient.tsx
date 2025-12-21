@@ -20,7 +20,7 @@ import { toast } from "react-hot-toast";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-export function ProfitLossClientLabaRugiPage() {
+export function ClientComponent() {
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
         totalRevenue: 0,

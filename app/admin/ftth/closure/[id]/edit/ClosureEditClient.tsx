@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { JoinboxForm } from '@/components/closure/JoinboxForm'
 import { prisma } from '@/lib/prisma'
 
-export default async function EditJoinboxPage({ params }: { params: Promise<{ id: string }> }) {
+export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const detail = await prisma.joinbox.findUnique({
     where: { id },

@@ -9,7 +9,7 @@ interface EditAnnouncementPageProps {
     }>;
 }
 
-export default async function EditAnnouncementPage({ params }: EditAnnouncementPageProps) {
+export async function ClientComponent({ params }: EditAnnouncementPageProps) {
     const { id } = await params;
 
     const announcement = await prisma.announcement.findUnique({

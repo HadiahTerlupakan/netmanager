@@ -3,5 +3,5 @@ import { ClientComponent } from './GeneralSettingsClient'
 
 export default async function GeneralSettingsPage() {
     await ensurePermission('umum:read')
-    return <GeneralSettingsClient />
+    return <ClientComponent />
 }

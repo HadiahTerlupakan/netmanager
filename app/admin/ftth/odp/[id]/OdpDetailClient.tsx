@@ -15,7 +15,7 @@ import {
   HiOutlineClock
 } from 'react-icons/hi2'
 
-export default async function OdpDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const odp = await prisma.odp.findUnique({
     where: { id },
