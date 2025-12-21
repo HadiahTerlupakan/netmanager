@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getInventoryRepository } from '@/lib/repositories'
 
 // POST - Create barang keluar
 export async function POST(req: NextRequest) {
@@ -54,34 +55,19 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Create barang keluar and update stock in transaction
-        const result = await prisma.$transaction(async (tx) => {
-            // Create barang keluar
-            const keluar = await tx.barangKeluar.create({
-                data: {
-                    barangId,
-                    gudangId,
-                    jumlah,
-                    kondisi: kondisi || 'BARU',
-                    keterangan,
-                    tujuanPenggunaan,
-                    fotoBukti: fotoBukti || [],
-                    userId: session.user.id
-                },
-                include: { barang: true, gudang: true }
-            })
+        // Use Repository for consistency
+        const inventoryRepository = getInventoryRepository()
 
-            // Update stock
-            await tx.barangGudang.update({
-                where: {
-                    barangId_gudangId: { barangId, gudangId }
-                },
-                data: {
-                    stok: { decrement: jumlah }
-                }
-            })
-
-            return keluar
+        const result = await inventoryRepository.removeStock({
+            barangId,
+            gudangId,
+            jumlah,
+            kondisi: kondisi || 'BARU',
+            keterangan,
+            tujuanPenggunaan,
+            fotoBukti: fotoBukti || [],
+            userId: session.user.id,
+            tanggal: new Date()
         })
 
         return NextResponse.json({ success: true, barangKeluar: result })

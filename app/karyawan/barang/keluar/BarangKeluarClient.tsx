@@ -19,6 +19,9 @@ interface Barang {
     nama: string
     satuan: string
     stok: number
+    stokBaru: number
+    stokBekas: number
+    stokRusak: number
 }
 
 interface Gudang {
@@ -77,18 +80,25 @@ export default function BarangKeluarClient() {
         }
     }
 
-    const fetchBarangs = async () => {
+    const fetchBarangs = async (query: string = '') => {
+        if (!formData.gudangId) return
+
         try {
-            const res = await fetch(`/api/inventory/barang?gudangId=${formData.gudangId}&limit=1000`)
+            const url = `/api/inventory/barang?gudangId=${formData.gudangId}&limit=20&search=${encodeURIComponent(query)}`
+            const res = await fetch(url)
             if (res.ok) {
                 const data = await res.json()
-                // Fix: Map API response to match Barang interface
-                // API returns { ...barang, totalStock, stockPerGudang: [...] }
                 const mappedBarangs = (data.barangs || [])
-                    .map((b: any) => ({
-                        ...b,
-                        stok: b.totalStock || 0 // Use totalStock from API as the display stock
-                    }))
+                    .map((b: any) => {
+                        const stockInfo = b.stockPerGudang?.find((s: any) => s.gudangId === formData.gudangId) || {}
+                        return {
+                            ...b,
+                            stok: stockInfo.stok || 0,
+                            stokBaru: stockInfo.stokBaru || 0,
+                            stokBekas: stockInfo.stokBekas || 0,
+                            stokRusak: stockInfo.stokRusak || 0
+                        }
+                    })
                     .filter((b: any) => b.stok > 0)
                 setBarangs(mappedBarangs)
             }
@@ -123,19 +133,31 @@ export default function BarangKeluarClient() {
         return []
     }
 
+    const getAvailableStock = () => {
+        if (!selectedBarang) return 0
+        switch (formData.kondisi) {
+            case 'BARU': return selectedBarang.stokBaru
+            case 'BEKAS': return selectedBarang.stokBekas
+            case 'RUSAK': return selectedBarang.stokRusak
+            default: return selectedBarang.stokBaru
+        }
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!formData.barangId || !formData.gudangId || formData.jumlah <= 0) {
             alert('Lengkapi semua field')
             return
         }
-        if (selectedBarang && formData.jumlah > selectedBarang.stok) {
-            alert('Jumlah melebihi stok')
+
+        const available = getAvailableStock()
+        if (selectedBarang && formData.jumlah > available) {
+            alert(`Jumlah melebihi stok ${formData.kondisi} (Tersedia: ${available})`)
             return
         }
+
         setIsSubmitting(true)
         try {
-            // Upload images first
             const fotoBukti = await uploadImages()
 
             const res = await fetch('/api/karyawan/barang/keluar', {
@@ -184,7 +206,6 @@ export default function BarangKeluarClient() {
         <div className="min-h-screen w-full bg-[#f6f7f8] dark:bg-[#101922] text-[#111418] dark:text-white font-sans antialiased">
             <div className="relative flex h-full min-h-screen w-full flex-col max-w-md mx-auto bg-[#f6f7f8] dark:bg-[#101922] shadow-xl">
 
-                {/* Header */}
                 <div className="sticky top-0 z-20 bg-[#f6f7f8] dark:bg-[#101922] border-b border-gray-100 dark:border-gray-800">
                     <div className="flex items-center p-4 justify-between">
                         <Link href="/karyawan/barang" className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
@@ -195,7 +216,6 @@ export default function BarangKeluarClient() {
                     </div>
                 </div>
 
-                {/* Success Message */}
                 {success && (
                     <div className="mx-4 mt-4 p-4 rounded-xl bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 flex items-center gap-3">
                         <MdCheck className="text-2xl text-green-600" />
@@ -203,9 +223,7 @@ export default function BarangKeluarClient() {
                     </div>
                 )}
 
-                {/* Form */}
                 <form onSubmit={handleSubmit} className="flex-1 pb-32 px-4 pt-4 space-y-4">
-                    {/* Gudang */}
                     <div className="z-20 relative">
                         <label className="block text-sm font-medium mb-2">Gudang</label>
                         <Combobox
@@ -220,29 +238,28 @@ export default function BarangKeluarClient() {
                         />
                     </div>
 
-                    {/* Barang */}
                     <div className="z-10 relative">
                         <label className="block text-sm font-medium mb-2">Barang</label>
                         <Combobox
                             value={formData.barangId}
                             onChange={(val) => handleBarangChange(val)}
+                            onSearch={fetchBarangs}
                             options={barangs.map(b => ({
                                 value: b.id,
                                 label: `${b.kode} - ${b.nama} (Stok: ${b.stok})`,
                                 searchLabel: `${b.kode} ${b.nama}`,
                                 disabled: b.stok <= 0
                             }))}
-                            placeholder="Cari & Pilih Barang"
+                            placeholder="Ketik nama untuk mencari..."
                             disabled={!formData.gudangId}
                         />
                         {selectedBarang && (
                             <p className="mt-2 text-sm text-gray-500">
-                                Stok tersedia: <span className="font-semibold text-green-600">{selectedBarang.stok} {selectedBarang.satuan}</span>
+                                Stok {formData.kondisi}: <span className="font-semibold text-green-600">{getAvailableStock()} {selectedBarang.satuan}</span>
                             </p>
                         )}
                     </div>
 
-                    {/* Jumlah */}
                     <div>
                         <label className="block text-sm font-medium mb-2">Jumlah</label>
                         <div className="flex items-center gap-3">
@@ -259,11 +276,11 @@ export default function BarangKeluarClient() {
                                 onChange={(e) => setFormData({ ...formData, jumlah: parseInt(e.target.value) || 1 })}
                                 className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-[#1c2936] border border-gray-200 dark:border-gray-700 text-center text-lg font-bold"
                                 min="1"
-                                max={selectedBarang?.stok || 999}
+                                max={getAvailableStock()}
                             />
                             <button
                                 type="button"
-                                onClick={() => setFormData({ ...formData, jumlah: Math.min((selectedBarang?.stok || 999), formData.jumlah + 1) })}
+                                onClick={() => setFormData({ ...formData, jumlah: Math.min(getAvailableStock(), formData.jumlah + 1) })}
                                 className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center"
                             >
                                 <MdAdd className="text-xl" />
@@ -271,7 +288,6 @@ export default function BarangKeluarClient() {
                         </div>
                     </div>
 
-                    {/* Kondisi */}
                     <div>
                         <label className="block text-sm font-medium mb-2">Kondisi</label>
                         <div className="flex gap-2">
@@ -291,14 +307,12 @@ export default function BarangKeluarClient() {
                         </div>
                     </div>
 
-                    {/* Image Upload */}
                     <ImageUpload
                         images={images}
                         onImagesChange={setImages}
                         maxImages={5}
                     />
 
-                    {/* Tujuan Penggunaan */}
                     <div>
                         <label className="block text-sm font-medium mb-2">Tujuan Penggunaan</label>
                         <input
@@ -310,7 +324,6 @@ export default function BarangKeluarClient() {
                         />
                     </div>
 
-                    {/* Keterangan */}
                     <div>
                         <label className="block text-sm font-medium mb-2">Keterangan (Opsional)</label>
                         <textarea
@@ -323,11 +336,10 @@ export default function BarangKeluarClient() {
                     </div>
                 </form>
 
-                {/* Submit Button */}
                 <div className="fixed bottom-20 left-0 right-0 p-4 bg-[#f6f7f8] dark:bg-[#101922] border-t border-gray-100 dark:border-gray-800 max-w-md mx-auto">
                     <button
                         onClick={handleSubmit}
-                        disabled={isSubmitting || !formData.barangId || !formData.gudangId || !!(selectedBarang && formData.jumlah > selectedBarang.stok)}
+                        disabled={isSubmitting || !formData.barangId || !formData.gudangId || !!(selectedBarang && formData.jumlah > getAvailableStock())}
                         className="w-full bg-orange-600 text-white font-bold py-3.5 px-4 rounded-xl hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                         <MdRemove className="text-xl" />

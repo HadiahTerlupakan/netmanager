@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
         // Use transaction for atomic creation and assignment
         const site = await prisma.$transaction(async (tx) => {
-            // 1. Create Site
+            // 1. Create Site with Gudangs assignment
             const newSite = await tx.site.create({
                 data: {
                     code: code.toUpperCase(),
@@ -91,19 +91,13 @@ export async function POST(request: NextRequest) {
                     latitude: latitude ? parseFloat(latitude) : null,
                     longitude: longitude ? parseFloat(longitude) : null,
                     attendanceRadius: body.attendanceRadius ? parseInt(body.attendanceRadius) : 100,
+                    gudangs: {
+                        connect: Array.isArray(gudangIds) ? gudangIds.map((id: string) => ({ id })) : []
+                    }
                 },
             });
 
-            // 2. Assign Gudangs if provided
-            if (Array.isArray(gudangIds) && gudangIds.length > 0) {
-                // Determine if we should validate if they are already assigned?
-                // For now, we assume "stealing" or assigning unassigned is the intent.
-                // The schema constraint ensures one-to-many, so this will overwrite any previous siteId.
-                await tx.gudang.updateMany({
-                    where: { id: { in: gudangIds } },
-                    data: { siteId: newSite.id }
-                });
-            }
+            // 2. No separate assignment needed for M-N relation via connect
 
             return newSite;
         });

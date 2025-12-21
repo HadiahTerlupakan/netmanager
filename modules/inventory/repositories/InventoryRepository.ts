@@ -190,20 +190,31 @@ export class InventoryRepository implements IInventoryRepository {
                 }
             })
 
+            const updateData: any = {
+                stok: { increment: data.jumlah }
+            }
+
+            // Determine which specific stock to increment
+            if (data.kondisi === 'BARU') updateData.stokBaru = { increment: data.jumlah }
+            else if (data.kondisi === 'BEKAS') updateData.stokBekas = { increment: data.jumlah }
+            else if (data.kondisi === 'RUSAK') updateData.stokRusak = { increment: data.jumlah }
+            else updateData.stokBaru = { increment: data.jumlah } // Default to BARU if unknown
+
             if (existingStock) {
                 await tx.barangGudang.update({
                     where: { id: existingStock.id },
-                    data: {
-                        stok: { increment: data.jumlah }
-                    }
+                    data: updateData
                 })
             } else {
                 await tx.barangGudang.create({
                     data: {
                         barangId: data.barangId,
                         gudangId: data.gudangId,
-                        stok: data.jumlah
-                    }
+                        stok: data.jumlah,
+                        stokBaru: data.kondisi === 'BARU' || !data.kondisi ? data.jumlah : 0,
+                        stokBekas: data.kondisi === 'BEKAS' ? data.jumlah : 0,
+                        stokRusak: data.kondisi === 'RUSAK' ? data.jumlah : 0
+                    } as any
                 })
             }
 
@@ -223,9 +234,38 @@ export class InventoryRepository implements IInventoryRepository {
                 }
             })
 
-            if (!currentStock || currentStock.stok < data.jumlah) {
-                throw new Error('Stok tidak mencukupi')
+            if (!currentStock) {
+                throw new Error('Stok tidak ditemukan')
             }
+
+            // Check total stock first
+            if (currentStock.stok < data.jumlah) {
+                throw new Error('Total stok tidak mencukupi')
+            }
+
+            // Check specific condition stock
+            let updateData: any = { stok: { decrement: data.jumlah } }
+
+            const stockAny = currentStock as any
+            if (data.kondisi === 'BARU') {
+                if (stockAny.stokBaru < data.jumlah) throw new Error(`Stok BARU tidak mencukupi (Tersedia: ${stockAny.stokBaru})`)
+                updateData.stokBaru = { decrement: data.jumlah }
+            } else if (data.kondisi === 'BEKAS') {
+                if (stockAny.stokBekas < data.jumlah) throw new Error(`Stok BEKAS tidak mencukupi (Tersedia: ${stockAny.stokBekas})`)
+                updateData.stokBekas = { decrement: data.jumlah }
+            } else if (data.kondisi === 'RUSAK') {
+                if (stockAny.stokRusak < data.jumlah) throw new Error(`Stok RUSAK tidak mencukupi (Tersedia: ${stockAny.stokRusak})`)
+                updateData.stokRusak = { decrement: data.jumlah }
+            } else {
+                if (stockAny.stokBaru < data.jumlah) throw new Error(`Stok BARU tidak mencukupi (Tersedia: ${stockAny.stokBaru})`)
+                updateData.stokBaru = { decrement: data.jumlah }
+            }
+
+            // Update stock
+            await tx.barangGudang.update({
+                where: { id: currentStock.id },
+                data: updateData
+            })
 
             // 2. Create BarangKeluar record
             const keluar = await tx.barangKeluar.create({
@@ -233,7 +273,7 @@ export class InventoryRepository implements IInventoryRepository {
                     barangId: data.barangId,
                     gudangId: data.gudangId,
                     jumlah: data.jumlah,
-                    kondisi: data.kondisi,
+                    kondisi: data.kondisi || 'BARU',
                     keterangan: data.keterangan,
                     isHilang: data.isHilang || false,
                     userId: data.userId,
@@ -276,7 +316,7 @@ export class InventoryRepository implements IInventoryRepository {
         const where: Prisma.GudangWhereInput = { isActive: true }
 
         if (siteId) {
-            where.siteId = siteId
+            (where as any).sites = { some: { id: siteId } }
         }
 
         return this.db.gudang.findMany({

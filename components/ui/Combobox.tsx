@@ -6,7 +6,7 @@ import { MdExpandMore, MdSearch, MdClose } from 'react-icons/md'
 export interface ComboboxOption {
     value: string
     label: string | ReactNode
-    searchLabel?: string // string specifically for searching if label is complex
+    searchLabel?: string
     disabled?: boolean
 }
 
@@ -17,6 +17,8 @@ interface ComboboxProps {
     placeholder?: string
     disabled?: boolean
     className?: string
+    onSearch?: (query: string) => void // New prop for async search
+    loading?: boolean // New prop for loading state
 }
 
 export function Combobox({
@@ -25,12 +27,15 @@ export function Combobox({
     onChange,
     placeholder = 'Select option',
     disabled = false,
-    className = ''
+    className = '',
+    onSearch,
+    loading = false
 }: ComboboxProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [query, setQuery] = useState('')
     const containerRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
+    const debounceTimeout = useRef<NodeJS.Timeout | null>(null)
 
     // Close when clicking outside
     useEffect(() => {
@@ -43,22 +48,37 @@ export function Combobox({
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    // Find selected option
-    const selectedOption = options.find(opt => opt.value === value)
+    const handleSearch = (newQuery: string) => {
+        setQuery(newQuery)
 
-    // Filter options
-    const filteredOptions = query === ''
+        if (onSearch) {
+            if (debounceTimeout.current) clearTimeout(debounceTimeout.current)
+            debounceTimeout.current = setTimeout(() => {
+                onSearch(newQuery)
+            }, 300) // Debounce 300ms
+        }
+    }
+
+    // Filter options locally if no onSearch provided
+    const filteredOptions = onSearch
         ? options
-        : options.filter((option) => {
-            const searchStr = (option.searchLabel || (typeof option.label === 'string' ? option.label : '')).toLowerCase()
-            return searchStr.includes(query.toLowerCase())
-        })
+        : query === ''
+            ? options
+            : options.filter((option) => {
+                const searchStr = (option.searchLabel || (typeof option.label === 'string' ? option.label : '')).toLowerCase()
+                return searchStr.includes(query.toLowerCase())
+            })
 
     const handleSelect = (optionValue: string) => {
         onChange(optionValue)
         setIsOpen(false)
         setQuery('')
+        // Reset search if async
+        if (onSearch) onSearch('')
     }
+
+    // Find selected option (logic remains same)
+    const selectedOption = options.find(opt => opt.value === value)
 
     return (
         <div className={`relative ${className}`} ref={containerRef}>
@@ -90,7 +110,7 @@ export function Combobox({
                                 className="w-full pl-9 pr-8 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 focus:ring-blue-500 text-sm"
                                 placeholder="Cari..."
                                 value={query}
-                                onChange={(e) => setQuery(e.target.value)}
+                                onChange={(e) => handleSearch(e.target.value)}
                                 autoFocus
                                 onClick={(e) => e.stopPropagation()}
                             />
@@ -98,7 +118,7 @@ export function Combobox({
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation()
-                                        setQuery('')
+                                        handleSearch('') // Clear search
                                         inputRef.current?.focus()
                                     }}
                                     className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
@@ -110,7 +130,9 @@ export function Combobox({
                     </div>
 
                     <div className="overflow-y-auto flex-1 p-1">
-                        {filteredOptions.length === 0 ? (
+                        {loading ? (
+                            <div className="p-4 text-center text-sm text-gray-500 animate-pulse">Memuat...</div>
+                        ) : filteredOptions.length === 0 ? (
                             <div className="p-3 text-center text-sm text-gray-500">Tidak ditemukan</div>
                         ) : (
                             <>

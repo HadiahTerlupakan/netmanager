@@ -1321,8 +1321,7 @@ model Gudang {
   kode            String                @unique
   nama            String
   lokasi          String?
-  siteId          String?
-  site            Site?                 @relation(fields: [siteId], references: [id])
+  sites           Site[]
   isActive        Boolean               @default(true)
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
@@ -1336,7 +1335,6 @@ model Gudang {
   transferKe      TransferAntarGudang[] @relation("TransferKeGudang")
   usageAnalytics  UsageAnalytics[]
 
-  @@index([siteId])
   @@map("gudang")
 }
 
@@ -1363,7 +1361,10 @@ model BarangGudang {
   id        String   @id @default(cuid())
   barangId  String
   gudangId  String
-  stok      Int      @default(0)
+  stok      Int      @default(0) // Total stock
+  stokBaru  Int      @default(0)
+  stokBekas Int      @default(0)
+  stokRusak Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   barang    Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)

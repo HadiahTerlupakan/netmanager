@@ -50,36 +50,48 @@ export default function BarangMasukClient() {
 
     useEffect(() => {
         if (isAuthenticated) {
-            fetchData()
+            fetchGudangs()
+            fetchBarangs()
         }
     }, [isAuthenticated])
 
-    const fetchData = async () => {
+    const fetchGudangs = async () => {
         try {
-            const [barangRes, gudangRes] = await Promise.all([
-                fetch('/api/inventory/barang?limit=1000'),
-                fetch('/api/inventory/gudang', { cache: 'no-store' })
-            ])
-            if (barangRes.ok) {
-                const data = await barangRes.json()
+            const res = await fetch('/api/inventory/gudang', { cache: 'no-store' })
+            if (res.ok) {
+                const data = await res.json()
+                const gudangList = data.gudangs || (Array.isArray(data) ? data : [])
+                setGudangs(gudangList)
+                if (gudangList.length > 0) {
+                    setFormData(prev => ({ ...prev, gudangId: gudangList[0].id }))
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch gudangs:', error)
+        }
+    }
+
+    const fetchBarangs = async (query: string = '') => {
+        setIsLoading(true)
+        try {
+            // Use search param and limit to 20 for better performance
+            const url = `/api/inventory/barang?limit=20&search=${encodeURIComponent(query)}`
+            const res = await fetch(url)
+
+            if (res.ok) {
+                const data = await res.json()
                 // Fix: Map API response to match Barang interface
                 const mappedBarangs = (data.barangs || []).map((b: any) => ({
                     id: b.id,
                     kode: b.kode || '-',
                     nama: b.nama,
-                    satuan: b.satuan || 'Pcs'
+                    satuan: b.satuan || 'Pcs',
+                    stok: b.totalStock || 0
                 }))
                 setBarangs(mappedBarangs)
             }
-            if (gudangRes.ok) {
-                const data = await gudangRes.json()
-                setGudangs(data.gudangs || [])
-                if (data.gudangs?.length > 0) {
-                    setFormData(prev => ({ ...prev, gudangId: data.gudangs[0].id }))
-                }
-            }
         } catch (error) {
-            console.error('Failed to fetch data:', error)
+            console.error('Failed to fetch barangs:', error)
         } finally {
             setIsLoading(false)
         }
@@ -203,7 +215,9 @@ export default function BarangMasukClient() {
                                 options={barangs.map(b => ({ value: b.id, label: `${b.nama} (${b.kode})` }))}
                                 value={formData.barangId}
                                 onChange={(val) => setFormData({ ...formData, barangId: val })}
-                                placeholder="Cari barang..."
+                                onSearch={fetchBarangs}
+                                loading={isLoading}
+                                placeholder="Ketik nama atau kode barang..."
                                 className="w-full"
                             />
                         )}

@@ -177,14 +177,20 @@ export async function GET(req: NextRequest) {
             ? barang.stok.filter(stock => stock.gudangId === gudangId)
             : barang.stok
 
-          // Calculate TOTAL stock from FILTERED stocks (so it reflects the specific warehouse if filtered)
+          if (filteredStocks.length > 0) {
+            console.log('DEBUG STOCK ITEM [0]:', JSON.stringify(filteredStocks[0], null, 2))
+          }
+
           totalStock = filteredStocks.reduce((sum, stock) => sum + stock.stok, 0)
 
           stockPerGudang = filteredStocks.map(stock => ({
             gudangId: stock.gudangId,
             gudangKode: stock.gudang.kode,
             gudangNama: stock.gudang.nama,
-            stok: stock.stok
+            stok: stock.stok,
+            stokBaru: (stock as any).stokBaru || 0,
+            stokBekas: (stock as any).stokBekas || 0,
+            stokRusak: (stock as any).stokRusak || 0
           }))
         }
 

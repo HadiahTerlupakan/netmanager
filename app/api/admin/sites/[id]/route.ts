@@ -109,26 +109,13 @@ export async function PATCH(
                     ...(longitude !== undefined && { longitude: longitude ? parseFloat(longitude) : null }),
                     ...(body.attendanceRadius !== undefined && { attendanceRadius: parseInt(body.attendanceRadius) }),
                     ...(isActive !== undefined && { isActive }),
+                    gudangs: Array.isArray(gudangIds) ? {
+                        set: gudangIds.map((id: string) => ({ id }))
+                    } : undefined,
                 },
             });
 
-            // 2. Handle Gudang Assignment (only if gudangIds is provided)
-            if (Array.isArray(gudangIds)) {
-                // a. Unassign ALL gudangs currently assigned to this site
-                // This ensures that if a user deselects a warehouse, it gets removed.
-                await tx.gudang.updateMany({
-                    where: { siteId: id },
-                    data: { siteId: null }
-                });
-
-                // b. Assign the new list of gudangs
-                if (gudangIds.length > 0) {
-                    await tx.gudang.updateMany({
-                        where: { id: { in: gudangIds } },
-                        data: { siteId: id }
-                    });
-                }
-            }
+            // 2. Gudang Assignment handled by 'set' above
 
             return updatedSite;
         });

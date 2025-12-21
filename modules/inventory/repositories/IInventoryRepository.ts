@@ -57,6 +57,7 @@ export interface CreateBarangKeluarInput {
     jumlah: number
     kondisi: KondisiBarang
     keterangan?: string
+    tujuanPenggunaan?: string
     isHilang?: boolean
     userId?: string
     fotoBukti?: string[]
