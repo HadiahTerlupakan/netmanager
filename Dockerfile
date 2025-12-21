@@ -66,6 +66,9 @@ COPY --from=builder /app/prisma ./prisma
 # Copy lib folder (required by server.ts for websocket, etc.)
 COPY --from=builder /app/lib ./lib
 
+# Copy modules folder (required by server.ts for RadiusMonitor, etc.)
+COPY --from=builder /app/modules ./modules
+
 # Copy proxy.ts (required by server.ts/middleware)
 COPY --from=builder /app/proxy.ts ./proxy.ts
 
