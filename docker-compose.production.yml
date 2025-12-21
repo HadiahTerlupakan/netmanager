@@ -202,6 +202,8 @@ services:
 
       # Service
       - "traefik.http.services.netmanager-service.loadbalancer.server.port=3000"
+      # Force Traefik to use web network
+      - "traefik.docker.network=netmanager_web"
     networks:
       - internal
       - web
