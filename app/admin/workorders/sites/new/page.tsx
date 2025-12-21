@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { HiOutlineArrowLeft } from 'react-icons/hi2'
 import MapPicker from '@/components/admin/sites/MapPicker'
+import GudangSelector from '@/components/admin/sites/GudangSelector'
 
 export default function NewSitePage() {
     const router = useRouter()
@@ -19,6 +20,7 @@ export default function NewSitePage() {
         latitude: '',
         longitude: '',
         attendanceRadius: '100',
+        gudangIds: [] as string[]
     })
 
     const handleMapChange = (lat: string, lng: string) => {
@@ -45,6 +47,7 @@ export default function NewSitePage() {
                     latitude: formData.latitude || null,
                     longitude: formData.longitude || null,
                     attendanceRadius: parseInt(formData.attendanceRadius) || 100,
+                    gudangIds: formData.gudangIds
                 }),
             })
 
@@ -223,8 +226,15 @@ export default function NewSitePage() {
                         </div>
                     </div>
 
-                    {/* Right Column: Map */}
-                    <div className="lg:col-span-1">
+                    {/* Right Column: Map & Gudang */}
+                    <div className="lg:col-span-1 space-y-6">
+                        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                            <GudangSelector
+                                selectedIds={formData.gudangIds}
+                                onChange={(ids) => setFormData(prev => ({ ...prev, gudangIds: ids }))}
+                            />
+                        </div>
+
                         <div className="sticky top-6">
                             <MapPicker
                                 latitude={formData.latitude}

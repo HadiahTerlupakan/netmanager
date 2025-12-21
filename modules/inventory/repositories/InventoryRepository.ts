@@ -271,9 +271,16 @@ export class InventoryRepository implements IInventoryRepository {
         return record?.stok || 0
     }
 
-    async getAllGudang(): Promise<any[]> {
+    async getAllGudang(params?: { siteId?: string }): Promise<any[]> {
+        const { siteId } = params || {}
+        const where: Prisma.GudangWhereInput = { isActive: true }
+
+        if (siteId) {
+            where.siteId = siteId
+        }
+
         return this.db.gudang.findMany({
-            where: { isActive: true },
+            where,
             orderBy: { nama: 'asc' }
         })
     }
@@ -309,10 +316,9 @@ export class InventoryRepository implements IInventoryRepository {
     }
 
     async deleteGudang(id: string): Promise<void> {
-        // Soft delete implementation as per requirement
-        await this.db.gudang.update({
-            where: { id },
-            data: { isActive: false }
+        // Hard delete implementation
+        await this.db.gudang.delete({
+            where: { id }
         })
     }
 

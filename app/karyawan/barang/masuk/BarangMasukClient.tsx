@@ -34,8 +34,7 @@ export default function BarangMasukClient() {
         gudangId: '',
         jumlah: 1,
         kondisi: 'BARU' as 'BARU' | 'BEKAS' | 'RUSAK',
-        keterangan: '',
-        supplier: ''
+        keterangan: ''
     })
     const [images, setImages] = useState<File[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -59,12 +58,12 @@ export default function BarangMasukClient() {
         try {
             const [barangRes, gudangRes] = await Promise.all([
                 fetch('/api/inventory/barang?limit=1000'),
-                fetch('/api/inventory/gudang')
+                fetch('/api/inventory/gudang', { cache: 'no-store' })
             ])
             if (barangRes.ok) {
                 const data = await barangRes.json()
                 // Fix: Map API response to match Barang interface
-                const mappedBarangs = (data.barangList || []).map((b: any) => ({
+                const mappedBarangs = (data.barangs || []).map((b: any) => ({
                     id: b.id,
                     kode: b.kode || '-',
                     nama: b.nama,
@@ -74,9 +73,9 @@ export default function BarangMasukClient() {
             }
             if (gudangRes.ok) {
                 const data = await gudangRes.json()
-                setGudangs(data.gudangList || [])
-                if (data.gudangList?.length > 0) {
-                    setFormData(prev => ({ ...prev, gudangId: data.gudangList[0].id }))
+                setGudangs(data.gudangs || [])
+                if (data.gudangs?.length > 0) {
+                    setFormData(prev => ({ ...prev, gudangId: data.gudangs[0].id }))
                 }
             }
         } catch (error) {
@@ -180,6 +179,20 @@ export default function BarangMasukClient() {
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="flex-1 p-4 space-y-4 pb-24">
+                    {/* Gudang */}
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Gudang</label>
+                        <select
+                            value={formData.gudangId}
+                            onChange={(e) => setFormData({ ...formData, gudangId: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1c2936]"
+                        >
+                            {gudangs.map(g => (
+                                <option key={g.id} value={g.id}>{g.nama}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     {/* Barang Selection */}
                     <div className="space-y-1">
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Pilih Barang</label>
@@ -194,20 +207,6 @@ export default function BarangMasukClient() {
                                 className="w-full"
                             />
                         )}
-                    </div>
-
-                    {/* Gudang */}
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Gudang</label>
-                        <select
-                            value={formData.gudangId}
-                            onChange={(e) => setFormData({ ...formData, gudangId: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1c2936]"
-                        >
-                            {gudangs.map(g => (
-                                <option key={g.id} value={g.id}>{g.nama}</option>
-                            ))}
-                        </select>
                     </div>
 
                     {/* Quantity Control */}
@@ -257,17 +256,7 @@ export default function BarangMasukClient() {
                         </div>
                     </div>
 
-                    {/* Supplier/Sumber */}
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Supplier / Sumber</label>
-                        <input
-                            type="text"
-                            value={formData.supplier}
-                            onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                            placeholder="Contoh: Toko Maju Jaya"
-                            className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1c2936]"
-                        />
-                    </div>
+
 
                     {/* Image Upload */}
                     <div className="space-y-1">
@@ -293,7 +282,7 @@ export default function BarangMasukClient() {
                 </form>
 
                 {/* Submit Action */}
-                <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#f6f7f8] dark:bg-[#101922] border-t border-gray-100 dark:border-gray-800 max-w-md mx-auto z-10">
+                <div className="fixed bottom-20 left-0 right-0 p-4 bg-[#f6f7f8] dark:bg-[#101922] border-t border-gray-100 dark:border-gray-800 max-w-md mx-auto z-10">
                     <button
                         onClick={handleSubmit}
                         disabled={isSubmitting || !formData.barangId}

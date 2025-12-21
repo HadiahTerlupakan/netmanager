@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { HiOutlineArrowLeft } from 'react-icons/hi2'
 import MapPicker from '@/components/admin/sites/MapPicker'
+import GudangSelector from '@/components/admin/sites/GudangSelector'
 
 interface Site {
     id: string
@@ -16,6 +17,7 @@ interface Site {
     longitude: number | null
     attendanceRadius: number
     isActive: boolean
+    gudangs: { id: string }[]
 }
 
 export default function EditSitePage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,6 +36,7 @@ export default function EditSitePage({ params }: { params: Promise<{ id: string 
         longitude: '',
         attendanceRadius: '100',
         isActive: true,
+        gudangIds: [] as string[]
     })
 
     // Fetch existing site data
@@ -57,6 +60,7 @@ export default function EditSitePage({ params }: { params: Promise<{ id: string 
                     longitude: site.longitude?.toString() || '',
                     attendanceRadius: site.attendanceRadius?.toString() || '100',
                     isActive: site.isActive,
+                    gudangIds: site.gudangs ? site.gudangs.map(g => g.id) : []
                 })
             } catch (error) {
                 console.error('Error fetching site:', error)
@@ -93,6 +97,7 @@ export default function EditSitePage({ params }: { params: Promise<{ id: string 
                     latitude: formData.latitude || null,
                     longitude: formData.longitude || null,
                     attendanceRadius: parseInt(formData.attendanceRadius) || 100,
+                    gudangIds: formData.gudangIds
                 }),
             })
 
@@ -296,8 +301,16 @@ export default function EditSitePage({ params }: { params: Promise<{ id: string 
                         </div>
                     </div>
 
-                    {/* Right Column: Map */}
-                    <div className="lg:col-span-1">
+                    {/* Right Column: Map & Gudang */}
+                    <div className="lg:col-span-1 space-y-6">
+                        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                            <GudangSelector
+                                selectedIds={formData.gudangIds}
+                                onChange={(ids) => setFormData(prev => ({ ...prev, gudangIds: ids }))}
+                                currentSiteId={id}
+                            />
+                        </div>
+
                         <div className="sticky top-6">
                             <MapPicker
                                 latitude={formData.latitude}

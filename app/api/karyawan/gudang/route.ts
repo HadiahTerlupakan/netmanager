@@ -11,8 +11,24 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        // Check for Site-Based Restriction Policy
+        const user = session.user as any
+        const userPermissions = (user.permissions as string[]) || []
+        const isSiteRestricted = userPermissions.includes('k_barang:site_only')
+
+        let whereClause: any = { isActive: true }
+
+        if (isSiteRestricted) {
+            if (!user.siteId) {
+                // If restricted but no site assigned, return 403 as requested
+                return NextResponse.json({ error: 'Access denied: No site assigned' }, { status: 403 })
+            }
+            // Filter by Site
+            whereClause.siteId = user.siteId
+        }
+
         const gudangs = await prisma.gudang.findMany({
-            where: { isActive: true },
+            where: whereClause,
             select: {
                 id: true,
                 kode: true,

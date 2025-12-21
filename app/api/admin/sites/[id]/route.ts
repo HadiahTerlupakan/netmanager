@@ -33,6 +33,13 @@ export async function GET(
                         workOrders: true,
                     },
                 },
+                gudangs: { // Include assigned warehouses
+                    select: {
+                        id: true,
+                        nama: true,
+                        kode: true
+                    }
+                }
             },
         });
 
@@ -63,7 +70,7 @@ export async function PATCH(
 
         const { id } = await params;
         const body = await request.json();
-        const { code, name, description, address, latitude, longitude, isActive } = body;
+        const { code, name, description, address, latitude, longitude, isActive, gudangIds } = body;
 
         // Check if site exists
         const existingSite = await prisma.site.findUnique({
@@ -88,18 +95,42 @@ export async function PATCH(
             }
         }
 
-        const site = await prisma.site.update({
-            where: { id },
-            data: {
-                ...(code && { code: code.toUpperCase() }),
-                ...(name && { name }),
-                ...(description !== undefined && { description }),
-                ...(address !== undefined && { address }),
-                ...(latitude !== undefined && { latitude: latitude ? parseFloat(latitude) : null }),
-                ...(longitude !== undefined && { longitude: longitude ? parseFloat(longitude) : null }),
-                ...(body.attendanceRadius !== undefined && { attendanceRadius: parseInt(body.attendanceRadius) }),
-                ...(isActive !== undefined && { isActive }),
-            },
+        // Use transaction for atomic full update
+        const site = await prisma.$transaction(async (tx) => {
+            // 1. Update Site details
+            const updatedSite = await tx.site.update({
+                where: { id },
+                data: {
+                    ...(code && { code: code.toUpperCase() }),
+                    ...(name && { name }),
+                    ...(description !== undefined && { description }),
+                    ...(address !== undefined && { address }),
+                    ...(latitude !== undefined && { latitude: latitude ? parseFloat(latitude) : null }),
+                    ...(longitude !== undefined && { longitude: longitude ? parseFloat(longitude) : null }),
+                    ...(body.attendanceRadius !== undefined && { attendanceRadius: parseInt(body.attendanceRadius) }),
+                    ...(isActive !== undefined && { isActive }),
+                },
+            });
+
+            // 2. Handle Gudang Assignment (only if gudangIds is provided)
+            if (Array.isArray(gudangIds)) {
+                // a. Unassign ALL gudangs currently assigned to this site
+                // This ensures that if a user deselects a warehouse, it gets removed.
+                await tx.gudang.updateMany({
+                    where: { siteId: id },
+                    data: { siteId: null }
+                });
+
+                // b. Assign the new list of gudangs
+                if (gudangIds.length > 0) {
+                    await tx.gudang.updateMany({
+                        where: { id: { in: gudangIds } },
+                        data: { siteId: id }
+                    });
+                }
+            }
+
+            return updatedSite;
         });
 
         // System Log
@@ -109,7 +140,10 @@ export async function PATCH(
                 action: 'UPDATE',
                 subject: 'Site',
                 userId: user.id,
-                details: { id: site.id, updates: body }
+                details: {
+                    id: site.id,
+                    updates: { ...body, gudangIdsCount: Array.isArray(gudangIds) ? gudangIds.length : 'unchanged' }
+                }
             });
         } catch (e) {
             console.error('Logging failed', e);

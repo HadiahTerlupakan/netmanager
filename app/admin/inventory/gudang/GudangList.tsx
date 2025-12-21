@@ -22,7 +22,8 @@ export default function GudangPage() {
   useEffect(() => {
     async function fetchGudangs() {
       try {
-        const response = await fetch('/api/inventory/gudang')
+        // Admin view should typically see all warehouses
+        const response = await fetch('/api/inventory/gudang?view=all', { cache: 'no-store' })
         const data = await response.json()
 
         if (!response.ok) {
@@ -170,11 +171,10 @@ export default function GudangPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        gudang.isActive
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${gudang.isActive
                           ? 'bg-green-100 text-green-800'
                           : 'bg-gray-100 text-gray-800'
-                      }`}>
+                        }`}>
                         {gudang.isActive ? 'Aktif' : 'Tidak Aktif'}
                       </span>
                     </td>

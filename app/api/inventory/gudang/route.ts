@@ -57,10 +57,33 @@ export async function GET(req: NextRequest) {
 
     const inventoryRepository = getInventoryRepository()
 
+    const { searchParams } = new URL(req.url)
+    const viewAll = searchParams.get('view') === 'all'
+
+    // Check for site restriction
+    const permissions = (session.user as any).permissions || []
+    const siteId = (session.user as any).siteId
+    const role = (session.user as any).role
+
+    // Only restrict if:
+    // 1. User has restriction permission
+    // 2. User has a site assigned
+    // 3. User is NOT requesting (and authorized for) view=all
+    //    (Super Admins or users with Admin Panel access can view all)
+    const isSuperAdmin = role === 'SUPER_ADMIN'
+    const hasAdminAccess = (session.user as any).accessAdminPanel
+
+    const canViewAll = isSuperAdmin || hasAdminAccess
+
+    let shouldRestrict = permissions.includes('k_barang:site_only') && siteId
+
+    if (viewAll && canViewAll) {
+      shouldRestrict = false
+    }
+
     try {
       const dbStart = Date.now()
-
-      const gudangs = await inventoryRepository.getAllGudang()
+      const gudangs = await inventoryRepository.getAllGudang(shouldRestrict ? { siteId } : undefined)
 
       logger.dbOperation('findMany', 'Gudang', Date.now() - dbStart)
 

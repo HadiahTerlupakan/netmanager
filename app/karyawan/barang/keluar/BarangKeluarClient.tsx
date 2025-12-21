@@ -65,7 +65,7 @@ export default function BarangKeluarClient() {
 
     const fetchGudangs = async () => {
         try {
-            const res = await fetch('/api/inventory/gudang')
+            const res = await fetch('/api/inventory/gudang', { cache: 'no-store' })
             if (res.ok) {
                 const data = await res.json()
                 setGudangs(data.gudangs || [])

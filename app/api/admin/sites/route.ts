@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { code, name, description, address, latitude, longitude } = body;
+        const { code, name, description, address, latitude, longitude, gudangIds } = body;
 
         if (!code || !name) {
             return NextResponse.json(
@@ -79,16 +79,33 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const site = await prisma.site.create({
-            data: {
-                code: code.toUpperCase(),
-                name,
-                description,
-                address,
-                latitude: latitude ? parseFloat(latitude) : null,
-                longitude: longitude ? parseFloat(longitude) : null,
-                attendanceRadius: body.attendanceRadius ? parseInt(body.attendanceRadius) : 100,
-            },
+        // Use transaction for atomic creation and assignment
+        const site = await prisma.$transaction(async (tx) => {
+            // 1. Create Site
+            const newSite = await tx.site.create({
+                data: {
+                    code: code.toUpperCase(),
+                    name,
+                    description,
+                    address,
+                    latitude: latitude ? parseFloat(latitude) : null,
+                    longitude: longitude ? parseFloat(longitude) : null,
+                    attendanceRadius: body.attendanceRadius ? parseInt(body.attendanceRadius) : 100,
+                },
+            });
+
+            // 2. Assign Gudangs if provided
+            if (Array.isArray(gudangIds) && gudangIds.length > 0) {
+                // Determine if we should validate if they are already assigned?
+                // For now, we assume "stealing" or assigning unassigned is the intent.
+                // The schema constraint ensures one-to-many, so this will overwrite any previous siteId.
+                await tx.gudang.updateMany({
+                    where: { id: { in: gudangIds } },
+                    data: { siteId: newSite.id }
+                });
+            }
+
+            return newSite;
         });
 
         // System Log
@@ -98,7 +115,12 @@ export async function POST(request: NextRequest) {
                 action: 'CREATE',
                 subject: 'Site',
                 userId: user.id,
-                details: { id: site.id, name: site.name, code: site.code }
+                details: {
+                    id: site.id,
+                    name: site.name,
+                    code: site.code,
+                    assignedGudangs: gudangIds?.length || 0
+                }
             });
         } catch (e) {
             console.error('Logging failed', e);

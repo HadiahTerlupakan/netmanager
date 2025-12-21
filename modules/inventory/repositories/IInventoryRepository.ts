@@ -158,7 +158,7 @@ export interface IInventoryRepository {
 
     // Stock Queries
     getStockLevel(barangId: string, gudangId: string): Promise<number>
-    getAllGudang(): Promise<Gudang[]>
+    getAllGudang(params?: { siteId?: string }): Promise<Gudang[]>
     getStockBreakdown(barangId: string, gudangId: string): Promise<{ baru: number, bekas: number, rusak: number, total: number }>
 
     // History Queries
