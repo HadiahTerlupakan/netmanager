@@ -14,8 +14,9 @@ async function main() {
   console.log('🌱 Seeding database...\n')
 
   // --- 1. RBAC Setup ---
-  console.log('   Creating permissions...')
+  console.log('📋 Creating permissions...')
   const permissions = []
+  const karyawanPermissions = []
 
   // 1a. Seed Permissions from PERMISSION_GROUPS (Legacy/Granular)
   for (const resource of ALL_RESOURCES) {
@@ -36,12 +37,17 @@ async function main() {
         },
       })
       permissions.push(permission)
+
+      // Track karyawan permissions separately
+      if ((KARYAWAN_RESOURCES as readonly string[]).includes(resource)) {
+        karyawanPermissions.push(permission)
+      }
     }
   }
 
   console.log(`   ✅ Synced ${permissions.length} permissions.`)
 
-  console.log('   Creating Roles...')
+  console.log('👥 Creating Roles...')
   // Create SUPER_ADMIN Role
   const superAdminRole = await prisma.role.upsert({
     where: { name: 'SUPER_ADMIN' },
@@ -65,26 +71,32 @@ async function main() {
   })
   console.log('   ✅ Role: SUPER_ADMIN')
 
-  // Create Teknisi Role
+  // Create Teknisi Role with karyawan permissions
   const teknisiRole = await prisma.role.upsert({
     where: { name: 'teknisi' },
     update: {
-      accessAdminPanel: false, // Teknisi default to Employee Portal Only
+      accessAdminPanel: false,
       accessEmployeePanel: true,
+      permissions: {
+        set: [], // Clear existing
+        connect: karyawanPermissions.map((p) => ({ id: p.id })),
+      },
     },
     create: {
       name: 'teknisi',
-      description: 'Field Technician',
+      description: 'Field Technician - Employee Portal Access',
       accessAdminPanel: false,
       accessEmployeePanel: true,
-      // Default permissions for teknisi could be limited here, but for seed we keep it simple or assign specific ones
-      // For now we just create the role. Access rights are usually managed via UI later.
+      permissions: {
+        connect: karyawanPermissions.map((p) => ({ id: p.id })),
+      },
     },
   })
-  console.log('   ✅ Role: teknisi')
+  console.log('   ✅ Role: teknisi (with karyawan permissions)')
 
 
   // --- 2. Organization Setup ---
+  console.log('\n🏢 Setting up Organization...')
 
   const passwordHash = await hash('admin123', 10)
 
@@ -98,7 +110,7 @@ async function main() {
       jobDescription: 'Mengelola infrastruktur jaringan dan dukungan teknis'
     },
   })
-  console.log('✅ Department: Technical')
+  console.log('   ✅ Department: Technical')
 
   // Create additional departments
   await prisma.department.upsert({
@@ -110,7 +122,7 @@ async function main() {
       jobDescription: 'Menangani pertanyaan dan keluhan pelanggan'
     },
   })
-  console.log('✅ Department: Customer Service')
+  console.log('   ✅ Department: Customer Service')
 
   await prisma.department.upsert({
     where: { name: 'Operations' },
@@ -121,7 +133,7 @@ async function main() {
       jobDescription: 'Operasi lapangan dan pemeliharaan jaringan'
     },
   })
-  console.log('✅ Department: Operations')
+  console.log('   ✅ Department: Operations')
 
   // Create Site
   const site = await prisma.site.upsert({
@@ -132,13 +144,14 @@ async function main() {
       name: 'Headquarters',
       address: 'Jl. Utama No. 1, Jakarta',
       description: 'Kantor Pusat',
-      isActive: true
+      isActive: true,
+      attendanceRadius: 100, // 100 meters radius for attendance
     },
   })
-  console.log('✅ Site: HQ')
+  console.log('   ✅ Site: HQ')
 
   // Create additional sites
-  await prisma.site.upsert({
+  const siteJkt01 = await prisma.site.upsert({
     where: { code: 'JKT01' },
     update: {},
     create: {
@@ -146,10 +159,11 @@ async function main() {
       name: 'Jakarta Selatan',
       address: 'Jl. Sudirman No. 123, Jakarta Selatan',
       description: 'Coverage area Jakarta Selatan',
-      isActive: true
+      isActive: true,
+      attendanceRadius: 100,
     },
   })
-  console.log('✅ Site: JKT01')
+  console.log('   ✅ Site: JKT01')
 
   await prisma.site.upsert({
     where: { code: 'JKT02' },
@@ -159,10 +173,11 @@ async function main() {
       name: 'Jakarta Utara',
       address: 'Jl. Mangga Dua No. 456, Jakarta Utara',
       description: 'Coverage area Jakarta Utara',
-      isActive: true
+      isActive: true,
+      attendanceRadius: 100,
     },
   })
-  console.log('✅ Site: JKT02')
+  console.log('   ✅ Site: JKT02')
 
   // Create Position
   await prisma.position.upsert({
@@ -174,7 +189,7 @@ async function main() {
       departmentId: dept.id
     },
   })
-  console.log('✅ Position: Administrator')
+  console.log('   ✅ Position: Administrator')
 
   await prisma.position.upsert({
     where: { title: 'Teknisi' },
@@ -185,9 +200,73 @@ async function main() {
       departmentId: dept.id
     },
   })
-  console.log('✅ Position: Teknisi')
+  console.log('   ✅ Position: Teknisi')
 
-  // Create Admin User (with complete data)
+  // --- 3. Gudang (Warehouse) Setup ---
+  console.log('\n📦 Setting up Warehouses...')
+
+  const gudangPusat = await prisma.gudang.upsert({
+    where: { kode: 'GDG-PUSAT' },
+    update: {},
+    create: {
+      kode: 'GDG-PUSAT',
+      nama: 'Gudang Pusat',
+      lokasi: 'Jl. Utama No. 1, Jakarta',
+      isActive: true,
+    },
+  })
+  // Connect gudang to site (many-to-many)
+  await prisma.site.update({
+    where: { id: site.id },
+    data: { gudangs: { connect: [{ id: gudangPusat.id }] } }
+  })
+  console.log('   ✅ Gudang: GDG-PUSAT (Gudang Pusat)')
+
+  const gudangJkt01 = await prisma.gudang.upsert({
+    where: { kode: 'GDG-JKT01' },
+    update: {},
+    create: {
+      kode: 'GDG-JKT01',
+      nama: 'Gudang Jakarta Selatan',
+      lokasi: 'Jl. Sudirman No. 123, Jakarta Selatan',
+      isActive: true,
+    },
+  })
+  // Connect gudang to site (many-to-many)
+  await prisma.site.update({
+    where: { id: siteJkt01.id },
+    data: { gudangs: { connect: [{ id: gudangJkt01.id }] } }
+  })
+  console.log('   ✅ Gudang: GDG-JKT01 (Gudang Jakarta Selatan)')
+
+  // --- 4. Settings Setup ---
+  console.log('\n⚙️ Setting up Application Settings...')
+
+  const settingsData = [
+    { key: 'namaAplikasi', value: 'NetManager', description: 'Nama aplikasi' },
+    { key: 'namaPerusahaan', value: 'PT. Network Solutions', description: 'Nama perusahaan' },
+    { key: 'alamatPerusahaan', value: 'Jl. Utama No. 1, Jakarta', description: 'Alamat perusahaan' },
+    { key: 'teleponPerusahaan', value: '+62-21-1234567', description: 'Telepon perusahaan' },
+    { key: 'emailPerusahaan', value: 'info@example.com', description: 'Email perusahaan' },
+    { key: 'jamMasukKerja', value: '09:00', description: 'Jam masuk kerja default' },
+    { key: 'jamKeluarKerja', value: '17:00', description: 'Jam keluar kerja default' },
+    { key: 'toleransiTelat', value: '15', description: 'Toleransi keterlambatan dalam menit' },
+    { key: 'hariKerja', value: 'Mon,Tue,Wed,Thu,Fri', description: 'Hari kerja (format CSV)' },
+  ]
+
+  for (const setting of settingsData) {
+    await prisma.settings.upsert({
+      where: { key: setting.key },
+      update: {},
+      create: setting,
+    })
+  }
+  console.log(`   ✅ Created ${settingsData.length} settings entries`)
+
+  // --- 5. Users Setup ---
+  console.log('\n👤 Creating Users...')
+
+  // Create Admin User (with complete data including working hours)
   await prisma.user.upsert({
     where: { email: 'admin@example.com' },
     update: {
@@ -197,7 +276,11 @@ async function main() {
       departmentId: dept.id,
       siteId: site.id,
       isActive: true,
-      roleId: superAdminRole.id, // Assign SUPER_ADMIN role
+      roleId: superAdminRole.id,
+      workingHourMode: 'FIXED',
+      startWorkTime: '09:00',
+      endWorkTime: '17:00',
+      workDays: 'Mon,Tue,Wed,Thu,Fri',
     },
     create: {
       email: 'admin@example.com',
@@ -207,10 +290,14 @@ async function main() {
       departmentId: dept.id,
       siteId: site.id,
       isActive: true,
-      roleId: superAdminRole.id, // Assign SUPER_ADMIN role
+      roleId: superAdminRole.id,
+      workingHourMode: 'FIXED',
+      startWorkTime: '09:00',
+      endWorkTime: '17:00',
+      workDays: 'Mon,Tue,Wed,Thu,Fri',
     },
   })
-  console.log('✅ User: admin@example.com (Role: SUPER_ADMIN)')
+  console.log('   ✅ User: admin@example.com (Role: SUPER_ADMIN)')
 
   // Create Technician User
   const techPasswordHash = await hash('tech123', 10)
@@ -223,7 +310,11 @@ async function main() {
       departmentId: dept.id,
       siteId: site.id,
       isActive: true,
-      roleId: teknisiRole.id, // Assign teknisi role
+      roleId: teknisiRole.id,
+      workingHourMode: 'FIXED',
+      startWorkTime: '08:00',
+      endWorkTime: '17:00',
+      workDays: 'Mon,Tue,Wed,Thu,Fri,Sat',
     },
     create: {
       email: 'teknisi@example.com',
@@ -233,16 +324,27 @@ async function main() {
       departmentId: dept.id,
       siteId: site.id,
       isActive: true,
-      roleId: teknisiRole.id, // Assign teknisi role
+      roleId: teknisiRole.id,
+      workingHourMode: 'FIXED',
+      startWorkTime: '08:00',
+      endWorkTime: '17:00',
+      workDays: 'Mon,Tue,Wed,Thu,Fri,Sat',
     },
   })
-  console.log('✅ User: teknisi@example.com (Role: teknisi)')
+  console.log('   ✅ User: teknisi@example.com (Role: teknisi)')
 
   console.log('\n✅ Seeding completed!')
   console.log('\n📝 Login credentials:')
   console.log('   Admin:    admin@example.com / admin123')
   console.log('   Teknisi:  teknisi@example.com / tech123')
+  console.log('\n📦 Gudang created:')
+  console.log('   - GDG-PUSAT (Gudang Pusat)')
+  console.log('   - GDG-JKT01 (Gudang Jakarta Selatan)')
 }
 
 main()
+  .catch((e) => {
+    console.error('❌ Seed failed:', e)
+    process.exit(1)
+  })
   .finally(() => prisma.$disconnect())

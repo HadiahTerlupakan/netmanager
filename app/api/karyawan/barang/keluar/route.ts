@@ -40,17 +40,19 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: 'Access denied: No site assigned' }, { status: 403 })
             }
 
-            // Verify the target gudang belongs to user's site
+            // Verify the target gudang belongs to user's site (many-to-many relation)
             const targetGudang = await prisma.gudang.findUnique({
                 where: { id: gudangId },
-                select: { siteId: true }
+                include: { sites: { select: { id: true } } }
             })
 
             if (!targetGudang) {
                 return NextResponse.json({ error: 'Gudang not found' }, { status: 404 })
             }
 
-            if (targetGudang.siteId !== userSiteId) {
+            // Check if user's site is in the gudang's sites list
+            const gudangSiteIds = targetGudang.sites.map(s => s.id)
+            if (!gudangSiteIds.includes(userSiteId)) {
                 return NextResponse.json({ error: 'Access denied: Gudang outside your site' }, { status: 403 })
             }
         }
