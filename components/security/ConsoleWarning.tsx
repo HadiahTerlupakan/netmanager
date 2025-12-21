@@ -30,9 +30,9 @@ export default function ConsoleWarning() {
             'font-size: 14px',
         ].join(';');
 
-        // Display warning messages
-        console.log('%cStop!', stopStyle);
-        console.log(
+        // Display warning messages using console.warn (not removed by Terser)
+        console.warn('%cStop!', stopStyle);
+        console.warn(
             '%cIni adalah fitur browser yang ditujukan untuk developer.\n\n' +
             'Jika seseorang menyuruh Anda untuk menyalin dan menempel sesuatu di sini ' +
             'untuk mengaktifkan "fitur khusus" atau "meretas" akun seseorang, ' +
@@ -40,7 +40,7 @@ export default function ConsoleWarning() {
             'Jangan ketik atau tempel kode apapun yang tidak Anda mengerti.',
             warningStyle
         );
-        console.log(
+        console.warn(
             '%cPelajari lebih lanjut tentang Self-XSS: https://en.wikipedia.org/wiki/Self-XSS',
             linkStyle
         );
