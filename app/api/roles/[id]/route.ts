@@ -59,7 +59,7 @@ export async function PUT(req: Request, { params }: Params) {
 
     try {
         const body = await req.json()
-        const { name, description, permissions, accessAdminPanel, accessEmployeePanel } = roleUpdateSchema.parse(body)
+        const { name, description, permissions, accessAdminPanel, accessEmployeePanel, isRestricted } = roleUpdateSchema.parse(body)
 
         // Don't allow modifying super admin role structure too much (safety check)
         const currentRole = await prisma.role.findUnique({ where: { id } })
@@ -97,6 +97,7 @@ export async function PUT(req: Request, { params }: Params) {
                 description,
                 accessAdminPanel,
                 accessEmployeePanel,
+                isRestricted,
                 permissions: {
                     set: existingPermissions.map((p) => ({ id: p.id })),
                 },
