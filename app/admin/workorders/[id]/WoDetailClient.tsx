@@ -139,6 +139,7 @@ export function ClientComponent() {
     const [showRejectModal, setShowRejectModal] = useState(false)
     const [rejectReason, setRejectReason] = useState('')
     const [showCancelModal, setShowCancelModal] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [cancelReason, setCancelReason] = useState('')
     const [processingApproval, setProcessingApproval] = useState(false)
 
@@ -321,6 +322,31 @@ export function ClientComponent() {
         }
     }
 
+    const handleDelete = async () => {
+        if (!confirm('Apakah anda yakin ingin menghapus Work Order ini secara PERMANEN? Data yang dihapus tidak dapat dikembalikan.')) {
+            return
+        }
+
+        setProcessingApproval(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/${workOrderId}?permanent=true`, {
+                method: 'DELETE',
+            })
+
+            if (response.ok) {
+                alert('Work Order berhasil dihapus permanen')
+                router.push('/admin/workorders/list')
+            } else {
+                alert('Gagal menghapus work order')
+            }
+        } catch (error) {
+            console.error('Error deleting:', error)
+            alert('Terjadi kesalahan')
+        } finally {
+            setProcessingApproval(false)
+        }
+    }
+
     const handleAddTask = async () => {
         if (!newTask.trim()) return
 
@@ -433,6 +459,14 @@ export function ClientComponent() {
                         Batalkan
                     </button>
                 )}
+                <button
+                    onClick={() => setShowDeleteModal(true)}
+                    disabled={processingApproval}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-red-600 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                >
+                    <HiXMark className="w-5 h-5" />
+                    Hapus
+                </button>
                 {workOrder.status === 'COMPLETED' && (
                     <div className="flex items-center gap-2">
                         <button
@@ -1029,6 +1063,34 @@ export function ClientComponent() {
                                     )}
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg max-w-md w-full p-6">
+                        <h3 className="text-lg font-bold mb-4 text-red-600">Hapus Permanen Work Order?</h3>
+                        <p className="text-gray-600 mb-6">
+                            Tindakan ini tidak dapat dibatalkan. Work Order beserta seluruh data terkait (tasks, history, lampiran) akan dihapus permanen dari database.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowDeleteModal(false)}
+                                disabled={processingApproval}
+                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                disabled={processingApproval}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                            >
+                                {processingApproval ? 'Menghapus...' : 'Ya, Hapus Permanen'}
+                            </button>
                         </div>
                     </div>
                 </div>

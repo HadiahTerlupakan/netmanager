@@ -13,6 +13,7 @@ import {
     HiCheckCircle,
     HiXMark,
     HiTrash,
+    HiXCircle,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
@@ -91,6 +92,7 @@ export function ClientComponent() {
     const [processingApproval, setProcessingApproval] = useState(false)
     const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null)
     const [showCancelModal, setShowCancelModal] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [cancelReason, setCancelReason] = useState('')
 
     useEffect(() => {
@@ -230,6 +232,37 @@ export function ClientComponent() {
         } catch (error) {
             console.error('Error cancelling:', error)
             alert('An error occurred')
+        } finally {
+            setProcessingApproval(false)
+        }
+    }
+
+    const openDeleteModal = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        setSelectedWorkOrderId(id)
+        setShowDeleteModal(true)
+    }
+
+    const handleDelete = async () => {
+        if (!selectedWorkOrderId) return
+
+        setProcessingApproval(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/${selectedWorkOrderId}?permanent=true`, {
+                method: 'DELETE',
+            })
+
+            if (response.ok) {
+                setShowDeleteModal(false)
+                setSelectedWorkOrderId(null)
+                fetchWorkOrders()
+                alert('Work Order berhasil dihapus permanen')
+            } else {
+                alert('Gagal menghapus work order')
+            }
+        } catch (error) {
+            console.error('Error deleting:', error)
+            alert('Terjadi kesalahan')
         } finally {
             setProcessingApproval(false)
         }
@@ -437,13 +470,22 @@ export function ClientComponent() {
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 {wo.status !== 'CANCELLED' && wo.status !== 'CLOSED' && wo.status !== 'COMPLETED' && (
-                                                    <button
-                                                        onClick={(e) => openCancelModal(wo.id, e)}
-                                                        className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                                                        title="Batalkan"
-                                                    >
-                                                        <HiTrash className="w-5 h-5" />
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={(e) => openCancelModal(wo.id, e)}
+                                                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded"
+                                                            title="Batalkan"
+                                                        >
+                                                            <HiXCircle className="w-5 h-5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => openDeleteModal(wo.id, e)}
+                                                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                                            title="Hapus Permanen"
+                                                        >
+                                                            <HiTrash className="w-5 h-5" />
+                                                        </button>
+                                                    </>
                                                 )}
                                                 {wo.status === 'COMPLETED' && (
                                                     <div className="flex items-center justify-end gap-2">
@@ -460,6 +502,13 @@ export function ClientComponent() {
                                                             title="Verifikasi"
                                                         >
                                                             <HiCheckCircle className="w-5 h-5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => openDeleteModal(wo.id, e)}
+                                                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                                            title="Hapus Permanen"
+                                                        >
+                                                            <HiTrash className="w-5 h-5" />
                                                         </button>
                                                     </div>
                                                 )}
@@ -567,6 +616,37 @@ export function ClientComponent() {
                                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                                 >
                                     {processingApproval ? 'Memproses...' : 'Batalkan WO'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Delete Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-4">Hapus Permanen Work Order?</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                                Tindakan ini tidak dapat dibatalkan. Work Order beserta seluruh data terkait (tasks, history, lampiran) akan dihapus permanen dari database.
+                            </p>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => {
+                                        setShowDeleteModal(false)
+                                        setSelectedWorkOrderId(null)
+                                    }}
+                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 rounded-lg"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={handleDelete}
+                                    disabled={processingApproval}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                                >
+                                    {processingApproval ? 'Menghapus...' : 'Ya, Hapus Permanen'}
                                 </button>
                             </div>
                         </div>

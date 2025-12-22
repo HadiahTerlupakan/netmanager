@@ -299,17 +299,40 @@ export async function DELETE(
         const { id } = await params;
         const { searchParams } = new URL(request.url);
         const reason = searchParams.get('reason') || 'Cancelled by admin';
+        const isPermanent = searchParams.get('permanent') === 'true';
+
+        if (isPermanent) {
+            await workOrderRepo.delete(id);
+
+            // System Log for Deletion
+            try {
+                const { logger } = await import('@/lib/logger')
+                await logger.logActivity({
+                    action: 'DELETE',
+                    subject: 'Work Order',
+                    userId: user.id,
+                    details: { id, type: 'PERMANENT' }
+                })
+            } catch (e) {
+                console.error('Logging failed', e)
+            }
+
+            return NextResponse.json({
+                success: true,
+                message: 'Work order permanently deleted',
+            });
+        }
 
         await workOrderRepo.cancel(id, reason, user.id);
 
-        // System Log
+        // System Log for Cancellation
         try {
             const { logger } = await import('@/lib/logger')
             await logger.logActivity({
                 action: 'DELETE',
                 subject: 'Work Order',
                 userId: user.id,
-                details: { id, reason }
+                details: { id, reason, type: 'CANCEL' }
             })
         } catch (e) {
             console.error('Logging failed', e)
