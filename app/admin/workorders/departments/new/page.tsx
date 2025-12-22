@@ -2,6 +2,6 @@ import { ensurePermission } from '@/lib/rbac'
 import { ClientComponent } from './DeptNewClient'
 
 export default async function Page() {
-    await ensurePermission('departments:create')
+    await ensurePermission('department:create')
     return <ClientComponent />
 }
