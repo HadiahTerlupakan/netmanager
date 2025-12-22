@@ -23,7 +23,7 @@ export function ClientComponent() {
         }
 
         const data = await response.json()
-        setInitialData(data)
+        setInitialData(data.barang || data)
       } catch (error) {
         console.error('Error fetching barang:', error)
         setError(error instanceof Error ? error.message : 'Gagal memuat data barang')

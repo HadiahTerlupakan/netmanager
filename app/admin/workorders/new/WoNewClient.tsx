@@ -320,29 +320,29 @@ export function ClientComponent() {
         <div className="space-y-6 max-w-4xl mx-auto">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link href="/admin/workorders/list" className="p-2 hover:bg-gray-100 rounded-lg"><HiArrowLeft className="w-6 h-6" /></Link>
+                    <Link href="/admin/workorders/list" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"><HiArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" /></Link>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">New Work Order</h1>
-                        <p className="text-gray-600 mt-1">Ticket Number will be generated automatically</p>
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">New Work Order</h1>
+                        <p className="text-gray-600 dark:text-gray-400 mt-1">Ticket Number will be generated automatically</p>
                     </div>
                 </div>
 
                 <button
                     onClick={() => setSimpleMode(!simpleMode)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${simpleMode ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${simpleMode ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}`}
                 >
                     <HiSparkles className="w-4 h-4" />
                     {simpleMode ? 'Simple Mode ON' : 'Simple Mode OFF'}
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <form onSubmit={handleSubmit} className="p-6 space-y-8">
 
                     {/* Simplified Contact Section (Default) */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <label className="block text-sm font-medium text-gray-900 uppercase tracking-wide">Customer Details</label>
+                            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 uppercase tracking-wide">Customer Details</label>
 
                             {/* Toggle hidden in "More" or small text if user wants "Simple" */}
                             <button
@@ -355,9 +355,9 @@ export function ClientComponent() {
                         </div>
 
                         {isGuest ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-6 rounded-xl border border-gray-100">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 dark:bg-gray-700/30 p-6 rounded-xl border border-gray-100 dark:border-gray-700">
                                 <div className="md:col-span-2">
-                                    <div className="flex items-center gap-2 mb-4 text-gray-500 text-sm">
+                                    <div className="flex items-center gap-2 mb-4 text-gray-500 dark:text-gray-400 text-sm">
                                         <HiUserCircle className="w-5 h-5" />
                                         <span>Ordering as Guest / Manual Ticket</span>
                                     </div>
@@ -365,36 +365,36 @@ export function ClientComponent() {
 
                                 <div className='space-y-4'>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Nama Pelanggan <span className='text-red-500'>*</span></label>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nama Pelanggan <span className='text-red-500'>*</span></label>
                                         <input
                                             type="text"
                                             value={formData.contactName}
                                             onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
                                             placeholder="Nama Lengkap..."
-                                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-sky-500 transition-all"
+                                            className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 text-gray-900 dark:text-white transition-all"
                                             required
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">No. Telp / WhatsApp</label>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">No. Telp / WhatsApp</label>
                                         <input
                                             type="tel"
                                             value={formData.contactPhone}
                                             onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
                                             placeholder="Contoh: 0812..."
-                                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-sky-500 transition-all"
+                                            className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 text-gray-900 dark:text-white transition-all"
                                         />
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Alamat Lengkap <span className='text-red-500'>*</span></label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Alamat Lengkap <span className='text-red-500'>*</span></label>
                                     <textarea
                                         value={formData.locationAddress}
                                         onChange={(e) => setFormData({ ...formData, locationAddress: e.target.value })}
                                         placeholder="Jalan, Nomor Rumah, RT/RW, Kelurahan..."
                                         rows={4}
-                                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-sky-500 transition-all"
+                                        className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 text-gray-900 dark:text-white transition-all"
                                         required
                                     />
                                 </div>
@@ -403,10 +403,10 @@ export function ClientComponent() {
                             /* Existing Customer Search Logic */
                             <div className="space-y-4">
                                 {formData.pelangganId ? (
-                                    <div className="flex items-center justify-between p-4 bg-sky-50 border border-sky-200 rounded-xl">
+                                    <div className="flex items-center justify-between p-4 bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-xl">
                                         <div>
-                                            <div className="font-semibold text-gray-900">{formData.pelangganDisplay}</div>
-                                            <div className="text-sm text-gray-600 mt-0.5">{formData.locationAddress}</div>
+                                            <div className="font-semibold text-gray-900 dark:text-white">{formData.pelangganDisplay}</div>
+                                            <div className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">{formData.locationAddress}</div>
                                         </div>
                                         <button type="button" onClick={() => setFormData({ ...formData, pelangganId: '', pelangganDisplay: '' })} className="text-sm font-medium text-sky-600 hover:text-sky-700 px-3 py-1.5 hover:bg-sky-100 rounded-lg transition-colors">Change</button>
                                     </div>
@@ -417,16 +417,16 @@ export function ClientComponent() {
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             placeholder="Search customer by name or ID..."
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-shadow"
+                                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                                             autoFocus
                                         />
                                         {searchingPelanggan && <div className="absolute right-4 top-3.5"><div className="animate-spin h-5 w-5 border-2 border-sky-500 border-t-transparent rounded-full"></div></div>}
                                         {pelangganList.length > 0 && (
-                                            <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                                            <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
                                                 {pelangganList.map((p) => (
-                                                    <button key={p.id} type="button" onClick={() => selectPelanggan(p)} className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors">
-                                                        <div className="font-medium text-gray-900">{p.nama}</div>
-                                                        <div className="text-sm text-gray-500 flex justify-between">
+                                                    <button key={p.id} type="button" onClick={() => selectPelanggan(p)} className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors">
+                                                        <div className="font-medium text-gray-900 dark:text-white">{p.nama}</div>
+                                                        <div className="text-sm text-gray-500 dark:text-gray-400 flex justify-between">
                                                             <span>{p.idPelanggan}</span>
                                                             <span>{p.alamat}</span>
                                                         </div>
@@ -443,27 +443,27 @@ export function ClientComponent() {
                     {/* Quick Actions (Only in Simple Mode) */}
                     {simpleMode && (
                         <div className="space-y-3">
-                            <label className="block text-sm font-medium text-gray-700">Quick Actions (Issues)</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Quick Actions (Issues)</label>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                                <button type="button" onClick={() => applyQuickAction('INTERNET_MATI')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-red-300 hover:bg-red-50 transition-all group">
-                                    <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center group-hover:scale-110 transition-transform"><HiWifi className="w-6 h-6" /></div>
-                                    <span className="text-xs font-medium text-gray-700 group-hover:text-red-700 text-center">Internet Mati / FOCUT</span>
+                                <button type="button" onClick={() => applyQuickAction('INTERNET_MATI')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group">
+                                    <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiWifi className="w-6 h-6" /></div>
+                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-red-700 dark:group-hover:text-red-300 text-center">Internet Mati / FOCUT</span>
                                 </button>
-                                <button type="button" onClick={() => applyQuickAction('LAMBAT')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-all group">
-                                    <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform"><HiClock className="w-6 h-6" /></div>
-                                    <span className="text-xs font-medium text-gray-700 group-hover:text-orange-700 text-center">Koneksi Lambat</span>
+                                <button type="button" onClick={() => applyQuickAction('LAMBAT')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all group">
+                                    <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiClock className="w-6 h-6" /></div>
+                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-orange-700 dark:group-hover:text-orange-300 text-center">Koneksi Lambat</span>
                                 </button>
-                                <button type="button" onClick={() => applyQuickAction('PENARIKAN')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all group">
-                                    <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center group-hover:scale-110 transition-transform"><HiArchiveBoxArrowDown className="w-6 h-6" /></div>
-                                    <span className="text-xs font-medium text-gray-700 group-hover:text-gray-900 text-center">Penarikan Perangkat</span>
+                                <button type="button" onClick={() => applyQuickAction('PENARIKAN')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all group">
+                                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center group-hover:scale-110 transition-transform"><HiArchiveBoxArrowDown className="w-6 h-6" /></div>
+                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white text-center">Penarikan Perangkat</span>
                                 </button>
-                                <button type="button" onClick={() => applyQuickAction('PASANG_BARU')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all group">
-                                    <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform"><HiPlusCircle className="w-6 h-6" /></div>
-                                    <span className="text-xs font-medium text-gray-700 group-hover:text-green-700 text-center">Pasang Baru</span>
+                                <button type="button" onClick={() => applyQuickAction('PASANG_BARU')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all group">
+                                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiPlusCircle className="w-6 h-6" /></div>
+                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-green-700 dark:group-hover:text-green-300 text-center">Pasang Baru</span>
                                 </button>
-                                <button type="button" onClick={() => applyQuickAction('RELOKASI')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all group">
-                                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform"><HiMapPin className="w-6 h-6" /></div>
-                                    <span className="text-xs font-medium text-gray-700 group-hover:text-blue-700 text-center">Relokasi Perangkat</span>
+                                <button type="button" onClick={() => applyQuickAction('RELOKASI')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
+                                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiMapPin className="w-6 h-6" /></div>
+                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-700 dark:group-hover:text-blue-300 text-center">Relokasi Perangkat</span>
                                 </button>
                             </div>
                         </div>
@@ -471,11 +471,11 @@ export function ClientComponent() {
 
                     {/* Site Selection */}
                     <div className="space-y-4">
-                        <label className="block text-sm font-medium text-gray-900 uppercase tracking-wide">Site / Area</label>
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 uppercase tracking-wide">Site / Area</label>
                         <select
                             value={formData.siteId}
                             onChange={(e) => setFormData({ ...formData, siteId: e.target.value })}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-shadow"
+                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                         >
                             <option value="">Select Site (optional)</option>
                             {sites.map((site) => (
@@ -484,16 +484,16 @@ export function ClientComponent() {
                                 </option>
                             ))}
                         </select>
-                        <p className="text-xs text-gray-500">Work order will be available to employees assigned to this site</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Work order will be available to employees assigned to this site</p>
                     </div>
 
                     {/* Department Selection - Required for notifications */}
                     <div className="space-y-4">
-                        <label className="block text-sm font-medium text-gray-900 uppercase tracking-wide">Department <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 uppercase tracking-wide">Department <span className="text-red-500">*</span></label>
                         <select
                             value={formData.departmentId}
                             onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-shadow"
+                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                             required
                         >
                             <option value="">Select Department</option>
@@ -503,19 +503,19 @@ export function ClientComponent() {
                                 </option>
                             ))}
                         </select>
-                        <p className="text-xs text-gray-500">Semua employee di department ini akan menerima notifikasi work order baru</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Semua employee di department ini akan menerima notifikasi work order baru</p>
                     </div>
 
                     {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Title <span className='text-red-500'>*</span></label>
-                                <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="e.g., Koneksi Lambat" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500" required />
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title <span className='text-red-500'>*</span></label>
+                                <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="e.g., Koneksi Lambat" className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Priority <span className='text-red-500'>*</span></label>
-                                <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500" required>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Priority <span className='text-red-500'>*</span></label>
+                                <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>
                                     <option value="LOW">Low</option>
                                     <option value="NORMAL">Normal</option>
                                     <option value="HIGH">High</option>
@@ -526,19 +526,19 @@ export function ClientComponent() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Description <span className='text-red-500'>*</span></label>
-                            <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Detailed description..." rows={5} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 resize-none" required />
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description <span className='text-red-500'>*</span></label>
+                            <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Detailed description..." rows={5} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none" required />
                         </div>
                     </div>
 
                     {/* Disconnection Reason Dropdown */}
                     {(formData.type === 'DISCONNECTION' || formData.title.includes('Penarikan Perangkat')) && (
-                        <div className="space-y-4 p-4 bg-red-50 border border-red-200 rounded-xl">
-                            <label className="block text-sm font-medium text-red-900">Alasan Penarikan <span className='text-red-500'>*</span></label>
+                        <div className="space-y-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                            <label className="block text-sm font-medium text-red-900 dark:text-red-100">Alasan Penarikan <span className='text-red-500'>*</span></label>
                             <select
                                 value={formData.disconnectionReason}
                                 onChange={(e) => setFormData({ ...formData, disconnectionReason: e.target.value })}
-                                className="w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 text-gray-900"
+                                className="w-full px-4 py-3 border border-red-300 dark:border-red-700 rounded-lg focus:ring-2 focus:ring-red-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800"
                                 required={formData.type === 'DISCONNECTION'}
                             >
                                 <option value="">Pilih Alasan...</option>
@@ -556,11 +556,11 @@ export function ClientComponent() {
                     )}
 
                     {/* Detailed Actions (Hidden in Simple Mode) */}
-                    <div className={`space-y-6 pt-6 border-t border-gray-100 ${simpleMode ? 'hidden' : 'block'}`}>
+                    <div className={`space-y-6 pt-6 border-t border-gray-100 dark:border-gray-700 ${simpleMode ? 'hidden' : 'block'}`}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Request Type <span className='text-red-500'>*</span></label>
-                                <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500" required>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Request Type <span className='text-red-500'>*</span></label>
+                                <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>
                                     <option value="INSTALLATION">Installation</option>
                                     <option value="TROUBLESHOOT">Troubleshoot</option>
                                     <option value="MAINTENANCE">Maintenance</option>
@@ -571,14 +571,14 @@ export function ClientComponent() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Scheduled Date</label>
-                                <input type="date" value={formData.scheduledDate} onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500" />
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Scheduled Date</label>
+                                <input type="date" value={formData.scheduledDate} onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })} className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
                             </div>
                         </div>
                     </div>
 
                     <div className="flex gap-4 pt-4">
-                        <Link href="/admin/workorders/list" className="flex-1 px-6 py-3.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 text-center font-medium transition-colors">Cancel</Link>
+                        <Link href="/admin/workorders/list" className="flex-1 px-6 py-3.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-center font-medium transition-colors">Cancel</Link>
                         <button type="submit" disabled={loading} className="flex-[2] px-6 py-3.5 bg-sky-600 text-white rounded-xl hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg shadow-sky-200 transition-all hover:shadow-xl hover:-translate-y-0.5">{loading ? 'Creating...' : 'Create Work Order'}</button>
                     </div>
                 </form>

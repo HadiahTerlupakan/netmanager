@@ -29,7 +29,19 @@ export function ClientComponent() {
         }
 
         const data = await response.json()
-        setBarang(data)
+        const barangData = data.barang || data
+
+        // Map stok to stockPerGudang if needed
+        if (barangData.stok && !barangData.stockPerGudang) {
+          barangData.stockPerGudang = barangData.stok.map((s: any) => ({
+            gudangId: s.gudangId,
+            gudangKode: s.gudang?.kode,
+            gudangNama: s.gudang?.nama,
+            stok: s.stok
+          }))
+        }
+
+        setBarang(barangData)
       } catch (error) {
         console.error('Error fetching barang:', error)
         setError(error instanceof Error ? error.message : 'Gagal memuat data barang')
