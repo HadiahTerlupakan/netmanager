@@ -48,8 +48,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy necessary files
-COPY --from=builder /app/public ./public
+# Copy necessary files - with correct ownership for uploads
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 
 # Copy node_modules (Complete copy since we are not using standalone)
@@ -75,7 +75,16 @@ COPY --from=builder /app/proxy.ts ./proxy.ts
 # Copy tsconfig for path resolution
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
+# Create uploads directories with correct permissions BEFORE switching to nextjs user
+RUN mkdir -p /app/public/uploads/attendance \
+    && mkdir -p /app/public/uploads/inventory \
+    && mkdir -p /app/public/uploads/work-orders \
+    && mkdir -p /app/public/uploads/profiles \
+    && mkdir -p /app/public/uploads/ktp \
+    && chown -R nextjs:nodejs /app/public/uploads
+
 USER nextjs
+
 
 EXPOSE 3000
 ENV PORT=3000
