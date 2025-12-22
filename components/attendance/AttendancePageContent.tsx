@@ -347,7 +347,8 @@ export default function AttendancePageContent() {
     }
 
     const handleAttendance = async () => {
-        console.log('handleAttendance triggered', { status, photo: photo ? 'exists' : 'null', location })
+        console.log('[ABSENSI] handleAttendance triggered', { status, photo: photo ? 'exists' : 'null', location })
+
         if (!photo) {
             toast.error('Foto selfie wajib diambil')
             return
@@ -357,11 +358,22 @@ export default function AttendancePageContent() {
         setLoading(true)
 
         try {
-            console.log('Converting photo to blob...')
-            // Use safer conversion method instead of fetch(dataURL)
-            const blob = dataURLtoBlob(photo)
-            const file = new File([blob], "selfie.jpg", { type: "image/jpeg" })
-            console.log('Blob created:', file.size, file.type)
+            console.log('[ABSENSI] Converting photo to blob...')
+
+            let file: File
+            try {
+                // Primary method: Use safer conversion
+                const blob = dataURLtoBlob(photo)
+                file = new File([blob], "selfie.jpg", { type: "image/jpeg" })
+                console.log('[ABSENSI] Blob created:', file.size, file.type)
+            } catch (blobError) {
+                console.error('[ABSENSI] Blob conversion failed, trying fetch method:', blobError)
+                // Fallback method: Use fetch API
+                const response = await fetch(photo)
+                const blob = await response.blob()
+                file = new File([blob], "selfie.jpg", { type: "image/jpeg" })
+                console.log('[ABSENSI] Fallback blob created:', file.size, file.type)
+            }
 
             // Ensure location is present
             let finalLocation = location
@@ -381,28 +393,32 @@ export default function AttendancePageContent() {
             }
 
             const endpoint = status === 'idle' ? '/api/attendance/check-in' : '/api/attendance/check-out'
-            console.log('Sending request to:', endpoint)
+            console.log('[ABSENSI] Sending request to:', endpoint)
 
-            const response = await fetch(endpoint, { method: 'POST', body: formData })
-            console.log('Response received:', response.status)
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                body: formData,
+                credentials: 'include' // Ensure cookies are sent
+            })
+            console.log('[ABSENSI] Response received:', response.status)
 
             if (!response.ok) {
                 const errData = await response.json()
-                console.error('Server error:', errData)
+                console.error('[ABSENSI] Server error:', errData)
                 throw new Error(errData.error || 'Gagal melakukan absensi')
             }
 
             const data = await response.json()
-            console.log('Success data:', data)
+            console.log('[ABSENSI] Success data:', data)
 
             toast.dismiss(toastId)
-            toast.success(status === 'idle' ? 'Check-in Berhasil' : 'Check-out Berhasil')
+            toast.success(status === 'idle' ? 'Check-in Berhasil!' : 'Check-out Berhasil!')
             setPhoto(null)
             fetchStatus()
         } catch (error: any) {
             toast.dismiss(toastId)
-            console.error('Error in handleAttendance:', error)
-            toast.error(error.message || 'Terjadi kesalahan')
+            console.error('[ABSENSI] Error in handleAttendance:', error)
+            toast.error(error.message || 'Terjadi kesalahan saat memproses absensi')
         } finally {
             setLoading(false)
         }
@@ -690,8 +706,8 @@ export default function AttendancePageContent() {
                                     </div>
 
                                     <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide border ${record.status === 'LATE'
-                                            ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30'
-                                            : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30'
+                                        ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30'
+                                        : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30'
                                         }`}>
                                         {record.status === 'LATE' ? 'Terlambat' : 'Tepat Waktu'}
                                     </span>
