@@ -68,13 +68,26 @@ export async function POST(
             })
 
             if (validPartners.length !== partnerIds.length) {
+                // Identify incorrect partners
+                const validIds = new Set(validPartners.map(p => p.id))
+                const invalidIds = partnerIds.filter((id: string) => !validIds.has(id))
+
+                // Fetch names of invalid partners to show in error
+                const invalidUsers = await prisma.user.findMany({
+                    where: { id: { in: invalidIds } },
+                    select: { name: true, siteId: true, departmentId: true }
+                })
+
+                const invalidNames = invalidUsers.map(u => u.name).join(', ')
+
                 return NextResponse.json({
-                    error: 'Beberapa partner tidak valid (beda site/departemen)',
+                    error: `Partner berikut tidak dapat ditambahkan karena berbeda Site/Departemen: ${invalidNames}`,
                     debug: {
                         requested: partnerIds.length,
                         valid: validPartners.length,
                         targetSiteId,
-                        targetDeptId
+                        targetDeptId,
+                        invalidDetails: invalidUsers
                     }
                 }, { status: 400 })
             }

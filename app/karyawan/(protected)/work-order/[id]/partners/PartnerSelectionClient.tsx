@@ -25,10 +25,12 @@ export default function PartnerSelectionClient({ id }: { id: string }) {
     const fetchData = async () => {
         try {
             // Fetch eligible partners
+            let availablePartners: User[] = []
             const partnersRes = await fetch(`/api/karyawan/users/partners?workOrderId=${id}`)
             if (partnersRes.ok) {
                 const data = await partnersRes.json()
-                setPartners(data.users || [])
+                availablePartners = data.users || []
+                setPartners(availablePartners)
             }
 
             // Fetch current assignments to pre-select
@@ -38,7 +40,14 @@ export default function PartnerSelectionClient({ id }: { id: string }) {
                 const currentPartners = data.workOrder.assignments
                     ?.filter((a: any) => a.role === 'PARTNER')
                     .map((a: any) => a.user.id) || []
-                setSelectedPartnerIds(currentPartners)
+
+                // Only select partners that are currently valid/eligible
+                // This prevents "phantom" invalid partners from blocking the save
+                const validCurrentPartners = currentPartners.filter((id: string) =>
+                    availablePartners.some(p => p.id === id)
+                )
+
+                setSelectedPartnerIds(validCurrentPartners)
             }
         } catch (error) {
             console.error('Failed to fetch data:', error)
@@ -68,7 +77,8 @@ export default function PartnerSelectionClient({ id }: { id: string }) {
                 router.push(`/karyawan/work-order/${id}`)
                 router.refresh()
             } else {
-                alert('Gagal menyimpan partner')
+                const data = await res.json()
+                alert(data.error || 'Gagal menyimpan partner')
             }
         } catch (error) {
             console.error('Error saving partners:', error)
