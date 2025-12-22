@@ -1,9 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
-import { requireAdmin, getCurrentSession } from '@/lib/auth-helpers'
-import { getUserRepository } from '@/lib/repositories'
+import { requireAdmin } from '@/lib/auth-helpers'
+import { getUserService } from '@/modules/users'
 import { userCreateSchema } from '@/lib/validations/user'
-import { prisma } from '@/lib/prisma'
-import { hash } from 'bcryptjs'
 import { logger } from '@/lib/logger'
 
 /**
@@ -48,32 +46,12 @@ export async function GET(req: NextRequest) {
     const session = await requireAdmin(req)
 
     try {
-      const dbStart = Date.now()
-
-      // Get all users
-      const users = await prisma.user.findMany({
-        orderBy: {
-          createdAt: 'desc',
-        },
-        include: {
-          department: {
-            select: { id: true, name: true },
-          },
-          site: {
-            select: { id: true, code: true, name: true },
-          },
-          role: {
-            select: { id: true, name: true },
-          },
-        },
-      })
-
-      logger.dbOperation('findMany', 'User', Date.now() - dbStart, {
-        count: users.length,
-      })
+      const userService = getUserService()
+      const users = await userService.getAllUsers()
 
       logger.apiRequest('GET', '/api/admin/users', 200, Date.now() - startTime, {
         userId: session.user.id,
+        count: users.length,
       })
 
       return NextResponse.json({ users })
@@ -219,29 +197,20 @@ export async function POST(req: NextRequest) {
       roleId
     })
 
-    const passwordHash = await hash(password, 10)
-
     try {
-      // Create User with all fields
-      const user = await prisma.user.create({
-        data: {
-          email,
-          name: name || null,
-          passwordHash,
-          phone: phone || null,
-          departmentId: departmentId || null,
-          siteId: siteId || null,
-          roleId: roleId || null,
-          isActive: isActive !== undefined ? isActive : true,
-        },
+      const userService = getUserService()
+      const user = await userService.createUser({
+        email,
+        name,
+        password,
+        phone,
+        departmentId,
+        siteId,
+        roleId,
+        isActive,
       })
 
-      logger.dbOperation('create', 'User', Date.now() - startTime, {
-        userId: user.id,
-      })
-      console.log('[USER-CREATION] User created successfully:', { userId: user.id, email: user.email })
-
-      logger.apiRequest('POST', '/api/users', 200, Date.now() - startTime, {
+      logger.apiRequest('POST', '/api/admin/users', 200, Date.now() - startTime, {
         userId: session.user.id,
         newUserId: user.id,
       })
@@ -254,7 +223,6 @@ export async function POST(req: NextRequest) {
         details: { id: user.id, email: user.email }
       })
 
-
       return NextResponse.json({
         id: user.id,
         message: 'User created successfully',
@@ -262,43 +230,16 @@ export async function POST(req: NextRequest) {
     } catch (e: any) {
       console.error('[USER-CREATION] ERROR:', {
         error: e.message,
-        code: e.code,
-        meta: e.meta,
-        cause: e.cause,
         email: email,
       })
       logger.error('Error creating user', e, {
-        path: '/api/users',
+        path: '/api/admin/users',
         method: 'POST',
       })
 
-      // Handle specific database errors
-      if (e.code === 'P1001') {
-        return NextResponse.json(
-          { error: 'Database connection failed' },
-          { status: 503 }
-        )
-      }
-
-      if (e.code === 'P2002') {
-        // Prisma unique constraint error
+      // Handle specific errors from UserService
+      if (e.message === 'Email already exists') {
         return NextResponse.json({ error: 'Email already exists' }, { status: 409 })
-      }
-
-      if (e.code === 'P2003') {
-        // Foreign key constraint error
-        return NextResponse.json(
-          { error: 'Invalid department or site reference' },
-          { status: 400 }
-        )
-      }
-
-      // Handle JSON parsing errors
-      if (e instanceof SyntaxError && e.message.includes('JSON')) {
-        return NextResponse.json(
-          { error: 'Invalid JSON in request body' },
-          { status: 400 }
-        )
       }
 
       return NextResponse.json(
@@ -307,8 +248,8 @@ export async function POST(req: NextRequest) {
       )
     }
   } catch (error: any) {
-    logger.error('Error in POST /api/users', error, {
-      path: '/api/users',
+    logger.error('Error in POST /api/admin/users', error, {
+      path: '/api/admin/users',
       method: 'POST',
     })
     return NextResponse.json(

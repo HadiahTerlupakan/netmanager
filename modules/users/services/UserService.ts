@@ -1,6 +1,29 @@
 import { UserRepository } from '../repositories/UserRepository'
-import { WorkingHourMode } from '@prisma/client'
+import type { CreateUserDTO, UserWithRelations } from '../repositories/UserRepository'
+import { WorkingHourMode, Prisma } from '@prisma/client'
 import type { User } from '@prisma/client'
+import { hash } from 'bcryptjs'
+
+export interface CreateUserInput {
+    email: string
+    name?: string
+    password: string
+    phone?: string
+    departmentId?: string
+    siteId?: string
+    roleId?: string
+    isActive?: boolean
+}
+
+export interface UpdateUserInput {
+    email?: string
+    name?: string
+    phone?: string
+    departmentId?: string | null
+    siteId?: string | null
+    roleId?: string | null
+    isActive?: boolean
+}
 
 export class UserService {
     private userRepository: UserRepository
@@ -9,8 +32,94 @@ export class UserService {
         this.userRepository = new UserRepository()
     }
 
+    async getAllUsers(): Promise<UserWithRelations[]> {
+        return this.userRepository.findAll()
+    }
+
     async getUser(id: string): Promise<User | null> {
         return this.userRepository.findById(id)
+    }
+
+    async getUserWithRelations(id: string): Promise<UserWithRelations | null> {
+        return this.userRepository.findByIdWithRelations(id)
+    }
+
+    async getUserByEmail(email: string): Promise<User | null> {
+        return this.userRepository.findByEmail(email)
+    }
+
+    async createUser(data: CreateUserInput): Promise<User> {
+        // Check if email already exists
+        const existingUser = await this.userRepository.findByEmail(data.email)
+        if (existingUser) {
+            throw new Error('Email already exists')
+        }
+
+        // Hash password
+        const passwordHash = await hash(data.password, 10)
+
+        // Create user
+        return this.userRepository.create({
+            email: data.email,
+            name: data.name || null,
+            passwordHash,
+            phone: data.phone || null,
+            departmentId: data.departmentId || null,
+            siteId: data.siteId || null,
+            roleId: data.roleId || null,
+            isActive: data.isActive,
+        })
+    }
+
+    async updateUser(id: string, data: UpdateUserInput): Promise<User> {
+        // Check if user exists
+        const existingUser = await this.userRepository.findById(id)
+        if (!existingUser) {
+            throw new Error('User not found')
+        }
+
+        // If email is being changed, check if new email is available
+        if (data.email && data.email !== existingUser.email) {
+            const emailExists = await this.userRepository.findByEmail(data.email)
+            if (emailExists) {
+                throw new Error('Email already exists')
+            }
+        }
+
+        const updateData: Prisma.UserUpdateInput = {}
+        if (data.email !== undefined) updateData.email = data.email
+        if (data.name !== undefined) updateData.name = data.name
+        if (data.phone !== undefined) updateData.phone = data.phone
+        if (data.isActive !== undefined) updateData.isActive = data.isActive
+
+        // Handle nullable foreign keys
+        if (data.departmentId !== undefined) {
+            updateData.department = data.departmentId
+                ? { connect: { id: data.departmentId } }
+                : { disconnect: true }
+        }
+        if (data.siteId !== undefined) {
+            updateData.site = data.siteId
+                ? { connect: { id: data.siteId } }
+                : { disconnect: true }
+        }
+        if (data.roleId !== undefined) {
+            updateData.role = data.roleId
+                ? { connect: { id: data.roleId } }
+                : { disconnect: true }
+        }
+
+        return this.userRepository.update(id, updateData)
+    }
+
+    async deleteUser(id: string): Promise<User> {
+        // Check if user exists
+        const existingUser = await this.userRepository.findById(id)
+        if (!existingUser) {
+            throw new Error('User not found')
+        }
+
+        return this.userRepository.delete(id)
     }
 
     async updateWorkingHours(id: string, data: {
@@ -38,3 +147,14 @@ export class UserService {
         return this.userRepository.updateWorkingHours(id, data)
     }
 }
+
+// Singleton instance
+let userServiceInstance: UserService | null = null
+
+export function getUserService(): UserService {
+    if (!userServiceInstance) {
+        userServiceInstance = new UserService()
+    }
+    return userServiceInstance
+}
+

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { prisma } from '@/lib/prisma'
 import { hasPermission } from '@/lib/rbac'
+import { getRoleService } from '@/modules/roles'
 import { z } from 'zod'
 
 const roleUpdateSchema = z.object({
@@ -27,12 +27,8 @@ export async function GET(req: Request, { params }: Params) {
     const { id } = await params
 
     try {
-        const role = await prisma.role.findUnique({
-            where: { id },
-            include: {
-                permissions: true
-            }
-        })
+        const roleService = getRoleService()
+        const role = await roleService.getRoleWithPermissions(id)
 
         if (!role) {
             return NextResponse.json({ error: 'Role not found' }, { status: 404 })
@@ -59,56 +55,32 @@ export async function PUT(req: Request, { params }: Params) {
 
     try {
         const body = await req.json()
-        const { name, description, permissions, accessAdminPanel, accessEmployeePanel, isRestricted } = roleUpdateSchema.parse(body)
+        const validated = roleUpdateSchema.parse(body)
 
-        // Don't allow modifying super admin role structure too much (safety check)
-        const currentRole = await prisma.role.findUnique({ where: { id } })
-        if (!currentRole) {
-            return NextResponse.json({ error: 'Role not found' }, { status: 404 })
-        }
-        if (currentRole?.name === 'SUPER_ADMIN' && name !== 'SUPER_ADMIN') {
-            return NextResponse.json({ error: 'Cannot rename SUPER_ADMIN role' }, { status: 400 })
-        }
-
-        // Deduplicate permissions
-        const uniquePermissions = [...new Set(permissions)] as string[]
-
-        // Parse requested permissions into resource:action pairs
-        const requestedPairs = uniquePermissions.map((p) => {
-            const [resource, action] = p.split(':')
-            return { resource, action }
-        })
-
-        // Query database for existing permissions that match the requested pairs
-        const existingPermissions = await prisma.permission.findMany({
-            where: {
-                OR: requestedPairs.map(pair => ({
-                    resource: pair.resource,
-                    action: pair.action
-                }))
-            },
-            select: { id: true }
-        })
-
-        const updatedRole = await prisma.role.update({
-            where: { id },
-            data: {
-                name,
-                description,
-                accessAdminPanel,
-                accessEmployeePanel,
-                isRestricted,
-                permissions: {
-                    set: existingPermissions.map((p) => ({ id: p.id })),
-                },
-            },
+        const roleService = getRoleService()
+        const updatedRole = await roleService.updateRole(id, {
+            name: validated.name,
+            description: validated.description,
+            permissions: validated.permissions,
+            accessAdminPanel: validated.accessAdminPanel,
+            accessEmployeePanel: validated.accessEmployeePanel,
+            isRestricted: validated.isRestricted
         })
 
         return NextResponse.json(updatedRole)
     } catch (error) {
         console.error('Error updating role:', error)
         if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: (error as any).errors[0].message }, { status: 400 })
+            return NextResponse.json({ error: error.issues[0].message }, { status: 400 })
+        }
+        if (error instanceof Error) {
+            if (error.message === 'Role not found') {
+                return NextResponse.json({ error: error.message }, { status: 404 })
+            }
+            if (error.message === 'Cannot rename SUPER_ADMIN role') {
+                return NextResponse.json({ error: error.message }, { status: 400 })
+            }
+            return NextResponse.json({ error: error.message }, { status: 400 })
         }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
@@ -122,21 +94,21 @@ export async function DELETE(req: Request, { params }: Params) {
     const { id } = await params
 
     try {
-        const role = await prisma.role.findUnique({ where: { id }, include: { _count: { select: { users: true } } } })
-        if (!role) return NextResponse.json({ error: 'Role not found' }, { status: 404 })
+        const roleService = getRoleService()
+        await roleService.deleteRole(id)
 
-        if (role.name === 'SUPER_ADMIN') {
-            return NextResponse.json({ error: 'Cannot delete SUPER_ADMIN role' }, { status: 400 })
-        }
-
-        if (role._count.users > 0) {
-            return NextResponse.json({ error: 'Cannot delete role that has assigned users' }, { status: 400 })
-        }
-
-        await prisma.role.delete({ where: { id } })
         return NextResponse.json({ success: true })
     } catch (error) {
         console.error('Error deleting role:', error)
+        if (error instanceof Error) {
+            if (error.message === 'Role not found') {
+                return NextResponse.json({ error: error.message }, { status: 404 })
+            }
+            if (error.message === 'Cannot delete SUPER_ADMIN role' ||
+                error.message === 'Cannot delete role that has assigned users') {
+                return NextResponse.json({ error: error.message }, { status: 400 })
+            }
+        }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }
