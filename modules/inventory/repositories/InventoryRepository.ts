@@ -290,14 +290,6 @@ export class InventoryRepository implements IInventoryRepository {
                 }
             })
 
-            // 3. Decrement Stock
-            await tx.barangGudang.update({
-                where: { id: currentStock.id },
-                data: {
-                    stok: { decrement: data.jumlah }
-                }
-            })
-
             return keluar
         })
     }
