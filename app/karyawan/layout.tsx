@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import AnnouncementPopup from '@/components/announcement/AnnouncementPopup'
 import { KaryawanProviders } from '@/components/karyawan/KaryawanProviders'
 import '../globals.css'
 
@@ -26,18 +25,15 @@ export const viewport: Viewport = {
     ],
 }
 
-import { ensureEmployeeAccess } from '@/lib/server-auth'
-
-export default async function KaryawanLayout({
+// Root karyawan layout - NO protection here
+// Protection is handled in (protected) route group
+export default function KaryawanRootLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    await ensureEmployeeAccess()
-
     return (
         <KaryawanProviders>
-            <AnnouncementPopup portal="employee" />
             {children}
         </KaryawanProviders>
     )
