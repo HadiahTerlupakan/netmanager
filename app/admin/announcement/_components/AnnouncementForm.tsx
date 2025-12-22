@@ -91,39 +91,39 @@ export default function AnnouncementForm({ initialData, isEdit = false }: Announ
     };
 
     return (
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 max-w-2xl mx-auto">
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 max-w-2xl mx-auto">
             <div className="space-y-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Title</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
                     <input
                         type="text"
                         name="title"
                         required
                         value={formData.title}
                         onChange={handleChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
                     />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Content</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content</label>
                     <textarea
                         name="content"
                         required
                         rows={4}
                         value={formData.content}
                         onChange={handleChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
                     />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Target Audience</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Target Audience</label>
                     <select
                         name="target"
                         value={formData.target}
                         onChange={handleChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
                     >
                         <option value="ALL">All Users</option>
                         <option value="CUSTOMER">Customers Only</option>
@@ -134,23 +134,23 @@ export default function AnnouncementForm({ initialData, isEdit = false }: Announ
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</label>
                         <input
                             type="datetime-local"
                             name="startDate"
                             value={formData.startDate}
                             onChange={handleChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">End Date</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">End Date</label>
                         <input
                             type="datetime-local"
                             name="endDate"
                             value={formData.endDate}
                             onChange={handleChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
                         />
                     </div>
                 </div>
@@ -165,7 +165,7 @@ export default function AnnouncementForm({ initialData, isEdit = false }: Announ
                             onChange={handleChange}
                             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                         />
-                        <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">Active</label>
+                        <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Active</label>
                     </div>
 
                     <div className="flex items-center">
@@ -177,12 +177,12 @@ export default function AnnouncementForm({ initialData, isEdit = false }: Announ
                             onChange={handleChange}
                             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                         />
-                        <label htmlFor="isPinned" className="ml-2 block text-sm text-gray-900">Pinned</label>
+                        <label htmlFor="isPinned" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Pinned</label>
                     </div>
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4 border-t">
-                    <Link href="/admin/announcement" className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    <Link href="/admin/announcement" className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">
                         Cancel
                     </Link>
                     <button

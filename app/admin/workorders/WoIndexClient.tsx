@@ -17,8 +17,8 @@ type SiteStatistic = { siteName: string; count: number; mostCommonIssue: string 
 
 type DisconnectionStatistic = { reason: string; count: number }
 
-const STATUS_COLORS: Record<string, string> = { PENDING: 'bg-orange-100 text-orange-800', ASSIGNED: 'bg-yellow-100 text-yellow-800', IN_PROGRESS: 'bg-blue-100 text-blue-800', COMPLETED: 'bg-green-100 text-green-800', VERIFIED: 'bg-green-100 text-green-800' }
-const PRIORITY_COLORS: Record<string, string> = { LOW: 'bg-gray-100 text-gray-600', NORMAL: 'bg-blue-100 text-blue-600', HIGH: 'bg-orange-100 text-orange-600', URGENT: 'bg-red-100 text-red-600', CRITICAL: 'bg-red-200 text-red-800' }
+const STATUS_COLORS: Record<string, string> = { PENDING: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200', ASSIGNED: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200', IN_PROGRESS: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200', COMPLETED: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200', VERIFIED: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' }
+const PRIORITY_COLORS: Record<string, string> = { LOW: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400', NORMAL: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400', HIGH: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400', URGENT: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400', CRITICAL: 'bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-200' }
 
 export function ClientComponent() {
     const { data: session, status } = useSession()
@@ -108,58 +108,58 @@ export function ClientComponent() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold text-gray-900">Work Order Dashboard</h1><p className="text-gray-600 mt-1">Overview of all work orders</p></div><Link href="/admin/workorders/list" className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700">View All Work Orders</Link></div>
+            <div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold text-gray-900 dark:text-white">Work Order Dashboard</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Overview of all work orders</p></div><Link href="/admin/workorders/list" className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700">View All Work Orders</Link></div>
             {stats && (<>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Link href="/admin/workorders/list?status=PENDING&priority=HIGH,URGENT,CRITICAL" className="bg-white rounded-lg shadow p-6 border-l-4 border-red-500 hover:shadow-md transition-shadow">
+                    <Link href="/admin/workorders/list?status=PENDING&priority=HIGH,URGENT,CRITICAL" className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-red-500 hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
-                            <div><p className="text-sm font-medium text-gray-600">Urgent Attention</p><p className="text-3xl font-bold text-red-600 mt-1">{stats.urgentOpen || 0}</p></div>
-                            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center"><HiExclamationCircle className="w-6 h-6 text-red-600" /></div>
+                            <div><p className="text-sm font-medium text-gray-600 dark:text-gray-400">Urgent Attention</p><p className="text-3xl font-bold text-red-600 dark:text-red-400 mt-1">{stats.urgentOpen || 0}</p></div>
+                            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center"><HiExclamationCircle className="w-6 h-6 text-red-600 dark:text-red-400" /></div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">High priority & open</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">High priority & open</p>
                     </Link>
-                    <Link href="/admin/workorders/list?status=PENDING" className="bg-white rounded-lg shadow p-6 border-l-4 border-orange-500 hover:shadow-md transition-shadow">
+                    <Link href="/admin/workorders/list?status=PENDING" className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-orange-500 hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
-                            <div><p className="text-sm font-medium text-gray-600">Unassigned</p><p className="text-3xl font-bold text-orange-600 mt-1">{stats.pending}</p></div>
-                            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center"><HiClock className="w-6 h-6 text-orange-600" /></div>
+                            <div><p className="text-sm font-medium text-gray-600 dark:text-gray-400">Unassigned</p><p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1">{stats.pending}</p></div>
+                            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center"><HiClock className="w-6 h-6 text-orange-600 dark:text-orange-400" /></div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">Waiting for assignment</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Waiting for assignment</p>
                     </Link>
-                    <Link href="/admin/workorders/list?status=IN_PROGRESS,ASSIGNED" className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500 hover:shadow-md transition-shadow">
+                    <Link href="/admin/workorders/list?status=IN_PROGRESS,ASSIGNED" className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-blue-500 hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
-                            <div><p className="text-sm font-medium text-gray-600">Active Progress</p><p className="text-3xl font-bold text-blue-600 mt-1">{stats.assigned + stats.inProgress}</p></div>
-                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center"><HiWrenchScrewdriver className="w-6 h-6 text-blue-600" /></div>
+                            <div><p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Progress</p><p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1">{stats.assigned + stats.inProgress}</p></div>
+                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center"><HiWrenchScrewdriver className="w-6 h-6 text-blue-600 dark:text-blue-400" /></div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">Currently being worked on</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Currently being worked on</p>
                     </Link>
-                    <Link href="/admin/workorders/list?status=COMPLETED,VERIFIED" className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500 hover:shadow-md transition-shadow">
+                    <Link href="/admin/workorders/list?status=COMPLETED,VERIFIED" className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-green-500 hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
-                            <div><p className="text-sm font-medium text-gray-600">Completed</p><p className="text-3xl font-bold text-green-600 mt-1">{stats.completed + stats.verified}</p></div>
-                            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center"><HiCheckCircle className="w-6 h-6 text-green-600" /></div>
+                            <div><p className="text-sm font-medium text-gray-600 dark:text-gray-400">Completed</p><p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-1">{stats.completed + stats.verified}</p></div>
+                            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center"><HiCheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" /></div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">Successfully closed</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Successfully closed</p>
                     </Link>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Recent Work Orders */}
                     <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white rounded-lg shadow">
-                            <div className="p-6 border-b border-gray-200"><h2 className="text-lg font-semibold text-gray-900">Recent Work Orders</h2></div>
-                            <div className="divide-y divide-gray-200">
-                                {recentWorkOrders.length === 0 ? <div className="p-6 text-center text-gray-500">No recent work orders</div> : recentWorkOrders.map((wo) => (
-                                    <Link key={wo.id} href={`/admin/workorders/${wo.id}`} className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                            <div className="p-6 border-b border-gray-200 dark:border-gray-700"><h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Work Orders</h2></div>
+                            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                                {recentWorkOrders.length === 0 ? <div className="p-6 text-center text-gray-500 dark:text-gray-400">No recent work orders</div> : recentWorkOrders.map((wo) => (
+                                    <Link key={wo.id} href={`/admin/workorders/${wo.id}`} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1">
-                                                <p className="text-sm font-medium text-gray-900">{wo.workOrderNumber}</p>
-                                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${STATUS_COLORS[wo.status] || 'bg-gray-100'}`}>{wo.status.replace('_', ' ')}</span>
-                                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${PRIORITY_COLORS[wo.priority] || 'bg-gray-100'}`}>{wo.priority}</span>
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white">{wo.workOrderNumber}</p>
+                                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${STATUS_COLORS[wo.status] || 'bg-gray-100 dark:bg-gray-700'}`}>{wo.status.replace('_', ' ')}</span>
+                                                <span className={`px-2 py-0.5 text-xs font-medium rounded ${PRIORITY_COLORS[wo.priority] || 'bg-gray-100 dark:bg-gray-700'}`}>{wo.priority}</span>
                                             </div>
-                                            <p className="text-sm text-gray-600 truncate">{wo.title}</p>
-                                            <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{wo.title}</p>
+                                            <div className="flex items-center gap-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
                                                 <span>{wo.pelanggan?.nama || wo.contactName || 'Guest'}</span>
                                                 {wo.assignedTo && <span>• {wo.assignedTo.name}</span>}
-                                                {wo.status === 'PENDING' && <span className="text-orange-600 font-medium">• Waiting: {getTimeWaiting(wo.createdAt)}</span>}
+                                                {wo.status === 'PENDING' && <span className="text-orange-600 dark:text-orange-400 font-medium">• Waiting: {getTimeWaiting(wo.createdAt)}</span>}
                                             </div>
                                         </div>
                                         <HiChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-4" />
@@ -169,9 +169,9 @@ export function ClientComponent() {
                         </div>
 
                         {/* Issue Statistics */}
-                        <div className="bg-white rounded-lg shadow">
-                            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-gray-900">Common Issues</h2>
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Common Issues</h2>
                                 <HiChartBar className="w-5 h-5 text-gray-400" />
                             </div>
                             <div className="p-6">
@@ -180,10 +180,10 @@ export function ClientComponent() {
                                         {issueStats.map((stat, index) => (
                                             <div key={index}>
                                                 <div className="flex justify-between text-sm mb-1">
-                                                    <span className="text-gray-900 font-medium">{stat.issue.replace('_', ' ')}</span>
-                                                    <span className="text-gray-600">{stat.count} incidents</span>
+                                                    <span className="text-gray-900 dark:text-white font-medium">{stat.issue.replace('_', ' ')}</span>
+                                                    <span className="text-gray-600 dark:text-gray-400">{stat.count} incidents</span>
                                                 </div>
-                                                <div className="w-full bg-gray-100 rounded-full h-2">
+                                                <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                                                     <div
                                                         className="bg-red-500 h-2 rounded-full"
                                                         style={{ width: `${Math.min((stat.count / issueStats[0]?.count) * 100, 100)}%` }}
@@ -193,15 +193,15 @@ export function ClientComponent() {
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-gray-500 text-center">No issue data available</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">No issue data available</p>
                                 )}
                             </div>
                         </div>
 
                         {/* Disconnection Statistics */}
-                        <div className="bg-white rounded-lg shadow">
-                            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-gray-900">Alasan Penarikan Perangkat</h2>
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Alasan Penarikan Perangkat</h2>
                                 <HiArchiveBoxArrowDown className="w-5 h-5 text-gray-400" />
                             </div>
                             <div className="p-6">
@@ -210,10 +210,10 @@ export function ClientComponent() {
                                         {disconnectionStats.map((stat, index) => (
                                             <div key={index}>
                                                 <div className="flex justify-between text-sm mb-1">
-                                                    <span className="text-gray-900 font-medium">{stat.reason}</span>
-                                                    <span className="text-gray-600">{stat.count} cases</span>
+                                                    <span className="text-gray-900 dark:text-white font-medium">{stat.reason}</span>
+                                                    <span className="text-gray-600 dark:text-gray-400">{stat.count} cases</span>
                                                 </div>
-                                                <div className="w-full bg-gray-100 rounded-full h-2">
+                                                <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                                                     <div
                                                         className="bg-orange-500 h-2 rounded-full"
                                                         style={{ width: `${Math.min((stat.count / disconnectionStats[0]?.count) * 100, 100)}%` }}
@@ -223,7 +223,7 @@ export function ClientComponent() {
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-gray-500 text-center">No disconnection data available</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">No disconnection data available</p>
                                 )}
                             </div>
                         </div>
@@ -231,11 +231,11 @@ export function ClientComponent() {
 
                     <div className="space-y-6">
                         {/* Top Performers */}
-                        <div className="bg-white rounded-lg shadow">
-                            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-gray-900">Analytics</h2>
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Analytics</h2>
                                 <select
-                                    className="text-xs border-gray-300 rounded-md shadow-sm focus:border-sky-500 focus:ring-sky-500"
+                                    className="text-xs border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-sky-500 focus:ring-sky-500 dark:bg-gray-700 dark:text-white"
                                     value={performancePeriod}
                                     onChange={(e) => setPerformancePeriod(e.target.value)}
                                 >
@@ -250,31 +250,31 @@ export function ClientComponent() {
                             <div className="p-6 border-b border-gray-100">
                                 <div className="flex items-center gap-2 mb-4">
                                     <HiUserGroup className="w-5 h-5 text-gray-400" />
-                                    <h3 className="text-md font-medium text-gray-900">Top Performers</h3>
+                                    <h3 className="text-md font-medium text-gray-900 dark:text-white">Top Performers</h3>
                                 </div>
                                 {topPerformers.length > 0 ? (
                                     <div className="space-y-4">
                                         {topPerformers.map((performer, index) => (
                                             <div key={index} className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-600 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-400 shrink-0">
                                                         {index + 1}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-medium text-gray-900">{performer.userName}</p>
-                                                        <p className="text-xs text-gray-600">{performer.role || '-'} {performer.site ? `• ${performer.site}` : ''}</p>
-                                                        <p className="text-xs text-gray-500 mt-0.5">{formatHours(performer.avgCompletionTime)} avg</p>
+                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{performer.userName}</p>
+                                                        <p className="text-xs text-gray-600 dark:text-gray-400">{performer.role || '-'} {performer.site ? `• ${performer.site}` : ''}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{formatHours(performer.avgCompletionTime)} avg</p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-sm font-bold text-sky-600">{performer.count}</p>
-                                                    <p className="text-xs text-gray-500">tasks</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">tasks</p>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-gray-500 text-center">No performance data available</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">No performance data available</p>
                                 )}
                             </div>
 
@@ -282,30 +282,30 @@ export function ClientComponent() {
                             <div className="p-6 border-b border-gray-100">
                                 <div className="flex items-center gap-2 mb-4">
                                     <HiUserGroup className="w-5 h-5 text-purple-400" />
-                                    <h3 className="text-md font-medium text-gray-900">Top Assists</h3>
+                                    <h3 className="text-md font-medium text-gray-900 dark:text-white">Top Assists</h3>
                                 </div>
                                 {topAssists.length > 0 ? (
                                     <div className="space-y-4">
                                         {topAssists.map((assist, index) => (
                                             <div key={index} className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-sm font-bold text-purple-600 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-sm font-bold text-purple-600 dark:text-purple-400 shrink-0">
                                                         {index + 1}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-medium text-gray-900">{assist.userName}</p>
-                                                        <p className="text-xs text-gray-600">{assist.role || '-'} {assist.site ? `• ${assist.site}` : ''}</p>
+                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{assist.userName}</p>
+                                                        <p className="text-xs text-gray-600 dark:text-gray-400">{assist.role || '-'} {assist.site ? `• ${assist.site}` : ''}</p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-sm font-bold text-purple-600">{assist.count}</p>
-                                                    <p className="text-xs text-gray-500">assists</p>
+                                                    <p className="text-sm font-bold text-purple-600 dark:text-purple-400">{assist.count}</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">assists</p>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-gray-500 text-center">No assist data available</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">No assist data available</p>
                                 )}
                             </div>
 
@@ -313,47 +313,47 @@ export function ClientComponent() {
                             <div className="p-6">
                                 <div className="flex items-center gap-2 mb-4">
                                     <HiBuildingOffice2 className="w-5 h-5 text-gray-400" />
-                                    <h3 className="text-md font-medium text-gray-900">Problematic Sites</h3>
+                                    <h3 className="text-md font-medium text-gray-900 dark:text-white">Problematic Sites</h3>
                                 </div>
                                 {siteStats.length > 0 ? (
                                     <div className="space-y-4">
                                         {siteStats.map((site, index) => (
-                                            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
                                                 <div>
-                                                    <p className="text-sm font-medium text-gray-900">{site.siteName}</p>
+                                                    <p className="text-sm font-medium text-gray-900 dark:text-white">{site.siteName}</p>
                                                     <p className="text-xs text-red-500">Top issue: {site.mostCommonIssue}</p>
                                                 </div>
-                                                <div className="flex items-center justify-center w-8 h-8 bg-red-100 rounded-full">
-                                                    <span className="text-xs font-bold text-red-600">{site.count}</span>
+                                                <div className="flex items-center justify-center w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-full">
+                                                    <span className="text-xs font-bold text-red-600 dark:text-red-400">{site.count}</span>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-gray-500 text-center">No site data available</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">No site data available</p>
                                 )}
                             </div>
                         </div>
 
                         {/* Quick Stats */}
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="text-sm font-medium text-gray-600 mb-4">Performance Overview</h3>
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">Performance Overview</h3>
                             <div className="space-y-4">
                                 <div>
                                     <div className="flex justify-between text-sm mb-1">
-                                        <span className="text-gray-600">Avg Completion Time</span>
-                                        <span className="font-semibold text-gray-900">{formatHours(stats.avgCompletionTimeHours)}</span>
+                                        <span className="text-gray-600 dark:text-gray-400">Avg Completion Time</span>
+                                        <span className="font-semibold text-gray-900 dark:text-white">{formatHours(stats.avgCompletionTimeHours)}</span>
                                     </div>
-                                    <div className="w-full bg-gray-100 rounded-full h-2">
+                                    <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                                         <div className="bg-blue-500 h-2 rounded-full" style={{ width: '70%' }}></div>
                                     </div>
                                 </div>
                                 <div>
                                     <div className="flex justify-between text-sm mb-1">
-                                        <span className="text-gray-600">Customer Satisfaction</span>
-                                        <span className="font-semibold text-gray-900">{stats.avgRating ? `${stats.avgRating.toFixed(1)}/5` : 'N/A'}</span>
+                                        <span className="text-gray-600 dark:text-gray-400">Customer Satisfaction</span>
+                                        <span className="font-semibold text-gray-900 dark:text-white">{stats.avgRating ? `${stats.avgRating.toFixed(1)}/5` : 'N/A'}</span>
                                     </div>
-                                    <p className="text-xs text-gray-500 text-right">{stats.totalWithRating} ratings</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 text-right">{stats.totalWithRating} ratings</p>
                                 </div>
                             </div>
                         </div>
@@ -361,27 +361,27 @@ export function ClientComponent() {
                 </div>
 
                 {departmentWorkload.length > 0 && (
-                    <div className="bg-white rounded-lg shadow">
-                        <div className="p-6 border-b border-gray-200"><h2 className="text-lg font-semibold text-gray-900">Department Workload</h2></div>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                        <div className="p-6 border-b border-gray-200 dark:border-gray-700"><h2 className="text-lg font-semibold text-gray-900 dark:text-white">Department Workload</h2></div>
                         <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {departmentWorkload.map((dept) => (
-                                <div key={dept.departmentName} className="border rounded-lg p-4 hover:bg-gray-50">
+                                <div key={dept.departmentName} className="border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
                                     <div className="flex items-center justify-between mb-3">
-                                        <h3 className="font-medium text-gray-900">{dept.departmentName}</h3>
-                                        <span className="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-600">{dept.total} total</span>
+                                        <h3 className="font-medium text-gray-900 dark:text-white">{dept.departmentName}</h3>
+                                        <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-600 dark:text-gray-400">{dept.total} total</span>
                                     </div>
                                     <div className="grid grid-cols-3 gap-2 text-xs text-center">
-                                        <div className="bg-orange-50 rounded p-1">
-                                            <p className="text-orange-600 font-bold">{dept.pending}</p>
-                                            <p className="text-gray-500">Pending</p>
+                                        <div className="bg-orange-50 dark:bg-orange-900/20 rounded p-1">
+                                            <p className="text-orange-600 dark:text-orange-400 font-bold">{dept.pending}</p>
+                                            <p className="text-gray-500 dark:text-gray-400">Pending</p>
                                         </div>
-                                        <div className="bg-blue-50 rounded p-1">
-                                            <p className="text-blue-600 font-bold">{dept.inProgress}</p>
-                                            <p className="text-gray-500">Active</p>
+                                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-1">
+                                            <p className="text-blue-600 dark:text-blue-400 font-bold">{dept.inProgress}</p>
+                                            <p className="text-gray-500 dark:text-gray-400">Active</p>
                                         </div>
-                                        <div className="bg-green-50 rounded p-1">
-                                            <p className="text-green-600 font-bold">{dept.completed}</p>
-                                            <p className="text-gray-500">Done</p>
+                                        <div className="bg-green-50 dark:bg-green-900/20 rounded p-1">
+                                            <p className="text-green-600 dark:text-green-400 font-bold">{dept.completed}</p>
+                                            <p className="text-gray-500 dark:text-gray-400">Done</p>
                                         </div>
                                     </div>
                                 </div>

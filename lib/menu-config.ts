@@ -84,6 +84,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineUsers',
         children: [
             { code: 'PELANGGAN.PPP', name: 'Pelanggan PPP', path: '/admin/pelanggan/ppp', icon: 'HiOutlineUser' },
+            { code: 'PELANGGAN.REGISTRATION', name: 'Pelanggan Registrasi', path: '/admin/registrations', icon: 'HiOutlineClipboardDocumentCheck' },
         ],
     },
     {

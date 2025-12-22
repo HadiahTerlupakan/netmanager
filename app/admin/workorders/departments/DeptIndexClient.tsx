@@ -113,7 +113,7 @@ export function ClientComponent() {
                     placeholder="Cari berdasarkan nama..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
             </div>
 
@@ -172,7 +172,7 @@ export function ClientComponent() {
                             </thead>
                             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 {departments.map((dept) => (
-                                    <tr key={dept.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                    <tr key={dept.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:bg-gray-700/50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
@@ -203,14 +203,14 @@ export function ClientComponent() {
                                             <div className="flex justify-end gap-2">
                                                 <Link
                                                     href={`/admin/workorders/departments/${dept.id}/edit`}
-                                                    className="p-2 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                                                    className="p-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
                                                     title="Edit"
                                                 >
                                                     <HiOutlinePencil className="h-4 w-4" />
                                                 </Link>
                                                 <button
                                                     onClick={() => handleDelete(dept.id, dept.name)}
-                                                    className="p-2 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                    className="p-2 text-red-600 dark:text-red-400 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                                     title="Hapus"
                                                 >
                                                     <HiOutlineTrash className="h-4 w-4" />

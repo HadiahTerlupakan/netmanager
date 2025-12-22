@@ -109,39 +109,39 @@ export function ClientComponent() {
             <div className="flex items-center gap-4 mb-6">
                 <Link
                     href="/admin/settings/roles"
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                 >
-                    <FiArrowLeft className="text-xl" />
+                    <FiArrowLeft className="text-xl dark:text-white" />
                 </Link>
-                <h1 className="text-2xl font-bold text-gray-800">
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
                     {isNew ? 'Tambah Role Baru' : `Edit Role: ${formData.name}`}
                 </h1>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Info */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h2 className="text-lg font-semibold mb-4 text-gray-700">Informasi Dasar</h2>
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                    <h2 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Informasi Dasar</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nama Role</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Role</label>
                             <input
                                 type="text"
                                 required
                                 value={formData.name}
                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all dark:bg-gray-700 dark:text-white"
                                 placeholder="Contoh: Staff Keuangan"
                                 disabled={formData.name === 'SUPER_ADMIN'}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Deskripsi</label>
                             <input
                                 type="text"
                                 value={formData.description}
                                 onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all dark:bg-gray-700 dark:text-white"
                                 placeholder="Deskripsi singkat role ini"
                             />
                         </div>
@@ -149,10 +149,10 @@ export function ClientComponent() {
                 </div>
 
                 {/* Portal Access */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h2 className="text-lg font-semibold mb-4 text-gray-700">Akses Portal</h2>
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                    <h2 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Akses Portal</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                        <label className="flex items-start gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors">
                             <input
                                 type="checkbox"
                                 checked={formData.accessAdminPanel}
@@ -160,8 +160,8 @@ export function ClientComponent() {
                                 className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 mt-0.5"
                             />
                             <div>
-                                <span className="block font-medium text-gray-800">Portal Admin</span>
-                                <span className="text-sm text-gray-500">Izinkan akses ke dashboard admin dan manajemen sistem ({`/admin`}).</span>
+                                <span className="block font-medium text-gray-800 dark:text-white">Portal Admin</span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">Izinkan akses ke dashboard admin dan manajemen sistem ({`/admin`}).</span>
                             </div>
                         </label>
                         <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
@@ -172,16 +172,16 @@ export function ClientComponent() {
                                 className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 mt-0.5"
                             />
                             <div>
-                                <span className="block font-medium text-gray-800">Portal Karyawan</span>
-                                <span className="text-sm text-gray-500">Izinkan akses ke area kerja karyawan ({`/karyawan`}).</span>
+                                <span className="block font-medium text-gray-800 dark:text-white">Portal Karyawan</span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">Izinkan akses ke area kerja karyawan ({`/karyawan`}).</span>
                             </div>
                         </label>
                     </div>
                 </div>
 
                 {/* Role Type */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h2 className="text-lg font-semibold mb-4 text-gray-700">Tipe Role</h2>
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                    <h2 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Tipe Role</h2>
                     <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
                         <input
                             type="checkbox"
@@ -190,8 +190,8 @@ export function ClientComponent() {
                             className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 mt-0.5"
                         />
                         <div>
-                            <span className="block font-medium text-gray-800">Role Terbatas (Restricted)</span>
-                            <span className="text-sm text-gray-500">
+                            <span className="block font-medium text-gray-800 dark:text-white">Role Terbatas (Restricted)</span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
                                 Jika aktif, role ini <strong>tidak akan muncul</strong> pada dropdown "Peran Pengguna" di menu Tambah/Edit Pengguna,
                                 KECUALI user yang sedang login juga memiliki role ini.
                             </span>
@@ -200,16 +200,16 @@ export function ClientComponent() {
                 </div>
 
                 {/* Permission Matrix */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-lg font-semibold text-gray-700">Matrix Hak Akses</h2>
-                        <div className="flex bg-gray-100 p-1 rounded-lg">
+                        <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Matrix Hak Akses</h2>
+                        <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('admin')}
                                 className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${activeTab === 'admin'
-                                    ? 'bg-white text-gray-800 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                    ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                                     }`}
                             >
                                 Portal Admin
@@ -218,8 +218,8 @@ export function ClientComponent() {
                                 type="button"
                                 onClick={() => setActiveTab('employee')}
                                 className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-all ${activeTab === 'employee'
-                                    ? 'bg-white text-gray-800 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                    ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                                     }`}
                             >
                                 Portal Karyawan
@@ -249,8 +249,8 @@ export function ClientComponent() {
                             }
 
                             return (
-                                <div key={groupName} className="border border-gray-200 rounded-xl overflow-hidden">
-                                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                                <div key={groupName} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                                    <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <input
                                                 type="checkbox"
@@ -261,24 +261,24 @@ export function ClientComponent() {
                                                 onChange={(e) => handleGroupToggle(e.target.checked)}
                                                 className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 cursor-pointer"
                                             />
-                                            <h3 className="font-semibold text-gray-800 capitalize">{groupName.toLowerCase().replace(/_/g, ' ')}</h3>
+                                            <h3 className="font-semibold text-gray-800 dark:text-gray-200 capitalize">{groupName.toLowerCase().replace(/_/g, ' ')}</h3>
                                         </div>
                                     </div>
 
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm text-left">
-                                            <thead className="text-xs text-gray-700 uppercase bg-gray-50/50 border-b border-gray-100">
+                                            <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-50/50 dark:bg-gray-700/30 border-b border-gray-100 dark:border-gray-700">
                                                 <tr>
                                                     <th className="px-6 py-3 font-medium text-gray-500">Resource</th>
                                                     {ACTIONS.map(action => (
-                                                        <th key={action} className="px-6 py-3 font-medium text-gray-500 text-center w-24">
+                                                        <th key={action} className="px-6 py-3 font-medium text-gray-500 dark:text-gray-400 text-center w-24">
                                                             {action}
                                                         </th>
                                                     ))}
-                                                    <th className="px-6 py-3 font-medium text-gray-500 text-center w-24">All</th>
+                                                    <th className="px-6 py-3 font-medium text-gray-500 dark:text-gray-400 text-center w-24">All</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-gray-100">
+                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                                 {resources.map(resource => {
                                                     const resourceActions = ACTIONS.map(action => `${resource}:${action}`)
                                                     const isAllResourceChecked = resourceActions.every(p => formData.permissions.includes(p))
@@ -296,8 +296,8 @@ export function ClientComponent() {
                                                     }
 
                                                     return (
-                                                        <tr key={resource} className="hover:bg-gray-50/50 transition-colors">
-                                                            <td className="px-6 py-3 font-medium text-gray-700 capitalize">
+                                                        <tr key={resource} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                                                            <td className="px-6 py-3 font-medium text-gray-700 dark:text-gray-300 capitalize">
                                                                 {resource.replace(/^k_/, '').replace(/_/g, ' ')}
                                                             </td>
                                                             {ACTIONS.map(action => {
@@ -325,7 +325,7 @@ export function ClientComponent() {
                                                                     </td>
                                                                 )
                                                             })}
-                                                            <td className="px-6 py-3 text-center border-l border-gray-100">
+                                                            <td className="px-6 py-3 text-center border-l border-gray-100 dark:border-gray-700">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={isAllResourceChecked}
@@ -345,10 +345,10 @@ export function ClientComponent() {
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
+                <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-700">
                     <Link
                         href="/admin/settings/roles"
-                        className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+                        className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
                     >
                         Batal
                     </Link>

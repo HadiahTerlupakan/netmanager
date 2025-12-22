@@ -138,14 +138,14 @@ export default function SitesList() {
                         type="checkbox"
                         checked={showInactive}
                         onChange={(e) => setShowInactive(e.target.checked)}
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                        className="rounded border-gray-300 dark:border-gray-600 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 h-4 w-4"
                     />
                     <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Tampilkan Inaktif</span>
                 </label>
             </div>
 
             {error && (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-800 dark:text-red-200 flex items-center gap-3">
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-xl text-red-800 dark:text-red-200 flex items-center gap-3">
                     <span className="text-2xl">⚠️</span>
                     <p>{error}</p>
                 </div>
@@ -176,7 +176,7 @@ export default function SitesList() {
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 dark:divide-gray-700">
                             <thead className="bg-gray-50/50 dark:bg-gray-900/50">
                                 <tr>
                                     <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -199,7 +199,7 @@ export default function SitesList() {
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 dark:divide-gray-700 bg-white dark:bg-gray-800">
                                 {sites.map((site) => (
                                     <tr key={site.id} className="group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                         <td className="px-6 py-4">
@@ -208,7 +208,7 @@ export default function SitesList() {
                                                     {site.code}
                                                 </div>
                                                 <div>
-                                                    <div className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                                    <div className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:text-indigo-400 dark:group-hover:text-indigo-400 transition-colors">
                                                         {site.name}
                                                     </div>
                                                     {site.description && (
@@ -221,7 +221,7 @@ export default function SitesList() {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="space-y-1">
-                                                <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 max-w-xs">
+                                                <div className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 max-w-xs">
                                                     {site.address || '-'}
                                                 </div>
                                                 {site.latitude && site.longitude && (
@@ -247,7 +247,7 @@ export default function SitesList() {
                                             <div className="flex items-center justify-center gap-4">
                                                 <div className="flex flex-col items-center" title="Total Karyawan">
                                                     <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Pegawai</span>
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-semibold">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold">
                                                         <HiOutlineUserGroup className="w-3 h-3" />
                                                         {site._count.users}
                                                     </span>
@@ -255,7 +255,7 @@ export default function SitesList() {
                                                 <div className="w-px h-8 bg-gray-200 dark:bg-gray-700"></div>
                                                 <div className="flex flex-col items-center" title="Total Work Orders">
                                                     <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">WO</span>
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-semibold">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold">
                                                         <HiOutlineClipboardDocumentList className="w-3 h-3" />
                                                         {site._count.workOrders}
                                                     </span>
@@ -264,10 +264,10 @@ export default function SitesList() {
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${site.isActive
-                                                ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/30'
-                                                : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30'
+                                                ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/30'
+                                                : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/30'
                                                 }`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${site.isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${site.isActive ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}></span>
                                                 {site.isActive ? 'Aktif' : 'Non-Aktif'}
                                             </span>
                                         </td>
@@ -275,14 +275,14 @@ export default function SitesList() {
                                             <div className="flex items-center justify-end gap-2 text-right">
                                                 <Link
                                                     href={`/admin/workorders/sites/${site.id}/edit`}
-                                                    className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                                                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
                                                     title="Edit Site"
                                                 >
                                                     <HiOutlinePencil className="h-5 w-5" />
                                                 </Link>
                                                 <button
                                                     onClick={() => handleDelete(site.id, site.name)}
-                                                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/20 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                                     title="Hapus Site"
                                                 >
                                                     <HiOutlineTrash className="h-5 w-5" />

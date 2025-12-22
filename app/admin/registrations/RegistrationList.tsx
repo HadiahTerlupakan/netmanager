@@ -134,8 +134,8 @@ export default function AdminRegistrationsPage() {
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Pendaftaran Pelanggan</h1>
-                    <p className="text-sm text-slate-500 mt-1">
+                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Pendaftaran Pelanggan</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                         Total: {registrations.length} |
                         Pending: {statusCounts['PENDING'] || 0} |
                         Verified: {statusCounts['VERIFIED'] || 0}
@@ -143,21 +143,21 @@ export default function AdminRegistrationsPage() {
                 </div>
                 <button
                     onClick={fetchRegistrations}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors"
                 >
                     <MdRefresh /> Refresh
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 overflow-hidden">
                 {/* Filters */}
-                <div className="p-4 border-b border-slate-200 flex flex-wrap gap-4">
+                <div className="p-4 border-b border-slate-200 dark:border-gray-700 flex flex-wrap gap-4">
                     <div className="relative flex-1 min-w-[200px] max-w-sm">
                         <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl" />
                         <input
                             type="text"
                             placeholder="Cari nama, email, atau telepon..."
-                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -167,10 +167,10 @@ export default function AdminRegistrationsPage() {
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                            className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white dark:bg-gray-700 text-slate-900 dark:text-white"
                         >
                             {STATUS_OPTIONS.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                <option key={opt.value} value={opt.value} className="dark:bg-gray-700">{opt.label}</option>
                             ))}
                         </select>
                     </div>
@@ -179,18 +179,18 @@ export default function AdminRegistrationsPage() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50 text-slate-600 text-sm uppercase tracking-wider">
-                                <th className="p-4 font-semibold border-b border-slate-200">Tanggal</th>
-                                <th className="p-4 font-semibold border-b border-slate-200">Nama</th>
-                                <th className="p-4 font-semibold border-b border-slate-200">Kontak</th>
-                                <th className="p-4 font-semibold border-b border-slate-200">Area / Lokasi</th>
-                                <th className="p-4 font-semibold border-b border-slate-200">Paket</th>
-                                <th className="p-4 font-semibold border-b border-slate-200">IP Address</th>
-                                <th className="p-4 font-semibold border-b border-slate-200">Status</th>
-                                <th className="p-4 font-semibold border-b border-slate-200">Aksi</th>
+                            <tr className="bg-slate-50 dark:bg-gray-700/50 text-slate-600 dark:text-slate-300 text-sm uppercase tracking-wider">
+                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Tanggal</th>
+                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Nama</th>
+                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Kontak</th>
+                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Area / Lokasi</th>
+                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Paket</th>
+                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">IP Address</th>
+                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Status</th>
+                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm text-slate-700 dark:text-slate-300">
                             {isLoading ? (
                                 <tr>
                                     <td colSpan={8} className="p-8 text-center text-slate-500">Memuat data...</td>
@@ -208,14 +208,14 @@ export default function AdminRegistrationsPage() {
                                     const StatusIcon = statusConfig.icon
 
                                     return (
-                                        <tr key={reg.id} className="hover:bg-slate-50 transition-colors">
+                                        <tr key={reg.id} className="hover:bg-slate-50 dark:hover:bg-gray-700/30 transition-colors">
                                             <td className="p-4 whitespace-nowrap">
                                                 {new Date(reg.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                                                 <div className="text-xs text-slate-400">
                                                     {new Date(reg.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
                                             </td>
-                                            <td className="p-4 font-medium text-slate-900">{reg.name}</td>
+                                            <td className="p-4 font-medium text-slate-900 dark:text-white">{reg.name}</td>
                                             <td className="p-4">
                                                 <div className="flex flex-col">
                                                     <span>{reg.phone}</span>
@@ -229,7 +229,7 @@ export default function AdminRegistrationsPage() {
                                                         {reg.packageName}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-slate-400 italic">-</span>
+                                                    <span className="text-slate-400 dark:text-slate-500 italic">-</span>
                                                 )}
                                             </td>
                                             <td className="p-4">
@@ -242,11 +242,11 @@ export default function AdminRegistrationsPage() {
                                                                 <span>{ipInfo.country} • {ipInfo.isp}</span>
                                                             </div>
                                                         ) : (
-                                                            <span className="text-xs text-slate-400 italic">Loading...</span>
+                                                            <span className="text-xs text-slate-400 dark:text-slate-500 italic">Loading...</span>
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <span className="text-slate-400 italic">-</span>
+                                                    <span className="text-slate-400 dark:text-slate-500 italic">-</span>
                                                 )}
                                             </td>
                                             <td className="p-4">
@@ -258,7 +258,7 @@ export default function AdminRegistrationsPage() {
                                             <td className="p-4">
                                                 <Link
                                                     href={`/admin/registrations/${reg.id}`}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+                                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium"
                                                 >
                                                     <MdVisibility /> Detail
                                                 </Link>
