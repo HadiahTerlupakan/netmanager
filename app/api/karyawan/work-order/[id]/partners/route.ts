@@ -33,38 +33,14 @@ export async function POST(
             return NextResponse.json({ error: 'Work order ini bukan milik Anda' }, { status: 403 })
         }
 
-        // Validate partners match site/dept requirements
+        // Validate partners exist (no site restriction)
         if (partnerIds.length > 0) {
-            // Use Work Order site/dept, or fallback to current user's site/dept
-            let targetSiteId = workOrder.siteId
-            let targetDeptId = workOrder.departmentId
-
-            if (!targetSiteId) {
-                const currentUser = await prisma.user.findUnique({
-                    where: { id: session.user.id },
-                    select: { siteId: true, departmentId: true }
-                })
-                targetSiteId = currentUser?.siteId || null
-                targetDeptId = currentUser?.departmentId || null
-            }
-
-            const whereClause: any = {
-                id: { in: partnerIds },
-                isActive: true
-            }
-            if (targetSiteId) whereClause.siteId = targetSiteId
-            if (targetDeptId) whereClause.departmentId = targetDeptId
-
             const validPartners = await prisma.user.findMany({
-                where: whereClause,
-                select: { id: true, name: true, siteId: true, departmentId: true }
-            })
-
-            console.log('[Partners] Validation:', {
-                requestedIds: partnerIds,
-                targetSiteId,
-                targetDeptId,
-                validPartners: validPartners.map(p => ({ id: p.id, name: p.name, siteId: p.siteId }))
+                where: {
+                    id: { in: partnerIds },
+                    isActive: true
+                },
+                select: { id: true, name: true }
             })
 
             if (validPartners.length !== partnerIds.length) {
@@ -72,23 +48,8 @@ export async function POST(
                 const validIds = new Set(validPartners.map(p => p.id))
                 const invalidIds = partnerIds.filter((id: string) => !validIds.has(id))
 
-                // Fetch names of invalid partners to show in error
-                const invalidUsers = await prisma.user.findMany({
-                    where: { id: { in: invalidIds } },
-                    select: { name: true, siteId: true, departmentId: true }
-                })
-
-                const invalidNames = invalidUsers.map(u => u.name).join(', ')
-
                 return NextResponse.json({
-                    error: `Partner berikut tidak dapat ditambahkan karena berbeda Site/Departemen: ${invalidNames}`,
-                    debug: {
-                        requested: partnerIds.length,
-                        valid: validPartners.length,
-                        targetSiteId,
-                        targetDeptId,
-                        invalidDetails: invalidUsers
-                    }
+                    error: `Beberapa ID partner tidak ditemukan atau tidak aktif: ${invalidIds.join(', ')}`,
                 }, { status: 400 })
             }
         }

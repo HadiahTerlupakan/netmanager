@@ -13,47 +13,26 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url)
         const workOrderId = searchParams.get('workOrderId')
 
-        let targetSiteId = ''
-        let targetDeptId = ''
-
-        if (workOrderId) {
-            const wo = await prisma.workOrder.findUnique({
-                where: { id: workOrderId },
-                select: { siteId: true, departmentId: true }
-            })
-            if (wo?.siteId) {
-                targetSiteId = wo.siteId
-                targetDeptId = wo.departmentId || ''
-            }
+        // Fetch users from target site (optional) or all users
+        const whereClause: any = {
+            id: { not: session.user.id },
+            isActive: true
         }
 
-        if (!targetSiteId) {
-            // Fallback to current user's site
-            const currentUser = await prisma.user.findUnique({
-                where: { id: session.user.id },
-                select: { siteId: true, departmentId: true }
-            })
-            if (currentUser?.siteId) {
-                targetSiteId = currentUser.siteId
-                targetDeptId = currentUser.departmentId || ''
-            }
+        // If siteId query param is provided, filter by it
+        // Otherwise return all (except self)
+        const siteId = searchParams.get('siteId')
+        if (siteId) {
+            whereClause.siteId = siteId
         }
 
-        if (!targetSiteId) {
-            return NextResponse.json({ users: [] })
-        }
-
-        // Fetch users from target site AND department
         const users = await prisma.user.findMany({
-            where: {
-                siteId: targetSiteId,
-                departmentId: targetDeptId || undefined, // Same site AND department
-                id: { not: session.user.id },
-                isActive: true
-            },
+            where: whereClause,
             select: {
                 id: true,
-                name: true
+                name: true,
+                site: { select: { id: true, name: true } },
+                role: { select: { name: true } }
             },
             orderBy: { name: 'asc' }
         })

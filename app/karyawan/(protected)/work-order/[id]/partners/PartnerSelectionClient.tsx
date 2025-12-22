@@ -17,6 +17,8 @@ export default function PartnerSelectionClient({ id }: { id: string }) {
     const [selectedPartnerIds, setSelectedPartnerIds] = useState<string[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
+    const [siteFilter, setSiteFilter] = useState<string>('all')
+    const [availableSites, setAvailableSites] = useState<{ id: string, name: string }[]>([])
 
     useEffect(() => {
         fetchData()
@@ -29,8 +31,17 @@ export default function PartnerSelectionClient({ id }: { id: string }) {
             const partnersRes = await fetch(`/api/karyawan/users/partners?workOrderId=${id}`)
             if (partnersRes.ok) {
                 const data = await partnersRes.json()
-                availablePartners = data.users || []
-                setPartners(availablePartners)
+                const users = data.users || []
+                setPartners(users)
+
+                // Extract unique sites from users
+                const sites = users.reduce((acc: any[], user: any) => {
+                    if (user.site && !acc.find((s: any) => s.id === user.site.id)) {
+                        acc.push(user.site)
+                    }
+                    return acc
+                }, [])
+                setAvailableSites(sites.sort((a: any, b: any) => a.name.localeCompare(b.name)))
             }
 
             // Fetch current assignments to pre-select
@@ -109,7 +120,20 @@ export default function PartnerSelectionClient({ id }: { id: string }) {
                         <div className="flex-1 text-center">
                             <h2 className="text-sm font-bold leading-tight">Pilih Partner Kerja</h2>
                         </div>
-                        <div className="w-10" />
+                    </div>
+
+                    {/* Filter */}
+                    <div className="px-4 pb-4">
+                        <select
+                            value={siteFilter}
+                            onChange={(e) => setSiteFilter(e.target.value)}
+                            className="w-full p-2 rounded-lg bg-white dark:bg-[#1c2936] border border-gray-200 dark:border-gray-800 text-sm"
+                        >
+                            <option value="all">Semua Site</option>
+                            {availableSites.map(site => (
+                                <option key={site.id} value={site.id}>{site.name}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
@@ -122,29 +146,34 @@ export default function PartnerSelectionClient({ id }: { id: string }) {
 
                         {partners.length > 0 ? (
                             <div className="space-y-2">
-                                {partners.map(partner => (
-                                    <div
-                                        key={partner.id}
-                                        onClick={() => togglePartner(partner.id)}
-                                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPartnerIds.includes(partner.id)
-                                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                                            : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800 hover:bg-gray-100'
-                                            }`}
-                                    >
-                                        <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${selectedPartnerIds.includes(partner.id)
-                                            ? 'bg-blue-600 border-blue-600 text-white'
-                                            : 'bg-white border-gray-300 dark:bg-gray-700 dark:border-gray-600'
-                                            }`}>
-                                            {selectedPartnerIds.includes(partner.id) && <MdCheck className="text-sm" />}
+                                {partners
+                                    .filter(p => siteFilter === 'all' || (p as any).site?.id === siteFilter)
+                                    .map(partner => (
+                                        <div
+                                            key={partner.id}
+                                            onClick={() => togglePartner(partner.id)}
+                                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPartnerIds.includes(partner.id)
+                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                                                : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800 hover:bg-gray-100'
+                                                }`}
+                                        >
+                                            <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${selectedPartnerIds.includes(partner.id)
+                                                ? 'bg-blue-600 border-blue-600 text-white'
+                                                : 'bg-white border-gray-300 dark:bg-gray-700 dark:border-gray-600'
+                                                }`}>
+                                                {selectedPartnerIds.includes(partner.id) && <MdCheck className="text-sm" />}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-medium dark:text-white">{partner.name}</p>
+                                                {partner.role?.name && (
+                                                    <p className="text-xs text-gray-500">{partner.role.name}</p>
+                                                )}
+                                                {(partner as any).site?.name && (
+                                                    <p className="text-xs text-blue-500 dark:text-blue-400">{(partner as any).site.name}</p>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="flex-1">
-                                            <p className="text-sm font-medium dark:text-white">{partner.name}</p>
-                                            {partner.role?.name && (
-                                                <p className="text-xs text-gray-500">{partner.role.name}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
                             </div>
                         ) : (
                             <div className="text-center py-8">
