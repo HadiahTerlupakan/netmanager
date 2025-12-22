@@ -139,6 +139,15 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineChatBubbleLeftRight',
     },
     {
+        code: 'MARKETING',
+        name: 'Marketing',
+        path: '/admin/marketing',
+        icon: 'HiOutlineMegaphone',
+        children: [
+            { code: 'MARKETING.COUPON', name: 'Manajemen Kupon', path: '/admin/marketing/coupons', icon: 'HiOutlineTicket' },
+        ]
+    },
+    {
         code: 'ANNOUNCEMENT',
         name: 'Pengumuman',
         path: '/admin/announcement',

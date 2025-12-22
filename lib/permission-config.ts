@@ -12,6 +12,7 @@ export const PERMISSION_GROUPS = {
     SYSTEM_LOG: ['system_log', 'login', 'activity'],
     SUPPORT: ['support'],
     ANNOUNCEMENT: ['announcement'],
+    MARKETING: ['marketing', 'coupon'],
     USERS: ['users'],
 
 } as const

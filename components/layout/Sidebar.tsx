@@ -53,6 +53,8 @@ import {
   HiOutlineBriefcase,
   HiOutlineBuildingOffice,
   HiOutlineClipboardDocumentCheck,
+  HiOutlineTag,
+  HiOutlineTicket,
 } from 'react-icons/hi2'
 import { useSettings } from '@/hooks/useSettings'
 import { usePermission } from '@/hooks/use-permission'
@@ -122,6 +124,8 @@ const IconMap: Record<string, React.ElementType> = {
   HiOutlineBriefcase,
   HiOutlineBuildingOffice,
   HiOutlineClipboardDocumentCheck,
+  HiOutlineTag,
+  HiOutlineTicket,
 }
 
 const getIcon = (name: string | undefined, className: string) => {

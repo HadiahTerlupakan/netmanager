@@ -1,0 +1,65 @@
+
+import { NextRequest, NextResponse } from 'next/server'
+import { CouponService } from '@/modules/coupons/services/CouponService'
+import { hasPermission } from '@/lib/rbac'
+
+const couponService = new CouponService()
+
+export async function GET(req: NextRequest) {
+    try {
+        if (!await hasPermission('coupon:read')) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+        }
+
+        const result = await couponService.getAllCoupons()
+        return NextResponse.json(result.items)
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+}
+
+export async function POST(req: NextRequest) {
+    try {
+        if (!await hasPermission('coupon:create')) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+        }
+
+        const json = await req.json()
+        const {
+            code,
+            description,
+            discountType,
+            discountValue,
+            startDate,
+            endDate,
+            minTransaction,
+            maxDiscount,
+            quota,
+            isActive
+        } = json
+
+        if (!code || !discountType || discountValue === undefined || !startDate || !endDate) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+
+        const coupon = await couponService.createCoupon({
+            code: code.toUpperCase(),
+            description,
+            discountType,
+            discountValue: Number(discountValue),
+            startDate: new Date(startDate),
+            endDate: new Date(endDate),
+            minTransaction: Number(minTransaction || 0),
+            maxDiscount: maxDiscount ? Number(maxDiscount) : undefined,
+            quota: Number(quota || 0),
+            isActive: isActive ?? true
+        })
+
+        return NextResponse.json(coupon)
+    } catch (error: any) {
+        if (error.message === 'Coupon code already exists') {
+            return NextResponse.json({ error: 'Kode kupon sudah ada' }, { status: 409 })
+        }
+        return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+}

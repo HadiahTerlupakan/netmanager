@@ -6,7 +6,7 @@ export interface OtbCreateData {
   keteranganJumlahKabelFeeder?: string | null
   latitude?: number | null
   longitude?: number | null
-  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE'
   cores?: Array<{
     idx: number
     slotName: string
@@ -23,7 +23,7 @@ export interface OtbUpdateData {
   keteranganJumlahKabelFeeder?: string | null
   latitude?: number | null
   longitude?: number | null
-  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE'
   cores?: Array<{
     idx: number
     slotName: string
@@ -41,7 +41,7 @@ export interface OtbPublic {
   keteranganJumlahKabelFeeder: string | null
   latitude: number | null
   longitude: number | null
-  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE'
   createdAt: Date
   updatedAt: Date
 }

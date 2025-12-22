@@ -31,6 +31,7 @@ export default function PelangganPPPPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pelanggans, setPelanggans] = useState<PelangganPPP[]>([])
+  const [disableDuration, setDisableDuration] = useState<number>(5) // Default 5 days
 
   useEffect(() => {
     loadData()
@@ -40,39 +41,45 @@ export default function PelangganPPPPage() {
     try {
       setLoading(true)
       setError(null)
-      // Tambahkan cache busting dengan timestamp
-      const res = await fetch('/api/pelanggan-ppp', {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
-      })
-      if (!res.ok) {
+
+      // Fetch data pelanggan and settings in parallel
+      const [resPelanggan, resSettings] = await Promise.all([
+        fetch('/api/pelanggan-ppp', {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        }),
+        fetch('/api/settings/general')
+      ])
+
+      if (!resPelanggan.ok) {
         throw new Error('Gagal memuat data pelanggan PPP')
+      }
+
+      // Handle settings response
+      if (resSettings.ok) {
+        try {
+          const settingsData = await resSettings.json()
+          if (settingsData.disablePerpanjanganPaket) {
+            setDisableDuration(parseInt(settingsData.disablePerpanjanganPaket) || 5)
+          }
+        } catch (e) {
+          console.error('Error parsing settings:', e)
+        }
       }
 
       let data = []
       try {
-        const text = await res.text()
+        const text = await resPelanggan.text()
         if (text) {
           data = JSON.parse(text)
         }
       } catch (e) {
         console.error('Error parsing JSON:', e)
-        // If parsing fails but response was OK, it might be empty body which is fine for empty list
         data = []
       }
 
       // Debug: Log data yang diterima
-      // Debug: Log data yang diterima
       console.log('[Frontend] Data pelanggan diterima:', data.length, 'pelanggan')
-      if (data.length > 0) {
-        console.log('[Frontend] Sample pelanggan:', {
-          id: data[0].id,
-          idPelanggan: data[0].idPelanggan,
-          nama: data[0].nama
-        })
-      }
       setPelanggans(data || [])
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan saat memuat data')
@@ -170,6 +177,22 @@ export default function PelangganPPPPage() {
     return jatuhTempoDate < today
   }
 
+  const isRenewalAllowed = (jatuhTempo: string) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const jatuhTempoDate = new Date(jatuhTempo)
+    jatuhTempoDate.setHours(0, 0, 0, 0)
+
+    // Calculate allowed date: jatuhTempo - disableDuration days
+    const allowedDate = new Date(jatuhTempoDate)
+    allowedDate.setDate(allowedDate.getDate() - disableDuration)
+
+    // Allow if today is past or equal to the allowed start date
+    // Also allow if already overdue (handled by logic naturally as today > jatuhTempo > allowedDate)
+    return today >= allowedDate
+  }
+
   if (loading) {
     return <PageLoader />
   }
@@ -258,146 +281,153 @@ export default function PelangganPPPPage() {
                   </td>
                 </tr>
               ) : (
-                pelanggans.map((pelanggan, index) => (
-                  <tr
-                    key={pelanggan.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {index + 1}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        <Link href={`/admin/pelanggan/ppp/${pelanggan.id}`} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                          {pelanggan.idPelanggan}
-                        </Link>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        <Link href={`/admin/pelanggan/ppp/${pelanggan.id}`} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                          {pelanggan.nama}
-                        </Link>
-                      </div>
-                      {pelanggan.email && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {pelanggan.email}
+                pelanggans.map((pelanggan, index) => {
+                  const allowed = isRenewalAllowed(pelanggan.jatuhTempo)
+                  return (
+                    <tr
+                      key={pelanggan.id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                        {index + 1}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          <Link href={`/admin/pelanggan/ppp/${pelanggan.id}`} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                            {pelanggan.idPelanggan}
+                          </Link>
                         </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">
-                        {pelanggan.username}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${pelanggan.tipe === 'REGULER'
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                          : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                          }`}
-                      >
-                        {pelanggan.tipe === 'REGULER' ? (
-                          <span className="flex items-center gap-1"><HiOutlineCalendar className="w-3 h-3" /> Reguler</span>
-                        ) : (
-                          <span className="flex items-center gap-1"><HiArrowPath className="w-3 h-3" /> Non Reguler</span>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 dark:text-white">
-                        {pelanggan.hargaPaket?.name || '-'}
-                      </div>
-                      {pelanggan.hargaPaket && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {formatRupiah(pelanggan.hargaPaket.harga)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          <Link href={`/admin/pelanggan/ppp/${pelanggan.id}`} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                            {pelanggan.nama}
+                          </Link>
                         </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {formatDate(pelanggan.tanggalAktif)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">
-                        {formatDate(pelanggan.jatuhTempo)}
-                      </div>
-                      {isJatuhTempo(pelanggan.jatuhTempo) && (
-                        <div className="text-xs text-red-600 dark:text-red-400 font-medium mt-1">
-                          <div className="flex items-center gap-1">
-                            <HiOutlineExclamationTriangle className="w-3 h-3" /> Jatuh Tempo
+                        {pelanggan.email && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {pelanggan.email}
                           </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {pelanggan.username}
                         </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={pelanggan.status} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {pelanggan.status !== 'ISOLIR' && (
-                          <button
-                            onClick={() => handleStatusUpdate(pelanggan.id, 'ISOLIR', 'ISOLIR')}
-                            className="text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 transition-colors"
-                            title="Isolir (Menunggak)"
-                          >
-                            <HiNoSymbol className="w-4 h-4" />
-                          </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${pelanggan.tipe === 'REGULER'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                            : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                            }`}
+                        >
+                          {pelanggan.tipe === 'REGULER' ? (
+                            <span className="flex items-center gap-1"><HiOutlineCalendar className="w-3 h-3" /> Reguler</span>
+                          ) : (
+                            <span className="flex items-center gap-1"><HiArrowPath className="w-3 h-3" /> Non Reguler</span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {pelanggan.hargaPaket?.name || '-'}
+                        </div>
+                        {pelanggan.hargaPaket && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {formatRupiah(pelanggan.hargaPaket.harga)}
+                          </div>
                         )}
-                        {pelanggan.status !== 'DISMANTLE' && (
-                          <button
-                            onClick={() => handleStatusUpdate(pelanggan.id, 'DISMANTLE', 'DISMANTLE')}
-                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 transition-colors"
-                            title="Dismantle (Berhenti)"
-                          >
-                            <HiXMark className="w-4 h-4" />
-                          </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                        {formatDate(pelanggan.tanggalAktif)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {formatDate(pelanggan.jatuhTempo)}
+                        </div>
+                        {isJatuhTempo(pelanggan.jatuhTempo) && (
+                          <div className="text-xs text-red-600 dark:text-red-400 font-medium mt-1">
+                            <div className="flex items-center gap-1">
+                              <HiOutlineExclamationTriangle className="w-3 h-3" /> Jatuh Tempo
+                            </div>
+                          </div>
                         )}
-                        {['ISOLIR', 'DISMANTLE', 'NONAKTIF'].includes(pelanggan.status) && (
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusBadge status={pelanggan.status} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          {pelanggan.status !== 'ISOLIR' && (
+                            <button
+                              onClick={() => handleStatusUpdate(pelanggan.id, 'ISOLIR', 'ISOLIR')}
+                              className="text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 transition-colors"
+                              title="Isolir (Menunggak)"
+                            >
+                              <HiNoSymbol className="w-4 h-4" />
+                            </button>
+                          )}
+                          {pelanggan.status !== 'DISMANTLE' && (
+                            <button
+                              onClick={() => handleStatusUpdate(pelanggan.id, 'DISMANTLE', 'DISMANTLE')}
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 transition-colors"
+                              title="Dismantle (Berhenti)"
+                            >
+                              <HiXMark className="w-4 h-4" />
+                            </button>
+                          )}
+                          {['ISOLIR', 'DISMANTLE', 'NONAKTIF'].includes(pelanggan.status) && (
+                            <button
+                              onClick={() => handleStatusUpdate(pelanggan.id, 'AKTIF', 'AKTIF')}
+                              className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 transition-colors"
+                              title="Aktifkan Kembali"
+                            >
+                              <HiArrowPath className="w-4 h-4" />
+                            </button>
+                          )}
+                          <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
                           <button
-                            onClick={() => handleStatusUpdate(pelanggan.id, 'AKTIF', 'AKTIF')}
-                            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 transition-colors"
-                            title="Aktifkan Kembali"
+                            onClick={() => allowed && handleRenewal(pelanggan.id)}
+                            disabled={!allowed}
+                            className={`font-medium inline-flex items-center justify-center w-10 h-10 rounded transition-colors ${allowed
+                                ? 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20'
+                                : 'text-gray-400 cursor-not-allowed opacity-50 bg-gray-50 dark:bg-gray-800'
+                              }`}
+                            title={allowed ? "Perpanjang Layanan" : `Perpanjangan baru bisa dilakukan ${disableDuration} hari sebelum jatuh tempo`}
                           >
-                            <HiArrowPath className="w-4 h-4" />
+                            <HiArrowPathRoundedSquare className="w-5 h-5" />
                           </button>
-                        )}
-                        <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
-                        <button
-                          onClick={() => handleRenewal(pelanggan.id)}
-                          className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                          title="Perpanjang Layanan"
-                        >
-                          <HiArrowPathRoundedSquare className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handlePrint(pelanggan.id)}
-                          className="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                          title="Print Tagihan"
-                        >
-                          <HiPrinter className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <Link
-                          href={`/admin/pelanggan/ppp/${pelanggan.id}/edit`}
-                          className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
-                          title="Edit"
-                        >
-                          <HiPencil className="w-5 h-5" />
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(pelanggan.id)}
-                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                          title="Hapus"
-                        >
-                          <HiTrash className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          <button
+                            onClick={() => handlePrint(pelanggan.id)}
+                            className="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                            title="Print Tagihan"
+                          >
+                            <HiPrinter className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Link
+                            href={`/admin/pelanggan/ppp/${pelanggan.id}/edit`}
+                            className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                            title="Edit"
+                          >
+                            <HiPencil className="w-5 h-5" />
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(pelanggan.id)}
+                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            title="Hapus"
+                          >
+                            <HiTrash className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>

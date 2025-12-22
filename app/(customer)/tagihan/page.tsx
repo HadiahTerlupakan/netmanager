@@ -15,7 +15,8 @@ import {
     MdCreditCard,
     MdAutorenew,
     MdCheckCircle,
-    MdCancel
+    MdCancel,
+    MdLocalOffer // Added icon
 } from 'react-icons/md'
 
 interface Invoice {
@@ -35,6 +36,14 @@ export default function CustomerInvoicesPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [filter, setFilter] = useState<'ALL' | 'PAID' | 'UNPAID' | 'FAILED'>('ALL')
     const router = useRouter()
+
+    // Payment State
+    const [showPaymentModal, setShowPaymentModal] = useState(false)
+    const [couponCode, setCouponCode] = useState('')
+    const [couponLoading, setCouponLoading] = useState(false)
+    const [couponError, setCouponError] = useState('')
+    const [appliedDiscount, setAppliedDiscount] = useState<{ code: string, amount: number } | null>(null)
+    const [paymentLoading, setPaymentLoading] = useState(false)
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
@@ -110,6 +119,69 @@ export default function CustomerInvoicesPage() {
         }
     }
 
+
+    // Coupon Logic
+    const handleCheckCoupon = async () => {
+        if (!couponCode.trim()) return
+        setCouponLoading(true)
+        setCouponError('')
+        setAppliedDiscount(null)
+
+        try {
+            const res = await fetch('/api/coupons/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code: couponCode,
+                    amount: totalPending,
+                    pelangganId: 'CURRENT_USER' // Backend uses session
+                })
+            })
+            const data = await res.json()
+            if (data.valid) {
+                setAppliedDiscount({
+                    code: data.code,
+                    amount: data.discountAmount
+                })
+            } else {
+                setCouponError(data.error || 'Kupon tidak valid')
+            }
+        } catch (error) {
+            setCouponError('Gagal memverifikasi kupon')
+        } finally {
+            setCouponLoading(false)
+        }
+    }
+
+    const handlePayment = async () => {
+        if (!pendingInvoices.length) return
+        setPaymentLoading(true)
+        try {
+            const res = await fetch('/api/customer/payments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    invoiceIds: pendingInvoices.map(inv => inv.id),
+                    couponCode: appliedDiscount?.code || null,
+                    paymentMethod: 'MANUAL', // Default for now
+                    notes: 'Payment via Customer Portal'
+                })
+            })
+            const result = await res.json()
+            if (result.success) {
+                alert('Pembayaran berhasil dibuat! Silakan konfirmasi ke admin.')
+                setShowPaymentModal(false)
+                fetchInvoices() // Refresh
+            } else {
+                alert(result.error || 'Gagal membuat pembayaran')
+            }
+        } catch (error) {
+            alert('Terjadi kesalahan saat memproses pembayaran')
+        } finally {
+            setPaymentLoading(false)
+        }
+    }
+
     if (authLoading || isLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-[#f6f7f8] dark:bg-[#101922]">
@@ -179,7 +251,10 @@ export default function CustomerInvoicesPage() {
                                         <span>Pembayaran aman & terenkripsi</span>
                                     </div>
                                     {totalPending > 0 && (
-                                        <button className="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 bg-white text-[#0d9488] hover:bg-gray-50 active:scale-[0.98] transition-all text-base font-bold leading-normal tracking-[0.015em] shadow-sm">
+                                        <button
+                                            onClick={() => setShowPaymentModal(true)}
+                                            className="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 bg-white text-[#0d9488] hover:bg-gray-50 active:scale-[0.98] transition-all text-base font-bold leading-normal tracking-[0.015em] shadow-sm"
+                                        >
                                             <span>Bayar Sekarang</span>
                                         </button>
                                     )}
@@ -299,6 +374,88 @@ export default function CustomerInvoicesPage() {
 
                 </div>
             </div>
+            {/* Payment Modal */}
+            {showPaymentModal && (
+                <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a2632] w-full max-w-md rounded-2xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold">Rincian Pembayaran</h3>
+                            <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+                                <MdCancel className="text-2xl text-gray-500" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-500">Total Tagihan ({pendingInvoices.length} item)</span>
+                                <span className="font-semibold">{formatCurrency(totalPending)}</span>
+                            </div>
+
+                            {/* Coupon Input */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium flex items-center gap-2">
+                                    <MdLocalOffer className="text-[#0d9488]" />
+                                    Kode Kupon
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 uppercase"
+                                        placeholder="Masukan kode"
+                                        value={couponCode}
+                                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                        disabled={appliedDiscount !== null}
+                                    />
+                                    {appliedDiscount ? (
+                                        <button
+                                            onClick={() => {
+                                                setAppliedDiscount(null)
+                                                setCouponCode('')
+                                            }}
+                                            className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 font-medium text-sm"
+                                        >
+                                            Hapus
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={handleCheckCoupon}
+                                            disabled={couponLoading || !couponCode}
+                                            className="px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-black rounded-lg hover:opacity-90 disabled:opacity-50 font-medium text-sm"
+                                        >
+                                            {couponLoading ? 'Mohon tunggu...' : 'Gunakan'}
+                                        </button>
+                                    )}
+                                </div>
+                                {couponError && <p className="text-xs text-red-500">{couponError}</p>}
+                                {appliedDiscount && (
+                                    <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg text-sm">
+                                        <span>Diskon Kupon ({appliedDiscount.code})</span>
+                                        <span className="font-bold">-{formatCurrency(appliedDiscount.amount)}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="border-t border-dashed border-gray-200 dark:border-gray-700 my-4"></div>
+
+                            <div className="flex justify-between items-center text-lg font-bold">
+                                <span>Total Bayar</span>
+                                <span className="text-[#0d9488]">
+                                    {formatCurrency(totalPending - (appliedDiscount?.amount || 0))}
+                                </span>
+                            </div>
+
+                            <button
+                                onClick={handlePayment}
+                                disabled={paymentLoading}
+                                className="w-full py-3 bg-[#0d9488] text-white rounded-xl font-bold hover:bg-[#0f766e] transition-colors disabled:opacity-50"
+                            >
+                                {paymentLoading ? 'Memproses...' : 'Konfirmasi Pembayaran'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     )
 }

@@ -598,6 +598,7 @@ model Pelanggan {
   noDokumen                     String?
   fileBAST                      String?
   fileKTP                       String?
+  couponUsages                 CouponUsage[]
   fileRumahSekitar              String?
   kabupatenKota                 String?
   kecamatan                     String?
@@ -2217,3 +2218,36 @@ enum WorkingHourMode {
   SHIFT
   FLEXIBLE
 }
+
+model Coupon {
+  id              String        @id @default(cuid())
+  code            String        @unique // e.g., "HEMAT10"
+  description     String?
+  discountType    DiscountType  // FIXED or PERCENT
+  discountValue   Float
+  startDate       DateTime
+  endDate         DateTime
+  minTransaction  Int           @default(0) // Minimum bill amount to apply
+  maxDiscount     Int?          // Max cap for percentage discounts (e.g., Max Rp 50.000)
+  quota           Int           @default(0) // Total vouchers available (0 = unlimited)
+  usedCount       Int           @default(0)
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  usages          CouponUsage[]
+}
+
+model CouponUsage {
+  id        String   @id @default(cuid())
+  couponId String
+  userId    String?  // If dealing with generic Users
+  pelangganId String? // If checking per PPP customer
+  usedAt    DateTime @default(now())
+  
+  coupon   Coupon   @relation(fields: [couponId], references: [id])
+  pelanggan Pelanggan? @relation(fields: [pelangganId], references: [id])
+  
+  @@index([couponId])
+  @@index([pelangganId])
+}
+

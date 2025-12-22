@@ -47,6 +47,8 @@ export function ClientComponent() {
   const [tagihanAktif, setTagihanAktif] = useState<Tagihan | null>(null)
   const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [warningMessage, setWarningMessage] = useState<string | null>(null)
+  const [disableDuration, setDisableDuration] = useState<number>(5)
 
   const [formData, setFormData] = useState({
     hargaPaketId: '', // Optional: untuk ubah paket
@@ -63,6 +65,15 @@ export function ClientComponent() {
     const loadData = async () => {
       try {
         const id = params.id as string
+
+        // Load settings first (or in parallel)
+        const settingsRes = await fetch('/api/settings/general')
+        if (settingsRes.ok) {
+          const settings = await settingsRes.json()
+          if (settings.disablePerpanjanganPaket) {
+            setDisableDuration(parseInt(settings.disablePerpanjanganPaket) || 5)
+          }
+        }
 
         // Load pelanggan
         const pelangganRes = await fetch(`/api/pelanggan-ppp/${id}`)
@@ -103,8 +114,28 @@ export function ClientComponent() {
     loadData()
   }, [params.id])
 
+  // Check renewal eligibility
+  useEffect(() => {
+    if (pelanggan && !loading) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      const jatuhTempoDate = new Date(pelanggan.jatuhTempo)
+      jatuhTempoDate.setHours(0, 0, 0, 0)
+
+      const allowedDate = new Date(jatuhTempoDate)
+      allowedDate.setDate(allowedDate.getDate() - disableDuration)
+
+      if (today < allowedDate) {
+        setWarningMessage(`Pelanggan ini belum dapat diperpanjang. Perpanjangan baru bisa dilakukan mulai ${allowedDate.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}.`)
+      }
+    }
+  }, [pelanggan, loading, disableDuration])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (warningMessage) return; // Prevent submission if blocked
+
     setSubmitting(true)
     setError(null)
 
@@ -215,6 +246,24 @@ export function ClientComponent() {
             className="mt-4 inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
           >
             Kembali
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (warningMessage) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 max-w-md">
+          <div className="mb-4 text-4xl">⚠️</div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Perpanjangan Belum Tersedia</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">{warningMessage}</p>
+          <Link
+            href="/admin/pelanggan/ppp"
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            Kembali ke Daftar Pelanggan
           </Link>
         </div>
       </div>
