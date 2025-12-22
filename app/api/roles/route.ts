@@ -40,9 +40,13 @@ export async function GET(req: Request) {
                 // Get current user's role ID
                 const currentUser = await prisma.user.findUnique({
                     where: { id: session.user.id },
-                    select: { roleId: true, role: { select: { name: true } } }
+                    select: { roleId: true, role: { select: { name: true, isRestricted: true } } }
                 })
 
+                console.log('[Roles API] Current user role:', currentUser?.role?.name, 'isRestricted:', currentUser?.role?.isRestricted)
+
+                // Only SUPER_ADMIN can see all roles including restricted ones
+                // All other users can only see non-restricted roles + their own role
                 if (currentUser?.role?.name !== 'SUPER_ADMIN') {
                     whereClause = {
                         OR: [
@@ -50,7 +54,14 @@ export async function GET(req: Request) {
                             { id: currentUser?.roleId || '' }
                         ]
                     }
+                    console.log('[Roles API] Filter applied - showing only non-restricted roles')
+                } else {
+                    console.log('[Roles API] No filter - SUPER_ADMIN can see all roles')
                 }
+            } else {
+                // If no session, still apply filter to hide restricted roles
+                whereClause = { isRestricted: false }
+                console.log('[Roles API] No session - hiding all restricted roles')
             }
         }
 
