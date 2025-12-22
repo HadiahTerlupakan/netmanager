@@ -1,9 +1,9 @@
 type StatusBadgeProps = {
-  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE'
   size?: 'sm' | 'md' | 'lg'
 }
 
-const statusConfig: Record<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE', { label: string; bgColor: string; textColor: string; borderColor: string }> = {
+const statusConfig: Record<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE', { label: string; bgColor: string; textColor: string; borderColor: string }> = {
   AKTIF: {
     label: 'Aktif',
     bgColor: 'bg-green-50 dark:bg-green-900/20',
@@ -22,11 +22,23 @@ const statusConfig: Record<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE', { label: string
     textColor: 'text-yellow-700 dark:text-yellow-400',
     borderColor: 'border-yellow-200 dark:border-yellow-800',
   },
+  ISOLIR: {
+    label: 'Isolir',
+    bgColor: 'bg-orange-50 dark:bg-orange-900/20',
+    textColor: 'text-orange-700 dark:text-orange-400',
+    borderColor: 'border-orange-200 dark:border-orange-800',
+  },
+  DISMANTLE: {
+    label: 'Dismantle',
+    bgColor: 'bg-red-50 dark:bg-red-900/20',
+    textColor: 'text-red-700 dark:text-red-400',
+    borderColor: 'border-red-200 dark:border-red-800',
+  },
 }
 
 export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
   const config = statusConfig[status]
-  
+
   const sizeClasses = {
     sm: 'text-xs px-2 py-0.5',
     md: 'text-sm px-2.5 py-1',

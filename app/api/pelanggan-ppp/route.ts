@@ -131,6 +131,7 @@ export async function POST(req: NextRequest) {
     const tanggalAktif = formData.get('tanggalAktif') as string
     const jatuhTempo = formData.get('jatuhTempo') as string
     const status = formData.get('status') as string
+    const autoIsolir = parseBooleanFlag(formData.get('autoIsolir'), true)
 
     // Validate required fields
     if (!idPelanggan || !nama || !username || !password || !passwordLogin || !hargaPaketId || !tanggalAktif || !jatuhTempo) {
@@ -244,6 +245,7 @@ export async function POST(req: NextRequest) {
       tanggalAktif,
       jatuhTempo,
       status: statusValue,
+      autoIsolir,
       alamat,
       provinsi,
       kabupatenKota,

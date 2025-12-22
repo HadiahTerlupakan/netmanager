@@ -16,6 +16,7 @@ export interface CreatePelangganInput {
     tanggalAktif: string // YYYY-MM-DD format
     jatuhTempo: string // YYYY-MM-DD format
     status: Status
+    autoIsolir?: boolean
     alamat?: string | null
     provinsi?: string | null
     kabupatenKota?: string | null
@@ -116,6 +117,7 @@ export class PelangganService {
             tanggalAktif: parseLocalDate(data.tanggalAktif),
             jatuhTempo: parseLocalDate(data.jatuhTempo),
             status: data.status,
+            autoIsolir: data.autoIsolir,
             alamat: data.alamat?.trim() || null,
             provinsi: data.provinsi?.trim() || null,
             kabupatenKota: data.kabupatenKota?.trim() || null,

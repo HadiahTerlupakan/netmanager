@@ -13,7 +13,7 @@ type HargaPaket = {
   harga: number
   durasi: number
   durasiUnit: 'JAM' | 'HARI' | 'BULAN' | 'TAHUN'
-  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE'
   usePPN?: boolean
   ppnPercentage?: number | null
   useDiscount?: boolean
@@ -35,7 +35,7 @@ type Odp = {
   id: string
   name: string
   location: string | null
-  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE'
 }
 
 export function ClientComponent() {
@@ -76,7 +76,8 @@ export function ClientComponent() {
     tipe: 'REGULER' as 'REGULER' | 'NON_REGULER',
     tanggalAktif: new Date().toISOString().split('T')[0], // Default: hari ini
     jatuhTempo: '',
-    status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
+    status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE',
+    autoIsolir: true, // Default: auto isolir aktif
     alamat: '',
     provinsi: '',
     kabupatenKota: '',
@@ -143,6 +144,7 @@ export function ClientComponent() {
         tanggalAktif: data.tanggalAktif ? new Date(data.tanggalAktif).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         jatuhTempo: data.jatuhTempo ? new Date(data.jatuhTempo).toISOString().split('T')[0] : '',
         status: data.status || 'AKTIF',
+        autoIsolir: data.autoIsolir ?? true, // Load from DB, default true
         alamat: data.alamat || '',
         provinsi: data.provinsi || '',
         kabupatenKota: data.kabupatenKota || '',
@@ -891,7 +893,7 @@ export function ClientComponent() {
                               name="status"
                               value="AKTIF"
                               checked={formData.status === 'AKTIF'}
-                              onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }))}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE' }))}
                               className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                               required
                             />
@@ -905,7 +907,7 @@ export function ClientComponent() {
                               name="status"
                               value="NONAKTIF"
                               checked={formData.status === 'NONAKTIF'}
-                              onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }))}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE' }))}
                               className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                               required
                             />
@@ -914,6 +916,59 @@ export function ClientComponent() {
                             </span>
                           </label>
                         </div>
+                        <div className="flex items-center gap-6 mt-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="status"
+                              value="ISOLIR"
+                              checked={formData.status === 'ISOLIR'}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE' }))}
+                              className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 focus:ring-orange-500 dark:focus:ring-orange-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              required
+                            />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Isolir (Menunggak)
+                            </span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="status"
+                              value="DISMANTLE"
+                              checked={formData.status === 'DISMANTLE'}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE' }))}
+                              className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500 dark:focus:ring-red-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              required
+                            />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Dismantle (Berhenti)
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Auto Isolir Checkbox */}
+                      <div className="mt-3 pt-2">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <div className="flex items-center h-5">
+                            <input
+                              type="checkbox"
+                              name="autoIsolir"
+                              checked={formData.autoIsolir}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, autoIsolir: e.target.checked }))}
+                              className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Auto Isolir
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              Otomatis isolir jika melewati jatuh tempo + toleransi
+                            </span>
+                          </div>
+                        </label>
                       </div>
                     </div>
 

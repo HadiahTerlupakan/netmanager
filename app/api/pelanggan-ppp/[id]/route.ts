@@ -542,6 +542,7 @@ export async function PUT(
     const tanggalAktif = formData.get('tanggalAktif') as string
     const jatuhTempo = formData.get('jatuhTempo') as string
     const status = formData.get('status') as string
+    const autoIsolir = parseBooleanFlag(formData.get('autoIsolir'), true)
     const alamat = formData.get('alamat') as string | null
     const provinsi = formData.get('provinsi') as string | null
     const kabupatenKota = formData.get('kabupatenKota') as string | null
@@ -758,6 +759,7 @@ export async function PUT(
         tanggalAktif: parsedTanggalAktif,
         jatuhTempo: parsedJatuhTempo,
         status: statusValue,
+        autoIsolir,
         alamat: alamat?.trim() || null,
         provinsi: provinsi?.trim() || null,
         kabupatenKota: kabupatenKota?.trim() || null,

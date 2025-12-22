@@ -159,6 +159,15 @@ app.prepare().then(() => {
         console.log('[Server] Automatic billing cron scheduled')
     }).catch(err => console.error('[Server] Failed to start Automatic Billing Service:', err))
 
+    // Start Automatic Isolation Service (Daily at 00:00 AM)
+    import('./modules/finance/services/AutomaticIsolationService').then(({ AutomaticIsolationService }) => {
+        cron.schedule('0 0 * * *', () => {
+            console.log('[Cron] Running daily isolation check')
+            AutomaticIsolationService.runDailyCheck()
+        })
+        console.log('[Server] Automatic isolation cron scheduled (00:00)')
+    }).catch(err => console.error('[Server] Failed to start Automatic Isolation Service:', err))
+
     // Log connections count periodically in development
     if (dev) {
         setInterval(() => {

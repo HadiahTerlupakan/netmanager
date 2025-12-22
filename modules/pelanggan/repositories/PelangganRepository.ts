@@ -14,6 +14,7 @@ export interface CreatePelangganDTO {
     tanggalAktif: Date
     jatuhTempo: Date
     status: Status
+    autoIsolir?: boolean
     alamat?: string | null
     provinsi?: string | null
     kabupatenKota?: string | null
@@ -122,6 +123,7 @@ export class PelangganRepository {
                 tanggalAktif: data.tanggalAktif,
                 jatuhTempo: data.jatuhTempo,
                 status: data.status,
+                autoIsolir: data.autoIsolir ?? true,
                 alamat: data.alamat,
                 provinsi: data.provinsi,
                 kabupatenKota: data.kabupatenKota,

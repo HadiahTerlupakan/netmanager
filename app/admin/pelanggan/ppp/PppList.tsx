@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath, HiPrinter, HiArrowPathRoundedSquare, HiOutlineCalendar, HiOutlineExclamationTriangle } from 'react-icons/hi2'
+import { HiOutlinePlus, HiPencil, HiTrash, HiArrowPath, HiPrinter, HiArrowPathRoundedSquare, HiOutlineCalendar, HiOutlineExclamationTriangle, HiNoSymbol, HiXMark } from 'react-icons/hi2'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
@@ -20,7 +20,7 @@ type PelangganPPP = {
   } | null
   tanggalAktif: string
   jatuhTempo: string
-  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE'
   alamat?: string | null
   noTelp?: string | null
   email?: string | null
@@ -102,6 +102,37 @@ export default function PelangganPPPPage() {
     } catch (err: any) {
       console.error('[Frontend] Error saat menghapus:', err)
       alert(err.message || 'Terjadi kesalahan saat menghapus data')
+    }
+  }
+
+  const handleStatusUpdate = async (id: string, newStatus: string, actionName: string) => {
+    if (!confirm(`Apakah Anda yakin ingin mengubah status pelanggan ini menjadi ${actionName}? Akses internet akan ${newStatus === 'AKTIF' ? 'diaktifkan' : 'dimatikan'}.`)) {
+      return
+    }
+
+    try {
+      setLoading(true) // Show global loading or improved localized loading state
+      const res = await fetch(`/api/pelanggan-ppp/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Gagal mengubah status')
+      }
+
+      const result = await res.json()
+      console.log('[Frontend] Status updated:', result)
+      await loadData() // Reload to reflect changes
+      alert(`Status berhasil diubah menjadi ${actionName}`)
+
+    } catch (err: any) {
+      console.error('[Frontend] Error update status:', err)
+      alert(err.message || 'Terjadi kesalahan saat mengubah status')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -205,7 +236,10 @@ export default function PelangganPPPPage() {
                   Renew | Print
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Aksi
+                  Aksi Cepat
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                  Admin
                 </th>
               </tr>
             </thead>
@@ -300,6 +334,34 @@ export default function PelangganPPPPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-2">
+                        {pelanggan.status !== 'ISOLIR' && (
+                          <button
+                            onClick={() => handleStatusUpdate(pelanggan.id, 'ISOLIR', 'ISOLIR')}
+                            className="text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 transition-colors"
+                            title="Isolir (Menunggak)"
+                          >
+                            <HiNoSymbol className="w-4 h-4" />
+                          </button>
+                        )}
+                        {pelanggan.status !== 'DISMANTLE' && (
+                          <button
+                            onClick={() => handleStatusUpdate(pelanggan.id, 'DISMANTLE', 'DISMANTLE')}
+                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 transition-colors"
+                            title="Dismantle (Berhenti)"
+                          >
+                            <HiXMark className="w-4 h-4" />
+                          </button>
+                        )}
+                        {['ISOLIR', 'DISMANTLE', 'NONAKTIF'].includes(pelanggan.status) && (
+                          <button
+                            onClick={() => handleStatusUpdate(pelanggan.id, 'AKTIF', 'AKTIF')}
+                            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 transition-colors"
+                            title="Aktifkan Kembali"
+                          >
+                            <HiArrowPath className="w-4 h-4" />
+                          </button>
+                        )}
+                        <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
                         <button
                           onClick={() => handleRenewal(pelanggan.id)}
                           className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-medium inline-flex items-center justify-center w-10 h-10 rounded hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"

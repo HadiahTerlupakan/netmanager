@@ -567,6 +567,7 @@ model Pelanggan {
   tanggalAktif                  DateTime
   jatuhTempo                    DateTime
   status                        Status        @default(AKTIF)
+  autoIsolir                    Boolean       @default(true)
   alamat                        String?
   noTelp                        String?
   email                         String?
@@ -1583,6 +1584,8 @@ enum Status {
   AKTIF
   NONAKTIF
   MAINTENANCE
+  ISOLIR
+  DISMANTLE
 }
 
 enum DurasiUnit {

@@ -69,6 +69,7 @@ export function ClientComponent() {
     tanggalAktif: new Date().toISOString().split('T')[0], // Default: hari ini
     jatuhTempo: '',
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
+    autoIsolir: true, // Default: auto isolir aktif
     alamat: '',
     provinsi: '',
     kabupatenKota: '',
@@ -830,6 +831,29 @@ export function ClientComponent() {
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                               Menunggu
                             </span>
+                          </label>
+                        </div>
+
+                        {/* Auto Isolir Checkbox */}
+                        <div className="mt-3 pt-2">
+                          <label className="flex items-start gap-3 cursor-pointer">
+                            <div className="flex items-center h-5">
+                              <input
+                                type="checkbox"
+                                name="autoIsolir"
+                                checked={formData.autoIsolir}
+                                onChange={(e) => setFormData((prev) => ({ ...prev, autoIsolir: e.target.checked }))}
+                                className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Auto Isolir
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                Otomatis isolir jika melewati jatuh tempo + toleransi
+                              </span>
+                            </div>
                           </label>
                         </div>
                       </div>

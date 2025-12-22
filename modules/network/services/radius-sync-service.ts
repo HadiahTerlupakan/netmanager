@@ -50,7 +50,15 @@ export class RadiusSyncService {
         if (newStatus === 'AKTIF') {
             // Re-sync to enable user
             await this.syncSingleCustomer(pelangganId);
+        } else if (newStatus === 'ISOLIR') {
+            // Isolir logic: For now we disable the user in RADIUS (same as NONAKTIF)
+            // In the future, this could move the user to an "Isolated" profile/pool
+            await this.radiusRepo.deleteRadiusUser(pelanggan.username);
+        } else if (newStatus === 'DISMANTLE') {
+            // Dismantle logic: Remove user from RADIUS
+            await this.radiusRepo.deleteRadiusUser(pelanggan.username);
         } else {
+            // NONAKTIF or MAINTENANCE
             // Disable by deleting from RADIUS
             await this.radiusRepo.deleteRadiusUser(pelanggan.username);
         }
