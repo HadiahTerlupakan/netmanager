@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
-import { hash } from 'bcryptjs'
 import path from 'path'
 import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
-import { afterCustomerCreate } from '@/lib/hooks/radius-sync-hooks'
 import { requireAuth } from '@/lib/auth-helpers'
+import { getPelangganService } from '@/modules/pelanggan'
+import { logger } from '@/lib/logger'
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
 
@@ -57,266 +56,25 @@ const parseEnumValue = <T extends string>(
  *           type: string
  *           enum: [AKTIF, NONAKTIF, ISOLIR]
  *         description: Filter by customer status
- *         example: "AKTIF"
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           minimum: 1
- *           default: 1
- *         description: Page number for pagination
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 100
- *           default: 20
- *         description: Number of items per page
  *     responses:
  *       200:
  *         description: Successfully retrieved customer list
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Pelanggan'
- *                 pagination:
- *                   $ref: '#/components/schemas/Pagination'
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
- *       500:
- *         $ref: '#/components/responses/Error'
- *
- *   post:
- *     summary: Create a new PPPoE customer
- *     description: Create a new PPPoE customer with service package and account details
- *     tags: [Customer Management]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - nama
- *               - usernamePPP
- *               - passwordPPP
- *               - profilePppId
- *               - hargaPaketId
- *               - dueDateDay
- *             properties:
- *               nama:
- *                 type: string
- *                 description: Customer full name
- *                 example: "John Doe"
- *               usernamePPP:
- *                 type: string
- *                 description: PPPoE username
- *                 example: "johndoe"
- *               passwordPPP:
- *                 type: string
- *                 description: PPPoE password
- *                 example: "securePassword123"
- *               profilePppId:
- *                 type: integer
- *                 description: PPP profile ID
- *                 example: 1
- *               hargaPaketId:
- *                 type: integer
- *                 description: Package price ID
- *                 example: 1
- *               dueDateDay:
- *                 type: integer
- *                 minimum: 1
- *                 maximum: 31
- *                 description: Due date day of month
- *                 example: 15
- *               email:
- *                 type: string
- *                 format: email
- *                 description: Customer email
- *                 example: "john@example.com"
- *               noHp:
- *                 type: string
- *                 description: Customer phone number
- *                 example: "+628123456789"
- *               alamat:
- *                 type: string
- *                 description: Customer address
- *                 example: "Jl. Sudirman No. 123"
- *               ktp:
- *                 type: string
- *                 description: KTP/ID number
- *                 example: "1234567890123456"
- *               latitude:
- *                 type: number
- *                 format: float
- *                 description: Location latitude
- *                 example: -6.2088
- *               longitude:
- *                 type: number
- *                 format: float
- *                 description: Location longitude
- *                 example: 106.8456
- *               tipePelanggan:
- *                 type: string
- *                 enum: [RESIDENTIAL, BUSINESS]
- *                 description: Customer type
- *                 example: "RESIDENTIAL"
- *               status:
- *                 type: string
- *                 enum: [AKTIF, NONAKTIF, ISOLIR]
- *                 description: Customer status
- *                 example: "AKTIF"
- *               secretRadius:
- *                 type: string
- *                 description: RADIUS secret for this customer
- *                 example: "customerSecret"
- *               zona:
- *                 type: string
- *                 description: Service zone
- *                 example: "Zone-A"
- *               odc:
- *                 type: string
- *                 description: ODC reference
- *                 example: "ODC-001"
- *               odp:
- *                 type: string
- *                 description: ODP reference
- *                 example: "ODP-001"
- *               portOdp:
- *                 type: string
- *                 description: ODP port assignment
- *                 example: "Port-01"
- *               onuSn:
- *                 type: string
- *                 description: ONU serial number
- *                 example: "ALCL12345678"
- *               onuModel:
- *                 type: string
- *                 description: ONU model
- *                 example: "ZTE-F660"
- *               otb:
- *                 type: string
- *                 description: OTB reference
- *                 example: "OTB-001"
- *               coreOtb:
- *                 type: string
- *                 description: OTB core assignment
- *                 example: "Core-01"
- *               logo:
- *                 type: string
- *                 format: uri
- *                 description: Customer logo URL
- *                 example: "https://example.com/logo.jpg"
- *               disabled:
- *                 type: boolean
- *                 description: Whether customer account is disabled
- *                 example: false
- *               singlePppoeAccount:
- *                 type: boolean
- *                 description: Whether customer has single PPPoE account
- *                 example: true
- *               isActive:
- *                 type: boolean
- *                 description: Whether customer service is active
- *                 example: true
- *               pajak:
- *                 type: boolean
- *                 description: Whether tax applies to this customer
- *                 example: false
- *               diskon:
- *                 type: number
- *                 minimum: 0
- *                 maximum: 100
- *                 description: Discount percentage
- *                 example: 10
- *               diskonType:
- *                 type: string
- *                 enum: [PERCENTAGE, FIXED]
- *                 description: Discount type
- *                 example: "PERCENTAGE"
- *               catatan:
- *                 type: string
- *                 description: Additional notes
- *                 example: "Premium customer with priority support"
- *               photoKTP:
- *                 type: string
- *                 format: uri
- *                 description: KTP photo URL
- *                 example: "https://example.com/ktp.jpg"
- *               photoRumah:
- *                 type: string
- *                 format: uri
- *                 description: House photo URL
- *                 example: "https://example.com/house.jpg"
- *     responses:
- *       201:
- *         description: Successfully created customer
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: integer
- *                   description: Created customer ID
- *                   example: 1
- *                 message:
- *                   type: string
- *                   example: "Customer created successfully"
- *       400:
- *         $ref: '#/components/responses/ValidationError'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       409:
- *         description: PPPoE username already exists
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Username sudah terdaftar"
  *       500:
  *         $ref: '#/components/responses/Error'
  */
 export async function GET(req: NextRequest) {
   try {
-    // Cek autentikasi menggunakan fungsi terpusat
-    const session = await requireAuth(req)
+    await requireAuth(req)
 
     const { searchParams } = new URL(req.url)
-    const status = searchParams.get('status')
+    const status = searchParams.get('status') as Status | null
 
-    const where: any = {}
-    if (status) {
-      where.status = status
-    }
-
-    const pelanggans = await prisma.pelanggan.findMany({
-      where,
-      include: {
-        hargaPaket: {
-          include: {
-            profilePPP: true,
-            bandwidth: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+    const pelangganService = getPelangganService()
+    const pelanggans = await pelangganService.getAllPelanggan(
+      status ? { status } : undefined
+    )
 
     return NextResponse.json(pelanggans, {
       headers: {
@@ -335,12 +93,29 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/pelanggan-ppp
- * Membuat pelanggan PPP baru
+ * @swagger
+ * /api/pelanggan-ppp:
+ *   post:
+ *     summary: Create a new PPPoE customer
+ *     description: Create a new PPPoE customer with service package and account details
+ *     tags: [Customer Management]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       201:
+ *         description: Successfully created customer
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       409:
+ *         description: ID or Username already exists
+ *       500:
+ *         $ref: '#/components/responses/Error'
  */
 export async function POST(req: NextRequest) {
   try {
-    // Cek autentikasi menggunakan fungsi terpusat
     const session = await requireAuth(req)
 
     const formData = await req.formData()
@@ -356,6 +131,16 @@ export async function POST(req: NextRequest) {
     const tanggalAktif = formData.get('tanggalAktif') as string
     const jatuhTempo = formData.get('jatuhTempo') as string
     const status = formData.get('status') as string
+
+    // Validate required fields
+    if (!idPelanggan || !nama || !username || !password || !passwordLogin || !hargaPaketId || !tanggalAktif || !jatuhTempo) {
+      return NextResponse.json(
+        { error: 'Semua field wajib harus diisi' },
+        { status: 400 }
+      )
+    }
+
+    // Parse optional fields
     const alamat = formData.get('alamat') as string | null
     const provinsi = formData.get('provinsi') as string | null
     const kabupatenKota = formData.get('kabupatenKota') as string | null
@@ -398,194 +183,109 @@ export async function POST(req: NextRequest) {
     const biayaLainnyaDiskon = biayaLainnyaDiskonRaw ? parseFloat(biayaLainnyaDiskonRaw) : null
     const keteranganBiayaLainnya = formData.get('keteranganBiayaLainnya') as string | null
     const odpId = formData.get('odpId') as string | null
+
+    // Parse enum values
     const tipeValue = parseEnumValue(tipe, TipePelanggan) ?? TipePelanggan.REGULER
     const statusValue = parseEnumValue(status, Status) ?? Status.AKTIF
     const discountTypeValue = parseEnumValue(discountType, DiscountType)
     const discountDurationUnitValue = parseEnumValue(discountDurationUnit, DurasiUnit)
 
-    // Handle file uploads dengan struktur folder yang rapi
-    // Struktur: public/uploads/pelanggan/ID_PELANGGAN/ktp.webp, rumah.webp, bast.webp
+    // Handle file uploads
     const fileKTP = formData.get('fileKTP') as File | null
     const fileRumahSekitar = formData.get('fileRumahSekitar') as File | null
     const fileBAST = formData.get('fileBAST') as File | null
 
-    // Direktori untuk pelanggan ini (berdasarkan ID)
     const pelangganUploadDir = path.join(process.cwd(), 'public', 'uploads', 'pelanggan', idPelanggan.trim())
     let fileKTPPath: string | null = null
     let fileRumahSekitarPath: string | null = null
     let fileBASTPath: string | null = null
 
     try {
-      // Simpan file KTP (selalu konversi ke WebP jika gambar)
       if (fileKTP && fileKTP.size > 0) {
         if (isImageFile(fileKTP)) {
-          // Konversi gambar ke WebP
           fileKTPPath = await convertAndSaveImage(fileKTP, pelangganUploadDir, 'ktp')
         } else {
-          // Jika bukan gambar, simpan as-is (untuk PDF dll)
           const ext = path.extname(fileKTP.name) || '.pdf'
           fileKTPPath = await saveFile(fileKTP, pelangganUploadDir, `ktp${ext}`)
         }
       }
 
-      // Simpan file Rumah Sekitar (selalu konversi ke WebP jika gambar)
       if (fileRumahSekitar && fileRumahSekitar.size > 0) {
         if (isImageFile(fileRumahSekitar)) {
-          // Konversi gambar ke WebP
           fileRumahSekitarPath = await convertAndSaveImage(fileRumahSekitar, pelangganUploadDir, 'rumah')
         } else {
-          // Jika bukan gambar, simpan as-is
           const ext = path.extname(fileRumahSekitar.name) || '.pdf'
           fileRumahSekitarPath = await saveFile(fileRumahSekitar, pelangganUploadDir, `rumah${ext}`)
         }
       }
 
-      // Simpan file BAST (selalu konversi ke WebP jika gambar)
       if (fileBAST && fileBAST.size > 0) {
         if (isImageFile(fileBAST)) {
-          // Konversi gambar ke WebP
           fileBASTPath = await convertAndSaveImage(fileBAST, pelangganUploadDir, 'bast')
         } else {
-          // Jika bukan gambar, simpan as-is
           const ext = path.extname(fileBAST.name) || '.pdf'
           fileBASTPath = await saveFile(fileBAST, pelangganUploadDir, `bast${ext}`)
         }
       }
     } catch (fileError: any) {
       console.error('Error saving files:', fileError)
-      // Continue without files if there's an error
     }
 
-    // Validasi required fields
-    if (!idPelanggan || !nama || !username || !password || !passwordLogin || !hargaPaketId || !tanggalAktif || !jatuhTempo) {
-      return NextResponse.json(
-        { error: 'Semua field wajib harus diisi' },
-        { status: 400 }
-      )
-    }
-
-    // Validasi format ID Pelanggan (8 digit angka)
-    if (!/^\d{8}$/.test(idPelanggan.trim())) {
-      return NextResponse.json(
-        { error: 'ID Pelanggan harus 8 digit angka' },
-        { status: 400 }
-      )
-    }
-
-    // Cek apakah ID Pelanggan sudah ada
-    const existingPelanggan = await prisma.pelanggan.findUnique({
-      where: { idPelanggan: idPelanggan.trim() },
+    // Create pelanggan using service
+    const pelangganService = getPelangganService()
+    const pelanggan = await pelangganService.createPelanggan({
+      idPelanggan,
+      nama,
+      username,
+      password,
+      passwordLogin,
+      hargaPaketId,
+      tipe: tipeValue,
+      tanggalAktif,
+      jatuhTempo,
+      status: statusValue,
+      alamat,
+      provinsi,
+      kabupatenKota,
+      kelurahanDesa,
+      kecamatan,
+      noTelp,
+      email,
+      latitude,
+      longitude,
+      jenisDokumen,
+      noDokumen,
+      fileKTP: fileKTPPath,
+      fileRumahSekitar: fileRumahSekitarPath,
+      fileBAST: fileBASTPath,
+      catatan,
+      usePPN,
+      useDiscount,
+      useProrate,
+      discountType: discountTypeValue,
+      discountValue,
+      discountDuration,
+      discountDurationUnit: discountDurationUnitValue,
+      biayaInstalasi,
+      biayaInstalasiIsRecurring,
+      biayaInstalasiDiskon: useDiskonBiayaInstalasi ? biayaInstalasiDiskon : null,
+      biayaSewaPerangkat,
+      biayaSewaPerangkatIsRecurring,
+      biayaSewaPerangkatDiskon,
+      biayaLainnya,
+      biayaLainnyaIsRecurring,
+      biayaLainnyaDiskon: useDiskonBiayaLainnya ? biayaLainnyaDiskon : null,
+      keteranganBiayaLainnya,
+      odpId,
     })
 
-    if (existingPelanggan) {
-      return NextResponse.json(
-        { error: 'ID Pelanggan sudah digunakan. Silakan gunakan ID lain.' },
-        { status: 409 }
-      )
-    }
-
-    // Cek apakah HargaPaket ada
-    const hargaPaket = await prisma.hargaPaket.findUnique({
-      where: { id: hargaPaketId },
-    })
-
-    if (!hargaPaket) {
-      return NextResponse.json(
-        { error: 'Harga Paket tidak ditemukan' },
-        { status: 404 }
-      )
-    }
-
-    // Hash passwordLogin dengan bcrypt (salt rounds = 12)
-    const hashedPasswordLogin = await hash(passwordLogin.trim(), 12)
-
-    // Buat pelanggan baru
-    const pelanggan = await prisma.pelanggan.create({
-      data: {
-        idPelanggan: idPelanggan.trim(),
-        nama: nama.trim(),
-        username: username.trim(),
-        password: password.trim(), // Password PPPoE
-        passwordLogin: passwordLogin.trim(), // Password Login Portal (plain text untuk backward compatibility)
-        passwordHash: hashedPasswordLogin, // Hash dari passwordLogin
-        hargaPaketId,
-        tipe: tipeValue,
-        tanggalAktif: (() => {
-          // Parse tanggal sebagai local date untuk menghindari timezone issue
-          // Format: YYYY-MM-DD
-          const [year, month, day] = tanggalAktif.split('-').map(Number)
-          return new Date(year, month - 1, day)
-        })(),
-        jatuhTempo: (() => {
-          // Parse tanggal sebagai local date untuk menghindari timezone issue
-          // Format: YYYY-MM-DD
-          const [year, month, day] = jatuhTempo.split('-').map(Number)
-          return new Date(year, month - 1, day)
-        })(),
-        status: statusValue,
-        alamat: alamat?.trim() || null,
-        provinsi: provinsi?.trim() || null,
-        kabupatenKota: kabupatenKota?.trim() || null,
-        kelurahanDesa: kelurahanDesa?.trim() || null,
-        kecamatan: kecamatan?.trim() || null,
-        noTelp: noTelp?.trim() || null,
-        email: email?.trim() || null,
-        latitude: latitude || null,
-        longitude: longitude || null,
-        jenisDokumen: jenisDokumen || null,
-        noDokumen: noDokumen?.trim() || null,
-        fileKTP: fileKTPPath || null,
-        fileRumahSekitar: fileRumahSekitarPath || null,
-        fileBAST: fileBASTPath || null,
-        catatan: catatan?.trim() || null,
-        usePPN: usePPN ?? true,
-        useDiscount: useDiscount ?? false,
-        useProrate: useProrate ?? false,
-        discountType: discountTypeValue,
-        discountValue: discountValue || null,
-        discountDuration: discountDuration || null,
-        discountDurationUnit: discountDurationUnitValue,
-        biayaInstalasi: biayaInstalasi || null,
-        biayaInstalasiIsRecurring: biayaInstalasiIsRecurring ?? false,
-        biayaInstalasiDiskon: useDiskonBiayaInstalasi ? (biayaInstalasiDiskon || null) : null,
-        biayaSewaPerangkat: biayaSewaPerangkat || null,
-        biayaSewaPerangkatIsRecurring: biayaSewaPerangkatIsRecurring ?? true,
-        biayaSewaPerangkatDiskon: biayaSewaPerangkatDiskon || null,
-        biayaLainnya: biayaLainnya || null,
-        biayaLainnyaIsRecurring: biayaLainnyaIsRecurring ?? false,
-        biayaLainnyaDiskon: useDiskonBiayaLainnya ? (biayaLainnyaDiskon || null) : null,
-        keteranganBiayaLainnya: keteranganBiayaLainnya?.trim() || null,
-        odpId: odpId?.trim() || null,
-      },
-      include: {
-        hargaPaket: {
-          include: {
-            profilePPP: true,
-            bandwidth: true,
-          },
-        },
-      },
-    })
-
-    // ✨ RADIUS Auto-Sync Hook: Sync new customer to RADIUS
-    try {
-      const syncResult = await afterCustomerCreate(prisma, pelanggan.id);
-      if (!syncResult.success) {
-        console.warn('[RADIUS] Auto-sync failed for customer:', pelanggan.username, syncResult.error);
-      }
-    } catch (syncError) {
-      // Don't fail the request if RADIUS sync fails
-      console.error('[RADIUS] Auto-sync error:', syncError);
-    }
-
-    // Revalidate cache untuk halaman yang terkait
+    // Revalidate cache
     const { revalidatePath } = await import('next/cache')
     revalidatePath('/admin/pelanggan/ppp')
     revalidatePath('/api/pelanggan-ppp')
 
     // System Log
     try {
-      const { logger } = await import('@/lib/logger')
       await logger.logActivity({
         action: 'CREATE',
         subject: 'Pelanggan',
@@ -607,6 +307,17 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Error creating pelanggan:', error)
 
+    // Handle specific errors from service
+    if (error.message === 'ID Pelanggan harus 8 digit angka' ||
+      error.message === 'ID Pelanggan sudah digunakan' ||
+      error.message === 'Username sudah digunakan') {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    if (error.message === 'Harga Paket tidak ditemukan') {
+      return NextResponse.json({ error: error.message }, { status: 404 })
+    }
+
     // Handle Prisma unique constraint error
     if (error.code === 'P2002') {
       return NextResponse.json(
@@ -621,4 +332,3 @@ export async function POST(req: NextRequest) {
     )
   }
 }
-
