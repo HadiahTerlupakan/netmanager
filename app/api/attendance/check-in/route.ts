@@ -16,25 +16,44 @@ export async function POST(request: NextRequest) {
 
         const userId = session.user.id as string
 
-        // Cek apakah sudah check-in hari ini
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
+        // Fetch User and Settings first to determine Timezone
+        const [userDetails, toleranceSetting, timezoneSetting] = await Promise.all([
+            prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    startWorkTime: true,
+                    endWorkTime: true,
+                    workingHourMode: true
+                }
+            }),
+            prisma.settings.findFirst({
+                where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
+            }),
+            prisma.settings.findFirst({
+                where: { key: 'GENERAL_TIMEZONE' }
+            })
+        ])
 
-        // Fetch user details for schedule logic
-        const userDetails = await prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-                startWorkTime: true,
-                endWorkTime: true,
-                workingHourMode: true
-            }
-        })
-
-        // Fetch Tolerance Setting
-        const toleranceSetting = await prisma.settings.findFirst({
-            where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
-        })
+        const timezone = timezoneSetting?.value || 'Asia/Jakarta'
         const toleranceMinutes = toleranceSetting?.value ? parseInt(toleranceSetting.value) : 0
+
+        // Timezone Logic:
+        // 1. Get current "Wall Clock" time in the target timezone
+        const now = new Date()
+        const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
+
+        // 2. Calculate offset (WallClock - RealUTC) to shift queries back to UTC if needed
+        // Note: This offset includes the day difference if any.
+        const tzOffsetMs = nowInTz.getTime() - now.getTime()
+
+        // 3. Define "Today" (Start of Day) in the Target Timezone
+        // We use nowInTz to get the correct Year/Month/Day
+        const startOfDayInTz = new Date(nowInTz)
+        startOfDayInTz.setHours(0, 0, 0, 0)
+
+        // 4. effectiveToday is the UTC timestamp representing 00:00 of the target timezone
+        const effectiveToday = new Date(startOfDayInTz.getTime() - tzOffsetMs)
+
 
         // 1. Auto-Checkout logic for stale sessions (yesterday or older)
         const staleSessions = await prisma.attendance.findMany({
@@ -42,7 +61,7 @@ export async function POST(request: NextRequest) {
                 userId,
                 checkOut: null,
                 checkIn: {
-                    lt: today
+                    lt: effectiveToday
                 }
             }
         })
@@ -95,7 +114,7 @@ export async function POST(request: NextRequest) {
             where: {
                 userId,
                 checkIn: {
-                    gte: today
+                    gte: effectiveToday
                 }
             }
         })
@@ -142,17 +161,17 @@ export async function POST(request: NextRequest) {
         if (userDetails?.startWorkTime) {
             const [schedHour, schedMinute] = userDetails.startWorkTime.split(':').map(Number)
 
-            // Buat objek Date untuk jadwal hari ini
-            const scheduleTime = new Date()
+            // Buat objek Date untuk jadwal hari ini (menggunakan konteks Timezone)
+            const scheduleTime = new Date(startOfDayInTz)
             scheduleTime.setHours(schedHour, schedMinute, 0, 0)
 
             // Tambahkan batas toleransi
             const toleranceMs = toleranceMinutes * 60 * 1000
             const lateThreshold = new Date(scheduleTime.getTime() + toleranceMs)
 
-            const now = new Date()
-
-            if (now > lateThreshold) {
+            // Bandingkan Wall Clock Time user (nowInTz) dengan Jadwal (scheduleTime)
+            // nowInTz dan scheduleTime keduanya ada dalam "Timezone Context" (UTC-shifted values)
+            if (nowInTz > lateThreshold) {
                 status = 'LATE'
             }
         }
