@@ -42,8 +42,13 @@ export function ClientComponent() {
     const [sites, setSites] = useState<{ id: string, name: string }[]>([])
     const [departments, setDepartments] = useState<{ id: string, name: string }[]>([])
 
-    // Filters
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
+    // Filters - Default to first day of month to today
+    const [startDate, setStartDate] = useState(() => {
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = String(now.getMonth() + 1).padStart(2, '0')
+        return `${year}-${month}-01`
+    })
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
     const [siteId, setSiteId] = useState('')
     const [departmentId, setDepartmentId] = useState('')
@@ -122,21 +127,42 @@ export function ClientComponent() {
 
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null)
 
+    const handleExport = () => {
+        const query = new URLSearchParams({
+            startDate,
+            endDate,
+            ...(siteId && { siteId }),
+            ...(departmentId && { departmentId }),
+            export: 'true'
+        })
+        window.open(`/api/admin/attendance?${query.toString()}`, '_blank')
+    }
+
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Data Absensi</h1>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {Object.entries(summary).map(([status, count]) => (
-                    <div key={status} className="bg-white p-4 rounded-lg shadow border border-gray-100 dark:bg-gray-800 dark:border-gray-700">
-                        <div className="text-sm text-gray-500 dark:text-gray-400 capitalize">{status.toLowerCase().replace('_', ' ')}</div>
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{count}</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {/* On Time Card */}
+                <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500 dark:bg-gray-800">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Tepat Waktu</div>
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{summary['ON_TIME'] || summary['PRESENT'] || 0}</div>
+                </div>
+
+                {/* Late Card */}
+                <div className="bg-white p-4 rounded-lg shadow border-l-4 border-yellow-500 dark:bg-gray-800">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Terlambat</div>
+                    <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{summary['LATE'] || 0}</div>
+                </div>
+
+                {/* Monthly Total Card */}
+                <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500 dark:bg-gray-800">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Absen Bulan Ini</div>
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalItems}</div>
+                    <div className="text-xs text-gray-400 mt-1">
+                        {new Date(startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - {new Date(endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
-                ))}
-                <div className="bg-indigo-50 p-4 rounded-lg shadow border border-indigo-100 dark:bg-indigo-900/20">
-                    <div className="text-sm text-indigo-600 dark:text-indigo-400">Total Filtered</div>
-                    <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{totalItems}</div>
                 </div>
             </div>
 
@@ -182,12 +208,20 @@ export function ClientComponent() {
                         {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                 </div>
-                <button
-                    onClick={() => fetchAttendances()}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm h-[38px] flex items-center gap-2"
-                >
-                    <FaSearch /> Cari
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => fetchAttendances()}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm h-[38px] flex items-center gap-2"
+                    >
+                        <FaSearch /> Cari
+                    </button>
+                    <button
+                        onClick={handleExport}
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm h-[38px] flex items-center gap-2"
+                    >
+                        <FaFileExport /> Export CSV
+                    </button>
+                </div>
             </div>
 
             {/* Table */}

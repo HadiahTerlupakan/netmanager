@@ -47,6 +47,56 @@ export async function GET(request: NextRequest) {
             }
         }
 
+        // Check for export flag
+        const isExport = searchParams.get('export') === 'true'
+
+        if (isExport) {
+            const attendances = await prisma.attendance.findMany({
+                where,
+                include: {
+                    user: {
+                        select: {
+                            name: true,
+                            department: { select: { name: true } },
+                            site: { select: { name: true } }
+                        }
+                    }
+                },
+                orderBy: { checkIn: 'desc' }
+            })
+
+            // Generate CSV
+            const csvRows = [
+                ['No', 'Karyawan', 'Site', 'Departemen', 'Tanggal', 'Jam Masuk', 'Jam Pulang', 'Status', 'Keterangan']
+            ]
+
+            attendances.forEach((item, index) => {
+                const checkInDate = new Date(item.checkIn)
+                const checkOutDate = item.checkOut ? new Date(item.checkOut) : null
+
+                csvRows.push([
+                    (index + 1).toString(),
+                    item.user.name || '-',
+                    item.user.site?.name || '-',
+                    item.user.department?.name || '-',
+                    checkInDate.toLocaleDateString('id-ID'),
+                    checkInDate.toLocaleTimeString('id-ID'),
+                    checkOutDate ? checkOutDate.toLocaleTimeString('id-ID') : '-',
+                    item.status,
+                    item.notes || '-'
+                ])
+            })
+
+            const csvContent = csvRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
+
+            return new NextResponse(csvContent, {
+                headers: {
+                    'Content-Type': 'text/csv',
+                    'Content-Disposition': `attachment; filename="absensi-${startDateStr || 'all'}-${endDateStr || 'all'}.csv"`
+                }
+            })
+        }
+
         const [attendances, total, statusSummary] = await Promise.all([
             prisma.attendance.findMany({
                 where,
