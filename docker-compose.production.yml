@@ -82,7 +82,10 @@ services:
   # FREERADIUS - Radius Server
   # ==========================================================================
   freeradius:
-    image: freeradius/freeradius-server:3.2.5
+    build:
+      context: ./radius
+      dockerfile: Dockerfile
+    image: netmanager-radius:latest
     container_name: netmanager-radius
     restart: always
     depends_on:
