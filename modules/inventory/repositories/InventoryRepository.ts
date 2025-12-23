@@ -669,6 +669,7 @@ export class InventoryRepository implements IInventoryRepository {
         }
     }
 
+
     async getHistoryMasuk(params?: {
         skip?: number
         take?: number
@@ -676,13 +677,34 @@ export class InventoryRepository implements IInventoryRepository {
         gudangId?: string
         startDate?: Date
         endDate?: Date
+        search?: string
+        siteId?: string
     }): Promise<{ items: BarangMasukWithRelations[]; total: number }> {
-        const { skip, take, barangId, gudangId, startDate, endDate } = params || {}
+        const { skip, take, barangId, gudangId, startDate, endDate, search, siteId } = params || {}
 
         const where: Prisma.BarangMasukWhereInput = {}
 
         if (barangId) where.barangId = barangId
         if (gudangId) where.gudangId = gudangId
+
+        if (siteId) {
+            where.gudang = {
+                sites: {
+                    some: {
+                        id: siteId
+                    }
+                }
+            }
+        }
+
+        if (search) {
+            where.OR = [
+                { barang: { nama: { contains: search, mode: 'insensitive' } } },
+                { barang: { kode: { contains: search, mode: 'insensitive' } } },
+                { gudang: { nama: { contains: search, mode: 'insensitive' } } },
+                { user: { name: { contains: search, mode: 'insensitive' } } }
+            ]
+        }
 
         if (startDate || endDate) {
             where.tanggal = {}
@@ -707,6 +729,7 @@ export class InventoryRepository implements IInventoryRepository {
         return { items, total }
     }
 
+
     async getHistoryKeluar(params?: {
         skip?: number
         take?: number
@@ -714,13 +737,34 @@ export class InventoryRepository implements IInventoryRepository {
         gudangId?: string
         startDate?: Date
         endDate?: Date
+        search?: string
+        siteId?: string
     }): Promise<{ items: BarangKeluarWithRelations[]; total: number }> {
-        const { skip, take, barangId, gudangId, startDate, endDate } = params || {}
+        const { skip, take, barangId, gudangId, startDate, endDate, search, siteId } = params || {}
 
         const where: Prisma.BarangKeluarWhereInput = {}
 
         if (barangId) where.barangId = barangId
         if (gudangId) where.gudangId = gudangId
+
+        if (siteId) {
+            where.gudang = {
+                sites: {
+                    some: {
+                        id: siteId
+                    }
+                }
+            }
+        }
+
+        if (search) {
+            where.OR = [
+                { barang: { nama: { contains: search, mode: 'insensitive' } } },
+                { barang: { kode: { contains: search, mode: 'insensitive' } } },
+                { gudang: { nama: { contains: search, mode: 'insensitive' } } },
+                { user: { name: { contains: search, mode: 'insensitive' } } }
+            ]
+        }
 
         if (startDate || endDate) {
             where.tanggal = {}

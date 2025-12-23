@@ -99,6 +99,8 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams
     const barangId = searchParams.get('barangId')
     const gudangId = searchParams.get('gudangId')
+    const search = searchParams.get('search')
+    const siteId = searchParams.get('siteId')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
@@ -112,7 +114,9 @@ export async function GET(req: NextRequest) {
         skip: offset,
         take: limit,
         barangId: barangId || undefined,
-        gudangId: gudangId || undefined
+        gudangId: gudangId || undefined,
+        search: search || undefined,
+        siteId: siteId || undefined
       })
 
       logger.dbOperation('findMany', 'BarangMasuk+Relations', Date.now() - dbStart)

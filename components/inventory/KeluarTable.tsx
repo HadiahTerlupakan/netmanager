@@ -40,9 +40,23 @@ interface KeluarTableProps {
   onEdit?: (keluar: BarangKeluar) => void
   onView?: (keluar: BarangKeluar) => void
   refreshTrigger?: number
+  search?: string
+  startDate?: string
+  endDate?: string
+  siteId?: string
+  gudangId?: string
 }
 
-export function KeluarTable({ onEdit, onView, refreshTrigger = 0 }: KeluarTableProps) {
+export function KeluarTable({
+  onEdit,
+  onView,
+  refreshTrigger = 0,
+  search = '',
+  startDate = '',
+  endDate = '',
+  siteId = '',
+  gudangId = ''
+}: KeluarTableProps) {
   const [keluarList, setKeluarList] = useState<BarangKeluar[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -66,6 +80,11 @@ export function KeluarTable({ onEdit, onView, refreshTrigger = 0 }: KeluarTableP
           limit: '20'
         })
 
+        if (search) params.append('search', search)
+        if (startDate) params.append('startDate', new Date(startDate).toISOString())
+        if (endDate) params.append('endDate', new Date(endDate).toISOString())
+        if (siteId) params.append('siteId', siteId)
+
         const response = await getWithAuth(`/api/inventory/keluar?${params}`)
         const data = await response.json()
 
@@ -84,7 +103,7 @@ export function KeluarTable({ onEdit, onView, refreshTrigger = 0 }: KeluarTableP
     }
 
     fetchKeluarList()
-  }, [page, refreshTrigger])
+  }, [page, refreshTrigger, search, startDate, endDate, siteId, gudangId])
 
   const handleDelete = async (id: string, kode: string, jumlah: number) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus record barang keluar ${kode} (${jumlah} pcs)?\n\nPeringatan: Ini akan menambah stok barang kembali!`)) {

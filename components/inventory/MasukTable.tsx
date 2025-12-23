@@ -37,9 +37,23 @@ interface MasukTableProps {
   onEdit?: (masuk: BarangMasuk) => void
   onView?: (masuk: BarangMasuk) => void
   refreshTrigger?: number
+  search?: string
+  startDate?: string
+  endDate?: string
+  siteId?: string
+  gudangId?: string
 }
 
-export function MasukTable({ onEdit, onView, refreshTrigger = 0 }: MasukTableProps) {
+export function MasukTable({
+  onEdit,
+  onView,
+  refreshTrigger = 0,
+  search = '',
+  startDate = '',
+  endDate = '',
+  siteId = '',
+  gudangId = ''
+}: MasukTableProps) {
   const [masukList, setMasukList] = useState<BarangMasuk[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -63,6 +77,12 @@ export function MasukTable({ onEdit, onView, refreshTrigger = 0 }: MasukTablePro
           limit: '20'
         })
 
+        if (search) params.append('search', search)
+        if (startDate) params.append('startDate', new Date(startDate).toISOString())
+        if (endDate) params.append('endDate', new Date(endDate).toISOString())
+        if (siteId) params.append('siteId', siteId)
+        if (gudangId) params.append('gudangId', gudangId)
+
         const response = await fetch(`/api/inventory/masuk?${params}`)
         const data = await response.json()
 
@@ -81,7 +101,7 @@ export function MasukTable({ onEdit, onView, refreshTrigger = 0 }: MasukTablePro
     }
 
     fetchMasukList()
-  }, [page, refreshTrigger])
+  }, [page, refreshTrigger, search, startDate, endDate, siteId, gudangId])
 
   const handleDelete = async (id: string, kode: string, jumlah: number) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus record barang masuk ${kode} (${jumlah} pcs)?\n\nPeringatan: Ini akan mengurangi stok barang!`)) {
@@ -194,10 +214,10 @@ export function MasukTable({ onEdit, onView, refreshTrigger = 0 }: MasukTablePro
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${masuk.kondisi === 'BARU'
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                        : masuk.kondisi === 'BEKAS'
-                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                      : masuk.kondisi === 'BEKAS'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
                       }`}>
                       {masuk.kondisi === 'BARU' && <><FiCheckCircle className="mr-1" /> Baru</>}
                       {masuk.kondisi === 'BEKAS' && <><FiAlertTriangle className="mr-1" /> Bekas</>}

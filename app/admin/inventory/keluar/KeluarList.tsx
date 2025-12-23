@@ -1,11 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FiUpload, FiPlus } from 'react-icons/fi'
+import { FiUpload, FiPlus, FiSearch, FiCalendar, FiFilter } from 'react-icons/fi'
 import { KeluarForm } from '@/components/inventory/KeluarForm'
 import { KeluarTable } from '@/components/inventory/KeluarTable'
 import { DetailKeluarModal } from '@/components/inventory/DetailKeluarModal'
+import { getWithAuth } from '@/lib/api-client'
+
+interface Site {
+  id: string
+  name: string
+}
+
+interface Gudang {
+  id: string
+  nama: string
+}
+
 
 interface BarangKeluar {
   id: string
@@ -44,6 +56,39 @@ export default function BarangKeluarPage() {
   const [editingKeluar, setEditingKeluar] = useState<BarangKeluar | null>(null)
   const [viewingKeluar, setViewingKeluar] = useState<BarangKeluar | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  // Filters
+  const [search, setSearch] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [siteId, setSiteId] = useState('')
+  const [gudangId, setGudangId] = useState('')
+  const [sites, setSites] = useState<Site[]>([])
+  const [gudangs, setGudangs] = useState<Gudang[]>([])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch Sites
+        const siteRes = await getWithAuth('/api/admin/sites')
+        if (siteRes.ok) {
+          const data = await siteRes.json()
+          setSites(data.data || [])
+        }
+
+        // Fetch Gudangs
+        const gudangRes = await getWithAuth('/api/inventory/gudang?view=all')
+        if (gudangRes.ok) {
+          const data = await gudangRes.json()
+          setGudangs(data.gudangs || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch data', err)
+      }
+    }
+    fetchData()
+  }, [])
+
 
   const handleEdit = (keluar: BarangKeluar) => {
     setEditingKeluar(keluar)
@@ -140,11 +185,96 @@ export default function BarangKeluarPage() {
             Riwayat Barang Keluar
           </h2>
         </div>
+
+        {/* Filters */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiSearch className="text-gray-400" />
+              </div>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari barang, kode, user..."
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm"
+              />
+            </div>
+
+            {/* Site Filter */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiFilter className="text-gray-400" />
+              </div>
+              <select
+                value={siteId}
+                onChange={(e) => setSiteId(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm"
+              >
+                <option value="">Semua Site</option>
+                {sites.map(site => (
+                  <option key={site.id} value={site.id}>{site.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Warehouse Filter */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiFilter className="text-gray-400" />
+              </div>
+              <select
+                value={gudangId}
+                onChange={(e) => setGudangId(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm"
+              >
+                <option value="">Semua Gudang</option>
+                {gudangs.map(gudang => (
+                  <option key={gudang.id} value={gudang.id}>{gudang.nama}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Start Date */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiCalendar className="text-gray-400" />
+              </div>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm"
+              />
+            </div>
+
+            {/* End Date */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiCalendar className="text-gray-400" />
+              </div>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="p-6">
           <KeluarTable
             onEdit={handleEdit}
             onView={handleView}
             refreshTrigger={refreshTrigger}
+            search={search}
+            startDate={startDate}
+            endDate={endDate}
+            siteId={siteId}
+            gudangId={gudangId}
           />
         </div>
       </div>

@@ -173,6 +173,8 @@ export interface IInventoryRepository {
         gudangId?: string
         startDate?: Date
         endDate?: Date
+        search?: string
+        siteId?: string
     }): Promise<{ items: BarangMasukWithRelations[]; total: number }>
 
     getHistoryKeluar(params?: {
@@ -182,5 +184,7 @@ export interface IInventoryRepository {
         gudangId?: string
         startDate?: Date
         endDate?: Date
+        search?: string
+        siteId?: string
     }): Promise<{ items: BarangKeluarWithRelations[]; total: number }>
 }
