@@ -93,3 +93,9 @@ thumbs.db
 desktop.ini
 $RECYCLE.BIN/
 *.lnk
+
+# Uploads & User Data
+uploads/
+public/uploads/
+backups/
+local_radius*.log
