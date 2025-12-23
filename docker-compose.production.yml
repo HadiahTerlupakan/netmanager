@@ -165,6 +165,8 @@ services:
       start_period: 40s
     security_opt:
       - no-new-privileges:true
+    volumes:
+      - ./uploads:/app/public/uploads
     deploy:
       resources:
         limits:
