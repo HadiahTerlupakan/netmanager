@@ -74,24 +74,39 @@ export async function PATCH(
         if (checkIn && existingAttendance.user.startWorkTime) {
             const userDetails = existingAttendance.user
 
-            // Fetch Tolerance Setting
-            const toleranceSetting = await prisma.settings.findFirst({
-                where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
-            })
+            // Fetch Tolerance Setting and Timezone
+            const [toleranceSetting, timezoneSetting] = await Promise.all([
+                prisma.settings.findFirst({
+                    where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
+                }),
+                prisma.settings.findFirst({
+                    where: { key: 'GENERAL_TIMEZONE' }
+                })
+            ])
+
             const toleranceMinutes = toleranceSetting?.value ? parseInt(toleranceSetting.value) : 0
+            const timezone = timezoneSetting?.value || 'Asia/Jakarta'
 
             const [schedHour, schedMinute] = userDetails.startWorkTime!.split(':').map(Number)
+
+            // 1. Parse the new checkIn time
+            // The checkIn coming from body is likely ISO string (e.g. 2025-12-23T06:18:00Z)
             const checkInDate = new Date(checkIn)
 
-            // Create schedule time on the SAME DAY as the checkIn date
-            const scheduleTime = new Date(checkInDate)
+            // 2. Convert checkIn to Wall Clock Time in Target Timezone
+            const checkInInTz = new Date(checkInDate.toLocaleString('en-US', { timeZone: timezone }))
+
+            // 3. Create Schedule for THAT day (in Timezone Context)
+            // We use checkInInTz (which represents the local day) to set the schedule
+            const scheduleTime = new Date(checkInInTz)
+            // Reset to HH:mm:00 based on startWorkTime
             scheduleTime.setHours(schedHour, schedMinute, 0, 0)
 
             const toleranceMs = toleranceMinutes * 60 * 1000
             const lateThreshold = new Date(scheduleTime.getTime() + toleranceMs)
 
-            // Determine status
-            updateData.status = checkInDate > lateThreshold ? 'LATE' : 'ON_TIME'
+            // Determine status by comparing "Wall Clock" times
+            updateData.status = checkInInTz > lateThreshold ? 'LATE' : 'ON_TIME'
         } else if (status) {
             // If checkIn didn't change (or user has no schedule), allow manual status update
             updateData.status = status
