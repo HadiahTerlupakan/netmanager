@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
     const session = await requireAdmin(req)
 
     const body = await req.json()
-    const { nama, satuan } = body
+    const { nama, satuan, isWorkOrderMaterial } = body
 
     // Validation
     if (!nama || !satuan) {
@@ -291,7 +291,8 @@ export async function POST(req: NextRequest) {
       const barang = await inventoryRepository.createBarang({
         kode,
         nama,
-        satuan
+        satuan,
+        isWorkOrderMaterial
       })
 
       logger.dbOperation('create', 'Barang', Date.now() - dbStart)

@@ -90,7 +90,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { id } = await params
     const body = await req.json()
-    const { kode, nama, satuan } = body
+    const { kode, nama, satuan, isWorkOrderMaterial } = body
 
     // Validation
     if (!kode || !nama || !satuan) {
@@ -128,7 +128,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const updatedBarang = await inventoryRepository.updateBarang(id, {
         kode,
         nama,
-        satuan
+        satuan,
+        isWorkOrderMaterial
       })
 
       logger.dbOperation('update', 'Barang', Date.now() - dbStart)

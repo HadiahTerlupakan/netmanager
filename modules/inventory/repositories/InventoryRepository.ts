@@ -26,8 +26,9 @@ export class InventoryRepository implements IInventoryRepository {
         take?: number
         search?: string
         gudangId?: string
+        isWorkOrderMaterial?: boolean
     }): Promise<{ items: BarangWithStock[]; total: number }> {
-        const { skip, take, search, gudangId } = params || {}
+        const { skip, take, search, gudangId, isWorkOrderMaterial } = params || {}
 
         const where: Prisma.BarangWhereInput = {}
 
@@ -36,6 +37,10 @@ export class InventoryRepository implements IInventoryRepository {
                 { nama: { contains: search, mode: 'insensitive' } },
                 { kode: { contains: search, mode: 'insensitive' } }
             ]
+        }
+
+        if (isWorkOrderMaterial !== undefined) {
+            (where as any).isWorkOrderMaterial = isWorkOrderMaterial
         }
 
         // Note: gudangId filter often implies filtering items *available* in a warehouse,
@@ -90,7 +95,10 @@ export class InventoryRepository implements IInventoryRepository {
 
     async createBarang(data: CreateBarangInput): Promise<any> {
         return this.db.barang.create({
-            data
+            data: {
+                ...data,
+                isWorkOrderMaterial: data.isWorkOrderMaterial || false
+            } as any
         })
     }
 

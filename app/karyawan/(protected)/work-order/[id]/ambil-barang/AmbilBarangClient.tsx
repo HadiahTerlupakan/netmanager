@@ -21,6 +21,7 @@ interface Barang {
     stokBaru: number
     stokBekas: number
     stokRusak: number
+    isWorkOrderMaterial: boolean
 }
 
 interface Gudang {
@@ -45,6 +46,7 @@ export default function AmbilBarangClient() {
     const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [showAllItems, setShowAllItems] = useState(false)
     const router = useRouter()
     const params = useParams()
     const workOrderId = params.id as string
@@ -69,7 +71,6 @@ export default function AmbilBarangClient() {
 
     const fetchGudangs = async () => {
         try {
-            // Pass workOrderId to allow fetching warehouses from the WO's site
             const res = await fetch(`/api/karyawan/gudang?workOrderId=${workOrderId}`)
             if (res.ok) {
                 const data = await res.json()
@@ -78,7 +79,6 @@ export default function AmbilBarangClient() {
                 if (data.gudangList?.length > 0) {
                     setSelectedGudang(data.gudangList[0].id)
                 } else {
-                    // No gudang available, stop loading
                     setIsLoading(false)
                 }
             } else {
@@ -149,6 +149,34 @@ export default function AmbilBarangClient() {
         )
     }
 
+    const handleQuantityInput = (barangId: string, kondisi: string, value: string) => {
+        let newQty = parseInt(value)
+        if (isNaN(newQty)) newQty = 0
+
+        setSelectedItems(items =>
+            items.map(i => {
+                if (i.barangId === barangId && i.kondisi === kondisi) {
+                    const stokByKondisi = kondisi === 'BARU' ? i.barang.stokBaru : kondisi === 'BEKAS' ? i.barang.stokBekas : i.barang.stokRusak
+                    if (newQty > stokByKondisi) newQty = stokByKondisi
+                    if (newQty < 0) newQty = 0
+                    return { ...i, jumlah: newQty }
+                }
+                return i
+            })
+        )
+    }
+
+    const handleQuantityBlur = (barangId: string, kondisi: string) => {
+        setSelectedItems(items =>
+            items.map(i => {
+                if (i.barangId === barangId && i.kondisi === kondisi) {
+                    if (i.jumlah <= 0) return { ...i, jumlah: 1 }
+                }
+                return i
+            })
+        )
+    }
+
     const removeItem = (barangId: string, kondisi: string) => {
         setSelectedItems(items => items.filter(i => !(i.barangId === barangId && i.kondisi === kondisi)))
     }
@@ -183,18 +211,15 @@ export default function AmbilBarangClient() {
         }
     }
 
-    const filteredBarangs = barangs.filter(b =>
-        b.nama.toLowerCase().includes(search.toLowerCase()) ||
-        b.kode.toLowerCase().includes(search.toLowerCase())
-    )
+    const filteredBarangs = barangs.filter(b => {
+        const matchesSearch = b.nama.toLowerCase().includes(search.toLowerCase()) ||
+            b.kode.toLowerCase().includes(search.toLowerCase())
 
-    if (authLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-[#f6f7f8] dark:bg-[#101922]">
-                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            </div>
-        )
-    }
+        const matchesType = showAllItems || b.isWorkOrderMaterial
+
+        return matchesSearch && matchesType
+    })
+
 
     return (
         <div className="min-h-screen w-full bg-[#f6f7f8] dark:bg-[#101922] text-[#111418] dark:text-white font-sans antialiased">
@@ -221,6 +246,19 @@ export default function AmbilBarangClient() {
                                 <option key={g.id} value={g.id}>{g.nama}</option>
                             ))}
                         </select>
+                    </div>
+
+                    {/* Filter Toggle */}
+                    <div className="px-4 pb-2 flex items-center justify-between">
+                        <label className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                            <input
+                                type="checkbox"
+                                checked={showAllItems}
+                                onChange={(e) => setShowAllItems(e.target.checked)}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span>Tampilkan semua barang</span>
+                        </label>
                     </div>
 
                     {/* Search */}
@@ -260,14 +298,20 @@ export default function AmbilBarangClient() {
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => updateQuantity(item.barangId, item.kondisi, -1)}
-                                            className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center"
+                                            className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0"
                                         >
                                             <MdRemove className="text-sm" />
                                         </button>
-                                        <span className="w-8 text-center font-semibold">{item.jumlah}</span>
+                                        <input
+                                            type="number"
+                                            value={item.jumlah.toString()}
+                                            onChange={(e) => handleQuantityInput(item.barangId, item.kondisi, e.target.value)}
+                                            onBlur={() => handleQuantityBlur(item.barangId, item.kondisi)}
+                                            className="w-12 text-center font-semibold bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:outline-none px-1 mx-1 [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        />
                                         <button
                                             onClick={() => updateQuantity(item.barangId, item.kondisi, 1)}
-                                            className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center"
+                                            className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0"
                                         >
                                             <MdAdd className="text-sm" />
                                         </button>

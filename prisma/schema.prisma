@@ -1347,6 +1347,7 @@ model Barang {
   kode            String                @unique
   nama            String
   satuan          String
+  isWorkOrderMaterial Boolean               @default(false)
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
   stok            BarangGudang[]

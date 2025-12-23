@@ -31,12 +31,14 @@ export interface CreateBarangInput {
     kode: string
     nama: string
     satuan: string
+    isWorkOrderMaterial?: boolean
 }
 
 export interface UpdateBarangInput {
     kode?: string
     nama?: string
     satuan?: string
+    isWorkOrderMaterial?: boolean
 }
 
 export interface CreateBarangMasukInput {
@@ -144,6 +146,7 @@ export interface IInventoryRepository {
         take?: number
         search?: string
         gudangId?: string
+        isWorkOrderMaterial?: boolean
     }): Promise<{ items: BarangWithStock[]; total: number }>
 
     findBarangById(id: string): Promise<BarangWithStock | null>

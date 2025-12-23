@@ -10,6 +10,7 @@ interface BarangFormProps {
     kode?: string
     nama?: string
     satuan?: string
+    isWorkOrderMaterial?: boolean
   }
   onSubmit: (data: any) => void
   onCancel: () => void
@@ -18,7 +19,8 @@ interface BarangFormProps {
 export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps) {
   const [formData, setFormData] = useState({
     nama: initialData?.nama || '',
-    satuan: initialData?.satuan || ''
+    satuan: initialData?.satuan || '',
+    isWorkOrderMaterial: initialData?.isWorkOrderMaterial || false
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -28,7 +30,8 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
     if (initialData) {
       setFormData({
         nama: initialData.nama || '',
-        satuan: initialData.satuan || ''
+        satuan: initialData.satuan || '',
+        isWorkOrderMaterial: initialData.isWorkOrderMaterial || false
       })
     }
   }, [initialData])
@@ -51,7 +54,8 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
         const updateData = {
           kode: initialData.kode || '',
           nama: formData.nama,
-          satuan: formData.satuan
+          satuan: formData.satuan,
+          isWorkOrderMaterial: formData.isWorkOrderMaterial
         }
         const response = await fetch(`/api/inventory/barang/${initialData.id}`, {
           method: 'PUT',
@@ -188,6 +192,24 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
         />
       </div>
 
+      <div>
+        <label className="flex items-center space-x-3">
+          <input
+            type="checkbox"
+            checked={formData.isWorkOrderMaterial}
+            onChange={(e) => setFormData({ ...formData, isWorkOrderMaterial: e.target.checked })}
+            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            disabled={loading}
+          />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Material Work Order
+          </span>
+        </label>
+        <p className="mt-1 ml-7 text-xs text-gray-500 dark:text-gray-400">
+          Centang jika barang ini digunakan teknisi saat mengerjakan Work Order (contoh: kabel, modem, konektor).
+        </p>
+      </div>
+
       <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
         <button
           type="button"
@@ -205,6 +227,6 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
           {loading ? 'Menyimpan...' : initialData?.id ? 'Update' : 'Simpan'}
         </button>
       </div>
-    </form>
+    </form >
   )
 }

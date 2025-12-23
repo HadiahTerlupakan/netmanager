@@ -24,8 +24,7 @@ export async function GET(req: NextRequest) {
         const isSiteRestricted = userPermissions.includes('k_barang:site_only')
 
         let whereClause: any = {
-            gudangId,
-            stok: { gt: 0 }
+            gudangId
         }
 
         if (isSiteRestricted) {
@@ -52,7 +51,8 @@ export async function GET(req: NextRequest) {
                         id: true,
                         kode: true,
                         nama: true,
-                        satuan: true
+                        satuan: true,
+                        isWorkOrderMaterial: true
                     }
                 }
             },
@@ -66,6 +66,7 @@ export async function GET(req: NextRequest) {
             kode: bg.barang.kode,
             nama: bg.barang.nama,
             satuan: bg.barang.satuan,
+            isWorkOrderMaterial: bg.barang.isWorkOrderMaterial,
             stok: bg.stok,
             stokBaru: bg.stokBaru,
             stokBekas: bg.stokBekas,
