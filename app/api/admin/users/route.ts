@@ -52,7 +52,12 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized: You do not have permission to view users.' }, { status: 403 })
       }
 
-      const isSiteRestricted = permissions.includes('users:site_only')
+      // HOTFIX: If role is 'ADMIN', ignore site_only restriction (in case of bad config)
+      const userRole = (session.user as any).role
+      const isSuperAdmin = userRole === 'ADMIN'
+
+      const isSiteRestricted = !isSuperAdmin && permissions.includes('users:site_only')
+
       // If site restricted but no siteId on user (shouldn't happen for restricted users), pass undefined (no filter) or handle error.
       // Assuming restricted users MUST have siteId.
       const siteIdFilter = isSiteRestricted ? (session.user as any).siteId : undefined
