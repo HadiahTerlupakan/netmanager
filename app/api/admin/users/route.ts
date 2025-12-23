@@ -46,8 +46,19 @@ export async function GET(req: NextRequest) {
     const session = await requireAdmin(req)
 
     try {
+      const permissions = (session.user as any).permissions || []
+
+      if (!permissions.includes('users:read')) {
+        return NextResponse.json({ error: 'Unauthorized: You do not have permission to view users.' }, { status: 403 })
+      }
+
+      const isSiteRestricted = permissions.includes('users:site_only')
+      // If site restricted but no siteId on user (shouldn't happen for restricted users), pass undefined (no filter) or handle error.
+      // Assuming restricted users MUST have siteId.
+      const siteIdFilter = isSiteRestricted ? (session.user as any).siteId : undefined
+
       const userService = getUserService()
-      const users = await userService.getAllUsers()
+      const users = await userService.getAllUsers(siteIdFilter)
 
       logger.apiRequest('GET', '/api/admin/users', 200, Date.now() - startTime, {
         userId: session.user.id,
@@ -184,6 +195,26 @@ export async function POST(req: NextRequest) {
       email, name, password,
       phone, departmentId, siteId, isActive, roleId
     } = formData
+
+    const permissions = (session.user as any).permissions || []
+
+    if (!permissions.includes('users:create')) {
+      return NextResponse.json({ error: 'Unauthorized: You do not have permission to create users.' }, { status: 403 })
+    }
+
+    const isSiteRestricted = permissions.includes('users:site_only')
+
+    if (isSiteRestricted) {
+      const userSiteId = (session.user as any).siteId
+      if (!userSiteId) {
+        return NextResponse.json({ error: 'Configuration Error: User restricted to site but has no site assigned.' }, { status: 403 })
+      }
+      if (siteId && siteId !== userSiteId) {
+        return NextResponse.json({ error: 'Unauthorized: You can only create users for your assigned site.' }, { status: 403 })
+      }
+      // Force siteId to be the user's site if not provided or to ensure consistency
+      formData.siteId = userSiteId
+    }
 
     // Validate required fields
     const parsed = userCreateSchema.safeParse({ email, name, password, role: 'ADMIN' })

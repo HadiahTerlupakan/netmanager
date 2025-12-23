@@ -20,8 +20,10 @@ export interface UserWithRelations extends User {
 }
 
 export class UserRepository {
-    async findAll(): Promise<UserWithRelations[]> {
+    async findAll(siteId?: string): Promise<UserWithRelations[]> {
+
         return prisma.user.findMany({
+            where: siteId ? { siteId } : undefined,
             orderBy: { createdAt: 'desc' },
             include: {
                 department: { select: { id: true, name: true } },

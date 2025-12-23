@@ -32,8 +32,8 @@ export class UserService {
         this.userRepository = new UserRepository()
     }
 
-    async getAllUsers(): Promise<UserWithRelations[]> {
-        return this.userRepository.findAll()
+    async getAllUsers(siteId?: string): Promise<UserWithRelations[]> {
+        return this.userRepository.findAll(siteId)
     }
 
     async getUser(id: string): Promise<User | null> {

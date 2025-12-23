@@ -124,6 +124,41 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   console.log('[USER-UPDATE] Data to update:', data)
 
   try {
+    // Check permissions
+    const permissions = (session.user as any).permissions || []
+    if (!permissions.includes('users:update')) {
+      return NextResponse.json({ error: 'Unauthorized: You do not have permission to update users.' }, { status: 403 })
+    }
+
+    // Check for site_only permission
+    const isSiteRestricted = permissions.includes('users:site_only')
+
+    if (isSiteRestricted) {
+      const userSiteId = (session.user as any).siteId
+
+      // Fetch target user to check their site
+      const targetUser = await prisma.user.findUnique({
+        where: { id },
+        select: { siteId: true }
+      })
+
+      if (!targetUser) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+
+      if (targetUser.siteId !== userSiteId) {
+        return NextResponse.json({ error: 'Unauthorized: You can only update users within your assigned site.' }, { status: 403 })
+      }
+
+      // Also prevent changing siteId to something else
+      if (data.siteId && data.siteId !== userSiteId) {
+        return NextResponse.json({ error: 'Unauthorized: You cannot change user site to a different site.' }, { status: 403 })
+      }
+
+      // Force siteId to remain the same if strictly enforcing
+      // But above check guards against changing it.
+    }
+
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id },
@@ -310,6 +345,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
+    // Check permissions
+    const permissions = (session.user as any).permissions || []
+    if (!permissions.includes('users:read')) {
+      return NextResponse.json({ error: 'Unauthorized: You do not have permission to view users.' }, { status: 403 })
+    }
+
+    // Check for site_only permission
+    const isSiteRestricted = permissions.includes('users:site_only')
+
+    if (isSiteRestricted) {
+      const userSiteId = (session.user as any).siteId
+      if (user.siteId !== userSiteId) {
+        return NextResponse.json({ error: 'Unauthorized: You can only view users within your assigned site.' }, { status: 403 })
+      }
+    }
+
     return NextResponse.json({ user })
   } catch (e: any) {
     console.error('[USER-GET] Error fetching user:', e)
@@ -381,6 +432,32 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const userRepository = getUserRepository()
+
+    // Check permissions
+    const permissions = (session.user as any).permissions || []
+    if (!permissions.includes('users:delete')) {
+      return NextResponse.json({ error: 'Unauthorized: You do not have permission to delete users.' }, { status: 403 })
+    }
+
+    // Check for site_only permission
+    const isSiteRestricted = permissions.includes('users:site_only')
+
+    if (isSiteRestricted) {
+      const userSiteId = (session.user as any).siteId
+      const targetUser = await prisma.user.findUnique({
+        where: { id },
+        select: { siteId: true }
+      })
+
+      if (!targetUser) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+
+      if (targetUser.siteId !== userSiteId) {
+        return NextResponse.json({ error: 'Unauthorized: You can only delete users within your assigned site.' }, { status: 403 })
+      }
+    }
+
     await userRepository.delete(id)
 
     await logger.logActivity({
