@@ -15,14 +15,15 @@ export async function POST(request: NextRequest) {
 
         const userId = session.user.id
 
-        // Cari attendance aktif hari ini (sudah check-in, belum check-out)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
+        // Cari attendance aktif (sudah check-in, belum check-out)
+        // Kita mundur 24 jam untuk mengakomodasi perbedaan timezone atau edit jam manual
+        const searchStart = new Date()
+        searchStart.setHours(searchStart.getHours() - 24)
 
         const attendance = await prisma.attendance.findFirst({
             where: {
                 userId,
-                checkIn: { gte: today },
+                checkIn: { gte: searchStart },
                 checkOut: null
             },
             orderBy: {
