@@ -18,9 +18,9 @@ RUN sed -i 's/driver = "rlm_sql_null"/driver = "rlm_sql_postgresql"/g' /etc/free
 RUN sed -i 's/dialect = "sqlite"/dialect = "postgresql"/g' /etc/freeradius/mods-available/sql
 
 # 2. Uncomment and set Connection Info (match # line)
-# Use ${ENV:VAR} syntax (Colon) for FreeRadius
-RUN sed -i 's/#.*server = "localhost"/server = "${ENV:DB_HOST}"/g' /etc/freeradius/mods-available/sql && \
-    sed -i 's/#.*port = 3306/port = ${ENV:DB_PORT}/g' /etc/freeradius/mods-available/sql && \
-    sed -i 's/#.*login = "radius"/login = "${ENV:DB_USER}"/g' /etc/freeradius/mods-available/sql && \
-    sed -i 's/#.*password = "radpass"/password = "${ENV:DB_PASSWORD}"/g' /etc/freeradius/mods-available/sql && \
-    sed -i 's/radius_db = "radius"/radius_db = "${ENV:DB_NAME}"/g' /etc/freeradius/mods-available/sql
+# Use $ENV{VAR} syntax for FreeRadius 3.x
+RUN sed -i 's/#.*server = "localhost"/server = "$ENV{DB_HOST}"/g' /etc/freeradius/mods-available/sql && \
+    sed -i 's/#.*port = 3306/port = $ENV{DB_PORT}/g' /etc/freeradius/mods-available/sql && \
+    sed -i 's/#.*login = "radius"/login = "$ENV{DB_USER}"/g' /etc/freeradius/mods-available/sql && \
+    sed -i 's/#.*password = "radpass"/password = "$ENV{DB_PASSWORD}"/g' /etc/freeradius/mods-available/sql && \
+    sed -i 's/radius_db = "radius"/radius_db = "$ENV{DB_NAME}"/g' /etc/freeradius/mods-available/sql
