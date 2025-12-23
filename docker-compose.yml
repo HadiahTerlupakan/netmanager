@@ -58,7 +58,8 @@ services:
       - netmanager-network
 
   freeradius:
-    image: freeradius/freeradius-server:3.2.5
+    build: ./radius
+    image: netmanager-radius:local
     container_name: netmanager-freeradius
     restart: unless-stopped
     depends_on:
