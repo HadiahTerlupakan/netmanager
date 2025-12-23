@@ -183,6 +183,7 @@ type GeneralSettings = {
   invoiceOtomatis: string
   disablePerpanjanganPaket: string
   timezone: string
+  attendanceTolerance: string
 }
 
 /**
@@ -216,6 +217,7 @@ export async function GET(req: NextRequest) {
             'GENERAL_INVOICE_OTOMATIS',
             'GENERAL_DISABLE_PERPANJANGAN_PAKET',
             'GENERAL_TIMEZONE',
+            'GENERAL_ATTENDANCE_TOLERANCE',
           ],
         },
       },
@@ -245,6 +247,7 @@ export async function GET(req: NextRequest) {
       invoiceOtomatis: settingsMap.get('GENERAL_INVOICE_OTOMATIS') || '5',
       disablePerpanjanganPaket: settingsMap.get('GENERAL_DISABLE_PERPANJANGAN_PAKET') || '5',
       timezone: settingsMap.get('GENERAL_TIMEZONE') || 'Asia/Jakarta',
+      attendanceTolerance: settingsMap.get('GENERAL_ATTENDANCE_TOLERANCE') || '0',
     })
   } catch (error: any) {
     console.error('Error fetching general settings:', error)
@@ -292,6 +295,7 @@ export async function POST(req: NextRequest) {
       invoiceOtomatis,
       disablePerpanjanganPaket,
       timezone,
+      attendanceTolerance,
     } = body
 
     // Upsert semua pengaturan
@@ -436,6 +440,22 @@ export async function POST(req: NextRequest) {
           key: 'GENERAL_TIMEZONE',
           value: timezone?.trim() || 'Asia/Jakarta',
           description: 'Zona waktu aplikasi (IANA timezone)',
+          encrypted: false,
+        },
+      }),
+
+      // Attendance Tolerance
+      prisma.settings.upsert({
+        where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' },
+        update: {
+          value: attendanceTolerance?.trim() || '0',
+          description: 'Toleransi keterlambatan (menit)',
+          updatedAt: new Date(),
+        },
+        create: {
+          key: 'GENERAL_ATTENDANCE_TOLERANCE',
+          value: attendanceTolerance?.trim() || '0',
+          description: 'Toleransi keterlambatan (menit)',
           encrypted: false,
         },
       }),

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { FaSearch, FaCalendarAlt, FaFileExport, FaUser, FaBuilding } from 'react-icons/fa'
-import { MdDelete, MdCancel, MdLocationOn } from 'react-icons/md'
+import { MdDelete, MdCancel, MdLocationOn, MdEdit, MdSave } from 'react-icons/md'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
@@ -136,6 +136,53 @@ export function ClientComponent() {
             export: 'true'
         })
         window.open(`/api/admin/attendance?${query.toString()}`, '_blank')
+    }
+
+    // Edit Modal State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+    const [editingAttendance, setEditingAttendance] = useState<Attendance | null>(null)
+    const [editForm, setEditForm] = useState({
+        checkIn: '',
+        checkOut: '',
+        status: ''
+    })
+
+    const handleEditClick = (item: Attendance) => {
+        setEditingAttendance(item)
+        setEditForm({
+            checkIn: format(new Date(item.checkIn), "yyyy-MM-dd'T'HH:mm"),
+            checkOut: item.checkOut ? format(new Date(item.checkOut), "yyyy-MM-dd'T'HH:mm") : '',
+            status: item.status
+        })
+        setIsEditModalOpen(true)
+    }
+
+    const handleUpdate = async () => {
+        if (!editingAttendance) return
+
+        try {
+            const res = await fetch(`/api/admin/attendance/${editingAttendance.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    checkIn: new Date(editForm.checkIn).toISOString(),
+                    checkOut: editForm.checkOut ? new Date(editForm.checkOut).toISOString() : null,
+                    status: editForm.status
+                })
+            })
+            const data = await res.json()
+
+            if (data.success) {
+                toast.success('Data absensi berhasil diperbarui')
+                setIsEditModalOpen(false)
+                fetchAttendances()
+            } else {
+                toast.error(data.error || 'Gagal memperbarui data')
+            }
+        } catch (error) {
+            console.error('Update error:', error)
+            toast.error('Terjadi kesalahan')
+        }
     }
 
     return (
@@ -345,13 +392,22 @@ export function ClientComponent() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <button
-                                                onClick={() => handleDelete(item.id)}
-                                                className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-2 rounded-full transition-colors dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400"
-                                                title="Hapus Data"
-                                            >
-                                                <MdDelete size={18} />
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleEditClick(item)}
+                                                    className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-2 rounded-full transition-colors dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400"
+                                                    title="Edit Data"
+                                                >
+                                                    <MdEdit size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(item.id)}
+                                                    className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-2 rounded-full transition-colors dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400"
+                                                    title="Hapus Data"
+                                                >
+                                                    <MdDelete size={18} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -391,6 +447,70 @@ export function ClientComponent() {
                         >
                             <MdCancel size={24} />
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Modal */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Data Absensi</h3>
+                            <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-500">
+                                <MdCancel size={24} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam Masuk (Check In)</label>
+                                <input
+                                    type="datetime-local"
+                                    value={editForm.checkIn}
+                                    onChange={(e) => setEditForm({ ...editForm, checkIn: e.target.value })}
+                                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam Pulang (Check Out)</label>
+                                <input
+                                    type="datetime-local"
+                                    value={editForm.checkOut}
+                                    onChange={(e) => setEditForm({ ...editForm, checkOut: e.target.value })}
+                                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Biarkan kosong jika belum checkout</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                                <select
+                                    value={editForm.status}
+                                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                >
+                                    <option value="ON_TIME">Tepat Waktu (ON_TIME)</option>
+                                    <option value="LATE">Terlambat (LATE)</option>
+                                    <option value="PRESENT">Hadir (PRESENT)</option>
+                                    <option value="SICK">Sakit (SICK)</option>
+                                    <option value="PERMIT">Izin (PERMIT)</option>
+                                    <option value="ABSENT">Alpha (ABSENT)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex justify-end gap-2">
+                            <button
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="px-4 py-2 border rounded text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 text-sm"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={handleUpdate}
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm flex items-center gap-2"
+                            >
+                                <MdSave /> Simpan Perubahan
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -22,6 +22,7 @@ type GeneralSettings = {
   invoiceOtomatis: string
   disablePerpanjanganPaket: string
   timezone: string
+  attendanceTolerance: string
 }
 
 export function ClientComponent() {
@@ -40,6 +41,7 @@ export function ClientComponent() {
     invoiceOtomatis: '5',
     disablePerpanjanganPaket: '5',
     timezone: 'Asia/Jakarta',
+    attendanceTolerance: '0'
   })
 
   // Update current time every second based on selected timezone
@@ -89,6 +91,7 @@ export function ClientComponent() {
           invoiceOtomatis: data.invoiceOtomatis || '5',
           disablePerpanjanganPaket: data.disablePerpanjanganPaket || '5',
           timezone: data.timezone || 'Asia/Jakarta',
+          attendanceTolerance: data.attendanceTolerance || '0',
         })
       } else {
         const errorData = await res.json()
@@ -389,6 +392,27 @@ export function ClientComponent() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Attendance Tolerance */}
+            <div className="space-y-2">
+              <label htmlFor="attendanceTolerance" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Toleransi Keterlambatan Absensi (Menit)
+              </label>
+              <input
+                id="attendanceTolerance"
+                name="attendanceTolerance"
+                type="number"
+                min="0"
+                max="60"
+                value={settings.attendanceTolerance}
+                onChange={handleChange}
+                placeholder="0"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Karyawan yang check-in lewat dari jam masuk + toleransi ini akan dianggap TERLAMBAT. (0 = Tidak ada toleransi)
+              </p>
             </div>
 
             {/* Zona Waktu */}

@@ -20,11 +20,77 @@ export async function POST(request: NextRequest) {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
 
-        // Convert UTC Date to local date consideration might be needed depending on server time logic
-        // Using prisma dates usually stores as UTC. Better to check between range of today 00:00 to 23:59 based on timezone if important.
-        // For simplicity assuming server time or UTC overlap is handled or basic "start of day" logic suffices for now.
-        // Ideally we should use user's timezone, but for now standard Start of Day Check.
+        // Fetch user details for schedule logic
+        const userDetails = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                startWorkTime: true,
+                endWorkTime: true,
+                workingHourMode: true
+            }
+        })
 
+        // Fetch Tolerance Setting
+        const toleranceSetting = await prisma.settings.findFirst({
+            where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
+        })
+        const toleranceMinutes = toleranceSetting?.value ? parseInt(toleranceSetting.value) : 0
+
+        // 1. Auto-Checkout logic for stale sessions (yesterday or older)
+        const staleSessions = await prisma.attendance.findMany({
+            where: {
+                userId,
+                checkOut: null,
+                checkIn: {
+                    lt: today
+                }
+            }
+        })
+
+        if (staleSessions.length > 0) {
+            await Promise.all(staleSessions.map(async (session) => {
+                let autoCheckOut = new Date(session.checkIn)
+
+                if (userDetails?.workingHourMode === 'FLEXIBLE') {
+                    // Flexible: CheckIn + 9 hours (standard working hours)
+                    autoCheckOut.setHours(autoCheckOut.getHours() + 9)
+                } else {
+                    // Fixed: Use endWorkTime or default 17:00
+                    if (userDetails?.endWorkTime) {
+                        const [endHour, endMinute] = userDetails.endWorkTime.split(':').map(Number)
+                        autoCheckOut.setHours(endHour, endMinute, 0, 0)
+                    } else {
+                        autoCheckOut.setHours(17, 0, 0, 0)
+                    }
+                }
+
+                // Safety check: If calculated checkout is before checkin (e.g. bad config), force it to be after
+                if (autoCheckOut <= session.checkIn) {
+                    autoCheckOut = new Date(session.checkIn.getTime() + 9 * 60 * 60 * 1000)
+                }
+
+                // If checkIn was very late (e.g. 20:00) and fixed end is 17:00, it would be in the past.
+                // In that case, we probably should set it to 23:59 of that day to close the loop?
+                // Or just trust the calculation? 
+                // Let's stick to the user's initial rule: "23:59 jika masuknya malam" (implied by "checkIn > autoCheckOut")
+                if (session.checkIn > autoCheckOut) {
+                    autoCheckOut.setHours(23, 59, 59, 999)
+                }
+
+                const autoNote = '(Auto-Checkout: Lupa Absen Pulang)'
+                const newNotes = session.notes ? `${session.notes} ${autoNote}` : autoNote
+
+                await prisma.attendance.update({
+                    where: { id: session.id },
+                    data: {
+                        checkOut: autoCheckOut,
+                        notes: newNotes
+                    }
+                })
+            }))
+        }
+
+        // 2. Check for today's check-in
         const existingAttendance = await prisma.attendance.findFirst({
             where: {
                 userId,
@@ -70,16 +136,6 @@ export async function POST(request: NextRequest) {
             )
         }
 
-
-        // Ambil data user details untuk cek jam kerja
-        const userDetails = await prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-                startWorkTime: true,
-                workingHourMode: true
-            }
-        })
-
         let status = 'ON_TIME'
 
         // Logika Status: Jika punya jadwal masuk, cek keterlambatan
@@ -90,12 +146,13 @@ export async function POST(request: NextRequest) {
             const scheduleTime = new Date()
             scheduleTime.setHours(schedHour, schedMinute, 0, 0)
 
-            // Toleransi (optional, misalnya 5 menit? Untuk sekarang strict dulu atau ikut plan)
-            // Di plan tidak ada toleransi, jadi strict > schedule = LATE
+            // Tambahkan batas toleransi
+            const toleranceMs = toleranceMinutes * 60 * 1000
+            const lateThreshold = new Date(scheduleTime.getTime() + toleranceMs)
 
             const now = new Date()
 
-            if (now > scheduleTime) {
+            if (now > lateThreshold) {
                 status = 'LATE'
             }
         }
