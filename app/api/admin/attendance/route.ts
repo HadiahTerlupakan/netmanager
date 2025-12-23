@@ -51,6 +51,12 @@ export async function GET(request: NextRequest) {
         const isExport = searchParams.get('export') === 'true'
 
         if (isExport) {
+            // Fetch Timezone Setting
+            const timezoneSetting = await prisma.settings.findFirst({
+                where: { key: 'GENERAL_TIMEZONE' }
+            })
+            const timezone = timezoneSetting?.value || 'Asia/Jakarta'
+
             const attendances = await prisma.attendance.findMany({
                 where,
                 include: {
@@ -74,14 +80,28 @@ export async function GET(request: NextRequest) {
                 const checkInDate = new Date(item.checkIn)
                 const checkOutDate = item.checkOut ? new Date(item.checkOut) : null
 
+                // Formatter options
+                const dateOptions: Intl.DateTimeFormatOptions = {
+                    timeZone: timezone,
+                    day: '2-digit', month: '2-digit', year: 'numeric'
+                }
+                const timeOptions: Intl.DateTimeFormatOptions = {
+                    timeZone: timezone,
+                    hour: '2-digit', minute: '2-digit', second: '2-digit',
+                    hour12: false
+                }
+
+                // Format dates to parts to match dd/mm/yyyy format explicitly if needed, or rely on locale
+                // 'id-ID' usually gives dd/mm/yyyy.
+
                 csvRows.push([
                     (index + 1).toString(),
                     item.user.name || '-',
                     item.user.site?.name || '-',
                     item.user.department?.name || '-',
-                    checkInDate.toLocaleDateString('id-ID'),
-                    checkInDate.toLocaleTimeString('id-ID'),
-                    checkOutDate ? checkOutDate.toLocaleTimeString('id-ID') : '-',
+                    checkInDate.toLocaleDateString('id-ID', dateOptions),
+                    checkInDate.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':'),
+                    checkOutDate ? checkOutDate.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':') : '-',
                     item.status,
                     item.notes || '-'
                 ])

@@ -131,7 +131,9 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
     }
 
     // Check for site_only permission
-    const isSiteRestricted = permissions.includes('users:site_only')
+    const userRole = (session.user as any).role
+    const isSuperAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
+    const isSiteRestricted = !isSuperAdmin && permissions.includes('users:site_only')
 
     if (isSiteRestricted) {
       const userSiteId = (session.user as any).siteId
@@ -352,7 +354,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // Check for site_only permission
-    const isSiteRestricted = permissions.includes('users:site_only')
+    const userRole = (session.user as any).role
+    const isSuperAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
+    const isSiteRestricted = !isSuperAdmin && permissions.includes('users:site_only')
 
     if (isSiteRestricted) {
       const userSiteId = (session.user as any).siteId
@@ -440,7 +444,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Check for site_only permission
-    const isSiteRestricted = permissions.includes('users:site_only')
+    const userRole = (session.user as any).role
+    const isSuperAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
+    const isSiteRestricted = !isSuperAdmin && permissions.includes('users:site_only')
 
     if (isSiteRestricted) {
       const userSiteId = (session.user as any).siteId

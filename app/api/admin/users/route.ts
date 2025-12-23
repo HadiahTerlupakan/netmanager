@@ -54,8 +54,7 @@ export async function GET(req: NextRequest) {
 
       // HOTFIX: If role is 'ADMIN', ignore site_only restriction (in case of bad config)
       const userRole = (session.user as any).role
-      const isSuperAdmin = userRole === 'ADMIN'
-
+      const isSuperAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
       const isSiteRestricted = !isSuperAdmin && permissions.includes('users:site_only')
 
       // If site restricted but no siteId on user (shouldn't happen for restricted users), pass undefined (no filter) or handle error.
@@ -207,7 +206,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: You do not have permission to create users.' }, { status: 403 })
     }
 
-    const isSiteRestricted = permissions.includes('users:site_only')
+    const userRole = (session.user as any).role
+    const isSuperAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
+    const isSiteRestricted = !isSuperAdmin && permissions.includes('users:site_only')
 
     if (isSiteRestricted) {
       const userSiteId = (session.user as any).siteId

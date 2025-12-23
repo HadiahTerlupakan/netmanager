@@ -141,6 +141,29 @@ deploy() {
     check_docker
     check_env
     
+    # Ensure uploads directory exists and has correct permissions
+    if [ ! -d "uploads" ]; then
+        log_info "Creating persistent uploads directory..."
+        mkdir -p uploads
+    fi
+    
+    # Check ownership of uploads directory (User 1001 is used in Dockerfile)
+    # We warn user if permissions look wrong, but we try to fix it if running as root
+    if [ -d "uploads" ]; then
+         # Try to set ownership if running as root or if current user owns it
+         # Note: This might fail if typical user, but Docker often needs explicit permissions
+         # We'll just log an info message here, as we can't easily sudo inside script without prompt
+         log_info "Ensuring uploads directory permissions..."
+         # Only try chown if we are root, otherwise warn user to check
+         if [ "$(id -u)" = "0" ]; then
+             chown -R 1001:1001 uploads
+         else
+             # Just create a marker file to test write access? No, simplistic check.
+             log_warning "Pastikan folder 'uploads' dapat ditulisi oleh user ID 1001 (Next.js)."
+             log_warning "Jika upload gagal, jalankan: sudo chown -R 1001:1001 uploads"
+         fi
+    fi
+    
     # Determine which profile to use
     local profile=""
     if [ "$1" == "ssl" ]; then
