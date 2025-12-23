@@ -512,6 +512,15 @@ export function ClientComponent() {
                                                         </button>
                                                     </div>
                                                 )}
+                                                {wo.status === 'CANCELLED' && (
+                                                    <button
+                                                        onClick={(e) => openDeleteModal(wo.id, e)}
+                                                        className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                                        title="Hapus Permanen"
+                                                    >
+                                                        <HiTrash className="w-5 h-5" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
