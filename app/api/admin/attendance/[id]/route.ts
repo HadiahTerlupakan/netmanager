@@ -54,11 +54,48 @@ export async function PATCH(
         }
 
         // Prepare update data
+        // Fetch existing attendance to get userId and User details
+        const existingAttendance = await prisma.attendance.findUnique({
+            where: { id },
+            include: { user: true }
+        })
+
+        if (!existingAttendance) {
+            return NextResponse.json({ error: 'Data not found' }, { status: 404 })
+        }
+
+        // Prepare update data
         const updateData: any = {}
         if (checkIn) updateData.checkIn = new Date(checkIn)
         if (checkOut) updateData.checkOut = new Date(checkOut)
-        if (status) updateData.status = status
         if (notes !== undefined) updateData.notes = notes
+
+        // Auto-calculate status if checkIn changes
+        if (checkIn && existingAttendance.user.startWorkTime) {
+            const userDetails = existingAttendance.user
+
+            // Fetch Tolerance Setting
+            const toleranceSetting = await prisma.settings.findFirst({
+                where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
+            })
+            const toleranceMinutes = toleranceSetting?.value ? parseInt(toleranceSetting.value) : 0
+
+            const [schedHour, schedMinute] = userDetails.startWorkTime!.split(':').map(Number)
+            const checkInDate = new Date(checkIn)
+
+            // Create schedule time on the SAME DAY as the checkIn date
+            const scheduleTime = new Date(checkInDate)
+            scheduleTime.setHours(schedHour, schedMinute, 0, 0)
+
+            const toleranceMs = toleranceMinutes * 60 * 1000
+            const lateThreshold = new Date(scheduleTime.getTime() + toleranceMs)
+
+            // Determine status
+            updateData.status = checkInDate > lateThreshold ? 'LATE' : 'ON_TIME'
+        } else if (status) {
+            // If checkIn didn't change (or user has no schedule), allow manual status update
+            updateData.status = status
+        }
 
         const updated = await prisma.attendance.update({
             where: { id },
