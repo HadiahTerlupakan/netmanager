@@ -1,5 +1,8 @@
 FROM freeradius/freeradius-server:3.2.5
 
+# 0. Install PostgreSQL Driver (Required for Alpine-based images)
+RUN apk add --no-cache freeradius-postgresql
+
 # 1. Enable SQL Module (Create Symlink)
 RUN ln -s /etc/freeradius/mods-available/sql /etc/freeradius/mods-enabled/sql
 
