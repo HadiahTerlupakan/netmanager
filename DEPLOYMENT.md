@@ -273,6 +273,16 @@ sudo systemctl stop nginx
 sudo systemctl stop apache2
 ```
 
+### Upload Permission Denied
+
+Jika upload gagal dengan error `EACCES: permission denied, mkdir '/app/public/uploads/...'`, artinya container tidak punya izin tulis ke folder uploads di host.
+
+Solusi:
+```bash
+# Ubah pemilik folder uploads ke user 1001 (User Next.js dalam container)
+sudo chown -R 1001:1001 uploads
+```
+
 ---
 
 ## 🏗️ Arsitektur Deployment
