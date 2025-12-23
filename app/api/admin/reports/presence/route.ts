@@ -3,6 +3,10 @@ import { requireAdmin } from '@/lib/auth-helpers'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
 import { OvertimeService } from '@/modules/overtime/services/OvertimeService'
 
+// Disable Next.js caching for this route
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET(request: NextRequest) {
     try {
         const session = await requireAdmin(request)
