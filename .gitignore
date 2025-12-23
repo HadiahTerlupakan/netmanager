@@ -54,7 +54,7 @@ data/temp/*
 data/temp/**/*
 
 # Prisma
-prisma/migrations/**/migration.sql
+
 
 # Uploads
 public/uploads/*
@@ -64,7 +64,7 @@ public/uploads/*
 # Backups
 backups/
 *.sql.gz
-*.sql
+
 
 # Windows-specific
 nul
