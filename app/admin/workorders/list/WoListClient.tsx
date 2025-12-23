@@ -16,6 +16,7 @@ import {
     HiXCircle,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import { useToast } from '@/components/common/ToastProvider'
 
 interface WorkOrder {
     id: string
@@ -72,6 +73,7 @@ const priorityColors: Record<string, string> = {
 export function ClientComponent() {
     const { data: session, status } = useSession()
     const router = useRouter()
+    const { show } = useToast()
     const [loading, setLoading] = useState(true)
     const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
     const [total, setTotal] = useState(0)
@@ -255,14 +257,14 @@ export function ClientComponent() {
             if (response.ok) {
                 setShowDeleteModal(false)
                 setSelectedWorkOrderId(null)
+                show({ type: 'success', message: 'Work Order berhasil dihapus permanen' })
                 fetchWorkOrders()
-                alert('Work Order berhasil dihapus permanen')
             } else {
-                alert('Gagal menghapus work order')
+                show({ type: 'error', message: 'Gagal menghapus work order' })
             }
         } catch (error) {
             console.error('Error deleting:', error)
-            alert('Terjadi kesalahan')
+            show({ type: 'error', message: 'Terjadi kesalahan' })
         } finally {
             setProcessingApproval(false)
         }
