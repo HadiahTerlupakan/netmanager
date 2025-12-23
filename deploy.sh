@@ -221,6 +221,9 @@ update() {
         docker compose -f $COMPOSE_FILE up -d --force-recreate app
     fi
     
+    # Setup persistent uploads
+    setup_uploads
+
     # Run migrations (dengan error handling)
     log_info "Running database migrations..."
     docker exec netmanager-app npx prisma migrate deploy || {
@@ -230,6 +233,29 @@ update() {
     }
     
     log_success "Update selesai!"
+}
+
+# Setup uploads directory
+setup_uploads() {
+    # Ensure uploads directory exists and has correct permissions
+    if [ ! -d "uploads" ]; then
+        log_info "Creating persistent uploads directory..."
+        mkdir -p uploads
+    fi
+    
+    # Check ownership of uploads directory (User 1001 is used in Dockerfile)
+    if [ -d "uploads" ]; then
+         log_info "Ensuring uploads directory permissions..."
+         if [ "$(id -u)" = "0" ]; then
+             chown -R 1001:1001 uploads
+         else
+             # Just warn if not root
+             if [ ! -w "uploads" ]; then
+                 log_warning "Pastikan folder 'uploads' dapat ditulisi oleh user ID 1001 (Next.js)."
+                 log_warning "Jika upload gagal, jalankan: sudo chown -R 1001:1001 uploads"
+             fi
+         fi
+    fi
 }
 
 # Backup database
