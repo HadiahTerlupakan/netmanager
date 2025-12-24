@@ -168,6 +168,16 @@ app.prepare().then(() => {
         console.log('[Server] Automatic isolation cron scheduled (00:00)')
     }).catch(err => console.error('[Server] Failed to start Automatic Isolation Service:', err))
 
+    // Start Auto Checkout Service (Daily at 23:59)
+    import('./modules/attendance/services/AutoCheckoutService').then(({ AutoCheckoutService }) => {
+        cron.schedule('59 23 * * *', () => {
+            console.log('[Cron] Running daily auto-checkout')
+            AutoCheckoutService.runAutoCheckout()
+        })
+        console.log('[Server] Auto checkout cron scheduled (23:59)')
+    }).catch(err => console.error('[Server] Failed to start Auto Checkout Service:', err))
+
+
     // Log connections count periodically in development
     if (dev) {
         setInterval(() => {
