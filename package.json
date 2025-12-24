@@ -21,6 +21,7 @@
     "prisma:reset": "prisma migrate reset --force",
     "prisma:reset-seed": "prisma migrate reset --force && npm run prisma:seed",
     "prisma:baseline": "prisma migrate resolve --applied 20251105130408_init",
+    "prisma:seed-permissions": "prisma generate && tsx prisma/seed-permissions.ts",
     "prisma:sync": "prisma db push && prisma migrate resolve --applied 20251105130408_init",
     "prisma:fix-drift": "prisma migrate resolve --rolled-back 20251105130408_init && prisma migrate dev --name complete_schema"
   },
