@@ -23,52 +23,81 @@ export async function convertAndSaveImage(
   subFolder?: string
 ): Promise<string> {
   try {
-    // Baca file sebagai buffer
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-
-    // Konversi ke WebP dengan optimasi
-    const webpBuffer = await sharp(buffer)
-      .webp({ quality: 85, effort: 6 })
-      .toBuffer()
-
-    // Check if R2 is enabled
-    if (await isR2Enabled()) {
-      // Upload to R2
-      const key = generateR2Key(
-        uploadType || 'pelanggan',
-        `${fileName}.webp`,
-        subFolder
-      )
-
-      const url = await uploadToR2(webpBuffer, key, 'image/webp')
-      console.log('Image uploaded to R2:', { key, url })
-      return url
-    }
-
-    // Fallback to local storage
-    const absoluteUploadDir = path.resolve(process.cwd(), uploadDir)
-    await mkdir(absoluteUploadDir, { recursive: true })
-    const outputPath = path.join(absoluteUploadDir, `${fileName}.webp`)
-    await writeFile(outputPath, webpBuffer)
-
-    // Return path relatif untuk URL
-    const publicPath = path.join(process.cwd(), 'public')
-    let relativePath = outputPath.replace(publicPath, '')
-    relativePath = relativePath.replace(/\\/g, '/') // Normalize path separator untuk URL
-
-    console.log('Image saved locally:', {
-      outputPath,
-      publicPath,
-      relativePath,
-      fileName: `${fileName}.webp`
-    })
-
-    return relativePath
+    return await processAndSaveBuffer(buffer, uploadDir, fileName, uploadType, subFolder)
   } catch (error: any) {
     console.error('Error converting image to WebP:', error)
     throw new Error(`Gagal mengkonversi gambar: ${error.message}`)
   }
+}
+
+/**
+ * Konversi dan simpan gambar dari Base64 string
+ */
+export async function convertAndSaveBase64(
+  base64String: string,
+  uploadDir: string,
+  fileName: string,
+  uploadType?: UploadType,
+  subFolder?: string
+): Promise<string> {
+  try {
+    // Remove data:image/jpeg;base64, prefix if present
+    const cleanBase64 = base64String.replace(/^data:image\/\w+;base64,/, '')
+    const buffer = Buffer.from(cleanBase64, 'base64')
+    return await processAndSaveBuffer(buffer, uploadDir, fileName, uploadType, subFolder)
+  } catch (error: any) {
+    console.error('Error converting base64 to WebP:', error)
+    throw new Error(`Gagal mengkonversi base64: ${error.message}`)
+  }
+}
+
+async function processAndSaveBuffer(
+  buffer: Buffer,
+  uploadDir: string,
+  fileName: string,
+  uploadType?: UploadType,
+  subFolder?: string
+): Promise<string> {
+  // Konversi ke WebP dengan optimasi
+  const webpBuffer = await sharp(buffer)
+    .webp({ quality: 85, effort: 6 })
+    .toBuffer()
+
+  // Check if R2 is enabled
+  if (await isR2Enabled()) {
+    // Upload to R2
+    const key = generateR2Key(
+      uploadType || 'pelanggan',
+      `${fileName}.webp`,
+      subFolder
+    )
+
+    const url = await uploadToR2(webpBuffer, key, 'image/webp')
+    console.log('Image uploaded to R2:', { key, url })
+    return url
+  }
+
+  // Fallback to local storage
+  const absoluteUploadDir = path.resolve(process.cwd(), uploadDir)
+  await mkdir(absoluteUploadDir, { recursive: true })
+  const outputPath = path.join(absoluteUploadDir, `${fileName}.webp`)
+  await writeFile(outputPath, webpBuffer)
+
+  // Return path relatif untuk URL
+  const publicPath = path.join(process.cwd(), 'public')
+  let relativePath = outputPath.replace(publicPath, '')
+  relativePath = relativePath.replace(/\\/g, '/') // Normalize path separator untuk URL
+
+  console.log('Image saved locally:', {
+    outputPath,
+    publicPath,
+    relativePath,
+    fileName: `${fileName}.webp`
+  })
+
+  return relativePath
 }
 
 /**

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { OvertimeService } from '@/modules/overtime'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { convertAndSaveBase64 } from '@/lib/utils/image-upload'
 
 export async function GET(request: Request) {
     try {
@@ -52,8 +53,22 @@ export async function POST(request: Request) {
             if (!overtimeId || !photo) {
                 return NextResponse.json({ error: 'Missing required fields (id, photo)' }, { status: 400 })
             }
-            const result = await service.startOvertime(session.user.id, overtimeId, {
+
+            // Convert Base64 photo to file/url
+            const dateStr = new Date().toISOString().split('T')[0]
+            const uploadDir = `public/uploads/overtime/${dateStr}`
+            const fileName = `${session.user.id}_start_${Date.now()}`
+
+            const photoUrl = await convertAndSaveBase64(
                 photo,
+                uploadDir,
+                fileName,
+                'employee-attendance',
+                session.user.id
+            )
+
+            const result = await service.startOvertime(session.user.id, overtimeId, {
+                photo: photoUrl,
                 location
             })
             return NextResponse.json(result)
@@ -64,8 +79,22 @@ export async function POST(request: Request) {
             if (!overtimeId || !photo) {
                 return NextResponse.json({ error: 'Missing required fields (id, photo)' }, { status: 400 })
             }
-            const result = await service.stopOvertime(session.user.id, overtimeId, {
+
+            // Convert Base64 photo to file/url
+            const dateStr = new Date().toISOString().split('T')[0]
+            const uploadDir = `public/uploads/overtime/${dateStr}`
+            const fileName = `${session.user.id}_stop_${Date.now()}`
+
+            const photoUrl = await convertAndSaveBase64(
                 photo,
+                uploadDir,
+                fileName,
+                'employee-attendance',
+                session.user.id
+            )
+
+            const result = await service.stopOvertime(session.user.id, overtimeId, {
+                photo: photoUrl,
                 location
             })
             return NextResponse.json(result)
