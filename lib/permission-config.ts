@@ -6,7 +6,7 @@ export const PERMISSION_GROUPS = {
     PELANGGAN: ['pelanggan', 'ppp', 'registration'],
     INVENTORY: ['inventory', 'barang', 'masuk', 'keluar', 'transfer', 'restock', 'opname', 'gudang'],
     WORKORDERS: ['workorders', 'work_order_dashboard', 'list', 'site', 'department'],
-    KEHADIRAN: ['kehadiran', 'attendance', 'report', 'lembur'],
+    KEHADIRAN: ['kehadiran', 'attendance', 'report', 'lembur', 'holiday', 'izin'],
     FINANCE: ['finance', 'daily_income', 'period_income', 'expense', 'profit_loss'],
     PENGATURAN: ['pengaturan', 'umum', 'logo', 'email', 'whatsapp', 'roles', 'payment_gateway', 'api'],
     SYSTEM_LOG: ['system_log', 'login', 'activity'],
