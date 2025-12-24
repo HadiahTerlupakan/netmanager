@@ -7,31 +7,26 @@ export class AutoCheckoutService {
      * This should run daily at 23:59.
      * 
      * Logic:
-     * - Find active check-ins (checkOut is null)
-     * - Set checkOut time to 23:59:59 (End of Day)
-     * - Set status to 'MANGKIR'
-     * - Add system note
+     * - Find ALL active check-ins (checkOut is null), regardless of date.
+     * - For each record:
+     *   - If checkIn date is TODAY: Set checkOut to TODAY 23:59:59.
+     *   - If checkIn date is PAST: Set checkOut to THAT DATE 23:59:59.
+     * - Set status to 'MANGKIR'.
+     * - Add system note.
      */
     static async runAutoCheckout() {
-        // Use current time for the "today" reference
         const today = new Date()
-        const startOfDay = new Date(today)
-        startOfDay.setHours(0, 0, 0, 0)
+        const endOfToday = new Date(today)
+        endOfToday.setHours(23, 59, 59, 999)
 
-        const endOfDay = new Date(today)
-        endOfDay.setHours(23, 59, 59, 999)
-
-        // Checkout Time: 23:59:59
-        const checkoutTime = new Date(endOfDay)
-
-        // 1. Find all active attendance for today (checked in but not checked out)
+        // 1. Find all active attendance (checkOut is null)
+        // We catch everything up to the current moment.
         const openAttendances = await prisma.attendance.findMany({
             where: {
+                checkOut: null,
                 checkIn: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                },
-                checkOut: null
+                    lte: endOfToday
+                }
             }
         })
 
@@ -41,10 +36,15 @@ export class AutoCheckoutService {
 
         for (const attendance of openAttendances) {
             try {
+                // Determine appropriate checkout time based on CheckIn Date
+                const checkInDate = new Date(attendance.checkIn)
+                const checkOutTime = new Date(checkInDate)
+                checkOutTime.setHours(23, 59, 59, 999)
+
                 await prisma.attendance.update({
                     where: { id: attendance.id },
                     data: {
-                        checkOut: checkoutTime,
+                        checkOut: checkOutTime,
                         notes: attendance.notes ? `${attendance.notes}; Auto checkout by system (Mangkir)` : 'Auto checkout by system (Mangkir)',
                         status: 'MANGKIR'
                     }
