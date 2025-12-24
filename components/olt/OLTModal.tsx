@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { oltCreateSchema, oltUpdateSchema } from '@/lib/validations/olt'
 import { HiEye, HiEyeSlash, HiCheck, HiXMark, HiOutlineSignal, HiArrowPath, HiXMark as HiClose } from 'react-icons/hi2'
-
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 type OLTFormData = z.infer<typeof oltCreateSchema> | z.infer<typeof oltUpdateSchema>
 
 interface OLTModalProps {
@@ -149,299 +149,289 @@ export default function OLTModal({ isOpen, onClose, onSubmit, olt, mode, onTestS
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-            {mode === 'add' ? 'Tambah OLT' : 'OLT Edit'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          >
-            <span className="text-2xl">×</span>
-          </button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={mode === 'add' ? 'Tambah OLT' : 'OLT Edit'}
+      size="2xl"
+    >
+      <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
+        {/* OLT Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            OLT Name
+          </label>
+          <input
+            type="text"
+            {...register('name')}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
         </div>
 
-        <form onSubmit={handleSubmit(onFormSubmit)} className="p-6 space-y-6">
-          {/* OLT Name */}
+        {/* IP Address */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            IP Address
+          </label>
+          <input
+            type="text"
+            {...register('ipAddress')}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          {errors.ipAddress && <p className="mt-1 text-sm text-red-600">{errors.ipAddress.message}</p>}
+        </div>
+
+        {/* Type */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Type
+          </label>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">OLT Type</p>
+          <select
+            {...register('type')}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          >
+            <option value="ZTE-C300">ZTE-C300</option>
+            <option value="ZTE-C320">ZTE-C320</option>
+            <option value="Huawei-MA5608T">Huawei-MA5608T</option>
+            <option value="Huawei-OLT">Huawei-OLT</option>
+          </select>
+          {errors.type && <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>}
+        </div>
+
+        {/* SNMP Section */}
+        <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">SNMP</h3>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              OLT Name
+              Community Write (RW)
             </label>
             <input
               type="text"
-              {...register('name')}
+              {...register('snmpCommunityWrite')}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
+            {errors.snmpCommunityWrite && (
+              <p className="mt-1 text-sm text-red-600">{errors.snmpCommunityWrite.message}</p>
+            )}
           </div>
 
-          {/* IP Address */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              IP Address
+              Version
             </label>
-            <input
-              type="text"
-              {...register('ipAddress')}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            {errors.ipAddress && <p className="mt-1 text-sm text-red-600">{errors.ipAddress.message}</p>}
-          </div>
-
-          {/* Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Type
-            </label>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">OLT Type</p>
             <select
-              {...register('type')}
+              {...register('snmpVersion')}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
-              <option value="ZTE-C300">ZTE-C300</option>
-              <option value="ZTE-C320">ZTE-C320</option>
-              <option value="Huawei-MA5608T">Huawei-MA5608T</option>
-              <option value="Huawei-OLT">Huawei-OLT</option>
+              <option value="1">SNMPv1</option>
+              <option value="2">SNMPv2</option>
+              <option value="3">SNMPv3</option>
             </select>
-            {errors.type && <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>}
+            {errors.snmpVersion && <p className="mt-1 text-sm text-red-600">{errors.snmpVersion.message}</p>}
           </div>
 
-          {/* SNMP Section */}
-          <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">SNMP</h3>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Community Write (RW)
-              </label>
-              <input
-                type="text"
-                {...register('snmpCommunityWrite')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {errors.snmpCommunityWrite && (
-                <p className="mt-1 text-sm text-red-600">{errors.snmpCommunityWrite.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Version
-              </label>
-              <select
-                {...register('snmpVersion')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="1">SNMPv1</option>
-                <option value="2">SNMPv2</option>
-                <option value="3">SNMPv3</option>
-              </select>
-              {errors.snmpVersion && <p className="mt-1 text-sm text-red-600">{errors.snmpVersion.message}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Port
-              </label>
-              <input
-                type="number"
-                {...register('snmpPort', { valueAsNumber: true })}
-                min="1"
-                max="65535"
-                placeholder="161"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Port SNMP (default: 161, bisa di-custom)</p>
-              {errors.snmpPort && <p className="mt-1 text-sm text-red-600">{errors.snmpPort.message}</p>}
-            </div>
-          </div>
-
-          {/* Telnet Section */}
-          <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Telnet</h3>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Username
-              </label>
-              <input
-                type="text"
-                {...register('telnetUsername')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {errors.telnetUsername && (
-                <p className="mt-1 text-sm text-red-600">{errors.telnetUsername.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  {...register('telnetPassword')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                >
-                  {showPassword ? <HiEye className="w-4 h-4" /> : <HiEyeSlash className="w-4 h-4" />}
-                </button>
-              </div>
-              {errors.telnetPassword && (
-                <p className="mt-1 text-sm text-red-600">{errors.telnetPassword.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Port
-              </label>
-              <input
-                type="number"
-                {...register('telnetPort', { valueAsNumber: true })}
-                min="1"
-                max="65535"
-                placeholder="23"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Port Telnet (default: 23, bisa di-custom)</p>
-              {errors.telnetPort && (
-                <p className="mt-1 text-sm text-red-600">{errors.telnetPort.message}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Version (optional) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Version (optional)
+              Port
+            </label>
+            <input
+              type="number"
+              {...register('snmpPort', { valueAsNumber: true })}
+              min="1"
+              max="65535"
+              placeholder="161"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Port SNMP (default: 161, bisa di-custom)</p>
+            {errors.snmpPort && <p className="mt-1 text-sm text-red-600">{errors.snmpPort.message}</p>}
+          </div>
+        </div>
+
+        {/* Telnet Section */}
+        <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Telnet</h3>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Username
             </label>
             <input
               type="text"
-              {...register('version')}
+              {...register('telnetUsername')}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="e.g., C300 Version V2.1.0 Software"
             />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Data akan diambil otomatis dari device via SNMP saat sync
-            </p>
-            {errors.version && <p className="mt-1 text-sm text-red-600">{errors.version.message}</p>}
+            {errors.telnetUsername && (
+              <p className="mt-1 text-sm text-red-600">{errors.telnetUsername.message}</p>
+            )}
           </div>
 
-          {/* Test Results */}
-          {testResults && (
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Test Connection Results</h3>
-
-              {/* SNMP Result */}
-              {testResults.snmp && (
-                <div className={`p-3 rounded-md border ${testResults.snmp.success
-                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                  }`}>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${testResults.snmp.success
-                        ? 'text-green-700 dark:text-green-400'
-                        : 'text-red-700 dark:text-red-400'
-                      }`}>
-                      {testResults.snmp.success ? <HiCheck className="w-4 h-4 inline" /> : <HiXMark className="w-4 h-4 inline" />} SNMP
-                    </span>
-                  </div>
-                  <p className={`text-xs mt-1 ${testResults.snmp.success
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
-                    }`}>
-                    {testResults.snmp.message}
-                  </p>
-                  {!testResults.snmp.success && (
-                    <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs text-yellow-800 dark:text-yellow-300">
-                      <p className="font-semibold mb-1">Tips Troubleshooting SNMP:</p>
-                      <ul className="list-disc list-inside space-y-0.5">
-                        <li>Pastikan SNMP aktif di device OLT</li>
-                        <li>Cek community string (biasanya &quot;public&quot; untuk read-only)</li>
-                        <li>Verifikasi port SNMP (default 161, atau custom port)</li>
-                        <li>Coba ganti SNMP version (v1, v2c, atau v3)</li>
-                        <li>Pastikan firewall tidak memblokir port SNMP</li>
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Telnet Result */}
-              {testResults.telnet && (
-                <div className={`p-3 rounded-md border ${testResults.telnet.success
-                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                  }`}>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${testResults.telnet.success
-                        ? 'text-green-700 dark:text-green-400'
-                        : 'text-red-700 dark:text-red-400'
-                      }`}>
-                      {testResults.telnet.success ? <HiCheck className="w-4 h-4 inline" /> : <HiXMark className="w-4 h-4 inline" />} Telnet
-                    </span>
-                  </div>
-                  <p className={`text-xs mt-1 ${testResults.telnet.success
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
-                    }`}>
-                    {testResults.telnet.message}
-                  </p>
-                </div>
-              )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                {...register('telnetPassword')}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                {showPassword ? <HiEye className="w-4 h-4" /> : <HiEyeSlash className="w-4 h-4" />}
+              </button>
             </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-            >
-              <span className="flex items-center gap-2">
-                <HiClose className="w-4 h-4" /> Close
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={handleTestConnection}
-              disabled={isTesting}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="flex items-center gap-2">
-                {isTesting ? (
-                  <>
-                    <HiArrowPath className="w-4 h-4 animate-spin" /> Testing...
-                  </>
-                ) : (
-                  <>
-                    <HiOutlineSignal className="w-4 h-4" /> Test Connection
-                  </>
-                )}
-              </span>
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="flex items-center gap-2">
-                <span>↓</span> Submit
-              </span>
-            </button>
+            {errors.telnetPassword && (
+              <p className="mt-1 text-sm text-red-600">{errors.telnetPassword.message}</p>
+            )}
           </div>
-        </form>
-      </div>
-    </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Port
+            </label>
+            <input
+              type="number"
+              {...register('telnetPort', { valueAsNumber: true })}
+              min="1"
+              max="65535"
+              placeholder="23"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Port Telnet (default: 23, bisa di-custom)</p>
+            {errors.telnetPort && (
+              <p className="mt-1 text-sm text-red-600">{errors.telnetPort.message}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Version (optional) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Version (optional)
+          </label>
+          <input
+            type="text"
+            {...register('version')}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="e.g., C300 Version V2.1.0 Software"
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Data akan diambil otomatis dari device via SNMP saat sync
+          </p>
+          {errors.version && <p className="mt-1 text-sm text-red-600">{errors.version.message}</p>}
+        </div>
+
+        {/* Test Results */}
+        {testResults && (
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Test Connection Results</h3>
+
+            {/* SNMP Result */}
+            {testResults.snmp && (
+              <div className={`p-3 rounded-md border ${testResults.snmp.success
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                }`}>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-medium ${testResults.snmp.success
+                    ? 'text-green-700 dark:text-green-400'
+                    : 'text-red-700 dark:text-red-400'
+                    }`}>
+                    {testResults.snmp.success ? <HiCheck className="w-4 h-4 inline" /> : <HiXMark className="w-4 h-4 inline" />} SNMP
+                  </span>
+                </div>
+                <p className={`text-xs mt-1 ${testResults.snmp.success
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+                  }`}>
+                  {testResults.snmp.message}
+                </p>
+                {!testResults.snmp.success && (
+                  <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs text-yellow-800 dark:text-yellow-300">
+                    <p className="font-semibold mb-1">Tips Troubleshooting SNMP:</p>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      <li>Pastikan SNMP aktif di device OLT</li>
+                      <li>Cek community string (biasanya &quot;public&quot; untuk read-only)</li>
+                      <li>Verifikasi port SNMP (default 161, atau custom port)</li>
+                      <li>Coba ganti SNMP version (v1, v2c, atau v3)</li>
+                      <li>Pastikan firewall tidak memblokir port SNMP</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Telnet Result */}
+            {testResults.telnet && (
+              <div className={`p-3 rounded-md border ${testResults.telnet.success
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                }`}>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-medium ${testResults.telnet.success
+                    ? 'text-green-700 dark:text-green-400'
+                    : 'text-red-700 dark:text-red-400'
+                    }`}>
+                    {testResults.telnet.success ? <HiCheck className="w-4 h-4 inline" /> : <HiXMark className="w-4 h-4 inline" />} Telnet
+                  </span>
+                </div>
+                <p className={`text-xs mt-1 ${testResults.telnet.success
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+                  }`}>
+                  {testResults.telnet.message}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <ModalFooter>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <HiClose className="w-4 h-4" /> Close
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={handleTestConnection}
+            disabled={isTesting}
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="flex items-center gap-2">
+              {isTesting ? (
+                <>
+                  <HiArrowPath className="w-4 h-4 animate-spin" /> Testing...
+                </>
+              ) : (
+                <>
+                  <HiOutlineSignal className="w-4 h-4" /> Test Connection
+                </>
+              )}
+            </span>
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="flex items-center gap-2">
+              <span>↓</span> Submit
+            </span>
+          </button>
+        </ModalFooter>
+      </form>
+    </Modal>
   )
 }
 

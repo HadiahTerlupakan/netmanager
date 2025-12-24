@@ -2252,3 +2252,12 @@ model CouponUsage {
   @@index([pelangganId])
 }
 
+
+model Holiday {
+  id          String   @id @default(cuid())
+  date        DateTime @unique
+  description String
+  isNational  Boolean  @default(true) // true = Libur Nasional, false = Cuti Bersama/Lainnya
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

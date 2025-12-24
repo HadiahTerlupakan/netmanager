@@ -23,7 +23,14 @@ import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { getDistance } from 'geolib'
 
-export default function AttendancePageContent() {
+interface AttendancePageContentProps {
+    holidayInfo?: {
+        description: string
+        isNational: boolean
+    } | null
+}
+
+export default function AttendancePageContent({ holidayInfo }: AttendancePageContentProps) {
     const { user } = useKaryawanAuth()
 
     // Logic States
@@ -562,6 +569,22 @@ export default function AttendancePageContent() {
                     </div>
                 </div>
 
+                {/* Holiday Warning */}
+                {holidayInfo && (
+                    <div className="px-4 pb-4">
+                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 text-center">
+                            <p className="text-red-700 dark:text-red-300 font-bold text-sm">
+                                Hari Libur: {holidayInfo.description}
+                            </p>
+                            {holidayInfo.isNational && (
+                                <p className="text-red-600 dark:text-red-400 text-xs mt-1">
+                                    Absensi dinonaktifkan untuk hari libur nasional.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* Main Content Card */}
                 <div className="px-4 w-full">
                     <div className="bg-white dark:bg-[#1c2936] rounded-xl p-4 shadow-sm border border-slate-200 dark:border-gray-800 relative overflow-hidden transition-colors">
@@ -632,9 +655,9 @@ export default function AttendancePageContent() {
                         {/* Action Buttons */}
                         <div className="grid grid-cols-2 gap-3">
                             <button
-                                onClick={status === 'idle' ? startCamera : undefined}
-                                disabled={status !== 'idle'}
-                                className={`h-12 rounded-xl text-sm flex items-center justify-center gap-2 font-bold border ${status === 'idle'
+                                onClick={status === 'idle' && !holidayInfo?.isNational ? startCamera : undefined}
+                                disabled={status !== 'idle' || !!holidayInfo?.isNational}
+                                className={`h-12 rounded-xl text-sm flex items-center justify-center gap-2 font-bold border ${status === 'idle' && !holidayInfo?.isNational
                                     ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 active:scale-95 transition-all border-transparent'
                                     : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-transparent'
                                     }`}
@@ -643,9 +666,9 @@ export default function AttendancePageContent() {
                                 <span>Absen Masuk</span>
                             </button>
                             <button
-                                onClick={status === 'checked-in' ? startCamera : undefined}
-                                disabled={status !== 'checked-in'}
-                                className={`h-12 rounded-xl text-sm flex items-center justify-center gap-2 font-bold shadow-lg active:scale-95 transition-all ${status === 'checked-in'
+                                onClick={status === 'checked-in' && !holidayInfo?.isNational ? startCamera : undefined}
+                                disabled={status !== 'checked-in' || !!holidayInfo?.isNational}
+                                className={`h-12 rounded-xl text-sm flex items-center justify-center gap-2 font-bold shadow-lg active:scale-95 transition-all ${status === 'checked-in' && !holidayInfo?.isNational
                                     ? 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 text-white shadow-red-500/20'
                                     : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-transparent box-shadow-none'
                                     }`}

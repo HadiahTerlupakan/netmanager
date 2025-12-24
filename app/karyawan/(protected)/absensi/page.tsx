@@ -8,9 +8,17 @@ export const metadata: Metadata = {
 
 import { ensureEmployeeAccess } from '@/lib/server-auth'
 
+import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
+
 export default async function AbsensiPage() {
     await ensureEmployeeAccess('k_absensi:read')
+
+    // Check for holiday
+    const holidayRepo = new HolidayRepository()
+    const today = new Date()
+    const { isHoliday, holiday } = await holidayRepo.isHoliday(today)
+
     return (
-        <AttendancePageContent />
+        <AttendancePageContent holidayInfo={isHoliday ? holiday : null} />
     )
 }

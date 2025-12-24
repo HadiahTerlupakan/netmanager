@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import { HolidayRepository } from './HolidayRepository'
 
 export class AttendanceRepository {
     async findMany(params: {
@@ -79,21 +80,36 @@ export class AttendanceRepository {
             }
         })
 
+        // Fetch Holidays
+        const holidayRepo = new HolidayRepository()
+        const holidays = await holidayRepo.findMany({
+            where: {
+                date: {
+                    gte: startDate,
+                    lte: endDate
+                }
+            }
+        })
+        const holidaySet = new Set(holidays.map((h: { date: Date }) => h.date.toISOString().split('T')[0]))
+
         // Group by Date (YYYY-MM-DD)
-        const dailyMap = new Map<string, { present: number, late: number, absent: number }>()
+        const dailyMap = new Map<string, { present: number, late: number, absent: number, isHoliday: boolean }>()
+
+        // Seed Map with Holidays (to ensure they appear even if 0 attendance)
+        holidaySet.forEach(date => {
+            dailyMap.set(date, { present: 0, late: 0, absent: 0, isHoliday: true })
+        })
 
         records.forEach(rec => {
             const dateKey = rec.checkIn.toISOString().split('T')[0]
             if (!dailyMap.has(dateKey)) {
-                dailyMap.set(dateKey, { present: 0, late: 0, absent: 0 })
+                dailyMap.set(dateKey, { present: 0, late: 0, absent: 0, isHoliday: holidaySet.has(dateKey) })
             }
             const stats = dailyMap.get(dateKey)!
 
             // Assuming 'ON_TIME', 'LATE', and 'PRESENT' are valid statuses for present
             if (rec.status === 'LATE') stats.late++
             if (rec.status === 'ON_TIME' || rec.status === 'LATE' || rec.status === 'PRESENT') stats.present++
-            // 'SICK' etc usually means not present working, but data structure might vary. 
-            // We'll stick to verified statuses.
         })
 
         return Array.from(dailyMap.entries()).map(([date, stats]) => ({

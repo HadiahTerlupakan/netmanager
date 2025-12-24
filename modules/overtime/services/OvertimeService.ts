@@ -53,7 +53,21 @@ export class OvertimeService {
         try {
             const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
             const admins = await prisma.user.findMany({
-                where: { role: { name: 'ADMIN' } },
+                where: {
+                    OR: [
+                        { role: { name: 'SUPER_ADMIN' } },
+                        {
+                            role: {
+                                permissions: {
+                                    some: {
+                                        resource: 'lembur',
+                                        action: 'update'
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
                 select: { id: true }
             })
 

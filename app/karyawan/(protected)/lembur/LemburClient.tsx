@@ -35,7 +35,14 @@ interface Overtime {
     rejectionReason?: string
 }
 
-export default function LemburPage() {
+interface LemburPageProps {
+    holidayInfo?: {
+        description: string
+        isNational: boolean
+    } | null
+}
+
+export default function LemburPage({ holidayInfo }: LemburPageProps) {
     const { user } = useKaryawanAuth()
 
     // Data States
@@ -473,22 +480,22 @@ export default function LemburPage() {
                                 </div>
                                 <button
                                     onClick={() => startCamera('start')}
-                                    disabled={!hasCheckedOut}
-                                    className={`w-full h-14 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${hasCheckedOut
+                                    disabled={!hasCheckedOut && !holidayInfo?.isNational}
+                                    className={`w-full h-14 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${hasCheckedOut || holidayInfo?.isNational
                                         ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20 active:scale-95'
                                         : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                                         }`}
                                 >
                                     <MdTimer className="text-2xl" /> Mulai Lembur
                                 </button>
-                                {!hasCheckedOut && (
+                                {!hasCheckedOut && !holidayInfo?.isNational && (
                                     <p className="text-[11px] text-center text-amber-600 dark:text-amber-400 mt-3 font-medium">
                                         ⚠️ Anda harus Checkout absen reguler terlebih dahulu
                                     </p>
                                 )}
-                                {hasCheckedOut && (
+                                {(hasCheckedOut || holidayInfo?.isNational) && (
                                     <p className="text-[10px] text-center text-slate-400 mt-3">
-                                        ✓ Sudah checkout - Siap mulai lembur
+                                        ✓ {holidayInfo?.isNational ? 'Libur Nasional (Bypass Absen)' : 'Sudah checkout'} - Siap mulai lembur
                                     </p>
                                 )}
                             </div>

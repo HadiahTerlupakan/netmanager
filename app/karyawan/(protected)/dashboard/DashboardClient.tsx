@@ -31,7 +31,14 @@ interface DashboardStats {
 import { toast } from 'react-hot-toast'
 import { usePermission } from '@/hooks/use-permission'
 
-export default function DashboardClient() {
+interface DashboardClientProps {
+    holidayInfo?: {
+        description: string
+        isNational: boolean
+    } | null
+}
+
+export default function DashboardClient({ holidayInfo }: DashboardClientProps) {
     const { isLoading: authLoading, isAuthenticated, user } = useKaryawanAuth()
     const { hasPermission } = usePermission()
     const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -162,6 +169,24 @@ export default function DashboardClient() {
                         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Selamat datang,</p>
                         <h2 className="text-2xl font-bold leading-tight text-[#111418] dark:text-white">{user?.name || 'Karyawan'}</h2>
                     </div>
+
+                    {/* Holiday Banner */}
+                    {holidayInfo && (
+                        <div className="px-4 pb-4">
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-start gap-3">
+                                <div className="p-2 bg-red-100 dark:bg-red-800 rounded-lg shrink-0">
+                                    <MdAssignment className="text-red-600 dark:text-red-200 text-xl" />
+                                </div>
+                                <div className='flex-1'>
+                                    <h3 className="font-bold text-red-700 dark:text-red-300 text-sm">Hari Libur</h3>
+                                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                                        Hari ini adalah <strong>{holidayInfo.description}</strong>.
+                                        {holidayInfo.isNational && " (Libur Nasional)"}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
 
                     {/* Push Notification Banner */}
