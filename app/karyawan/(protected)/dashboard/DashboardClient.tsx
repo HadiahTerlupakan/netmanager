@@ -312,13 +312,13 @@ export default function DashboardClient({ holidayInfo }: DashboardClientProps) {
                                 'k_barang:read'
                             )}
                             {renderQuickMenuItem(
-                                '/karyawan/barang/riwayat',
-                                <MdHistory className="text-2xl" />,
-                                'Riwayat',
-                                'Transaksi',
-                                'bg-purple-50 dark:bg-purple-900/20',
-                                'text-purple-600',
-                                'k_barang:read'
+                                '/karyawan/izin',
+                                <MdAssignment className="text-2xl" />,
+                                'Izin & Cuti',
+                                'Sakit, Cuti, dll',
+                                'bg-teal-50 dark:bg-teal-900/20',
+                                'text-teal-600',
+                                'k_absensi:read'
                             )}
                             {renderQuickMenuItem(
                                 '/karyawan/absensi',

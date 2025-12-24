@@ -131,6 +131,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'KEHADIRAN.ATTENDANCE', name: 'Data Absensi', path: '/admin/attendance', icon: 'HiOutlineClipboardDocumentList' },
             { code: 'KEHADIRAN.HOLIDAY', name: 'Hari Libur', path: '/admin/kehadiran/holidays', icon: 'HiOutlineCalendar' },
             { code: 'KEHADIRAN.LEMBUR', name: 'Manajemen Lembur', path: '/admin/lembur', icon: 'HiOutlineClock' },
+            { code: 'KEHADIRAN.IZIN', name: 'Izin & Cuti', path: '/admin/kehadiran/izin', icon: 'HiOutlineClipboardDocumentCheck' },
         ],
     },
     {

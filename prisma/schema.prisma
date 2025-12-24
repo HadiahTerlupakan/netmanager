@@ -58,6 +58,7 @@ model User {
   announcementsCreated  Announcement[]
   attendances           Attendance[]
   overtimes             Overtime[]
+  leaves                LeaveRequest[]
   
   // Working Hours Configuration
   workingHourMode       WorkingHourMode @default(FIXED)
@@ -2260,4 +2261,39 @@ model Holiday {
   isNational  Boolean  @default(true) // true = Libur Nasional, false = Cuti Bersama/Lainnya
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model LeaveRequest {
+  id            String        @id @default(cuid())
+  userId        String
+  type          LeaveType     // SAKIT, CUTI, IZIN, LAINNYA
+  startDate     DateTime
+  endDate       DateTime
+  reason        String
+  attachmentUrl String?       // Deprecated: used for single file
+  attachments   String[]      @default([]) // Array of URLs for medical notes etc.
+  status        LeaveStatus   @default(PENDING) // PENDING, APPROVED, REJECTED
+  approvedBy    String?       // ID of admin who approved
+  rejectionReason String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([status])
+  @@index([startDate])
+}
+
+enum LeaveType {
+  SAKIT
+  CUTI
+  IZIN
+  LAINNYA
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

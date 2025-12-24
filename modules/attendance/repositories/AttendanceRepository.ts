@@ -92,24 +92,69 @@ export class AttendanceRepository {
         })
         const holidaySet = new Set(holidays.map((h: { date: Date }) => h.date.toISOString().split('T')[0]))
 
-        // Group by Date (YYYY-MM-DD)
-        const dailyMap = new Map<string, { present: number, late: number, absent: number, isHoliday: boolean }>()
+        // Fetch Approved Leaves
+        const leaveWhere: Prisma.LeaveRequestWhereInput = {
+            status: 'APPROVED',
+            startDate: { lte: endDate },
+            endDate: { gte: startDate }
+        }
 
-        // Seed Map with Holidays (to ensure they appear even if 0 attendance)
-        holidaySet.forEach(date => {
-            dailyMap.set(date, { present: 0, late: 0, absent: 0, isHoliday: true })
+        if (siteId || departmentId) {
+            leaveWhere.user = {
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            }
+        }
+
+        const leaves = await prisma.leaveRequest.findMany({
+            where: leaveWhere,
+            select: {
+                startDate: true,
+                endDate: true,
+                type: true
+            }
         })
 
+        // Group by Date (YYYY-MM-DD)
+        const dailyMap = new Map<string, { present: number, late: number, absent: number, isHoliday: boolean, sakit: number, cuti: number, izin: number }>()
+
+        // Helper to ensure date entry exists
+        const ensureDate = (dateKey: string) => {
+            if (!dailyMap.has(dateKey)) {
+                dailyMap.set(dateKey, { present: 0, late: 0, absent: 0, isHoliday: holidaySet.has(dateKey), sakit: 0, cuti: 0, izin: 0 })
+            }
+            return dailyMap.get(dateKey)!
+        }
+
+        // Seed Map with Holidays (to ensure they appear even if 0 attendance)
+        holidaySet.forEach(date => ensureDate(date))
+
+        // Process Attendance
         records.forEach(rec => {
             const dateKey = rec.checkIn.toISOString().split('T')[0]
-            if (!dailyMap.has(dateKey)) {
-                dailyMap.set(dateKey, { present: 0, late: 0, absent: 0, isHoliday: holidaySet.has(dateKey) })
-            }
-            const stats = dailyMap.get(dateKey)!
+            const stats = ensureDate(dateKey)
 
             // Assuming 'ON_TIME', 'LATE', and 'PRESENT' are valid statuses for present
             if (rec.status === 'LATE') stats.late++
             if (rec.status === 'ON_TIME' || rec.status === 'LATE' || rec.status === 'PRESENT') stats.present++
+        })
+
+        // Process Leaves
+        leaves.forEach(leave => {
+            let current = new Date(leave.startDate)
+            const end = new Date(leave.endDate)
+
+            while (current <= end) {
+                if (current >= startDate && current <= endDate) {
+                    const dateKey = current.toISOString().split('T')[0]
+                    const stats = ensureDate(dateKey)
+
+                    if (leave.type === 'SAKIT') stats.sakit++
+                    else if (leave.type === 'CUTI') stats.cuti++
+                    else if (leave.type === 'IZIN') stats.izin++
+                }
+                current.setDate(current.getDate() + 1)
+            }
         })
 
         return Array.from(dailyMap.entries()).map(([date, stats]) => ({
