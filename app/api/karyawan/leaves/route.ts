@@ -58,7 +58,7 @@ export async function POST(request: Request) {
                             role: {
                                 permissions: {
                                     some: {
-                                        resource: 'attendance', // Assuming attendance permissions cover leaves or create new 'leave' resource
+                                        resource: { in: ['attendance', 'kehadiran'] },
                                         action: 'update'
                                     }
                                 }
