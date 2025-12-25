@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Anda belum melakukan check-in atau sudah check-out hari ini' }, { status: 400 })
         }
 
-        const formData = await request.formData()
+        const formData: any = await request.formData()
         const photo = formData.get('photo') as File
         const notes = formData.get('notes') as string
         const location = formData.get('location') as string

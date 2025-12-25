@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse form data
-    const formData = await request.formData()
+    const formData: any = await request.formData()
 
     // Extract photos (can be multiple)
     // FormData getAll method to get all files with the same name

@@ -41,7 +41,7 @@ export class OltSyncService {
         return new Promise((resolve) => {
             let resolved = false
             let session: any = null
-            let timeoutId: NodeJS.Timeout | null = null
+            let timeoutId: ReturnType<typeof setTimeout> | null = null
 
             const finish = (value: string | null) => {
                 if (resolved) return

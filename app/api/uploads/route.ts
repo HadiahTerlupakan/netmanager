@@ -8,7 +8,7 @@ const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'
 
 export async function POST(request: NextRequest) {
     try {
-        const formData = await request.formData()
+        const formData: any = await request.formData()
         const file = formData.get('file') as File | null
 
         if (!file) {

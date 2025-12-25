@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const formData = await req.formData()
+    const formData: any = await req.formData()
     const file = formData.get('file') as File
 
     if (!file) {

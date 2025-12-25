@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const formData = await req.formData()
+    const formData: any = await req.formData()
     const file = formData.get('file') as File | null
     const nameRaw = formData.get('name')
     const descriptionRaw = formData.get('description')

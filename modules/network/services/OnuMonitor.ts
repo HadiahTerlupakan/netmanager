@@ -11,7 +11,7 @@ const POLL_INTERVAL = 30 * 1000; // 30 seconds
 
 export class OnuMonitor {
     private io: SocketIOServer;
-    private interval: NodeJS.Timeout | null = null;
+    private interval: ReturnType<typeof setTimeout> | null = null;
     // Map socketId -> Set of MonitoredOnu unique strings "oltId:gponOnu"
     private trackingMap: Map<string, Set<string>> = new Map();
     // Cache helper to parse strings back to objects

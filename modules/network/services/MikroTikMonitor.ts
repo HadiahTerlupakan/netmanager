@@ -4,7 +4,7 @@ import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { type Server as SocketIOServer } from 'socket.io'
 
 class MikroTikMonitor {
-    private intervalId: NodeJS.Timeout | null = null
+    private intervalId: ReturnType<typeof setTimeout> | null = null
     private readonly CHECK_INTERVAL = 60000 * 5 // 5 minutes
     private io: SocketIOServer | null = null
 

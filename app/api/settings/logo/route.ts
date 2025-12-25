@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const formData = await req.formData()
+    const formData: any = await req.formData()
     const file = formData.get('file') as File
     const type = formData.get('type') as string
 

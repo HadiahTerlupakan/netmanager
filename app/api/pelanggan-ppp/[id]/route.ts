@@ -529,7 +529,7 @@ export async function PUT(
       )
     }
 
-    const formData = await req.formData()
+    const formData: any = await req.formData()
 
     // Extract form fields
     const idPelanggan = formData.get('idPelanggan') as string

@@ -73,7 +73,7 @@ async function testSNMP(
   return new Promise(async (resolve) => {
     let resolved = false
     let session: any = null
-    let timeoutId: NodeJS.Timeout | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
 
     const finish = (result: { success: boolean; message: string }) => {
       if (resolved) return

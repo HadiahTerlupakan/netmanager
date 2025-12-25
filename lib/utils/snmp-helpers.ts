@@ -47,7 +47,7 @@ export async function snmpGet(
   return new Promise((resolve) => {
     let resolved = false
     let session: any = null
-    let timeoutId: NodeJS.Timeout | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
 
     const finish = (value: string | null) => {
       if (resolved) return
@@ -194,7 +194,7 @@ export async function snmpTable(
   return new Promise((resolve) => {
     let resolved = false
     let session: any = null
-    let timeoutId: NodeJS.Timeout | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
     const results: Record<string, string> = {}
     
     // Map untuk menyimpan base OID untuk setiap kolom (untuk extract index)
@@ -619,7 +619,7 @@ export async function snmpWalkWithGetNext(
   return new Promise((resolve, reject) => {
     let resolved = false
     let session: any = null
-    let timeoutId: NodeJS.Timeout | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
     const results: Array<{ oid: string; value: any; type?: number }> = []
     let currentOid: string | null = null
     let isEndOfMibView = false
@@ -846,9 +846,9 @@ export async function snmpWalk(
   return new Promise((resolve, reject) => {
     let resolved = false
     let session: any = null
-    let timeoutId: NodeJS.Timeout | null = null
-    let stableCheckTimeout: NodeJS.Timeout | null = null
-    let batchProcessingTimeout: NodeJS.Timeout | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let stableCheckTimeout: ReturnType<typeof setTimeout> | null = null
+    let batchProcessingTimeout: ReturnType<typeof setTimeout> | null = null
     const results: Array<{ oid: string; value: any; type?: number }> = []
     let isClosing = false
     let lastResultCount = 0
@@ -1446,7 +1446,7 @@ async function snmpGetBulk(
   return new Promise((resolve, reject) => {
     let resolved = false
     let session: any = null
-    let timeoutId: NodeJS.Timeout | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
     const results: Record<string, string> = {}
     let currentOid: string = oid
     // OPTIMASI: Meningkatkan maxRepetitions untuk mengambil lebih banyak data per request (seperti snmpbulkget -Cr)

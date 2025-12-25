@@ -7,7 +7,7 @@ const POLL_INTERVAL = 30 * 1000; // 30 seconds
 
 export class RadiusMonitor {
     private io: SocketIOServer;
-    private interval: NodeJS.Timeout | null = null;
+    private interval: ReturnType<typeof setTimeout> | null = null;
     private repository: RadiusRepository;
 
     constructor(io: SocketIOServer) {

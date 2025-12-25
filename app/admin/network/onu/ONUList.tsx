@@ -135,7 +135,7 @@ export default function AllOnuPage() {
     port: useRef<HTMLDivElement>(null),
     type: useRef<HTMLDivElement>(null),
   }
-  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchRef = useRef(search)
   const selectedCardRef = useRef(selectedCard)
   const selectedPortRef = useRef(selectedPort)

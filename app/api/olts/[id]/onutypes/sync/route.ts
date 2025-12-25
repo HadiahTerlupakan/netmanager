@@ -98,7 +98,7 @@ async function executeTelnetCommand(
     }
 
     await connection.end()
-    
+
     // Clean output: remove command echo dan prompt
     let cleanedOutput = outputBuffer
       .replace(new RegExp(`^.*${command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*$`, 'm'), '')
@@ -143,15 +143,15 @@ function parseOnuTypeOutput(output: string): Array<{
 }> {
   const types: Array<any> = []
   const lines = output.split('\n')
-  
+
   let currentType: any = null
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
-    
+
     // Skip empty lines
     if (!line) continue
-    
+
     // Deteksi awal ONU type baru
     // Format: "ONU type name:          ALL"
     const nameMatch = line.match(/ONU type name:\s+(.+)/i)
@@ -160,14 +160,14 @@ function parseOnuTypeOutput(output: string): Array<{
       if (currentType && currentType.name) {
         types.push(currentType)
       }
-      
+
       // Mulai type baru
       currentType = {
         name: nameMatch[1].trim(),
       }
       continue
     }
-    
+
     // Parse field lainnya
     if (currentType) {
       // PON type
@@ -176,126 +176,126 @@ function parseOnuTypeOutput(output: string): Array<{
         currentType.ponType = ponTypeMatch[1].trim()
         continue
       }
-      
+
       // Description
       const descMatch = line.match(/Description:\s+(.+)/i)
       if (descMatch) {
         currentType.description = descMatch[1].trim() || undefined
         continue
       }
-      
+
       // Max T-CONT
       const maxTcontMatch = line.match(/Max T-CONT:\s+(\d+)/i)
       if (maxTcontMatch) {
         currentType.maxTcont = parseInt(maxTcontMatch[1])
         continue
       }
-      
+
       // Max GEM port
       const maxGemPortMatch = line.match(/Max GEM port:\s+(\d+)/i)
       if (maxGemPortMatch) {
         currentType.maxGemPort = parseInt(maxGemPortMatch[1])
         continue
       }
-      
+
       // Max switch per slot
       const maxSwitchMatch = line.match(/Max switch per slot:\s+(\d+)/i)
       if (maxSwitchMatch) {
         currentType.maxSwitchPerSlot = parseInt(maxSwitchMatch[1])
         continue
       }
-      
+
       // Max flow per switch
       const maxFlowMatch = line.match(/Max flow per switch:\s+(\d+)/i)
       if (maxFlowMatch) {
         currentType.maxFlowPerSwitch = parseInt(maxFlowMatch[1])
         continue
       }
-      
+
       // Max IP host
       const maxIpHostMatch = line.match(/Max IP host:\s+(\d+)/i)
       if (maxIpHostMatch) {
         currentType.maxIpHost = parseInt(maxIpHostMatch[1])
         continue
       }
-      
+
       // Max IPv6 host
       const maxIpv6HostMatch = line.match(/Max IPv6 host:\s+(\d+)/i)
       if (maxIpv6HostMatch) {
         currentType.maxIpv6Host = parseInt(maxIpv6HostMatch[1])
         continue
       }
-      
+
       // Service ability N:1
       const serviceN1Match = line.match(/Service ability N:1:\s+(.+)/i)
       if (serviceN1Match) {
         currentType.serviceAbilityN1 = serviceN1Match[1].trim()
         continue
       }
-      
+
       // Service ability 1:M
       const service1MMatch = line.match(/Service ability 1:M:\s+(.+)/i)
       if (service1MMatch) {
         currentType.serviceAbility1M = service1MMatch[1].trim()
         continue
       }
-      
+
       // Service ability 1:P
       const service1PMatch = line.match(/Service ability 1:P:\s+(.+)/i)
       if (service1PMatch) {
         currentType.serviceAbility1P = service1PMatch[1].trim()
         continue
       }
-      
+
       // WIFI mgmt via non OMCI
       const wifiMgmtMatch = line.match(/WIFI mgmt via non OMCI:\s+(.+)/i)
       if (wifiMgmtMatch) {
         currentType.wifiMgmtViaNonOmci = wifiMgmtMatch[1].trim()
         continue
       }
-      
+
       // OMCI send mode
       const omciSendModeMatch = line.match(/OMCI send mode:\s+(.+)/i)
       if (omciSendModeMatch) {
         currentType.omciSendMode = omciSendModeMatch[1].trim()
         continue
       }
-      
+
       // Default multicast range
       const multicastRangeMatch = line.match(/Default multicast range:\s+(.+)/i)
       if (multicastRangeMatch) {
         currentType.defaultMulticastRange = multicastRangeMatch[1].trim()
         continue
       }
-      
+
       // VRG
       const vrgMatch = line.match(/VRG:\s+(.+)/i)
       if (vrgMatch) {
         currentType.vrg = vrgMatch[1].trim()
         continue
       }
-      
+
       // MGC configure mode
       const mgcModeMatch = line.match(/MGC configure mode:\s+(.+)/i)
       if (mgcModeMatch) {
         currentType.mgcConfigureMode = mgcModeMatch[1].trim()
         continue
       }
-      
+
       // Max VEIP
       const maxVeipMatch = line.match(/Max VEIP:\s+(\d+)/i)
       if (maxVeipMatch) {
         currentType.maxVeip = parseInt(maxVeipMatch[1])
         continue
       }
-      
+
       // Extended OMCI
       const extendedOmciMatch = line.match(/Extended OMCI:\s+(.+)/i)
       if (extendedOmciMatch) {
         currentType.extendedOmci = extendedOmciMatch[1].trim()
         continue
       }
-      
+
       // Location
       const locationMatch = line.match(/Location:\s+(.+)/i)
       if (locationMatch) {
@@ -304,12 +304,12 @@ function parseOnuTypeOutput(output: string): Array<{
       }
     }
   }
-  
+
   // Simpan type terakhir jika ada
   if (currentType && currentType.name) {
     types.push(currentType)
   }
-  
+
   return types
 }
 
@@ -323,7 +323,7 @@ function parseOnuTypeInfo(typeName: string): { ethernetPorts: number; wifi: numb
 
   // Parse berdasarkan nama type yang umum
   const upperType = typeName.toUpperCase()
-  
+
   // ZTE F660 - biasanya 4 Ethernet, 1 WiFi, 2 VoIP
   if (upperType.includes('F660')) {
     ethernetPorts = 4
@@ -389,13 +389,13 @@ function decodeCompositeIndex(index: number): { type: number; shelf: number; slo
   try {
     // Convert ke hex
     const hex = index.toString(16).padStart(8, '0')
-    
+
     // Parse bytes
     const type = parseInt(hex.substring(0, 1), 16)
     const shelf = parseInt(hex.substring(1, 2), 16)
     const slot = parseInt(hex.substring(2, 4), 16)
     const port = parseInt(hex.substring(4, 6), 16)
-    
+
     return { type, shelf, slot, port }
   } catch (error) {
     return null
@@ -414,8 +414,8 @@ async function snmpWalk(
   return new Promise((resolve, reject) => {
     let resolved = false
     let session: any = null
-    let timeoutId: NodeJS.Timeout | null = null
-    let stableCheckTimeout: NodeJS.Timeout | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let stableCheckTimeout: ReturnType<typeof setTimeout> | null = null
     const results: Array<{ oid: string; value: any; type?: number }> = []
     let isClosing = false
     let lastResultCount = 0
@@ -424,19 +424,19 @@ async function snmpWalk(
     const finish = (error?: any) => {
       if (resolved) return
       resolved = true
-      
+
       if (timeoutId) {
         clearTimeout(timeoutId)
         timeoutId = null
       }
-      
+
       if (stableCheckTimeout) {
         clearTimeout(stableCheckTimeout)
         stableCheckTimeout = null
       }
-      
+
       isClosing = true
-      
+
       if (session) {
         try {
           setTimeout(() => {
@@ -453,7 +453,7 @@ async function snmpWalk(
         }
         session = null
       }
-      
+
       if (error) {
         // Jika ada error tapi sudah ada results, return results saja
         if (results.length > 0) {
@@ -514,7 +514,7 @@ async function snmpWalk(
       // Check untuk stabilitas results (jika tidak ada perubahan selama 3 detik, anggap selesai)
       const checkStability = () => {
         if (resolved || isClosing) return
-        
+
         if (results.length === lastResultCount) {
           stableCount++
           if (stableCount >= 3) {
@@ -527,7 +527,7 @@ async function snmpWalk(
           stableCount = 0
           lastResultCount = results.length
         }
-        
+
         // Check lagi setelah 1 detik
         if (!resolved && !isClosing) {
           setTimeout(checkStability, 1000)
@@ -553,15 +553,15 @@ async function snmpWalk(
           } catch (e) {
             errorMsg = String(error)
           }
-          
+
           // Filter out known harmless errors dari net-snmp library
           if (errorMsg.includes('req.doneCb') || errorMsg.includes('doneCb is not a function')) {
             // Ini adalah bug internal dari net-snmp, ignore
             return
           }
-          
+
           console.warn(`[ONU-Type-SNMP] SNMP walk callback error: ${errorMsg}, current results: ${results.length}`)
-          
+
           // Jika error tapi sudah ada results, jangan langsung finish
           if (results.length > 0) {
             console.log(`[ONU-Type-SNMP] SNMP walk error but have ${results.length} results, waiting 5 seconds for more data...`)
@@ -637,7 +637,7 @@ async function snmpWalk(
 
       const oidString = String(oid).trim()
       console.log(`[ONU-Type-SNMP] Starting SNMP walk for OID: ${oidString}`)
-      
+
       // Wrap callback untuk menangani error dengan lebih baik
       const wrappedCallback = (error: any, varbinds: any[]) => {
         try {
@@ -655,7 +655,7 @@ async function snmpWalk(
           }
         }
       }
-      
+
       try {
         session.subtree(oidString, wrappedCallback)
       } catch (subtreeError: any) {
@@ -663,7 +663,7 @@ async function snmpWalk(
         finish(subtreeError)
         return
       }
-      
+
       // Start stability check
       setTimeout(checkStability, 2000) // Mulai check setelah 2 detik
     } catch (error: any) {
@@ -686,9 +686,9 @@ async function syncOnuTypeFromSNMP(
 ): Promise<Array<{ name: string; count: number }>> {
   try {
     console.log(`[ONU-Type-SNMP] Fetching ONU types from OLT via SNMP...`)
-    
+
     const typeMap = new Map<string, number>()
-    
+
     // Coba OID 1: ONU Type dari ONU yang terdaftar (.1.3.6.1.4.1.3902.1012.3.28.2.1.8)
     // OID ini biasanya tidak tersedia, jadi kita skip dulu dan langsung ke OID 2
     // try {
@@ -706,7 +706,7 @@ async function syncOnuTypeFromSNMP(
     // } catch (error: any) {
     //   console.warn(`[ONU-Type-SNMP] OID ${SNMP_ONU_TYPE_OIDS.onuType} failed: ${error.message}`)
     // }
-    
+
     // Coba OID 2: zxGponOntDevMgmtTypeName (.1.3.6.1.4.1.3902.1012.3.28.1.1.1)
     // Format OID: .1.3.6.1.4.1.3902.1012.3.28.1.1.1.{composite_index}.{onu_id}
     // Composite index: 268632320 = 0x10030100 = Type=1, Shelf=0, Slot=3, Port=1
@@ -716,7 +716,7 @@ async function syncOnuTypeFromSNMP(
       console.log(`[ONU-Type-SNMP] Trying OID: ${SNMP_ONU_TYPE_OIDS.onuDevMgmtTypeName}`)
       const devMgmtResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_TYPE_OIDS.onuDevMgmtTypeName, 90000)
       console.log(`[ONU-Type-SNMP] Found ${devMgmtResults.length} entries from OID ${SNMP_ONU_TYPE_OIDS.onuDevMgmtTypeName}`)
-      
+
       for (const result of devMgmtResults) {
         const typeName = result.value?.toString()?.trim()
         // Filter out "ALL" karena itu bukan ONU Type spesifik
@@ -725,26 +725,26 @@ async function syncOnuTypeFromSNMP(
           typeMap.set(typeName, count + 1)
         }
       }
-      
+
       if (typeMap.size > 0) {
         console.log(`[ONU-Type-SNMP] Successfully extracted ${typeMap.size} unique ONU types from zxGponOntDevMgmtTypeName`)
       }
     } catch (error: any) {
       console.warn(`[ONU-Type-SNMP] OID ${SNMP_ONU_TYPE_OIDS.onuDevMgmtTypeName} failed: ${error.message}`)
     }
-    
+
     // Coba OID 3: zxGponOntDevMgmtTable base (walk seluruh tabel)
     if (typeMap.size === 0) {
       try {
         console.log(`[ONU-Type-SNMP] Trying OID: ${SNMP_ONU_TYPE_OIDS.onuDevMgmtTable}`)
         const tableResults = await snmpWalk(ipAddress, port, community, version, SNMP_ONU_TYPE_OIDS.onuDevMgmtTable, 90000)
         console.log(`[ONU-Type-SNMP] Found ${tableResults.length} entries from OID ${SNMP_ONU_TYPE_OIDS.onuDevMgmtTable}`)
-        
+
         // Parse hasil dari tabel - cari yang mengandung type name
         for (const result of tableResults) {
           const oid = result.oid
           const value = result.value?.toString()?.trim()
-          
+
           // Cek apakah ini adalah type name field (biasanya di akhir OID ada .1.1.1 atau similar)
           if (value && value.length > 0 && value !== '0' && value !== '') {
             // Cek apakah OID mengandung pattern untuk type name
@@ -768,24 +768,24 @@ async function syncOnuTypeFromSNMP(
         console.warn(`[ONU-Type-SNMP] OID ${SNMP_ONU_TYPE_OIDS.onuDevMgmtTable} failed: ${error.message}`)
       }
     }
-    
+
     const onuTypes: Array<{ name: string; count: number }> = []
     for (const [name, count] of typeMap.entries()) {
       onuTypes.push({ name, count })
     }
-    
+
     console.log(`[ONU-Type-SNMP] Found ${onuTypes.length} unique ONU types:`, onuTypes.map(t => t.name).join(', '))
-    
+
     // Jika tidak ada hasil dari SNMP walk, coba ambil dari database (ONU yang sudah terdaftar)
     if (onuTypes.length === 0) {
       console.log(`[ONU-Type-SNMP] No ONU types from SNMP walk, trying database...`)
-      
+
       try {
         const onuRepository = getOnuRepository()
         const registeredOnus = await onuRepository.findByOltId(oltId)
-        
+
         console.log(`[ONU-Type-SNMP] Found ${registeredOnus.length} registered ONUs in database`)
-        
+
         // Group ONU Type berdasarkan actualType dari ONU yang terdaftar
         for (const onu of registeredOnus) {
           if (onu.actualType && onu.actualType.trim() && onu.actualType !== '0' && onu.actualType !== '') {
@@ -794,13 +794,13 @@ async function syncOnuTypeFromSNMP(
             typeMap.set(typeName, count + 1)
           }
         }
-        
+
         // Update onuTypes dari typeMap
         onuTypes.length = 0
         for (const [name, count] of typeMap.entries()) {
           onuTypes.push({ name, count })
         }
-        
+
         if (onuTypes.length > 0) {
           console.log(`[ONU-Type-SNMP] Found ${onuTypes.length} unique ONU types from database:`, onuTypes.map(t => t.name).join(', '))
         }
@@ -808,7 +808,7 @@ async function syncOnuTypeFromSNMP(
         console.warn(`[ONU-Type-SNMP] Database lookup failed: ${dbError.message}`)
       }
     }
-    
+
     if (onuTypes.length === 0) {
       console.warn(`[ONU-Type-SNMP] No ONU types found. This might mean:`)
       console.warn(`  - No ONUs are registered on the OLT`)
@@ -816,7 +816,7 @@ async function syncOnuTypeFromSNMP(
       console.warn(`  - Try using Telnet sync instead for configured ONU types`)
       console.warn(`  - Or sync ONUs first to populate the database`)
     }
-    
+
     return onuTypes
   } catch (error: any) {
     console.error(`[ONU-Type-SNMP] Error fetching ONU types via SNMP:`, error)
@@ -836,7 +836,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!olt) {
     return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
   }
-// Cek method sync dari query parameter
+  // Cek method sync dari query parameter
   const { searchParams } = new URL(req.url)
   const syncMethod = searchParams.get('method') || 'telnet' // default: telnet
 

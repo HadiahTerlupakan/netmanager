@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireAuth(req)
 
-    const formData = await req.formData()
+    const formData: any = await req.formData()
 
     // Extract form fields
     const idPelanggan = formData.get('idPelanggan') as string

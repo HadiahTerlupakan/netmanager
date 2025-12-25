@@ -35,7 +35,7 @@ export function Combobox({
     const [query, setQuery] = useState('')
     const containerRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
-    const debounceTimeout = useRef<NodeJS.Timeout | null>(null)
+    const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     // Close when clicking outside
     useEffect(() => {
