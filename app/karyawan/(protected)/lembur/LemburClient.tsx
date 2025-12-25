@@ -298,7 +298,19 @@ export default function LemburPage({ holidayInfo }: LemburPageProps) {
 
     // --- Action Handlers ---
     const handleAction = async () => {
-        if (!photo || !todayRequest || !activeAction) return
+        // Check for missing data with explicit errors for debugging
+        if (!photo) {
+            toast.error("Error: Foto tidak ditemukan")
+            return
+        }
+        if (!todayRequest) {
+            toast.error("Error: Data pengajuan lembur tidak ditemukan (State hilang)")
+            return
+        }
+        if (!activeAction) {
+            toast.error("Error: Aksi tidak valid")
+            return
+        }
 
         setLoading(true)
         const toastId = toast.loading('Memproses data...')
