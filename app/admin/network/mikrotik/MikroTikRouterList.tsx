@@ -219,7 +219,7 @@ export default function MikroTikRouterList() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto relative min-h-[200px]">
+        <div className={`overflow-x-auto relative ${data.routers.length === 0 ? 'min-h-[200px]' : ''}`}>
           {loading && (
             <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center z-10">
               <PageLoader />

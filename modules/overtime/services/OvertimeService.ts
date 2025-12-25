@@ -2,12 +2,15 @@ import { OvertimeRepository } from '../repositories/OvertimeRepository'
 import { OvertimeStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { createNotification } from '../../notification/services/NotificationService'
+import { HolidayRepository } from '../../attendance/repositories/HolidayRepository'
 
 export class OvertimeService {
     private repository: OvertimeRepository
+    private holidayRepository: HolidayRepository
 
     constructor() {
         this.repository = new OvertimeRepository()
+        this.holidayRepository = new HolidayRepository()
     }
 
     // 1. Create Request - Bisa kapan saja selama hari itu (tidak perlu absen dulu)
@@ -89,8 +92,6 @@ export class OvertimeService {
 
         return request
     }
-
-    // 2. Start Overtime (Wajib sudah APPROVED dan sudah CHECKOUT)
     async startOvertime(userId: string, overtimeId: string, data: { photo: string, location?: string }) {
         const overtime = await this.repository.findById(overtimeId)
 
@@ -100,6 +101,10 @@ export class OvertimeService {
         if (overtime.status !== OvertimeStatus.APPROVED) {
             throw new Error('Pengajuan lembur belum disetujui atau status tidak valid.')
         }
+
+        // Cek apakah hari ini libur
+        const today = new Date()
+        const { isHoliday } = await this.holidayRepository.isHoliday(today)
 
         // Cari attendance hari ini yang sudah checkout
         const startOfDay = new Date()
@@ -121,7 +126,9 @@ export class OvertimeService {
             }
         })
 
-        if (!attendance) {
+        // VALIDASI:
+        // Jika BUKAN hari libur, dan TIDAK ADA attendance yg checkout -> error
+        if (!isHoliday && !attendance) {
             throw new Error('Anda harus melakukan Checkout absen reguler terlebih dahulu sebelum memulai lembur.')
         }
 
@@ -130,7 +137,8 @@ export class OvertimeService {
             startTime: new Date(),
             startPhoto: data.photo,
             startLocation: data.location,
-            attendance: { connect: { id: attendance.id } } // Link to attendance saat start
+            // Connect attendance hanya jika ada (hari kerja biasa)
+            attendance: attendance ? { connect: { id: attendance.id } } : undefined
         })
     }
 
