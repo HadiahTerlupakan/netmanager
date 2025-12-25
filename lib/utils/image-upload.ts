@@ -15,17 +15,47 @@ export type UploadType = 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inv
  * @param subFolder Sub folder (optional, e.g., idPelanggan)
  * @returns URL file yang disimpan
  */
+// Helper to create SVG text for watermark
+function createWatermarkSvg(width: number, height: number, lines: string[]): Buffer {
+  const fontSize = Math.floor(width * 0.03); // 3% of width
+  const lineHeight = fontSize * 1.5;
+  const padding = fontSize;
+  const textHeight = lines.length * lineHeight;
+  const bgHeight = textHeight + (padding * 2);
+
+  const svgText = lines.map((line, i) =>
+    `<text x="10" y="${35 + (i * lineHeight)}" font-family="Arial" font-size="${fontSize}" fill="white" font-weight="bold" style="text-shadow: 1px 1px 2px black;">${line}</text>`
+  ).join('\n');
+
+  const svg = `
+    <svg width="${width}" height="${height}">
+      <style>
+        .text { fill: white; font-family: sans-serif; font-weight: bold; }
+        .bg { fill: black; opacity: 0.5; }
+      </style>
+      <!-- Bottom Left Background -->
+      <rect x="0" y="${height - bgHeight}" width="${width * 0.6}" height="${bgHeight}" class="bg" />
+      <!-- Text -->
+      <g transform="translate(${padding}, ${height - bgHeight - padding / 2})">
+         ${svgText}
+      </g>
+    </svg>
+  `;
+  return Buffer.from(svg);
+}
+
 export async function convertAndSaveImage(
   file: File,
   uploadDir: string,
   fileName: string,
   uploadType?: UploadType,
-  subFolder?: string
+  subFolder?: string,
+  watermarkLines?: string[] // New optional parameter
 ): Promise<string> {
   try {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    return await processAndSaveBuffer(buffer, uploadDir, fileName, uploadType, subFolder)
+    return await processAndSaveBuffer(buffer, uploadDir, fileName, uploadType, subFolder, watermarkLines)
   } catch (error: any) {
     console.error('Error converting image to WebP:', error)
     throw new Error(`Gagal mengkonversi gambar: ${error.message}`)
@@ -40,13 +70,14 @@ export async function convertAndSaveBase64(
   uploadDir: string,
   fileName: string,
   uploadType?: UploadType,
-  subFolder?: string
+  subFolder?: string,
+  watermarkLines?: string[]
 ): Promise<string> {
   try {
     // Remove data:image/jpeg;base64, prefix if present
     const cleanBase64 = base64String.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(cleanBase64, 'base64')
-    return await processAndSaveBuffer(buffer, uploadDir, fileName, uploadType, subFolder)
+    return await processAndSaveBuffer(buffer, uploadDir, fileName, uploadType, subFolder, watermarkLines)
   } catch (error: any) {
     console.error('Error converting base64 to WebP:', error)
     throw new Error(`Gagal mengkonversi base64: ${error.message}`)
@@ -58,10 +89,25 @@ async function processAndSaveBuffer(
   uploadDir: string,
   fileName: string,
   uploadType?: UploadType,
-  subFolder?: string
+  subFolder?: string,
+  watermarkLines?: string[]
 ): Promise<string> {
-  // Konversi ke WebP dengan optimasi
-  const webpBuffer = await sharp(buffer)
+  // 1. Initialize Sharp
+  let imagePipeline = sharp(buffer);
+
+  // 2. Add Watermark if requested
+  if (watermarkLines && watermarkLines.length > 0) {
+    const metadata = await imagePipeline.metadata();
+    if (metadata.width && metadata.height) {
+      const svgWatermark = createWatermarkSvg(metadata.width, metadata.height, watermarkLines);
+      imagePipeline = imagePipeline.composite([
+        { input: svgWatermark, gravity: 'southwest' }
+      ]);
+    }
+  }
+
+  // 3. Convert to WebP
+  const webpBuffer = await imagePipeline
     .webp({ quality: 85, effort: 6 })
     .toBuffer()
 

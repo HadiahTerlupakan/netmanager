@@ -133,6 +133,7 @@ export interface WorkOrderFilters {
     scheduledDateFrom?: Date;
     scheduledDateTo?: Date;
     unassignedOnly?: boolean;
+    involvedUserId?: string;
 }
 
 export interface WorkOrderStatistics {

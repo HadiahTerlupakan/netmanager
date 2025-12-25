@@ -69,6 +69,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         nama: true,
                         email: true,
                         noTelp: true,
+                        alamat: true,
                     },
                 },
                 site: {
@@ -139,6 +140,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         nama: true,
                         email: true,
                         noTelp: true,
+                        alamat: true,
                     },
                 },
                 department: {
@@ -212,12 +214,60 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             where.departmentId = filters.departmentId;
         }
 
-        if (filters?.assignedToId !== undefined) {
-            where.assignedToId = filters.assignedToId;
-        }
-
         if (filters?.unassignedOnly) {
             where.assignedToId = null;
+        }
+
+        if (filters?.involvedUserId) {
+            // Filter for assignments that are NOT rejected (PENDING or APPROVED)
+            const userFilter = {
+                OR: [
+                    { assignedToId: filters.involvedUserId },
+                    {
+                        assignments: {
+                            some: {
+                                userId: filters.involvedUserId,
+                                status: { not: 'REJECTED' } // Exclude rejected assignments
+                            }
+                        }
+                    }
+                ]
+            };
+
+            if (where.OR) {
+                // If there's already an OR (e.g. from search), we need to wrap everything in AND
+                where.AND = [
+                    ...(where.AND || []),
+                    { OR: where.OR },
+                    userFilter
+                ];
+                delete where.OR;
+            } else {
+                // Just merge into where, but since OR is top level, effectively we are doing implicit AND with other fields
+                // Wait, if I set where.OR = userFilter.OR, it conflicts with future ORs?
+                // Actually, if search comes later, it might overwrite.
+                // Safest to add to AND array if we anticipate multiple complex conditions.
+                // But for now, let's just push to AND if OR exists, otherwise set OR.
+                // However, search logic is below.
+                // Let's defer applying involvedUserId until after search check or integrate it carefully.
+                // A better pattern for Prisma is to build an array of conditions and assign to AND at the end if > 1.
+
+                // Let's follow the existing pattern:
+                where.OR = [
+                    { assignedToId: filters.involvedUserId },
+                    {
+                        assignments: {
+                            some: {
+                                userId: filters.involvedUserId,
+                                status: { not: 'REJECTED' } // Exclude rejected assignments  
+                            }
+                        }
+                    }
+                ];
+            }
+        } else if (filters?.assignedToId !== undefined) {
+            // Only apply specific assignedToId if involvedUserId isn't set (priority)
+            where.assignedToId = filters.assignedToId;
         }
 
         if (filters?.pelangganId) {
@@ -225,11 +275,24 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         if (filters?.search) {
-            where.OR = [
-                { workOrderNumber: { contains: filters.search, mode: 'insensitive' } },
-                { title: { contains: filters.search, mode: 'insensitive' } },
-                { description: { contains: filters.search, mode: 'insensitive' } },
-            ];
+            const searchFilter = {
+                OR: [
+                    { workOrderNumber: { contains: filters.search, mode: 'insensitive' } },
+                    { title: { contains: filters.search, mode: 'insensitive' } },
+                    { description: { contains: filters.search, mode: 'insensitive' } },
+                ]
+            };
+
+            if (where.OR) {
+                // involvedUserId already set an OR
+                where.AND = [
+                    { OR: where.OR },
+                    searchFilter // This has its own OR
+                ];
+                delete where.OR;
+            } else {
+                where.OR = searchFilter.OR;
+            }
         }
 
         if (filters?.dateFrom || filters?.dateTo) {

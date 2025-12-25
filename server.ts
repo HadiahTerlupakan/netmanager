@@ -9,7 +9,7 @@ import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
 import { stopOnuMonitoring } from './modules/network/services/OnuMonitor'
 
 const dev = process.env.NODE_ENV !== 'production'
-const hostname = process.env.HOSTNAME || 'localhost'
+const hostname = process.env.HOSTNAME || '0.0.0.0'
 const port = parseInt(process.env.PORT || '3000', 10)
 
 const app = next({ dev, hostname, port })
