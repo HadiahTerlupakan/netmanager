@@ -12,6 +12,7 @@ interface BarangKeluar {
   kondisi: 'BARU' | 'BEKAS' | 'RUSAK'
   isHilang?: boolean
   keterangan: string | null
+  tujuanPenggunaan?: string | null
   tanggal: string
   createdAt: string
   employeeId?: string | null
@@ -154,7 +155,7 @@ export function KeluarTable({
                 Kondisi
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Keterangan
+                Tujuan / Keterangan
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Diambil Oleh
@@ -232,12 +233,17 @@ export function KeluarTable({
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 dark:text-white">
-                      {keluar.keterangan || '-'}
-                      {keluar.purpose && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          <FiFileText className="mr-1 inline" /> {keluar.purpose}
+                      {keluar.tujuanPenggunaan && (
+                        <div className="font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+                          <FiFileText className="mr-1 inline" /> {keluar.tujuanPenggunaan}
                         </div>
                       )}
+                      {keluar.keterangan && (
+                        <div className="text-gray-500 dark:text-gray-400">
+                          {keluar.keterangan}
+                        </div>
+                      )}
+                      {!keluar.tujuanPenggunaan && !keluar.keterangan && '-'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

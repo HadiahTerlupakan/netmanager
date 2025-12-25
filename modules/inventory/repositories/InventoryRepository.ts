@@ -283,6 +283,7 @@ export class InventoryRepository implements IInventoryRepository {
                     jumlah: data.jumlah,
                     kondisi: data.kondisi || 'BARU',
                     keterangan: data.keterangan,
+                    tujuanPenggunaan: data.tujuanPenggunaan,
                     isHilang: data.isHilang || false,
                     userId: data.userId,
                     tanggal: data.tanggal,

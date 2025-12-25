@@ -307,6 +307,7 @@ export async function POST(req: NextRequest) {
       jumlah,
       kondisi,
       isHilang,
+      tujuanPenggunaan,
       keterangan,
       fotoBukti,
       fotoMetadata
@@ -368,6 +369,7 @@ export async function POST(req: NextRequest) {
         gudangId,
         jumlah,
         kondisi: kondisi || 'BARU',
+        tujuanPenggunaan,
         keterangan,
         isHilang: isHilang || false,
         userId: finalEmployeeId,
@@ -419,6 +421,7 @@ export async function POST(req: NextRequest) {
       const { socketEmitter } = await import('@/lib/websocket/emitter');
       socketEmitter.inventoryUpdate({
         type: 'keluar',
+        userId: finalEmployeeId,
         barangId,
         gudangId,
         jumlah: jumlah,

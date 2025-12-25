@@ -24,6 +24,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
     jumlah: '',
     kondisi: 'BARU' as 'BARU' | 'BEKAS' | 'RUSAK',
     isHilang: false, // Checkbox for lost items
+    tujuanPenggunaan: '',
     keterangan: '',
     tanggal: new Date().toISOString().split('T')[0]
   })
@@ -66,6 +67,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
             jumlah: initialData.jumlah?.toString() || '',
             kondisi: initialData.kondisi || 'BARU',
             isHilang: initialData.isHilang || false,
+            tujuanPenggunaan: initialData.tujuanPenggunaan || '',
             keterangan: initialData.keterangan || '',
             tanggal: initialData.tanggal ? new Date(initialData.tanggal).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
           })
@@ -173,6 +175,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
             jumlah: '',
             kondisi: 'BARU',
             isHilang: false,
+            tujuanPenggunaan: '',
             keterangan: '',
             tanggal: new Date().toISOString().split('T')[0],
           })
@@ -260,6 +263,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
         jumlah: parseInt(formData.jumlah),
         kondisi: formData.kondisi,
         isHilang: formData.isHilang || false,
+        tujuanPenggunaan: formData.tujuanPenggunaan || null,
         keterangan: formData.keterangan || null,
         tanggal: formData.tanggal || new Date().toISOString(),
         fotoBukti: fotoBuktiUrls,
@@ -636,6 +640,21 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
 
 
       <div>
+        <label htmlFor="tujuanPenggunaan" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Tujuan Penggunaan
+        </label>
+        <input
+          type="text"
+          id="tujuanPenggunaan"
+          value={formData.tujuanPenggunaan}
+          onChange={(e) => setFormData({ ...formData, tujuanPenggunaan: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          placeholder="Contoh: Instalasi pelanggan, maintenance, dll"
+          disabled={loading}
+        />
+      </div>
+
+      <div>
         <label htmlFor="keterangan" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Keterangan
         </label>
@@ -645,7 +664,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
           onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
           rows={3}
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          placeholder="Contoh: Untuk pelanggan Pak Budi"
+          placeholder="Catatan tambahan (opsional)"
           disabled={loading}
         />
       </div>

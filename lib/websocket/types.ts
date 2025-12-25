@@ -111,6 +111,16 @@ export interface WorkOrderActivityPayload {
     }
 }
 
+// Inventory update payload for real-time stats
+export interface InventoryUpdatePayload {
+    type: 'masuk' | 'keluar'
+    userId: string
+    barangId?: string
+    barangName?: string
+    jumlah?: number
+    gudangId?: string
+}
+
 // Count payload
 export interface CountPayload {
     count: number

@@ -346,6 +346,7 @@ export async function POST(req: NextRequest) {
       const { socketEmitter } = await import('@/lib/websocket/emitter');
       socketEmitter.inventoryUpdate({
         type: 'masuk',
+        userId: session.user.id,
         barangId,
         gudangId,
         jumlah: parsedJumlah,

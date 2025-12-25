@@ -234,14 +234,28 @@ export const socketEmitter = {
     },
 
     /**
-     * Emit inventory update event (broadcast to all admins)
+     * Emit inventory update event (broadcast to admin and user)
      */
-    inventoryUpdate(data: { type: 'masuk' | 'keluar', barangId: string, gudangId: string, jumlah: number, totalStok: number }) {
+    inventoryUpdate(data: { 
+        type: 'masuk' | 'keluar', 
+        userId: string,
+        barangId?: string, 
+        gudangId?: string, 
+        jumlah?: number, 
+        totalStok?: number 
+    }) {
         const io = getSocketServer()
         if (io) {
             // Broadcast to admin:inventory room
             io.to('admin:inventory').emit(SOCKET_EVENTS.INVENTORY_UPDATE, data)
-            console.log(`[WS] Emitted inventory update to admin:inventory: ${data.type} ${data.jumlah} items`)
+            
+            // Also emit to the user who made the transaction (for mobile real-time stats)
+            io.to(`user:${data.userId}`).emit(SOCKET_EVENTS.INVENTORY_UPDATE, data)
+            
+            console.log(`[WS] Emitted inventory update: ${data.type} to admin and user:${data.userId}`)
+        } else {
+            // Fallback via HTTP
+            emitViaHttp(SOCKET_EVENTS.INVENTORY_UPDATE, `user:${data.userId}`, data)
         }
     },
 
