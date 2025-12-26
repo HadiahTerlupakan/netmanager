@@ -2,12 +2,21 @@ import { Tabs } from 'expo-router';
 import { Home, ClipboardList, Package, QrCode, User, ScanLine } from 'lucide-react-native';
 import tw from 'twrnc';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function AppLayout() {
+    const insets = useSafeAreaInsets();
+
     return (
         <Tabs
             screenOptions={{
                 headerShown: false,
-                tabBarStyle: tw`bg-white border-t border-gray-200 h-16 pb-1 pt-1`,
+                tabBarStyle: {
+                    ...tw`bg-white border-t border-gray-200`,
+                    height: 60 + insets.bottom,
+                    paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+                    paddingTop: 10,
+                },
                 tabBarActiveTintColor: '#2563eb', // blue-600
                 tabBarInactiveTintColor: '#9ca3af', // gray-400
                 tabBarLabelStyle: tw`text-xs font-medium mb-1`,
