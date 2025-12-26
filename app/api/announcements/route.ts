@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-helpers';
 import { TargetAudience } from '@prisma/client';
@@ -103,6 +104,82 @@ export async function POST(request: NextRequest) {
                 createdAt: announcement.createdAt.toISOString(),
             });
             console.log('[WS] Broadcast announcement:', announcement.id);
+        }
+
+        // Send Push Notifications (Mobile)
+        if (isActive !== false && target !== 'CUSTOMER') {
+            try {
+                // Determine user filter based on target
+                let userFilter: any = {
+                    pushToken: { not: null },
+                    isActive: true
+                };
+
+                if (target === 'EMPLOYEE') {
+                    // Ensure we target employees (including technicians, etc if needed - adjusting to logical roles)
+                    // For now, assuming distinct 'EMPLOYEE' role or just filtering non-admins if excluding, 
+                    // but usually EMPLOYEE target means strictly employees.
+                    // Let's assume Role name is key.
+                    userFilter.Role = { name: { in: ['EMPLOYEE', 'TEKNISI', 'ADMIN'] } }; // Should probably include relevant staff
+                } else if (target === 'ADMIN') {
+                    userFilter.Role = { name: 'ADMIN' };
+                }
+
+                const users = await prisma.user.findMany({
+                    where: userFilter,
+                    select: { id: true, pushToken: true }
+                });
+
+                // 1. Send Push Notifications
+                const tokens = users
+                    .map(u => u.pushToken)
+                    .filter((t): t is string => t !== null && t !== '');
+
+                if (tokens.length > 0) {
+                    const { sendExpoPushNotifications } = await import('@/lib/expo');
+                    // Run in background to not block response? 
+                    // Better to await to ensure it works, or at least catch errors.
+                    await sendExpoPushNotifications(
+                        tokens,
+                        announcement.title,
+                        announcement.content.substring(0, 100) + (announcement.content.length > 100 ? '...' : ''),
+                        { announcementId: announcement.id, url: '/announcement' }
+                    );
+                    console.log(`[PUSH] Sent to ${tokens.length} devices`);
+                }
+
+                // 2. Create In-App Notifications (Database)
+                // We create a notification record for ALL targeted users, regardless of push token
+                const allTargetedUsers = await prisma.user.findMany({
+                    where: { ...userFilter, pushToken: undefined }, // Remove pushToken filter for DB records
+                    select: { id: true }
+                });
+
+                if (allTargetedUsers.length > 0) {
+                    const notificationData = allTargetedUsers.map(user => ({
+                        id: crypto.randomUUID(),
+                        type: 'ANNOUNCEMENT',
+                        title: announcement.title,
+                        message: announcement.content.substring(0, 100) + (announcement.content.length > 100 ? '...' : ''),
+                        userId: user.id,
+                        sourceType: 'ANNOUNCEMENT',
+                        sourceId: announcement.id,
+                        isRead: false,
+                        priority: 'NORMAL',
+                        createdAt: new Date(),
+                    }));
+
+                    // Use singular 'notification' to match existing codebase usage
+                    // @ts-ignore - Handle potential schema/client naming mismatch if needed
+                    await prisma.notification.createMany({
+                        data: notificationData
+                    });
+                    console.log(`[DB] Created ${allTargetedUsers.length} notification records`);
+                }
+            } catch (pushError) {
+                console.error('[PUSH] Failed to send push notifications:', pushError);
+                // Don't fail the request if push fails
+            }
         }
 
         return NextResponse.json(announcement);

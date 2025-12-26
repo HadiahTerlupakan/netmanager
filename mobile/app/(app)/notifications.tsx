@@ -61,11 +61,11 @@ export default function NotificationsScreen() {
 
     const markAsRead = async (notificationId: string) => {
         try {
-            await axios.post(`${Config.API_URL}/api/mobile/notifications`, 
+            await axios.post(`${Config.API_URL}/api/mobile/notifications`,
                 { action: 'markRead', notificationId },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            setNotifications(prev => 
+            setNotifications(prev =>
                 prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
             );
             setUnreadCount(prev => Math.max(0, prev - 1));
@@ -76,7 +76,7 @@ export default function NotificationsScreen() {
 
     const markAllAsRead = async () => {
         try {
-            await axios.post(`${Config.API_URL}/api/mobile/notifications`, 
+            await axios.post(`${Config.API_URL}/api/mobile/notifications`,
                 { action: 'markAllRead' },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -88,11 +88,59 @@ export default function NotificationsScreen() {
     };
 
     const handleNotificationPress = (notification: Notification) => {
-        if (!notification.isRead) {
-            markAsRead(notification.id);
-        }
-        if (notification.link) {
-            router.push(notification.link as any);
+        const proceed = () => {
+            if (!notification.isRead) {
+                markAsRead(notification.id);
+            }
+            if (notification.link) {
+                router.push(notification.link as any);
+            }
+        };
+
+        if (notification.sourceType === 'ANNOUNCEMENT' && !notification.isRead) {
+            // Confirm read for analytics
+            const { Alert } = require('react-native');
+            Alert.alert(
+                'Konfirmasi',
+                'Apakah Anda sudah membaca pengumuman ini?',
+                [
+                    {
+                        text: 'Belum',
+                        style: 'cancel',
+                        onPress: () => {
+                            // Do nothing, or maybe navigate without marking read?
+                            // User request: "agar bisa track ... brapa banyak yang sudah buka"
+                            // So if not read, maybe just open to see but don't mark?
+                            // Or "buka" means "read". Let's assume navigating is fine, but tracking happens on "Yes".
+                            // Actually, usually "Yes" marks it read. "No" keeps it unread.
+                            // But usually clicking opens it anyway. 
+                            // Let's assume if they click "No", they just close the alert or maybe still navigate?
+                            // "ketika di klik mustinya masuk ke modal ... yes no"
+                            // If they say No, maybe they just want to peek? 
+                            // Let's strictly follow: Yes -> Mark Read & Navigate. No -> Cancel (don't navigate or navigate without read?).
+                            // Safest: Yes -> Mark & Navigate. No -> Navigate w/o Mark (or just Cancel).
+                            // Let's do: Yes -> Mark & Navigate. No -> Just Navigate (so they can read it). 
+                            // Wait, if they haven't read it, they click to READ it.
+                            // So asking "Have you read it?" BEFORE opening seems backwards?
+                            // Maybe the question is "Mark as read?" AFTER opening? 
+                            // But user said: "ketika di klik mustinya masuk ke modal" (When clicked, enter modal).
+                            // So: Click -> Modal "Mark as read?" -> Yes (Mark+Open) / No (Open).
+                            // Let's TRY: Yes -> Mark Read + Open. No -> Open only.
+                            // Update: User said "agar bisa track", implies tracking count of "Yes".
+
+                            if (notification.link) router.push(notification.link as any);
+                        }
+                    },
+                    {
+                        text: 'Sudah',
+                        onPress: () => {
+                            proceed();
+                        }
+                    }
+                ]
+            );
+        } else {
+            proceed();
         }
     };
 

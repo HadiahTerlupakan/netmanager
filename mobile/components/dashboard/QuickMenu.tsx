@@ -22,7 +22,7 @@ export const QuickMenu = () => {
             icon: PackagePlus,
             color: 'bg-green-50',
             iconColor: '#16a34a',
-            route: '/(app)/barang-masuk'
+            route: '/(app)/barang/masuk'
         },
         {
             title: 'Barang Keluar',
@@ -30,7 +30,7 @@ export const QuickMenu = () => {
             icon: PackageMinus,
             color: 'bg-orange-50',
             iconColor: '#ea580c',
-            route: '/(app)/barang-keluar'
+            route: '/(app)/barang/keluar'
         },
         {
             title: 'Izin & Cuti',

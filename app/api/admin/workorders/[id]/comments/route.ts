@@ -42,6 +42,51 @@ export async function POST(
             } : null,
         });
 
+        // Send Push Notification to Assigned User
+        try {
+            const workOrder = await prisma.workOrder.findUnique({
+                where: { id },
+                include: { assignedTo: true }
+            });
+
+            if (workOrder?.assignedTo?.pushToken && workOrder.assignedTo?.isActive) {
+                const { sendExpoPushNotifications } = await import('@/lib/expo');
+
+                // Determine title based on role maybe? Or just "New Comment on WO-..."
+                const title = `Komentar Baru: ${workOrder.workOrderNumber}`;
+                const body = `${user.name || 'Admin'}: ${message.substring(0, 100)}`;
+
+                await sendExpoPushNotifications(
+                    [workOrder.assignedTo.pushToken],
+                    title,
+                    body,
+                    {
+                        type: 'WORK_ORDER',
+                        workOrderId: id,
+                        url: `/(app)/work-order-detail/${id}` // Correct mobile route
+                    }
+                );
+
+                // Persist notification
+                await prisma.notification.create({
+                    data: {
+                        id: crypto.randomUUID(),
+                        type: 'WORK_ORDER',
+                        title: title,
+                        message: body,
+                        userId: workOrder.assignedTo.id,
+                        sourceType: 'WORK_ORDER',
+                        sourceId: id,
+                        isRead: false,
+                        priority: 'NORMAL',
+                        createdAt: new Date(),
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Failed to send comment notification:', error);
+        }
+
         return NextResponse.json({
             success: true,
             data: comment,

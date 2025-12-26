@@ -188,6 +188,11 @@ export const socketEmitter = {
             if (workOrder.assignedToId) {
                 io.to(`user:${workOrder.assignedToId}`).emit(SOCKET_EVENTS.WORKORDER_UPDATE, workOrder)
             }
+
+            // Notify anyone viewing this specific work order
+            if (workOrder.id) {
+                io.to(`workorder:${workOrder.id}`).emit(SOCKET_EVENTS.WORKORDER_UPDATE, workOrder)
+            }
         }
     },
 
@@ -236,22 +241,22 @@ export const socketEmitter = {
     /**
      * Emit inventory update event (broadcast to admin and user)
      */
-    inventoryUpdate(data: { 
-        type: 'masuk' | 'keluar', 
+    inventoryUpdate(data: {
+        type: 'masuk' | 'keluar',
         userId: string,
-        barangId?: string, 
-        gudangId?: string, 
-        jumlah?: number, 
-        totalStok?: number 
+        barangId?: string,
+        gudangId?: string,
+        jumlah?: number,
+        totalStok?: number
     }) {
         const io = getSocketServer()
         if (io) {
             // Broadcast to admin:inventory room
             io.to('admin:inventory').emit(SOCKET_EVENTS.INVENTORY_UPDATE, data)
-            
+
             // Also emit to the user who made the transaction (for mobile real-time stats)
             io.to(`user:${data.userId}`).emit(SOCKET_EVENTS.INVENTORY_UPDATE, data)
-            
+
             console.log(`[WS] Emitted inventory update: ${data.type} to admin and user:${data.userId}`)
         } else {
             // Fallback via HTTP

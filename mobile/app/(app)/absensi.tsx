@@ -74,27 +74,38 @@ export default function AbsensiScreen() {
     };
 
     const getLocation = async () => {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert('Izin Ditolak', 'Aplikasi membutuhkan izin lokasi untuk absensi.');
-            return;
-        }
-
-        let location = await Location.getCurrentPositionAsync({});
-        setLocation(location);
-
-        // Reverse Geocode
         try {
-            const reverse = await Location.reverseGeocodeAsync({
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude
-            });
-            if (reverse.length > 0) {
-                const addr = reverse[0];
-                setLocationName(`${addr.street || ''} ${addr.district || ''}, ${addr.city || ''}`);
+            let { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Izin Ditolak', 'Aplikasi membutuhkan izin lokasi untuk absensi.');
+                return;
             }
-        } catch (e) {
-            setLocationName(`${location.coords.latitude}, ${location.coords.longitude}`);
+
+            let location = await Location.getLastKnownPositionAsync({});
+            if (!location) {
+                location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            }
+
+            setLocation(location);
+
+            // Reverse Geocode
+            try {
+                const reverse = await Location.reverseGeocodeAsync({
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude
+                });
+                if (reverse.length > 0) {
+                    const addr = reverse[0];
+                    setLocationName(`${addr.street || ''} ${addr.district || ''}, ${addr.city || ''}`);
+                }
+            } catch (e) {
+                console.log("Geocode failed, using coordinates");
+                setLocationName(`${location.coords.latitude}, ${location.coords.longitude}`);
+            }
+        } catch (error) {
+            console.warn("Location Error:", error);
+            setLocationName("Lokasi tidak ditemukan (Cek GPS)");
+            Alert.alert("Lokasi Error", "Pastikan GPS aktif. Di Emulator, set location di menu Extended Controls.");
         }
     };
 

@@ -105,26 +105,36 @@ export default function LemburScreen() {
 
     // Location
     const getLocation = async () => {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert('Izin Ditolak', 'Aplikasi membutuhkan izin lokasi.');
-            return;
-        }
-
-        let loc = await Location.getCurrentPositionAsync({});
-        setLocation(loc);
-
         try {
-            const reverse = await Location.reverseGeocodeAsync({
-                latitude: loc.coords.latitude,
-                longitude: loc.coords.longitude
-            });
-            if (reverse.length > 0) {
-                const addr = reverse[0];
-                setLocationName(`${addr.street || ''} ${addr.district || ''}, ${addr.city || ''}`);
+            let { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Izin Ditolak', 'Aplikasi membutuhkan izin lokasi.');
+                return;
             }
-        } catch (e) {
-            setLocationName(`${loc.coords.latitude.toFixed(6)}, ${loc.coords.longitude.toFixed(6)}`);
+
+            let loc = await Location.getLastKnownPositionAsync({});
+            if (!loc) {
+                loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            }
+
+            setLocation(loc);
+
+            try {
+                const reverse = await Location.reverseGeocodeAsync({
+                    latitude: loc.coords.latitude,
+                    longitude: loc.coords.longitude
+                });
+                if (reverse.length > 0) {
+                    const addr = reverse[0];
+                    setLocationName(`${addr.street || ''} ${addr.district || ''}, ${addr.city || ''}`);
+                }
+            } catch (e) {
+                setLocationName(`${loc.coords.latitude.toFixed(6)}, ${loc.coords.longitude.toFixed(6)}`);
+            }
+        } catch (error) {
+            console.warn("Location Error in Lembur:", error);
+            setLocationName("Lokasi tidak ditemukan");
+            // Optional: Alert user if necessary, or just fail silently for UI
         }
     };
 

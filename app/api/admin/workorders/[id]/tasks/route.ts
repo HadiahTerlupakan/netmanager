@@ -57,6 +57,63 @@ export async function POST(
             order: body.order,
         });
 
+        // Real-time update
+        const { socketEmitter } = await import('@/lib/websocket/emitter');
+        // We need to fetch the updated WO to emit valid payload
+        const updatedWO = await workOrderRepo.findById(id);
+        if (updatedWO) {
+            socketEmitter.updateWorkOrder(updatedWO);
+
+            // Fetch push token specifically (repo.findById excludes it)
+            const woForNotify = await prisma.workOrder.findUnique({
+                where: { id },
+                select: {
+                    workOrderNumber: true,
+                    assignedTo: {
+                        select: { id: true, pushToken: true, isActive: true }
+                    }
+                }
+            });
+
+            // Send Push Notification
+            if (woForNotify?.assignedTo?.pushToken && woForNotify.assignedTo.isActive) {
+                try {
+                    const { sendExpoPushNotifications } = await import('@/lib/expo');
+                    const title = `Tugas Baru: ${woForNotify.workOrderNumber}`;
+                    const message = `Admin menambahkan tugas: "${body.title}"`;
+
+                    await sendExpoPushNotifications(
+                        [woForNotify.assignedTo.pushToken],
+                        title,
+                        message,
+                        {
+                            type: 'WORK_ORDER',
+                            workOrderId: id,
+                            url: `/(app)/work-order-detail/${id}`
+                        }
+                    );
+
+                    // Create DB Notification
+                    await prisma.notification.create({
+                        data: {
+                            id: crypto.randomUUID(),
+                            type: 'WORK_ORDER',
+                            title: title,
+                            message: message,
+                            userId: woForNotify.assignedTo.id,
+                            sourceType: 'WORK_ORDER',
+                            sourceId: id,
+                            isRead: false,
+                            priority: 'NORMAL',
+                            createdAt: new Date(),
+                        }
+                    });
+                } catch (notifyError) {
+                    console.error('Failed to send task notification:', notifyError);
+                }
+            }
+        }
+
         return NextResponse.json({
             success: true,
             data: task,

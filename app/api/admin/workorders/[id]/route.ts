@@ -201,6 +201,50 @@ export async function PATCH(
         // Handle status change separately if provided
         if (body.status) {
             await workOrderRepo.updateStatus(id, body.status, user.id);
+
+            // Notification Logic for Status Change
+            try {
+                // Re-fetch to get assigned user
+                const updatedWO = await prisma.workOrder.findUnique({
+                    where: { id },
+                    include: { assignedTo: true }
+                });
+
+                if (updatedWO?.assignedTo?.pushToken && updatedWO.assignedTo?.isActive) {
+                    const { sendExpoPushNotifications } = await import('@/lib/expo');
+                    const title = `Update Status: ${updatedWO.workOrderNumber}`;
+                    const message = `Status berubah menjadi ${body.status}`;
+
+                    await sendExpoPushNotifications(
+                        [updatedWO.assignedTo.pushToken],
+                        title,
+                        message,
+                        {
+                            type: 'WORK_ORDER',
+                            workOrderId: id,
+                            url: `/(app)/work-order-detail/${id}`
+                        }
+                    );
+
+                    await prisma.notification.create({
+                        data: {
+                            id: crypto.randomUUID(),
+                            type: 'WORK_ORDER',
+                            title: title,
+                            message: message,
+                            userId: updatedWO.assignedTo.id,
+                            sourceType: 'WORK_ORDER',
+                            sourceId: id,
+                            isRead: false,
+                            priority: 'NORMAL',
+                            createdAt: new Date(),
+                        }
+                    });
+                }
+            } catch (notifyError) {
+                console.error('Failed to send status update notification', notifyError);
+            }
+
             delete body.status;
         }
 

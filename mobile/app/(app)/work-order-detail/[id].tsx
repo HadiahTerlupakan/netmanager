@@ -7,13 +7,13 @@ import { SOCKET_EVENTS, WorkOrderActivityPayload } from '../../../context/socket
 import axios from 'axios';
 import { Config } from '../../../constants/Config';
 import tw from 'twrnc';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import {
     ArrowLeft, MapPin, Calendar, Clock, User, Phone,
     CheckCircle, Play, Pause, Camera, X, FileText,
-    History, Users, Package, Plus
+    History, Users, Package, Plus, CheckSquare, Square, ListChecks
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -26,14 +26,15 @@ export default function WorkOrderDetailScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
     const { token, user } = useAuth();
+    const insets = useSafeAreaInsets();
 
     const [wo, setWo] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'INFO' | 'TIMELINE' | 'ITEMS'>('INFO');
+    const [activeTab, setActiveTab] = useState<'INFO' | 'TASKS' | 'TIMELINE' | 'ITEMS'>('INFO');
 
-    // Completion State
-    const [showCompleteForm, setShowCompleteForm] = useState(false);
+    // Completion State (Moved to separate screen)
+    // const [showCompleteForm, setShowCompleteForm] = useState(false);
     const [resolutionNotes, setResolutionNotes] = useState('');
     const [photo, setPhoto] = useState<string | null>(null);
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -46,14 +47,23 @@ export default function WorkOrderDetailScreen() {
 
     useEffect(() => {
         (async () => {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert('Izin Lokasi Ditolak', 'Aplikasi membutuhkan izin lokasi untuk validasi pengerjaan.');
-                return;
-            }
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                    Alert.alert('Izin Lokasi Ditolak', 'Aplikasi membutuhkan izin lokasi untuk validasi pengerjaan.');
+                    return;
+                }
 
-            const currentLocation = await Location.getCurrentPositionAsync({});
-            setLocation(currentLocation);
+                let currentLocation = await Location.getLastKnownPositionAsync({});
+                if (!currentLocation) {
+                    currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                }
+
+                setLocation(currentLocation);
+            } catch (error) {
+                console.warn("Location Error in WO Detail:", error);
+                // Fail silently or show toast?
+            }
         })();
     }, []);
 
@@ -128,13 +138,8 @@ export default function WorkOrderDetailScreen() {
     }, [isPartnerModalVisible, searchPartnerQuery, token]);
 
     const handleUpdateStatus = async (action: 'START' | 'PAUSE' | 'COMPLETE' | 'NOTE') => {
-        if (action === 'COMPLETE' && !showCompleteForm) {
-            setShowCompleteForm(true);
-            return;
-        }
-
-        if (action === 'COMPLETE' && (!photo || !resolutionNotes)) {
-            Alert.alert('Data Belum Lengkap', 'Mohon isi catatan dan upload foto bukti.');
+        if (action === 'COMPLETE') {
+            router.push(`/(app)/complete-work-order/${id}`);
             return;
         }
 
@@ -174,7 +179,7 @@ export default function WorkOrderDetailScreen() {
                 formData.append('locationName', locationName);
             }
 
-            if (action === 'COMPLETE' || action === 'NOTE') {
+            if (action === 'NOTE') {
                 if (resolutionNotes) formData.append('notes', resolutionNotes);
                 if (photo) {
                     // @ts-ignore
@@ -197,17 +202,9 @@ export default function WorkOrderDetailScreen() {
                 }
             });
 
-            Alert.alert('Berhasil', action === 'COMPLETE' ? 'Pekerjaan Selesai!' : 'Status/Catatan Diperbarui');
+            Alert.alert('Berhasil', 'Status/Catatan Diperbarui');
 
-            if (action === 'COMPLETE') {
-                router.back();
-            } else {
-                if (action === 'NOTE') {
-                    setResolutionNotes('');
-                    setPhoto(null);
-                }
-                fetchDetail();
-            }
+            fetchDetail();
 
         } catch (error: any) {
             console.error('Update Status Error:', error);
@@ -638,6 +635,70 @@ export default function WorkOrderDetailScreen() {
         </View>
     );
 
+    const handleToggleTask = async (taskId: string, currentStatus: string) => {
+        // Optimistic update
+        const newStatus = currentStatus === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+        const updatedTasks = wo.tasks.map((t: any) =>
+            t.id === taskId ? { ...t, status: newStatus } : t
+        );
+        setWo({ ...wo, tasks: updatedTasks });
+
+        try {
+            await axios.patch(`${Config.API_URL}/api/mobile/work-orders/${id}/tasks`, {
+                taskId,
+                isCompleted: newStatus === 'COMPLETED'
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            // Background refresh to sync fully
+            fetchDetail();
+        } catch (error) {
+            console.error('Task Toggle Error:', error);
+            Alert.alert('Gagal', 'Gagal mengubah status tugas');
+            // Revert on error
+            fetchDetail();
+        }
+    };
+
+    const renderTasksTab = () => (
+        <View style={tw`bg-white p-4 rounded-xl shadow-sm mb-4 border border-gray-100`}>
+            <View style={tw`flex-row justify-between items-center mb-4`}>
+                <Text style={tw`text-xs text-gray-400 font-bold uppercase`}>Daftar Tugas</Text>
+                <Text style={tw`text-xs text-gray-500`}>
+                    {wo.tasks?.filter((t: any) => t.status === 'COMPLETED').length || 0}/{wo.tasks?.length || 0} Selesai
+                </Text>
+            </View>
+
+            {wo.tasks && wo.tasks.length > 0 ? (
+                wo.tasks.map((task: any, index: number) => (
+                    <TouchableOpacity
+                        key={task.id}
+                        style={tw`flex-row items-center py-3 border-b border-gray-50 last:border-0`}
+                        onPress={() => handleToggleTask(task.id, task.status)}
+                    >
+                        <View style={tw`mr-3`}>
+                            {task.status === 'COMPLETED' ? (
+                                <CheckSquare size={24} color="#10b981" />
+                            ) : (
+                                <Square size={24} color="#d1d5db" />
+                            )}
+                        </View>
+                        <View style={tw`flex-1`}>
+                            <Text style={tw`text-sm font-medium ${task.status === 'COMPLETED' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                                {task.title}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+                ))
+            ) : (
+                <View style={tw`py-8 items-center justify-center`}>
+                    <ListChecks size={48} color="#e5e7eb" style={tw`mb-2`} />
+                    <Text style={tw`text-gray-400 text-center`}>Belum ada daftar tugas</Text>
+                </View>
+            )}
+        </View>
+    );
+
     return (
         <SafeAreaView style={tw`flex-1 bg-gray-50`}>
             {/* Header */}
@@ -655,6 +716,7 @@ export default function WorkOrderDetailScreen() {
             <View style={tw`flex-row bg-white border-b border-gray-200 px-2`}>
                 {[
                     { key: 'INFO', label: 'Info', icon: FileText },
+                    { key: 'TASKS', label: 'Tugas', icon: ListChecks },
                     { key: 'ITEMS', label: 'Barang', icon: Package },
                     { key: 'TIMELINE', label: 'Riwayat', icon: History },
                 ].map((tab: any) => (
@@ -673,60 +735,11 @@ export default function WorkOrderDetailScreen() {
 
             <ScrollView contentContainerStyle={tw`p-4 pb-32`}>
                 {activeTab === 'INFO' && renderInfoTab()}
+                {activeTab === 'TASKS' && renderTasksTab()}
                 {activeTab === 'ITEMS' && renderItemsTab()}
                 {activeTab === 'TIMELINE' && renderTimelineTab()}
 
-                {/* Completion Form (Only shown in Info tab or when completing) */}
-                {(activeTab === 'INFO' && showCompleteForm) && (
-                    <View style={tw`bg-white p-4 rounded-xl shadow-sm mb-4 border border-blue-200`}>
-                        <Text style={tw`font-bold text-gray-800 mb-3`}>Laporan Penyelesaian</Text>
-
-                        <Text style={tw`text-xs text-gray-500 mb-1`}>Catatan Pengerjaan *</Text>
-                        <TextInput
-                            style={tw`border border-gray-300 rounded-lg p-3 text-sm h-24 mb-4 bg-gray-50`}
-                            multiline
-                            textAlignVertical="top"
-                            placeholder="Jelaskan apa saja yang dikerjakan..."
-                            value={resolutionNotes}
-                            onChangeText={setResolutionNotes}
-                        />
-
-                        <Text style={tw`text-xs text-gray-500 mb-2`}>Bukti Foto *</Text>
-                        {photo ? (
-                            <View style={tw`mb-4`}>
-                                <Image source={{ uri: photo }} style={tw`w-full h-48 rounded-lg mb-2`} resizeMode="cover" />
-                                <TouchableOpacity onPress={() => setPhoto(null)} style={tw`absolute top-2 right-2 bg-black/50 p-1 rounded-full`}>
-                                    <X color="white" size={16} />
-                                </TouchableOpacity>
-                            </View>
-                        ) : (
-                            <TouchableOpacity onPress={pickImage} style={tw`border-2 border-dashed border-gray-300 rounded-lg h-32 items-center justify-center mb-4 bg-gray-50`}>
-                                <Camera size={24} color="#9ca3af" />
-                                <Text style={tw`text-xs text-gray-400 mt-2`}>Ambil Foto Bukti</Text>
-                            </TouchableOpacity>
-                        )}
-
-                        <View style={tw`flex-row gap-2`}>
-                            <TouchableOpacity
-                                onPress={() => setShowCompleteForm(false)}
-                                style={tw`flex-1 py-3 bg-gray-200 rounded-lg items-center`}
-                            >
-                                <Text style={tw`font-bold text-gray-600`}>Batal</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={() => handleUpdateStatus('COMPLETE')}
-                                disabled={actionLoading}
-                                style={tw`flex-1 py-3 bg-green-600 rounded-lg items-center`}
-                            >
-                                {actionLoading ? (
-                                    <ActivityIndicator color="white" size="small" />
-                                ) : (
-                                    <Text style={tw`font-bold text-white`}>Kirim Laporan</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                )}
+                {/* Completion Form - Removed (Moved to separate screen) */}
 
             </ScrollView>
 
@@ -782,7 +795,7 @@ export default function WorkOrderDetailScreen() {
             </Modal>
 
             {/* Bottom Actions */}
-            {!showCompleteForm && (() => {
+            {(() => {
                 // Determine user role and permissions
                 const isAssignedToMe = wo.assignedToId === user?.id;
                 const myAssignment = wo.assignments?.find((a: any) => a.userId === user?.id);
@@ -801,7 +814,7 @@ export default function WorkOrderDetailScreen() {
                 // Partner pending - show accept/reject buttons
                 if (isPendingPartner) {
                     return (
-                        <View style={tw`absolute bottom-0 left-0 right-0 bg-yellow-50 p-4 border-t border-yellow-200 shadow-lg z-20`}>
+                        <View style={[tw`absolute bottom-0 left-0 right-0 bg-yellow-50 p-4 border-t border-yellow-200 shadow-lg z-20`, { paddingBottom: Math.max(insets.bottom, 16) }]}>
                             <Text style={tw`text-sm text-yellow-800 font-medium text-center mb-3`}>
                                 Anda diundang sebagai partner untuk WO ini
                             </Text>
@@ -836,7 +849,7 @@ export default function WorkOrderDetailScreen() {
                 // IN_PROGRESS - show pause/complete (for assignedTo and approved partners)
                 if (canPauseOrComplete) {
                     return (
-                        <View style={tw`absolute bottom-0 left-0 right-0 bg-white p-4 border-t border-gray-200 flex-row gap-3 shadow-lg z-20`}>
+                        <View style={[tw`absolute bottom-0 left-0 right-0 bg-white p-4 border-t border-gray-200 flex-row gap-3 shadow-lg z-20`, { paddingBottom: Math.max(insets.bottom, 16) }]}>
                             <TouchableOpacity
                                 onPress={() => handleUpdateStatus('PAUSE')}
                                 disabled={actionLoading}
@@ -862,7 +875,7 @@ export default function WorkOrderDetailScreen() {
                 // ASSIGNED - show start work (only for assignedTo when all partners responded)
                 if (canStartWork) {
                     return (
-                        <View style={tw`absolute bottom-0 left-0 right-0 bg-white p-4 border-t border-gray-200 shadow-lg z-20`}>
+                        <View style={[tw`absolute bottom-0 left-0 right-0 bg-white p-4 border-t border-gray-200 shadow-lg z-20`, { paddingBottom: Math.max(insets.bottom, 16) }]}>
                             <TouchableOpacity
                                 onPress={() => handleUpdateStatus('START')}
                                 disabled={actionLoading}
@@ -884,7 +897,7 @@ export default function WorkOrderDetailScreen() {
                 // ASSIGNED but waiting for partners - show info
                 if (isAssignedToMe && wo.status === 'ASSIGNED' && !allPartnersResponded) {
                     return (
-                        <View style={tw`absolute bottom-0 left-0 right-0 bg-yellow-50 p-4 border-t border-yellow-200 shadow-lg z-20`}>
+                        <View style={[tw`absolute bottom-0 left-0 right-0 bg-yellow-50 p-4 border-t border-yellow-200 shadow-lg z-20`, { paddingBottom: Math.max(insets.bottom, 16) }]}>
                             <Text style={tw`text-sm text-yellow-800 font-medium text-center`}>
                                 Menunggu konfirmasi partner sebelum mulai pekerjaan...
                             </Text>
@@ -895,7 +908,7 @@ export default function WorkOrderDetailScreen() {
                 // ON_HOLD - show resume (only for assignedTo)
                 if (canResumeWork) {
                     return (
-                        <View style={tw`absolute bottom-0 left-0 right-0 bg-white p-4 border-t border-gray-200 shadow-lg z-20`}>
+                        <View style={[tw`absolute bottom-0 left-0 right-0 bg-white p-4 border-t border-gray-200 shadow-lg z-20`, { paddingBottom: Math.max(insets.bottom, 16) }]}>
                             <TouchableOpacity
                                 onPress={() => handleUpdateStatus('START')}
                                 disabled={actionLoading}

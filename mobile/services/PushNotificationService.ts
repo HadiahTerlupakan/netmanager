@@ -11,8 +11,6 @@ Notifications.setNotificationHandler({
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
     }),
 });
 
@@ -20,10 +18,10 @@ export async function registerForPushNotificationsAsync(token?: string): Promise
     let pushToken: string | null = null;
 
     // Check if running on physical device
-    if (!Device.isDevice) {
-        console.log('Push notifications require a physical device');
-        return null;
-    }
+    // if (!Device.isDevice) {
+    //     console.log('Push notifications require a physical device');
+    //     // return null; // Allow emulator to try registration
+    // }
 
     // Check existing permissions
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -43,7 +41,7 @@ export async function registerForPushNotificationsAsync(token?: string): Promise
     // Get Expo Push Token
     try {
         const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
-        
+
         if (!projectId) {
             console.log('Project ID not found');
             return null;

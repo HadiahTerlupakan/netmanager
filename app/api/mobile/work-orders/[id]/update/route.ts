@@ -36,11 +36,16 @@ export async function POST(
         const locationName = formData.get('locationName') as string;
 
         // Construct Location String: Name (Lat, Long)
+        // Construct Location String: Address + Coordinates
         let locationStr = 'Loc: Unknown';
-        if (locationName) {
-            locationStr = locationName; // Use address if valid
-        } else if (latitude && longitude) {
-            locationStr = `Loc: ${latitude.slice(0, 8)}, ${longitude.slice(0, 8)}`;
+        const coords = (latitude && longitude) ? `(${latitude.slice(0, 8)}, ${longitude.slice(0, 8)})` : '';
+
+        if (locationName && coords) {
+            locationStr = `${locationName} ${coords}`;
+        } else if (locationName) {
+            locationStr = locationName;
+        } else if (coords) {
+            locationStr = `Loc: ${coords}`;
         }
 
         // Fetch Work Order to get Ticket Number
@@ -68,40 +73,54 @@ export async function POST(
             return NextResponse.json({ success: true, message: 'Work Order Started' });
 
         } else if (action === 'COMPLETE') {
-            // Upload photo proof if exists
-            if (photo) {
+            // Handle multiple photos
+            const photos = formData.getAll('photos') as File[];
+            const singlePhoto = formData.get('photo') as File; // Backward compatibility
+            if (singlePhoto && !photos.includes(singlePhoto)) {
+                photos.push(singlePhoto);
+            }
+
+            if (photos.length > 0) {
                 // Fetch user name for watermark
                 const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
-                const watermarkLines = [
-                    format(new Date(), 'dd MMM yyyy HH:mm'),
-                    `#${ticketNumber}`,
-                    `Tech: ${user?.name || 'Unknown'}`,
-                    locationStr,
-                    '[COMPLETED]'
-                ];
 
-                const dateStr = new Date().toISOString().split('T')[0];
-                const uploadDir = `public/uploads/workorders/${dateStr}`;
-                const fileName = `${workOrderId}_complete_${Date.now()}`;
+                // Process each photo
+                for (let i = 0; i < photos.length; i++) {
+                    const p = photos[i];
+                    // Skip if not a file
+                    if (!(p instanceof File)) continue;
 
-                const filePath = await convertAndSaveImage(
-                    photo,
-                    uploadDir,
-                    fileName,
-                    'workorder-completion',
-                    workOrderId,
-                    watermarkLines
-                );
+                    const watermarkLines = [
+                        format(new Date(), 'dd MMM yyyy HH:mm'),
+                        `#${ticketNumber}`,
+                        `Tech: ${user?.name || 'Unknown'}`,
+                        locationStr,
+                        `[COMPLETED] ${i + 1}/${photos.length}`
+                    ];
 
-                await repository.addAttachment(
-                    workOrderId,
-                    photo.name,
-                    filePath,
-                    photo.size,
-                    photo.type,
-                    '[COMPLETION] Bukti Penyelesaian',
-                    userId
-                );
+                    const dateStr = new Date().toISOString().split('T')[0];
+                    const uploadDir = `public/uploads/workorders/${dateStr}`;
+                    const fileName = `${workOrderId}_complete_${Date.now()}_${i}`;
+
+                    const filePath = await convertAndSaveImage(
+                        p,
+                        uploadDir,
+                        fileName,
+                        'workorder-completion',
+                        workOrderId,
+                        watermarkLines
+                    );
+
+                    await repository.addAttachment(
+                        workOrderId,
+                        p.name,
+                        filePath,
+                        p.size,
+                        p.type,
+                        `[COMPLETION] Bukti Penyelesaian ${i + 1}`,
+                        userId
+                    );
+                }
             }
 
             await repository.complete(workOrderId, notes, userId);

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import type { PushSubscription } from '@prisma/client';
 import { socketEmitter } from '@/lib/websocket/emitter';
 
-export type NotificationType = 'WORK_ORDER' | 'SYSTEM' | 'TICKET' | 'ALERT';
+export type NotificationType = 'WORK_ORDER' | 'SYSTEM' | 'TICKET' | 'ALERT' | 'ANNOUNCEMENT';
 export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
 
 export interface CreateNotificationData {
@@ -61,7 +61,7 @@ export async function createNotification(data: CreateNotificationData) {
     // Emit WebSocket event to specific user
     if (data.userId) {
         socketEmitter.notifyUser(data.userId, wsPayload);
-        
+
         // Send Expo Push notification for mobile users
         sendExpoPush(data.userId, data.title, data.message, {
             link: data.link,
@@ -73,7 +73,7 @@ export async function createNotification(data: CreateNotificationData) {
     // Emit to department if specified
     if (data.departmentId) {
         socketEmitter.notifyDepartment(data.departmentId, wsPayload);
-        
+
         // Send Expo Push to all users in department
         sendExpoPushToDepartment(data.departmentId, data.title, data.message, {
             link: data.link,

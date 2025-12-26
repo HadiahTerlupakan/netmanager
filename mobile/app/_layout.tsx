@@ -11,6 +11,45 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
 
+  // Handle Push Notifications
+  useEffect(() => {
+    // Import dynamically to avoid circular dependencies if any
+    const setupNotifications = async () => {
+      const { addNotificationListeners } = await import('../services/PushNotificationService');
+
+      const cleanup = addNotificationListeners(
+        (notification) => {
+          // Handle foreground notification received
+          console.log('Foreground notification:', notification);
+        },
+        (response) => {
+          // Handle notification tap
+          const data = response.notification.request.content.data;
+          console.log('Notification tapped, data:', data);
+
+          if (data?.url) {
+            try {
+              // Navigate to the URL provided in payload
+              // Example url: /work-orders/cmjlgercn0000n9hdnhvhhs9d
+              router.push(data.url as any);
+            } catch (e) {
+              console.error('Navigation failed:', e);
+            }
+          }
+        }
+      );
+
+      return cleanup;
+    };
+
+    let cleanupFn: (() => void) | undefined;
+    setupNotifications().then(cleanup => { cleanupFn = cleanup; });
+
+    return () => {
+      if (cleanupFn) cleanupFn();
+    };
+  }, []);
+
   useEffect(() => {
     console.log('[RootLayout] Effect triggered. User:', !!user, 'Segments:', segments, 'Loading:', isLoading);
 

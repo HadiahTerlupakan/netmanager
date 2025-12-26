@@ -7,105 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id            String         @id @default(cuid())
-  name          String?
-  email         String         @unique
-  passwordHash  String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  emailVerified DateTime?
-  image         String?
-  phone         String?
-  departmentId  String?
-  siteId        String?
-  roleId        String?
-  role          Role?          @relation(fields: [roleId], references: [id])
-  isActive      Boolean        @default(true)
-  accounts      Account[]
-  pelanggan     Pelanggan[]
-  sessions      Session[]
-  barangKeluar  BarangKeluar[] @relation("UserBarangKeluar")
-  barangMasuk   BarangMasuk[]  @relation("UserBarangMasuk")
-  department    Department?    @relation(fields: [departmentId], references: [id])
-  site          Site?          @relation(fields: [siteId], references: [id])
-  
-  // Work Order Relations
-  workOrdersCreated     WorkOrder[]           @relation("WorkOrderCreatedBy")
-  workOrdersAssigned    WorkOrder[]           @relation("UserWorkOrders")
-  workOrderTasks        WorkOrderTask[]       @relation("UserWorkOrderTasks")
-  workOrderAssignments  WorkOrderAssignment[] @relation("UserWorkOrderAssignments")
-  workOrderUpdates      WorkOrderUpdate[]     @relation("UserWorkOrderUpdates")
-  workOrderAttachments  WorkOrderAttachment[] @relation("UserWorkOrderAttachments")
-  workOrderTemplatesCreated WorkOrderTemplate[] @relation("WorkOrderTemplateCreatedBy")
-  slasCreated           SLA[]                 @relation("SLACreatedBy")
-  escalationsCreated    WorkOrderEscalation[] @relation("WorkOrderEscalationCreatedBy")
-  
-  // Notification Relations
-  notifications         Notification[]        @relation("UserNotifications")
-  pushSubscriptions     PushSubscription[]    @relation("UserPushSubscriptions")
-  
-  // Support Ticket Relations
-  ticketsAssigned       SupportTicket[]       @relation("TicketAssignedTo")
-  ticketReplies         TicketReply[]         @relation("TicketReplySender")
-  expenses              Expense[]
-  
-  // System Logs
-  // System Logs
-  systemLogs            SystemLog[]
-  
-  // Announcements
-  announcementsCreated  Announcement[]
-  attendances           Attendance[]
-  overtimes             Overtime[]
-  leaves                LeaveRequest[]
-  
-  // Working Hours Configuration
-  workingHourMode       WorkingHourMode @default(FIXED)
-  startWorkTime         String?         // Format "HH:mm" e.g "09:00"
-  endWorkTime           String?         // Format "HH:mm" e.g "17:00"
-  workDays              String?         // CSV format "Mon,Tue,Wed,Thu,Fri"
-  shiftId               String?         // Future: link to Shift model
-  flexibleTargetHour    Int?            // Target hours per day for Flexible mode
-  
-  // Mobile Push Notifications
-  pushToken             String?         // Expo Push Token
-  pushTokenUpdatedAt    DateTime?       // Last time push token was updated
+model ARAgingSnapshot {
+  id               String   @id
+  snapshotDate     DateTime @default(now())
+  current          BigInt   @default(0)
+  overdue30        BigInt   @default(0)
+  overdue60        BigInt   @default(0)
+  overdue90        BigInt   @default(0)
+  totalOutstanding BigInt   @default(0)
+  totalCustomers   Int      @default(0)
+  createdAt        DateTime @default(now())
 
-  @@index([departmentId])
-  @@index([siteId])
-  @@index([isActive])
-  @@index([roleId])
-}
-
-model Role {
-  id                  String       @id @default(cuid())
-  name                String       @unique
-  description         String?
-  accessAdminPanel    Boolean      @default(false)
-  accessEmployeePanel Boolean      @default(false)
-  isRestricted        Boolean      @default(false)
-  users               User[]
-  permissions Permission[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Permission {
-  id          String   @id @default(cuid())
-  name        String
-  action      String
-  resource    String
-  description String?
-  roles       Role[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([resource, action])
+  @@index([snapshotDate])
 }
 
 model Account {
-  id                String  @id @default(cuid())
+  id                String  @id
   userId            String
   type              String
   provider          String
@@ -117,151 +34,228 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Announcement {
+  id        String         @id
+  title     String
+  content   String
+  target    TargetAudience @default(ALL)
+  isActive  Boolean        @default(true)
+  isPinned  Boolean        @default(false)
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime
+  createdBy String?
+  User      User?          @relation(fields: [createdBy], references: [id])
+
+  @@index([isActive])
+  @@index([target])
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
+model Attendance {
+  id               String     @id
+  userId           String
+  checkIn          DateTime   @default(now())
+  checkOut         DateTime?
+  checkInPhoto     String?
+  checkOutPhoto    String?
+  status           String     @default("PRESENT")
+  notes            String?
+  location         String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime
+  checkOutLocation String?
+  User             User       @relation(fields: [userId], references: [id])
+  Overtime         Overtime[]
 
-  @@id([identifier, token])
+  @@index([checkIn])
+  @@index([status])
+  @@index([userId])
 }
 
-model Olt {
-  id                 String         @id @default(cuid())
-  name               String
-  ipAddress          String         @unique
-  type               String
-  version            String?
-  temperature        Int?
-  connectedDevices   Int            @default(0)
-  model              String?
-  uptime             String?
-  syncStatus         String         @default("0")
-  syncDate           DateTime?
-  telnetConnected    Boolean        @default(false)
-  snmpConnected      Boolean        @default(false)
-  snmpCommunityWrite String         @default("public")
-  snmpVersion        String         @default("2")
-  snmpPort           Int            @default(161)
-  telnetUsername     String         @default("zte")
-  telnetPassword     String
-  telnetPort         Int            @default(23)
-  onuLastSync        DateTime?
-  onuSyncEnabled     Boolean        @default(true)
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  onus               Onu[]
-  onuTypes           OnuType[]
-  speedProfiles      SpeedProfile[]
-  networkPerformance  NetworkPerformance[] @relation("NetworkPerformanceOlt")
-  networkAlerts      NetworkAlert[] @relation("NetworkAlertOlt")
-  // deviceBackups      DeviceBackup[] @relation("DeviceBackupOlt")
-  configurationRestores ConfigurationRestore[] @relation("ConfigurationRestoreOlt")
+model Bandwidth {
+  id                     String       @id
+  name                   String       @unique
+  maxLimitDownload       String
+  maxLimitUpload         String
+  burstLimitDownload     String?
+  burstLimitUpload       String?
+  minLimitDownload       String?
+  minLimitUpload         String?
+  burstThresholdDownload String?
+  burstThresholdUpload   String?
+  burstTimeDownload      Int?
+  burstTimeUpload        Int?
+  priority               Int?
+  uploadSpeed            Int?
+  downloadSpeed          Int?
+  description            String?
+  status                 Status       @default(AKTIF)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime
+  HargaPaket             HargaPaket[]
 }
 
-model Otb {
-  id                          String    @id @default(cuid())
-  name                        String
-  location                    String?
-  coreCount                   Int
-  notes                       String?
-  latitude                    Float?
-  longitude                   Float?
-  status                      Status    @default(AKTIF)
-  createdAt                   DateTime  @default(now())
-  updatedAt                   DateTime  @updatedAt
-  keteranganJumlahKabelFeeder String?
-  cores                       OtbCore[]
+model Coupon {
+  id             String        @id
+  code           String        @unique
+  description    String?
+  discountType   DiscountType
+  discountValue  Float
+  startDate      DateTime
+  endDate        DateTime
+  minTransaction Int           @default(0)
+  maxDiscount    Int?
+  quota          Int           @default(0)
+  usedCount      Int           @default(0)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime
+  CouponUsage    CouponUsage[]
 }
 
-model OtbCore {
-  id        String @id @default(cuid())
-  otbId     String
-  idx       Int
-  slotName  String
-  tubeColor String
-  coreColor String
-  odc       Odc?
-  otb       Otb    @relation(fields: [otbId], references: [id])
+model CouponUsage {
+  id          String     @id
+  couponId    String
+  userId      String?
+  pelangganId String?
+  usedAt      DateTime   @default(now())
+  Coupon      Coupon     @relation(fields: [couponId], references: [id])
+  Pelanggan   Pelanggan? @relation(fields: [pelangganId], references: [id])
 
-  @@unique([otbId, idx])
+  @@index([couponId])
+  @@index([pelangganId])
 }
 
-model Odc {
-  id                          String      @id @default(cuid())
-  name                        String
-  location                    String?
-  notes                       String?
-  latitude                    Float?
-  longitude                   Float?
-  status                      Status      @default(AKTIF)
-  createdAt                   DateTime    @default(now())
-  updatedAt                   DateTime    @updatedAt
-  otbCoreId                   String      @unique
-  keteranganJumlahKabelFeeder String?
-  otbCore                     OtbCore     @relation(fields: [otbCoreId], references: [id])
-  outputs                     OdcOutput[]
+model CustomerCohort {
+  id               String   @id
+  cohortMonth      Int
+  cohortYear       Int
+  initialCustomers Int
+  month0Revenue    BigInt   @default(0)
+  month1Revenue    BigInt   @default(0)
+  month2Revenue    BigInt   @default(0)
+  month3Revenue    BigInt   @default(0)
+  month6Revenue    BigInt   @default(0)
+  month12Revenue   BigInt   @default(0)
+  activeMonth0     Int      @default(0)
+  activeMonth1     Int      @default(0)
+  activeMonth3     Int      @default(0)
+  activeMonth6     Int      @default(0)
+  activeMonth12    Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+
+  @@unique([cohortYear, cohortMonth])
+  @@index([cohortYear, cohortMonth])
 }
 
-model OdcOutput {
-  id        String @id @default(cuid())
-  odcId     String
-  idx       Int
-  slotName  String
-  redaman   Float?
-  tubeColor String
-  coreColor String
-  odc       Odc    @relation(fields: [odcId], references: [id])
-  odp       Odp?
+model Expense {
+  id          String   @id
+  date        DateTime @default(now())
+  amount      BigInt
+  category    String
+  description String?
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  User        User?    @relation(fields: [userId], references: [id])
 
-  @@unique([odcId, idx])
+  @@index([category])
+  @@index([date])
+  @@index([userId])
 }
 
-model Odp {
-  id                          String      @id @default(cuid())
-  name                        String
-  location                    String?
-  notes                       String?
-  latitude                    Float?
-  longitude                   Float?
-  status                      Status      @default(AKTIF)
-  createdAt                   DateTime    @default(now())
-  updatedAt                   DateTime    @updatedAt
-  odcOutputId                 String      @unique
-  keteranganJumlahKabelFeeder String?
-  odcOutput                   OdcOutput   @relation(fields: [odcOutputId], references: [id])
-  outputs                     OdpOutput[]
-  pelanggans                  Pelanggan[]
+model HargaPaket {
+  id                   String        @id
+  name                 String        @unique
+  bandwidthId          String?
+  profilePPPId         String
+  harga                Int
+  durasi               Int           @default(30)
+  durasiUnit           DurasiUnit    @default(HARI)
+  usePPN               Boolean       @default(false)
+  ppnPercentage        Float?
+  useDiscount          Boolean       @default(false)
+  discountType         DiscountType?
+  discountValue        Float?
+  discountDuration     Int?
+  discountDurationUnit DurasiUnit?
+  description          String?
+  featured             Boolean       @default(false)
+  status               Status        @default(AKTIF)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime
+  Bandwidth            Bandwidth?    @relation(fields: [bandwidthId], references: [id])
+  ProfilePPP           ProfilePPP    @relation(fields: [profilePPPId], references: [id])
+  Pelanggan            Pelanggan[]
+
+  @@index([bandwidthId])
+  @@index([featured])
+  @@index([profilePPPId])
+  @@index([status])
 }
 
-model OdpOutput {
-  id        String @id @default(cuid())
-  odpId     String
-  idx       Int
-  slotName  String
-  redaman   Float?
-  tubeColor String
-  coreColor String
-  odp       Odp    @relation(fields: [odpId], references: [id])
+model Holiday {
+  id          String   @id
+  date        DateTime @unique
+  description String
+  isNational  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+}
 
-  @@unique([odpId, idx])
+model Invoice {
+  id             String        @id
+  invoiceNumber  String        @unique
+  pelangganId    String
+  issueDate      DateTime      @default(now())
+  dueDate        DateTime
+  status         InvoiceStatus @default(DRAFT)
+  subtotal       BigInt        @default(0)
+  taxAmount      BigInt        @default(0)
+  discountAmount BigInt        @default(0)
+  totalAmount    BigInt        @default(0)
+  paidAmount     BigInt        @default(0)
+  notes          String?
+  terms          String?
+  sentAt         DateTime?
+  paidAt         DateTime?
+  createdBy      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime
+  Pelanggan      Pelanggan     @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  InvoiceItem    InvoiceItem[]
+  Payment        Payment[]
+
+  @@index([dueDate])
+  @@index([invoiceNumber])
+  @@index([issueDate])
+  @@index([pelangganId])
+  @@index([status])
+}
+
+model InvoiceItem {
+  id          String   @id
+  invoiceId   String
+  description String
+  quantity    Int      @default(1)
+  unitPrice   BigInt
+  totalPrice  BigInt
+  itemType    ItemType @default(SERVICE)
+  Invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
 }
 
 model Joinbox {
-  id                          String          @id @default(cuid())
+  id                          String          @id
   name                        String
   location                    String?
   notes                       String?
@@ -269,53 +263,40 @@ model Joinbox {
   longitude                   Float?
   status                      Status          @default(AKTIF)
   createdAt                   DateTime        @default(now())
-  updatedAt                   DateTime        @updatedAt
+  updatedAt                   DateTime
   keteranganJumlahKabelFeeder String?
-  inputs                      JoinboxInput[]
-  outputs                     JoinboxOutput[]
+  JoinboxInput                JoinboxInput[]
+  JoinboxOutput               JoinboxOutput[]
 }
 
 model JoinboxInput {
-  id        String  @id @default(cuid())
+  id        String  @id
   joinboxId String
   idx       Int
   inputUnit String
   portUnit  String
   tubeColor String
   coreColor String
-  joinbox   Joinbox @relation(fields: [joinboxId], references: [id])
+  Joinbox   Joinbox @relation(fields: [joinboxId], references: [id])
 
   @@unique([joinboxId, idx])
 }
 
 model JoinboxOutput {
-  id        String  @id @default(cuid())
+  id        String  @id
   joinboxId String
   idx       Int
   inputUnit String
   portUnit  String
   tubeColor String
   coreColor String
-  joinbox   Joinbox @relation(fields: [joinboxId], references: [id])
+  Joinbox   Joinbox @relation(fields: [joinboxId], references: [id])
 
   @@unique([joinboxId, idx])
 }
 
-model Pole {
-  id         String   @id @default(cuid())
-  name       String
-  location   String?
-  notes      String?
-  latitude   Float?
-  longitude  Float?
-  cableSlack Boolean  @default(false)
-  status     Status   @default(AKTIF)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
 model KmzFile {
-  id          String   @id @default(cuid())
+  id          String   @id
   name        String
   filename    String
   filePath    String
@@ -325,12 +306,166 @@ model KmzFile {
   isActive    Boolean  @default(true)
   status      Status   @default(AKTIF)
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime
   kmlPath     String
 }
 
+model LeaveRequest {
+  id              String      @id
+  userId          String
+  type            LeaveType
+  startDate       DateTime
+  endDate         DateTime
+  reason          String
+  attachmentUrl   String?
+  status          LeaveStatus @default(PENDING)
+  approvedBy      String?
+  rejectionReason String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime
+  attachments     String[]    @default([])
+  User            User        @relation(fields: [userId], references: [id])
+
+  @@index([startDate])
+  @@index([status])
+  @@index([userId])
+}
+
+model MRRMovement {
+  id           String   @id
+  month        Int
+  year         Int
+  movementType String
+  pelangganId  String?
+  amount       BigInt
+  description  String?
+  createdAt    DateTime @default(now())
+
+  @@index([movementType])
+  @@index([pelangganId])
+  @@index([year, month])
+}
+
+model MikroTikRouter {
+  id                     String                   @id
+  name                   String
+  ipAddress              String                   @unique
+  timezone               String                   @default("+07:00 Asia/Jakarta")
+  apiPort                Int                      @default(8728)
+  apiUsername            String
+  apiPassword            String
+  authPort               Int                      @default(7265)
+  accountingPort         Int                      @default(7266)
+  secretRadius           String
+  isolirUrl              String?
+  description            String?
+  pingStatus             String                   @default("offline")
+  userOnline             Int                      @default(0)
+  lastStatusCheck        DateTime?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  ProfilePPP             ProfilePPP[]
+  configuration_restores configuration_restores[]
+  network_alerts         network_alerts[]
+  network_performance    network_performance[]
+
+  @@index([pingStatus])
+}
+
+model Odc {
+  id                          String      @id
+  name                        String
+  location                    String?
+  notes                       String?
+  latitude                    Float?
+  longitude                   Float?
+  status                      Status      @default(AKTIF)
+  createdAt                   DateTime    @default(now())
+  updatedAt                   DateTime
+  otbCoreId                   String      @unique
+  keteranganJumlahKabelFeeder String?
+  OtbCore                     OtbCore     @relation(fields: [otbCoreId], references: [id])
+  OdcOutput                   OdcOutput[]
+}
+
+model OdcOutput {
+  id        String @id
+  odcId     String
+  idx       Int
+  slotName  String
+  redaman   Float?
+  tubeColor String
+  coreColor String
+  Odc       Odc    @relation(fields: [odcId], references: [id])
+  Odp       Odp?
+
+  @@unique([odcId, idx])
+}
+
+model Odp {
+  id                          String      @id
+  name                        String
+  location                    String?
+  notes                       String?
+  latitude                    Float?
+  longitude                   Float?
+  status                      Status      @default(AKTIF)
+  createdAt                   DateTime    @default(now())
+  updatedAt                   DateTime
+  odcOutputId                 String      @unique
+  keteranganJumlahKabelFeeder String?
+  OdcOutput                   OdcOutput   @relation(fields: [odcOutputId], references: [id])
+  OdpOutput                   OdpOutput[]
+  Pelanggan                   Pelanggan[]
+}
+
+model OdpOutput {
+  id        String @id
+  odpId     String
+  idx       Int
+  slotName  String
+  redaman   Float?
+  tubeColor String
+  coreColor String
+  Odp       Odp    @relation(fields: [odpId], references: [id])
+
+  @@unique([odpId, idx])
+}
+
+model Olt {
+  id                     String                   @id
+  name                   String
+  ipAddress              String                   @unique
+  type                   String
+  version                String?
+  temperature            Int?
+  connectedDevices       Int                      @default(0)
+  model                  String?
+  uptime                 String?
+  syncStatus             String                   @default("0")
+  syncDate               DateTime?
+  telnetConnected        Boolean                  @default(false)
+  snmpConnected          Boolean                  @default(false)
+  snmpCommunityWrite     String                   @default("public")
+  snmpVersion            String                   @default("2")
+  snmpPort               Int                      @default(161)
+  telnetUsername         String                   @default("zte")
+  telnetPassword         String
+  telnetPort             Int                      @default(23)
+  onuLastSync            DateTime?
+  onuSyncEnabled         Boolean                  @default(true)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  Onu                    Onu[]
+  OnuType                OnuType[]
+  SpeedProfile           SpeedProfile[]
+  configuration_restores configuration_restores[]
+  network_alerts         network_alerts[]
+  network_performance    network_performance[]
+}
+
 model Onu {
-  id                     String    @id @default(cuid())
+  id                     String                   @id
   oltId                  String
   name                   String
   description            String?
@@ -341,9 +476,9 @@ model Onu {
   rxOnu                  String?
   serialNumber           String?
   actualType             String?
-  lastUpdate             DateTime  @default(now())
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  lastUpdate             DateTime                 @default(now())
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
   authMode               String?
   batteryStatus          String?
   configState            String?
@@ -387,28 +522,27 @@ model Onu {
   rxOltOid               String?
   rxOnuOid               String?
   statusOid              String?
-  olt                    Olt       @relation(fields: [oltId], references: [id], onDelete: Cascade)
-  networkPerformance     NetworkPerformance[] @relation("NetworkPerformanceOnu")
-  networkAlerts          NetworkAlert[] @relation("NetworkAlertOnu")
-  // deviceBackups          DeviceBackup[] @relation("DeviceBackupOnu")
-  configurationRestores  ConfigurationRestore[] @relation("ConfigurationRestoreOnu")
+  Olt                    Olt                      @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  configuration_restores configuration_restores[]
+  network_alerts         network_alerts[]
+  network_performance    network_performance[]
 
   @@unique([oltId, gponOnu])
-  @@index([oltId])
-  @@index([status])
-  @@index([lastUpdate])
-  @@index([registerTime])
   @@index([lastSeen])
-  @@index([serialNumber])
+  @@index([lastUpdate])
   @@index([macAddress])
-  @@index([oltId, status])
-  @@index([oltId, lastUpdate])
-  @@index([status, lastUpdate])
   @@index([oltId, gponOnu])
+  @@index([oltId])
+  @@index([oltId, lastUpdate])
+  @@index([oltId, status])
+  @@index([registerTime])
+  @@index([serialNumber])
+  @@index([status])
+  @@index([status, lastUpdate])
 }
 
 model OnuType {
-  id                    String   @id @default(cuid())
+  id                    String   @id
   oltId                 String
   name                  String
   ethernetPorts         Int      @default(0)
@@ -434,207 +568,88 @@ model OnuType {
   extendedOmci          String?
   location              String?
   createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  olt                   Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  updatedAt             DateTime
+  Olt                   Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
 
   @@unique([oltId, name])
   @@index([oltId])
 }
 
-model SpeedProfile {
-  id           String   @id @default(cuid())
-  oltId        String
-  profileType  String   @default("Download")
-  name         String
-  type         Int
-  bandwidthSir Int
-  burstPir     Int
-  fixed        Int?
-  assured      Int?
-  maximum      Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  olt          Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
-
-  @@unique([oltId, profileType, name])
-  @@index([oltId])
-  @@index([profileType])
+model Otb {
+  id                          String    @id
+  name                        String
+  location                    String?
+  coreCount                   Int
+  notes                       String?
+  latitude                    Float?
+  longitude                   Float?
+  status                      Status    @default(AKTIF)
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime
+  keteranganJumlahKabelFeeder String?
+  OtbCore                     OtbCore[]
 }
 
-model MikroTikRouter {
-  id              String       @id @default(cuid())
-  name            String
-  ipAddress       String       @unique
-  timezone        String       @default("+07:00 Asia/Jakarta")
-  apiPort         Int          @default(8728)
-  apiUsername     String
-  apiPassword     String
-  authPort        Int          @default(7265)
-  accountingPort  Int          @default(7266)
-  secretRadius    String
-  isolirUrl       String?
-  description     String?
-  pingStatus      String       @default("offline")
-  userOnline      Int          @default(0)
-  lastStatusCheck DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  profilePPPs     ProfilePPP[]
-  networkPerformance NetworkPerformance[] @relation("NetworkPerformanceMikroTik")
-  networkAlerts     NetworkAlert[] @relation("NetworkAlertMikroTik")
-  // deviceBackups     DeviceBackup[] @relation("DeviceBackupMikroTik")
-  configurationRestores ConfigurationRestore[] @relation("ConfigurationRestoreMikroTik")
+model OtbCore {
+  id        String @id
+  otbId     String
+  idx       Int
+  slotName  String
+  tubeColor String
+  coreColor String
+  Odc       Odc?
+  Otb       Otb    @relation(fields: [otbId], references: [id])
 
-  @@index([pingStatus])
+  @@unique([otbId, idx])
 }
 
-model Bandwidth {
-  id                     String       @id @default(cuid())
-  name                   String       @unique
-  maxLimitDownload       String
-  maxLimitUpload         String
-  burstLimitDownload     String?
-  burstLimitUpload       String?
-  minLimitDownload       String?
-  minLimitUpload         String?
-  burstThresholdDownload String?
-  burstThresholdUpload   String?
-  burstTimeDownload      Int?
-  burstTimeUpload        Int?
-  priority               Int?
-  uploadSpeed            Int?
-  downloadSpeed          Int?
-  description            String?
-  status                 Status       @default(AKTIF)
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
-  hargaPakets            HargaPaket[]
-}
+model Overtime {
+  id              String         @id
+  userId          String
+  attendanceId    String?
+  duration        Int?
+  reason          String
+  status          OvertimeStatus @default(PENDING)
+  rejectionReason String?
+  approvedBy      String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime
+  endLocation     String?
+  endPhoto        String?
+  endTime         DateTime?
+  startLocation   String?
+  startPhoto      String?
+  startTime       DateTime?
+  Attendance      Attendance?    @relation(fields: [attendanceId], references: [id])
+  User            User           @relation(fields: [userId], references: [id])
 
-model ProfilePPP {
-  id               String          @id @default(cuid())
-  name             String          @unique
-  localAddress     String
-  remoteAddress    String
-  dnsServer        String?
-  sessionTimeout   Int?
-  idleTimeout      Int?
-  mikroTikRouterId String?
-  description      String?
-  status           Status          @default(AKTIF)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  hargaPakets      HargaPaket[]
-  mikroTikRouter   MikroTikRouter? @relation(fields: [mikroTikRouterId], references: [id])
-
-  @@index([mikroTikRouterId])
-}
-
-model HargaPaket {
-  id                   String        @id @default(cuid())
-  name                 String        @unique
-  bandwidthId          String?
-  profilePPPId         String
-  harga                Int
-  durasi               Int           @default(30)
-  durasiUnit           DurasiUnit    @default(HARI)
-  usePPN               Boolean       @default(false)
-  ppnPercentage        Float?
-  useDiscount          Boolean       @default(false)
-  discountType         DiscountType?
-  discountValue        Float?
-  discountDuration     Int?
-  discountDurationUnit DurasiUnit?
-  description          String?
-  featured             Boolean       @default(false)
-  status               Status        @default(AKTIF)
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-  bandwidth            Bandwidth?    @relation(fields: [bandwidthId], references: [id])
-  profilePPP           ProfilePPP    @relation(fields: [profilePPPId], references: [id])
-  pelanggans           Pelanggan[]
-
-  @@index([bandwidthId])
-  @@index([profilePPPId])
+  @@index([startTime])
   @@index([status])
-  @@index([featured])
+  @@index([userId])
 }
 
-model Pelanggan {
-  id                            String        @id @default(cuid())
-  idPelanggan                   String        @unique
-  nama                          String
-  username                      String
-  password                      String
-  passwordLogin                 String
-  hargaPaketId                  String
-  tipe                          TipePelanggan @default(REGULER)
-  tanggalAktif                  DateTime
-  jatuhTempo                    DateTime
-  status                        Status        @default(AKTIF)
-  autoIsolir                    Boolean       @default(true)
-  alamat                        String?
-  noTelp                        String?
-  email                         String?
-  catatan                       String?
-  createdAt                     DateTime      @default(now())
-  updatedAt                     DateTime      @updatedAt
-  biayaInstalasi                Int?
-  biayaInstalasiDiskon          Float?
-  biayaInstalasiIsRecurring     Boolean       @default(false)
-  biayaLainnya                  Int?
-  biayaLainnyaDiskon            Float?
-  biayaLainnyaIsRecurring       Boolean       @default(false)
-  biayaSewaPerangkat            Int?
-  biayaSewaPerangkatDiskon      Float?
-  biayaSewaPerangkatIsRecurring Boolean       @default(true)
-  discountDuration              Int?
-  discountDurationUnit          DurasiUnit?
-  discountType                  DiscountType?
-  discountValue                 Float?
-  keteranganBiayaLainnya        String?
-  useDiscount                   Boolean       @default(false)
-  usePPN                        Boolean       @default(true)
-  useProrate                    Boolean       @default(false)
-  is2FAEnabled                  Boolean       @default(false)
-  isBillNotifEnabled            Boolean       @default(true)
-  isPromoEnabled                Boolean       @default(false)
-  jenisDokumen                  String?
-  noDokumen                     String?
-  fileBAST                      String?
-  fileKTP                       String?
-  couponUsages                 CouponUsage[]
-  fileRumahSekitar              String?
-  kabupatenKota                 String?
-  kecamatan                     String?
-  kelurahanDesa                 String?
-  latitude                      Float?
-  longitude                     Float?
-  provinsi                      String?
-  odpId                         String?
-  passwordHash                  String?
-  tokenVersion                  Int           @default(1)
-  userId                        String?
-  hargaPaket                    HargaPaket    @relation(fields: [hargaPaketId], references: [id])
-  odp                           Odp?          @relation(fields: [odpId], references: [id])
-  user                          User?         @relation(fields: [userId], references: [id])
-  workOrders                    WorkOrder[]
-  customerUsage                  CustomerUsage[]
-  serviceSuspensions             ServiceSuspension[]
-  invoices                      Invoice[]
-  supportTickets                SupportTicket[]
+model Payment {
+  id            String        @id
+  pelangganId   String
+  amount        BigInt
+  paymentDate   DateTime
+  reference     String?
+  notes         String?
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime
+  invoiceId     String?
+  paymentMethod PaymentMethod
+  Invoice       Invoice?      @relation(fields: [invoiceId], references: [id])
 
-  @@index([idPelanggan])
-  @@index([hargaPaketId])
-  @@index([status])
-  @@index([tipe])
-  @@index([tanggalAktif])
-  @@index([jatuhTempo])
-  @@index([email])
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@index([pelangganId])
 }
 
 model PaymentGatewayConfig {
-  id           String    @id @default(cuid())
+  id           String    @id
   provider     String    @unique
   providerName String
   isEnabled    Boolean   @default(false)
@@ -650,148 +665,153 @@ model PaymentGatewayConfig {
   lastTestedAt DateTime?
   testStatus   String?
   createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  updatedAt    DateTime
   createdBy    String?
 
-  @@index([provider])
   @@index([isEnabled])
   @@index([priority])
+  @@index([provider])
 }
 
-model Settings {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  value       String?
-  encrypted   Boolean  @default(false)
+model Pelanggan {
+  id                            String               @id
+  idPelanggan                   String               @unique
+  nama                          String
+  username                      String
+  password                      String
+  passwordLogin                 String
+  hargaPaketId                  String
+  tipe                          TipePelanggan        @default(REGULER)
+  tanggalAktif                  DateTime
+  jatuhTempo                    DateTime
+  status                        Status               @default(AKTIF)
+  alamat                        String?
+  noTelp                        String?
+  email                         String?
+  catatan                       String?
+  createdAt                     DateTime             @default(now())
+  updatedAt                     DateTime
+  biayaInstalasi                Int?
+  biayaInstalasiDiskon          Float?
+  biayaInstalasiIsRecurring     Boolean              @default(false)
+  biayaLainnya                  Int?
+  biayaLainnyaDiskon            Float?
+  biayaLainnyaIsRecurring       Boolean              @default(false)
+  biayaSewaPerangkat            Int?
+  biayaSewaPerangkatDiskon      Float?
+  biayaSewaPerangkatIsRecurring Boolean              @default(true)
+  discountDuration              Int?
+  discountDurationUnit          DurasiUnit?
+  discountType                  DiscountType?
+  discountValue                 Float?
+  keteranganBiayaLainnya        String?
+  useDiscount                   Boolean              @default(false)
+  usePPN                        Boolean              @default(true)
+  useProrate                    Boolean              @default(false)
+  jenisDokumen                  String?
+  noDokumen                     String?
+  fileBAST                      String?
+  fileKTP                       String?
+  fileRumahSekitar              String?
+  kabupatenKota                 String?
+  kecamatan                     String?
+  kelurahanDesa                 String?
+  latitude                      Float?
+  longitude                     Float?
+  provinsi                      String?
+  odpId                         String?
+  passwordHash                  String?
+  tokenVersion                  Int                  @default(1)
+  userId                        String?
+  is2FAEnabled                  Boolean              @default(false)
+  isBillNotifEnabled            Boolean              @default(true)
+  isPromoEnabled                Boolean              @default(false)
+  autoIsolir                    Boolean              @default(true)
+  CouponUsage                   CouponUsage[]
+  Invoice                       Invoice[]
+  HargaPaket                    HargaPaket           @relation(fields: [hargaPaketId], references: [id])
+  Odp                           Odp?                 @relation(fields: [odpId], references: [id])
+  User                          User?                @relation(fields: [userId], references: [id])
+  customer_usage                customer_usage[]
+  service_suspension            service_suspension[]
+  support_tickets               support_tickets[]
+  work_orders                   work_orders[]
+
+  @@index([email])
+  @@index([hargaPaketId])
+  @@index([idPelanggan])
+  @@index([jatuhTempo])
+  @@index([status])
+  @@index([tanggalAktif])
+  @@index([tipe])
+}
+
+model Permission {
+  id          String   @id
+  name        String
+  action      String
+  resource    String
   description String?
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime
+  Role        Role[]
 
-  @@index([key])
+  @@unique([resource, action])
 }
 
-model OAuthProviderConfig {
-  id           String    @id @default(cuid())
-  provider     String    @unique
-  providerName String
-  isEnabled    Boolean   @default(false)
-  isProduction Boolean   @default(false)
-  priority     Int       @default(0)
-  clientId     String?
-  clientSecret String?
-  tenantId     String?
-  scope        String?
-  redirectUri  String?
-  settings     Json?
-  lastTestedAt DateTime?
-  testStatus   String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  createdBy    String?
-
-  @@index([provider])
-  @@index([isEnabled])
-  @@index([priority])
-  @@map("oauth_provider_configs")
+model Pole {
+  id         String   @id
+  name       String
+  location   String?
+  notes      String?
+  latitude   Float?
+  longitude  Float?
+  cableSlack Boolean  @default(false)
+  status     Status   @default(AKTIF)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
 }
 
-model Payment {
-  id            String      @id @default(cuid())
-  invoiceId     String?
+model ProfilePPP {
+  id               String          @id
+  name             String          @unique
+  localAddress     String
+  remoteAddress    String
+  dnsServer        String?
+  sessionTimeout   Int?
+  idleTimeout      Int?
+  mikroTikRouterId String?
+  description      String?
+  status           Status          @default(AKTIF)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime
+  HargaPaket       HargaPaket[]
+  MikroTikRouter   MikroTikRouter? @relation(fields: [mikroTikRouterId], references: [id])
+
+  @@index([mikroTikRouterId])
+}
+
+model ReminderLog {
+  id            String    @id
   pelangganId   String
-  amount        BigInt
-  paymentDate   DateTime
-  paymentMethod PaymentMethod
-  reference     String?
-  notes         String?
-  verifiedBy    String?
-  verifiedAt    DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  reminderType  String
+  channel       String
+  recipient     String
+  subject       String?
+  message       String
+  status        String    @default("PENDING")
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  failureReason String?
+  createdAt     DateTime  @default(now())
 
-  invoice       Invoice?    @relation(fields: [invoiceId], references: [id])
-  
+  @@index([createdAt])
   @@index([pelangganId])
-  @@index([invoiceId])
-  @@index([paymentDate])
-}
-
-model Invoice {
-  id              String       @id @default(cuid())
-  invoiceNumber   String       @unique
-  pelangganId     String
-  issueDate       DateTime     @default(now())
-  dueDate         DateTime
-  status          InvoiceStatus @default(DRAFT)
-  subtotal        BigInt       @default(0)
-  taxAmount       BigInt       @default(0)
-  discountAmount  BigInt       @default(0)
-  totalAmount     BigInt       @default(0)
-  paidAmount      BigInt       @default(0)
-  notes           String?
-  terms           String?
-  sentAt          DateTime?
-  paidAt          DateTime?
-  createdBy       String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  
-  pelanggan       Pelanggan    @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  items           InvoiceItem[]
-  payments        Payment[]
-  
-  @@index([pelangganId])
-  @@index([invoiceNumber])
   @@index([status])
-  @@index([issueDate])
-  @@index([dueDate])
-}
-
-model InvoiceItem {
-  id          String      @id @default(cuid())
-  invoiceId   String
-  description String
-  quantity    Int         @default(1)
-  unitPrice   BigInt
-  totalPrice  BigInt
-  itemType    ItemType    @default(SERVICE)
-  
-  invoice     Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  
-  @@index([invoiceId])
-}
-
-model ARAgingSnapshot {
-  id               String   @id @default(cuid())
-  snapshotDate     DateTime @default(now())
-  current          BigInt   @default(0)
-  overdue30        BigInt   @default(0)
-  overdue60        BigInt   @default(0)
-  overdue90        BigInt   @default(0)
-  totalOutstanding BigInt   @default(0)
-  totalCustomers   Int      @default(0)
-  createdAt        DateTime @default(now())
-
-  @@index([snapshotDate])
-}
-
-model MRRMovement {
-  id           String   @id @default(cuid())
-  month        Int
-  year         Int
-  movementType String
-  pelangganId  String?
-  amount       BigInt
-  description  String?
-  createdAt    DateTime @default(now())
-
-  @@index([year, month])
-  @@index([movementType])
-  @@index([pelangganId])
 }
 
 model RevenueSnapshot {
-  id               String   @id @default(cuid())
+  id               String   @id
   snapshotDate     DateTime
   snapshotType     String   @default("DAILY")
   totalMRR         BigInt   @default(0)
@@ -812,156 +832,534 @@ model RevenueSnapshot {
   @@index([snapshotType])
 }
 
-model ReminderLog {
-  id            String    @id @default(cuid())
-  pelangganId   String
-  reminderType  String
-  channel       String
-  recipient     String
-  subject       String?
-  message       String
-  status        String    @default("PENDING")
-  sentAt        DateTime?
-  deliveredAt   DateTime?
-  failureReason String?
-  createdAt     DateTime  @default(now())
-
-  @@index([pelangganId])
-  @@index([status])
-  @@index([createdAt])
+model Role {
+  id                  String       @id
+  name                String       @unique
+  description         String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime
+  accessAdminPanel    Boolean      @default(false)
+  accessEmployeePanel Boolean      @default(false)
+  isRestricted        Boolean      @default(false)
+  User                User[]
+  Permission          Permission[]
 }
 
-model CustomerCohort {
-  id               String   @id @default(cuid())
-  cohortMonth      Int
-  cohortYear       Int
-  initialCustomers Int
-  month0Revenue    BigInt   @default(0)
-  month1Revenue    BigInt   @default(0)
-  month2Revenue    BigInt   @default(0)
-  month3Revenue    BigInt   @default(0)
-  month6Revenue    BigInt   @default(0)
-  month12Revenue   BigInt   @default(0)
-  activeMonth0     Int      @default(0)
-  activeMonth1     Int      @default(0)
-  activeMonth3     Int      @default(0)
-  activeMonth6     Int      @default(0)
-  activeMonth12    Int      @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@unique([cohortYear, cohortMonth])
-  @@index([cohortYear, cohortMonth])
+model Session {
+  id           String   @id
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model Expense {
-  id          String   @id @default(cuid())
-  date        DateTime @default(now())
-  amount      BigInt
-  category    String   
+model Settings {
+  id          String   @id
+  key         String   @unique
+  value       String?
+  encrypted   Boolean  @default(false)
   description String?
-  userId      String?
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  user        User?    @relation(fields: [userId], references: [id])
-  
-  @@index([date])
-  @@index([category])
+  updatedAt   DateTime
+
+  @@index([key])
+}
+
+model SpeedProfile {
+  id           String   @id
+  oltId        String
+  profileType  String   @default("Download")
+  name         String
+  type         Int
+  bandwidthSir Int
+  burstPir     Int
+  fixed        Int?
+  assured      Int?
+  maximum      Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+  Olt          Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
+
+  @@unique([oltId, profileType, name])
+  @@index([oltId])
+  @@index([profileType])
+}
+
+model SystemLog {
+  id        String   @id
+  type      LogType
+  action    String
+  subject   String
+  details   String?
+  userId    String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  User      User?    @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([type])
   @@index([userId])
 }
 
-model Department {
-  id              String         @id @default(cuid())
-  name            String         @unique
-  description     String?
-  jobDescription  String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  users           User[]
-  positions       Position[]
-  workOrders      WorkOrder[]
-  notifications   Notification[]
-  workOrderTemplates WorkOrderTemplate[]
-  slas            SLA[]
-  escalations     WorkOrderEscalation[]
+model User {
+  id                                         String                   @id
+  name                                       String?
+  email                                      String                   @unique
+  passwordHash                               String?
+  createdAt                                  DateTime                 @default(now())
+  updatedAt                                  DateTime
+  emailVerified                              DateTime?
+  image                                      String?
+  departmentId                               String?
+  isActive                                   Boolean                  @default(true)
+  phone                                      String?
+  siteId                                     String?
+  roleId                                     String?
+  endWorkTime                                String?
+  flexibleTargetHour                         Int?
+  shiftId                                    String?
+  startWorkTime                              String?
+  workDays                                   String?
+  workingHourMode                            WorkingHourMode          @default(FIXED)
+  pushToken                                  String?
+  pushTokenUpdatedAt                         DateTime?
+  Account                                    Account[]
+  Announcement                               Announcement[]
+  Attendance                                 Attendance[]
+  Expense                                    Expense[]
+  LeaveRequest                               LeaveRequest[]
+  Overtime                                   Overtime[]
+  Pelanggan                                  Pelanggan[]
+  Session                                    Session[]
+  SystemLog                                  SystemLog[]
+  departments                                departments?             @relation(fields: [departmentId], references: [id])
+  Role                                       Role?                    @relation(fields: [roleId], references: [id])
+  sites                                      sites?                   @relation(fields: [siteId], references: [id])
+  barang_keluar                              barang_keluar[]
+  barang_masuk                               barang_masuk[]
+  notifications                              notifications[]
+  push_subscriptions                         push_subscriptions[]
+  sla                                        sla[]
+  support_tickets                            support_tickets[]
+  ticket_replies                             ticket_replies[]
+  work_order_assignments                     work_order_assignments[]
+  work_order_attachments                     work_order_attachments[]
+  work_order_escalations                     work_order_escalations[]
+  work_order_tasks                           work_order_tasks[]
+  work_order_templates                       work_order_templates[]
+  work_order_updates                         work_order_updates[]
+  work_orders_work_orders_assignedToIdToUser work_orders[]            @relation("work_orders_assignedToIdToUser")
+  work_orders_work_orders_createdByIdToUser  work_orders[]            @relation("work_orders_createdByIdToUser")
 
-  @@map("departments")
-}
-
-model Site {
-  id          String      @id @default(cuid())
-  code        String      @unique
-  name        String
-  description String?
-  address     String?
-  latitude    Float?
-  longitude   Float?
-  attendanceRadius Int    @default(100)
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  users       User[]
-  workOrders  WorkOrder[]
-  gudangs     Gudang[]
-
+  @@index([departmentId])
   @@index([isActive])
-  @@map("sites")
+  @@index([roleId])
+  @@index([siteId])
 }
 
-model Position {
-  id           String      @id @default(cuid())
-  title        String      @unique
-  code         String?     @unique
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model barang {
+  id                    String                  @id
+  kode                  String                  @unique
+  nama                  String
+  satuan                String
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime
+  isWorkOrderMaterial   Boolean                 @default(false)
+  barang_gudang         barang_gudang[]
+  barang_keluar         barang_keluar[]
+  barang_masuk          barang_masuk[]
+  restock_alerts        restock_alerts[]
+  restock_settings      restock_settings[]
+  stock_opname          stock_opname[]
+  transfer_antar_gudang transfer_antar_gudang[]
+  usage_analytics       usage_analytics[]
+}
+
+model barang_gudang {
+  id        String   @id
+  barangId  String
+  gudangId  String
+  stok      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  stokBaru  Int      @default(0)
+  stokBekas Int      @default(0)
+  stokRusak Int      @default(0)
+  barang    barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang    gudang   @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+
+  @@unique([barangId, gudangId])
+}
+
+model barang_keluar {
+  id                    String                 @id
+  barangId              String
+  gudangId              String
+  transferId            String?
+  tanggal               DateTime               @default(now())
+  jumlah                Int
+  kondisi               KondisiBarang          @default(BARU)
+  keterangan            String?
+  lokasiPenyimpanan     String?
+  nomorRak              String?
+  nomorBox              String?
+  pic                   String?
+  tujuanPenggunaan      String?
+  nomorBatch            String?
+  customer              String?
+  isHilang              Boolean                @default(false)
+  purpose               String?
+  createdAt             DateTime               @default(now())
+  fotoBukti             String[]
+  fotoMetadata          Json?
+  userId                String?
+  barang                barang                 @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang                gudang                 @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  transfer_antar_gudang transfer_antar_gudang? @relation(fields: [transferId], references: [id])
+  User                  User?                  @relation(fields: [userId], references: [id])
+
+  @@index([barangId])
+  @@index([gudangId])
+  @@index([isHilang])
+  @@index([kondisi])
+  @@index([tanggal])
+  @@index([transferId])
+}
+
+model barang_masuk {
+  id                    String                 @id
+  barangId              String
+  gudangId              String
+  transferId            String?
+  tanggal               DateTime               @default(now())
+  jumlah                Int
+  kondisi               KondisiBarang          @default(BARU)
+  keterangan            String?
+  lokasiPenyimpanan     String?
+  nomorRak              String?
+  nomorBox              String?
+  pic                   String?
+  suhuPenyimpanan       Float?
+  kelembaban            Float?
+  tanggalExpire         DateTime?
+  nomorBatch            String?
+  supplier              String?
+  createdAt             DateTime               @default(now())
+  fotoBukti             String[]
+  fotoMetadata          Json?
+  userId                String?
+  barang                barang                 @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang                gudang                 @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  transfer_antar_gudang transfer_antar_gudang? @relation(fields: [transferId], references: [id])
+  User                  User?                  @relation(fields: [userId], references: [id])
+
+  @@index([barangId])
+  @@index([gudangId])
+  @@index([kondisi])
+  @@index([tanggal])
+  @@index([transferId])
+}
+
+model configuration_restores {
+  id              String         @id
+  deviceId        String
+  deviceType      String
+  backupId        String
+  restoreName     String
+  description     String?
+  restoreMethod   String?
+  status          RestoreStatus  @default(PENDING)
+  progress        Int            @default(0)
+  errorMessage    String?
+  warningMessage  String?
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  rollbackEnabled Boolean        @default(false)
+  rollbackData    Json?
+  createdBy       String?
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime
+  MikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_mikrotik_fkey")
+  Olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_olt_fkey")
+  Onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_onu_fkey")
+  device_backups  device_backups @relation(fields: [backupId], references: [id], onDelete: Cascade)
+
+  @@index([backupId])
+  @@index([createdAt])
+  @@index([deviceId, deviceType])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model customer_usage {
+  id                 String    @id
+  pelangganId        String
+  session_id         String?
+  session_start_time DateTime
+  session_end_time   DateTime?
+  session_duration   BigInt?
+  upload_bytes       BigInt?
+  download_bytes     BigInt?
+  total_bytes        BigInt?
+  nas_ip_address     String?
+  calling_station_id String?
+  called_station_id  String?
+  terminate_cause    String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime
+  Pelanggan          Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+
+  @@index([nas_ip_address])
+  @@index([pelangganId])
+  @@index([session_end_time])
+  @@index([session_start_time])
+}
+
+model departments {
+  id                     String                   @id
+  name                   String                   @unique
+  description            String?
+  jobDescription         String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  User                   User[]
+  notifications          notifications[]
+  positions              positions[]
+  sla                    sla[]
+  work_order_escalations work_order_escalations[]
+  work_order_templates   work_order_templates[]
+  work_orders            work_orders[]
+}
+
+model device_backups {
+  id                     String                   @id
+  deviceId               String
+  deviceType             String
+  backupName             String
+  description            String?
+  backupType             BackupType               @default(MANUAL)
+  filePath               String
+  fileSize               Int
+  fileHash               String?
+  compressionType        String?                  @default("gzip")
+  isEncrypted            Boolean                  @default(false)
+  encryptionKey          String?
+  backupMethod           String?
+  status                 BackupStatus             @default(PENDING)
+  errorMessage           String?
+  scheduledAt            DateTime?
+  completedAt            DateTime?
+  createdBy              String?
+  retentionDays          Int                      @default(30)
+  isAutoCleanup          Boolean                  @default(false)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  configuration_restores configuration_restores[]
+
+  @@index([backupType])
+  @@index([createdAt])
+  @@index([deviceId, deviceType])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model gudang {
+  id                                                               String                  @id
+  kode                                                             String                  @unique
+  nama                                                             String
+  lokasi                                                           String?
+  isActive                                                         Boolean                 @default(true)
+  createdAt                                                        DateTime                @default(now())
+  updatedAt                                                        DateTime
+  barang_gudang                                                    barang_gudang[]
+  barang_keluar                                                    barang_keluar[]
+  barang_masuk                                                     barang_masuk[]
+  restock_alerts                                                   restock_alerts[]
+  restock_settings                                                 restock_settings[]
+  stock_opname                                                     stock_opname[]
+  transfer_antar_gudang_transfer_antar_gudang_dariGudangIdTogudang transfer_antar_gudang[] @relation("transfer_antar_gudang_dariGudangIdTogudang")
+  transfer_antar_gudang_transfer_antar_gudang_keGudangIdTogudang   transfer_antar_gudang[] @relation("transfer_antar_gudang_keGudangIdTogudang")
+  usage_analytics                                                  usage_analytics[]
+  sites                                                            sites[]                 @relation("GudangToSite")
+}
+
+model nas {
+  id          Int      @id @default(autoincrement())
+  nasname     String   @unique
+  shortname   String?
+  type        String   @default("other")
+  ports       Int?
+  secret      String   @default("secret")
+  community   String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+}
+
+model network_alerts {
+  id              String         @id
+  deviceId        String
+  deviceType      String
+  alertType       AlertSeverity
+  title           String
+  message         String
+  severity        AlertSeverity
+  status          AlertStatus    @default(ACTIVE)
+  threshold       Float?
+  currentValue    Float?
+  metricName      String?
+  acknowledged    Boolean        @default(false)
+  acknowledgedBy  String?
+  acknowledgedAt  DateTime?
+  resolved        Boolean        @default(false)
+  resolvedBy      String?
+  resolvedAt      DateTime?
+  autoResolve     Boolean        @default(false)
+  autoResolveTime Int?
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime
+  MikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_mikrotik_fkey")
+  Olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_olt_fkey")
+  Onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_onu_fkey")
+
+  @@index([alertType])
+  @@index([createdAt])
+  @@index([deviceId, deviceType])
+  @@index([isActive])
+  @@index([severity])
+  @@index([status])
+}
+
+model network_performance {
+  id              String         @id
+  deviceId        String
+  deviceType      String
+  timestamp       DateTime       @default(now())
+  cpuUsage        Float?
+  memoryUsage     Float?
+  temperature     Float?
+  uptime          BigInt?
+  rxBytes         BigInt?
+  txBytes         BigInt?
+  rxPackets       BigInt?
+  txPackets       BigInt?
+  rxDrops         BigInt?
+  txDrops         BigInt?
+  rxErrors        BigInt?
+  txErrors        BigInt?
+  interfaceStatus Json?
+  connectionCount Int?
+  bandwidthUsage  Float?
+  signalStrength  Float?
+  powerLevel      String?
+  customMetrics   Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime
+  MikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_mikrotik_fkey")
+  Olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_olt_fkey")
+  Onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_onu_fkey")
+
+  @@index([deviceId, deviceType])
+  @@index([deviceId, timestamp])
+  @@index([deviceType])
+  @@index([timestamp])
+}
+
+model notifications {
+  id           String       @id
+  type         String
+  priority     String       @default("NORMAL")
+  title        String
+  message      String
+  link         String?
+  isRead       Boolean      @default(false)
+  departmentId String?
+  sourceType   String?
+  sourceId     String?
+  createdAt    DateTime     @default(now())
+  readAt       DateTime?
+  userId       String?
+  departments  departments? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  User         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([departmentId])
+  @@index([isRead])
+  @@index([type])
+  @@index([userId])
+}
+
+model oauth_provider_configs {
+  id           String    @id
+  provider     String    @unique
+  providerName String
+  isEnabled    Boolean   @default(false)
+  isProduction Boolean   @default(false)
+  priority     Int       @default(0)
+  clientId     String?
+  clientSecret String?
+  tenantId     String?
+  scope        String?
+  redirectUri  String?
+  settings     Json?
+  lastTestedAt DateTime?
+  testStatus   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime
+  createdBy    String?
+
+  @@index([isEnabled])
+  @@index([priority])
+  @@index([provider])
+}
+
+model positions {
+  id           String       @id
+  title        String       @unique
+  code         String?      @unique
   level        String?
   description  String?
   departmentId String?
-  isActive     Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  department   Department? @relation(fields: [departmentId], references: [id])
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime
+  departments  departments? @relation(fields: [departmentId], references: [id])
+
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+model push_subscriptions {
+  id         String    @id
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime
+  lastUsedAt DateTime?
+  userId     String
+  User       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
-  @@index([departmentId])
-  @@map("positions")
+  @@index([userId])
 }
 
-
-
-// Model Employee telah dihapus - semua relasi dipindahkan ke User
-
-
-
-
-model RadCheck {
-  id        Int      @id @default(autoincrement())
-  username  String
-  attribute String
-  op        String   @default("==") @db.VarChar(2)
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([username])
-  @@index([username, attribute])
-  @@map("radcheck")
-}
-
-model RadReply {
-  id        Int      @id @default(autoincrement())
-  username  String
-  attribute String
-  op        String   @default("=") @db.VarChar(2)
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([username])
-  @@index([username, attribute])
-  @@map("radreply")
-}
-
-model RadAcct {
+model radacct {
   radAcctId           BigInt    @id @default(autoincrement())
   acctSessionId       String
   acctUniqueId        String    @unique
@@ -992,471 +1390,241 @@ model RadAcct {
   framedInterfaceId   String?
   delegatedIpv6Prefix String?
   createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  updatedAt           DateTime
 
-  @@index([username])
   @@index([acctSessionId])
-  @@index([acctUniqueId])
-  @@index([nasIpAddress])
   @@index([acctStartTime])
   @@index([acctStopTime])
+  @@index([acctUniqueId])
+  @@index([nasIpAddress])
   @@index([username, acctStartTime])
-  @@map("radacct")
+  @@index([username])
 }
 
-model RadGroupCheck {
+model radcheck {
+  id        Int      @id @default(autoincrement())
+  username  String
+  attribute String
+  op        String   @default("==") @db.VarChar(2)
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@index([username, attribute])
+  @@index([username])
+}
+
+model radgroupcheck {
   id        Int      @id @default(autoincrement())
   groupname String
   attribute String
   op        String   @default("==") @db.VarChar(2)
   value     String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime
 
-  @@index([groupname])
   @@index([groupname, attribute])
-  @@map("radgroupcheck")
+  @@index([groupname])
 }
 
-model RadGroupReply {
+model radgroupreply {
   id        Int      @id @default(autoincrement())
   groupname String
   attribute String
   op        String   @default("=") @db.VarChar(2)
   value     String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime
 
-  @@index([groupname])
   @@index([groupname, attribute])
-  @@map("radgroupreply")
-}
-
-model RadUserGroup {
-  username  String
-  groupname String
-  priority  Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@id([username, groupname])
-  @@index([username])
   @@index([groupname])
-  @@map("radusergroup")
 }
 
-model RadPostAuth {
+model radippool {
+  id              Int      @id @default(autoincrement())
+  pool_name       String
+  framedipaddress String   @unique @db.Inet
+  nasipaddress    String?  @db.Inet
+  pool_key        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+
+  @@index([nasipaddress])
+  @@index([pool_name])
+}
+
+model radpostauth {
   id       BigInt   @id @default(autoincrement())
   username String
   pass     String
   reply    String
   authDate DateTime @default(now())
 
-  @@index([username])
   @@index([authDate])
-  @@map("radpostauth")
+  @@index([username])
 }
 
-model Nas {
-  id          Int      @id @default(autoincrement())
-  nasname     String   @unique
-  shortname   String?
-  type        String   @default("other")
-  ports       Int?
-  secret      String   @default("secret")
-  community   String?
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("nas")
-}
-
-model RadIpPool {
-  id              Int      @id @default(autoincrement())
-  poolName        String   @map("pool_name")
-  framedIpAddress String   @unique @map("framedipaddress") @db.Inet
-  nasIpAddress    String?  @map("nasipaddress") @db.Inet
-  poolKey         String?  @map("pool_key")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@index([poolName])
-  @@index([nasIpAddress])
-  @@map("radippool")
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-model WorkOrder {
-  id                  String                @id @default(cuid())
-  workOrderNumber     String                @unique
-  pelangganId         String?
-  siteId              String?
-  type                WorkOrderType
-  title               String
-  description         String
-  status              WorkOrderStatus       @default(PENDING)
-  priority            WorkOrderPriority     @default(NORMAL)
-  departmentId        String?
-  assignedToId        String?
-  locationAddress     String?
-  locationLat         Float?
-  locationLng         Float?
-  contactName         String?
-  contactPhone        String?
-  scheduledDate       DateTime?
-  scheduledTimeStart  String?
-  scheduledTimeEnd    String?
-  startedAt           DateTime?
-  completedAt         DateTime?
-  verifiedAt          DateTime?
-  closedAt            DateTime?
-  estimatedHours      Float?
-  actualHours         Float?
-  estimatedCost       Float?
-  actualCost          Float?
-  requiredMaterials   Json?
-  usedMaterials       Json?
-  internalNotes       String?
-  resolutionNotes     String?
-  customerFeedback    String?
-  rating              Int?
-  disconnectionReason String?
-  templateId          String?
-  slaId               String?
-  createdById         String?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  createdBy           User?                 @relation("WorkOrderCreatedBy", fields: [createdById], references: [id])
-  assignments         WorkOrderAssignment[]
-  attachments         WorkOrderAttachment[]
-  tasks               WorkOrderTask[]
-  updates             WorkOrderUpdate[]
-  assignedTo          User?                 @relation("UserWorkOrders", fields: [assignedToId], references: [id])
-  department          Department?           @relation(fields: [departmentId], references: [id])
-  pelanggan           Pelanggan?            @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  site                Site?                 @relation(fields: [siteId], references: [id])
-  template            WorkOrderTemplate?    @relation(fields: [templateId], references: [id])
-  sla                 SLA?                  @relation(fields: [slaId], references: [id])
-  ticketId            String?
-  ticket              SupportTicket?        @relation(fields: [ticketId], references: [id])
-
-  @@index([pelangganId])
-  @@index([siteId])
-  @@index([status])
-  @@index([assignedToId])
-  @@index([departmentId])
-  @@index([scheduledDate])
-  @@index([type])
-  @@index([priority])
-  @@index([workOrderNumber])
-  @@index([templateId])
-  @@index([slaId])
-  @@index([ticketId])
-  @@map("work_orders")
-}
-
-model WorkOrderTask {
-  id            String     @id @default(cuid())
-  workOrderId   String
-  title         String
-  description   String?
-  status        TaskStatus @default(PENDING)
-  order         Int        @default(0)
-  completedById String?
-  completedAt   DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  completedBy   User?      @relation("UserWorkOrderTasks", fields: [completedById], references: [id])
-  workOrder     WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-
-  @@index([workOrderId])
-  @@index([status])
-  @@map("work_order_tasks")
-}
-
-model WorkOrderAssignment {
-  id           String    @id @default(cuid())
-  workOrderId  String
-  userId       String
-  role         String?
-  status       String    @default("PENDING") // PENDING | APPROVED | REJECTED
-  assignedAt   DateTime  @default(now())
-  respondedAt  DateTime?
-  assignedById String?
-  user         User      @relation("UserWorkOrderAssignments", fields: [userId], references: [id], onDelete: Cascade)
-  workOrder    WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-
-  @@index([workOrderId])
-  @@index([userId])
-  @@map("work_order_assignments")
-}
-
-model WorkOrderUpdate {
-  id          String           @id @default(cuid())
-  workOrderId String
-  updateType  String
-  message     String
-  oldStatus   WorkOrderStatus?
-  newStatus   WorkOrderStatus?
-  createdById String?
-  createdAt   DateTime         @default(now())
-  createdBy   User?            @relation("UserWorkOrderUpdates", fields: [createdById], references: [id])
-  workOrder   WorkOrder        @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-
-  @@index([workOrderId])
-  @@index([createdAt])
-  @@map("work_order_updates")
-}
-
-model WorkOrderAttachment {
-  id           String    @id @default(cuid())
-  workOrderId  String
-  fileName     String
-  filePath     String
-  fileSize     Int
-  fileType     String
-  caption      String?
-  uploadedById String?
-  uploadedAt   DateTime  @default(now())
-  uploadedBy   User?     @relation("UserWorkOrderAttachments", fields: [uploadedById], references: [id])
-  workOrder    WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-
-  @@index([workOrderId])
-  @@index([uploadedAt])
-  @@map("work_order_attachments")
-}
-
-model WorkOrderTemplate {
-  id                String                @id @default(cuid())
-  name              String
-  description       String?
-  type              WorkOrderType
-  priority          WorkOrderPriority     @default(NORMAL)
-  departmentId      String?
-  estimatedHours    Float?
-  estimatedCost     Float?
-  requiredMaterials Json?
-  tasks             Json?
-  checklist         Json?
-  isActive          Boolean               @default(true)
-  createdById       String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-  createdBy         User?                 @relation("WorkOrderTemplateCreatedBy", fields: [createdById], references: [id])
-  department        Department?           @relation(fields: [departmentId], references: [id])
-  workOrders        WorkOrder[]
-
-  @@index([type])
-  @@index([departmentId])
-  @@index([isActive])
-  @@map("work_order_templates")
-}
-
-model SLA {
-  id                String            @id @default(cuid())
-  name              String
-  description       String?
-  workOrderType     WorkOrderType?
-  priority          WorkOrderPriority?
-  departmentId      String?
-  responseTime      Int               // in minutes
-  resolutionTime    Int               // in minutes
-  businessHoursOnly Boolean           @default(true)
-  isActive          Boolean           @default(true)
-  createdById       String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  createdBy         User?             @relation("SLACreatedBy", fields: [createdById], references: [id])
-  department        Department?       @relation(fields: [departmentId], references: [id])
-  workOrders        WorkOrder[]
-  escalations       WorkOrderEscalation[]
-
-  @@index([workOrderType])
-  @@index([priority])
-  @@index([departmentId])
-  @@index([isActive])
-  @@map("sla")
-}
-
-model WorkOrderEscalation {
-  id                String            @id @default(cuid())
-  name              String
-  description       String?
-  slaId             String?
-  workOrderType     WorkOrderType?
-  priority          WorkOrderPriority?
-  departmentId      String?
-  triggerCondition  String            // JSON condition for triggering escalation
-  escalationLevel   Int               @default(1)
-  notifyRole        String?           // Role to notify
-  notifyUsers       String[]          // Array of user IDs to notify
-  notifyDepartments String[]          // Array of department IDs to notify
-  delayMinutes      Int               @default(0) // Delay before triggering escalation
-  isActive          Boolean           @default(true)
-  createdById       String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  createdBy         User?             @relation("WorkOrderEscalationCreatedBy", fields: [createdById], references: [id])
-  sla               SLA?              @relation(fields: [slaId], references: [id])
-  department        Department?       @relation(fields: [departmentId], references: [id])
-
-  @@index([slaId])
-  @@index([workOrderType])
-  @@index([priority])
-  @@index([departmentId])
-  @@index([escalationLevel])
-  @@index([isActive])
-  @@map("work_order_escalations")
-}
-
-model Gudang {
-  id              String                @id @default(cuid())
-  kode            String                @unique
-  nama            String
-  lokasi          String?
-  sites           Site[]
-  isActive        Boolean               @default(true)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  barang          BarangGudang[]
-  keluar          BarangKeluar[]
-  masuk           BarangMasuk[]
-  restockAlerts   RestockAlerts[]
-  restockSettings RestockSettings[]
-  opname          StockOpname[]
-  transferDari    TransferAntarGudang[] @relation("TransferDariGudang")
-  transferKe      TransferAntarGudang[] @relation("TransferKeGudang")
-  usageAnalytics  UsageAnalytics[]
-
-  @@map("gudang")
-}
-
-model Barang {
-  id              String                @id @default(cuid())
-  kode            String                @unique
-  nama            String
-  satuan          String
-  isWorkOrderMaterial Boolean               @default(false)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  stok            BarangGudang[]
-  keluar          BarangKeluar[]
-  masuk           BarangMasuk[]
-  restockAlerts   RestockAlerts[]
-  restockSettings RestockSettings[]
-  opname          StockOpname[]
-  transfer        TransferAntarGudang[]
-  usageAnalytics  UsageAnalytics[]
-
-  @@map("barang")
-}
-
-model BarangGudang {
-  id        String   @id @default(cuid())
-  barangId  String
-  gudangId  String
-  stok      Int      @default(0) // Total stock
-  stokBaru  Int      @default(0)
-  stokBekas Int      @default(0)
-  stokRusak Int      @default(0)
+model radreply {
+  id        Int      @id @default(autoincrement())
+  username  String
+  attribute String
+  op        String   @default("=") @db.VarChar(2)
+  value     String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  barang    Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang    Gudang   @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  updatedAt DateTime
+
+  @@index([username, attribute])
+  @@index([username])
+}
+
+model radusergroup {
+  username  String
+  groupname String
+  priority  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@id([username, groupname])
+  @@index([groupname])
+  @@index([username])
+}
+
+model registrations {
+  id              String             @id
+  name            String
+  email           String
+  phone           String
+  address         String
+  packageName     String?
+  latitude        Float?
+  longitude       Float?
+  status          RegistrationStatus @default(PENDING)
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime
+  location        String?
+  ipAddress       String?
+  rejectionReason String?
+  verifiedAt      DateTime?
+  verifiedBy      String?
+}
+
+model restock_alerts {
+  id               String       @id
+  barangId         String
+  gudangId         String
+  alertType        AlertType    @default(RESTOCK_NEEDED)
+  currentStok      Int
+  minStok          Int
+  recommendedOrder Int
+  urgency          UrgencyLevel @default(MEDIUM)
+  message          String?
+  isRead           Boolean      @default(false)
+  isResolved       Boolean      @default(false)
+  resolvedAt       DateTime?
+  resolvedBy       String?
+  createdAt        DateTime     @default(now())
+  barang           barang       @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang           gudang       @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+
+  @@index([alertType])
+  @@index([barangId])
+  @@index([createdAt])
+  @@index([gudangId])
+  @@index([isRead])
+  @@index([isResolved])
+}
+
+model restock_settings {
+  id                   String    @id
+  barangId             String
+  gudangId             String
+  minStok              Int
+  maxStok              Int
+  safetyStok           Int       @default(0)
+  leadTimeDays         Int       @default(7)
+  avgDailyUsage        Float     @default(0)
+  lastUsageCalculation DateTime?
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime
+  barang               barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang               gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)
 
   @@unique([barangId, gudangId])
-  @@map("barang_gudang")
-}
-
-model BarangMasuk {
-  id                String               @id @default(cuid())
-  barangId          String
-  gudangId          String
-  transferId        String?
-  tanggal           DateTime             @default(now())
-  jumlah            Int
-  kondisi           KondisiBarang        @default(BARU)
-  keterangan        String?
-  lokasiPenyimpanan String?
-  nomorRak          String?
-  nomorBox          String?
-  pic               String?
-  suhuPenyimpanan   Float?
-  kelembaban        Float?
-  tanggalExpire     DateTime?
-  nomorBatch        String?
-  supplier          String?
-  createdAt         DateTime             @default(now())
-  fotoBukti         String[]
-  fotoMetadata      Json?
-  userId            String?
-  barang            Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  user              User?                @relation("UserBarangMasuk", fields: [userId], references: [id])
-  gudang            Gudang               @relation(fields: [gudangId], references: [id], onDelete: Cascade)
-  transfer          TransferAntarGudang? @relation(fields: [transferId], references: [id])
-
   @@index([barangId])
   @@index([gudangId])
-  @@index([transferId])
-  @@index([tanggal])
-  @@index([kondisi])
-  @@map("barang_masuk")
+  @@index([isActive])
 }
 
-model BarangKeluar {
-  id                String               @id @default(cuid())
-  barangId          String
-  gudangId          String
-  transferId        String?
-  tanggal           DateTime             @default(now())
-  jumlah            Int
-  kondisi           KondisiBarang        @default(BARU)
-  keterangan        String?
-  lokasiPenyimpanan String?
-  nomorRak          String?
-  nomorBox          String?
-  pic               String?
-  tujuanPenggunaan  String?
-  nomorBatch        String?
-  customer          String?
-  isHilang          Boolean              @default(false)
-  userId            String?
-  purpose           String?
-  createdAt         DateTime             @default(now())
-  fotoBukti         String[]
-  fotoMetadata      Json?
-  barang            Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  user              User?                @relation("UserBarangKeluar", fields: [userId], references: [id])
-  gudang            Gudang               @relation(fields: [gudangId], references: [id], onDelete: Cascade)
-  transfer          TransferAntarGudang? @relation(fields: [transferId], references: [id])
+model service_suspension {
+  id                 String    @id
+  pelangganId        String
+  suspension_type    String
+  reason             String?
+  suspended_at       DateTime  @default(now())
+  suspended_by       String?
+  expected_resume_at DateTime?
+  actual_resume_at   DateTime?
+  resumed_by         String?
+  notes              String?
+  is_active          Boolean   @default(true)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime
+  Pelanggan          Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
 
-  @@index([barangId])
-  @@index([gudangId])
-  @@index([transferId])
-  @@index([tanggal])
-  @@index([kondisi])
-  @@index([isHilang])
-  @@map("barang_keluar")
+  @@index([is_active])
+  @@index([pelangganId])
+  @@index([suspended_at])
+  @@index([suspension_type])
 }
 
-model StockOpname {
-  id                String    @id @default(cuid())
+model sites {
+  id               String        @id
+  code             String        @unique
+  name             String
+  description      String?
+  address          String?
+  latitude         Float?
+  longitude        Float?
+  isActive         Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime
+  attendanceRadius Int           @default(100)
+  User             User[]
+  work_orders      work_orders[]
+  gudang           gudang[]      @relation("GudangToSite")
+
+  @@index([isActive])
+}
+
+model sla {
+  id                     String                   @id
+  name                   String
+  description            String?
+  workOrderType          WorkOrderType?
+  priority               WorkOrderPriority?
+  departmentId           String?
+  responseTime           Int
+  resolutionTime         Int
+  businessHoursOnly      Boolean                  @default(true)
+  isActive               Boolean                  @default(true)
+  createdById            String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  User                   User?                    @relation(fields: [createdById], references: [id])
+  departments            departments?             @relation(fields: [departmentId], references: [id])
+  work_order_escalations work_order_escalations[]
+  work_orders            work_orders[]
+
+  @@index([departmentId])
+  @@index([isActive])
+  @@index([priority])
+  @@index([workOrderType])
+}
+
+model stock_opname {
+  id                String    @id
   barangId          String
   gudangId          String
   tanggal           DateTime  @default(now())
@@ -1477,94 +1645,85 @@ model StockOpname {
   nomorBatch        String?
   catatanDetail     String?
   createdAt         DateTime  @default(now())
-  barang            Barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang            Gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  barang            barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang            gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)
 
   @@index([barangId])
   @@index([gudangId])
   @@index([tanggal])
-  @@map("stock_opname")
 }
 
-model TransferAntarGudang {
-  id           String         @id @default(cuid())
-  kodeTransfer String         @unique
-  barangId     String
-  dariGudangId String
-  keGudangId   String
-  tanggal      DateTime       @default(now())
-  jumlah       Int
-  kondisi      KondisiBarang  @default(BARU)
-  keterangan   String?
-  createdAt    DateTime       @default(now())
-  fotoBukti    String[]
-  fotoMetadata Json?
-  keluar       BarangKeluar[]
-  masuk        BarangMasuk[]
-  barang       Barang         @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  dariGudang   Gudang         @relation("TransferDariGudang", fields: [dariGudangId], references: [id], onDelete: Cascade)
-  keGudang     Gudang         @relation("TransferKeGudang", fields: [keGudangId], references: [id], onDelete: Cascade)
+model support_tickets {
+  id             String           @id
+  ticketNumber   String           @unique
+  pelangganId    String
+  category       TicketCategory
+  priority       TicketPriority   @default(MEDIUM)
+  subject        String
+  description    String
+  status         TicketStatus     @default(OPEN)
+  assignedToId   String?
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  User           User?            @relation(fields: [assignedToId], references: [id])
+  Pelanggan      Pelanggan        @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  ticket_replies ticket_replies[]
+  work_orders    work_orders[]
+
+  @@index([category])
+  @@index([createdAt])
+  @@index([pelangganId])
+  @@index([priority])
+  @@index([status])
+  @@index([ticketNumber])
+}
+
+model ticket_replies {
+  id              String          @id
+  ticketId        String
+  senderId        String?
+  pelangganId     String?
+  isFromAdmin     Boolean         @default(false)
+  message         String
+  attachments     Json?
+  createdAt       DateTime        @default(now())
+  User            User?           @relation(fields: [senderId], references: [id])
+  support_tickets support_tickets @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([ticketId])
+}
+
+model transfer_antar_gudang {
+  id                                                String          @id
+  kodeTransfer                                      String          @unique
+  barangId                                          String
+  dariGudangId                                      String
+  keGudangId                                        String
+  tanggal                                           DateTime        @default(now())
+  jumlah                                            Int
+  kondisi                                           KondisiBarang   @default(BARU)
+  keterangan                                        String?
+  createdAt                                         DateTime        @default(now())
+  fotoBukti                                         String[]
+  fotoMetadata                                      Json?
+  barang_keluar                                     barang_keluar[]
+  barang_masuk                                      barang_masuk[]
+  barang                                            barang          @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang_transfer_antar_gudang_dariGudangIdTogudang gudang          @relation("transfer_antar_gudang_dariGudangIdTogudang", fields: [dariGudangId], references: [id], onDelete: Cascade)
+  gudang_transfer_antar_gudang_keGudangIdTogudang   gudang          @relation("transfer_antar_gudang_keGudangIdTogudang", fields: [keGudangId], references: [id], onDelete: Cascade)
 
   @@index([barangId])
   @@index([dariGudangId])
   @@index([keGudangId])
-  @@index([tanggal])
   @@index([kondisi])
-  @@map("transfer_antar_gudang")
+  @@index([tanggal])
 }
 
-model RestockSettings {
-  id                   String    @id @default(cuid())
-  barangId             String
-  gudangId             String
-  minStok              Int
-  maxStok              Int
-  safetyStok           Int       @default(0)
-  leadTimeDays         Int       @default(7)
-  avgDailyUsage        Float     @default(0)
-  lastUsageCalculation DateTime?
-  isActive             Boolean   @default(true)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  barang               Barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang               Gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)
-
-  @@unique([barangId, gudangId])
-  @@index([barangId])
-  @@index([gudangId])
-  @@index([isActive])
-  @@map("restock_settings")
-}
-
-model RestockAlerts {
-  id               String       @id @default(cuid())
-  barangId         String
-  gudangId         String
-  alertType        AlertType    @default(RESTOCK_NEEDED)
-  currentStok      Int
-  minStok          Int
-  recommendedOrder Int
-  urgency          UrgencyLevel @default(MEDIUM)
-  message          String?
-  isRead           Boolean      @default(false)
-  isResolved       Boolean      @default(false)
-  resolvedAt       DateTime?
-  resolvedBy       String?
-  createdAt        DateTime     @default(now())
-  barang           Barang       @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang           Gudang       @relation(fields: [gudangId], references: [id], onDelete: Cascade)
-
-  @@index([barangId])
-  @@index([gudangId])
-  @@index([isRead])
-  @@index([isResolved])
-  @@index([alertType])
-  @@index([createdAt])
-  @@map("restock_alerts")
-}
-
-model UsageAnalytics {
-  id                String     @id @default(cuid())
+model usage_analytics {
+  id                String     @id
   barangId          String
   gudangId          String
   periodType        PeriodType @default(DAILY)
@@ -1574,398 +1733,206 @@ model UsageAnalytics {
   transactionCount  Int        @default(0)
   avgPerTransaction Float      @default(0)
   createdAt         DateTime   @default(now())
-  barang            Barang     @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang            Gudang     @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  barang            barang     @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang            gudang     @relation(fields: [gudangId], references: [id], onDelete: Cascade)
 
   @@unique([barangId, gudangId, periodType, periodStart])
   @@index([barangId])
   @@index([gudangId])
-  @@index([periodType])
   @@index([periodStart])
-  @@map("usage_analytics")
+  @@index([periodType])
 }
 
-
-
-enum Status {
-  AKTIF
-  NONAKTIF
-  MAINTENANCE
-  ISOLIR
-  DISMANTLE
-}
-
-enum DurasiUnit {
-  JAM
-  HARI
-  BULAN
-  TAHUN
-}
-
-enum DiscountType {
-  FIXED
-  PERCENT
-}
-
-enum TipePelanggan {
-  REGULER
-  NON_REGULER
-}
-
-enum KondisiBarang {
-  BARU
-  BEKAS
-  RUSAK
-}
-
-enum AlertType {
-  RESTOCK_NEEDED
-  STOCK_OUT
-  LOW_STOCK
-  OVERSTOCK
-  EXPIRED_WARNING
-}
-
-enum UrgencyLevel {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
-enum PeriodType {
-  DAILY
-  WEEKLY
-  MONTHLY
-}
-
-
-
-
-
-
-
-
-enum WorkOrderStatus {
-  PENDING
-  ASSIGNED
-  IN_PROGRESS
-  ON_HOLD
-  COMPLETED
-  VERIFIED
-  CLOSED
-  CANCELLED
-}
-
-enum WorkOrderPriority {
-  LOW
-  NORMAL
-  HIGH
-  URGENT
-  CRITICAL
-}
-
-enum WorkOrderType {
-  INSTALLATION
-  TROUBLESHOOT
-  MAINTENANCE
-  UPGRADE
-  RELOCATION
-  DISCONNECTION
-  OTHER
-}
-
-enum TaskStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-  SKIPPED
-}
-
-enum InvoiceStatus {
-  DRAFT
-  SENT
-  OVERDUE
-  PAID
-  CANCELLED
-}
-
-enum PaymentMethod {
-  CASH
-  BANK_TRANSFER
-  E_WALLET
-  CREDIT_CARD
-  DEBIT_CARD
-  CHECK
-  OTHER
-}
-
-enum ItemType {
-  SERVICE
-  PRODUCT
-  SETUP_FEE
-  MONTHLY_FEE
-  ONE_TIME_FEE
-  OTHER
-}
-
-// Role-Based Access Control Models
-
-
-// Menu Definition for granular role-based access control
-
-// ===================================================================
-// Notification System
-// ===================================================================
-
-model Notification {
-  id       String  @id @default(cuid())
-  type     String // 'WORK_ORDER', 'SYSTEM', 'TICKET', 'ALERT'
-  priority String  @default("NORMAL") // 'LOW', 'NORMAL', 'HIGH', 'URGENT'
-  title    String
-  message  String
-  link     String? // URL for navigation
-  isRead   Boolean @default(false)
-
-  // Target notification
-  userId       String? // Specific user
-  departmentId String? // All users in department
-
-  // Reference to source
-  sourceType String? // 'WORK_ORDER', 'TICKET', etc.
-  sourceId   String? // ID of the source entity
-
-  createdAt DateTime  @default(now())
-  readAt    DateTime?
-
-  user       User?       @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  department Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+model work_order_assignments {
+  id           String      @id
+  workOrderId  String
+  role         String?
+  assignedAt   DateTime    @default(now())
+  assignedById String?
+  userId       String
+  respondedAt  DateTime?
+  status       String      @default("PENDING")
+  User         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  work_orders  work_orders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([workOrderId])
+}
+
+model work_order_attachments {
+  id           String      @id
+  workOrderId  String
+  fileName     String
+  filePath     String
+  fileSize     Int
+  fileType     String
+  caption      String?
+  uploadedById String?
+  uploadedAt   DateTime    @default(now())
+  User         User?       @relation(fields: [uploadedById], references: [id])
+  work_orders  work_orders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([uploadedAt])
+  @@index([workOrderId])
+}
+
+model work_order_escalations {
+  id                String             @id
+  name              String
+  description       String?
+  slaId             String?
+  workOrderType     WorkOrderType?
+  priority          WorkOrderPriority?
+  departmentId      String?
+  triggerCondition  String
+  escalationLevel   Int                @default(1)
+  notifyRole        String?
+  notifyUsers       String[]
+  notifyDepartments String[]
+  delayMinutes      Int                @default(0)
+  isActive          Boolean            @default(true)
+  createdById       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime
+  User              User?              @relation(fields: [createdById], references: [id])
+  departments       departments?       @relation(fields: [departmentId], references: [id])
+  sla               sla?               @relation(fields: [slaId], references: [id])
+
   @@index([departmentId])
-  @@index([isRead])
-  @@index([createdAt])
+  @@index([escalationLevel])
+  @@index([isActive])
+  @@index([priority])
+  @@index([slaId])
+  @@index([workOrderType])
+}
+
+model work_order_tasks {
+  id            String      @id
+  workOrderId   String
+  title         String
+  description   String?
+  status        TaskStatus  @default(PENDING)
+  order         Int         @default(0)
+  completedById String?
+  completedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime
+  User          User?       @relation(fields: [completedById], references: [id])
+  work_orders   work_orders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([workOrderId])
+}
+
+model work_order_templates {
+  id                String            @id
+  name              String
+  description       String?
+  type              WorkOrderType
+  priority          WorkOrderPriority @default(NORMAL)
+  departmentId      String?
+  estimatedHours    Float?
+  estimatedCost     Float?
+  requiredMaterials Json?
+  tasks             Json?
+  checklist         Json?
+  isActive          Boolean           @default(true)
+  createdById       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime
+  User              User?             @relation(fields: [createdById], references: [id])
+  departments       departments?      @relation(fields: [departmentId], references: [id])
+  work_orders       work_orders[]
+
+  @@index([departmentId])
+  @@index([isActive])
   @@index([type])
-  @@map("notifications")
 }
 
-model PushSubscription {
-  id         String  @id @default(cuid())
-  userId     String
-  endpoint   String  @unique
-  p256dh     String // Public key for encryption
-  auth       String // Auth secret
-  userAgent  String? // Device/browser info
-  isActive   Boolean @default(true)
+model work_order_updates {
+  id          String           @id
+  workOrderId String
+  updateType  String
+  message     String
+  oldStatus   WorkOrderStatus?
+  newStatus   WorkOrderStatus?
+  createdById String?
+  createdAt   DateTime         @default(now())
+  User        User?            @relation(fields: [createdById], references: [id])
+  work_orders work_orders      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  lastUsedAt DateTime?
-
-  user       User @relation("UserPushSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([isActive])
-  @@map("push_subscriptions")
+  @@index([createdAt])
+  @@index([workOrderId])
 }
 
-// Customer Usage Tracking Model
-model CustomerUsage {
-  id                String   @id @default(cuid())
-  pelangganId        String
-  sessionId         String?  @map("session_id")
-  sessionStartTime   DateTime @map("session_start_time")
-  sessionEndTime     DateTime? @map("session_end_time")
-  sessionDuration    BigInt?  @map("session_duration") // in seconds
-  uploadBytes       BigInt?  @map("upload_bytes")
-  downloadBytes     BigInt?  @map("download_bytes")
-  totalBytes        BigInt?  @map("total_bytes")
-  nasIpAddress      String?  @map("nas_ip_address")
-  callingStationId  String?  @map("calling_station_id")
-  calledStationId   String?  @map("called_station_id")
-  terminateCause    String?  @map("terminate_cause")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  
-  pelanggan         Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  
+model work_orders {
+  id                                  String                   @id
+  workOrderNumber                     String                   @unique
+  pelangganId                         String?
+  type                                WorkOrderType
+  title                               String
+  description                         String
+  status                              WorkOrderStatus          @default(PENDING)
+  priority                            WorkOrderPriority        @default(NORMAL)
+  departmentId                        String?
+  assignedToId                        String?
+  locationAddress                     String?
+  locationLat                         Float?
+  locationLng                         Float?
+  contactName                         String?
+  contactPhone                        String?
+  scheduledDate                       DateTime?
+  scheduledTimeStart                  String?
+  scheduledTimeEnd                    String?
+  startedAt                           DateTime?
+  completedAt                         DateTime?
+  verifiedAt                          DateTime?
+  closedAt                            DateTime?
+  estimatedHours                      Float?
+  actualHours                         Float?
+  estimatedCost                       Float?
+  actualCost                          Float?
+  requiredMaterials                   Json?
+  usedMaterials                       Json?
+  internalNotes                       String?
+  resolutionNotes                     String?
+  customerFeedback                    String?
+  rating                              Int?
+  createdAt                           DateTime                 @default(now())
+  updatedAt                           DateTime
+  createdById                         String?
+  disconnectionReason                 String?
+  siteId                              String?
+  slaId                               String?
+  templateId                          String?
+  ticketId                            String?
+  work_order_assignments              work_order_assignments[]
+  work_order_attachments              work_order_attachments[]
+  work_order_tasks                    work_order_tasks[]
+  work_order_updates                  work_order_updates[]
+  User_work_orders_assignedToIdToUser User?                    @relation("work_orders_assignedToIdToUser", fields: [assignedToId], references: [id])
+  User_work_orders_createdByIdToUser  User?                    @relation("work_orders_createdByIdToUser", fields: [createdById], references: [id])
+  departments                         departments?             @relation(fields: [departmentId], references: [id])
+  Pelanggan                           Pelanggan?               @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  sites                               sites?                   @relation(fields: [siteId], references: [id])
+  sla                                 sla?                     @relation(fields: [slaId], references: [id])
+  work_order_templates                work_order_templates?    @relation(fields: [templateId], references: [id])
+  support_tickets                     support_tickets?         @relation(fields: [ticketId], references: [id])
+
+  @@index([assignedToId])
+  @@index([departmentId])
   @@index([pelangganId])
-  @@index([sessionStartTime])
-  @@index([sessionEndTime])
-  @@index([nasIpAddress])
-  @@map("customer_usage")
-}
-
-// Service Suspension Model
-model ServiceSuspension {
-  id                String   @id @default(cuid())
-  pelangganId        String
-  suspensionType     String   @map("suspension_type") // PAYMENT, VIOLATION, MAINTENANCE, REQUEST
-  reason            String?
-  suspendedAt        DateTime @default(now()) @map("suspended_at")
-  suspendedBy        String?  @map("suspended_by") // User ID who suspended
-  expectedResumeAt   DateTime? @map("expected_resume_at")
-  actualResumeAt     DateTime? @map("actual_resume_at")
-  resumedBy          String?  @map("resumed_by") // User ID who resumed
-  notes             String?
-  isActive          Boolean  @default(true) @map("is_active") // true if currently suspended
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  
-  pelanggan         Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  
-  @@index([pelangganId])
-  @@index([suspensionType])
-  @@index([suspendedAt])
-  @@index([isActive])
-  @@map("service_suspension")
-}
-
-// Network Performance Monitoring Models
-model NetworkPerformance {
-  id                String      @id @default(cuid())
-  deviceId          String      // Reference to OLT, MikroTik Router, or ONU
-  deviceType        String      // 'OLT', 'MIKROTIK', 'ONU'
-  timestamp         DateTime    @default(now())
-  cpuUsage          Float?      // CPU usage percentage
-  memoryUsage       Float?      // Memory usage percentage
-  temperature       Float?      // Device temperature in Celsius
-  uptime            BigInt?     // Device uptime in seconds
-  rxBytes          BigInt?     // Received bytes
-  txBytes          BigInt?     // Transmitted bytes
-  rxPackets        BigInt?     // Received packets
-  txPackets        BigInt?     // Transmitted packets
-  rxDrops          BigInt?     // Dropped received packets
-  txDrops          BigInt?     // Dropped transmitted packets
-  rxErrors         BigInt?     // Received packet errors
-  txErrors         BigInt?     // Transmitted packet errors
-  interfaceStatus  Json?       // Interface status information
-  connectionCount   Int?        // Number of active connections
-  bandwidthUsage   Float?      // Current bandwidth usage in Mbps
-  signalStrength   Float?      // Signal strength in dBm (for wireless devices)
-  powerLevel       String?     // Power level status
-  customMetrics    Json?       // Custom device-specific metrics
-  olt              Olt?        @relation("NetworkPerformanceOlt", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_olt_fkey")
-  mikroTikRouter   MikroTikRouter? @relation("NetworkPerformanceMikroTik", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_mikrotik_fkey")
-  onu              Onu?        @relation("NetworkPerformanceOnu", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_onu_fkey")
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-
-  @@index([deviceId, deviceType])
-  @@index([timestamp])
-  @@index([deviceType])
-  @@index([deviceId, timestamp])
-  @@map("network_performance")
-}
-
-model NetworkAlert {
-  id              String            @id @default(cuid())
-  deviceId        String            // Reference to OLT, MikroTik Router, or ONU
-  deviceType      String            // 'OLT', 'MIKROTIK', 'ONU'
-  alertType       AlertSeverity     // 'CRITICAL', 'WARNING', 'INFO'
-  title           String
-  message         String
-  severity        AlertSeverity
-  status          AlertStatus       @default(ACTIVE)
-  threshold       Float?            // Alert threshold value
-  currentValue    Float?            // Current value that triggered the alert
-  metricName      String?           // Name of the metric that triggered the alert
-  acknowledged    Boolean           @default(false)
-  acknowledgedBy  String?           // User ID who acknowledged
-  acknowledgedAt  DateTime?
-  resolved        Boolean           @default(false)
-  resolvedBy      String?           // User ID who resolved
-  resolvedAt      DateTime?
-  autoResolve     Boolean           @default(false)
-  autoResolveTime Int?              // Auto-resolve time in minutes
-  isActive        Boolean           @default(true)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  olt             Olt?              @relation("NetworkAlertOlt", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_olt_fkey")
-  mikrotikRouter   MikroTikRouter?    @relation("NetworkAlertMikroTik", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_mikrotik_fkey")
-  onu             Onu?              @relation("NetworkAlertOnu", fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_onu_fkey")
-
-  @@index([deviceId, deviceType])
+  @@index([priority])
+  @@index([scheduledDate])
+  @@index([siteId])
+  @@index([slaId])
   @@index([status])
-  @@index([severity])
-  @@index([alertType])
-  @@index([createdAt])
-  @@index([isActive])
-  @@map("network_alerts")
+  @@index([templateId])
+  @@index([ticketId])
+  @@index([type])
+  @@index([workOrderNumber])
 }
 
-model DeviceBackup {
-  id              String            @id @default(cuid())
-  deviceId        String            // Reference to OLT, MikroTik Router, or ONU
-  deviceType      String            // 'OLT', 'MIKROTIK', 'ONU'
-  backupName      String
-  description     String?
-  backupType      BackupType        @default(MANUAL)
-  filePath        String            // Path to backup file
-  fileSize        Int               // File size in bytes
-  fileHash        String?           // File hash for integrity verification
-  compressionType String?           @default("gzip")
-  isEncrypted     Boolean           @default(false)
-  encryptionKey   String?           // Encryption key (encrypted)
-  backupMethod    String?           // 'SNMP', 'API', 'SSH', 'TELNET'
-  status          BackupStatus      @default(PENDING)
-  errorMessage    String?
-  scheduledAt     DateTime?
-  completedAt     DateTime?
-  createdBy       String?           // User ID who created the backup
-  retentionDays   Int               @default(30) // Number of days to retain backup
-  isAutoCleanup   Boolean           @default(false)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  // olt             Olt?              @relation("DeviceBackupOlt", fields: [deviceId], references: [id], onDelete: Cascade, map: "device_backup_olt_fkey")
-  // mikrotikRouter   MikroTikRouter?    @relation("DeviceBackupMikroTik", fields: [deviceId], references: [id], onDelete: Cascade, map: "device_backup_mikrotik_fkey")
-  // onu             Onu?              @relation("DeviceBackupOnu", fields: [deviceId], references: [id], onDelete: Cascade, map: "device_backup_onu_fkey")
-  configurationRestores ConfigurationRestore[] @relation("ConfigurationRestoreBackup")
-
-  @@index([deviceId, deviceType])
-  @@index([status])
-  @@index([backupType])
-  @@index([createdAt])
-  @@index([scheduledAt])
-  @@map("device_backups")
-}
-
-model ConfigurationRestore {
-  id              String            @id @default(cuid())
-  deviceId        String            // Reference to OLT, MikroTik Router, or ONU
-  deviceType      String            // 'OLT', 'MIKROTIK', 'ONU'
-  backupId        String            // Reference to DeviceBackup
-  restoreName     String
-  description     String?
-  restoreMethod   String?           // 'SNMP', 'API', 'SSH', 'TELNET'
-  status          RestoreStatus     @default(PENDING)
-  progress        Int               @default(0) // Progress percentage
-  errorMessage    String?
-  warningMessage  String?
-  scheduledAt     DateTime?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  rollbackEnabled Boolean           @default(false)
-  rollbackData    Json?             // Data for rollback if needed
-  createdBy       String?           // User ID who initiated restore
-  verifiedBy      String?           // User ID who verified restore
-  verifiedAt      DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  olt             Olt?              @relation("ConfigurationRestoreOlt", fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_olt_fkey")
-  mikrotikRouter   MikroTikRouter?    @relation("ConfigurationRestoreMikroTik", fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_mikrotik_fkey")
-  onu             Onu?              @relation("ConfigurationRestoreOnu", fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_onu_fkey")
-  backup          DeviceBackup      @relation("ConfigurationRestoreBackup", fields: [backupId], references: [id], onDelete: Cascade)
-
-  @@index([deviceId, deviceType])
-  @@index([status])
-  @@index([backupId])
-  @@index([createdAt])
-  @@index([scheduledAt])
-  @@map("configuration_restores")
-}
-
-// Enums for Network Models
 enum AlertSeverity {
   CRITICAL
   WARNING
@@ -1979,10 +1946,12 @@ enum AlertStatus {
   SUPPRESSED
 }
 
-enum BackupType {
-  MANUAL
-  SCHEDULED
-  AUTOMATIC
+enum AlertType {
+  RESTOCK_NEEDED
+  STOCK_OUT
+  LOW_STOCK
+  OVERSTOCK
+  EXPIRED_WARNING
 }
 
 enum BackupStatus {
@@ -1991,6 +1960,99 @@ enum BackupStatus {
   COMPLETED
   FAILED
   CANCELLED
+}
+
+enum BackupType {
+  MANUAL
+  SCHEDULED
+  AUTOMATIC
+}
+
+enum DiscountType {
+  FIXED
+  PERCENT
+}
+
+enum DurasiUnit {
+  JAM
+  HARI
+  BULAN
+  TAHUN
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  OVERDUE
+  PAID
+  CANCELLED
+}
+
+enum ItemType {
+  SERVICE
+  PRODUCT
+  SETUP_FEE
+  MONTHLY_FEE
+  ONE_TIME_FEE
+  OTHER
+}
+
+enum KondisiBarang {
+  BARU
+  BEKAS
+  RUSAK
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LeaveType {
+  SAKIT
+  CUTI
+  IZIN
+  LAINNYA
+}
+
+enum LogType {
+  AUTH
+  ACTIVITY
+  SYSTEM
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  E_WALLET
+  CREDIT_CARD
+  DEBIT_CARD
+  CHECK
+  OTHER
+}
+
+enum PeriodType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum RegistrationStatus {
+  PENDING
+  VERIFIED
+  SURVEYED
+  INSTALLED
+  CANCELLED
+  REJECTED
 }
 
 enum RestoreStatus {
@@ -2002,117 +2064,12 @@ enum RestoreStatus {
   ROLLED_BACK
 }
 
-// Support Ticket System Enums
-enum TicketStatus {
-  OPEN            // Baru dibuat, belum ada respon
-  IN_PROGRESS     // Sedang ditangani
-  WAITING_CUSTOMER // Menunggu respon pelanggan
-  RESOLVED        // Selesai
-  CLOSED          // Ditutup
-}
-
-enum TicketCategory {
-  TECHNICAL       // Masalah teknis (internet mati, lambat, dll)
-  BILLING         // Masalah tagihan/pembayaran
-  ACCOUNT         // Masalah akun
-  OTHER           // Lainnya
-}
-
-enum TicketPriority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-// Support Ticket Model
-model SupportTicket {
-  id            String          @id @default(cuid())
-  ticketNumber  String          @unique
-  pelangganId   String
-  category      TicketCategory
-  priority      TicketPriority  @default(MEDIUM)
-  subject       String
-  description   String          @db.Text
-  status        TicketStatus    @default(OPEN)
-  assignedToId  String?
-  resolvedAt    DateTime?
-  closedAt      DateTime?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-
-  pelanggan     Pelanggan       @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  assignedTo    User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
-  replies       TicketReply[]
-  workOrders    WorkOrder[]
-
-  @@index([pelangganId])
-  @@index([status])
-  @@index([category])
-  @@index([priority])
-  @@index([createdAt])
-  @@index([ticketNumber])
-  @@map("support_tickets")
-}
-
-// Ticket Reply Model
-model TicketReply {
-  id            String        @id @default(cuid())
-  ticketId      String
-  senderId      String?       // NULL jika dari pelanggan (login via customer auth)
-  pelangganId   String?       // ID pelanggan jika pengirim adalah pelanggan
-  isFromAdmin   Boolean       @default(false)
-  message       String        @db.Text
-  attachments   Json?         // Array of file URLs
-  createdAt     DateTime      @default(now())
-
-  ticket        SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  sender        User?         @relation("TicketReplySender", fields: [senderId], references: [id])
-
-  @@index([ticketId])
-  @@index([createdAt])
-  @@map("ticket_replies")
-}
-
-model SystemLog {
-  id        String   @id @default(cuid())
-  type      LogType
-  action    String
-  subject   String
-  details   String?  @db.Text
-  userId    String?
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
-  user      User?    @relation(fields: [userId], references: [id])
-
-  @@index([type])
-  @@index([userId])
-  @@index([createdAt])
-}
-
-enum LogType {
-  AUTH
-  ACTIVITY
-  SYSTEM
-}
-
-model Announcement {
-  id          String         @id @default(cuid())
-  title       String
-  content     String         @db.Text
-  target      TargetAudience @default(ALL)
-  isActive    Boolean        @default(true)
-  isPinned    Boolean        @default(false)
-  startDate   DateTime?
-  endDate     DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  createdBy   String?
-  creator     User?          @relation(fields: [createdBy], references: [id])
-
-  @@index([target])
-  @@index([isActive])
+enum Status {
+  AKTIF
+  NONAKTIF
+  MAINTENANCE
+  ISOLIR
+  DISMANTLE
 }
 
 enum TargetAudience {
@@ -2122,182 +2079,78 @@ enum TargetAudience {
   ADMIN
 }
 
-model Attendance {
-  id            String    @id @default(cuid())
-  userId        String
-  checkIn       DateTime  @default(now())
-  checkOut      DateTime?
-  checkInPhoto  String?   // URL foto check-in
-  checkOutPhoto String?   // URL foto check-out
-  status        String    @default("PRESENT") // PRESENT, LATE, SICK, LEAVE, etc.
-  notes         String?   // Keterangan tambahan (misal: WFH, Sakit)
-  location      String?   // Koordinat atau nama lokasi check-in
-  checkOutLocation String? // Koordinat atau nama lokasi check-out
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  user          User      @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([checkIn])
-  @@index([status])
-
-
-  overtimes     Overtime[]
-}
-
-model Overtime {
-  id              String         @id @default(cuid())
-  userId          String
-  attendanceId    String?        // Optional - linked when starting overtime
-  
-  // Request Info
-  reason          String         // Alasan lembur (Diisi saat pengajuan)
-  
-  // Real-time tracking
-  startTime       DateTime?      // Diisi saat Start
-  endTime         DateTime?      // Diisi saat Stop
-  startPhoto      String?        // Base64 or URL
-  startLocation   String?        // Location string/coords
-  endPhoto        String?
-  endLocation     String?
-  
-  duration        Int?           // Calculated on finish (minutes)
-  
-  status          OvertimeStatus @default(PENDING)
-  rejectionReason String?
-  approvedBy      String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  user            User           @relation(fields: [userId], references: [id])
-  attendance      Attendance?    @relation(fields: [attendanceId], references: [id])
-
-  @@index([userId])
-  @@index([status])
-  @@index([startTime])
-}
-
-enum OvertimeStatus {
+enum TaskStatus {
   PENDING
-  APPROVED
   IN_PROGRESS
   COMPLETED
-  REJECTED
+  SKIPPED
 }
 
-model Registration {
-  id              String             @id @default(cuid())
-  name            String
-  email           String
-  phone           String
-  address         String
-  packageName     String?
-  location        String?
-  latitude        Float?
-  longitude       Float?
-  ipAddress       String?
-  status          RegistrationStatus @default(PENDING)
-  notes           String?
-  rejectionReason String?
-  verifiedAt      DateTime?
-  verifiedBy      String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-
-  @@map("registrations")
+enum TicketCategory {
+  TECHNICAL
+  BILLING
+  ACCOUNT
+  OTHER
 }
 
-enum RegistrationStatus {
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum TipePelanggan {
+  REGULER
+  NON_REGULER
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum WorkOrderPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+  CRITICAL
+}
+
+enum WorkOrderStatus {
   PENDING
+  ASSIGNED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
   VERIFIED
-  REJECTED
-  SURVEYED
-  INSTALLED
+  CLOSED
   CANCELLED
 }
 
-// Temporary append to trigger manual edit via tool if needed, but I can just append field line using replacement
+enum WorkOrderType {
+  INSTALLATION
+  TROUBLESHOOT
+  MAINTENANCE
+  UPGRADE
+  RELOCATION
+  DISCONNECTION
+  OTHER
+}
 
 enum WorkingHourMode {
   FIXED
   SHIFT
   FLEXIBLE
-}
-
-model Coupon {
-  id              String        @id @default(cuid())
-  code            String        @unique // e.g., "HEMAT10"
-  description     String?
-  discountType    DiscountType  // FIXED or PERCENT
-  discountValue   Float
-  startDate       DateTime
-  endDate         DateTime
-  minTransaction  Int           @default(0) // Minimum bill amount to apply
-  maxDiscount     Int?          // Max cap for percentage discounts (e.g., Max Rp 50.000)
-  quota           Int           @default(0) // Total vouchers available (0 = unlimited)
-  usedCount       Int           @default(0)
-  isActive        Boolean       @default(true)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  usages          CouponUsage[]
-}
-
-model CouponUsage {
-  id        String   @id @default(cuid())
-  couponId String
-  userId    String?  // If dealing with generic Users
-  pelangganId String? // If checking per PPP customer
-  usedAt    DateTime @default(now())
-  
-  coupon   Coupon   @relation(fields: [couponId], references: [id])
-  pelanggan Pelanggan? @relation(fields: [pelangganId], references: [id])
-  
-  @@index([couponId])
-  @@index([pelangganId])
-}
-
-
-model Holiday {
-  id          String   @id @default(cuid())
-  date        DateTime @unique
-  description String
-  isNational  Boolean  @default(true) // true = Libur Nasional, false = Cuti Bersama/Lainnya
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model LeaveRequest {
-  id            String        @id @default(cuid())
-  userId        String
-  type          LeaveType     // SAKIT, CUTI, IZIN, LAINNYA
-  startDate     DateTime
-  endDate       DateTime
-  reason        String
-  attachmentUrl String?       // Deprecated: used for single file
-  attachments   String[]      @default([]) // Array of URLs for medical notes etc.
-  status        LeaveStatus   @default(PENDING) // PENDING, APPROVED, REJECTED
-  approvedBy    String?       // ID of admin who approved
-  rejectionReason String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  user          User          @relation(fields: [userId], references: [id])
-  
-  @@index([userId])
-  @@index([status])
-  @@index([startDate])
-}
-
-enum LeaveType {
-  SAKIT
-  CUTI
-  IZIN
-  LAINNYA
-}
-
-enum LeaveStatus {
-  PENDING
-  APPROVED
-  REJECTED
 }

@@ -30,6 +30,8 @@ interface Barang {
 
 interface PhotoWithMeta {
     uri: string;
+    width: number;
+    height: number;
     capturedAt: Date;
 }
 
@@ -56,7 +58,7 @@ export default function BarangKeluarScreen() {
     const [keterangan, setKeterangan] = useState('');
     const [tujuanPenggunaan, setTujuanPenggunaan] = useState('');
     const [photos, setPhotos] = useState<PhotoWithMeta[]>([]);
-    
+
     // Refs for watermark capture
     const watermarkRefs = useRef<(View | null)[]>([]);
 
@@ -108,13 +110,18 @@ export default function BarangKeluarScreen() {
 
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
-            allowsEditing: true,
-            aspect: [4, 3],
+            allowsEditing: false,
             quality: 0.7,
         });
 
         if (!result.canceled && result.assets[0]) {
-            setPhotos([...photos, { uri: result.assets[0].uri, capturedAt: new Date() }]);
+            const asset = result.assets[0];
+            setPhotos([...photos, {
+                uri: asset.uri,
+                width: asset.width,
+                height: asset.height,
+                capturedAt: new Date()
+            }]);
         }
     };
 
@@ -126,13 +133,18 @@ export default function BarangKeluarScreen() {
         }
 
         const result = await ImagePicker.launchCameraAsync({
-            allowsEditing: true,
-            aspect: [4, 3],
+            allowsEditing: false,
             quality: 0.7,
         });
 
         if (!result.canceled && result.assets[0]) {
-            setPhotos([...photos, { uri: result.assets[0].uri, capturedAt: new Date() }]);
+            const asset = result.assets[0];
+            setPhotos([...photos, {
+                uri: asset.uri,
+                width: asset.width,
+                height: asset.height,
+                capturedAt: new Date()
+            }]);
         }
     };
 
@@ -143,7 +155,7 @@ export default function BarangKeluarScreen() {
     const captureWatermarkedPhoto = async (index: number): Promise<string | null> => {
         const ref = watermarkRefs.current[index];
         if (!ref) return photos[index]?.uri || null;
-        
+
         try {
             const uri = await captureRef(ref, {
                 format: 'jpg',
@@ -158,7 +170,7 @@ export default function BarangKeluarScreen() {
 
     const uploadPhotos = async (): Promise<string[]> => {
         const uploadedUrls: string[] = [];
-        
+
         for (let i = 0; i < photos.length; i++) {
             try {
                 // Capture watermarked version
@@ -194,7 +206,7 @@ export default function BarangKeluarScreen() {
 
     const selectedBarangData = barangs.find(b => b.id === selectedBarang);
     const selectedBarangName = selectedBarangData ? `${selectedBarangData.kode} - ${selectedBarangData.nama}` : '';
-    
+
     const getAvailableStock = () => {
         if (!selectedBarangData) return 0;
         if (kondisi === 'BEKAS') return selectedBarangData.stokBekas || 0;
@@ -381,14 +393,14 @@ export default function BarangKeluarScreen() {
                     {/* Photo Upload */}
                     <View style={tw`mb-6`}>
                         <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Foto Bukti</Text>
-                        
+
                         {/* Small Thumbnail Grid */}
                         {photos.length > 0 && (
                             <View style={tw`flex-row flex-wrap gap-2 mb-3`}>
                                 {photos.map((photo, index) => (
                                     <View key={index} style={tw`relative`}>
-                                        <Image 
-                                            source={{ uri: photo.uri }} 
+                                        <Image
+                                            source={{ uri: photo.uri }}
                                             style={tw`w-20 h-20 rounded-lg`}
                                         />
                                         <TouchableOpacity
@@ -401,7 +413,7 @@ export default function BarangKeluarScreen() {
                                 ))}
                             </View>
                         )}
-                        
+
                         {/* Hidden Watermark Views for Capture */}
                         <View style={tw`absolute -left-[9999px]`}>
                             {photos.map((photo, index) => (
@@ -409,12 +421,12 @@ export default function BarangKeluarScreen() {
                                     key={index}
                                     ref={(ref) => { watermarkRefs.current[index] = ref; }}
                                     collapsable={false}
-                                    style={{ width: 400, height: 300, backgroundColor: 'black' }}
+                                    style={{ width: photo.width, height: photo.height, backgroundColor: 'black' }}
                                 >
-                                    <Image 
-                                        source={{ uri: photo.uri }} 
-                                        style={{ width: 400, height: 300 }}
-                                        resizeMode="cover"
+                                    <Image
+                                        source={{ uri: photo.uri }}
+                                        style={{ width: photo.width, height: photo.height }}
+                                        resizeMode="contain"
                                     />
                                     {/* Watermark Overlay */}
                                     <View style={tw`absolute bottom-0 left-0 right-0 bg-black/70 p-2`}>

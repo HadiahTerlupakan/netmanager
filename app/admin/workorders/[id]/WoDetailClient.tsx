@@ -175,6 +175,20 @@ export function ClientComponent() {
     // Subscribe to WebSocket activity events
     useSocketEvent(SOCKET_EVENTS.WORKORDER_ACTIVITY, handleNewActivity)
 
+    // Handle real-time Work Order updates (e.g. status change, tasks)
+    const handleWOUpdate = useCallback(
+        (payload: any) => {
+            // Check if payload is the WO object itself or has ID
+            const updatedId = payload.id || payload.workOrderId
+            if (updatedId === workOrderId) {
+                console.log('[WorkOrder] Update received, refreshing...')
+                fetchWorkOrder()
+            }
+        },
+        [workOrderId]
+    )
+    useSocketEvent(SOCKET_EVENTS.WORKORDER_UPDATE, handleWOUpdate)
+
     useEffect(() => {
         if (status === 'unauthenticated') {
             router.push('/login')
