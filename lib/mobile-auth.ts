@@ -15,7 +15,7 @@ export async function signMobileToken(payload: any) {
 export async function verifyMobileToken(token: string) {
     try {
         const { payload } = await jwtVerify(token, secret)
-        return payload
+        return payload as any
     } catch (error) {
         return null
     }

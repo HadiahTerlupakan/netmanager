@@ -78,11 +78,11 @@ export interface WorkOrderPayload {
     type: string
     status: string
     priority: string
-    assignedToId?: string
-    departmentId?: string
-    department?: { id: string; name: string }
-    assignedTo?: { id: string; name: string }
-    createdAt?: string
+    assignedToId?: string | null
+    departmentId?: string | null
+    department?: { id: string; name: string | null } | null
+    assignedTo?: { id: string; name: string | null } | null
+    createdAt?: string | Date
 }
 
 

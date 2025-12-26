@@ -12,12 +12,12 @@ export async function GET(request: Request) {
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
-        
+
         if (!token) {
             return NextResponse.json({ error: 'Token required' }, { status: 401 })
         }
-        
-        const user = await verifyMobileToken(token)
+
+        const user = await verifyMobileToken(token) as { id: string } | null
         if (!user) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
         }
@@ -33,12 +33,12 @@ export async function POST(request: Request) {
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
-        
+
         if (!token) {
             return NextResponse.json({ error: 'Token required' }, { status: 401 })
         }
-        
-        const user = await verifyMobileToken(token)
+
+        const user = await verifyMobileToken(token) as { id: string } | null
         if (!user) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
         }
@@ -64,9 +64,9 @@ export async function POST(request: Request) {
                 const fileName = `leave_${user.id}_${timestamp}_${i}`
                 const uploadDir = 'public/uploads/employee-leave'
                 const url = await convertAndSaveBase64(
-                    photo, 
-                    uploadDir, 
-                    fileName, 
+                    photo,
+                    uploadDir,
+                    fileName,
                     'employee-leave'  // uploadType for R2
                 )
                 if (url) attachments.push(url)
