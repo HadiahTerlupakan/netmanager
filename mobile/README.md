@@ -48,3 +48,40 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Development Build (Native)
+
+Since this app uses native modules (sqlite, netinfo, camera), you must use a **Development Build**, not Expo Go.
+
+### Prerequisities
+
+1.  **Android Studio** installed & SDK set up.
+2.  **Java JDK 17** (or 11) installed.
+3.  `local.properties` file exists in `android/` with `sdk.dir`.
+
+### Rebuild Command
+
+To compile and install the native android app (Debug mode):
+
+```bash
+npx expo run:android
+```
+
+This command will:
+1.  Run `prebuild` to generate native android folders.
+2.  Compile the Gradle project.
+3.  Install the `.apk` onto your connected emulator or device.
+4.  Launch the metro bundler.
+
+## How to Share APK (Build for Friend)
+
+To generate a standalone APK file that you can send to a friend (does not require development server):
+
+```bash
+npx eas-cli build -p android --profile preview --local --output=./netman.apk
+```
+
+This command will:
+1.  Bundle the Javascript code inside the app.
+2.  Generate a `netman.apk` file in the current folder.
+3.  You can send this file via WhatsApp/Telegram to your friend.
