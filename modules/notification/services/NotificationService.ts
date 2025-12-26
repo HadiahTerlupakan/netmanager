@@ -1,8 +1,8 @@
 import { sendPushNotifications, type PushPayload } from './PushNotificationService';
+import { sendPushNotification as sendExpoPush, sendPushToDepartment as sendExpoPushToDepartment } from './ExpoPushService';
 import { prisma } from '@/lib/prisma';
 import type { PushSubscription } from '@prisma/client';
 import { socketEmitter } from '@/lib/websocket/emitter';
-
 
 export type NotificationType = 'WORK_ORDER' | 'SYSTEM' | 'TICKET' | 'ALERT';
 export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
@@ -61,11 +61,25 @@ export async function createNotification(data: CreateNotificationData) {
     // Emit WebSocket event to specific user
     if (data.userId) {
         socketEmitter.notifyUser(data.userId, wsPayload);
+        
+        // Send Expo Push notification for mobile users
+        sendExpoPush(data.userId, data.title, data.message, {
+            link: data.link,
+            sourceType: data.sourceType,
+            sourceId: data.sourceId
+        }).catch(err => console.error('[Expo Push] Error:', err));
     }
 
     // Emit to department if specified
     if (data.departmentId) {
         socketEmitter.notifyDepartment(data.departmentId, wsPayload);
+        
+        // Send Expo Push to all users in department
+        sendExpoPushToDepartment(data.departmentId, data.title, data.message, {
+            link: data.link,
+            sourceType: data.sourceType,
+            sourceId: data.sourceId
+        }).catch(err => console.error('[Expo Push Dept] Error:', err));
     }
 
     // Also notify admins for important notifications

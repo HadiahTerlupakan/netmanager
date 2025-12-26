@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { Alert } from 'react-native';
+import { registerForPushNotificationsAsync, addNotificationListeners } from '@/services/PushNotificationService';
+import axios from 'axios';
+import { Config } from '@/constants/Config';
 
 type User = {
     id: string;
@@ -14,6 +18,7 @@ type AuthContextType = {
     isLoading: boolean;
     signIn: (token: string, userData: User) => Promise<void>;
     signOut: () => Promise<void>;
+    logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,6 +32,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loadStorageData();
     }, []);
 
+    // Setup notification listeners when user is logged in
+    useEffect(() => {
+        if (token) {
+            const cleanup = addNotificationListeners(
+                (notification) => {
+                    console.log('[Push] Received:', notification.request.content.title);
+                },
+                (response) => {
+                    console.log('[Push] Tapped:', response.notification.request.content.title);
+                    // TODO: Navigate to notification target
+                }
+            );
+            return cleanup;
+        }
+    }, [token]);
+
     async function loadStorageData() {
         try {
             const storedToken = await SecureStore.getItemAsync('session_token');
@@ -35,6 +56,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (storedToken && storedUser) {
                 setToken(storedToken);
                 setUser(JSON.parse(storedUser));
+                
+                // Re-register push token on app start
+                registerForPushNotificationsAsync(storedToken).catch(console.error);
             }
         } catch (e) {
             console.error('Failed to load auth storage', e);
@@ -55,6 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('[AuthContext] Updating state...');
             setToken(newToken);
             setUser(userData);
+            
+            // Register for push notifications
+            console.log('[AuthContext] Registering push notifications...');
+            registerForPushNotificationsAsync(newToken).catch(console.error);
+            
             console.log('[AuthContext] signIn complete');
         } catch (error) {
             console.error('[AuthContext] Sign in error', error);
@@ -67,6 +96,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function signOut() {
         try {
+            // Remove push token from backend
+            if (token) {
+                try {
+                    await axios.delete(`${Config.API_URL}/api/mobile/push-token`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                } catch (e) {
+                    console.error('Failed to remove push token:', e);
+                }
+            }
+            
             await SecureStore.deleteItemAsync('session_token');
             await SecureStore.deleteItemAsync('user_data');
             setToken(null);
@@ -76,8 +116,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
+    // Alias for signOut
+    const logout = signOut;
+
     return (
-        <AuthContext.Provider value={{ user, token, isLoading, signIn, signOut }}>
+        <AuthContext.Provider value={{ user, token, isLoading, signIn, signOut, logout }}>
             {children}
         </AuthContext.Provider>
     );

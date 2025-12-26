@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text } from 'react-native';
 import tw from 'twrnc';
-import { Bell } from 'lucide-react-native';
+import NotificationBell from '@/components/NotificationBell';
 
 interface DashboardHeaderProps {
     userName: string;
@@ -20,11 +20,8 @@ export const DashboardHeader = ({ userName }: DashboardHeaderProps) => {
             {/* Title */}
             <Text style={tw`text-lg font-bold text-gray-900`}>Dashboard</Text>
 
-            {/* Bell Icon */}
-            <TouchableOpacity style={tw`h-10 w-10 items-center justify-center`}>
-                <Bell size={24} color="#374151" />
-                <View style={tw`absolute top-2 right-2 h-2.5 w-2.5 bg-red-500 rounded-full border border-white`} />
-            </TouchableOpacity>
+            {/* Notification Bell */}
+            <NotificationBell color="#374151" />
         </View>
     );
 };

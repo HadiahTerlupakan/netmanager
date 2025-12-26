@@ -67,6 +67,10 @@ model User {
   workDays              String?         // CSV format "Mon,Tue,Wed,Thu,Fri"
   shiftId               String?         // Future: link to Shift model
   flexibleTargetHour    Int?            // Target hours per day for Flexible mode
+  
+  // Mobile Push Notifications
+  pushToken             String?         // Expo Push Token
+  pushTokenUpdatedAt    DateTime?       // Last time push token was updated
 
   @@index([departmentId])
   @@index([siteId])

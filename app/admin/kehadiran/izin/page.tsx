@@ -53,9 +53,20 @@ export default function AdminLeavePage() {
     }, [selectedRequest])
 
     const getImages = (req: LeaveRequest) => {
-        if (req.attachments && req.attachments.length > 0) return req.attachments
-        if (req.attachmentUrl) return [req.attachmentUrl]
-        return []
+        const urls: string[] = []
+        if (req.attachments && req.attachments.length > 0) {
+            urls.push(...req.attachments)
+        } else if (req.attachmentUrl) {
+            urls.push(req.attachmentUrl)
+        }
+        // Filter out undefined, null, empty strings, and local file paths
+        return urls.filter(url => 
+            url && 
+            typeof url === 'string' && 
+            url.trim() !== '' && 
+            !url.includes('undefined') &&
+            (url.startsWith('http') || url.startsWith('/'))
+        )
     }
 
     const images = selectedRequest ? getImages(selectedRequest) : []
@@ -303,7 +314,7 @@ export default function AdminLeavePage() {
                                 <th className="px-6 py-3">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                             {loading ? (
                                 <tr>
                                     <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Memuat data...</td>
@@ -314,7 +325,7 @@ export default function AdminLeavePage() {
                                 </tr>
                             ) : (
                                 leaves.map((req) => (
-                                    <tr key={req.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <tr key={req.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="size-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">

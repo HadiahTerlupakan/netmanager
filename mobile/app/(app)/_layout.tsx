@@ -70,6 +70,20 @@ export default function AppLayout() {
                     tabBarStyle: { display: 'none' },
                 }}
             />
+            <Tabs.Screen
+                name="lembur"
+                options={{
+                    href: null,
+                    tabBarStyle: { display: 'none' },
+                }}
+            />
+            <Tabs.Screen
+                name="izin"
+                options={{
+                    href: null,
+                    tabBarStyle: { display: 'none' },
+                }}
+            />
 
         </Tabs>
     );
