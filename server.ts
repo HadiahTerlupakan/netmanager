@@ -103,7 +103,7 @@ app.prepare().then(() => {
     const io = new SocketIOServer(server, {
         path: '/api/socket',
         cors: {
-            origin: process.env.NEXTAUTH_URL || `http://${hostname}:${port}`,
+            origin: "*", // Allow all origins for mobile app testing
             methods: ['GET', 'POST'],
             credentials: true,
         },
@@ -188,7 +188,7 @@ app.prepare().then(() => {
         }, 60000) // Log every minute
     }
 
-    server.listen(port, () => {
+    server.listen(port, '0.0.0.0', () => {
         console.log(``)
         console.log(`  ▲ Next.js ${dev ? 'dev' : 'production'} server`)
         console.log(`  - Local:        http://${hostname}:${port}`)

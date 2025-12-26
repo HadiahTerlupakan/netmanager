@@ -78,8 +78,10 @@ This command will:
 To generate a standalone APK file that you can send to a friend (does not require development server):
 
 ```bash
-npx eas-cli build -p android --profile preview --local --output=./netman.apk
+ANDROID_HOME=/Users/rohadimraja/Library/Android/sdk npx eas-cli build -p android --profile preview --local --output=./netman.apk
 ```
+
+> **Note:** We need to specify `ANDROID_HOME` because the local build process might ignore your `local.properties` file.
 
 This command will:
 1.  Bundle the Javascript code inside the app.
