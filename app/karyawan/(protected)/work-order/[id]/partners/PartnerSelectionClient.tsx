@@ -36,8 +36,8 @@ export default function PartnerSelectionClient({ id }: { id: string }) {
 
                 // Extract unique sites from users
                 const sites = users.reduce((acc: any[], user: any) => {
-                    if (user.site && !acc.find((s: any) => s.id === user.site.id)) {
-                        acc.push(user.site)
+                    if (user.sites && !acc.find((s: any) => s.id === user.sites.id)) {
+                        acc.push(user.sites)
                     }
                     return acc
                 }, [])
@@ -168,8 +168,8 @@ export default function PartnerSelectionClient({ id }: { id: string }) {
                                                 {partner.role?.name && (
                                                     <p className="text-xs text-gray-500">{partner.role.name}</p>
                                                 )}
-                                                {(partner as any).site?.name && (
-                                                    <p className="text-xs text-blue-500 dark:text-blue-400">{(partner as any).site.name}</p>
+                                                {(partner as any).sites?.name && (
+                                                    <p className="text-xs text-blue-500 dark:text-blue-400">{(partner as any).sites.name}</p>
                                                 )}
                                             </div>
                                         </div>

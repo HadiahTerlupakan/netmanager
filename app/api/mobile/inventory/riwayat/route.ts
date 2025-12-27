@@ -22,7 +22,10 @@ export async function GET(request: NextRequest) {
         // Fetch user to check permissions
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: { role: { include: { permissions: true } } }
+            include: { 
+                role: { include: { permission: true } },
+                sites: true
+            }
         });
 
         if (!user) {
@@ -30,16 +33,16 @@ export async function GET(request: NextRequest) {
         }
 
         // Check for Site-Based Restriction Policy
-        const userPermissions = user.role?.permissions.map(p => `${p.resource}:${p.action}`) || [];
+        const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || [];
         const isSiteRestricted = userPermissions.includes('k_barang:site_only');
 
         let whereClauseMasuk: any = { userId };
         let whereClauseKeluar: any = { userId };
 
-        if (isSiteRestricted && user.siteId) {
+        if (isSiteRestricted && user.sites?.id) {
             // Filter transactions where the specific Gudang belongs to the user's Site
-            whereClauseMasuk.gudang = { sites: { some: { id: user.siteId } } };
-            whereClauseKeluar.gudang = { sites: { some: { id: user.siteId } } };
+            whereClauseMasuk.gudang = { sites: { some: { id: user.sites?.id } } };
+            whereClauseKeluar.gudang = { sites: { some: { id: user.sites?.id } } };
         }
 
         // Get barang masuk

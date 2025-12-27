@@ -263,8 +263,9 @@ export async function POST(request: NextRequest) {
                     `Tipe: ${workOrder.type}\n` +
                     `Jadwal: ${scheduledTime}`;
 
-                await prisma.ticketReply.create({
+                await prisma.ticketReplies.create({
                     data: {
+                        id: crypto.randomUUID(),
                         ticketId: ticketId,
                         message: replyMessage,
                         isFromAdmin: true,
@@ -273,7 +274,7 @@ export async function POST(request: NextRequest) {
                 });
 
                 // Update Ticket Status to IN_PROGRESS
-                await prisma.supportTicket.update({
+                await prisma.supportTickets.update({
                     where: { id: ticketId },
                     data: {
                         status: 'IN_PROGRESS',

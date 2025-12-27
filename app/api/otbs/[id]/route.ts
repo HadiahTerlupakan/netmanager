@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params
   const otb = await prisma.otb.findUnique({
     where: { id },
-    include: { cores: { orderBy: { idx: 'asc' } } },
+    include: { otbCore: { orderBy: { idx: 'asc' } } },
   })
   if (!otb) return NextResponse.json({ error: 'Not Found' }, { status: 404 })
   return NextResponse.json({ otb })
@@ -32,8 +32,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-      const { id } = await params
-const repo = getOtbRepository()
+  const { id } = await params
+  const repo = getOtbRepository()
   await repo.update(id, parsed.data as any)
   return NextResponse.json({ ok: true })
 }
@@ -43,31 +43,31 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const repo = getOtbRepository()
   const { id } = await params
-  
+
   // Cek apakah ada ODC yang masih menggunakan slot dari OTB ini
   const otb = await prisma.otb.findUnique({
     where: { id },
-    include: { cores: true },
+    include: { otbCore: true },
   })
-  
+
   if (!otb) {
     return NextResponse.json({ error: 'OTB tidak ditemukan' }, { status: 404 })
   }
-  
-// Cek setiap core apakah ada ODC yang menggunakan
-  const coreIds = otb.cores.map((c: any) => c.id)
+
+  // Cek setiap core apakah ada ODC yang menggunakan
+  const coreIds = otb.otbCore.map((c: any) => c.id)
   const odcsUsingSlots = await (prisma as any).odc.findMany({
     where: { otbCoreId: { in: coreIds } },
     select: { name: true },
   })
-  
+
   if (odcsUsingSlots.length > 0) {
     const odcList = odcsUsingSlots.map((o: { name: string }) => o.name).join(', ')
-    return NextResponse.json({ 
-      error: `Tidak bisa menghapus OTB "${otb.name}" karena masih digunakan oleh ODC: ${odcList}. Hapus ODC tersebut terlebih dahulu.` 
+    return NextResponse.json({
+      error: `Tidak bisa menghapus OTB "${otb.name}" karena masih digunakan oleh ODC: ${odcList}. Hapus ODC tersebut terlebih dahulu.`
     }, { status: 409 })
   }
-  
+
   try {
     await repo.delete(id)
     return NextResponse.json({ ok: true })

@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
             if (user.siteId) allowedSiteIds.push(user.siteId)
 
             if (workOrderId) {
-                const wo = await prisma.workOrder.findUnique({
+                const wo = await prisma.workOrders.findUnique({
                     where: { id: workOrderId },
                     select: { siteId: true }
                 })

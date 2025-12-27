@@ -34,7 +34,7 @@ interface WorkOrderTask {
     status: string
     order: number
     completedAt: string | null
-    completedBy: { id: string; name: string } | null
+    user: { id: string; name: string } | null
 }
 
 interface WorkOrderUpdate {
@@ -506,7 +506,7 @@ export default function WorkOrderDetailClient() {
                     {/* Schedule & Location */}
                     <div className="bg-white dark:bg-[#1c2936] rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 space-y-3">
                         <div className="flex items-start gap-3">
-                            <MdAccessTime className="text-xl text-blue-600 flex-shrink-0 mt-0.5" />
+                            <MdAccessTime className="text-xl text-blue-600 shrink-0 mt-0.5" />
                             <div>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Jadwal</p>
                                 <p className="text-sm font-medium dark:text-white">{formatDate(workOrder.scheduledDate)}</p>
@@ -527,7 +527,7 @@ export default function WorkOrderDetailClient() {
                         </div>
                         {workOrder.locationAddress && (
                             <div className="flex items-start gap-3">
-                                <MdLocationOn className="text-xl text-red-500 flex-shrink-0 mt-0.5" />
+                                <MdLocationOn className="text-xl text-red-500 shrink-0 mt-0.5" />
                                 <div>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">Lokasi</p>
                                     <p className="text-sm font-medium dark:text-white">{workOrder.locationAddress}</p>
@@ -594,9 +594,9 @@ export default function WorkOrderDetailClient() {
                                                 {task.description && (
                                                     <p className="text-xs text-gray-500 mt-0.5">{task.description}</p>
                                                 )}
-                                                {task.completedBy && (
+                                                {task.user && (
                                                     <p className="text-xs text-green-600 mt-1">
-                                                        ✓ {task.completedBy.name}
+                                                        ✓ {task.user.name}
                                                     </p>
                                                 )}
                                             </div>
@@ -789,8 +789,8 @@ export default function WorkOrderDetailClient() {
                                             )}
                                             <p className="text-xs text-gray-500 mt-1">
                                                 {item.type === 'attachment'
-                                                    ? (item.uploadedBy?.name || 'System')
-                                                    : (item.createdBy?.name || 'System')} • {formatTime(item.createdAt)}
+                                                    ? (item.user?.name || 'System')
+                                                    : (item.user?.name || 'System')} • {formatTime(item.createdAt)}
                                             </p>
                                         </div>
                                     </div>

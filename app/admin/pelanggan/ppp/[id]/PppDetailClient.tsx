@@ -172,7 +172,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                 <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded-lg px-4 border border-indigo-100 dark:border-indigo-900/30">
                   <FormField label="Nama Paket" value={<span className="font-bold text-indigo-700 dark:text-indigo-400">{pelanggan.hargaPaket?.name}</span>} />
                   <FormField label="Biaya Berlangganan" value={<span className="font-bold text-gray-900 dark:text-white">{pelanggan.hargaPaket ? formatRupiah(pelanggan.hargaPaket.harga) : '-'}</span>} />
-                  <FormField label="Kecepatan / Bandwidth" value={pelanggan.hargaPaket?.bandwidth?.name} />
+                  <FormField label="Kecepatan / Bandwidth" value={pelanggan.hargaPaket?.bandwidth?.name || '-'} />
                   <FormField label="Jenis Layanan" value={
                     pelanggan.tipe ? (
                       <span className="capitalize">{pelanggan.tipe.toLowerCase()}</span>
@@ -197,7 +197,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                 <SectionHeader icon={HiOutlineServer} title="IV. Data Teknis" />
                 <div className="bg-gray-50 dark:bg-gray-800/30 rounded-lg px-4 border border-gray-100 dark:border-gray-800">
                   <FormField label="Username PPPoE" value={<code className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 font-mono text-indigo-600 dark:text-indigo-400">{pelanggan.username}</code>} />
-                  <FormField label="Profile Plan" value={pelanggan.hargaPaket?.profilePPP?.name} />
+                  <FormField label="Profile Plan" value={pelanggan.hargaPaket?.profilePPP?.name || '-'} />
                   <FormField label="IP Address (Static)" value={'-'} /* Field placeholder if needed */ />
                   <FormField label="Server / Router" value={'-'} /* Field placeholder if needed */ />
                   <FormField label="ODP / Port" value={'-'} /* Field placeholder if needed */ />

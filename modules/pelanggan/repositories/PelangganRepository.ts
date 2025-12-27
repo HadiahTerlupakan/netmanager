@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import type { Pelanggan, Status, TipePelanggan, DiscountType, DurasiUnit } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export interface CreatePelangganDTO {
     idPelanggan: string
@@ -112,6 +113,8 @@ export class PelangganRepository {
     async create(data: CreatePelangganDTO): Promise<PelangganWithPackage> {
         return prisma.pelanggan.create({
             data: {
+                id: randomUUID(),
+                updatedAt: new Date(),
                 idPelanggan: data.idPelanggan,
                 nama: data.nama,
                 username: data.username,
@@ -172,7 +175,11 @@ export class PelangganRepository {
     async update(id: string, data: Partial<CreatePelangganDTO>): Promise<Pelanggan> {
         return prisma.pelanggan.update({
             where: { id },
-            data,
+
+            data: {
+                ...data,
+                updatedAt: new Date(),
+            },
         })
     }
 

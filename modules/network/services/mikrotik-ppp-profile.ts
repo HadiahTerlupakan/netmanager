@@ -142,7 +142,7 @@ export async function getRateLimitFromBandwidth(
     const profilePPP = await prisma.profilePPP.findUnique({
       where: { id: profilePPPId },
       include: {
-        hargaPakets: {
+        hargaPaket: {
           include: {
             bandwidth: true,
           },
@@ -150,13 +150,13 @@ export async function getRateLimitFromBandwidth(
       },
     })
 
-    if (!profilePPP || !profilePPP.hargaPakets || profilePPP.hargaPakets.length === 0) {
+    if (!profilePPP || !profilePPP.hargaPaket || profilePPP.hargaPaket.length === 0) {
       console.log('[MikroTik PPP] No HargaPaket found for Profile PPP:', profilePPPId)
       return null
     }
 
     // Ambil Bandwidth dari HargaPaket pertama (bisa diubah untuk mengambil yang aktif atau prioritas tertentu)
-    const hargaPaket = profilePPP.hargaPakets.find(hp => hp.status === 'AKTIF') || profilePPP.hargaPakets[0]
+    const hargaPaket = profilePPP.hargaPaket.find(hp => hp.status === 'AKTIF') || profilePPP.hargaPaket[0]
     
     if (!hargaPaket || !hargaPaket.bandwidth) {
       console.log('[MikroTik PPP] No Bandwidth found for HargaPaket')
@@ -169,7 +169,7 @@ export async function getRateLimitFromBandwidth(
     console.log('[MikroTik PPP] Rate limit from Bandwidth (via HargaPaket):', rateLimit)
     return rateLimit
   } catch (error: any) {
-    console.error('[MikroTik PPP] Error getting rate limit from Bandwidth:', error)
+    console.error('[MikroTik PPP] Error getting rate limit from bandwidth:', error)
     return null
   }
 }

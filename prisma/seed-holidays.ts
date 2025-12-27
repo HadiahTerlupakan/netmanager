@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 const prisma = new PrismaClient()
 
@@ -74,6 +75,8 @@ async function main() {
                 isNational: h.isNational
             },
             create: {
+                id: randomUUID(),
+                updatedAt: new Date(),
                 date: holidayDate,
                 description: h.description,
                 isNational: h.isNational

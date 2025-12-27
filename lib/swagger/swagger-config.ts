@@ -97,7 +97,7 @@ API menggunakan JWT Bearer Token atau Session Cookie untuk autentikasi.
         },
 
         // User & Auth
-        User: {
+        user: {
           type: 'object',
           properties: {
             id: { type: 'string' },
@@ -211,7 +211,7 @@ API menggunakan JWT Bearer Token atau Session Cookie untuk autentikasi.
           },
         },
         // FTTH Infrastructure Schemas
-        Otb: {
+        otb: {
           type: 'object',
           properties: {
             id: { type: 'string' },
@@ -237,7 +237,7 @@ API menggunakan JWT Bearer Token atau Session Cookie untuk autentikasi.
             status: { type: 'string', enum: ['AKTIF', 'NONAKTIF'] },
           },
         },
-        Odc: {
+        odc: {
           type: 'object',
           properties: {
             id: { type: 'string' },
@@ -264,7 +264,7 @@ API menggunakan JWT Bearer Token atau Session Cookie untuk autentikasi.
             status: { type: 'string', enum: ['AKTIF', 'NONAKTIF'] },
           },
         },
-        Odp: {
+        odp: {
           type: 'object',
           properties: {
             id: { type: 'string' },
@@ -318,7 +318,7 @@ API menggunakan JWT Bearer Token atau Session Cookie untuk autentikasi.
         },
 
         // Customer (Pelanggan)
-        Pelanggan: {
+        pelanggan: {
           type: 'object',
           properties: {
             id: { type: 'string' },
@@ -414,7 +414,7 @@ API menggunakan JWT Bearer Token atau Session Cookie untuk autentikasi.
         },
 
         // Bandwidth & Profile
-        Bandwidth: {
+        bandwidth: {
           type: 'object',
           properties: {
             id: { type: 'string' },
@@ -426,7 +426,7 @@ API menggunakan JWT Bearer Token atau Session Cookie untuk autentikasi.
             status: { type: 'string', enum: ['AKTIF', 'NONAKTIF'] },
           },
         },
-        ProfilePPP: {
+        profilePPP: {
           type: 'object',
           properties: {
             id: { type: 'string' },
@@ -437,7 +437,7 @@ API menggunakan JWT Bearer Token atau Session Cookie untuk autentikasi.
             status: { type: 'string', enum: ['AKTIF', 'NONAKTIF'] },
           },
         },
-        HargaPaket: {
+        hargaPaket: {
           type: 'object',
           properties: {
             id: { type: 'string' },

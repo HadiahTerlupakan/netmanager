@@ -30,7 +30,10 @@ export async function POST(request: NextRequest) {
         // Fetch user to check permissions
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: { role: { include: { permissions: true } } }
+            include: { 
+                role: { include: { permission: true } },
+                sites: true
+            }
         });
 
         if (!user) {
@@ -55,11 +58,11 @@ export async function POST(request: NextRequest) {
         }
 
         // Check for Site-Based Restriction Policy
-        const userPermissions = user.role?.permissions.map(p => `${p.resource}:${p.action}`) || [];
+        const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || [];
         const isSiteRestricted = userPermissions.includes('k_barang:site_only');
 
         if (isSiteRestricted) {
-            if (!user.siteId) {
+            if (!user.sites?.id) {
                 return NextResponse.json({ error: 'Access denied: No site assigned' }, { status: 403 });
             }
 
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
             }
 
             const gudangSiteIds = targetGudang.sites.map(s => s.id);
-            if (!gudangSiteIds.includes(user.siteId)) {
+            if (!gudangSiteIds.includes(user.sites?.id || '')) {
                 return NextResponse.json({ error: 'Access denied: Gudang outside your site' }, { status: 403 });
             }
         }

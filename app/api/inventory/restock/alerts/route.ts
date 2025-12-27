@@ -219,6 +219,7 @@ export async function POST(req: NextRequest) {
 
                 const newAlert = await prisma.restockAlerts.create({
                   data: {
+                    id: crypto.randomUUID(),
                     barangId: setting.barangId,
                     gudangId: setting.gudangId,
                     alertType: alertType as any,

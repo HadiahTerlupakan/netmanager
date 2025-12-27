@@ -116,7 +116,7 @@ export async function GET(
     const profilePPP = await prisma.profilePPP.findUnique({
       where: { id },
       include: {
-        hargaPakets: {
+        hargaPaket: {
           include: {
             bandwidth: true,
           },
@@ -351,7 +351,7 @@ export async function PUT(
         const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId)
 
         if (rateLimit) {
-          console.log('[API ProfilePPP] Rate limit from Bandwidth:', rateLimit)
+          console.log('[API ProfilePPP] Rate limit from bandwidth:', rateLimit)
         } else {
           console.log('[API ProfilePPP] No rate limit found from Bandwidth, updating profile without rate limit')
         }

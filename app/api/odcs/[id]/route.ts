@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     where: { id },
     include: {
       otbCore: { include: { otb: true } },
-      outputs: { orderBy: { idx: 'asc' } },
+      odcOutput: { orderBy: { idx: 'asc' } },
     },
   })
   if (!odc) return NextResponse.json({ error: 'Not Found' }, { status: 404 })
@@ -83,14 +83,14 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   // Cek apakah ada ODP yang masih menggunakan output dari ODC ini
   const odc = await prisma.odc.findUnique({
     where: { id },
-    include: { outputs: { include: { odp: true } } },
+    include: { odcOutput: { include: { odp: true } } },
   })
 
   if (!odc) {
     return NextResponse.json({ error: 'ODC tidak ditemukan' }, { status: 404 })
   }
 
-  const odpsUsingOutputs = odc.outputs.filter(o => o.odp !== null).map(o => o.odp!.name)
+  const odpsUsingOutputs = odc.odcOutput.filter(o => o.odp !== null).map(o => o.odp!.name)
 
   if (odpsUsingOutputs.length > 0) {
     const odpList = odpsUsingOutputs.join(', ')

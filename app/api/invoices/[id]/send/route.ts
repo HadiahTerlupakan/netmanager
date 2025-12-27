@@ -97,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       where: { id },
       include: {
         pelanggan: true,
-        items: true,
+        invoiceItem: true,
       },
     })
 

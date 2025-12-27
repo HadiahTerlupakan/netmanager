@@ -1,18 +1,18 @@
-import type { Registration, Prisma } from '@prisma/client'
+import type { Registrations, Prisma } from '@prisma/client'
 import { RegistrationStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 import type { IRegistrationRepository } from './IRegistrationRepository'
 
 export class RegistrationRepository implements IRegistrationRepository {
-
-    async findById(id: string): Promise<Registration | null> {
-        return prisma.registration.findUnique({
+    async findById(id: string): Promise<Registrations | null> {
+        return prisma.registrations.findUnique({
             where: { id }
         })
     }
 
-    async findByEmailOrPhone(email: string, phone: string, status?: RegistrationStatus): Promise<Registration | null> {
-        return prisma.registration.findFirst({
+    async findByEmailOrPhone(email: string, phone: string, status?: RegistrationStatus): Promise<Registrations | null> {
+        return prisma.registrations.findFirst({
             where: {
                 ...(status ? { status } : {}),
                 OR: [
@@ -23,14 +23,23 @@ export class RegistrationRepository implements IRegistrationRepository {
         })
     }
 
-    async create(data: Prisma.RegistrationCreateInput): Promise<Registration> {
-        return prisma.registration.create({ data })
+    async create(data: Omit<Prisma.RegistrationsCreateInput, 'id' | 'updatedAt'>): Promise<Registrations> {
+        return prisma.registrations.create({
+            data: {
+                ...data,
+                id: randomUUID(),
+                updatedAt: new Date()
+            } as Prisma.RegistrationsCreateInput
+        })
     }
 
-    async updateStatus(id: string, status: RegistrationStatus): Promise<Registration> {
-        return prisma.registration.update({
+    async updateStatus(id: string, status: RegistrationStatus): Promise<Registrations> {
+        return prisma.registrations.update({
             where: { id },
-            data: { status }
+            data: { 
+                status,
+                updatedAt: new Date()
+            }
         })
     }
 }

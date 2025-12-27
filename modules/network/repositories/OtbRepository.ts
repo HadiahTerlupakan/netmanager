@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 import type { IOtbRepository, OtbCreateData, OtbUpdateData, OtbPublic } from './IOtbRepository'
 
 export class OtbRepository implements IOtbRepository {
@@ -19,6 +20,8 @@ export class OtbRepository implements IOtbRepository {
     const item = await this.client.$transaction(async (tx) => {
       const created = await tx.otb.create({
         data: {
+          id: randomUUID(),
+          updatedAt: new Date(),
           name: data.name,
           location: data.location ?? null,
           coreCount: data.coreCount,
@@ -33,6 +36,7 @@ export class OtbRepository implements IOtbRepository {
       if (data.cores && data.cores.length > 0) {
         await tx.otbCore.createMany({
           data: data.cores.map((c) => ({
+            id: randomUUID(),
             otbId: created.id,
             idx: c.idx,
             slotName: c.slotName,
@@ -51,6 +55,7 @@ export class OtbRepository implements IOtbRepository {
       await tx.otb.update({
         where: { id },
         data: {
+          updatedAt: new Date(),
           ...(data.name !== undefined && { name: data.name }),
           ...(data.location !== undefined && { location: data.location }),
           ...(data.coreCount !== undefined && { coreCount: data.coreCount }),
@@ -67,6 +72,7 @@ export class OtbRepository implements IOtbRepository {
         if (data.cores.length > 0) {
           await tx.otbCore.createMany({
             data: data.cores.map((c) => ({
+              id: randomUUID(),
               otbId: id,
               idx: c.idx,
               slotName: c.slotName,

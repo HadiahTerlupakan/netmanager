@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
         const unreadCount = await getUnreadCount(session.user.id)
 
         return NextResponse.json({
-            notifications: notifications.map(n => {
+            notifications: notifications.map((n: any) => {
                 let link = n.link
 
                 // Fix link for Karyawan Portal

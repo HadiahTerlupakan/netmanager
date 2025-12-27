@@ -80,14 +80,17 @@ export async function POST(request: NextRequest) {
 
         const announcement = await prisma.announcement.create({
             data: {
+                id: crypto.randomUUID(),
                 title,
                 content,
                 target,
                 isActive: isActive ?? true,
                 isPinned: isPinned ?? false,
                 startDate: startDate ? new Date(startDate) : new Date(), // Default to now if not provided
+
                 endDate: endDate ? new Date(endDate) : null,
-                createdBy: session.user.id
+                createdBy: session.user.id,
+                updatedAt: new Date()
             }
         });
 
@@ -170,8 +173,7 @@ export async function POST(request: NextRequest) {
                     }));
 
                     // Use singular 'notification' to match existing codebase usage
-                    // @ts-ignore - Handle potential schema/client naming mismatch if needed
-                    await prisma.notification.createMany({
+                    await prisma.notifications.createMany({
                         data: notificationData
                     });
                     console.log(`[DB] Created ${allTargetedUsers.length} notification records`);

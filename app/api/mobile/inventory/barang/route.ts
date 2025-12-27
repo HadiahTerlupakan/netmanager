@@ -29,7 +29,10 @@ export async function GET(req: NextRequest) {
         // Fetch user to check permissions
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: { role: { include: { permissions: true } } }
+            include: { 
+                role: { include: { permission: true } },
+                sites: true
+            }
         })
 
         if (!user) {
@@ -37,7 +40,7 @@ export async function GET(req: NextRequest) {
         }
 
         // Check for Site-Based Restriction Policy
-        const userPermissions = user.role?.permissions.map(p => `${p.resource}:${p.action}`) || []
+        const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || []
         const isSiteRestricted = userPermissions.includes('k_barang:site_only')
 
         let whereClause: any = {
@@ -45,7 +48,7 @@ export async function GET(req: NextRequest) {
         }
 
         if (isSiteRestricted) {
-            if (!user.siteId) {
+            if (!user.sites?.id) {
                 // If restricted but no site assigned, return empty
                 return NextResponse.json({ barangList: [] })
             }
@@ -53,7 +56,7 @@ export async function GET(req: NextRequest) {
             whereClause.gudang = {
                 sites: {
                     some: {
-                        id: user.siteId
+                        id: user.sites?.id
                     }
                 }
             }

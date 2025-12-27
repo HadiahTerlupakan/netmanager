@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { randomUUID } from 'crypto'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -187,6 +188,7 @@ export async function POST(req: NextRequest) {
         // Create stock opname record with enhanced fields (PIC is current user)
         const opnameRecord = await tx.stockOpname.create({
           data: {
+            id: randomUUID(),
             barangId,
             gudangId,
             stokFisik,
@@ -215,6 +217,7 @@ export async function POST(req: NextRequest) {
             // Stock gain - record as barang masuk (goods found during opname)
             await tx.barangMasuk.create({
               data: {
+                id: randomUUID(),
                 barangId,
                 gudangId,
                 jumlah: selisih,
@@ -227,6 +230,7 @@ export async function POST(req: NextRequest) {
             // Use kondisi BARU with isHilang: true (assuming lost items were good condition)
             await tx.barangKeluar.create({
               data: {
+                id: randomUUID(),
                 barangId,
                 gudangId,
                 jumlah: Math.abs(selisih),
@@ -250,9 +254,11 @@ export async function POST(req: NextRequest) {
           // Create stock record if it doesn't exist and stokFisik > 0
           await tx.barangGudang.create({
             data: {
+              id: randomUUID(),
               barangId,
               gudangId,
-              stok: stokFisik
+              stok: stokFisik,
+              updatedAt: new Date()
             }
           })
         }

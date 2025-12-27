@@ -125,13 +125,13 @@ export async function GET(request: NextRequest) {
             (prisma as any).sLA.findMany({
                 where,
                 include: {
-                    department: {
+                    departments: {
                         select: {
                             id: true,
                             name: true,
                         },
                     },
-                    createdBy: {
+                    user: {
                         select: {
                             id: true,
                             name: true,
@@ -261,13 +261,13 @@ export async function POST(request: NextRequest) {
                 createdById: user.id,
             },
             include: {
-                department: {
+                departments: {
                     select: {
                         id: true,
                         name: true,
                     },
                 },
-                createdBy: {
+                user: {
                     select: {
                         id: true,
                         name: true,

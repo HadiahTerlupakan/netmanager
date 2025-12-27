@@ -192,6 +192,7 @@ export async function POST(req: NextRequest) {
 
         const barangMasuk = await tx.barangMasuk.create({
           data: {
+            id: crypto.randomUUID(),
             barangId: barangKeluar.barangId,
             gudangId: barangKeluar.gudangId,
             tanggal: new Date(),
@@ -230,9 +231,11 @@ export async function POST(req: NextRequest) {
           // Create new stock record
           await tx.barangGudang.create({
             data: {
+              id: crypto.randomUUID(),
               barangId: barangKeluar.barangId,
               gudangId: barangKeluar.gudangId,
-              stok: jumlahDikembalikan
+              stok: jumlahDikembalikan,
+              updatedAt: new Date()
             }
           })
         }

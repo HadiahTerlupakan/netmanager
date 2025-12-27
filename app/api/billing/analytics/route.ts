@@ -178,17 +178,17 @@ export async function GET(req: NextRequest) {
         },
       },
       include: {
-        payments: true,
+        payment: true,
         pelanggan: true,
       },
-    }) as (Invoice & { payments: Payment[]; pelanggan: any })[]
+    }) as (Invoice & { payment: Payment[]; pelanggan: any })[]
 
     // Calculate summary
     const totalInvoices = invoices.length
-    const totalRevenue = invoices.reduce((sum: number, inv: Invoice & { payments: Payment[]; pelanggan: any }) => sum + Number(inv.totalAmount) / 100, 0)
-    const totalPayments = invoices.reduce((sum: number, inv: Invoice & { payments: Payment[]; pelanggan: any }) => sum + inv.payments.length, 0)
-    const totalPaid = invoices.reduce((sum: number, inv: Invoice & { payments: Payment[]; pelanggan: any }) => {
-      const paid = inv.payments.reduce((pSum: number, p: Payment) => pSum + Number(p.amount) / 100, 0)
+    const totalRevenue = invoices.reduce((sum: number, inv: Invoice & { payment: Payment[]; pelanggan: any }) => sum + Number(inv.totalAmount) / 100, 0)
+    const totalPayments = invoices.reduce((sum: number, inv: Invoice & { payment: Payment[]; pelanggan: any }) => sum + inv.payment.length, 0)
+    const totalPaid = invoices.reduce((sum: number, inv: Invoice & { payment: Payment[]; pelanggan: any }) => {
+      const paid = inv.payment.reduce((pSum: number, p: Payment) => pSum + Number(p.amount) / 100, 0)
       return sum + paid
     }, 0)
     const outstandingAmount = totalRevenue - totalPaid
@@ -215,7 +215,7 @@ export async function GET(req: NextRequest) {
     }, {} as Record<string, { method: string; count: number; total: number }>)
 
     // Get invoice status statistics
-    const invoiceStatuses = invoices.reduce((acc: Record<string, { status: string; count: number; total: number }>, invoice: Invoice & { payments: Payment[]; pelanggan: any }) => {
+    const invoiceStatuses = invoices.reduce((acc: Record<string, { status: string; count: number; total: number }>, invoice: Invoice & { payment: Payment[]; pelanggan: any }) => {
       const status = invoice.status
       if (!acc[status]) {
         acc[status] = { status, count: 0, total: 0 }
@@ -230,7 +230,7 @@ export async function GET(req: NextRequest) {
     for (let i = 11; i >= 0; i--) {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
-      
+
       const monthInvoices = await prisma.invoice.findMany({
         where: {
           createdAt: {

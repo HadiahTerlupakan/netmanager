@@ -5,10 +5,10 @@ import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
 import { ColorBadge } from '@/components/common/ColorBadge'
 import { StatusBadge } from '@/components/common/StatusBadge'
-import { 
-  HiOutlineCube, 
-  HiOutlineUser, 
-  HiOutlineMapPin, 
+import {
+  HiOutlineCube,
+  HiOutlineUser,
+  HiOutlineMapPin,
   HiOutlineDocumentText,
   HiOutlineClock
 } from 'react-icons/hi2'
@@ -17,7 +17,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
   const { id } = await params
   const detail = await prisma.joinbox.findUnique({
     where: { id },
-    include: { inputs: { orderBy: { idx: 'asc' } }, outputs: { orderBy: { idx: 'asc' } } },
+    include: { joinboxInput: { orderBy: { idx: 'asc' } }, joinboxOutput: { orderBy: { idx: 'asc' } } },
   })
 
   if (!detail) {
@@ -57,13 +57,13 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatCard
           label="Total Input"
-          value={detail.inputs.length}
+          value={detail.joinboxInput.length}
           color="purple"
           icon={<HiOutlineCube className="w-5 h-5" />}
         />
         <StatCard
           label="Total Output"
-          value={detail.outputs.length}
+          value={detail.joinboxOutput.length}
           color="purple"
           icon={<HiOutlineCube className="w-5 h-5" />}
         />
@@ -121,14 +121,14 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-                  {detail.inputs.length === 0 ? (
+                  {detail.joinboxInput.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                         Tidak ada data input.
                       </td>
                     </tr>
                   ) : (
-                    detail.inputs.map((r) => (
+                    detail.joinboxInput.map((r) => (
                       <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
                           {r.idx + 1}
@@ -170,14 +170,14 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-                  {detail.outputs.length === 0 ? (
+                  {detail.joinboxOutput.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                         Tidak ada data output.
                       </td>
                     </tr>
                   ) : (
-                    detail.outputs.map((r) => (
+                    detail.joinboxOutput.map((r) => (
                       <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
                           {r.idx + 1}

@@ -224,13 +224,13 @@ export async function GET(
     const customerUsage = await prisma.customerUsage.findMany({
       where: {
         pelangganId: id,
-        sessionStartTime: {
+        session_start_time: {
           gte: startDate,
           lte: endDate,
         },
       },
       orderBy: {
-        sessionStartTime: 'desc',
+        session_start_time: 'desc',
       },
       take: 100, // Limit for performance
     })
@@ -238,17 +238,17 @@ export async function GET(
     // Calculate additional statistics from our database
     const dbStats = customerUsage.reduce(
       (acc, usage) => {
-        if (usage.sessionDuration) {
-          acc.totalSessionTime += usage.sessionDuration
+        if (usage.session_duration) {
+          acc.totalSessionTime += usage.session_duration
         }
-        if (usage.uploadBytes) {
-          acc.totalUploadBytes += usage.uploadBytes
+        if (usage.upload_bytes) {
+          acc.totalUploadBytes += usage.upload_bytes
         }
-        if (usage.downloadBytes) {
-          acc.totalDownloadBytes += usage.downloadBytes
+        if (usage.download_bytes) {
+          acc.totalDownloadBytes += usage.download_bytes
         }
-        if (usage.totalBytes) {
-          acc.totalBytes += usage.totalBytes
+        if (usage.total_bytes) {
+          acc.totalBytes += usage.total_bytes
         }
         return acc
       },

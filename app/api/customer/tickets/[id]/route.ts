@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params
 
     try {
-        const ticket = await prisma.supportTicket.findFirst({
+        const ticket = await prisma.supportTickets.findFirst({
             where: {
                 id,
                 pelangganId: session.id, // Ensure customer owns this ticket
@@ -27,18 +27,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 replies: {
                     orderBy: { createdAt: 'asc' },
                     include: {
-                        sender: {
-                            select: {
-                                id: true,
-                                name: true,
-                                image: true,
-                            },
+                        user: {
+                            select: { name: true },
                         },
                     },
                 },
-                assignedTo: {
+                user: {
                     select: {
-                        id: true,
                         name: true,
                     },
                 },

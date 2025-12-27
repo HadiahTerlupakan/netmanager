@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { encryptApiKey } from '@/lib/utils/encryption'
 
@@ -37,6 +38,7 @@ export async function PUT(
         const config = await prisma.paymentGatewayConfig.upsert({
             where: { provider },
             create: {
+                id: randomUUID(),
                 provider,
                 providerName: provider.charAt(0) + provider.slice(1).toLowerCase(),
                 isEnabled: isEnabled || false,
@@ -48,7 +50,8 @@ export async function PUT(
                 merchantId,
                 settings,
                 webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/webhook/${provider.toLowerCase()}`,
-                callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/callback`
+                callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/callback`,
+                updatedAt: new Date()
             },
             update: {
                 isEnabled,
@@ -58,7 +61,9 @@ export async function PUT(
                 ...(encryptedApiSecret && { apiSecret: encryptedApiSecret }),
                 ...(clientKey && { clientKey }),
                 ...(merchantId && { merchantId }),
-                ...(settings && { settings })
+                ...(merchantId && { merchantId }),
+                ...(settings && { settings }),
+                updatedAt: new Date()
             }
         })
 

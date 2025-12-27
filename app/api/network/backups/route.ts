@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { deviceBackupCreateSchema, deviceBackupQuerySchema } from '@/lib/validations/device-backup'
@@ -137,15 +138,14 @@ export async function GET(req: Request) {
     }
 
     try {
-      // @ts-ignore - Will work after schema update
       const [data, total] = await Promise.all([
-        prisma.deviceBackup.findMany({
+        prisma.deviceBackups.findMany({
           where,
           orderBy,
           skip,
           take: limit,
         }),
-        prisma.deviceBackup.count({ where }),
+        prisma.deviceBackups.count({ where }),
       ])
 
       return NextResponse.json({
@@ -269,8 +269,9 @@ export async function POST(req: Request) {
     const data = parsed.data
 
     try {
-      const result = await prisma.deviceBackup.create({
+      const result = await prisma.deviceBackups.create({
         data: {
+          id: randomUUID(),
           deviceId: data.deviceId,
           deviceType: data.deviceType,
           backupName: data.backupName,
@@ -288,6 +289,7 @@ export async function POST(req: Request) {
           createdBy: session.user?.id,
           retentionDays: data.retentionDays,
           isAutoCleanup: data.isAutoCleanup,
+          updatedAt: new Date(),
         },
       })
 

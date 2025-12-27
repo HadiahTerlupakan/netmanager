@@ -196,7 +196,7 @@ export default function CustomerDashboardPage() {
 
                     {/* Billing Card */}
                     <div className="px-4 pb-4">
-                        <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#0d9488] to-[#115e59] text-white shadow-lg p-5">
+                        <div className="relative overflow-hidden rounded-xl bg-linear-to-br from-[#0d9488] to-[#115e59] text-white shadow-lg p-5">
                             <div className="absolute -right-8 -top-8 size-32 rounded-full bg-white/10 blur-2xl"></div>
                             <div className="relative z-10 flex flex-col gap-4">
                                 <div className="flex justify-between items-start">
@@ -292,7 +292,7 @@ export default function CustomerDashboardPage() {
                                 className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
                                 style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuA15sXp8rqLYcVDOrCKu93aWPbXbK7RDttRr972e0Gtiwn2EHLcm8OjpyKoPeDOvTPBiekfaLCq-P5K1cVT6O0iHqw5aQSy5rF8Cojl9TdUIpN1I8Hl0sp59oXpEr-MqGUyBK3Rl7P_p2LirA_P55s8kEARxQJJj6tUwuCXeMn26F8d5HUHXaFD4MQfwjNN9vkFRatq5AWYzPpnVyMg-HfMinvCR6myFP4epTz0IK477pT6CQR4aJZX26e65VrY4xtTqq7RIg6xs7I")' }}
                             ></div>
-                            <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent"></div>
+                            <div className="absolute inset-0 bg-linear-to-r from-black/80 to-transparent"></div>
                             <div className="relative z-10 p-5 h-full flex flex-col justify-center text-white">
                                 <span className="bg-[#0d9488] text-xs font-bold px-2 py-0.5 rounded w-fit mb-2">PROMO</span>
                                 <h3 className="font-bold text-lg leading-tight">Diskon 20% Add-on TV</h3>

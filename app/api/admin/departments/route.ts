@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
 
@@ -21,13 +22,13 @@ export async function GET(request: NextRequest) {
             ];
         }
 
-        const departments = await prisma.department.findMany({
+        const departments = await prisma.departments.findMany({
             where,
             include: {
                 _count: {
                     select: {
-                        users: true,
-                        workOrders: true,
+                        user: true,
+                        work_orders: true,
                     },
                 },
             },
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if name already exists
-        const existingDept = await prisma.department.findUnique({
+        const existingDept = await prisma.departments.findUnique({
             where: { name },
         });
 
@@ -74,11 +75,13 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const department = await prisma.department.create({
+        const department = await prisma.departments.create({
             data: {
+                id: randomUUID(),
                 name,
                 description: description || null,
                 jobDescription: jobDescription || null,
+                updatedAt: new Date(),
             },
         });
 

@@ -19,12 +19,13 @@ export async function GET(request: NextRequest) {
 
     try {
         // 1. Count OPEN tickets (brand new, need first response)
-        const openTickets = await prisma.supportTicket.count({
-            where: { status: TicketStatus.OPEN },
+        const openTickets = await prisma.supportTickets.count({
+            where: {
+                status: 'OPEN'
+            }
         })
 
-        // 2. Get IN_PROGRESS tickets and check if last reply is from customer
-        const inProgressTickets = await prisma.supportTicket.findMany({
+        const inProgressTickets = await prisma.supportTickets.findMany({
             where: {
                 status: TicketStatus.IN_PROGRESS,
             },
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
         ).length
 
         // Also include WAITING_CUSTOMER tickets if customer has replied
-        const waitingCustomerTickets = await prisma.supportTicket.findMany({
+        const waitingCustomerTickets = await prisma.supportTickets.findMany({
             where: {
                 status: TicketStatus.WAITING_CUSTOMER,
             },

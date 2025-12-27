@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { encryptApiKey, decryptApiKey } from '@/lib/utils/encryption'
 
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             smtpHost: settingsMap['SMTP_HOST'] || '',
             smtpPort: settingsMap['SMTP_PORT'] || '587',
-            smtpUser: settingsMap['SMTP_USER'] || '',
+            smtpuser: settingsMap['SMTP_USER'] || '',
             smtpPass: settingsMap['SMTP_PASS'] || '',
             fromName: settingsMap['FROM_NAME'] || '',
             fromEmail: settingsMap['FROM_EMAIL'] || ''
@@ -88,14 +89,17 @@ export async function PUT(request: NextRequest) {
             await prisma.settings.upsert({
                 where: { key: setting.key },
                 create: {
+                    id: randomUUID(),
                     key: setting.key,
                     value: setting.value,
                     encrypted: setting.encrypted,
-                    description: `Email configuration: ${setting.key}`
+                    description: `Email configuration: ${setting.key}`,
+                    updatedAt: new Date()
                 },
                 update: {
                     value: setting.value,
-                    encrypted: setting.encrypted
+                    encrypted: setting.encrypted,
+                    updatedAt: new Date()
                 }
             })
         }

@@ -391,8 +391,8 @@ export default function PelangganPPPPage() {
                             onClick={() => allowed && handleRenewal(pelanggan.id)}
                             disabled={!allowed}
                             className={`font-medium inline-flex items-center justify-center w-10 h-10 rounded transition-colors ${allowed
-                                ? 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20'
-                                : 'text-gray-400 cursor-not-allowed opacity-50 bg-gray-50 dark:bg-gray-800'
+                              ? 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20'
+                              : 'text-gray-400 cursor-not-allowed opacity-50 bg-gray-50 dark:bg-gray-800'
                               }`}
                             title={allowed ? "Perpanjang Layanan" : `Perpanjangan baru bisa dilakukan ${disableDuration} hari sebelum jatuh tempo`}
                           >

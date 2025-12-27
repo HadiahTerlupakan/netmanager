@@ -205,7 +205,7 @@ export async function PATCH(
             // Notification Logic for Status Change
             try {
                 // Re-fetch to get assigned user
-                const updatedWO = await prisma.workOrder.findUnique({
+                const updatedWO = await prisma.workOrders.findUnique({
                     where: { id },
                     include: { assignedTo: true }
                 });
@@ -226,7 +226,7 @@ export async function PATCH(
                         }
                     );
 
-                    await prisma.notification.create({
+                    await prisma.notifications.create({
                         data: {
                             id: crypto.randomUUID(),
                             type: 'WORK_ORDER',

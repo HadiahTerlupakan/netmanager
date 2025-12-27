@@ -333,10 +333,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         workDays: true,
         flexibleTargetHour: true,
         shiftId: true,
-        department: {
+        departments: {
           select: { id: true, name: true },
         },
-        site: {
+        sites: {
           select: { id: true, code: true, name: true },
         },
         role: {

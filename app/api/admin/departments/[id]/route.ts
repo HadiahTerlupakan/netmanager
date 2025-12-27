@@ -15,10 +15,10 @@ export async function GET(
 
         const { id } = await params;
 
-        const department = await prisma.department.findUnique({
+        const department = await prisma.departments.findUnique({
             where: { id },
             include: {
-                users: {
+                user: {
                     select: {
                         id: true,
                         email: true,
@@ -28,8 +28,8 @@ export async function GET(
                 },
                 _count: {
                     select: {
-                        users: true,
-                        workOrders: true,
+                        user: true,
+                        work_orders: true,
                     },
                 },
             },
@@ -65,7 +65,7 @@ export async function PATCH(
         const { name, description, jobDescription } = body;
 
         // Check if department exists
-        const existingDept = await prisma.department.findUnique({
+        const existingDept = await prisma.departments.findUnique({
             where: { id },
         });
 
@@ -75,7 +75,7 @@ export async function PATCH(
 
         // If updating name, check for duplicates
         if (name && name !== existingDept.name) {
-            const duplicateName = await prisma.department.findUnique({
+            const duplicateName = await prisma.departments.findUnique({
                 where: { name },
             });
 
@@ -87,7 +87,7 @@ export async function PATCH(
             }
         }
 
-        const department = await prisma.department.update({
+        const department = await prisma.departments.update({
             where: { id },
             data: {
                 ...(name && { name }),
@@ -134,13 +134,13 @@ export async function DELETE(
         const { id } = await params;
 
         // Check if department has employees or work orders
-        const department = await prisma.department.findUnique({
+        const department = await prisma.departments.findUnique({
             where: { id },
             include: {
                 _count: {
                     select: {
-                        users: true,
-                        workOrders: true,
+                        user: true,
+                        work_orders: true,
                     },
                 },
             },
@@ -150,22 +150,22 @@ export async function DELETE(
             return NextResponse.json({ error: 'Department not found' }, { status: 404 });
         }
 
-        if (department._count.users > 0) {
+        if (department._count.user > 0) {
             return NextResponse.json(
-                { error: `Cannot delete department. It has ${department._count.users} user(s) assigned.` },
+                { error: `Cannot delete department. It has ${department._count.user} user(s) assigned.` },
                 { status: 400 }
             );
         }
 
-        if (department._count.workOrders > 0) {
+        if (department._count.work_orders > 0) {
             return NextResponse.json(
-                { error: `Cannot delete department. It has ${department._count.workOrders} work order(s) assigned.` },
+                { error: `Cannot delete department. It has ${department._count.work_orders} work order(s) assigned.` },
                 { status: 400 }
             );
         }
 
         // Safe to delete
-        await prisma.department.delete({
+        await prisma.departments.delete({
             where: { id },
         });
 

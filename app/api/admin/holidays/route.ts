@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
 import { requireAdmin } from '@/lib/auth-helpers'
 
@@ -32,9 +33,11 @@ export async function POST(request: NextRequest) {
         }
 
         const holiday = await holidayRepo.create({
+            id: randomUUID(),
             date: new Date(date),
             description,
-            isNational: isNational ?? true
+            isNational: isNational ?? true,
+            updatedAt: new Date()
         })
 
         return NextResponse.json({ success: true, data: holiday })

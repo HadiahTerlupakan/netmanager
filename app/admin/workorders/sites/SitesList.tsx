@@ -26,8 +26,8 @@ interface Site {
     createdAt: string
     updatedAt: string
     _count: {
-        users: number
-        workOrders: number
+        user: number
+        work_orders: number
     }
 }
 
@@ -176,7 +176,7 @@ export default function SitesList() {
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 dark:divide-gray-700">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead className="bg-gray-50/50 dark:bg-gray-900/50">
                                 <tr>
                                     <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -199,16 +199,16 @@ export default function SitesList() {
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
                                 {sites.map((site) => (
                                     <tr key={site.id} className="group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-start gap-3">
-                                                <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                                                <div className="shrink-0 h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-sm">
                                                     {site.code}
                                                 </div>
                                                 <div>
-                                                    <div className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:text-indigo-400 dark:group-hover:text-indigo-400 transition-colors">
+                                                    <div className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 dark:text-indigo-400 dark:group-hover:text-indigo-400 transition-colors">
                                                         {site.name}
                                                     </div>
                                                     {site.description && (
@@ -249,7 +249,7 @@ export default function SitesList() {
                                                     <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Pegawai</span>
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold">
                                                         <HiOutlineUserGroup className="w-3 h-3" />
-                                                        {site._count.users}
+                                                        {site._count.user}
                                                     </span>
                                                 </div>
                                                 <div className="w-px h-8 bg-gray-200 dark:bg-gray-700"></div>
@@ -257,7 +257,7 @@ export default function SitesList() {
                                                     <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">WO</span>
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold">
                                                         <HiOutlineClipboardDocumentList className="w-3 h-3" />
-                                                        {site._count.workOrders}
+                                                        {site._count.work_orders}
                                                     </span>
                                                 </div>
                                             </div>
@@ -275,7 +275,7 @@ export default function SitesList() {
                                             <div className="flex items-center justify-end gap-2 text-right">
                                                 <Link
                                                     href={`/admin/workorders/sites/${site.id}/edit`}
-                                                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                                                    className="p-2 text-gray-500 hover:text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
                                                     title="Edit Site"
                                                 >
                                                     <HiOutlinePencil className="h-5 w-5" />

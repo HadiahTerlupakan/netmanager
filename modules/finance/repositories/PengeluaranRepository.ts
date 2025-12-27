@@ -15,10 +15,10 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       const items = await (this.client as any).pengeluaran.findMany({
         orderBy: { tanggal: 'desc' },
         include: {
-          createdByUser: {
+          createdByuser: {
             select: { id: true, name: true, email: true }
           },
-          updatedByUser: {
+          updatedByuser: {
             select: { id: true, name: true, email: true }
           },
         }
@@ -46,10 +46,10 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       const item = await (this.client as any).pengeluaran.findUnique({
         where: { id },
         include: {
-          createdByUser: {
+          createdByuser: {
             select: { id: true, name: true, email: true }
           },
-          updatedByUser: {
+          updatedByuser: {
             select: { id: true, name: true, email: true }
           },
         }
@@ -310,10 +310,10 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         },
         orderBy: { tanggal: 'desc' },
         include: {
-          createdByUser: {
+          createdByuser: {
             select: { id: true, name: true, email: true }
           },
-          updatedByUser: {
+          updatedByuser: {
             select: { id: true, name: true, email: true }
           },
         }
@@ -340,10 +340,10 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         where: { kategori },
         orderBy: { tanggal: 'desc' },
         include: {
-          createdByUser: {
+          createdByuser: {
             select: { id: true, name: true, email: true }
           },
-          updatedByUser: {
+          updatedByuser: {
             select: { id: true, name: true, email: true }
           },
         }
@@ -502,10 +502,10 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         where,
         orderBy: { tanggal: 'desc' },
         include: {
-          createdByUser: {
+          createdByuser: {
             select: { id: true, name: true, email: true }
           },
-          updatedByUser: {
+          updatedByuser: {
             select: { id: true, name: true, email: true }
           },
         }

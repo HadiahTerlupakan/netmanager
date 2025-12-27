@@ -54,7 +54,7 @@ export async function GET(
     const { id } = await params
 
     try {
-      const alert = await prisma.networkAlert.findUnique({
+      const alert = await prisma.networkAlerts.findUnique({
         where: { id },
       })
 
@@ -172,9 +172,12 @@ export async function PUT(
       if (data.severity) updateData.severity = data.severity as any
       if (data.status) updateData.status = data.status as any
 
-      await prisma.networkAlert.update({
+      await prisma.networkAlerts.update({
         where: { id },
-        data: updateData,
+        data: {
+          ...updateData,
+          updatedAt: new Date(),
+        },
       })
 
       // System Log
@@ -241,7 +244,7 @@ export async function DELETE(
     const { id } = await params
 
     try {
-      const alert = await prisma.networkAlert.findUnique({
+      const alert = await prisma.networkAlerts.findUnique({
         where: { id },
       })
 
@@ -249,7 +252,7 @@ export async function DELETE(
         return NextResponse.json({ error: 'Alert tidak ditemukan' }, { status: 404 })
       }
 
-      await prisma.networkAlert.delete({
+      await prisma.networkAlerts.delete({
         where: { id },
       })
 

@@ -5,12 +5,12 @@ import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
 import { ColorBadge } from '@/components/common/ColorBadge'
 import { StatusBadge } from '@/components/common/StatusBadge'
-import { 
-  HiOutlineCube, 
-  HiCheck, 
-  HiXCircle, 
-  HiOutlineUser, 
-  HiOutlineMapPin, 
+import {
+  HiOutlineCube,
+  HiCheck,
+  HiXCircle,
+  HiOutlineUser,
+  HiOutlineMapPin,
   HiOutlineDocumentText,
   HiOutlineClock
 } from 'react-icons/hi2'
@@ -20,20 +20,20 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
   const odp = await prisma.odp.findUnique({
     where: { id },
     include: {
-      odcOutput: { 
-        include: { 
-          odc: { 
-            include: { 
-              otbCore: { 
-                include: { 
-                  otb: { select: { id: true, name: true } } 
-                } 
-              } 
-            } 
-          } 
-        } 
+      odcOutput: {
+        include: {
+          odc: {
+            include: {
+              otbCore: {
+                include: {
+                  otb: { select: { id: true, name: true } }
+                }
+              }
+            }
+          }
+        }
       },
-      outputs: { orderBy: { idx: 'asc' } },
+      odpOutput: { orderBy: { idx: 'asc' } },
     },
   })
   if (!odp) {
@@ -78,7 +78,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatCard
           label="Total Output"
-          value={odp.outputs.length}
+          value={odp.odpOutput.length}
           color="orange"
           icon={<HiOutlineCube className="w-5 h-5" />}
         />
@@ -135,7 +135,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                 <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-green-700 dark:text-green-400">Terhubung ke ODC</span>
-                    <Link 
+                    <Link
                       href={`/admin/ftth/odc/${odc.id}`}
                       className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
                     >
@@ -179,7 +179,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                   <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Chain ke OTB</span>
-                      <Link 
+                      <Link
                         href={`/admin/ftth/otb/${otb.id}`}
                         className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                       >
@@ -211,7 +211,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
           </InfoCard>
 
           {/* OUTPUT - Output Cores */}
-          {odp.outputs.length > 0 && (
+          {odp.odpOutput.length > 0 && (
             <InfoCard
               title="OUTPUT - Output Cores"
               icon={<HiOutlineCube className="w-4 h-4" />}
@@ -228,7 +228,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-                    {odp.outputs.map((o) => (
+                    {odp.odpOutput.map((o) => (
                       <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
                           {o.idx + 1}

@@ -28,10 +28,10 @@ export async function GET(request: Request) {
                 startWorkTime: true,
                 endWorkTime: true,
                 workDays: true,
-                department: {
+                departments: {
                     select: { id: true, name: true }
                 },
-                site: {
+                sites: {
                     select: { id: true, name: true }
                 },
                 role: {

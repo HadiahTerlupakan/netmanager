@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { hash } from 'bcryptjs'
+import { randomUUID } from 'crypto'
 
 const prisma = new PrismaClient()
 
@@ -30,6 +31,8 @@ async function main() {
         },
         update: {},
         create: {
+          id: randomUUID(),
+          updatedAt: new Date(),
           name: `${action.charAt(0).toUpperCase() + action.slice(1)} ${resource.charAt(0).toUpperCase() + resource.slice(1)}`,
           resource,
           action,
@@ -54,17 +57,19 @@ async function main() {
     update: {
       accessAdminPanel: true,
       accessEmployeePanel: true,
-      permissions: {
+      permission: {
         set: [], // Clear existing to ensure clean slate before connecting all
         connect: permissions.map((p) => ({ id: p.id })),
       },
     },
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       name: 'SUPER_ADMIN',
       description: 'Super Administrator with full access to everything',
       accessAdminPanel: true,
       accessEmployeePanel: true,
-      permissions: {
+      permission: {
         connect: permissions.map((p) => ({ id: p.id })),
       },
     },
@@ -77,17 +82,19 @@ async function main() {
     update: {
       accessAdminPanel: false,
       accessEmployeePanel: true,
-      permissions: {
+      permission: {
         set: [], // Clear existing
         connect: karyawanPermissions.map((p) => ({ id: p.id })),
       },
     },
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       name: 'teknisi',
       description: 'Field Technician - Employee Portal Access',
       accessAdminPanel: false,
       accessEmployeePanel: true,
-      permissions: {
+      permission: {
         connect: karyawanPermissions.map((p) => ({ id: p.id })),
       },
     },
@@ -101,10 +108,12 @@ async function main() {
   const passwordHash = await hash('admin123', 10)
 
   // Create Department
-  const dept = await prisma.department.upsert({
+  const dept = await prisma.departments.upsert({
     where: { name: 'Technical' },
     update: {},
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       name: 'Technical',
       description: 'Technical Support & Network Operations',
       jobDescription: 'Mengelola infrastruktur jaringan dan dukungan teknis'
@@ -113,10 +122,12 @@ async function main() {
   console.log('   ✅ Department: Technical')
 
   // Create additional departments
-  await prisma.department.upsert({
+  await prisma.departments.upsert({
     where: { name: 'Customer Service' },
     update: {},
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       name: 'Customer Service',
       description: 'Customer Support & Relations',
       jobDescription: 'Menangani pertanyaan dan keluhan pelanggan'
@@ -124,10 +135,12 @@ async function main() {
   })
   console.log('   ✅ Department: Customer Service')
 
-  await prisma.department.upsert({
+  await prisma.departments.upsert({
     where: { name: 'Operations' },
     update: {},
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       name: 'Operations',
       description: 'Field Operations & Maintenance',
       jobDescription: 'Operasi lapangan dan pemeliharaan jaringan'
@@ -136,10 +149,12 @@ async function main() {
   console.log('   ✅ Department: Operations')
 
   // Create Site
-  const site = await prisma.site.upsert({
+  const site = await prisma.sites.upsert({
     where: { code: 'HQ' },
     update: {},
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       code: 'HQ',
       name: 'Headquarters',
       address: 'Jl. Utama No. 1, Jakarta',
@@ -151,10 +166,12 @@ async function main() {
   console.log('   ✅ Site: HQ')
 
   // Create additional sites
-  const siteJkt01 = await prisma.site.upsert({
+  const siteJkt01 = await prisma.sites.upsert({
     where: { code: 'JKT01' },
     update: {},
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       code: 'JKT01',
       name: 'Jakarta Selatan',
       address: 'Jl. Sudirman No. 123, Jakarta Selatan',
@@ -165,10 +182,12 @@ async function main() {
   })
   console.log('   ✅ Site: JKT01')
 
-  await prisma.site.upsert({
+  await prisma.sites.upsert({
     where: { code: 'JKT02' },
     update: {},
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       code: 'JKT02',
       name: 'Jakarta Utara',
       address: 'Jl. Mangga Dua No. 456, Jakarta Utara',
@@ -180,10 +199,12 @@ async function main() {
   console.log('   ✅ Site: JKT02')
 
   // Create Position
-  await prisma.position.upsert({
+  await prisma.positions.upsert({
     where: { title: 'Administrator' },
     update: {},
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       title: 'Administrator',
       code: 'ADMIN',
       departmentId: dept.id
@@ -191,10 +212,12 @@ async function main() {
   })
   console.log('   ✅ Position: Administrator')
 
-  await prisma.position.upsert({
+  await prisma.positions.upsert({
     where: { title: 'Teknisi' },
     update: {},
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       title: 'Teknisi',
       code: 'TECH',
       departmentId: dept.id
@@ -209,6 +232,8 @@ async function main() {
     where: { kode: 'GDG-PUSAT' },
     update: {},
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       kode: 'GDG-PUSAT',
       nama: 'Gudang Pusat',
       lokasi: 'Jl. Utama No. 1, Jakarta',
@@ -216,9 +241,9 @@ async function main() {
     },
   })
   // Connect gudang to site (many-to-many)
-  await prisma.site.update({
+  await prisma.sites.update({
     where: { id: site.id },
-    data: { gudangs: { connect: [{ id: gudangPusat.id }] } }
+    data: { gudang: { connect: [{ id: gudangPusat.id }] } }
   })
   console.log('   ✅ Gudang: GDG-PUSAT (Gudang Pusat)')
 
@@ -226,6 +251,8 @@ async function main() {
     where: { kode: 'GDG-JKT01' },
     update: {},
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       kode: 'GDG-JKT01',
       nama: 'Gudang Jakarta Selatan',
       lokasi: 'Jl. Sudirman No. 123, Jakarta Selatan',
@@ -233,9 +260,9 @@ async function main() {
     },
   })
   // Connect gudang to site (many-to-many)
-  await prisma.site.update({
+  await prisma.sites.update({
     where: { id: siteJkt01.id },
-    data: { gudangs: { connect: [{ id: gudangJkt01.id }] } }
+    data: { gudang: { connect: [{ id: gudangJkt01.id }] } }
   })
   console.log('   ✅ Gudang: GDG-JKT01 (Gudang Jakarta Selatan)')
 
@@ -258,7 +285,11 @@ async function main() {
     await prisma.settings.upsert({
       where: { key: setting.key },
       update: {},
-      create: setting,
+      create: {
+         id: randomUUID(),
+         ...setting,
+         updatedAt: new Date(),
+    },
     })
   }
   console.log(`   ✅ Created ${settingsData.length} settings entries`)
@@ -283,6 +314,8 @@ async function main() {
       workDays: 'Mon,Tue,Wed,Thu,Fri',
     },
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       email: 'admin@example.com',
       name: 'System Administrator',
       passwordHash,
@@ -317,6 +350,8 @@ async function main() {
       workDays: 'Mon,Tue,Wed,Thu,Fri,Sat',
     },
     create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
       email: 'teknisi@example.com',
       name: 'Budi Santoso',
       passwordHash: techPasswordHash,

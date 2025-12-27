@@ -321,9 +321,11 @@ export async function DELETE(
         // Create new stock record
         await tx.barangGudang.create({
           data: {
+            id: crypto.randomUUID(),
             barangId: barangKeluar.barangId,
             gudangId: barangKeluar.gudangId,
-            stok: barangKeluar.jumlah
+            stok: barangKeluar.jumlah,
+            updatedAt: new Date()
           }
         })
       }

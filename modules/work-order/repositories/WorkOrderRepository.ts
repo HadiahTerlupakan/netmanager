@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import type { WorkOrder, WorkOrderTask, WorkOrderAssignment, WorkOrderUpdate, WorkOrderAttachment, WorkOrderStatus, WorkOrderPriority, TaskStatus, WorkOrderType } from '@prisma/client';
+import type { WorkOrders, WorkOrderTasks, WorkOrderAssignments, WorkOrderUpdates, WorkOrderAttachments, WorkOrderStatus, WorkOrderPriority, TaskStatus, WorkOrderType } from '@prisma/client';
 import type {
     IWorkOrderRepository,
     WorkOrderWithRelations,
@@ -13,6 +13,7 @@ import type {
     TopPerformer,
 } from './IWorkOrderRepository';
 import { syncWoStatusToTicket } from '../services/WorkOrderSyncService';
+import { randomUUID } from 'crypto';
 
 export class WorkOrderRepository implements IWorkOrderRepository {
     constructor(private prisma: PrismaClient) { }
@@ -26,7 +27,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         const endOfDay = new Date(now);
         endOfDay.setHours(23, 59, 59, 999);
 
-        const count = await this.prisma.workOrder.count({
+        const count = await this.prisma.workOrders.count({
             where: {
                 createdAt: {
                     gte: startOfDay,
@@ -39,27 +40,47 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         return `WO-${dateStr}-${sequence}`;
     }
 
-    async create(data: CreateWorkOrderData): Promise<WorkOrder> {
+    async create(data: CreateWorkOrderData): Promise<WorkOrders> {
         const workOrderNumber = await this.generateWorkOrderNumber();
 
         // Destructure pelangganId to handle it separately
         const { pelangganId, ...restData } = data;
 
-        return this.prisma.workOrder.create({
+        return this.prisma.workOrders.create({
             data: {
+                id: randomUUID(),
+                updatedAt: new Date(),
                 workOrderNumber,
-                ...restData,
-                // Only include pelangganId if it's truthy (not null/undefined)
-                ...(pelangganId ? { pelangganId } : {}),
+                type: restData.type,
+                title: restData.title,
+                description: restData.description,
                 status: 'PENDING',
                 priority: data.priority || 'NORMAL',
                 createdById: data.createdById,
+                pelangganId: pelangganId || null,
+                siteId: restData.siteId || null,
+                departmentId: restData.departmentId || null,
+                assignedToId: restData.assignedToId || null,
+                // Other fields if needed, or spread remaining safe fields?
+                // But restData contains incompatible types if spread blindly?
+                // Actually restData has strings. Strings are fine for other fields.
+                // The issue was strict checking on FKs.
+                // Let's explicitely map known fields.
+                contactName: restData.contactName,
+                contactPhone: restData.contactPhone,
+                scheduledDate: restData.scheduledDate,
+                scheduledTimeStart: restData.scheduledTimeStart,
+                scheduledTimeEnd: restData.scheduledTimeEnd,
+                estimatedHours: restData.estimatedHours,
+                estimatedCost: restData.estimatedCost,
+                requiredMaterials: restData.requiredMaterials ?? undefined,
+                internalNotes: restData.internalNotes,
             },
         });
     }
 
     async findById(id: string): Promise<WorkOrderWithRelations | null> {
-        return this.prisma.workOrder.findUnique({
+        return this.prisma.workOrders.findUnique({
             where: { id },
             include: {
                 pelanggan: {
@@ -107,7 +128,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 },
                 updates: {
                     include: {
-                        createdBy: {
+                        user: {
                             select: {
                                 name: true,
                             },
@@ -117,7 +138,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 },
                 attachments: {
                     include: {
-                        uploadedBy: {
+                        user: {
                             select: {
                                 name: true,
                             },
@@ -130,7 +151,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async findByWorkOrderNumber(workOrderNumber: string): Promise<WorkOrderWithRelations | null> {
-        return this.prisma.workOrder.findUnique({
+        return this.prisma.workOrders.findUnique({
             where: { workOrderNumber },
             include: {
                 pelanggan: {
@@ -171,7 +192,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 },
                 updates: {
                     include: {
-                        createdBy: {
+                        user: {
                             select: {
                                 name: true,
                             },
@@ -308,7 +329,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         const [workOrders, total] = await Promise.all([
-            this.prisma.workOrder.findMany({
+            this.prisma.workOrders.findMany({
                 where,
                 include: {
                     pelanggan: {
@@ -346,7 +367,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     },
                     updates: {
                         include: {
-                            createdBy: {
+                            user: {
                                 select: {
                                     name: true,
                                 },
@@ -362,7 +383,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 skip: (page - 1) * limit,
                 take: limit,
             }),
-            this.prisma.workOrder.count({ where }),
+            this.prisma.workOrders.count({ where }),
         ]);
 
         return {
@@ -373,8 +394,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         };
     }
 
-    async update(id: string, data: UpdateWorkOrderData): Promise<WorkOrder> {
-        return this.prisma.workOrder.update({
+    async update(id: string, data: UpdateWorkOrderData): Promise<WorkOrders> {
+        return this.prisma.workOrders.update({
             where: { id },
             data: {
                 ...data,
@@ -384,12 +405,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async delete(id: string): Promise<void> {
-        await this.prisma.workOrder.delete({
+        await this.prisma.workOrders.delete({
             where: { id },
         });
     }
 
-    async updateStatus(id: string, status: WorkOrderStatus, userId?: string): Promise<WorkOrder> {
+    async updateStatus(id: string, status: WorkOrderStatus, userId?: string): Promise<WorkOrders> {
         const workOrder = await this.findById(id);
         if (!workOrder) {
             throw new Error('Work order not found');
@@ -428,11 +449,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         return updatedWo;
     }
 
-    async start(id: string, userId?: string): Promise<WorkOrder> {
+    async start(id: string, userId?: string): Promise<WorkOrders> {
         return this.updateStatus(id, 'IN_PROGRESS', userId);
     }
 
-    async complete(id: string, resolutionNotes?: string, userId?: string): Promise<WorkOrder> {
+    async complete(id: string, resolutionNotes?: string, userId?: string): Promise<WorkOrders> {
         const updateData: any = { status: 'COMPLETED' };
         if (resolutionNotes) {
             updateData.resolutionNotes = resolutionNotes;
@@ -442,15 +463,15 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         return this.update(id, updateData);
     }
 
-    async verify(id: string, userId?: string): Promise<WorkOrder> {
+    async verify(id: string, userId?: string): Promise<WorkOrders> {
         return this.updateStatus(id, 'VERIFIED', userId);
     }
 
-    async close(id: string, userId?: string): Promise<WorkOrder> {
+    async close(id: string, userId?: string): Promise<WorkOrders> {
         return this.updateStatus(id, 'CLOSED', userId);
     }
 
-    async cancel(id: string, reason: string, userId?: string): Promise<WorkOrder> {
+    async cancel(id: string, reason: string, userId?: string): Promise<WorkOrders> {
         await this.addUpdate({
             workOrderId: id,
             updateType: 'NOTE',
@@ -461,8 +482,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         return this.updateStatus(id, 'CANCELLED', userId);
     }
 
-    async assign(id: string, employeeId: string, role?: string): Promise<WorkOrder> {
-        await this.prisma.workOrder.update({
+    async assign(id: string, employeeId: string, role?: string): Promise<WorkOrders> {
+        await this.prisma.workOrders.update({
             where: { id },
             data: {
                 assignedToId: employeeId,
@@ -471,11 +492,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         });
 
         await this.addAssignment(id, employeeId, role || 'Lead');
-        return this.findById(id) as Promise<WorkOrder>;
+        return this.findById(id) as Promise<WorkOrders>;
     }
 
-    async unassign(id: string): Promise<WorkOrder> {
-        return this.prisma.workOrder.update({
+    async unassign(id: string): Promise<WorkOrders> {
+        return this.prisma.workOrders.update({
             where: { id },
             data: {
                 assignedToId: null,
@@ -484,9 +505,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         });
     }
 
-    async addAssignment(workOrderId: string, userId: string, role?: string): Promise<WorkOrderAssignment> {
-        return this.prisma.workOrderAssignment.create({
+    async addAssignment(workOrderId: string, userId: string, role?: string): Promise<WorkOrderAssignments> {
+        return this.prisma.workOrderAssignments.create({
             data: {
+                id: randomUUID(),
                 workOrderId,
                 userId,
                 role,
@@ -495,57 +517,60 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async removeAssignment(assignmentId: string): Promise<void> {
-        await this.prisma.workOrderAssignment.delete({
+        await this.prisma.workOrderAssignments.delete({
             where: { id: assignmentId },
         });
     }
 
-    async addTask(data: CreateTaskData): Promise<WorkOrderTask> {
-        return this.prisma.workOrderTask.create({
+    async addTask(data: CreateTaskData): Promise<WorkOrderTasks> {
+        return this.prisma.workOrderTasks.create({
             data: {
+                id: randomUUID(),
                 ...data,
                 status: 'PENDING',
+                updatedAt: new Date(),
             },
         });
     }
 
-    async updateTask(taskId: string, data: UpdateTaskData): Promise<WorkOrderTask> {
+    async updateTask(taskId: string, data: UpdateTaskData): Promise<WorkOrderTasks> {
         const updateData: any = { ...data };
 
         if (data.status === 'COMPLETED' && data.completedById) {
             updateData.completedAt = new Date();
         }
 
-        return this.prisma.workOrderTask.update({
+        return this.prisma.workOrderTasks.update({
             where: { id: taskId },
             data: updateData,
         });
     }
 
     async deleteTask(taskId: string): Promise<void> {
-        await this.prisma.workOrderTask.delete({
+        await this.prisma.workOrderTasks.delete({
             where: { id: taskId },
         });
     }
 
-    async completeTask(taskId: string, userId: string): Promise<WorkOrderTask> {
+    async completeTask(taskId: string, userId: string): Promise<WorkOrderTasks> {
         return this.updateTask(taskId, {
             status: 'COMPLETED',
             completedById: userId,
         });
     }
 
-    async addUpdate(data: AddUpdateData): Promise<WorkOrderUpdate> {
-        return this.prisma.workOrderUpdate.create({
+    async addUpdate(data: AddUpdateData): Promise<WorkOrderUpdates> {
+        return this.prisma.workOrderUpdates.create({
             data: {
+                id: randomUUID(),
                 ...data,
                 createdById: data.createdById,
             },
         });
     }
 
-    async getUpdates(workOrderId: string): Promise<WorkOrderUpdate[]> {
-        return this.prisma.workOrderUpdate.findMany({
+    async getUpdates(workOrderId: string): Promise<WorkOrderUpdates[]> {
+        return this.prisma.workOrderUpdates.findMany({
             where: { workOrderId },
             orderBy: { createdAt: 'desc' },
         });
@@ -559,9 +584,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         fileType: string,
         caption?: string,
         uploadedById?: string
-    ): Promise<WorkOrderAttachment> {
-        const attachment = await this.prisma.workOrderAttachment.create({
+    ): Promise<WorkOrderAttachments> {
+        const attachment = await this.prisma.workOrderAttachments.create({
             data: {
+                id: randomUUID(),
                 workOrderId,
                 fileName,
                 filePath,
@@ -584,7 +610,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async deleteAttachment(attachmentId: string): Promise<void> {
-        await this.prisma.workOrderAttachment.delete({
+        await this.prisma.workOrderAttachments.delete({
             where: { id: attachmentId },
         });
     }
@@ -602,13 +628,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         const [total, statusCounts, completedOrders, ratingData, urgentOpen] = await Promise.all([
-            this.prisma.workOrder.count({ where }),
-            this.prisma.workOrder.groupBy({
+            this.prisma.workOrders.count({ where }),
+            this.prisma.workOrders.groupBy({
                 by: ['status'],
                 where,
                 _count: true,
             }),
-            this.prisma.workOrder.findMany({
+            this.prisma.workOrders.findMany({
                 where: {
                     ...where,
                     completedAt: { not: null },
@@ -620,7 +646,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     actualCost: true,
                 },
             }),
-            this.prisma.workOrder.aggregate({
+            this.prisma.workOrders.aggregate({
                 where: {
                     ...where,
                     rating: { not: null },
@@ -632,7 +658,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     rating: true,
                 },
             }),
-            this.prisma.workOrder.count({
+            this.prisma.workOrders.count({
                 where: {
                     ...where,
                     priority: { in: ['HIGH', 'URGENT', 'CRITICAL'] },
@@ -694,9 +720,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             if (dateTo) where.completedAt.lte = dateTo;
         }
 
-        const completedWorkOrders = await this.prisma.workOrder.findMany({
+        const completedWorkOrders = await this.prisma.workOrders.findMany({
             where,
             select: {
+                startedAt: true,
+                completedAt: true,
                 assignedTo: {
                     select: {
                         name: true,
@@ -705,15 +733,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                                 name: true
                             }
                         },
-                        site: {
+                        sites: {
                             select: {
                                 name: true
                             }
                         }
                     },
                 },
-                startedAt: true,
-                completedAt: true,
             },
         });
 
@@ -723,7 +749,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             if (wo.assignedTo && wo.startedAt && wo.completedAt) {
                 const name = wo.assignedTo.name || 'Unknown';
                 const role = wo.assignedTo.role?.name;
-                const site = wo.assignedTo.site?.name;
+                const site = wo.assignedTo.sites?.name;
                 const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
 
                 if (!userStats[name]) {
@@ -765,21 +791,21 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         // Find all partner assignments on completed work orders
-        const partnerAssignments = await this.prisma.workOrderAssignment.findMany({
+        const partnerAssignments = await this.prisma.workOrderAssignments.findMany({
             where: {
                 role: 'PARTNER',
                 status: 'APPROVED',
-                workOrder: workOrderWhere
+                workOrders: workOrderWhere
             },
             include: {
                 user: {
                     select: {
                         name: true,
                         role: { select: { name: true } },
-                        site: { select: { name: true } }
+                        sites: { select: { name: true } }
                     }
                 },
-                workOrder: {
+                workOrders: {
                     select: {
                         startedAt: true,
                         completedAt: true
@@ -793,8 +819,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         partnerAssignments.forEach((assignment) => {
             const name = assignment.user?.name || 'Unknown';
             const role = assignment.user?.role?.name;
-            const site = assignment.user?.site?.name;
-            const wo = assignment.workOrder;
+            const site = assignment.user?.sites?.name;
+            const wo = assignment.workOrders;
 
             if (wo.startedAt && wo.completedAt) {
                 const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
@@ -833,7 +859,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             },
         };
 
-        const stats = await this.prisma.workOrder.groupBy({
+        const stats = await this.prisma.workOrders.groupBy({
             by: ['assignedToId'],
             where,
             _count: {
@@ -863,7 +889,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             },
         };
 
-        const stats = await this.prisma.workOrder.groupBy({
+        const stats = await this.prisma.workOrders.groupBy({
             by: ['siteId'],
             where,
             _count: {
@@ -880,7 +906,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         // We need to fetch site names manually or assume stats are small enough
         const siteIds = stats.map(s => s.siteId).filter(id => id !== null) as string[];
 
-        const sites = await this.prisma.site.findMany({
+        const sites = await this.prisma.sites.findMany({
             where: { id: { in: siteIds } },
             select: { id: true, name: true }
         });
@@ -913,7 +939,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
         }
 
-        return this.prisma.workOrder.findMany({
+        return this.prisma.workOrders.findMany({
             where,
             include: {
                 pelanggan: {
@@ -958,7 +984,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         inProgress: number;
         completed: number;
     }>> {
-        const departments = await this.prisma.department.findMany({
+        const departments = await this.prisma.departments.findMany({
             select: {
                 id: true,
                 name: true,
@@ -968,19 +994,19 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         const workload = await Promise.all(
             departments.map(async (dept) => {
                 const [total, pending, inProgress, completed] = await Promise.all([
-                    this.prisma.workOrder.count({
+                    this.prisma.workOrders.count({
                         where: { departmentId: dept.id },
                     }),
-                    this.prisma.workOrder.count({
+                    this.prisma.workOrders.count({
                         where: { departmentId: dept.id, status: 'PENDING' },
                     }),
-                    this.prisma.workOrder.count({
+                    this.prisma.workOrders.count({
                         where: {
                             departmentId: dept.id,
                             status: { in: ['ASSIGNED', 'IN_PROGRESS'] },
                         },
                     }),
-                    this.prisma.workOrder.count({
+                    this.prisma.workOrders.count({
                         where: {
                             departmentId: dept.id,
                             status: { in: ['COMPLETED', 'VERIFIED'] },
@@ -1054,7 +1080,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         const [workOrders, total, assigned, inProgress, completed] = await Promise.all([
-            this.prisma.workOrder.findMany({
+            this.prisma.workOrders.findMany({
                 where,
                 include: {
                     pelanggan: {
@@ -1097,20 +1123,20 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 skip: (page - 1) * limit,
                 take: limit,
             }),
-            this.prisma.workOrder.count({ where }),
-            this.prisma.workOrder.count({
+            this.prisma.workOrders.count({ where }),
+            this.prisma.workOrders.count({
                 where: {
                     ...where,
                     status: 'ASSIGNED',
                 },
             }),
-            this.prisma.workOrder.count({
+            this.prisma.workOrders.count({
                 where: {
                     ...where,
                     status: 'IN_PROGRESS',
                 },
             }),
-            this.prisma.workOrder.count({
+            this.prisma.workOrders.count({
                 where: {
                     ...where,
                     status: { in: ['COMPLETED', 'VERIFIED'] },
@@ -1167,7 +1193,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         // Fetch all work orders for the period
-        const workOrders = await this.prisma.workOrder.findMany({
+        const workOrders = await this.prisma.workOrders.findMany({
             where,
             select: { title: true }
         });
@@ -1208,7 +1234,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         }
 
         // 1. Find top sites (Group by pelangganId)
-        const topSites = await this.prisma.workOrder.groupBy({
+        const topSites = await this.prisma.workOrders.groupBy({
             by: ['pelangganId'],
             where: {
                 ...where,
@@ -1234,7 +1260,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             });
 
             // 2. Fetch all work orders for this site within the period
-            const siteWorkOrders = await this.prisma.workOrder.findMany({
+            const siteWorkOrders = await this.prisma.workOrders.findMany({
                 where: {
                     ...where,
                     pelangganId: site.pelangganId,
@@ -1278,7 +1304,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             where.completedAt = { ...where.completedAt, lte: dateTo };
         }
 
-        const groupBy = await this.prisma.workOrder.groupBy({
+        const groupBy = await this.prisma.workOrders.groupBy({
             by: ['disconnectionReason'],
             where: {
                 ...where,
@@ -1296,8 +1322,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async addComment(workOrderId: string, message: string, userId: string): Promise<any> {
-        return this.prisma.workOrderUpdate.create({
+        return this.prisma.workOrderUpdates.create({
             data: {
+                id: randomUUID(),
                 workOrderId,
                 updateType: 'COMMENT',
                 message,

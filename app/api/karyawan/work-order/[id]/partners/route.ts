@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 export async function POST(
     req: NextRequest,
@@ -21,7 +22,7 @@ export async function POST(
             return NextResponse.json({ error: 'Invalid data' }, { status: 400 })
         }
 
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id }
         })
 
@@ -55,7 +56,7 @@ export async function POST(
         }
 
         // Identify new partners to notify
-        const existingAssignments = await prisma.workOrderAssignment.findMany({
+        const existingAssignments = await prisma.workOrderAssignments.findMany({
             where: {
                 workOrderId: id,
                 role: 'PARTNER'
@@ -67,7 +68,7 @@ export async function POST(
 
         await prisma.$transaction(async (tx) => {
             // Remove existing partners
-            await tx.workOrderAssignment.deleteMany({
+            await tx.workOrderAssignments.deleteMany({
                 where: {
                     workOrderId: id,
                     role: 'PARTNER'
@@ -76,8 +77,9 @@ export async function POST(
 
             // Add new partners with PENDING status
             if (partnerIds.length > 0) {
-                await tx.workOrderAssignment.createMany({
+                await tx.workOrderAssignments.createMany({
                     data: partnerIds.map((userId: string) => ({
+                        id: randomUUID(),
                         workOrderId: id,
                         userId: userId,
                         role: 'PARTNER',
@@ -89,8 +91,9 @@ export async function POST(
 
             // Create Notifications for NEW partners (with approval request)
             if (newPartnerIds.length > 0) {
-                await tx.notification.createMany({
+                await tx.notifications.createMany({
                     data: newPartnerIds.map((userId: string) => ({
+                        id: randomUUID(),
                         userId,
                         type: 'PARTNER_REQUEST',
                         title: 'Permintaan Partner Kerja',
@@ -104,8 +107,9 @@ export async function POST(
             }
 
             // Log update
-            await tx.workOrderUpdate.create({
+            await tx.workOrderUpdates.create({
                 data: {
+                    id: randomUUID(),
                     workOrderId: id,
                     createdById: session.user.id,
                     updateType: 'PARTNER_UPDATE',

@@ -61,7 +61,7 @@ export async function GET(
 
         const { id } = await params;
 
-        const escalation = await (prisma as any).workOrderEscalation.findUnique({
+        const escalation = await (prisma as any).workOrderEscalations.findUnique({
             where: { id },
             include: {
                 sla: {
@@ -72,16 +72,16 @@ export async function GET(
                         resolutionTime: true,
                     },
                 },
-                department: {
+                departments: {
                     select: {
                         id: true,
                         name: true,
                     },
                 },
-                createdBy: {
+                user: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                     },
                 },
             },
@@ -209,7 +209,7 @@ export async function PUT(
         const validatedData = workOrderEscalationUpdateSchema.parse(body);
 
         // Check if escalation exists
-        const existingEscalation = await (prisma as any).workOrderEscalation.findUnique({
+        const existingEscalation = await (prisma as any).workOrderEscalations.findUnique({
             where: { id },
         });
 
@@ -217,7 +217,7 @@ export async function PUT(
             return NextResponse.json({ error: 'Escalation rule not found' }, { status: 404 });
         }
 
-        const escalation = await (prisma as any).workOrderEscalation.update({
+        const escalation = await (prisma as any).workOrderEscalations.update({
             where: { id },
             data: {
                 ...validatedData,
@@ -232,16 +232,16 @@ export async function PUT(
                         resolutionTime: true,
                     },
                 },
-                department: {
+                departments: {
                     select: {
                         id: true,
                         name: true,
                     },
                 },
-                createdBy: {
+                user: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                     },
                 },
             },
@@ -317,7 +317,7 @@ export async function DELETE(
         const { id } = await params;
 
         // Check if escalation exists
-        const existingEscalation = await (prisma as any).workOrderEscalation.findUnique({
+        const existingEscalation = await (prisma as any).workOrderEscalations.findUnique({
             where: { id },
         });
 
@@ -325,7 +325,7 @@ export async function DELETE(
             return NextResponse.json({ error: 'Escalation rule not found' }, { status: 404 });
         }
 
-        await (prisma as any).workOrderEscalation.delete({
+        await (prisma as any).workOrderEscalations.delete({
             where: { id },
         });
 

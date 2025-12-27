@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 import type { 
   INetworkPerformanceRepository, 
   NetworkPerformanceCreateData, 
@@ -14,6 +15,8 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
   async create(data: NetworkPerformanceCreateData): Promise<NetworkPerformancePublic> {
     return await this.client.networkPerformance.create({
       data: {
+        id: randomUUID(),
+        updatedAt: new Date(),
         deviceId: data.deviceId,
         deviceType: data.deviceType,
         cpuUsage: data.cpuUsage,
@@ -136,6 +139,7 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
     await this.client.networkPerformance.update({
       where: { id },
       data: {
+        updatedAt: new Date(),
         cpuUsage: data.cpuUsage,
         memoryUsage: data.memoryUsage,
         temperature: data.temperature,

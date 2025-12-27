@@ -94,12 +94,12 @@ export class UserService {
 
         // Handle nullable foreign keys
         if (data.departmentId !== undefined) {
-            updateData.department = data.departmentId
+            updateData.departments = data.departmentId
                 ? { connect: { id: data.departmentId } }
                 : { disconnect: true }
         }
         if (data.siteId !== undefined) {
-            updateData.site = data.siteId
+            updateData.sites = data.siteId
                 ? { connect: { id: data.siteId } }
                 : { disconnect: true }
         }

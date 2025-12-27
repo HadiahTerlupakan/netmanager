@@ -81,7 +81,7 @@ export default function Navbar() {
                 className="hidden sm:flex items-center gap-3 pl-2 pr-3 py-1.5 rounded-full bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500/20"
               >
                 {/* Avatar */}
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
+                <div className="h-8 w-8 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
                   <div className="h-full w-full rounded-full bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
                     {session.user.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -138,7 +138,7 @@ export default function Navbar() {
 
           {/* Mobile Avatar Only */}
           {session?.user && (
-            <div className="sm:hidden h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
+            <div className="sm:hidden h-9 w-9 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
               <div className="h-full w-full rounded-full bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
                 {session.user.image ? (
                   // eslint-disable-next-line @next/next/no-img-element

@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma } from '@prisma/client'
+import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { onuCacheService } from '../services/onu-cache-service'
 import type {
@@ -325,7 +326,9 @@ export class OnuRepository implements IOnuRepository {
     const onu = await this.client.onu.create({
       data: {
         ...data,
+        id: randomUUID(),
         lastUpdate: new Date(),
+        updatedAt: new Date(),
       },
       select: { id: true },
     })
@@ -398,6 +401,7 @@ export class OnuRepository implements IOnuRepository {
       // Jika ada perubahan, update
       if (hasChanges) {
         updateData.lastUpdate = new Date()
+        updateData.updatedAt = new Date()
         await this.client.onu.update({
           where: {
             oltId_gponOnu: {
@@ -419,7 +423,9 @@ export class OnuRepository implements IOnuRepository {
           ...data,
           oltId,
           gponOnu,
+          id: randomUUID(),
           lastUpdate: new Date(),
+          updatedAt: new Date(),
         },
         select: { id: true },
       })
@@ -433,6 +439,7 @@ export class OnuRepository implements IOnuRepository {
       data: {
         ...data,
         lastUpdate: data.lastUpdate || new Date(),
+        updatedAt: new Date(),
       },
     })
   }

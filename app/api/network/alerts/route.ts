@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { networkAlertCreateSchema, networkAlertQuerySchema } from '@/lib/validations/network-performance'
@@ -132,15 +133,14 @@ export async function GET(req: Request) {
     }
 
     try {
-      // @ts-ignore - Will work after schema update
       const [data, total] = await Promise.all([
-        prisma.networkAlert.findMany({
+        prisma.networkAlerts.findMany({
           where,
           orderBy,
           skip,
           take: limit,
         }),
-        prisma.networkAlert.count({ where }),
+        prisma.networkAlerts.count({ where }),
       ])
 
       return NextResponse.json({
@@ -271,8 +271,9 @@ export async function POST(req: Request) {
 
     try {
       // @ts-ignore - Will work after schema update
-      const result = await prisma.networkAlert.create({
+      const result = await prisma.networkAlerts.create({
         data: {
+          id: randomUUID(),
           deviceId: data.deviceId,
           deviceType: data.deviceType,
           alertType: data.alertType as any,
@@ -284,6 +285,7 @@ export async function POST(req: Request) {
           metricName: data.metricName,
           autoResolve: data.autoResolve || false,
           autoResolveTime: data.autoResolveTime,
+          updatedAt: new Date(),
         },
       })
 

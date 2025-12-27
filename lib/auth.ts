@@ -227,7 +227,7 @@ export const authConfig: NextAuthOptions = {
             include: {
               role: {
                 include: {
-                  permissions: true
+                  permission: true
                 }
               }
             }
@@ -236,7 +236,7 @@ export const authConfig: NextAuthOptions = {
           token.role = dbUser?.role?.name || 'USER'
           token.accessAdminPanel = dbUser?.role?.accessAdminPanel ?? false
           token.accessEmployeePanel = dbUser?.role?.accessEmployeePanel ?? false
-          token.permissions = dbUser?.role?.permissions.map(p => `${p.resource}:${p.action}`) || []
+          token.permissions = dbUser?.role?.permission.map(p => `${p.resource}:${p.action}`) || []
 
           // Handle SUPER_ADMIN special case - they should have access to everything
           if (token.role === 'SUPER_ADMIN') {
@@ -271,7 +271,7 @@ export const authConfig: NextAuthOptions = {
           include: {
             role: {
               include: {
-                permissions: true
+                permission: true
               }
             }
           }
@@ -293,7 +293,7 @@ export const authConfig: NextAuthOptions = {
             token.accessEmployeePanel = true
           }
 
-          token.permissions = dbUser.role?.permissions.map(p => `${p.resource}:${p.action}`) || []
+          token.permissions = dbUser.role?.permission.map(p => `${p.resource}:${p.action}`) || []
         }
       }
 
@@ -323,7 +323,7 @@ export const authConfig: NextAuthOptions = {
         userId: user.id,
         details: {
           provider: account?.provider,
-          isNewUser: isNewUser
+          isNewuser: isNewUser
         }
       })
     }

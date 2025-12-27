@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -50,18 +51,18 @@ export async function POST(request: Request) {
         await prisma.$transaction([
             prisma.settings.upsert({
                 where: { key: 'captcha_enabled' },
-                update: { value: String(enabled) },
-                create: { key: 'captcha_enabled', value: String(enabled), description: 'Enable/Disable Cloudflare Turnstile' }
+                update: { value: String(enabled), updatedAt: new Date() },
+                create: { id: randomUUID(), key: 'captcha_enabled', value: String(enabled), description: 'Enable/Disable Cloudflare Turnstile', updatedAt: new Date() }
             }),
             prisma.settings.upsert({
                 where: { key: 'captcha_site_key' },
-                update: { value: siteKey },
-                create: { key: 'captcha_site_key', value: siteKey, description: 'Cloudflare Turnstile Site Key' }
+                update: { value: siteKey, updatedAt: new Date() },
+                create: { id: randomUUID(), key: 'captcha_site_key', value: siteKey, description: 'Cloudflare Turnstile Site Key', updatedAt: new Date() }
             }),
             prisma.settings.upsert({
                 where: { key: 'captcha_secret_key' },
-                update: { value: secretKey },
-                create: { key: 'captcha_secret_key', value: secretKey, description: 'Cloudflare Turnstile Secret Key', encrypted: true } // Marking as encrypted for semantics, though we store plain for now
+                update: { value: secretKey, updatedAt: new Date() },
+                create: { id: randomUUID(), key: 'captcha_secret_key', value: secretKey, description: 'Cloudflare Turnstile Secret Key', encrypted: true, updatedAt: new Date() } // Marking as encrypted for semantics, though we store plain for now
             })
         ])
 

@@ -14,8 +14,8 @@ interface User {
     siteId: string | null
     isActive: boolean
     createdAt: string
-    department: { id: string; name: string } | null
-    site?: {
+    departments: { id: string; name: string } | null
+    sites?: {
         id: string
         code: string
         name: string
@@ -84,7 +84,7 @@ export default function UserList() {
             user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
             user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             user.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.department?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+            user.departments?.name?.toLowerCase().includes(searchTerm.toLowerCase())
 
         return matchesSearch
     })
@@ -125,7 +125,7 @@ export default function UserList() {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
+                <div className="bg-linear-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-blue-500/10 rounded-lg">
                             <HiOutlineUsers className="w-7 h-7 text-blue-600 dark:text-blue-400" />
@@ -136,7 +136,7 @@ export default function UserList() {
                         </div>
                     </div>
                 </div>
-                <div className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-5">
+                <div className="bg-linear-to-r from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-5">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-green-500/10 rounded-lg">
                             <HiOutlineCheckCircle className="w-7 h-7 text-green-600 dark:text-green-400" />
@@ -147,7 +147,7 @@ export default function UserList() {
                         </div>
                     </div>
                 </div>
-                <div className="bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5">
+                <div className="bg-linear-to-r from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-red-500/10 rounded-lg">
                             <HiOutlineXCircle className="w-7 h-7 text-red-600 dark:text-red-400" />
@@ -247,7 +247,7 @@ export default function UserList() {
                                         <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                                                    <div className="shrink-0 h-10 w-10 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
                                                         <HiOutlineUserCircle className="w-5 h-5 text-white" />
                                                     </div>
                                                     <div>
@@ -262,10 +262,10 @@ export default function UserList() {
                                                 {user.phone || '-'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                                {user.department?.name ? (
+                                                {user.departments?.name ? (
                                                     <span className="inline-flex items-center gap-1.5">
                                                         <HiOutlineBuildingOffice className="w-3.5 h-3.5 text-gray-400" />
-                                                        {user.department.name}
+                                                        {user.departments.name}
                                                     </span>
                                                 ) : (
                                                     '-'

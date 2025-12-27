@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
         // Fetch user to check permissions and siteId
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: { role: { include: { permissions: true } } }
+            include: { 
+                role: { include: { permission: true } },
+                sites: true
+            }
         })
 
         if (!user) {
@@ -31,7 +34,7 @@ export async function GET(req: NextRequest) {
 
         // Check for Site-Based Restriction Policy
         // Mobile users might not have full permissions object like session, so we check role permissions
-        const userPermissions = user.role?.permissions.map(p => `${p.resource}:${p.action}`) || []
+        const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || []
         const isSiteRestricted = userPermissions.includes('k_barang:site_only')
 
         let whereClause: any = { isActive: true }
@@ -41,10 +44,10 @@ export async function GET(req: NextRequest) {
             const workOrderId = searchParams.get('workOrderId')
 
             const allowedSiteIds = []
-            if (user.siteId) allowedSiteIds.push(user.siteId)
+            if (user.sites?.id) allowedSiteIds.push(user.sites.id)
 
             if (workOrderId) {
-                const wo = await prisma.workOrder.findUnique({
+                const wo = await prisma.workOrders.findUnique({
                     where: { id: workOrderId },
                     select: { siteId: true }
                 })

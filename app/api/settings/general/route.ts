@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -313,6 +314,8 @@ export async function POST(req: NextRequest) {
           value: perusahaan?.trim() || null,
           description: 'Nama perusahaan',
           encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
         },
       }),
 
@@ -329,6 +332,8 @@ export async function POST(req: NextRequest) {
           value: namaAplikasi?.trim() || 'NetManager',
           description: 'Nama Aplikasi',
           encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
         },
       }),
 
@@ -345,6 +350,8 @@ export async function POST(req: NextRequest) {
           value: alamat?.trim() || null,
           description: 'Alamat perusahaan',
           encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
         },
       }),
 
@@ -361,6 +368,8 @@ export async function POST(req: NextRequest) {
           value: nomorHp?.trim() || null,
           description: 'Nomor HP perusahaan',
           encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
         },
       }),
 
@@ -377,6 +386,8 @@ export async function POST(req: NextRequest) {
           value: deskripsiInvoice?.trim() || null,
           description: 'Deskripsi invoice',
           encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
         },
       }),
 
@@ -393,6 +404,8 @@ export async function POST(req: NextRequest) {
           value: JSON.stringify(rekeningBank || []),
           description: 'Daftar rekening bank',
           encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
         },
       }),
 
@@ -409,6 +422,8 @@ export async function POST(req: NextRequest) {
           value: invoiceOtomatis?.trim() || '5',
           description: 'Jumlah hari sebelum jatuh tempo untuk invoice otomatis',
           encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
         },
       }),
 
@@ -425,6 +440,8 @@ export async function POST(req: NextRequest) {
           value: disablePerpanjanganPaket?.trim() || '5',
           description: 'Jumlah hari sebelum jatuh tempo untuk disable perpanjangan paket',
           encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
         },
       }),
 
@@ -441,6 +458,8 @@ export async function POST(req: NextRequest) {
           value: timezone?.trim() || 'Asia/Jakarta',
           description: 'Zona waktu aplikasi (IANA timezone)',
           encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
         },
       }),
 
@@ -457,6 +476,8 @@ export async function POST(req: NextRequest) {
           value: attendanceTolerance?.trim() || '0',
           description: 'Toleransi keterlambatan (menit)',
           encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
         },
       }),
     ])

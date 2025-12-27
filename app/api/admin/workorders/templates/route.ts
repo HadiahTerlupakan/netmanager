@@ -122,19 +122,19 @@ export async function GET(request: NextRequest) {
         }
 
         const [templates, total] = await Promise.all([
-            (prisma as any).workOrderTemplate.findMany({
+            (prisma as any).workOrderTemplates.findMany({
                 where,
                 include: {
-                    department: {
+                    departments: {
                         select: {
                             id: true,
                             name: true,
                         },
                     },
-                    createdBy: {
+                    user: {
                         select: {
                             id: true,
-                            fullName: true,
+                            name: true,
                         },
                     },
                 },
@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
                 skip: (query.page - 1) * query.limit,
                 take: query.limit,
             }),
-            (prisma as any).workOrderTemplate.count({ where }),
+            (prisma as any).workOrderTemplates.count({ where }),
         ]);
 
         return NextResponse.json({
@@ -252,19 +252,19 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const validatedData = workOrderTemplateCreateSchema.parse(body);
 
-        const template = await (prisma as any).workOrderTemplate.create({
+        const template = await (prisma as any).workOrderTemplates.create({
             data: {
                 ...validatedData,
                 createdById: user.id,
             },
             include: {
-                department: {
+                departments: {
                     select: {
                         id: true,
                         name: true,
                     },
                 },
-                createdBy: {
+                user: {
                     select: {
                         id: true,
                         name: true,

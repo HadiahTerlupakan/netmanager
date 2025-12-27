@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 import type { IOdcRepository, OdcCreateData, OdcUpdateData, OdcPublic } from './IOdcRepository'
 
 export class OdcRepository implements IOdcRepository {
@@ -19,6 +20,7 @@ export class OdcRepository implements IOdcRepository {
     const created = await this.client.$transaction(async (tx) => {
       const odc = await tx.odc.create({
         data: {
+          id: randomUUID(),
           name: data.name,
           location: data.location ?? null,
           notes: data.notes ?? null,
@@ -27,6 +29,7 @@ export class OdcRepository implements IOdcRepository {
           longitude: data.longitude ?? null,
           status: data.status ?? 'AKTIF',
           otbCoreId: data.otbCoreId,
+          updatedAt: new Date(),
         },
         select: { id: true },
       })
@@ -34,6 +37,7 @@ export class OdcRepository implements IOdcRepository {
       if (data.outputs && data.outputs.length > 0) {
         await tx.odcOutput.createMany({
           data: data.outputs.map((o) => ({
+            id: randomUUID(),
             odcId: odc.id,
             idx: o.idx,
             slotName: o.slotName,
@@ -62,6 +66,7 @@ export class OdcRepository implements IOdcRepository {
           ...(data.longitude !== undefined && { longitude: data.longitude }),
           ...(data.status !== undefined && { status: data.status }),
           ...(data.otbCoreId !== undefined && { otbCoreId: data.otbCoreId }),
+          updatedAt: new Date(),
         },
       })
 
@@ -94,6 +99,7 @@ export class OdcRepository implements IOdcRepository {
             // Create new output
             await tx.odcOutput.create({
               data: {
+                id: randomUUID(),
                 odcId: id,
                 idx: output.idx,
                 slotName: output.slotName,

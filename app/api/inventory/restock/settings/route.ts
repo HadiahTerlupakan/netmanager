@@ -198,13 +198,15 @@ export async function POST(req: NextRequest) {
             isActive: true
           },
           create: {
+            id: crypto.randomUUID(),
             barangId,
             gudangId,
             minStok,
             maxStok,
             safetyStok: safetyStok || 0,
             leadTimeDays: leadTimeDays || 7,
-            avgDailyUsage
+            avgDailyUsage,
+            updatedAt: new Date()
           },
           include: {
             barang: {
@@ -248,6 +250,7 @@ export async function POST(req: NextRequest) {
 
             await tx.restockAlerts.create({
               data: {
+                id: crypto.randomUUID(),
                 barangId,
                 gudangId,
                 alertType: 'RESTOCK_NEEDED',

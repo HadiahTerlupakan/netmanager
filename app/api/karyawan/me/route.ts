@@ -20,12 +20,12 @@ export async function GET() {
                 name: true,
                 email: true,
                 image: true,
-                department: {
+                departments: {
                     select: {
                         name: true
                     }
                 },
-                site: {
+                sites: {
                     select: {
                         name: true
                     }

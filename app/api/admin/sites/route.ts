@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
 
@@ -26,13 +27,13 @@ export async function GET(request: NextRequest) {
             ];
         }
 
-        const sites = await prisma.site.findMany({
+        const sites = await prisma.sites.findMany({
             where,
             include: {
                 _count: {
                     select: {
-                        users: true,
-                        workOrders: true,
+                        work_orders: true,
+                        user: true,
                     },
                 },
             },
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if code already exists
-        const existingSite = await prisma.site.findUnique({
+        const existingSite = await prisma.sites.findUnique({
             where: { code },
         });
 
@@ -82,16 +83,18 @@ export async function POST(request: NextRequest) {
         // Use transaction for atomic creation and assignment
         const site = await prisma.$transaction(async (tx) => {
             // 1. Create Site with Gudangs assignment
-            const newSite = await tx.site.create({
+            const newSite = await tx.sites.create({
                 data: {
+                    id: randomUUID(),
                     code: code.toUpperCase(),
                     name,
                     description,
                     address,
                     latitude: latitude ? parseFloat(latitude) : null,
+                    updatedAt: new Date(),
                     longitude: longitude ? parseFloat(longitude) : null,
                     attendanceRadius: body.attendanceRadius ? parseInt(body.attendanceRadius) : 100,
-                    gudangs: {
+                    gudang: {
                         connect: Array.isArray(gudangIds) ? gudangIds.map((id: string) => ({ id })) : []
                     }
                 },

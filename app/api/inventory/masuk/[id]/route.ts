@@ -157,9 +157,11 @@ export async function PUT(
           // If no stock record exists, create one
           await tx.barangGudang.create({
             data: {
+              id: crypto.randomUUID(),
               barangId: currentRecord.barangId,
               gudangId: currentRecord.gudangId,
-              stok: jumlah
+              stok: jumlah,
+              updatedAt: new Date()
             }
           })
         }

@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import type { IOLTRepository, OLTCreateData, OLTUpdateData, OLTPublic } from './IOLTRepository'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 export class OLTRepository implements IOLTRepository {
   constructor(private client: PrismaClient = prisma) {}
@@ -22,6 +23,8 @@ export class OLTRepository implements IOLTRepository {
   async create(data: OLTCreateData): Promise<{ id: string }> {
     const olt = await this.client.olt.create({
       data: {
+        id: randomUUID(),
+        updatedAt: new Date(),
         name: data.name,
         ipAddress: data.ipAddress,
         type: data.type,
@@ -50,6 +53,7 @@ export class OLTRepository implements IOLTRepository {
     await this.client.olt.update({
       where: { id },
       data: {
+        updatedAt: new Date(),
         ...(data.name !== undefined && { name: data.name }),
         ...(data.ipAddress !== undefined && { ipAddress: data.ipAddress }),
         ...(data.type !== undefined && { type: data.type }),

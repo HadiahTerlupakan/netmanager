@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
                 role: {
                     select: { name: true }
                 },
-                site: {
+                sites: {
                     select: { name: true }
                 }
             },

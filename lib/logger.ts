@@ -1,9 +1,8 @@
 /**
- * Logging Utility
- * 
- * Structured logging dengan level yang berbeda
  * Bisa di-extend untuk integrasi dengan logging service (Sentry, Datadog, dll)
  */
+
+import { randomUUID } from 'crypto'
 
 export enum LogLevel {
   DEBUG = 'debug',
@@ -109,13 +108,14 @@ class Logger {
 
       await prisma.systemLog.create({
         data: {
+          id: randomUUID(),
           type: 'ACTIVITY',
           action: data.action,
           subject: data.subject,
-          details: data.details ? JSON.stringify(data.details) : undefined,
-          userId: data.userId,
-          ipAddress: data.ipAddress,
-          userAgent: data.userAgent,
+          details: data.details ? JSON.stringify(data.details) : null,
+          userId: data.userId || null,
+          ipAddress: data.ipAddress || null,
+          userAgent: data.userAgent || null,
         }
       })
     } catch (error) {
@@ -130,13 +130,14 @@ class Logger {
 
       await prisma.systemLog.create({
         data: {
+          id: randomUUID(),
           type: 'AUTH',
           action: data.action,
           subject: 'Auth',
-          details: data.details ? JSON.stringify(data.details) : undefined,
-          userId: data.userId,
-          ipAddress: data.ipAddress,
-          userAgent: data.userAgent,
+          details: data.details ? JSON.stringify(data.details) : null,
+          userId: data.userId || null,
+          ipAddress: data.ipAddress || null,
+          userAgent: data.userAgent || null,
         }
       })
     } catch (error) {

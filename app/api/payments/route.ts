@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { paymentSchema } from '@/lib/validations/payment'
+import { randomUUID } from 'crypto'
 
 /**
  * @swagger
@@ -290,11 +291,16 @@ export async function POST(req: NextRequest) {
 
     const payment = await prisma.payment.create({
       data: {
-        ...paymentData,
-        invoiceId,
+        id: randomUUID(),
+        paymentDate: paymentData.paymentDate,
+        paymentMethod: paymentData.paymentMethod,
+        reference: paymentData.reference,
+        notes: paymentData.notes,
+        invoiceId: invoiceId || null,
         pelangganId,
         amount: amountInCents,
         verifiedBy: session.user?.id,
+        updatedAt: new Date(),
       },
       include: {
         invoice: {
@@ -314,13 +320,13 @@ export async function POST(req: NextRequest) {
       const invoice = await prisma.invoice.findUnique({
         where: { id: invoiceId },
         include: {
-          payments: true,
+          payment: true,
         },
       })
 
       if (invoice) {
         // Calculate total paid amount
-        const totalPaid = invoice.payments.reduce(
+        const totalPaid = invoice.payment.reduce(
           (sum, p) => sum + p.amount,
           0n
         ) + amountInCents

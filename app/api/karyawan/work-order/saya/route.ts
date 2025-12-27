@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const workOrders = await prisma.workOrder.findMany({
+        const workOrders = await prisma.workOrders.findMany({
             where: {
                 OR: [
                     { assignedToId: session.user.id },

@@ -5,13 +5,13 @@ import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
 import { ColorBadge } from '@/components/common/ColorBadge'
 import { StatusBadge } from '@/components/common/StatusBadge'
-import { 
-  HiOutlineCube, 
-  HiCheck, 
-  HiOutlineClock, 
-  HiOutlineUser, 
-  HiOutlineMapPin, 
-  HiOutlineDocumentText 
+import {
+  HiOutlineCube,
+  HiCheck,
+  HiOutlineClock,
+  HiOutlineUser,
+  HiOutlineMapPin,
+  HiOutlineDocumentText
 } from 'react-icons/hi2'
 
 export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
@@ -20,7 +20,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
     where: { id },
     include: {
       otbCore: { include: { otb: true } },
-      outputs: { orderBy: { idx: 'asc' }, include: { odp: { select: { id: true, name: true } } } },
+      odcOutput: { orderBy: { idx: 'asc' }, include: { odp: { select: { id: true, name: true } } } },
     },
   })
   if (!odc) {
@@ -37,7 +37,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
 
   const slot = odc.otbCore
   const otb = slot?.otb
-  const mappedOutputs = odc.outputs.filter(o => o.odp !== null).length
+  const mappedOutputs = odc.odcOutput.filter(o => o.odp !== null).length
 
   return (
     <div className="space-y-6">
@@ -64,7 +64,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           label="Total Output"
-          value={odc.outputs.length}
+          value={odc.odcOutput.length}
           color="green"
           icon={<HiOutlineCube className="w-5 h-5" />}
         />
@@ -76,7 +76,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
         />
         <StatCard
           label="Output Tersedia"
-          value={odc.outputs.length - mappedOutputs}
+          value={odc.odcOutput.length - mappedOutputs}
           color="gray"
           icon={<HiOutlineClock className="w-5 h-5" />}
         />
@@ -127,7 +127,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                 <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Terhubung ke OTB</span>
-                    <Link 
+                    <Link
                       href={`/admin/ftth/otb/${otb.id}`}
                       className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                     >
@@ -170,7 +170,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
           </InfoCard>
 
           {/* OUTPUT - Output Cores */}
-          {odc.outputs.length > 0 && (
+          {odc.odcOutput.length > 0 && (
             <InfoCard
               title="OUTPUT - Output Cores"
               icon={<HiOutlineCube className="w-4 h-4" />}
@@ -188,7 +188,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-                    {odc.outputs.map((o) => {
+                    {odc.odcOutput.map((o) => {
                       const isMapped = o.odp !== null
                       return (
                         <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">

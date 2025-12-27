@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         const { feedback, rating } = body // Optional feedback and rating
 
         // Find ticket and verify ownership
-        const ticket = await prisma.supportTicket.findUnique({
+        const ticket = await prisma.supportTickets.findFirst({
             where: { id },
             select: {
                 id: true,
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         // Store rating if provided (we'll add to message since schema might not have rating field)
-        await prisma.supportTicket.update({
+        await prisma.supportTickets.update({
             where: { id },
             data: updateData,
         })
@@ -88,8 +88,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             closingMessage += `\n\n💬 Feedback:\n${feedback.trim()}`
         }
 
-        await prisma.ticketReply.create({
+        await prisma.ticketReplies.create({
             data: {
+                id: crypto.randomUUID(),
                 ticketId: id,
                 pelangganId: session.id,
                 isFromAdmin: false,

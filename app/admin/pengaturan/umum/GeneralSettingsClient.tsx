@@ -416,7 +416,7 @@ export function ClientComponent() {
             </div>
 
             {/* Zona Waktu */}
-            <div className="space-y-3 p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+            <div className="space-y-3 p-4 bg-linear-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
               <div className="flex items-center gap-2">
                 <HiGlobeAlt className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 <label htmlFor="timezone" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">

@@ -5,6 +5,7 @@ import { convertAndSaveImage } from '@/lib/utils/image-upload'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getDistance } from 'geolib'
+import { randomUUID } from 'crypto'
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now()
@@ -186,6 +187,8 @@ export async function POST(request: NextRequest) {
         // Buat data attendance
         const attendance = await prisma.attendance.create({
             data: {
+                id: randomUUID(),
+                updatedAt: new Date(),
                 userId,
                 checkIn: new Date(),
                 checkInPhoto: photoUrl,

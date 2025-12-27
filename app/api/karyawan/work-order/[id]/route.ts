@@ -16,7 +16,7 @@ export async function GET(
 
         const { id } = await params
 
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id },
             include: {
                 pelanggan: {
@@ -35,7 +35,7 @@ export async function GET(
                 tasks: {
                     orderBy: { order: 'asc' },
                     include: {
-                        completedBy: {
+                        user: {
                             select: {
                                 id: true,
                                 name: true
@@ -47,7 +47,7 @@ export async function GET(
                     orderBy: { createdAt: 'desc' },
                     take: 20,
                     include: {
-                        createdBy: {
+                        user: {
                             select: {
                                 id: true,
                                 name: true
@@ -58,7 +58,7 @@ export async function GET(
                 attachments: {
                     orderBy: { uploadedAt: 'desc' },
                     include: {
-                        uploadedBy: {
+                        user: {
                             select: {
                                 id: true,
                                 name: true

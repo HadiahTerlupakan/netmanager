@@ -49,7 +49,7 @@ export async function POST(
         }
 
         // Fetch Work Order to get Ticket Number
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id: workOrderId },
             include: { ticket: { select: { ticketNumber: true } } }
         });

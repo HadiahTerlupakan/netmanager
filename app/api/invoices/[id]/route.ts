@@ -63,8 +63,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             hargaPaket: true,
           },
         },
-        items: true,
-        payments: true,
+        invoiceItem: true,
+        payment: true,
       },
     })
 
@@ -237,6 +237,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const discountAmount = BigInt(Math.round((updateData.discountAmount || 0) * 100)) / 100n
       const totalAmount = subtotal + taxAmount - discountAmount
 
+      // Update invoice
       updatedInvoice = await prisma.invoice.update({
         where: { id },
         data: {
@@ -245,9 +246,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           taxAmount,
           discountAmount,
           totalAmount,
-          items: {
-            create: processedItems,
-          },
         },
         include: {
           pelanggan: {
@@ -255,10 +253,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               hargaPaket: true,
             },
           },
-          items: true,
-          payments: true,
+          invoiceItem: true,
+          payment: true,
         },
       })
+
+      // Create invoice items
+      for (const item of processedItems) {
+        await prisma.invoiceItem.create({
+          data: {
+            id: crypto.randomUUID(),
+            ...item,
+            invoiceId: id,
+          },
+        })
+      }
     } else {
       // Just update invoice fields
       updatedInvoice = await prisma.invoice.update({
@@ -270,8 +279,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               hargaPaket: true,
             },
           },
-          items: true,
-          payments: true,
+          invoiceItem: true,
+          payment: true,
         },
       })
     }

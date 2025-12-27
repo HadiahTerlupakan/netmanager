@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 import type {
     IDepartmentRepository,
     DepartmentPublic,
@@ -9,10 +10,10 @@ import type {
 
 export class DepartmentRepository implements IDepartmentRepository {
     async findAll(): Promise<DepartmentWithUserCount[]> {
-        const departments = await prisma.department.findMany({
+        const departments = await prisma.departments.findMany({
             include: {
                 _count: {
-                    select: { users: true },
+                    select: { user: true },
                 },
             },
             orderBy: { name: 'asc' },
@@ -22,7 +23,7 @@ export class DepartmentRepository implements IDepartmentRepository {
     }
 
     async findById(id: string): Promise<DepartmentPublic | null> {
-        const department = await prisma.department.findUnique({
+        const department = await prisma.departments.findUnique({
             where: { id },
         })
 
@@ -30,7 +31,7 @@ export class DepartmentRepository implements IDepartmentRepository {
     }
 
     async findByName(name: string): Promise<DepartmentPublic | null> {
-        const department = await prisma.department.findUnique({
+        const department = await prisma.departments.findUnique({
             where: { name },
         })
 
@@ -38,8 +39,12 @@ export class DepartmentRepository implements IDepartmentRepository {
     }
 
     async create(data: DepartmentCreateData): Promise<{ id: string }> {
-        const department = await prisma.department.create({
-            data,
+        const department = await prisma.departments.create({
+            data: {
+                id: randomUUID(),
+                ...data,
+                updatedAt: new Date(),
+            },
             select: { id: true },
         })
 
@@ -47,19 +52,22 @@ export class DepartmentRepository implements IDepartmentRepository {
     }
 
     async update(id: string, data: DepartmentUpdateData): Promise<void> {
-        await prisma.department.update({
+        await prisma.departments.update({
             where: { id },
-            data,
+            data: {
+                ...data,
+                updatedAt: new Date(),
+            },
         })
     }
 
     async delete(id: string): Promise<void> {
-        await prisma.department.delete({
+        await prisma.departments.delete({
             where: { id },
         })
     }
 
     async count(): Promise<number> {
-        return await prisma.department.count()
+        return await prisma.departments.count()
     }
 }

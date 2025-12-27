@@ -269,13 +269,9 @@ export class DatabaseSecurity {
     secureUrl.searchParams.set('connect_timeout', '10')
 
     return new PrismaClient({
-      datasources: {
-        db: {
-          url: secureUrl.toString()
-        }
-      },
+      datasourceUrl: secureUrl.toString(),
       log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
-    })
+    } as any)
   }
 
   /**

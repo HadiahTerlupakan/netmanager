@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { invoiceSchema } from '@/lib/validations/invoice'
+import { randomUUID } from 'crypto'
 
 /**
  * @swagger
@@ -112,8 +113,8 @@ export async function GET(req: NextRequest) {
               hargaPaket: true,
             },
           },
-          items: true,
-          payments: true,
+          invoiceItem: true,
+          payment: true,
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -311,6 +312,7 @@ export async function POST(req: NextRequest) {
       subtotal += totalPrice
 
       return {
+        id: randomUUID(),
         description: item.description,
         quantity: item.quantity,
         unitPrice,
@@ -325,6 +327,7 @@ export async function POST(req: NextRequest) {
 
     const invoice = await prisma.invoice.create({
       data: {
+        id: randomUUID(),
         invoiceNumber,
         ...invoiceData,
         subtotal,
@@ -332,7 +335,8 @@ export async function POST(req: NextRequest) {
         discountAmount,
         totalAmount,
         createdBy: session.user?.id,
-        items: {
+        updatedAt: new Date(),
+        invoiceItem: {
           create: processedItems,
         },
       },
@@ -342,8 +346,8 @@ export async function POST(req: NextRequest) {
             hargaPaket: true,
           },
         },
-        items: true,
-        payments: true,
+        invoiceItem: true,
+        payment: true,
       },
     })
 

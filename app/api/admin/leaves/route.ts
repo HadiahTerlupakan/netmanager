@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { LeaveRepository } from '@/modules/attendance/repositories/LeaveRepository'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'

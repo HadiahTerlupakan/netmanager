@@ -64,16 +64,16 @@ export async function GET(
         const sla = await (prisma as any).sLA.findUnique({
             where: { id },
             include: {
-                department: {
+                departments: {
                     select: {
                         id: true,
                         name: true,
                     },
                 },
-                createdBy: {
+                user: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                     },
                 },
                 escalations: {
@@ -224,16 +224,16 @@ export async function PUT(
                 updatedAt: new Date(),
             },
             include: {
-                department: {
+                departments: {
                     select: {
                         id: true,
                         name: true,
                     },
                 },
-                createdBy: {
+                user: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                     },
                 },
                 escalations: {

@@ -36,15 +36,11 @@ export async function GET(request: NextRequest) {
                 tipe: customer.tipe,
                 tanggalAktif: customer.tanggalAktif,
                 jatuhTempo: customer.jatuhTempo,
-                paket: customer.hargaPaket ? {
-                    id: customer.hargaPaket.id,
-                    nama: customer.hargaPaket.name,
-                    harga: customer.hargaPaket.harga,
-                    bandwidth: customer.hargaPaket.bandwidth ? {
-                        nama: customer.hargaPaket.bandwidth.name,
-                        download: customer.hargaPaket.bandwidth.maxLimitDownload,
-                        upload: customer.hargaPaket.bandwidth.maxLimitUpload,
-                    } : null,
+                paket: (customer as any).hargaPaket ? {
+                    id: (customer as any).hargaPaket.id,
+                    nama: (customer as any).hargaPaket.name,
+                    harga: (customer as any).hargaPaket.harga,
+                    kecepatan: (customer as any).hargaPaket.description,
                 } : null,
                 lokasi: {
                     provinsi: customer.provinsi,

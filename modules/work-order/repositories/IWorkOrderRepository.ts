@@ -1,6 +1,6 @@
-import type { WorkOrder, WorkOrderTask, WorkOrderAssignment, WorkOrderUpdate, WorkOrderAttachment, WorkOrderStatus, WorkOrderPriority, WorkOrderType, TaskStatus } from '@prisma/client';
+import type { WorkOrders, WorkOrderTasks, WorkOrderAssignments, WorkOrderUpdates, WorkOrderAttachments, WorkOrderStatus, WorkOrderPriority, WorkOrderType, TaskStatus } from '@prisma/client';
 
-export interface WorkOrderWithRelations extends WorkOrder {
+export interface WorkOrderWithRelations extends WorkOrders {
     pelanggan?: {
         id: string;
         idPelanggan: string;
@@ -22,19 +22,19 @@ export interface WorkOrderWithRelations extends WorkOrder {
         name: string | null;
         email: string | null;
     } | null;
-    tasks?: WorkOrderTask[];
-    assignments?: (WorkOrderAssignment & {
+    tasks?: WorkOrderTasks[];
+    assignments?: (WorkOrderAssignments & {
         user: {
             id: string;
             name: string | null;
         };
     })[];
-    updates?: (WorkOrderUpdate & {
+    updates?: (WorkOrderUpdates & {
         createdBy?: {
             name: string | null;
         } | null;
     })[];
-    attachments?: WorkOrderAttachment[];
+    attachments?: WorkOrderAttachments[];
 }
 
 export interface CreateWorkOrderData {
@@ -174,7 +174,7 @@ export interface SiteStatistic {
 
 export interface IWorkOrderRepository {
     // CRUD Operations
-    create(data: CreateWorkOrderData): Promise<WorkOrder>;
+    create(data: CreateWorkOrderData): Promise<WorkOrders>;
     findById(id: string): Promise<WorkOrderWithRelations | null>;
     findByWorkOrderNumber(workOrderNumber: string): Promise<WorkOrderWithRelations | null>;
     findAll(filters?: WorkOrderFilters, page?: number, limit?: number): Promise<{
@@ -183,35 +183,35 @@ export interface IWorkOrderRepository {
         page: number;
         totalPages: number;
     }>;
-    update(id: string, data: UpdateWorkOrderData): Promise<WorkOrder>;
+    update(id: string, data: UpdateWorkOrderData): Promise<WorkOrders>;
     delete(id: string): Promise<void>;
 
     // Status Management
-    updateStatus(id: string, status: WorkOrderStatus, userId?: string): Promise<WorkOrder>;
-    start(id: string, userId?: string): Promise<WorkOrder>;
-    complete(id: string, resolutionNotes?: string, userId?: string): Promise<WorkOrder>;
-    verify(id: string, userId?: string): Promise<WorkOrder>;
-    close(id: string, userId?: string): Promise<WorkOrder>;
-    cancel(id: string, reason: string, userId?: string): Promise<WorkOrder>;
+    updateStatus(id: string, status: WorkOrderStatus, userId?: string): Promise<WorkOrders>;
+    start(id: string, userId?: string): Promise<WorkOrders>;
+    complete(id: string, resolutionNotes?: string, userId?: string): Promise<WorkOrders>;
+    verify(id: string, userId?: string): Promise<WorkOrders>;
+    close(id: string, userId?: string): Promise<WorkOrders>;
+    cancel(id: string, reason: string, userId?: string): Promise<WorkOrders>;
 
     // Assignment
-    assign(id: string, userId: string, role?: string): Promise<WorkOrder>;
-    unassign(id: string): Promise<WorkOrder>;
-    addAssignment(workOrderId: string, userId: string, role?: string): Promise<WorkOrderAssignment>;
+    assign(id: string, userId: string, role?: string): Promise<WorkOrders>;
+    unassign(id: string): Promise<WorkOrders>;
+    addAssignment(workOrderId: string, userId: string, role?: string): Promise<WorkOrderAssignments>;
     removeAssignment(assignmentId: string): Promise<void>;
 
     // Tasks
-    addTask(data: CreateTaskData): Promise<WorkOrderTask>;
-    updateTask(taskId: string, data: UpdateTaskData): Promise<WorkOrderTask>;
+    addTask(data: CreateTaskData): Promise<WorkOrderTasks>;
+    updateTask(taskId: string, data: UpdateTaskData): Promise<WorkOrderTasks>;
     deleteTask(taskId: string): Promise<void>;
-    completeTask(taskId: string, userId: string): Promise<WorkOrderTask>;
+    completeTask(taskId: string, userId: string): Promise<WorkOrderTasks>;
 
     // Updates/Timeline
-    addUpdate(data: AddUpdateData): Promise<WorkOrderUpdate>;
-    getUpdates(workOrderId: string): Promise<WorkOrderUpdate[]>;
+    addUpdate(data: AddUpdateData): Promise<WorkOrderUpdates>;
+    getUpdates(workOrderId: string): Promise<WorkOrderUpdates[]>;
 
     // Attachments
-    addAttachment(workOrderId: string, fileName: string, filePath: string, fileSize: number, fileType: string, caption?: string, uploadedById?: string): Promise<WorkOrderAttachment>;
+    addAttachment(workOrderId: string, fileName: string, filePath: string, fileSize: number, fileType: string, caption?: string, uploadedById?: string): Promise<WorkOrderAttachments>;
     deleteAttachment(attachmentId: string): Promise<void>;
 
     // Statistics

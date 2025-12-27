@@ -1,10 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "library"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model ARAgingSnapshot {
@@ -34,7 +34,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  User              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])
@@ -52,7 +52,7 @@ model Announcement {
   createdAt DateTime       @default(now())
   updatedAt DateTime
   createdBy String?
-  User      User?          @relation(fields: [createdBy], references: [id])
+  user      User?          @relation(fields: [createdBy], references: [id])
 
   @@index([isActive])
   @@index([target])
@@ -71,8 +71,8 @@ model Attendance {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime
   checkOutLocation String?
-  User             User       @relation(fields: [userId], references: [id])
-  Overtime         Overtime[]
+  user             User       @relation(fields: [userId], references: [id])
+  overtime         Overtime[]
 
   @@index([checkIn])
   @@index([status])
@@ -99,7 +99,7 @@ model Bandwidth {
   status                 Status       @default(AKTIF)
   createdAt              DateTime     @default(now())
   updatedAt              DateTime
-  HargaPaket             HargaPaket[]
+  hargaPaket             HargaPaket[]
 }
 
 model Coupon {
@@ -117,7 +117,7 @@ model Coupon {
   isActive       Boolean       @default(true)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime
-  CouponUsage    CouponUsage[]
+  couponUsage    CouponUsage[]
 }
 
 model CouponUsage {
@@ -126,8 +126,8 @@ model CouponUsage {
   userId      String?
   pelangganId String?
   usedAt      DateTime   @default(now())
-  Coupon      Coupon     @relation(fields: [couponId], references: [id])
-  Pelanggan   Pelanggan? @relation(fields: [pelangganId], references: [id])
+  coupon      Coupon     @relation(fields: [couponId], references: [id])
+  pelanggan   Pelanggan? @relation(fields: [pelangganId], references: [id])
 
   @@index([couponId])
   @@index([pelangganId])
@@ -165,7 +165,7 @@ model Expense {
   userId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime
-  User        User?    @relation(fields: [userId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id])
 
   @@index([category])
   @@index([date])
@@ -192,9 +192,9 @@ model HargaPaket {
   status               Status        @default(AKTIF)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime
-  Bandwidth            Bandwidth?    @relation(fields: [bandwidthId], references: [id])
-  ProfilePPP           ProfilePPP    @relation(fields: [profilePPPId], references: [id])
-  Pelanggan            Pelanggan[]
+  bandwidth            Bandwidth?    @relation(fields: [bandwidthId], references: [id])
+  profilePPP           ProfilePPP    @relation(fields: [profilePPPId], references: [id])
+  pelanggan            Pelanggan[]
 
   @@index([bandwidthId])
   @@index([featured])
@@ -230,9 +230,9 @@ model Invoice {
   createdBy      String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime
-  Pelanggan      Pelanggan     @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  InvoiceItem    InvoiceItem[]
-  Payment        Payment[]
+  pelanggan      Pelanggan     @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  invoiceItem    InvoiceItem[]
+  payment        Payment[]
 
   @@index([dueDate])
   @@index([invoiceNumber])
@@ -249,7 +249,7 @@ model InvoiceItem {
   unitPrice   BigInt
   totalPrice  BigInt
   itemType    ItemType @default(SERVICE)
-  Invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
 }
@@ -265,8 +265,8 @@ model Joinbox {
   createdAt                   DateTime        @default(now())
   updatedAt                   DateTime
   keteranganJumlahKabelFeeder String?
-  JoinboxInput                JoinboxInput[]
-  JoinboxOutput               JoinboxOutput[]
+  joinboxInput                JoinboxInput[]
+  joinboxOutput               JoinboxOutput[]
 }
 
 model JoinboxInput {
@@ -277,7 +277,7 @@ model JoinboxInput {
   portUnit  String
   tubeColor String
   coreColor String
-  Joinbox   Joinbox @relation(fields: [joinboxId], references: [id])
+  joinbox   Joinbox @relation(fields: [joinboxId], references: [id])
 
   @@unique([joinboxId, idx])
 }
@@ -290,7 +290,7 @@ model JoinboxOutput {
   portUnit  String
   tubeColor String
   coreColor String
-  Joinbox   Joinbox @relation(fields: [joinboxId], references: [id])
+  joinbox   Joinbox @relation(fields: [joinboxId], references: [id])
 
   @@unique([joinboxId, idx])
 }
@@ -324,7 +324,7 @@ model LeaveRequest {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime
   attachments     String[]    @default([])
-  User            User        @relation(fields: [userId], references: [id])
+  user            User        @relation(fields: [userId], references: [id])
 
   @@index([startDate])
   @@index([status])
@@ -347,27 +347,27 @@ model MRRMovement {
 }
 
 model MikroTikRouter {
-  id                     String                   @id
+  id                     String                  @id
   name                   String
-  ipAddress              String                   @unique
-  timezone               String                   @default("+07:00 Asia/Jakarta")
-  apiPort                Int                      @default(8728)
+  ipAddress              String                  @unique
+  timezone               String                  @default("+07:00 Asia/Jakarta")
+  apiPort                Int                     @default(8728)
   apiUsername            String
   apiPassword            String
-  authPort               Int                      @default(7265)
-  accountingPort         Int                      @default(7266)
+  authPort               Int                     @default(7265)
+  accountingPort         Int                     @default(7266)
   secretRadius           String
   isolirUrl              String?
   description            String?
-  pingStatus             String                   @default("offline")
-  userOnline             Int                      @default(0)
+  pingStatus             String                  @default("offline")
+  userOnline             Int                     @default(0)
   lastStatusCheck        DateTime?
-  createdAt              DateTime                 @default(now())
+  createdAt              DateTime                @default(now())
   updatedAt              DateTime
-  ProfilePPP             ProfilePPP[]
-  configuration_restores configuration_restores[]
-  network_alerts         network_alerts[]
-  network_performance    network_performance[]
+  profilePPP             ProfilePPP[]
+  configuration_restores ConfigurationRestores[]
+  network_alerts         NetworkAlerts[]
+  network_performance    NetworkPerformance[]
 
   @@index([pingStatus])
 }
@@ -384,8 +384,8 @@ model Odc {
   updatedAt                   DateTime
   otbCoreId                   String      @unique
   keteranganJumlahKabelFeeder String?
-  OtbCore                     OtbCore     @relation(fields: [otbCoreId], references: [id])
-  OdcOutput                   OdcOutput[]
+  otbCore                     OtbCore     @relation(fields: [otbCoreId], references: [id])
+  odcOutput                   OdcOutput[]
 }
 
 model OdcOutput {
@@ -396,8 +396,8 @@ model OdcOutput {
   redaman   Float?
   tubeColor String
   coreColor String
-  Odc       Odc    @relation(fields: [odcId], references: [id])
-  Odp       Odp?
+  odc       Odc    @relation(fields: [odcId], references: [id])
+  odp       Odp?
 
   @@unique([odcId, idx])
 }
@@ -414,9 +414,9 @@ model Odp {
   updatedAt                   DateTime
   odcOutputId                 String      @unique
   keteranganJumlahKabelFeeder String?
-  OdcOutput                   OdcOutput   @relation(fields: [odcOutputId], references: [id])
-  OdpOutput                   OdpOutput[]
-  Pelanggan                   Pelanggan[]
+  odcOutput                   OdcOutput   @relation(fields: [odcOutputId], references: [id])
+  odpOutput                   OdpOutput[]
+  pelanggan                   Pelanggan[]
 }
 
 model OdpOutput {
@@ -427,45 +427,45 @@ model OdpOutput {
   redaman   Float?
   tubeColor String
   coreColor String
-  Odp       Odp    @relation(fields: [odpId], references: [id])
+  odp       Odp    @relation(fields: [odpId], references: [id])
 
   @@unique([odpId, idx])
 }
 
 model Olt {
-  id                     String                   @id
+  id                     String                  @id
   name                   String
-  ipAddress              String                   @unique
+  ipAddress              String                  @unique
   type                   String
   version                String?
   temperature            Int?
-  connectedDevices       Int                      @default(0)
+  connectedDevices       Int                     @default(0)
   model                  String?
   uptime                 String?
-  syncStatus             String                   @default("0")
+  syncStatus             String                  @default("0")
   syncDate               DateTime?
-  telnetConnected        Boolean                  @default(false)
-  snmpConnected          Boolean                  @default(false)
-  snmpCommunityWrite     String                   @default("public")
-  snmpVersion            String                   @default("2")
-  snmpPort               Int                      @default(161)
-  telnetUsername         String                   @default("zte")
+  telnetConnected        Boolean                 @default(false)
+  snmpConnected          Boolean                 @default(false)
+  snmpCommunityWrite     String                  @default("public")
+  snmpVersion            String                  @default("2")
+  snmpPort               Int                     @default(161)
+  telnetUsername         String                  @default("zte")
   telnetPassword         String
-  telnetPort             Int                      @default(23)
+  telnetPort             Int                     @default(23)
   onuLastSync            DateTime?
-  onuSyncEnabled         Boolean                  @default(true)
-  createdAt              DateTime                 @default(now())
+  onuSyncEnabled         Boolean                 @default(true)
+  createdAt              DateTime                @default(now())
   updatedAt              DateTime
-  Onu                    Onu[]
-  OnuType                OnuType[]
-  SpeedProfile           SpeedProfile[]
-  configuration_restores configuration_restores[]
-  network_alerts         network_alerts[]
-  network_performance    network_performance[]
+  onu                    Onu[]
+  onuType                OnuType[]
+  speedProfile           SpeedProfile[]
+  configuration_restores ConfigurationRestores[]
+  network_alerts         NetworkAlerts[]
+  network_performance    NetworkPerformance[]
 }
 
 model Onu {
-  id                     String                   @id
+  id                     String                  @id
   oltId                  String
   name                   String
   description            String?
@@ -476,8 +476,8 @@ model Onu {
   rxOnu                  String?
   serialNumber           String?
   actualType             String?
-  lastUpdate             DateTime                 @default(now())
-  createdAt              DateTime                 @default(now())
+  lastUpdate             DateTime                @default(now())
+  createdAt              DateTime                @default(now())
   updatedAt              DateTime
   authMode               String?
   batteryStatus          String?
@@ -522,10 +522,10 @@ model Onu {
   rxOltOid               String?
   rxOnuOid               String?
   statusOid              String?
-  Olt                    Olt                      @relation(fields: [oltId], references: [id], onDelete: Cascade)
-  configuration_restores configuration_restores[]
-  network_alerts         network_alerts[]
-  network_performance    network_performance[]
+  olt                    Olt                     @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  configuration_restores ConfigurationRestores[]
+  network_alerts         NetworkAlerts[]
+  network_performance    NetworkPerformance[]
 
   @@unique([oltId, gponOnu])
   @@index([lastSeen])
@@ -569,7 +569,7 @@ model OnuType {
   location              String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime
-  Olt                   Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  olt                   Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
 
   @@unique([oltId, name])
   @@index([oltId])
@@ -587,7 +587,7 @@ model Otb {
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime
   keteranganJumlahKabelFeeder String?
-  OtbCore                     OtbCore[]
+  otbCore                     OtbCore[]
 }
 
 model OtbCore {
@@ -597,8 +597,8 @@ model OtbCore {
   slotName  String
   tubeColor String
   coreColor String
-  Odc       Odc?
-  Otb       Otb    @relation(fields: [otbId], references: [id])
+  odc       Odc?
+  otb       Otb    @relation(fields: [otbId], references: [id])
 
   @@unique([otbId, idx])
 }
@@ -620,8 +620,8 @@ model Overtime {
   startLocation   String?
   startPhoto      String?
   startTime       DateTime?
-  Attendance      Attendance?    @relation(fields: [attendanceId], references: [id])
-  User            User           @relation(fields: [userId], references: [id])
+  attendance      Attendance?    @relation(fields: [attendanceId], references: [id])
+  user            User           @relation(fields: [userId], references: [id])
 
   @@index([startTime])
   @@index([status])
@@ -641,7 +641,7 @@ model Payment {
   updatedAt     DateTime
   invoiceId     String?
   paymentMethod PaymentMethod
-  Invoice       Invoice?      @relation(fields: [invoiceId], references: [id])
+  invoice       Invoice?      @relation(fields: [invoiceId], references: [id])
 
   @@index([invoiceId])
   @@index([paymentDate])
@@ -674,40 +674,40 @@ model PaymentGatewayConfig {
 }
 
 model Pelanggan {
-  id                            String               @id
-  idPelanggan                   String               @unique
+  id                            String              @id
+  idPelanggan                   String              @unique
   nama                          String
   username                      String
   password                      String
   passwordLogin                 String
   hargaPaketId                  String
-  tipe                          TipePelanggan        @default(REGULER)
+  tipe                          TipePelanggan       @default(REGULER)
   tanggalAktif                  DateTime
   jatuhTempo                    DateTime
-  status                        Status               @default(AKTIF)
+  status                        Status              @default(AKTIF)
   alamat                        String?
   noTelp                        String?
   email                         String?
   catatan                       String?
-  createdAt                     DateTime             @default(now())
+  createdAt                     DateTime            @default(now())
   updatedAt                     DateTime
   biayaInstalasi                Int?
   biayaInstalasiDiskon          Float?
-  biayaInstalasiIsRecurring     Boolean              @default(false)
+  biayaInstalasiIsRecurring     Boolean             @default(false)
   biayaLainnya                  Int?
   biayaLainnyaDiskon            Float?
-  biayaLainnyaIsRecurring       Boolean              @default(false)
+  biayaLainnyaIsRecurring       Boolean             @default(false)
   biayaSewaPerangkat            Int?
   biayaSewaPerangkatDiskon      Float?
-  biayaSewaPerangkatIsRecurring Boolean              @default(true)
+  biayaSewaPerangkatIsRecurring Boolean             @default(true)
   discountDuration              Int?
   discountDurationUnit          DurasiUnit?
   discountType                  DiscountType?
   discountValue                 Float?
   keteranganBiayaLainnya        String?
-  useDiscount                   Boolean              @default(false)
-  usePPN                        Boolean              @default(true)
-  useProrate                    Boolean              @default(false)
+  useDiscount                   Boolean             @default(false)
+  usePPN                        Boolean             @default(true)
+  useProrate                    Boolean             @default(false)
   jenisDokumen                  String?
   noDokumen                     String?
   fileBAST                      String?
@@ -721,21 +721,21 @@ model Pelanggan {
   provinsi                      String?
   odpId                         String?
   passwordHash                  String?
-  tokenVersion                  Int                  @default(1)
+  tokenVersion                  Int                 @default(1)
   userId                        String?
-  is2FAEnabled                  Boolean              @default(false)
-  isBillNotifEnabled            Boolean              @default(true)
-  isPromoEnabled                Boolean              @default(false)
-  autoIsolir                    Boolean              @default(true)
-  CouponUsage                   CouponUsage[]
-  Invoice                       Invoice[]
-  HargaPaket                    HargaPaket           @relation(fields: [hargaPaketId], references: [id])
-  Odp                           Odp?                 @relation(fields: [odpId], references: [id])
-  User                          User?                @relation(fields: [userId], references: [id])
-  customer_usage                customer_usage[]
-  service_suspension            service_suspension[]
-  support_tickets               support_tickets[]
-  work_orders                   work_orders[]
+  is2FAEnabled                  Boolean             @default(false)
+  isBillNotifEnabled            Boolean             @default(true)
+  isPromoEnabled                Boolean             @default(false)
+  autoIsolir                    Boolean             @default(true)
+  couponUsage                   CouponUsage[]
+  invoice                       Invoice[]
+  hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])
+  odp                           Odp?                @relation(fields: [odpId], references: [id])
+  user                          User?               @relation(fields: [userId], references: [id])
+  customer_usage                CustomerUsage[]
+  service_suspension            ServiceSuspension[]
+  support_tickets               SupportTickets[]
+  work_orders                   WorkOrders[]
 
   @@index([email])
   @@index([hargaPaketId])
@@ -754,7 +754,7 @@ model Permission {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime
-  Role        Role[]
+  role        Role[]
 
   @@unique([resource, action])
 }
@@ -785,8 +785,8 @@ model ProfilePPP {
   status           Status          @default(AKTIF)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime
-  HargaPaket       HargaPaket[]
-  MikroTikRouter   MikroTikRouter? @relation(fields: [mikroTikRouterId], references: [id])
+  hargaPaket       HargaPaket[]
+  mikroTikRouter   MikroTikRouter? @relation(fields: [mikroTikRouterId], references: [id])
 
   @@index([mikroTikRouterId])
 }
@@ -841,8 +841,8 @@ model Role {
   accessAdminPanel    Boolean      @default(false)
   accessEmployeePanel Boolean      @default(false)
   isRestricted        Boolean      @default(false)
-  User                User[]
-  Permission          Permission[]
+  user                User[]
+  permission          Permission[]
 }
 
 model Session {
@@ -850,7 +850,7 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Settings {
@@ -878,7 +878,7 @@ model SpeedProfile {
   maximum      Int?
   createdAt    DateTime @default(now())
   updatedAt    DateTime
-  Olt          Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  olt          Olt      @relation(fields: [oltId], references: [id], onDelete: Cascade)
 
   @@unique([oltId, profileType, name])
   @@index([oltId])
@@ -895,7 +895,7 @@ model SystemLog {
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
-  User      User?    @relation(fields: [userId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
 
   @@index([createdAt])
   @@index([type])
@@ -903,16 +903,16 @@ model SystemLog {
 }
 
 model User {
-  id                                         String                   @id
+  id                                         String                 @id
   name                                       String?
-  email                                      String                   @unique
+  email                                      String                 @unique
   passwordHash                               String?
-  createdAt                                  DateTime                 @default(now())
+  createdAt                                  DateTime               @default(now())
   updatedAt                                  DateTime
   emailVerified                              DateTime?
   image                                      String?
   departmentId                               String?
-  isActive                                   Boolean                  @default(true)
+  isActive                                   Boolean                @default(true)
   phone                                      String?
   siteId                                     String?
   roleId                                     String?
@@ -921,36 +921,36 @@ model User {
   shiftId                                    String?
   startWorkTime                              String?
   workDays                                   String?
-  workingHourMode                            WorkingHourMode          @default(FIXED)
+  workingHourMode                            WorkingHourMode        @default(FIXED)
   pushToken                                  String?
   pushTokenUpdatedAt                         DateTime?
-  Account                                    Account[]
-  Announcement                               Announcement[]
-  Attendance                                 Attendance[]
-  Expense                                    Expense[]
-  LeaveRequest                               LeaveRequest[]
-  Overtime                                   Overtime[]
-  Pelanggan                                  Pelanggan[]
-  Session                                    Session[]
-  SystemLog                                  SystemLog[]
-  departments                                departments?             @relation(fields: [departmentId], references: [id])
-  Role                                       Role?                    @relation(fields: [roleId], references: [id])
-  sites                                      sites?                   @relation(fields: [siteId], references: [id])
-  barang_keluar                              barang_keluar[]
-  barang_masuk                               barang_masuk[]
-  notifications                              notifications[]
-  push_subscriptions                         push_subscriptions[]
-  sla                                        sla[]
-  support_tickets                            support_tickets[]
-  ticket_replies                             ticket_replies[]
-  work_order_assignments                     work_order_assignments[]
-  work_order_attachments                     work_order_attachments[]
-  work_order_escalations                     work_order_escalations[]
-  work_order_tasks                           work_order_tasks[]
-  work_order_templates                       work_order_templates[]
-  work_order_updates                         work_order_updates[]
-  work_orders_work_orders_assignedToIdToUser work_orders[]            @relation("work_orders_assignedToIdToUser")
-  work_orders_work_orders_createdByIdToUser  work_orders[]            @relation("work_orders_createdByIdToUser")
+  account                                    Account[]
+  announcement                               Announcement[]
+  attendance                                 Attendance[]
+  expense                                    Expense[]
+  leaveRequest                               LeaveRequest[]
+  overtime                                   Overtime[]
+  pelanggan                                  Pelanggan[]
+  session                                    Session[]
+  systemLog                                  SystemLog[]
+  departments                                Departments?           @relation(fields: [departmentId], references: [id])
+  role                                       Role?                  @relation(fields: [roleId], references: [id])
+  sites                                      Sites?                 @relation(fields: [siteId], references: [id])
+  barang_keluar                              BarangKeluar[]
+  barang_masuk                               BarangMasuk[]
+  notifications                              Notifications[]
+  push_subscriptions                         PushSubscriptions[]
+  sla                                        Sla[]
+  support_tickets                            SupportTickets[]
+  ticket_replies                             TicketReplies[]
+  work_order_assignments                     WorkOrderAssignments[]
+  work_order_attachments                     WorkOrderAttachments[]
+  work_order_escalations                     WorkOrderEscalations[]
+  work_order_tasks                           WorkOrderTasks[]
+  work_order_templates                       WorkOrderTemplates[]
+  work_order_updates                         WorkOrderUpdates[]
+  work_orders_work_orders_assignedToIdToUser WorkOrders[]           @relation("work_orders_assignedToIdToUser")
+  work_orders_work_orders_createdByIdToUser  WorkOrders[]           @relation("work_orders_createdByIdToUser")
 
   @@index([departmentId])
   @@index([isActive])
@@ -966,25 +966,27 @@ model VerificationToken {
   @@id([identifier, token])
 }
 
-model barang {
-  id                    String                  @id
-  kode                  String                  @unique
-  nama                  String
-  satuan                String
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime
-  isWorkOrderMaterial   Boolean                 @default(false)
-  barang_gudang         barang_gudang[]
-  barang_keluar         barang_keluar[]
-  barang_masuk          barang_masuk[]
-  restock_alerts        restock_alerts[]
-  restock_settings      restock_settings[]
-  stock_opname          stock_opname[]
-  transfer_antar_gudang transfer_antar_gudang[]
-  usage_analytics       usage_analytics[]
+model Barang {
+  id                  String                @id
+  kode                String                @unique
+  nama                String
+  satuan              String
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime
+  isWorkOrderMaterial Boolean               @default(false)
+  barangGudang        BarangGudang[]
+  barang_keluar       BarangKeluar[]
+  barang_masuk        BarangMasuk[]
+  restockAlerts       RestockAlerts[]
+  restockSettings     RestockSettings[]
+  stockOpname         StockOpname[]
+  transferAntarGudang TransferAntarGudang[]
+  usageAnalytics      UsageAnalytics[]
+
+  @@map("barang")
 }
 
-model barang_gudang {
+model BarangGudang {
   id        String   @id
   barangId  String
   gudangId  String
@@ -994,38 +996,39 @@ model barang_gudang {
   stokBaru  Int      @default(0)
   stokBekas Int      @default(0)
   stokRusak Int      @default(0)
-  barang    barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang    gudang   @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  barang    Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang    Gudang   @relation(fields: [gudangId], references: [id], onDelete: Cascade)
 
   @@unique([barangId, gudangId])
+  @@map("barang_gudang")
 }
 
-model barang_keluar {
-  id                    String                 @id
-  barangId              String
-  gudangId              String
-  transferId            String?
-  tanggal               DateTime               @default(now())
-  jumlah                Int
-  kondisi               KondisiBarang          @default(BARU)
-  keterangan            String?
-  lokasiPenyimpanan     String?
-  nomorRak              String?
-  nomorBox              String?
-  pic                   String?
-  tujuanPenggunaan      String?
-  nomorBatch            String?
-  customer              String?
-  isHilang              Boolean                @default(false)
-  purpose               String?
-  createdAt             DateTime               @default(now())
-  fotoBukti             String[]
-  fotoMetadata          Json?
-  userId                String?
-  barang                barang                 @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang                gudang                 @relation(fields: [gudangId], references: [id], onDelete: Cascade)
-  transfer_antar_gudang transfer_antar_gudang? @relation(fields: [transferId], references: [id])
-  User                  User?                  @relation(fields: [userId], references: [id])
+model BarangKeluar {
+  id                  String               @id
+  barangId            String
+  gudangId            String
+  transferId          String?
+  tanggal             DateTime             @default(now())
+  jumlah              Int
+  kondisi             KondisiBarang        @default(BARU)
+  keterangan          String?
+  lokasiPenyimpanan   String?
+  nomorRak            String?
+  nomorBox            String?
+  pic                 String?
+  tujuanPenggunaan    String?
+  nomorBatch          String?
+  customer            String?
+  isHilang            Boolean              @default(false)
+  purpose             String?
+  createdAt           DateTime             @default(now())
+  fotoBukti           String[]
+  fotoMetadata        Json?
+  userId              String?
+  barang              Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang              Gudang               @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  transferAntarGudang TransferAntarGudang? @relation(fields: [transferId], references: [id])
+  user                User?                @relation(fields: [userId], references: [id])
 
   @@index([barangId])
   @@index([gudangId])
@@ -1033,43 +1036,45 @@ model barang_keluar {
   @@index([kondisi])
   @@index([tanggal])
   @@index([transferId])
+  @@map("barang_keluar")
 }
 
-model barang_masuk {
-  id                    String                 @id
-  barangId              String
-  gudangId              String
-  transferId            String?
-  tanggal               DateTime               @default(now())
-  jumlah                Int
-  kondisi               KondisiBarang          @default(BARU)
-  keterangan            String?
-  lokasiPenyimpanan     String?
-  nomorRak              String?
-  nomorBox              String?
-  pic                   String?
-  suhuPenyimpanan       Float?
-  kelembaban            Float?
-  tanggalExpire         DateTime?
-  nomorBatch            String?
-  supplier              String?
-  createdAt             DateTime               @default(now())
-  fotoBukti             String[]
-  fotoMetadata          Json?
-  userId                String?
-  barang                barang                 @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang                gudang                 @relation(fields: [gudangId], references: [id], onDelete: Cascade)
-  transfer_antar_gudang transfer_antar_gudang? @relation(fields: [transferId], references: [id])
-  User                  User?                  @relation(fields: [userId], references: [id])
+model BarangMasuk {
+  id                  String               @id
+  barangId            String
+  gudangId            String
+  transferId          String?
+  tanggal             DateTime             @default(now())
+  jumlah              Int
+  kondisi             KondisiBarang        @default(BARU)
+  keterangan          String?
+  lokasiPenyimpanan   String?
+  nomorRak            String?
+  nomorBox            String?
+  pic                 String?
+  suhuPenyimpanan     Float?
+  kelembaban          Float?
+  tanggalExpire       DateTime?
+  nomorBatch          String?
+  supplier            String?
+  createdAt           DateTime             @default(now())
+  fotoBukti           String[]
+  fotoMetadata        Json?
+  userId              String?
+  barang              Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang              Gudang               @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  transferAntarGudang TransferAntarGudang? @relation(fields: [transferId], references: [id])
+  user                User?                @relation(fields: [userId], references: [id])
 
   @@index([barangId])
   @@index([gudangId])
   @@index([kondisi])
   @@index([tanggal])
   @@index([transferId])
+  @@map("barang_masuk")
 }
 
-model configuration_restores {
+model ConfigurationRestores {
   id              String         @id
   deviceId        String
   deviceType      String
@@ -1091,19 +1096,20 @@ model configuration_restores {
   verifiedAt      DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime
-  MikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_mikrotik_fkey")
-  Olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_olt_fkey")
-  Onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_onu_fkey")
-  device_backups  device_backups @relation(fields: [backupId], references: [id], onDelete: Cascade)
+  mikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_mikrotik_fkey")
+  olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_olt_fkey")
+  onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_onu_fkey")
+  device_backups  DeviceBackups  @relation(fields: [backupId], references: [id], onDelete: Cascade)
 
   @@index([backupId])
   @@index([createdAt])
   @@index([deviceId, deviceType])
   @@index([scheduledAt])
   @@index([status])
+  @@map("configuration_restores")
 }
 
-model customer_usage {
+model CustomerUsage {
   id                 String    @id
   pelangganId        String
   session_id         String?
@@ -1119,83 +1125,89 @@ model customer_usage {
   terminate_cause    String?
   created_at         DateTime  @default(now())
   updated_at         DateTime
-  Pelanggan          Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  pelanggan          Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
 
   @@index([nas_ip_address])
   @@index([pelangganId])
   @@index([session_end_time])
   @@index([session_start_time])
+  @@map("customer_usage")
 }
 
-model departments {
-  id                     String                   @id
-  name                   String                   @unique
+model Departments {
+  id                     String                 @id
+  name                   String                 @unique
   description            String?
   jobDescription         String?
-  createdAt              DateTime                 @default(now())
+  createdAt              DateTime               @default(now())
   updatedAt              DateTime
-  User                   User[]
-  notifications          notifications[]
-  positions              positions[]
-  sla                    sla[]
-  work_order_escalations work_order_escalations[]
-  work_order_templates   work_order_templates[]
-  work_orders            work_orders[]
+  user                   User[]
+  notifications          Notifications[]
+  positions              Positions[]
+  sla                    Sla[]
+  work_order_escalations WorkOrderEscalations[]
+  work_order_templates   WorkOrderTemplates[]
+  work_orders            WorkOrders[]
+
+  @@map("departments")
 }
 
-model device_backups {
-  id                     String                   @id
+model DeviceBackups {
+  id                     String                  @id
   deviceId               String
   deviceType             String
   backupName             String
   description            String?
-  backupType             BackupType               @default(MANUAL)
+  backupType             BackupType              @default(MANUAL)
   filePath               String
   fileSize               Int
   fileHash               String?
-  compressionType        String?                  @default("gzip")
-  isEncrypted            Boolean                  @default(false)
+  compressionType        String?                 @default("gzip")
+  isEncrypted            Boolean                 @default(false)
   encryptionKey          String?
   backupMethod           String?
-  status                 BackupStatus             @default(PENDING)
+  status                 BackupStatus            @default(PENDING)
   errorMessage           String?
   scheduledAt            DateTime?
   completedAt            DateTime?
   createdBy              String?
-  retentionDays          Int                      @default(30)
-  isAutoCleanup          Boolean                  @default(false)
-  createdAt              DateTime                 @default(now())
+  retentionDays          Int                     @default(30)
+  isAutoCleanup          Boolean                 @default(false)
+  createdAt              DateTime                @default(now())
   updatedAt              DateTime
-  configuration_restores configuration_restores[]
+  configuration_restores ConfigurationRestores[]
 
   @@index([backupType])
   @@index([createdAt])
   @@index([deviceId, deviceType])
   @@index([scheduledAt])
   @@index([status])
+  @@map("device_backups")
 }
 
-model gudang {
-  id                                                               String                  @id
-  kode                                                             String                  @unique
-  nama                                                             String
-  lokasi                                                           String?
-  isActive                                                         Boolean                 @default(true)
-  createdAt                                                        DateTime                @default(now())
-  updatedAt                                                        DateTime
-  barang_gudang                                                    barang_gudang[]
-  barang_keluar                                                    barang_keluar[]
-  barang_masuk                                                     barang_masuk[]
-  restock_alerts                                                   restock_alerts[]
-  restock_settings                                                 restock_settings[]
-  stock_opname                                                     stock_opname[]
-  transfer_antar_gudang_transfer_antar_gudang_dariGudangIdTogudang transfer_antar_gudang[] @relation("transfer_antar_gudang_dariGudangIdTogudang")
-  transfer_antar_gudang_transfer_antar_gudang_keGudangIdTogudang   transfer_antar_gudang[] @relation("transfer_antar_gudang_keGudangIdTogudang")
-  usage_analytics                                                  usage_analytics[]
-  sites                                                            sites[]                 @relation("GudangToSite")
+model Gudang {
+  id                      String                @id
+  kode                    String                @unique
+  nama                    String
+  lokasi                  String?
+  isActive                Boolean               @default(true)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime
+  barangGudang            BarangGudang[]
+  barangKeluar            BarangKeluar[]
+  barangMasuk             BarangMasuk[]
+  restockAlerts           RestockAlerts[]
+  restockSettings         RestockSettings[]
+  stockOpname             StockOpname[]
+  transferAntarGudangDari TransferAntarGudang[] @relation("transfer_antar_gudang_dariGudangIdTogudang")
+  transferAntarGudangKe   TransferAntarGudang[] @relation("transfer_antar_gudang_keGudangIdTogudang")
+  usageAnalytics          UsageAnalytics[]
+  sites                   Sites[]               @relation("GudangToSite")
+
+  @@map("gudang")
 }
 
-model nas {
+model Nas {
   id          Int      @id @default(autoincrement())
   nasname     String   @unique
   shortname   String?
@@ -1206,9 +1218,11 @@ model nas {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime
+
+  @@map("nas")
 }
 
-model network_alerts {
+model NetworkAlerts {
   id              String         @id
   deviceId        String
   deviceType      String
@@ -1231,9 +1245,9 @@ model network_alerts {
   isActive        Boolean        @default(true)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime
-  MikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_mikrotik_fkey")
-  Olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_olt_fkey")
-  Onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_onu_fkey")
+  mikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_mikrotik_fkey")
+  olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_olt_fkey")
+  onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_onu_fkey")
 
   @@index([alertType])
   @@index([createdAt])
@@ -1241,9 +1255,10 @@ model network_alerts {
   @@index([isActive])
   @@index([severity])
   @@index([status])
+  @@map("network_alerts")
 }
 
-model network_performance {
+model NetworkPerformance {
   id              String         @id
   deviceId        String
   deviceType      String
@@ -1268,17 +1283,18 @@ model network_performance {
   customMetrics   Json?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime
-  MikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_mikrotik_fkey")
-  Olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_olt_fkey")
-  Onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_onu_fkey")
+  mikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_mikrotik_fkey")
+  olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_olt_fkey")
+  onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_onu_fkey")
 
   @@index([deviceId, deviceType])
   @@index([deviceId, timestamp])
   @@index([deviceType])
   @@index([timestamp])
+  @@map("network_performance")
 }
 
-model notifications {
+model Notifications {
   id           String       @id
   type         String
   priority     String       @default("NORMAL")
@@ -1292,17 +1308,18 @@ model notifications {
   createdAt    DateTime     @default(now())
   readAt       DateTime?
   userId       String?
-  departments  departments? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  User         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departments  Departments? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([departmentId])
   @@index([isRead])
   @@index([type])
   @@index([userId])
+  @@map("notifications")
 }
 
-model oauth_provider_configs {
+model OauthProviderConfigs {
   id           String    @id
   provider     String    @unique
   providerName String
@@ -1324,9 +1341,10 @@ model oauth_provider_configs {
   @@index([isEnabled])
   @@index([priority])
   @@index([provider])
+  @@map("oauth_provider_configs")
 }
 
-model positions {
+model Positions {
   id           String       @id
   title        String       @unique
   code         String?      @unique
@@ -1336,13 +1354,14 @@ model positions {
   isActive     Boolean      @default(true)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime
-  departments  departments? @relation(fields: [departmentId], references: [id])
+  departments  Departments? @relation(fields: [departmentId], references: [id])
 
   @@index([departmentId])
   @@index([isActive])
+  @@map("positions")
 }
 
-model push_subscriptions {
+model PushSubscriptions {
   id         String    @id
   endpoint   String    @unique
   p256dh     String
@@ -1353,13 +1372,14 @@ model push_subscriptions {
   updatedAt  DateTime
   lastUsedAt DateTime?
   userId     String
-  User       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
   @@index([userId])
+  @@map("push_subscriptions")
 }
 
-model radacct {
+model Radacct {
   radAcctId           BigInt    @id @default(autoincrement())
   acctSessionId       String
   acctUniqueId        String    @unique
@@ -1399,9 +1419,10 @@ model radacct {
   @@index([nasIpAddress])
   @@index([username, acctStartTime])
   @@index([username])
+  @@map("radacct")
 }
 
-model radcheck {
+model Radcheck {
   id        Int      @id @default(autoincrement())
   username  String
   attribute String
@@ -1412,9 +1433,10 @@ model radcheck {
 
   @@index([username, attribute])
   @@index([username])
+  @@map("radcheck")
 }
 
-model radgroupcheck {
+model Radgroupcheck {
   id        Int      @id @default(autoincrement())
   groupname String
   attribute String
@@ -1425,9 +1447,10 @@ model radgroupcheck {
 
   @@index([groupname, attribute])
   @@index([groupname])
+  @@map("radgroupcheck")
 }
 
-model radgroupreply {
+model Radgroupreply {
   id        Int      @id @default(autoincrement())
   groupname String
   attribute String
@@ -1438,9 +1461,10 @@ model radgroupreply {
 
   @@index([groupname, attribute])
   @@index([groupname])
+  @@map("radgroupreply")
 }
 
-model radippool {
+model Radippool {
   id              Int      @id @default(autoincrement())
   pool_name       String
   framedipaddress String   @unique @db.Inet
@@ -1451,9 +1475,10 @@ model radippool {
 
   @@index([nasipaddress])
   @@index([pool_name])
+  @@map("radippool")
 }
 
-model radpostauth {
+model Radpostauth {
   id       BigInt   @id @default(autoincrement())
   username String
   pass     String
@@ -1462,9 +1487,10 @@ model radpostauth {
 
   @@index([authDate])
   @@index([username])
+  @@map("radpostauth")
 }
 
-model radreply {
+model Radreply {
   id        Int      @id @default(autoincrement())
   username  String
   attribute String
@@ -1475,9 +1501,10 @@ model radreply {
 
   @@index([username, attribute])
   @@index([username])
+  @@map("radreply")
 }
 
-model radusergroup {
+model Radusergroup {
   username  String
   groupname String
   priority  Int      @default(0)
@@ -1487,9 +1514,10 @@ model radusergroup {
   @@id([username, groupname])
   @@index([groupname])
   @@index([username])
+  @@map("radusergroup")
 }
 
-model registrations {
+model Registrations {
   id              String             @id
   name            String
   email           String
@@ -1507,9 +1535,11 @@ model registrations {
   rejectionReason String?
   verifiedAt      DateTime?
   verifiedBy      String?
+
+  @@map("registrations")
 }
 
-model restock_alerts {
+model RestockAlerts {
   id               String       @id
   barangId         String
   gudangId         String
@@ -1524,8 +1554,8 @@ model restock_alerts {
   resolvedAt       DateTime?
   resolvedBy       String?
   createdAt        DateTime     @default(now())
-  barang           barang       @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang           gudang       @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  barang           Barang       @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang           Gudang       @relation(fields: [gudangId], references: [id], onDelete: Cascade)
 
   @@index([alertType])
   @@index([barangId])
@@ -1533,9 +1563,10 @@ model restock_alerts {
   @@index([gudangId])
   @@index([isRead])
   @@index([isResolved])
+  @@map("restock_alerts")
 }
 
-model restock_settings {
+model RestockSettings {
   id                   String    @id
   barangId             String
   gudangId             String
@@ -1548,16 +1579,17 @@ model restock_settings {
   isActive             Boolean   @default(true)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime
-  barang               barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang               gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  barang               Barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang               Gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)
 
   @@unique([barangId, gudangId])
   @@index([barangId])
   @@index([gudangId])
   @@index([isActive])
+  @@map("restock_settings")
 }
 
-model service_suspension {
+model ServiceSuspension {
   id                 String    @id
   pelangganId        String
   suspension_type    String
@@ -1571,59 +1603,62 @@ model service_suspension {
   is_active          Boolean   @default(true)
   created_at         DateTime  @default(now())
   updated_at         DateTime
-  Pelanggan          Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  pelanggan          Pelanggan @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
 
   @@index([is_active])
   @@index([pelangganId])
   @@index([suspended_at])
   @@index([suspension_type])
+  @@map("service_suspension")
 }
 
-model sites {
-  id               String        @id
-  code             String        @unique
+model Sites {
+  id               String       @id
+  code             String       @unique
   name             String
   description      String?
   address          String?
   latitude         Float?
   longitude        Float?
-  isActive         Boolean       @default(true)
-  createdAt        DateTime      @default(now())
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
   updatedAt        DateTime
-  attendanceRadius Int           @default(100)
-  User             User[]
-  work_orders      work_orders[]
-  gudang           gudang[]      @relation("GudangToSite")
+  attendanceRadius Int          @default(100)
+  user             User[]
+  work_orders      WorkOrders[]
+  gudang           Gudang[]     @relation("GudangToSite")
 
   @@index([isActive])
+  @@map("sites")
 }
 
-model sla {
-  id                     String                   @id
-  name                   String
-  description            String?
-  workOrderType          WorkOrderType?
-  priority               WorkOrderPriority?
-  departmentId           String?
-  responseTime           Int
-  resolutionTime         Int
-  businessHoursOnly      Boolean                  @default(true)
-  isActive               Boolean                  @default(true)
-  createdById            String?
-  createdAt              DateTime                 @default(now())
-  updatedAt              DateTime
-  User                   User?                    @relation(fields: [createdById], references: [id])
-  departments            departments?             @relation(fields: [departmentId], references: [id])
-  work_order_escalations work_order_escalations[]
-  work_orders            work_orders[]
+model Sla {
+  id                   String                 @id
+  name                 String
+  description          String?
+  workOrderType        WorkOrderType?
+  priority             WorkOrderPriority?
+  departmentId         String?
+  responseTime         Int
+  resolutionTime       Int
+  businessHoursOnly    Boolean                @default(true)
+  isActive             Boolean                @default(true)
+  createdById          String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  user                 User?                  @relation(fields: [createdById], references: [id])
+  departments          Departments?           @relation(fields: [departmentId], references: [id])
+  workOrderEscalations WorkOrderEscalations[]
+  workOrders           WorkOrders[]
 
   @@index([departmentId])
   @@index([isActive])
   @@index([priority])
   @@index([workOrderType])
+  @@map("sla")
 }
 
-model stock_opname {
+model StockOpname {
   id                String    @id
   barangId          String
   gudangId          String
@@ -1645,32 +1680,33 @@ model stock_opname {
   nomorBatch        String?
   catatanDetail     String?
   createdAt         DateTime  @default(now())
-  barang            barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang            gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  barang            Barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang            Gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)
 
   @@index([barangId])
   @@index([gudangId])
   @@index([tanggal])
+  @@map("stock_opname")
 }
 
-model support_tickets {
-  id             String           @id
-  ticketNumber   String           @unique
-  pelangganId    String
-  category       TicketCategory
-  priority       TicketPriority   @default(MEDIUM)
-  subject        String
-  description    String
-  status         TicketStatus     @default(OPEN)
-  assignedToId   String?
-  resolvedAt     DateTime?
-  closedAt       DateTime?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime
-  User           User?            @relation(fields: [assignedToId], references: [id])
-  Pelanggan      Pelanggan        @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  ticket_replies ticket_replies[]
-  work_orders    work_orders[]
+model SupportTickets {
+  id           String          @id
+  ticketNumber String          @unique
+  pelangganId  String
+  category     TicketCategory
+  priority     TicketPriority  @default(MEDIUM)
+  subject      String
+  description  String
+  status       TicketStatus    @default(OPEN)
+  assignedToId String?
+  resolvedAt   DateTime?
+  closedAt     DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime
+  user         User?           @relation(fields: [assignedToId], references: [id])
+  pelanggan    Pelanggan       @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  replies      TicketReplies[]
+  workOrders   WorkOrders[]
 
   @@index([category])
   @@index([createdAt])
@@ -1678,51 +1714,54 @@ model support_tickets {
   @@index([priority])
   @@index([status])
   @@index([ticketNumber])
+  @@map("support_tickets")
 }
 
-model ticket_replies {
-  id              String          @id
-  ticketId        String
-  senderId        String?
-  pelangganId     String?
-  isFromAdmin     Boolean         @default(false)
-  message         String
-  attachments     Json?
-  createdAt       DateTime        @default(now())
-  User            User?           @relation(fields: [senderId], references: [id])
-  support_tickets support_tickets @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+model TicketReplies {
+  id             String         @id
+  ticketId       String
+  senderId       String?
+  pelangganId    String?
+  isFromAdmin    Boolean        @default(false)
+  message        String
+  attachments    Json?
+  createdAt      DateTime       @default(now())
+  user           User?          @relation(fields: [senderId], references: [id])
+  supportTickets SupportTickets @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([ticketId])
+  @@map("ticket_replies")
 }
 
-model transfer_antar_gudang {
-  id                                                String          @id
-  kodeTransfer                                      String          @unique
-  barangId                                          String
-  dariGudangId                                      String
-  keGudangId                                        String
-  tanggal                                           DateTime        @default(now())
-  jumlah                                            Int
-  kondisi                                           KondisiBarang   @default(BARU)
-  keterangan                                        String?
-  createdAt                                         DateTime        @default(now())
-  fotoBukti                                         String[]
-  fotoMetadata                                      Json?
-  barang_keluar                                     barang_keluar[]
-  barang_masuk                                      barang_masuk[]
-  barang                                            barang          @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang_transfer_antar_gudang_dariGudangIdTogudang gudang          @relation("transfer_antar_gudang_dariGudangIdTogudang", fields: [dariGudangId], references: [id], onDelete: Cascade)
-  gudang_transfer_antar_gudang_keGudangIdTogudang   gudang          @relation("transfer_antar_gudang_keGudangIdTogudang", fields: [keGudangId], references: [id], onDelete: Cascade)
+model TransferAntarGudang {
+  id           String         @id
+  kodeTransfer String         @unique
+  barangId     String
+  dariGudangId String
+  keGudangId   String
+  tanggal      DateTime       @default(now())
+  jumlah       Int
+  kondisi      KondisiBarang  @default(BARU)
+  keterangan   String?
+  createdAt    DateTime       @default(now())
+  fotoBukti    String[]
+  fotoMetadata Json?
+  barangKeluar BarangKeluar[]
+  barangMasuk  BarangMasuk[]
+  barang       Barang         @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudangDari   Gudang         @relation("transfer_antar_gudang_dariGudangIdTogudang", fields: [dariGudangId], references: [id], onDelete: Cascade)
+  gudangKe     Gudang         @relation("transfer_antar_gudang_keGudangIdTogudang", fields: [keGudangId], references: [id], onDelete: Cascade)
 
   @@index([barangId])
   @@index([dariGudangId])
   @@index([keGudangId])
   @@index([kondisi])
   @@index([tanggal])
+  @@map("transfer_antar_gudang")
 }
 
-model usage_analytics {
+model UsageAnalytics {
   id                String     @id
   barangId          String
   gudangId          String
@@ -1733,34 +1772,36 @@ model usage_analytics {
   transactionCount  Int        @default(0)
   avgPerTransaction Float      @default(0)
   createdAt         DateTime   @default(now())
-  barang            barang     @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang            gudang     @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  barang            Barang     @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang            Gudang     @relation(fields: [gudangId], references: [id], onDelete: Cascade)
 
   @@unique([barangId, gudangId, periodType, periodStart])
   @@index([barangId])
   @@index([gudangId])
   @@index([periodStart])
   @@index([periodType])
+  @@map("usage_analytics")
 }
 
-model work_order_assignments {
-  id           String      @id
+model WorkOrderAssignments {
+  id           String     @id
   workOrderId  String
   role         String?
-  assignedAt   DateTime    @default(now())
+  assignedAt   DateTime   @default(now())
   assignedById String?
   userId       String
   respondedAt  DateTime?
-  status       String      @default("PENDING")
-  User         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  work_orders  work_orders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  status       String     @default("PENDING")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workOrders   WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([workOrderId])
+  @@map("work_order_assignments")
 }
 
-model work_order_attachments {
-  id           String      @id
+model WorkOrderAttachments {
+  id           String     @id
   workOrderId  String
   fileName     String
   filePath     String
@@ -1768,15 +1809,16 @@ model work_order_attachments {
   fileType     String
   caption      String?
   uploadedById String?
-  uploadedAt   DateTime    @default(now())
-  User         User?       @relation(fields: [uploadedById], references: [id])
-  work_orders  work_orders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  uploadedAt   DateTime   @default(now())
+  user         User?      @relation(fields: [uploadedById], references: [id])
+  workOrders   WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([uploadedAt])
   @@index([workOrderId])
+  @@map("work_order_attachments")
 }
 
-model work_order_escalations {
+model WorkOrderEscalations {
   id                String             @id
   name              String
   description       String?
@@ -1794,9 +1836,9 @@ model work_order_escalations {
   createdById       String?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime
-  User              User?              @relation(fields: [createdById], references: [id])
-  departments       departments?       @relation(fields: [departmentId], references: [id])
-  sla               sla?               @relation(fields: [slaId], references: [id])
+  user              User?              @relation(fields: [createdById], references: [id])
+  departments       Departments?       @relation(fields: [departmentId], references: [id])
+  sla               Sla?               @relation(fields: [slaId], references: [id])
 
   @@index([departmentId])
   @@index([escalationLevel])
@@ -1804,27 +1846,29 @@ model work_order_escalations {
   @@index([priority])
   @@index([slaId])
   @@index([workOrderType])
+  @@map("work_order_escalations")
 }
 
-model work_order_tasks {
-  id            String      @id
+model WorkOrderTasks {
+  id            String     @id
   workOrderId   String
   title         String
   description   String?
-  status        TaskStatus  @default(PENDING)
-  order         Int         @default(0)
+  status        TaskStatus @default(PENDING)
+  order         Int        @default(0)
   completedById String?
   completedAt   DateTime?
-  createdAt     DateTime    @default(now())
+  createdAt     DateTime   @default(now())
   updatedAt     DateTime
-  User          User?       @relation(fields: [completedById], references: [id])
-  work_orders   work_orders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  user          User?      @relation(fields: [completedById], references: [id])
+  workOrders    WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([workOrderId])
+  @@map("work_order_tasks")
 }
 
-model work_order_templates {
+model WorkOrderTemplates {
   id                String            @id
   name              String
   description       String?
@@ -1840,16 +1884,17 @@ model work_order_templates {
   createdById       String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime
-  User              User?             @relation(fields: [createdById], references: [id])
-  departments       departments?      @relation(fields: [departmentId], references: [id])
-  work_orders       work_orders[]
+  user              User?             @relation(fields: [createdById], references: [id])
+  departments       Departments?      @relation(fields: [departmentId], references: [id])
+  workOrders        WorkOrders[]
 
   @@index([departmentId])
   @@index([isActive])
   @@index([type])
+  @@map("work_order_templates")
 }
 
-model work_order_updates {
+model WorkOrderUpdates {
   id          String           @id
   workOrderId String
   updateType  String
@@ -1858,66 +1903,67 @@ model work_order_updates {
   newStatus   WorkOrderStatus?
   createdById String?
   createdAt   DateTime         @default(now())
-  User        User?            @relation(fields: [createdById], references: [id])
-  work_orders work_orders      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  user        User?            @relation(fields: [createdById], references: [id])
+  workOrders  WorkOrders       @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([workOrderId])
+  @@map("work_order_updates")
 }
 
-model work_orders {
-  id                                  String                   @id
-  workOrderNumber                     String                   @unique
-  pelangganId                         String?
-  type                                WorkOrderType
-  title                               String
-  description                         String
-  status                              WorkOrderStatus          @default(PENDING)
-  priority                            WorkOrderPriority        @default(NORMAL)
-  departmentId                        String?
-  assignedToId                        String?
-  locationAddress                     String?
-  locationLat                         Float?
-  locationLng                         Float?
-  contactName                         String?
-  contactPhone                        String?
-  scheduledDate                       DateTime?
-  scheduledTimeStart                  String?
-  scheduledTimeEnd                    String?
-  startedAt                           DateTime?
-  completedAt                         DateTime?
-  verifiedAt                          DateTime?
-  closedAt                            DateTime?
-  estimatedHours                      Float?
-  actualHours                         Float?
-  estimatedCost                       Float?
-  actualCost                          Float?
-  requiredMaterials                   Json?
-  usedMaterials                       Json?
-  internalNotes                       String?
-  resolutionNotes                     String?
-  customerFeedback                    String?
-  rating                              Int?
-  createdAt                           DateTime                 @default(now())
-  updatedAt                           DateTime
-  createdById                         String?
-  disconnectionReason                 String?
-  siteId                              String?
-  slaId                               String?
-  templateId                          String?
-  ticketId                            String?
-  work_order_assignments              work_order_assignments[]
-  work_order_attachments              work_order_attachments[]
-  work_order_tasks                    work_order_tasks[]
-  work_order_updates                  work_order_updates[]
-  User_work_orders_assignedToIdToUser User?                    @relation("work_orders_assignedToIdToUser", fields: [assignedToId], references: [id])
-  User_work_orders_createdByIdToUser  User?                    @relation("work_orders_createdByIdToUser", fields: [createdById], references: [id])
-  departments                         departments?             @relation(fields: [departmentId], references: [id])
-  Pelanggan                           Pelanggan?               @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  sites                               sites?                   @relation(fields: [siteId], references: [id])
-  sla                                 sla?                     @relation(fields: [slaId], references: [id])
-  work_order_templates                work_order_templates?    @relation(fields: [templateId], references: [id])
-  support_tickets                     support_tickets?         @relation(fields: [ticketId], references: [id])
+model WorkOrders {
+  id                  String                 @id
+  workOrderNumber     String                 @unique
+  pelangganId         String?
+  type                WorkOrderType
+  title               String
+  description         String
+  status              WorkOrderStatus        @default(PENDING)
+  priority            WorkOrderPriority      @default(NORMAL)
+  departmentId        String?
+  assignedToId        String?
+  locationAddress     String?
+  locationLat         Float?
+  locationLng         Float?
+  contactName         String?
+  contactPhone        String?
+  scheduledDate       DateTime?
+  scheduledTimeStart  String?
+  scheduledTimeEnd    String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  verifiedAt          DateTime?
+  closedAt            DateTime?
+  estimatedHours      Float?
+  actualHours         Float?
+  estimatedCost       Float?
+  actualCost          Float?
+  requiredMaterials   Json?
+  usedMaterials       Json?
+  internalNotes       String?
+  resolutionNotes     String?
+  customerFeedback    String?
+  rating              Int?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime
+  createdById         String?
+  disconnectionReason String?
+  siteId              String?
+  slaId               String?
+  templateId          String?
+  ticketId            String?
+  assignments         WorkOrderAssignments[]
+  attachments         WorkOrderAttachments[]
+  tasks               WorkOrderTasks[]
+  updates             WorkOrderUpdates[]
+  assignedTo          User?                  @relation("work_orders_assignedToIdToUser", fields: [assignedToId], references: [id])
+  createdBy           User?                  @relation("work_orders_createdByIdToUser", fields: [createdById], references: [id])
+  department          Departments?           @relation(fields: [departmentId], references: [id])
+  pelanggan           Pelanggan?             @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  site                Sites?                 @relation(fields: [siteId], references: [id])
+  sla                 Sla?                   @relation(fields: [slaId], references: [id])
+  template            WorkOrderTemplates?    @relation(fields: [templateId], references: [id])
+  ticket              SupportTickets?        @relation(fields: [ticketId], references: [id])
 
   @@index([assignedToId])
   @@index([departmentId])
@@ -1931,6 +1977,7 @@ model work_orders {
   @@index([ticketId])
   @@index([type])
   @@index([workOrderNumber])
+  @@map("work_orders")
 }
 
 enum AlertSeverity {

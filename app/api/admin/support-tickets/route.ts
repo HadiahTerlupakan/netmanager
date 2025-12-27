@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 
         // Get tickets with last reply including message
         const [tickets, total] = await Promise.all([
-            prisma.supportTicket.findMany({
+            prisma.supportTickets.findMany({
                 where,
                 orderBy: [
                     { priority: 'desc' }, // URGENT first
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
                             email: true,
                         },
                     },
-                    assignedTo: {
+                    user: {
                         select: {
                             id: true,
                             name: true,
@@ -97,20 +97,20 @@ export async function GET(request: NextRequest) {
                     },
                 },
             }),
-            prisma.supportTicket.count({ where }),
+            prisma.supportTickets.count({ where }),
         ])
 
         // Get stats for all statuses
         const [openCount, inProgressCount, waitingCustomerCount, resolvedCount, closedCount] = await Promise.all([
-            prisma.supportTicket.count({ where: { status: TicketStatus.OPEN } }),
-            prisma.supportTicket.count({ where: { status: TicketStatus.IN_PROGRESS } }),
-            prisma.supportTicket.count({ where: { status: TicketStatus.WAITING_CUSTOMER } }),
-            prisma.supportTicket.count({ where: { status: TicketStatus.RESOLVED } }),
-            prisma.supportTicket.count({ where: { status: TicketStatus.CLOSED } }),
+            prisma.supportTickets.count({ where: { status: TicketStatus.OPEN } }),
+            prisma.supportTickets.count({ where: { status: TicketStatus.IN_PROGRESS } }),
+            prisma.supportTickets.count({ where: { status: TicketStatus.WAITING_CUSTOMER } }),
+            prisma.supportTickets.count({ where: { status: TicketStatus.RESOLVED } }),
+            prisma.supportTickets.count({ where: { status: TicketStatus.CLOSED } }),
         ])
 
         // Get closed tickets with ratings from replies
-        const closedTicketsWithReplies = await prisma.supportTicket.findMany({
+        const closedTicketsWithReplies = await prisma.supportTickets.findMany({
             where: { status: TicketStatus.CLOSED },
             include: {
                 replies: {

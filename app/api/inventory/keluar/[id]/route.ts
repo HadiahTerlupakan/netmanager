@@ -240,9 +240,11 @@ export async function DELETE(
           // If no stock record exists, create one
           await tx.barangGudang.create({
             data: {
+              id: crypto.randomUUID(),
               barangId: keluarRecord.barangId,
               gudangId: keluarRecord.gudangId,
-              stok: keluarRecord.jumlah
+              stok: keluarRecord.jumlah,
+              updatedAt: new Date()
             }
           })
         }

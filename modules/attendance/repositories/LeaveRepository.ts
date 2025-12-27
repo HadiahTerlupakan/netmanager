@@ -1,10 +1,17 @@
 import { prisma } from '@/lib/prisma'
 import { LeaveStatus, Prisma } from '@prisma/client'
 import type { LeaveRequest } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export class LeaveRepository {
-    async create(data: Prisma.LeaveRequestCreateInput) {
-        return prisma.leaveRequest.create({ data })
+    async create(data: Omit<Prisma.LeaveRequestCreateInput, 'id' | 'updatedAt'>) {
+        return prisma.leaveRequest.create({
+            data: {
+                ...data,
+                id: randomUUID(),
+                updatedAt: new Date()
+            }
+        })
     }
 
     async update(id: string, data: Prisma.LeaveRequestUpdateInput) {
@@ -18,7 +25,7 @@ export class LeaveRepository {
     async findById(id: string) {
         return prisma.leaveRequest.findUnique({
             where: { id },
-            include: { user: { select: { name: true, department: { select: { name: true } }, site: { select: { name: true } } } } }
+            include: { user: { select: { name: true, departments: { select: { name: true } }, sites: { select: { name: true } } } } }
         })
     }
 
@@ -51,7 +58,7 @@ export class LeaveRepository {
         return prisma.leaveRequest.findMany({
             where,
             include: {
-                user: { select: { name: true, image: true, department: { select: { name: true } }, site: { select: { name: true } } } }
+                user: { select: { name: true, image: true, departments: { select: { name: true } }, sites: { select: { name: true } } } }
             },
             orderBy: { createdAt: 'desc' },
             skip: filters?.skip,

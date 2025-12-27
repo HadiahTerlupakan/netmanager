@@ -44,8 +44,8 @@ export async function GET(request: NextRequest) {
                 skip: (page - 1) * limit,
                 take: limit,
                 include: {
-                    items: true,
-                    payments: {
+                    invoiceItem: true,
+                    payment: {
                         orderBy: { paymentDate: 'desc' },
                         take: 1,
                     },
@@ -67,16 +67,16 @@ export async function GET(request: NextRequest) {
             totalAmount: Number(inv.totalAmount),
             paidAmount: Number(inv.paidAmount),
             remainingAmount: Number(inv.totalAmount) - Number(inv.paidAmount),
-            items: inv.items.map((item) => ({
+            items: inv.invoiceItem.map((item: any) => ({
                 description: item.description,
                 quantity: item.quantity,
                 unitPrice: Number(item.unitPrice),
                 totalPrice: Number(item.totalPrice),
             })),
-            lastPayment: inv.payments[0] ? {
-                amount: Number(inv.payments[0].amount),
-                date: inv.payments[0].paymentDate,
-                method: inv.payments[0].paymentMethod,
+            lastpayment: inv.payment[0] ? {
+                amount: Number(inv.payment[0].amount),
+                date: inv.payment[0].paymentDate,
+                method: inv.payment[0].paymentMethod,
             } : null,
         }))
 

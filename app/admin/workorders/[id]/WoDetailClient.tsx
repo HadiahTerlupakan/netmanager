@@ -663,7 +663,7 @@ export function ClientComponent() {
 
                         {/* New Comment Input */}
                         <div className="mb-6 flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 shrink-0">
                                 <HiUserCircle className="w-6 h-6" />
                             </div>
                             <div className="flex-1">
@@ -689,7 +689,7 @@ export function ClientComponent() {
                             {timelineItems.length > 0 ? (
                                 timelineItems.map((item) => (
                                     <div key={item.id} className="flex gap-3">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${item.type === 'comment' ? 'bg-indigo-100' :
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${item.type === 'comment' ? 'bg-indigo-100' :
                                             item.type === 'update' ? 'bg-sky-100' : 'bg-orange-100'
                                             }`}>
                                             {item.type === 'comment' ? (
@@ -1042,7 +1042,7 @@ export function ClientComponent() {
                     <div className="bg-white rounded-lg shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200">
                         <div className="p-6">
                             <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                                     <HiCheckCircle className="w-6 h-6 text-emerald-600" />
                                 </div>
                                 <h3 className="text-lg font-semibold text-gray-900">Verifikasi Work Order</h3>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { randomUUID } from "crypto";
 
 export const dynamic = 'force-dynamic';
 
@@ -97,11 +98,13 @@ export async function POST(req: Request) {
         // @ts-ignore
         const expense = await prisma.expense.create({
             data: {
+                id: randomUUID(),
                 amount,
                 date,
                 category,
                 description,
                 userId: session.user.id,
+                updatedAt: new Date(),
             },
         });
 

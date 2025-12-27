@@ -1,7 +1,7 @@
-
 import { PrismaClient, Prisma } from '@prisma/client'
 import type { Coupon, CouponUsage } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 import type { ICouponRepository, CreateCouponInput } from './ICouponRepository'
 
 export class CouponRepository implements ICouponRepository {
@@ -33,7 +33,13 @@ export class CouponRepository implements ICouponRepository {
     }
 
     async create(data: CreateCouponInput): Promise<Coupon> {
-        return this.db.coupon.create({ data })
+        return this.db.coupon.create({
+            data: {
+                id: randomUUID(),
+                ...data,
+                updatedAt: new Date(),
+            }
+        })
     }
 
     async incrementUsage(id: string, tx?: Prisma.TransactionClient): Promise<Coupon> {
@@ -51,6 +57,7 @@ export class CouponRepository implements ICouponRepository {
         const delegate = (db as any).couponUsage
         return delegate.create({
             data: {
+                id: randomUUID(),
                 couponId,
                 pelangganId,
                 usedAt: new Date()

@@ -15,25 +15,25 @@ export async function GET(
 
         const { id } = await params;
 
-        const site = await prisma.site.findUnique({
+        const site = await prisma.sites.findUnique({
             where: { id },
             include: {
-                users: {
+                user: {
                     select: {
                         id: true,
                         email: true,
                         name: true,
-                        department: {
+                        departments: {
                             select: { name: true },
                         },
                     },
                 },
                 _count: {
                     select: {
-                        workOrders: true,
+                        work_orders: true,
                     },
                 },
-                gudangs: { // Include assigned warehouses
+                gudang: { // Include assigned warehouses
                     select: {
                         id: true,
                         nama: true,
@@ -73,7 +73,7 @@ export async function PATCH(
         const { code, name, description, address, latitude, longitude, isActive, gudangIds } = body;
 
         // Check if site exists
-        const existingSite = await prisma.site.findUnique({
+        const existingSite = await prisma.sites.findUnique({
             where: { id },
         });
 
@@ -83,7 +83,7 @@ export async function PATCH(
 
         // If updating code, check for duplicates
         if (code && code !== existingSite.code) {
-            const duplicateCode = await prisma.site.findUnique({
+            const duplicateCode = await prisma.sites.findUnique({
                 where: { code: code.toUpperCase() },
             });
 
@@ -98,7 +98,7 @@ export async function PATCH(
         // Use transaction for atomic full update
         const site = await prisma.$transaction(async (tx) => {
             // 1. Update Site details
-            const updatedSite = await tx.site.update({
+            const updatedSite = await tx.sites.update({
                 where: { id },
                 data: {
                     ...(code && { code: code.toUpperCase() }),
@@ -109,7 +109,7 @@ export async function PATCH(
                     ...(longitude !== undefined && { longitude: longitude ? parseFloat(longitude) : null }),
                     ...(body.attendanceRadius !== undefined && { attendanceRadius: parseInt(body.attendanceRadius) }),
                     ...(isActive !== undefined && { isActive }),
-                    gudangs: Array.isArray(gudangIds) ? {
+                    gudang: Array.isArray(gudangIds) ? {
                         set: gudangIds.map((id: string) => ({ id }))
                     } : undefined,
                 },
@@ -161,13 +161,13 @@ export async function DELETE(
         const { id } = await params;
 
         // Check if site has employees or work orders
-        const site = await prisma.site.findUnique({
+        const site = await prisma.sites.findUnique({
             where: { id },
             include: {
                 _count: {
                     select: {
-                        users: true,
-                        workOrders: true,
+                        user: true,
+                        work_orders: true,
                     },
                 },
             },
@@ -177,9 +177,9 @@ export async function DELETE(
             return NextResponse.json({ error: 'Site not found' }, { status: 404 });
         }
 
-        if (site._count.users > 0 || site._count.workOrders > 0) {
+        if (site._count.user > 0 || site._count.work_orders > 0) {
             // Soft delete - deactivate instead
-            await prisma.site.update({
+            await prisma.sites.update({
                 where: { id },
                 data: { isActive: false },
             });
@@ -204,7 +204,7 @@ export async function DELETE(
         }
 
         // Hard delete if no associations
-        await prisma.site.delete({
+        await prisma.sites.delete({
             where: { id },
         });
 

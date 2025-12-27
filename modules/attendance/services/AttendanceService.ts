@@ -79,7 +79,7 @@ export class AttendanceService {
         // Fetch User Details
         const users = await prisma.user.findMany({
             where: { id: { in: top.map(t => t[0]) } },
-            select: { id: true, name: true, image: true, site: { select: { name: true } }, department: { select: { name: true } } }
+            select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
         })
 
         return top.map(t => {

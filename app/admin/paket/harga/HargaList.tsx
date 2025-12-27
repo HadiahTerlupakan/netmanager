@@ -240,7 +240,7 @@ export default function HargaPaketPage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <HiExclamationCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
             <div className="flex-1">

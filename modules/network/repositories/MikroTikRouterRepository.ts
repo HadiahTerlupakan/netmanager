@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import type { IMikroTikRouterRepository, MikroTikRouterCreateData, MikroTikRouterUpdateData, MikroTikRouterPublic, MikroTikRouterStatistics } from './IMikroTikRouterRepository'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 export class MikroTikRouterRepository implements IMikroTikRouterRepository {
   constructor(private client: PrismaClient = prisma) { }
@@ -70,6 +71,8 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
   async create(data: MikroTikRouterCreateData): Promise<{ id: string }> {
     const router = await this.client.mikroTikRouter.create({
       data: {
+        id: randomUUID(),
+        updatedAt: new Date(),
         name: data.name,
         ipAddress: data.ipAddress,
         timezone: data.timezone ?? '+07:00 Asia/Jakarta',
@@ -90,9 +93,10 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
   }
 
   async update(id: string, data: MikroTikRouterUpdateData): Promise<void> {
-    await this.client.mikroTikRouter.update({
+      const router = await this.client.mikroTikRouter.update({
       where: { id },
       data: {
+        updatedAt: new Date(),
         ...(data.name !== undefined && { name: data.name }),
         ...(data.ipAddress !== undefined && { ipAddress: data.ipAddress }),
         ...(data.timezone !== undefined && { timezone: data.timezone }),

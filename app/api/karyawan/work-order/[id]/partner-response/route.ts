@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 // POST - Partner responds to work order invitation (APPROVE/REJECT)
 export async function POST(
@@ -23,14 +24,14 @@ export async function POST(
         }
 
         // Find the assignment for this user
-        const assignment = await prisma.workOrderAssignment.findFirst({
+        const assignment = await prisma.workOrderAssignments.findFirst({
             where: {
                 workOrderId: id,
                 userId: session.user.id,
                 role: 'PARTNER'
             },
             include: {
-                workOrder: {
+                workOrders: {
                     select: {
                         workOrderNumber: true,
                         assignedToId: true
@@ -49,7 +50,7 @@ export async function POST(
 
         // Update assignment status
         await prisma.$transaction(async (tx) => {
-            await tx.workOrderAssignment.update({
+            await tx.workOrderAssignments.update({
                 where: { id: assignment.id },
                 data: {
                     status: response,
@@ -58,13 +59,14 @@ export async function POST(
             })
 
             // Notify the main assignee
-            if (assignment.workOrder.assignedToId) {
-                await tx.notification.create({
+            if (assignment.workOrders.assignedToId) {
+                await tx.notifications.create({
                     data: {
-                        userId: assignment.workOrder.assignedToId,
+                        id: randomUUID(),
+                        userId: assignment.workOrders.assignedToId,
                         type: 'PARTNER_RESPONSE',
                         title: response === 'APPROVED' ? 'Partner Menyetujui' : 'Partner Menolak',
-                        message: `${session.user.name || 'Partner'} ${response === 'APPROVED' ? 'menyetujui' : 'menolak'} permintaan partner di Work Order #${assignment.workOrder.workOrderNumber}`,
+                        message: `${session.user.name || 'Partner'} ${response === 'APPROVED' ? 'menyetujui' : 'menolak'} permintaan partner di Work Order #${assignment.workOrders.workOrderNumber}`,
                         link: `/karyawan/work-order/${id}`,
                         sourceType: 'WORK_ORDER',
                         sourceId: id
@@ -73,8 +75,9 @@ export async function POST(
             }
 
             // Log update
-            await tx.workOrderUpdate.create({
+            await tx.workOrderUpdates.create({
                 data: {
+                    id: randomUUID(),
                     workOrderId: id,
                     createdById: session.user.id,
                     updateType: 'PARTNER_RESPONSE',

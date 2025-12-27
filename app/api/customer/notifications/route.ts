@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     try {
         // Get tickets with unread admin replies
-        const ticketsWithNewReplies = await prisma.supportTicket.findMany({
+        const ticketsWithNewReplies = await prisma.supportTickets.findMany({
             where: {
                 pelangganId: session.id,
             },
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
                         id: true,
                         message: true,
                         createdAt: true,
-                        sender: {
+                        user: {
                             select: { name: true },
                         },
                     },
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
                 ticketSubject: ticket.subject,
                 createdAt: ticket.replies[0].createdAt,
                 isRead: ticket.status === 'CLOSED' || ticket.status === 'RESOLVED',
-                sender: ticket.replies[0].sender?.name || 'Tim Dukungan',
+                sender: ticket.replies[0].user?.name || 'Tim Dukungan',
             }))
 
         return NextResponse.json({

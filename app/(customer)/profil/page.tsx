@@ -160,7 +160,7 @@ export default function CustomerProfilPage() {
                     </div>
                     <div className="flex flex-col items-center justify-center">
                         <p className="text-[#111418] dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em] text-center">{profile.nama}</p>
-                        <p className="text-[#617589] dark:text-gray-400 text-sm font-medium leading-normal text-center mt-1">ID Pelanggan: {profile.idPelanggan}</p>
+                        <p className="text-[#617589] dark:text-gray-400 text-sm font-medium leading-normal text-center mt-1">ID pelanggan: {profile.idPelanggan}</p>
                     </div>
                 </div>
 

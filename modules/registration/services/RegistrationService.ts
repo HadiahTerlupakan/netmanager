@@ -1,4 +1,4 @@
-import type { Registration } from '@prisma/client'
+import type { Registrations } from '@prisma/client'
 import { RegistrationStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { RegistrationRepository } from '../repositories/RegistrationRepository'
@@ -17,7 +17,7 @@ export interface RegistrationInput {
 
 export interface RegistrationResult {
     success: boolean
-    data?: Registration
+    data?: Registrations
     error?: string
     statusCode?: number
 }

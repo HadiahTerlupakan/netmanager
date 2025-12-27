@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -143,10 +144,12 @@ export async function POST(req: NextRequest) {
         updatedAt: new Date(),
       },
       create: {
+        id: randomUUID(),
         key: settingKey,
         value: normalizedPath,
         description: type === 'invoice' ? 'Logo untuk invoice' : 'Logo utama aplikasi',
         encrypted: false,
+        updatedAt: new Date()
       },
     })
 

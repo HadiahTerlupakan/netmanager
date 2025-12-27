@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
                 ...(gudangId && { id: gudangId })
             },
             include: {
-                barang: {
+                barangGudang: {
                     include: {
                         barang: {
                             select: {
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
         const gudangList = await Promise.all(
             gudangs.map(async (gudang) => {
                 const items = await Promise.all(
-                    gudang.barang.map(async (bg) => {
+                    gudang.barangGudang.map(async (bg) => {
                         // Get condition breakdown from transactions
                         const [masukData, keluarData] = await Promise.all([
                             prisma.barangMasuk.findMany({

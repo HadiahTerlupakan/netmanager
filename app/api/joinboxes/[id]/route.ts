@@ -18,8 +18,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const item = await prisma.joinbox.findUnique({
     where: { id },
     include: {
-      inputs: { orderBy: { idx: 'asc' } },
-      outputs: { orderBy: { idx: 'asc' } },
+      joinboxInput: { orderBy: { idx: 'asc' } },
+      joinboxOutput: { orderBy: { idx: 'asc' } },
     },
   })
   if (!item) return NextResponse.json({ error: 'Not Found' }, { status: 404 })

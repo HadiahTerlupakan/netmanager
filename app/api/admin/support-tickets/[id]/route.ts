@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 import { TicketStatus } from '@prisma/client'
 import { closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
+import { randomUUID } from 'crypto'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params
 
     try {
-        const ticket = await prisma.supportTicket.findUnique({
+        const ticket = await prisma.supportTickets.findUnique({
             where: { id },
             include: {
                 pelanggan: {
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                         },
                     },
                 },
-                assignedTo: {
+                user: {
                     select: {
                         id: true,
                         name: true,
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 replies: {
                     orderBy: { createdAt: 'asc' },
                     include: {
-                        sender: {
+                        user: {
                             select: {
                                 id: true,
                                 name: true,
@@ -100,7 +101,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         const { status, priority, assignedToId } = body
 
         // Find ticket first
-        const existingTicket = await prisma.supportTicket.findUnique({
+        const existingTicket = await prisma.supportTickets.findUnique({
             where: { id },
         })
 
@@ -136,7 +137,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             updateData.assignedToId = assignedToId || null
         }
 
-        const ticket = await prisma.supportTicket.update({
+        const ticket = await prisma.supportTickets.update({
             where: { id },
             data: updateData,
             include: {
@@ -146,7 +147,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                         idPelanggan: true,
                     },
                 },
-                assignedTo: {
+                user: {
                     select: {
                         name: true,
                     },
@@ -159,8 +160,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             // 1. Send closing note if exists
             const { closingNote } = body
             if (closingNote) {
-                await prisma.ticketReply.create({
+                await prisma.ticketReplies.create({
                     data: {
+                        id: randomUUID(),
                         ticketId: id,
                         message: closingNote,
                         isFromAdmin: true,

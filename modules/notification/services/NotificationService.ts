@@ -1,8 +1,9 @@
 import { sendPushNotifications, type PushPayload } from './PushNotificationService';
 import { sendPushNotification as sendExpoPush, sendPushToDepartment as sendExpoPushToDepartment } from './ExpoPushService';
 import { prisma } from '@/lib/prisma';
-import type { PushSubscription } from '@prisma/client';
+import type { PushSubscriptions } from '@prisma/client';
 import { socketEmitter } from '@/lib/websocket/emitter';
+import { randomUUID } from 'crypto';
 
 export type NotificationType = 'WORK_ORDER' | 'SYSTEM' | 'TICKET' | 'ALERT' | 'ANNOUNCEMENT';
 export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
@@ -33,8 +34,9 @@ export interface WorkOrderNotificationData {
  * Create a notification in the database and emit WebSocket event
  */
 export async function createNotification(data: CreateNotificationData) {
-    const notification = await prisma.notification.create({
+    const notification = await prisma.notifications.create({
         data: {
+            id: randomUUID(),
             type: data.type,
             priority: data.priority || 'NORMAL',
             title: data.title,
@@ -95,7 +97,7 @@ export async function createNotification(data: CreateNotificationData) {
  * Send push notification to a user
  */
 async function sendPushToUser(userId: string, payload: PushPayload) {
-    const subscriptions = await prisma.pushSubscription.findMany({
+    const subscriptions = await prisma.pushSubscriptions.findMany({
         where: {
             userId,
             isActive: true,
@@ -105,7 +107,7 @@ async function sendPushToUser(userId: string, payload: PushPayload) {
     if (subscriptions.length === 0) return [];
 
     const results = await sendPushNotifications(
-        subscriptions.map((sub: PushSubscription) => ({
+        subscriptions.map((sub: PushSubscriptions) => ({
             endpoint: sub.endpoint,
             keys: {
                 p256dh: sub.p256dh,
@@ -121,12 +123,13 @@ async function sendPushToUser(userId: string, payload: PushPayload) {
         .map((r) => r.endpoint);
 
     if (expiredEndpoints.length > 0) {
-        await prisma.pushSubscription.updateMany({
+        await prisma.pushSubscriptions.updateMany({
             where: {
                 endpoint: { in: expiredEndpoints },
             },
             data: {
                 isActive: false,
+                updatedAt: new Date(),
             },
         });
     }
@@ -335,13 +338,13 @@ export async function getNotificationsForUser(
     }
 
     const [notifications, total] = await Promise.all([
-        prisma.notification.findMany({
+        prisma.notifications.findMany({
             where,
             orderBy: { createdAt: 'desc' },
             take: options?.limit || 50,
             skip: options?.offset || 0,
         }),
-        prisma.notification.count({ where }),
+        prisma.notifications.count({ where }),
     ]);
 
     return { notifications, total };
@@ -356,7 +359,7 @@ export async function getUnreadCount(userId: string): Promise<number> {
         select: { departmentId: true },
     });
 
-    return prisma.notification.count({
+    return prisma.notifications.count({
         where: {
             isRead: false,
             OR: [
@@ -371,7 +374,7 @@ export async function getUnreadCount(userId: string): Promise<number> {
  * Mark notification as read
  */
 export async function markAsRead(notificationId: string) {
-    return prisma.notification.update({
+    return prisma.notifications.update({
         where: { id: notificationId },
         data: {
             isRead: true,
@@ -401,7 +404,7 @@ export async function markAllAsRead(userId: string, type?: NotificationType) {
         where.type = type;
     }
 
-    return prisma.notification.updateMany({
+    return prisma.notifications.updateMany({
         where,
         data: {
             isRead: true,
@@ -425,12 +428,12 @@ export async function subscribeDevice(
     userAgent?: string
 ) {
     // Check if already exists
-    const existing = await prisma.pushSubscription.findUnique({
+    const existing = await prisma.pushSubscriptions.findUnique({
         where: { endpoint: subscription.endpoint },
     });
 
     if (existing) {
-        return prisma.pushSubscription.update({
+        return prisma.pushSubscriptions.update({
             where: { endpoint: subscription.endpoint },
             data: {
                 isActive: true,
@@ -439,8 +442,10 @@ export async function subscribeDevice(
         });
     }
 
-    return prisma.pushSubscription.create({
+    return prisma.pushSubscriptions.create({
         data: {
+            id: randomUUID(),
+            updatedAt: new Date(),
             userId,
             endpoint: subscription.endpoint,
             p256dh: subscription.keys.p256dh,
@@ -454,9 +459,12 @@ export async function subscribeDevice(
  * Unsubscribe device from push notifications
  */
 export async function unsubscribeDevice(endpoint: string) {
-    return prisma.pushSubscription.updateMany({
+    return prisma.pushSubscriptions.updateMany({
         where: { endpoint },
-        data: { isActive: false },
+        data: { 
+            isActive: false,
+            updatedAt: new Date(),
+        },
     });
 }
 

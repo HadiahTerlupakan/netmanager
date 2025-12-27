@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
+import { randomUUID } from 'crypto';
 
 // GET - List available work orders (PENDING status, not assigned)
 export async function GET(request: NextRequest) {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
         }
 
-        const workOrders = await prisma.workOrder.findMany({
+        const workOrders = await prisma.workOrders.findMany({
             where: {
                 status: 'PENDING',
                 assignedToId: null
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if work order exists and is available
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id: workOrderId }
         });
 
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Assign work order to user
-        const updatedWorkOrder = await prisma.workOrder.update({
+        const updatedWorkOrder = await prisma.workOrders.update({
             where: { id: workOrderId },
             data: {
                 assignedToId: userId,
@@ -138,8 +139,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Create update log
-        await prisma.workOrderUpdate.create({
+        await prisma.workOrderUpdates.create({
             data: {
+                id: randomUUID(),
                 workOrderId,
                 createdById: userId,
                 updateType: 'STATUS_CHANGE',

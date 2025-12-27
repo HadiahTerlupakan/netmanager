@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 import type { IPoleRepository, PoleCreateData, PoleUpdateData, PolePublic } from './IPoleRepository'
 
 export class PoleRepository implements IPoleRepository {
@@ -18,6 +19,8 @@ export class PoleRepository implements IPoleRepository {
   async create(data: PoleCreateData): Promise<{ id: string }> {
     const created = await this.client.pole.create({
       data: {
+        id: randomUUID(),
+        updatedAt: new Date(),
         name: data.name,
         location: data.location ?? null,
         notes: data.notes ?? null,
@@ -35,6 +38,7 @@ export class PoleRepository implements IPoleRepository {
     await this.client.pole.update({
       where: { id },
       data: {
+        updatedAt: new Date(),
         ...(data.name !== undefined && { name: data.name }),
         ...(data.location !== undefined && { location: data.location }),
         ...(data.notes !== undefined && { notes: data.notes }),

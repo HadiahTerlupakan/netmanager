@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 import { WorkingHourMode, Prisma } from '@prisma/client'
 import type { User } from '@prisma/client'
 
@@ -22,15 +23,22 @@ export interface UserWithRelations extends User {
 export class UserRepository {
     async findAll(siteId?: string): Promise<UserWithRelations[]> {
 
-        return prisma.user.findMany({
+        const users = await prisma.user.findMany({
             where: siteId ? { siteId } : undefined,
             orderBy: { createdAt: 'desc' },
             include: {
-                department: { select: { id: true, name: true } },
-                site: { select: { id: true, code: true, name: true } },
+                departments: { select: { id: true, name: true } },
+                sites: { select: { id: true, code: true, name: true } },
                 role: { select: { id: true, name: true } },
             },
         })
+
+        return users.map(user => ({
+            ...user,
+            department: user.departments,
+            site: user.sites,
+            role: user.role
+        }))
     }
 
     async findById(id: string): Promise<User | null> {
@@ -40,14 +48,23 @@ export class UserRepository {
     }
 
     async findByIdWithRelations(id: string): Promise<UserWithRelations | null> {
-        return prisma.user.findUnique({
+        const user = await prisma.user.findUnique({
             where: { id },
             include: {
-                department: { select: { id: true, name: true } },
-                site: { select: { id: true, code: true, name: true } },
+                departments: { select: { id: true, name: true } },
+                sites: { select: { id: true, code: true, name: true } },
                 role: { select: { id: true, name: true } },
             },
         })
+        
+        if (!user) return null
+
+        return {
+            ...user,
+            department: user.departments,
+            site: user.sites,
+            role: user.role
+        }
     }
 
     async findByEmail(email: string): Promise<User | null> {
@@ -59,6 +76,8 @@ export class UserRepository {
     async create(data: CreateUserDTO): Promise<User> {
         return prisma.user.create({
             data: {
+                id: randomUUID(),
+                updatedAt: new Date(),
                 email: data.email,
                 name: data.name || null,
                 passwordHash: data.passwordHash,
@@ -74,7 +93,10 @@ export class UserRepository {
     async update(id: string, data: Prisma.UserUpdateInput): Promise<User> {
         return prisma.user.update({
             where: { id },
-            data,
+            data: {
+                ...data,
+                updatedAt: new Date()
+            },
         })
     }
 

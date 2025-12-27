@@ -145,6 +145,8 @@ export async function POST(request: NextRequest) {
         const result = await prisma.$transaction(async (tx) => {
             const payment = await tx.payment.create({
                 data: {
+                    id: crypto.randomUUID(),
+                    updatedAt: new Date(),
                     amount: finalAmount,
                     paymentDate: new Date(),
                     paymentMethod: (paymentMethod === 'MANUAL' ? 'OTHER' : paymentMethod) || 'OTHER',

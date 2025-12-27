@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 // POST - Add materials/barang to work order (creates barang keluar)
 export async function POST(
@@ -22,7 +23,7 @@ export async function POST(
             return NextResponse.json({ error: 'Items is required' }, { status: 400 })
         }
 
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id }
         })
 
@@ -60,6 +61,7 @@ export async function POST(
                 // Create barang keluar
                 const keluar = await tx.barangKeluar.create({
                     data: {
+                        id: randomUUID(),
                         barangId,
                         gudangId,
                         jumlah,
@@ -92,7 +94,7 @@ export async function POST(
 
             // Update work order usedMaterials
             const existingMaterials = (workOrder.usedMaterials as any[]) || []
-            await tx.workOrder.update({
+            await tx.workOrders.update({
                 where: { id },
                 data: {
                     usedMaterials: [...existingMaterials, ...createdItems]
@@ -101,8 +103,9 @@ export async function POST(
 
             // Log to Activity Timeline
             const materialList = createdItems.map(m => `${m.nama} - ${m.kondisi} (${m.jumlah} ${m.satuan})`).join(', ')
-            await tx.workOrderUpdate.create({
+            await tx.workOrderUpdates.create({
                 data: {
+                    id: randomUUID(),
                     workOrderId: id,
                     createdById: session.user.id,
                     updateType: 'MATERIAL_PICKUP',

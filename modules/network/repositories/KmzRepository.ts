@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 import type { IKmzRepository, KmzFileCreateData, KmzFileUpdateData, KmzFilePublic } from './IKmzRepository'
 
 export class KmzRepository implements IKmzRepository {
@@ -28,6 +29,8 @@ export class KmzRepository implements IKmzRepository {
   async create(data: KmzFileCreateData): Promise<{ id: string }> {
     const created = await this.client.kmzFile.create({
       data: {
+        id: randomUUID(),
+        updatedAt: new Date(),
         name: data.name,
         filename: data.filename,
         filePath: data.filePath,
@@ -46,6 +49,7 @@ export class KmzRepository implements IKmzRepository {
     await this.client.kmzFile.update({
       where: { id },
       data: {
+        updatedAt: new Date(),
         ...(data.name !== undefined && { name: data.name }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.lineColor !== undefined && { lineColor: data.lineColor }),

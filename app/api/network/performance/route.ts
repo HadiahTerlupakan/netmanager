@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { networkPerformanceQuerySchema } from '@/lib/validations/network-performance'
@@ -293,6 +294,7 @@ export async function POST(req: Request) {
     try {
       const result = await prisma.networkPerformance.create({
         data: {
+          id: randomUUID(),
           deviceId: data.deviceId,
           deviceType: data.deviceType,
           cpuUsage: data.cpuUsage,
@@ -313,6 +315,7 @@ export async function POST(req: Request) {
           signalStrength: data.signalStrength,
           powerLevel: data.powerLevel,
           customMetrics: data.customMetrics,
+          updatedAt: new Date(),
         },
       })
 

@@ -7,7 +7,7 @@ async function main() {
     const woNumber = 'WO-TEST-1766667826652';
     console.log(`Searching for WO: ${woNumber}`);
 
-    const workOrder = await prisma.workOrder.findUnique({
+    const workOrder = await prisma.workOrders.findUnique({
         where: { workOrderNumber: woNumber },
         include: {
             assignedTo: true

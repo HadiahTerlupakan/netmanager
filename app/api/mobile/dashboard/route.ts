@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
         monthStart.setHours(0, 0, 0, 0)
 
         // Get work orders assigned to user (active)
-        const workOrdersAssigned = await prisma.workOrder.count({
+        const workOrdersAssigned = await prisma.workOrders.count({
             where: {
                 assignedToId: userId,
                 status: { in: ['ASSIGNED', 'IN_PROGRESS', 'ON_HOLD'] }
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
         })
 
         // Get pending work orders (available to take)
-        const workOrdersPending = await prisma.workOrder.count({
+        const workOrdersPending = await prisma.workOrders.count({
             where: {
                 status: 'PENDING',
                 assignedToId: null
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
         })
 
         // WO completed TODAY by user
-        const woCompletedToday = await prisma.workOrder.count({
+        const woCompletedToday = await prisma.workOrders.count({
             where: {
                 assignedToId: userId,
                 status: 'COMPLETED',
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
         })
 
         // WO completed THIS WEEK by user
-        const woCompletedWeek = await prisma.workOrder.count({
+        const woCompletedWeek = await prisma.workOrders.count({
             where: {
                 assignedToId: userId,
                 status: 'COMPLETED',
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
         })
 
         // WO completed THIS MONTH by user
-        const woCompletedMonth = await prisma.workOrder.count({
+        const woCompletedMonth = await prisma.workOrders.count({
             where: {
                 assignedToId: userId,
                 status: 'COMPLETED',

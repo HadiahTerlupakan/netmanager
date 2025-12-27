@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
             select: {
                 id: true,
                 name: true,
-                site: { select: { id: true, name: true } },
+                sites: { select: { id: true, name: true } },
                 role: { select: { name: true } }
             },
             orderBy: { name: 'asc' }

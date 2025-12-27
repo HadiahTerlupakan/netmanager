@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { socketEmitter } from '@/lib/websocket/emitter'
+import { randomUUID } from 'crypto'
 
 // POST - Add update/comment to work order with optional photos
 export async function POST(
@@ -24,7 +25,7 @@ export async function POST(
         }
 
         // Get work order
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id },
             select: { assignedToId: true }
         })
@@ -50,16 +51,17 @@ export async function POST(
 
         // Create update with photos stored in message as JSON if photos exist
         const updateData: any = {
+            id: randomUUID(),
             workOrderId: id,
             updateType: photos && photos.length > 0 ? 'PHOTO_UPDATE' : 'COMMENT',
             message: updateMessage,
             createdById: session.user.id
         }
 
-        const update = await prisma.workOrderUpdate.create({
+        const update = await prisma.workOrderUpdates.create({
             data: updateData,
             include: {
-                createdBy: {
+                user: {
                     select: {
                         id: true,
                         name: true
@@ -72,8 +74,9 @@ export async function POST(
         if (photos && photos.length > 0) {
             await prisma.$transaction(
                 photos.map((url: string) =>
-                    prisma.workOrderAttachment.create({
+                    prisma.workOrderAttachments.create({
                         data: {
+                            id: randomUUID(),
                             workOrderId: id,
                             fileName: url.split('/').pop() || 'photo.jpg',
                             filePath: url,
@@ -111,9 +114,9 @@ export async function POST(
             message: update.message,
             updateType: update.updateType,
             createdAt: update.createdAt.toISOString(),
-            createdBy: update.createdBy ? {
-                id: update.createdBy.id,
-                name: update.createdBy.name || undefined,
+            createdBy: update.user ? {
+                id: update.user.id,
+                name: update.user.name || undefined,
             } : null,
         })
 

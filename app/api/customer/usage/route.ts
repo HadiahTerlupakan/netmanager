@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Get latest accounting record for this username from RadAcct
-        const latestSession = await prisma.radAcct.findFirst({
+        const latestSession = await prisma.radacct.findFirst({
             where: {
                 username: customer.username,
             },
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         startOfMonth.setDate(1)
         startOfMonth.setHours(0, 0, 0, 0)
 
-        const monthlyUsage = await prisma.radAcct.aggregate({
+        const monthlyUsage = await prisma.radacct.aggregate({
             where: {
                 username: customer.username,
                 acctStartTime: {
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         })
 
         // Get total usage all time
-        const totalUsage = await prisma.radAcct.aggregate({
+        const totalUsage = await prisma.radacct.aggregate({
             where: {
                 username: customer.username,
             },

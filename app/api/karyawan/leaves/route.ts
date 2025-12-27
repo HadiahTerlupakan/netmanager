@@ -56,7 +56,7 @@ export async function POST(request: Request) {
                         { role: { name: 'SUPER_ADMIN' } },
                         {
                             role: {
-                                permissions: {
+                                permission: {
                                     some: {
                                         resource: { in: ['attendance', 'kehadiran'] },
                                         action: 'update'

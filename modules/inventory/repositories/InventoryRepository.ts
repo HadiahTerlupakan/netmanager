@@ -56,7 +56,7 @@ export class InventoryRepository implements IInventoryRepository {
         const items = await this.db.barang.findMany({
             where,
             include: {
-                stok: {
+                barangGudang: {
                     where: gudangId ? { gudangId } : undefined,
                     include: {
                         gudang: true
@@ -75,7 +75,7 @@ export class InventoryRepository implements IInventoryRepository {
         return this.db.barang.findUnique({
             where: { id },
             include: {
-                stok: {
+                barangGudang: {
                     include: { gudang: true }
                 }
             }
@@ -86,7 +86,7 @@ export class InventoryRepository implements IInventoryRepository {
         return this.db.barang.findUnique({
             where: { kode },
             include: {
-                stok: {
+                barangGudang: {
                     include: { gudang: true }
                 }
             }
@@ -110,29 +110,38 @@ export class InventoryRepository implements IInventoryRepository {
     }
 
     async findBarangDetail(id: string): Promise<any | null> {
-        return this.db.barang.findUnique({
+        const result = await this.db.barang.findUnique({
             where: { id },
             include: {
-                stok: {
+                barangGudang: {
                     include: { gudang: true }
                 },
-                masuk: {
+                barang_masuk: {
                     include: { gudang: true, user: { select: { id: true, name: true } } },
                     orderBy: { tanggal: 'desc' },
                     take: 10
                 },
-                keluar: {
+                barang_keluar: {
                     include: { gudang: true, user: { select: { id: true, name: true } } },
                     orderBy: { tanggal: 'desc' },
                     take: 10
                 },
-                opname: {
+                stockOpname: {
                     include: { gudang: true },
                     orderBy: { tanggal: 'desc' },
                     take: 10
                 }
             }
         })
+
+        if (!result) return null
+
+        return {
+            ...result,
+            masuk: result.barang_masuk,
+            keluar: result.barang_keluar,
+            opname: result.stockOpname
+        }
     }
 
     async deleteBarang(id: string): Promise<void> {
@@ -169,6 +178,7 @@ export class InventoryRepository implements IInventoryRepository {
             // 1. Create BarangMasuk record
             const masuk = await tx.barangMasuk.create({
                 data: {
+                    id: crypto.randomUUID(),
                     barangId: data.barangId,
                     gudangId: data.gudangId,
                     jumlah: data.jumlah,
@@ -216,12 +226,14 @@ export class InventoryRepository implements IInventoryRepository {
             } else {
                 await tx.barangGudang.create({
                     data: {
+                        id: crypto.randomUUID(),
                         barangId: data.barangId,
                         gudangId: data.gudangId,
                         stok: data.jumlah,
                         stokBaru: data.kondisi === 'BARU' || !data.kondisi ? data.jumlah : 0,
                         stokBekas: data.kondisi === 'BEKAS' ? data.jumlah : 0,
-                        stokRusak: data.kondisi === 'RUSAK' ? data.jumlah : 0
+                        stokRusak: data.kondisi === 'RUSAK' ? data.jumlah : 0,
+                        updatedAt: new Date()
                     } as any
                 })
             }
@@ -278,6 +290,7 @@ export class InventoryRepository implements IInventoryRepository {
             // 2. Create BarangKeluar record
             const keluar = await tx.barangKeluar.create({
                 data: {
+                    id: crypto.randomUUID(),
                     barangId: data.barangId,
                     gudangId: data.gudangId,
                     jumlah: data.jumlah,
@@ -330,7 +343,7 @@ export class InventoryRepository implements IInventoryRepository {
         return this.db.gudang.findUnique({
             where: { id },
             include: {
-                barang: {
+                barangGudang: {
                     include: { barang: true }
                 }
             }
@@ -345,14 +358,21 @@ export class InventoryRepository implements IInventoryRepository {
 
     async createGudang(data: CreateGudangInput): Promise<any> {
         return this.db.gudang.create({
-            data
+            data: {
+                id: crypto.randomUUID(),
+                ...data,
+                updatedAt: new Date()
+            }
         })
     }
 
     async updateGudang(id: string, data: UpdateGudangInput): Promise<any> {
         return this.db.gudang.update({
             where: { id },
-            data
+            data: {
+                ...data,
+                updatedAt: new Date()
+            }
         })
     }
 
@@ -390,8 +410,8 @@ export class InventoryRepository implements IInventoryRepository {
                 where,
                 include: {
                     barang: { select: { id: true, kode: true, nama: true, satuan: true } },
-                    dariGudang: { select: { id: true, kode: true, nama: true } },
-                    keGudang: { select: { id: true, kode: true, nama: true } }
+                    gudangDari: { select: { id: true, kode: true, nama: true } },
+                    gudangKe: { select: { id: true, kode: true, nama: true } }
                 },
                 orderBy: { tanggal: 'desc' },
                 skip,
@@ -408,10 +428,10 @@ export class InventoryRepository implements IInventoryRepository {
             where: { id },
             include: {
                 barang: { select: { id: true, kode: true, nama: true, satuan: true } },
-                dariGudang: { select: { id: true, kode: true, nama: true, lokasi: true } },
-                keGudang: { select: { id: true, kode: true, nama: true, lokasi: true } },
-                masuk: { select: { id: true, tanggal: true, jumlah: true, kondisi: true, keterangan: true } },
-                keluar: { select: { id: true, tanggal: true, jumlah: true, kondisi: true, keterangan: true } }
+                gudangDari: { select: { id: true, kode: true, nama: true, lokasi: true } },
+                gudangKe: { select: { id: true, kode: true, nama: true, lokasi: true } },
+                barangMasuk: { select: { id: true, tanggal: true, jumlah: true, kondisi: true, keterangan: true } },
+                barangKeluar: { select: { id: true, tanggal: true, jumlah: true, kondisi: true, keterangan: true } }
             }
         })
     }
@@ -471,6 +491,7 @@ export class InventoryRepository implements IInventoryRepository {
             const transferCode = `TRF${Date.now()}`
             const transfer = await tx.transferAntarGudang.create({
                 data: {
+                    id: crypto.randomUUID(),
                     kodeTransfer: transferCode,
                     barangId,
                     dariGudangId,
@@ -492,6 +513,7 @@ export class InventoryRepository implements IInventoryRepository {
 
             await tx.barangKeluar.create({
                 data: {
+                    id: crypto.randomUUID(),
                     barangId,
                     gudangId: dariGudangId,
                     transferId: transfer.id,
@@ -511,6 +533,7 @@ export class InventoryRepository implements IInventoryRepository {
             // Add to Dest (Create Masuk + Update/Create BarangGudang)
             await tx.barangMasuk.create({
                 data: {
+                    id: crypto.randomUUID(),
                     barangId,
                     gudangId: keGudangId,
                     transferId: transfer.id,
@@ -532,7 +555,13 @@ export class InventoryRepository implements IInventoryRepository {
                 })
             } else {
                 await tx.barangGudang.create({
-                    data: { barangId, gudangId: keGudangId, stok: jumlah }
+                    data: {
+                        id: crypto.randomUUID(),
+                        barangId,
+                        gudangId: keGudangId,
+                        stok: jumlah,
+                        updatedAt: new Date()
+                    }
                 })
             }
 
@@ -546,8 +575,8 @@ export class InventoryRepository implements IInventoryRepository {
             data,
             include: {
                 barang: { select: { id: true, kode: true, nama: true } },
-                dariGudang: { select: { id: true, kode: true, nama: true } },
-                keGudang: { select: { id: true, kode: true, nama: true } }
+                gudangDari: { select: { id: true, kode: true, nama: true } },
+                gudangKe: { select: { id: true, kode: true, nama: true } }
             }
         })
     }
@@ -556,7 +585,7 @@ export class InventoryRepository implements IInventoryRepository {
         await this.db.$transaction(async (tx) => {
             const transfer = await tx.transferAntarGudang.findUnique({
                 where: { id },
-                include: { masuk: true, keluar: true }
+                include: { barangMasuk: true, barangKeluar: true }
             })
             if (!transfer) throw new Error('Record transfer tidak ditemukan')
 
@@ -617,7 +646,13 @@ export class InventoryRepository implements IInventoryRepository {
                 })
             } else {
                 await tx.barangGudang.create({
-                    data: { barangId: transfer.barangId, gudangId: transfer.dariGudangId, stok: transfer.jumlah }
+                    data: {
+                        id: crypto.randomUUID(),
+                        barangId: transfer.barangId,
+                        gudangId: transfer.dariGudangId,
+                        stok: transfer.jumlah,
+                        updatedAt: new Date()
+                    }
                 })
             }
 

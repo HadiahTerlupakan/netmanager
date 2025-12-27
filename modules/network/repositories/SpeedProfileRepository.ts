@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 import type { ISpeedProfileRepository, SpeedProfileCreateData, SpeedProfileUpdateData, SpeedProfilePublic } from './ISpeedProfileRepository'
 import { prisma } from '@/lib/prisma'
 
@@ -30,6 +31,8 @@ export class SpeedProfileRepository implements ISpeedProfileRepository {
   async create(data: SpeedProfileCreateData): Promise<{ id: string }> {
     const speedProfile = await this.client.speedProfile.create({
       data: {
+        id: randomUUID(),
+        updatedAt: new Date(),
         oltId: data.oltId,
         profileType: data.profileType,
         name: data.name,
@@ -49,6 +52,7 @@ export class SpeedProfileRepository implements ISpeedProfileRepository {
     await this.client.speedProfile.update({
       where: { id },
       data: {
+        updatedAt: new Date(),
         profileType: data.profileType,
         name: data.name,
         type: data.type,

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         // Find ticket and verify ownership
-        const ticket = await prisma.supportTicket.findFirst({
+        const ticket = await prisma.supportTickets.findUnique({
             where: {
                 id,
                 pelangganId: session.id,
@@ -61,8 +61,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         // Create reply
-        const reply = await prisma.ticketReply.create({
+        const newReply = await prisma.ticketReplies.create({
             data: {
+                id: crypto.randomUUID(),
                 ticketId: id,
                 pelangganId: session.id,
                 isFromAdmin: false,
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         // Update ticket status to IN_PROGRESS if it was WAITING_CUSTOMER
         if (ticket.status === TicketStatus.WAITING_CUSTOMER) {
-            await prisma.supportTicket.update({
+            await prisma.supportTickets.update({
                 where: { id },
                 data: { status: TicketStatus.IN_PROGRESS },
             })
@@ -81,25 +82,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         // Emit WebSocket event for real-time chat
         socketEmitter.ticketMessage(id, {
-            id: reply.id,
-            message: reply.message,
+            id: newReply.id,
+            message: newReply.message,
             isFromAdmin: false,
-            createdAt: reply.createdAt.toISOString(),
+            createdAt: newReply.createdAt.toISOString(),
             sender: {
                 id: session.id,
-                name: ticket.pelanggan.nama,
+                name: ticket.pelanggan?.nama || 'Pengguna',
             },
-            attachments: reply.attachments as string[] | null,
+            attachments: newReply.attachments as string[] | null,
         })
 
         return NextResponse.json({
             success: true,
             message: 'Balasan berhasil dikirim',
             reply: {
-                id: reply.id,
-                message: reply.message,
-                createdAt: reply.createdAt,
-                isFromAdmin: reply.isFromAdmin,
+                id: newReply.id,
+                message: newReply.message,
+                createdAt: newReply.createdAt,
+                isFromAdmin: newReply.isFromAdmin,
+                attachments: newReply.attachments,
             },
         })
     } catch (error) {

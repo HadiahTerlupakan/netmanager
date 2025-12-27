@@ -9,7 +9,7 @@ export interface DepartmentPublic {
 
 export interface DepartmentWithUserCount extends DepartmentPublic {
     _count: {
-        users: number
+        user: number
     }
 }
 

@@ -61,7 +61,7 @@ export class OvertimeService {
                         { role: { name: 'SUPER_ADMIN' } },
                         {
                             role: {
-                                permissions: {
+                                permission: {
                                     some: {
                                         resource: 'lembur',
                                         action: 'update'

@@ -44,7 +44,7 @@ export async function POST(
 
         // Send Push Notification to Assigned User
         try {
-            const workOrder = await prisma.workOrder.findUnique({
+            const workOrder = await prisma.workOrders.findUnique({
                 where: { id },
                 include: { assignedTo: true }
             });
@@ -68,7 +68,7 @@ export async function POST(
                 );
 
                 // Persist notification
-                await prisma.notification.create({
+                await prisma.notifications.create({
                     data: {
                         id: crypto.randomUUID(),
                         type: 'WORK_ORDER',

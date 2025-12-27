@@ -62,10 +62,10 @@ export async function POST(
         // We need to fetch the updated WO to emit valid payload
         const updatedWO = await workOrderRepo.findById(id);
         if (updatedWO) {
-            socketEmitter.updateWorkOrder(updatedWO);
+            socketEmitter.updateWorkOrder(updatedWO as any);
 
             // Fetch push token specifically (repo.findById excludes it)
-            const woForNotify = await prisma.workOrder.findUnique({
+            const woForNotify = await prisma.workOrders.findUnique({
                 where: { id },
                 select: {
                     workOrderNumber: true,
@@ -94,7 +94,7 @@ export async function POST(
                     );
 
                     // Create DB Notification
-                    await prisma.notification.create({
+                    await prisma.notifications.create({
                         data: {
                             id: crypto.randomUUID(),
                             type: 'WORK_ORDER',

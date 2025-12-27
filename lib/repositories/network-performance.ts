@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 export interface NetworkPerformanceFilters {
   deviceId?: string
@@ -50,11 +51,8 @@ export class NetworkPerformanceRepository {
   }) {
     return await prisma.networkPerformance.create({
       data: {
-        deviceId: data.deviceId,
-        deviceType: data.deviceType,
-        cpuUsage: data.cpuUsage,
-        memoryUsage: data.memoryUsage,
-        temperature: data.temperature,
+        id: randomUUID(),
+        ...data,
         uptime: data.uptime ? BigInt(data.uptime) : undefined,
         rxBytes: data.rxBytes ? BigInt(data.rxBytes) : undefined,
         txBytes: data.txBytes ? BigInt(data.txBytes) : undefined,
@@ -64,12 +62,7 @@ export class NetworkPerformanceRepository {
         txDrops: data.txDrops ? BigInt(data.txDrops) : undefined,
         rxErrors: data.rxErrors ? BigInt(data.rxErrors) : undefined,
         txErrors: data.txErrors ? BigInt(data.txErrors) : undefined,
-        interfaceStatus: data.interfaceStatus,
-        connectionCount: data.connectionCount,
-        bandwidthUsage: data.bandwidthUsage,
-        signalStrength: data.signalStrength,
-        powerLevel: data.powerLevel,
-        customMetrics: data.customMetrics,
+        updatedAt: new Date(),
       },
     })
   }
@@ -204,25 +197,20 @@ export class NetworkAlertRepository {
     autoResolve?: boolean
     autoResolveTime?: number
   }) {
-    return await prisma.networkAlert.create({
+    return await prisma.networkAlerts.create({
       data: {
-        deviceId: data.deviceId,
-        deviceType: data.deviceType,
+        id: randomUUID(),
+        ...data,
         alertType: data.alertType as any,
-        title: data.title,
-        message: data.message,
         severity: data.severity as any,
-        threshold: data.threshold,
-        currentValue: data.currentValue,
-        metricName: data.metricName,
         autoResolve: data.autoResolve || false,
-        autoResolveTime: data.autoResolveTime,
+        updatedAt: new Date(),
       },
     })
   }
 
   async findById(id: string) {
-    return await prisma.networkAlert.findUnique({
+    return await prisma.networkAlerts.findUnique({
       where: { id },
     })
   }
@@ -251,13 +239,13 @@ export class NetworkAlertRepository {
     }
 
     const [data, total] = await Promise.all([
-      prisma.networkAlert.findMany({
+      prisma.networkAlerts.findMany({
         where,
         orderBy,
         skip,
         take: limit,
       }),
-      prisma.networkAlert.count({ where }),
+      prisma.networkAlerts.count({ where }),
     ])
 
     return {
@@ -296,14 +284,17 @@ export class NetworkAlertRepository {
     if (data.severity) updateData.severity = data.severity as any
     if (data.status) updateData.status = data.status as any
 
-    return await prisma.networkAlert.update({
+    return await prisma.networkAlerts.update({
       where: { id },
-      data: updateData,
+      data: {
+        ...updateData,
+        updatedAt: new Date(),
+      },
     })
   }
 
   async acknowledge(id: string, userId: string) {
-    return await prisma.networkAlert.update({
+    return await prisma.networkAlerts.update({
       where: { id },
       data: {
         acknowledged: true,
@@ -314,7 +305,7 @@ export class NetworkAlertRepository {
   }
 
   async resolve(id: string, userId: string) {
-    return await prisma.networkAlert.update({
+    return await prisma.networkAlerts.update({
       where: { id },
       data: {
         resolved: true,
@@ -325,7 +316,7 @@ export class NetworkAlertRepository {
   }
 
   async delete(id: string) {
-    return await prisma.networkAlert.delete({
+    return await prisma.networkAlerts.delete({
       where: { id },
     })
   }
@@ -339,7 +330,7 @@ export class NetworkAlertRepository {
     if (deviceId) where.deviceId = deviceId
     if (deviceType) where.deviceType = deviceType
 
-    return await prisma.networkAlert.findMany({
+    return await prisma.networkAlerts.findMany({
       where,
       orderBy: { createdAt: 'desc' },
     })
@@ -349,7 +340,7 @@ export class NetworkAlertRepository {
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays)
 
-    return await prisma.networkAlert.updateMany({
+    return await prisma.networkAlerts.updateMany({
       where: {
         createdAt: {
           lt: cutoffDate,

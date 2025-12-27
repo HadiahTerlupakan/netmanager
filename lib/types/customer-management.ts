@@ -181,7 +181,7 @@ export interface SuspensionHistoryItem {
   reason: string
   suspendedAt: string
   suspendedBy: string
-  suspendedByUser: {
+  suspendedByuser: {
     id: string
     name: string
     email: string
@@ -189,7 +189,7 @@ export interface SuspensionHistoryItem {
   expectedResumeAt: string | null
   actualResumeAt: string | null
   resumedBy: string
-  resumedByUser: {
+  resumedByuser: {
     id: string
     name: string
     email: string

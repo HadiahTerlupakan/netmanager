@@ -17,7 +17,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params
   const odp = await prisma.odp.findUnique({
     where: { id },
-    include: { odcOutput: { include: { odc: true } }, outputs: { orderBy: { idx: 'asc' } } },
+    include: { odcOutput: { include: { odc: true } }, odpOutput: { orderBy: { idx: 'asc' } } },
   })
   if (!odp) return NextResponse.json({ error: 'Not Found' }, { status: 404 })
   return NextResponse.json({ odp })
@@ -79,7 +79,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   // Cek apakah ada output yang masih terhubung (jika ada relasi lain di masa depan)
   const odp = await prisma.odp.findUnique({
     where: { id },
-    include: { outputs: true },
+    include: { odpOutput: true },
   })
 
   if (!odp) {
@@ -88,7 +88,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
   // ODP saat ini tidak punya relasi ke data lain selain outputs yang akan ikut terhapus
   // Tapi kita tetap cek untuk konsistensi
-  if (odp.outputs.length > 0) {
+  if (odp.odpOutput.length > 0) {
     // Output akan ikut terhapus dengan cascade, jadi tidak perlu block
     // Tapi karena kita pakai Restrict, mungkin perlu handle ini
   }

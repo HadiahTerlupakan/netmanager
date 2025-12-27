@@ -53,8 +53,7 @@ export async function GET(
     const { id } = await params
 
     try {
-      // @ts-ignore - Will work after schema update
-      const backup = await prisma.deviceBackup.findUnique({
+      const backup = await prisma.deviceBackups.findUnique({
         where: { id },
       })
 
@@ -120,8 +119,7 @@ export async function DELETE(
     const { id } = await params
 
     try {
-      // @ts-ignore - Will work after schema update
-      const backup = await prisma.deviceBackup.findUnique({
+      const backup = await prisma.deviceBackups.findUnique({
         where: { id },
       })
 
@@ -129,7 +127,7 @@ export async function DELETE(
         return NextResponse.json({ error: 'Backup tidak ditemukan' }, { status: 404 })
       }
 
-      await prisma.deviceBackup.delete({
+      await prisma.deviceBackups.delete({
         where: { id },
       })
 

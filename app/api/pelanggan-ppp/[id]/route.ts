@@ -492,7 +492,7 @@ export async function PUT(
     // Debug: Log hasil query
     console.log('[PUT Pelanggan] Pelanggan ditemukan:', existingPelanggan ? 'Ya' : 'Tidak')
     if (existingPelanggan) {
-      console.log('[PUT Pelanggan] ID Pelanggan:', existingPelanggan.idPelanggan, 'Nama:', existingPelanggan.nama)
+      console.log('[PUT Pelanggan] ID pelanggan:', existingPelanggan.idPelanggan, 'Nama:', existingPelanggan.nama)
     } else {
       // Cek apakah ada pelanggan dengan ID yang mirip (untuk debugging)
       const similarPelanggans = await prisma.pelanggan.findMany({
@@ -1027,7 +1027,7 @@ export async function DELETE(
     }
 
     if (pelanggan) {
-      console.log('[DELETE Pelanggan] ID Pelanggan:', pelanggan.idPelanggan, 'Nama:', pelanggan.nama)
+      console.log('[DELETE Pelanggan] ID pelanggan:', pelanggan.idPelanggan, 'Nama:', pelanggan.nama)
     }
 
     if (!pelanggan) {

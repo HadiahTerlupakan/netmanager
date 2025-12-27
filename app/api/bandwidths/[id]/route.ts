@@ -61,7 +61,7 @@ export async function GET(
     const bandwidth = await prisma.bandwidth.findUnique({
       where: { id },
       include: {
-        hargaPakets: {
+        hargaPaket: {
           include: {
             profilePPP: true,
           },
@@ -204,7 +204,7 @@ export async function PUT(
 
     const { id } = await params
     const body = await req.json()
-    
+
     // Sanitize input
     const sanitizedBody: any = {
       name: body.name ? sanitizeInput(body.name) : undefined,

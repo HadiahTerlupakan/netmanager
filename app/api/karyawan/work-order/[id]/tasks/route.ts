@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 // POST - Toggle task status
 export async function POST(
@@ -23,7 +24,7 @@ export async function POST(
         }
 
         // Get work order and task
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id },
             select: { status: true, assignedToId: true }
         })
@@ -43,7 +44,7 @@ export async function POST(
         }
 
         // Get task
-        const task = await prisma.workOrderTask.findUnique({
+        const task = await prisma.workOrderTasks.findUnique({
             where: { id: taskId }
         })
 
@@ -59,7 +60,7 @@ export async function POST(
         }
 
         // Set status to COMPLETED (one-way from karyawan portal)
-        const updatedTask = await prisma.workOrderTask.update({
+        const updatedTask = await prisma.workOrderTasks.update({
             where: { id: taskId },
             data: {
                 status: 'COMPLETED',
@@ -69,8 +70,9 @@ export async function POST(
         })
 
         // Log update
-        await prisma.workOrderUpdate.create({
+        await prisma.workOrderUpdates.create({
             data: {
+                id: randomUUID(),
                 workOrderId: id,
                 updateType: 'TASK_UPDATE',
                 message: `Menyelesaikan task: ${task.title}`,

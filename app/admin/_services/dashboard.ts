@@ -88,10 +88,10 @@ export async function getTopEmployees(limit: number = 5): Promise<TopEmployee[]>
             role: {
                 select: { name: true },
             },
-            department: {
+            departments: {
                 select: { name: true },
             },
-            site: {
+            sites: {
                 select: { name: true },
             },
         },
@@ -104,8 +104,8 @@ export async function getTopEmployees(limit: number = 5): Promise<TopEmployee[]>
             userId,
             name: user?.name || 'Unknown',
             role: user?.role?.name || null,
-            department: user?.department?.name || null,
-            site: user?.site?.name || null,
+            department: user?.departments?.name || null,
+            site: user?.sites?.name || null,
             avatar: user?.image || null,
             metrics: {
                 attendanceCount: score.attendance,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 // POST - Start working on work order
 export async function POST(
@@ -18,7 +19,7 @@ export async function POST(
         const body = await req.json().catch(() => ({}))
         const { partnerIds } = body // Expect array of user IDs
 
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id },
             include: {
                 site: true,
@@ -65,7 +66,7 @@ export async function POST(
         // Transaction to ensure atomicity
         await prisma.$transaction(async (tx) => {
             // Update status to IN_PROGRESS
-            await tx.workOrder.update({
+            await tx.workOrders.update({
                 where: { id },
                 data: {
                     status: 'IN_PROGRESS',
@@ -75,8 +76,9 @@ export async function POST(
 
             // Add assignments for partners
             if (partnerIds && Array.isArray(partnerIds) && partnerIds.length > 0) {
-                await tx.workOrderAssignment.createMany({
+                await tx.workOrderAssignments.createMany({
                     data: partnerIds.map((userId: string) => ({
+                        id: randomUUID(),
                         workOrderId: id,
                         userId: userId,
                         role: 'PARTNER',
@@ -87,8 +89,9 @@ export async function POST(
 
             // Create update log
             const partnerMsg = partnerNames.length > 0 ? ` bersama partner: ${partnerNames.join(', ')}` : ''
-            await tx.workOrderUpdate.create({
+            await tx.workOrderUpdates.create({
                 data: {
+                    id: randomUUID(),
                     workOrderId: id,
                     createdById: session.user.id,
                     updateType: 'STATUS_CHANGE',
@@ -100,7 +103,7 @@ export async function POST(
         })
 
         // Fetch updated WO
-        const updated = await prisma.workOrder.findUnique({
+        const updated = await prisma.workOrders.findUnique({
             where: { id },
             include: {
                 assignments: {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 // POST - Complete work order
 export async function POST(
@@ -19,7 +20,7 @@ export async function POST(
         const { resolutionNotes, photos } = body
 
         // Get work order
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id },
             select: { status: true, assignedToId: true }
         })
@@ -49,7 +50,7 @@ export async function POST(
 
         // Update work order and create log
         await prisma.$transaction([
-            prisma.workOrder.update({
+            prisma.workOrders.update({
                 where: { id },
                 data: {
                     status: 'COMPLETED',
@@ -57,8 +58,9 @@ export async function POST(
                     resolutionNotes: resolutionNotes || null
                 }
             }),
-            prisma.workOrderUpdate.create({
+            prisma.workOrderUpdates.create({
                 data: {
+                    id: randomUUID(),
                     workOrderId: id,
                     updateType: 'COMPLETION',
                     message: message,
@@ -69,8 +71,9 @@ export async function POST(
             }),
             // Save photos as attachments if any
             ...(photos && photos.length > 0 ? photos.map((url: string) =>
-                prisma.workOrderAttachment.create({
+                prisma.workOrderAttachments.create({
                     data: {
+                        id: randomUUID(),
                         workOrderId: id,
                         fileName: url.split('/').pop() || 'photo.jpg',
                         filePath: url,

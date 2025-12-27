@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
+import { randomUUID } from 'crypto'
 import { TicketStatus } from '@prisma/client'
 import { WhatsAppService } from '@/modules/notification/services/whatsapp/whatsapp-service'
 import { socketEmitter } from '@/lib/websocket/emitter'
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         // Find ticket
-        const ticket = await prisma.supportTicket.findUnique({
+        const ticket = await prisma.supportTickets.findUnique({
             where: { id },
             include: {
                 pelanggan: {
@@ -63,8 +64,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         // Create reply
-        const reply = await prisma.ticketReply.create({
+        const reply = await prisma.ticketReplies.create({
             data: {
+                id: randomUUID(),
                 ticketId: id,
                 senderId: user.id,
                 isFromAdmin: true,
@@ -72,7 +74,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 attachments: attachments || undefined,
             },
             include: {
-                sender: {
+                user: {
                     select: {
                         id: true,
                         name: true,
@@ -83,7 +85,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         // Update ticket status
         const newStatus = updateStatus || TicketStatus.WAITING_CUSTOMER
-        await prisma.supportTicket.update({
+        await prisma.supportTickets.update({
             where: { id },
             data: {
                 status: newStatus,
@@ -97,9 +99,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             message: reply.message,
             isFromAdmin: true,
             createdAt: reply.createdAt.toISOString(),
-            sender: reply.sender ? {
-                id: reply.sender.id,
-                name: reply.sender.name || 'Admin',
+            sender: reply.user ? {
+                id: reply.user.id,
+                name: reply.user.name || 'Admin',
             } : null,
             attachments: reply.attachments as string[] | null,
         })
@@ -128,7 +130,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 message: reply.message,
                 createdAt: reply.createdAt,
                 isFromAdmin: reply.isFromAdmin,
-                sender: reply.sender,
+                sender: reply.user,
             },
             whatsappSent,
         })

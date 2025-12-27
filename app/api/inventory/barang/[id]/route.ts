@@ -42,8 +42,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
       // Calculate total stock
       let totalStock = 0
-      if (barang.stok) {
-        totalStock = barang.stok.reduce((sum: number, stock: any) => sum + stock.stok, 0)
+      if (barang.barangGudang) {
+        totalStock = barang.barangGudang.reduce((sum: number, stock: any) => sum + stock.stok, 0)
       }
 
       const barangWithStats = {

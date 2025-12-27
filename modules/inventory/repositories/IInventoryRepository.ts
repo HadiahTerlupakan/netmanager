@@ -9,7 +9,7 @@ import type {
 
 // Extended types including relations
 export type BarangWithStock = Barang & {
-    stok: (BarangGudang & {
+    barangGudang: (BarangGudang & {
         gudang: Gudang
     })[]
 }

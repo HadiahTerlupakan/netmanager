@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import type { Role, Permission } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export interface CreateRoleDTO {
     name: string
@@ -24,7 +25,7 @@ export interface RoleWithPermissions extends Role {
 }
 
 export interface RoleWithCount extends Role {
-    _count: { users: number }
+    _count: { user: number }
 }
 
 export interface FilterOptions {
@@ -52,7 +53,7 @@ export class RoleRepository {
         return prisma.role.findMany({
             where: whereClause,
             include: {
-                _count: { select: { users: true } }
+                _count: { select: { user: true } }
             },
             orderBy: { createdAt: 'desc' }
         })
@@ -65,10 +66,17 @@ export class RoleRepository {
     }
 
     async findByIdWithPermissions(id: string): Promise<RoleWithPermissions | null> {
-        return prisma.role.findUnique({
+        const role = await prisma.role.findUnique({
             where: { id },
-            include: { permissions: true }
+            include: { permission: true }
         })
+        
+        if (!role) return null
+        
+        return {
+            ...role,
+            permissions: role.permission
+        }
     }
 
     async findByName(name: string): Promise<Role | null> {
@@ -82,12 +90,14 @@ export class RoleRepository {
 
         return prisma.role.create({
             data: {
+                id: randomUUID(),
+                updatedAt: new Date(),
                 name: data.name,
                 description: data.description,
                 accessAdminPanel: data.accessAdminPanel ?? false,
                 accessEmployeePanel: data.accessEmployeePanel ?? false,
                 isRestricted: data.isRestricted ?? false,
-                permissions: {
+                permission: {
                     connect: permissionConnections
                 }
             }
@@ -104,14 +114,17 @@ export class RoleRepository {
         if (data.isRestricted !== undefined) updateData.isRestricted = data.isRestricted
 
         if (data.permissionIds !== undefined) {
-            updateData.permissions = {
+            updateData.permission = {
                 set: data.permissionIds.map(id => ({ id }))
             }
         }
 
         return prisma.role.update({
             where: { id },
-            data: updateData
+            data: {
+                ...updateData,
+                updatedAt: new Date()
+            }
         })
     }
 
@@ -124,8 +137,8 @@ export class RoleRepository {
     async countUsers(id: string): Promise<number> {
         const role = await prisma.role.findUnique({
             where: { id },
-            include: { _count: { select: { users: true } } }
+            include: { _count: { select: { user: true } } }
         })
-        return role?._count.users || 0
+        return role?._count.user || 0
     }
 }

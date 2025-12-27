@@ -19,14 +19,14 @@ export async function GET(request: NextRequest) {
             )
         }
 
-        if (!customer.hargaPaket) {
+        if (!(customer as any).hargaPaket) {
             return NextResponse.json(
                 { error: 'Paket langganan tidak ditemukan' },
                 { status: 404 }
             )
         }
 
-        const paket = customer.hargaPaket
+        const paket = (customer as any).hargaPaket
 
         // Calculate next bill amount with discounts and PPN
         let basePrice = paket.harga

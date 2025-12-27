@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { randomUUID } from 'crypto';
 import { createNotification } from '@/modules/notification';
 import { logger } from '@/lib/logger';
 
@@ -144,6 +145,7 @@ export class AutomaticBillingService {
         // 3. Create Invoice
         const invoice = await prisma.invoice.create({
             data: {
+                id: randomUUID(),
                 invoiceNumber,
                 pelangganId: customer.id,
                 issueDate: new Date(),
@@ -152,8 +154,10 @@ export class AutomaticBillingService {
                 subtotal: amount,
                 taxAmount: taxAmount,
                 totalAmount: totalAmount,
-                items: {
+                updatedAt: new Date(),
+                invoiceItem: {
                     create: [{
+                        id: randomUUID(),
                         description: `Berlangganan Internet Paket ${customer.hargaPaket.name}`,
                         quantity: 1,
                         unitPrice: amount,

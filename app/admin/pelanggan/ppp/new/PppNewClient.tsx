@@ -942,7 +942,7 @@ export function ClientComponent() {
                           {(() => {
                             const selectedPaket = hargaPakets.find((p) => p.id === formData.hargaPaketId)
                             if (selectedPaket) {
-                              return `Profile PPP: ${selectedPaket.profilePPP?.name || 'Tidak ada'} | Bandwidth: ${selectedPaket.bandwidth?.name || 'Tidak ada'}`
+                              return `Profile PPP: ${selectedPaket.profilePPP?.name || 'Tidak ada'} | bandwidth: ${selectedPaket.bandwidth?.name || 'Tidak ada'}`
                             }
                             return ''
                           })()}
@@ -2001,7 +2001,7 @@ export function ClientComponent() {
                           )}
                           {totalInfo.paket.bandwidth && (
                             <p className="text-xs text-gray-600 dark:text-gray-400">
-                              Bandwidth: {totalInfo.paket.bandwidth.name}
+                              bandwidth: {totalInfo.paket.bandwidth.name}
                             </p>
                           )}
                         </div>

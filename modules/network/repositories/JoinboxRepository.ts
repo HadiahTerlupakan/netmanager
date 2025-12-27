@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 import type {
   IJoinboxRepository,
   JoinboxCreateData,
@@ -24,6 +25,8 @@ export class JoinboxRepository implements IJoinboxRepository {
     const created = await this.client.$transaction(async (tx) => {
       const jb = await tx.joinbox.create({
         data: {
+          id: randomUUID(),
+          updatedAt: new Date(),
           name: data.name,
           location: data.location ?? null,
           notes: data.notes ?? null,
@@ -38,6 +41,7 @@ export class JoinboxRepository implements IJoinboxRepository {
       if (data.inputs && data.inputs.length > 0) {
         await tx.joinboxInput.createMany({
           data: data.inputs.map((r) => ({
+            id: randomUUID(),
             joinboxId: jb.id,
             idx: r.idx,
             inputUnit: r.inputUnit,
@@ -51,6 +55,7 @@ export class JoinboxRepository implements IJoinboxRepository {
       if (data.outputs && data.outputs.length > 0) {
         await tx.joinboxOutput.createMany({
           data: data.outputs.map((r) => ({
+            id: randomUUID(),
             joinboxId: jb.id,
             idx: r.idx,
             inputUnit: r.inputUnit,
@@ -71,6 +76,7 @@ export class JoinboxRepository implements IJoinboxRepository {
       await tx.joinbox.update({
         where: { id },
         data: {
+          updatedAt: new Date(),
           ...(data.name !== undefined && { name: data.name }),
           ...(data.location !== undefined && { location: data.location }),
           ...(data.notes !== undefined && { notes: data.notes }),
@@ -86,6 +92,7 @@ export class JoinboxRepository implements IJoinboxRepository {
         if (data.inputs.length > 0) {
           await tx.joinboxInput.createMany({
             data: data.inputs.map((r) => ({
+              id: randomUUID(),
               joinboxId: id,
               idx: r.idx,
               inputUnit: r.inputUnit,
@@ -102,6 +109,7 @@ export class JoinboxRepository implements IJoinboxRepository {
         if (data.outputs.length > 0) {
           await tx.joinboxOutput.createMany({
             data: data.outputs.map((r) => ({
+              id: randomUUID(),
               joinboxId: id,
               idx: r.idx,
               inputUnit: r.inputUnit,

@@ -438,7 +438,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
             <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center">
                 <div className="relative w-full h-full max-w-md bg-black flex flex-col">
                     {/* Header */}
-                    <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/50 to-transparent">
+                    <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-linear-to-b from-black/50 to-transparent">
                         <h3 className="text-white font-medium">Ambil Foto Selfie</h3>
                         <button
                             onClick={() => {
@@ -462,13 +462,13 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                         <canvas ref={canvasRef} className="hidden" />
 
                         {/* Guide Frame */}
-                        <div className="absolute inset-0 border-[32px] border-black/30 flex items-center justify-center pointer-events-none">
+                        <div className="absolute inset-0 border-32 border-black/30 flex items-center justify-center pointer-events-none">
                             <div className="w-64 h-80 border-2 border-white/50 rounded-full"></div>
                         </div>
                     </div>
 
                     {/* Controls */}
-                    <div className="absolute bottom-0 left-0 right-0 p-8 pb-12 bg-gradient-to-t from-black/80 to-transparent flex flex-col items-center gap-6">
+                    <div className="absolute bottom-0 left-0 right-0 p-8 pb-12 bg-linear-to-t from-black/80 to-transparent flex flex-col items-center gap-6">
                         {/* Capture Button */}
                         <button
                             onClick={capturePhoto}
@@ -487,7 +487,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
         if (!photo || showCamera) return null
 
         return (
-            <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 pb-24">
+            <div className="fixed inset-0 z-100 bg-black/90 flex flex-col items-center justify-center p-4 pb-24">
                 <div className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-2xl">
                     <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-700">
                         <h3 className="font-bold text-gray-900 dark:text-white">Preview Selfie</h3>
@@ -496,7 +496,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                         </button>
                     </div>
 
-                    <div className="relative aspect-[3/4] bg-gray-100 dark:bg-gray-900">
+                    <div className="relative aspect-3/4 bg-gray-100 dark:bg-gray-900">
                         <img
                             src={photo}
                             alt="Preview"
@@ -544,7 +544,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                 {/* Top Bar - Standardized */}
                 <div className="sticky top-0 z-20 flex items-center bg-[#f6f7f8] dark:bg-[#101922] p-4 pb-2 justify-between border-b border-gray-100 dark:border-gray-800">
                     <div className="flex size-10 shrink-0 items-center">
-                        <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-full size-10 flex items-center justify-center text-white font-bold text-lg">
+                        <div className="bg-linear-to-br from-blue-500 to-blue-700 rounded-full size-10 flex items-center justify-center text-white font-bold text-lg">
                             {user?.name?.charAt(0)?.toUpperCase() || 'K'}
                         </div>
                     </div>
@@ -594,7 +594,7 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                         <div className="relative w-full h-28 rounded-xl overflow-hidden mb-5 group shadow-sm bg-gray-100 dark:bg-gray-900">
                             {/* We can use a better static map later, specifically requesting a location if available */}
                             <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDiCTCdRfxIYEDuIQXvjeGjg9MAYh03iWivTCXqyKFx5Byh75Ax_vOUgE4u5uHeVgOP_VhdJ5YtDOgugpqJ6TUEEyaoIjfyEnpV665iPqTDjBn5nwiP5Kjfu9FFjnDpSBmwNqytA2VjtZijnJV2vWF0P_AnMsd4ky6gv6C46DVVGQ5ORuRT1FxQtkgE1MxENbYGmLHA7msbFo2bmf_w1udHRmx-vfpeQp4wQlK0myq_8eoTnrgNqW3AW5yQyn8yjxkv1w40QzNztHI")' }}></div>
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent"></div>
+                            <div className="absolute inset-0 bg-linear-to-t from-slate-900/90 via-slate-900/40 to-transparent"></div>
 
                             <div className="absolute bottom-3 left-3 flex items-center gap-2 text-white z-10">
                                 <div className="flex items-center justify-center size-7 rounded-full bg-white/20 backdrop-blur-md border border-white/10">

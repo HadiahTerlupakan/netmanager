@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
 import { socketEmitter } from '@/lib/websocket/emitter';
+import { randomUUID } from 'crypto';
 
 // POST: Add Partner
 export async function POST(
@@ -30,8 +31,9 @@ export async function POST(
             return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
         }
 
-        const assignment = await prisma.workOrderAssignment.create({
+        const assignment = await prisma.workOrderAssignments.create({
             data: {
+                id: randomUUID(),
                 workOrderId: id,
                 userId: userId,
                 role: role || 'PARTNER',
@@ -41,8 +43,9 @@ export async function POST(
         });
 
         // Create Notification
-        await prisma.notification.create({
+        await prisma.notifications.create({
             data: {
+                id: randomUUID(),
                 userId: userId,
                 type: 'PARTNER_REQUEST',
                 title: 'Permintaan Partner Kerja',
@@ -54,8 +57,9 @@ export async function POST(
         });
 
         // Add log update
-        await prisma.workOrderUpdate.create({
+        await prisma.workOrderUpdates.create({
             data: {
+                id: randomUUID(),
                 workOrderId: id,
                 updateType: 'ASSIGNMENT',
                 message: `Added partner (Pending Approval)`,
@@ -64,7 +68,7 @@ export async function POST(
         });
 
         // Get work order for notification
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id },
             select: { workOrderNumber: true, title: true }
         });
@@ -135,20 +139,21 @@ export async function DELETE(
             ? { id: assignmentId }
             : { workOrderId: id, userId: userId! };
 
-        const assignmentToDelete = await prisma.workOrderAssignment.findFirst({
+        const assignmentToDelete = await prisma.workOrderAssignments.findFirst({
             where: whereClause,
             select: { userId: true }
         });
 
         const partnerUserId = assignmentToDelete?.userId || userId;
 
-        await prisma.workOrderAssignment.deleteMany({
+        await prisma.workOrderAssignments.deleteMany({
             where: whereClause
         });
 
         // Add log update
-        await prisma.workOrderUpdate.create({
+        await prisma.workOrderUpdates.create({
             data: {
+                id: randomUUID(),
                 workOrderId: id,
                 updateType: 'ASSIGNMENT',
                 message: `Removed partner`,
@@ -157,7 +162,7 @@ export async function DELETE(
         });
 
         // Get work order for WebSocket emit
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id },
             select: { workOrderNumber: true, title: true }
         });

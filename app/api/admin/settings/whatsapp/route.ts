@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { encryptApiKey, decryptApiKey } from '@/lib/utils/encryption'
 
@@ -89,10 +90,12 @@ export async function PUT(request: NextRequest) {
         for (const setting of settingsToSave) {
             await prisma.settings.upsert({
                 where: { key: setting.key },
-                update: { value: setting.value },
+                update: { value: setting.value, updatedAt: new Date() },
                 create: {
+                    id: randomUUID(),
                     key: setting.key,
-                    value: setting.value
+                    value: setting.value,
+                    updatedAt: new Date()
                 }
             })
         }

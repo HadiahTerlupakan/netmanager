@@ -195,9 +195,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           // Create new stock record if it doesn't exist
           await tx.barangGudang.create({
             data: {
+              id: crypto.randomUUID(),
               barangId: existingRecord.barangId,
               gudangId: existingRecord.gudangId,
-              stok: stokFisik
+              stok: stokFisik,
+              updatedAt: new Date()
             }
           })
         }

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 import type { IUserRepository, UserCreateData, UserUpdateData, UserPublic, UserWithPassword } from './IUserRepository'
 import { prisma } from '@/lib/prisma'
 
@@ -68,7 +69,15 @@ export class UserRepository implements IUserRepository {
 
   async create(data: UserCreateData): Promise<{ id: string }> {
     const user = await this.client.user.create({
-      data,
+      data: {
+        id: randomUUID(),
+        ...data,
+        name: data.name ?? null,
+        phone: data.phone ?? null,
+        departmentId: data.departmentId ?? null,
+        siteId: data.siteId ?? null,
+        updatedAt: new Date(),
+      },
       select: { id: true },
     })
     return user
@@ -77,7 +86,10 @@ export class UserRepository implements IUserRepository {
   async update(id: string, data: UserUpdateData): Promise<void> {
     await this.client.user.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        updatedAt: new Date(),
+      },
     })
   }
 

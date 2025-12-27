@@ -63,8 +63,8 @@ export async function GET(request: NextRequest) {
                     user: {
                         select: {
                             name: true,
-                            department: { select: { name: true } },
-                            site: { select: { name: true } }
+                            departments: { select: { name: true } },
+                            sites: { select: { name: true } }
                         }
                     }
                 },
@@ -97,8 +97,8 @@ export async function GET(request: NextRequest) {
                 csvRows.push([
                     (index + 1).toString(),
                     item.user.name || '-',
-                    item.user.site?.name || '-',
-                    item.user.department?.name || '-',
+                    item.user.sites?.name || '-',
+                    item.user.departments?.name || '-',
                     checkInDate.toLocaleDateString('id-ID', dateOptions),
                     checkInDate.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':'),
                     checkOutDate ? checkOutDate.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':') : '-',
@@ -126,8 +126,8 @@ export async function GET(request: NextRequest) {
                             name: true,
                             email: true,
                             image: true,
-                            department: { select: { name: true } },
-                            site: { select: { name: true } }
+                            departments: { select: { name: true } },
+                            sites: { select: { name: true } }
                         }
                     }
                 },

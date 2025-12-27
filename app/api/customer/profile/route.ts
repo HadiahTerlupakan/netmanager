@@ -45,15 +45,15 @@ export async function GET(request: NextRequest) {
                     isBillNotifEnabled: customer.isBillNotifEnabled,
                     isPromoEnabled: customer.isPromoEnabled,
                 },
-                paket: customer.hargaPaket ? {
-                    nama: customer.hargaPaket.name,
-                    harga: customer.hargaPaket.harga,
-                    durasi: customer.hargaPaket.durasi,
-                    durasiUnit: customer.hargaPaket.durasiUnit,
-                    bandwidth: customer.hargaPaket.bandwidth ? {
-                        nama: customer.hargaPaket.bandwidth.name,
-                        download: customer.hargaPaket.bandwidth.maxLimitDownload,
-                        upload: customer.hargaPaket.bandwidth.maxLimitUpload,
+                paket: (customer as any).hargaPaket ? {
+                    nama: (customer as any).hargaPaket.name,
+                    harga: (customer as any).hargaPaket.harga,
+                    durasi: (customer as any).hargaPaket.durasi,
+                    kecepatan: (customer as any).hargaPaket.description,
+                    bandwidth: (customer as any).hargaPaket.bandwidth ? {
+                        nama: (customer as any).hargaPaket.bandwidth.name,
+                        download: (customer as any).hargaPaket.bandwidth.maxLimitDownload,
+                        upload: (customer as any).hargaPaket.bandwidth.maxLimitUpload,
                     } : null,
                 } : null,
             },

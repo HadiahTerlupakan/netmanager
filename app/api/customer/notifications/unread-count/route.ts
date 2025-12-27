@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     try {
         // Count tickets with admin replies that are still active (not closed/resolved)
         // These are considered "unread" notifications
-        const ticketsNeedingAttention = await prisma.supportTicket.findMany({
+        const ticketsNeedingAttention = await prisma.supportTickets.findMany({
             where: {
                 pelangganId: session.id,
                 status: {
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
         // Count tickets where last reply is from admin (awaiting customer response)
         const unreadCount = ticketsNeedingAttention.filter(
-            ticket => ticket.replies.length > 0 && ticket.replies[0].isFromAdmin
+            ticket => ticket.replies[0]?.isFromAdmin
         ).length
 
         return NextResponse.json({

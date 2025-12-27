@@ -13,7 +13,7 @@ export async function PATCH(
         const { id } = await params;
 
         // Verify notification belongs to user
-        const notification = await prisma.notification.findUnique({
+        const notification = await prisma.notifications.findUnique({
             where: { id },
             select: { userId: true }
         });

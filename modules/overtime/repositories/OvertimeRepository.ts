@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { type IOvertimeRepository } from './IOvertimeRepository'
 import { type Overtime, type OvertimeStatus, Prisma } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export class OvertimeRepository implements IOvertimeRepository {
     async findById(id: string): Promise<Overtime | null> {
@@ -50,8 +51,8 @@ export class OvertimeRepository implements IOvertimeRepository {
                         name: true,
                         email: true,
                         image: true,
-                        site: { select: { name: true } },
-                        department: { select: { name: true } }
+                        sites: { select: { name: true } },
+                        departments: { select: { name: true } }
                     }
                 },
                 attendance: true,
@@ -122,16 +123,23 @@ export class OvertimeRepository implements IOvertimeRepository {
         }, {} as Record<string, number>)
     }
 
-    async create(data: Prisma.OvertimeCreateInput): Promise<Overtime> {
+    async create(data: Omit<Prisma.OvertimeCreateInput, 'id' | 'updatedAt'>): Promise<Overtime> {
         return prisma.overtime.create({
-            data,
+            data: {
+                ...data,
+                id: randomUUID(),
+                updatedAt: new Date(),
+            } as Prisma.OvertimeCreateInput,
         })
     }
 
     async update(id: string, data: Prisma.OvertimeUpdateInput): Promise<Overtime> {
         return prisma.overtime.update({
             where: { id },
-            data,
+            data: {
+                ...data,
+                updatedAt: new Date(),
+            },
         })
     }
 
@@ -213,7 +221,7 @@ export class OvertimeRepository implements IOvertimeRepository {
             },
             include: {
                 user: {
-                    include: { site: true, department: true }
+                    include: { sites: true, departments: true }
                 }
             }
         })
@@ -227,12 +235,12 @@ export class OvertimeRepository implements IOvertimeRepository {
             let groupKey = 'Unknown'
             let groupName = 'Unknown'
 
-            if (groupBy === 'site' && user.site) {
-                groupKey = user.site.id
-                groupName = user.site.name
-            } else if (groupBy === 'department' && user.department) {
-                groupKey = user.department.name // Group by name
-                groupName = user.department.name
+            if (groupBy === 'site' && user.sites) {
+                groupKey = user.sites.id
+                groupName = user.sites.name
+            } else if (groupBy === 'department' && user.departments) {
+                groupKey = user.departments.name // Group by name
+                groupName = user.departments.name
             }
 
             if (!groups.has(groupKey)) {
@@ -272,7 +280,7 @@ export class OvertimeRepository implements IOvertimeRepository {
 
         const users = await prisma.user.findMany({
             where: { id: { in: topIds.map(g => g.userId) } },
-            select: { id: true, name: true, image: true, site: { select: { name: true } }, department: { select: { name: true } } }
+            select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
         })
 
         return topIds.map(g => {

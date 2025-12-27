@@ -5,20 +5,20 @@ import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
 import { ColorBadge } from '@/components/common/ColorBadge'
 import { StatusBadge } from '@/components/common/StatusBadge'
-import { 
-  HiOutlineCube, 
-  HiCheck, 
-  HiOutlineClock, 
-  HiOutlineUser, 
-  HiOutlineMapPin, 
-  HiOutlineDocumentText 
+import {
+  HiOutlineCube,
+  HiCheck,
+  HiOutlineClock,
+  HiOutlineUser,
+  HiOutlineMapPin,
+  HiOutlineDocumentText
 } from 'react-icons/hi2'
 
 export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const otb = await prisma.otb.findUnique({
     where: { id },
-    include: { cores: { orderBy: { idx: 'asc' }, include: { odc: { select: { id: true, name: true } } } } },
+    include: { otbCore: { orderBy: { idx: 'asc' }, include: { odc: { select: { id: true, name: true } } } } },
   })
   if (!otb) {
     return (
@@ -32,8 +32,8 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
     )
   }
 
-  const mappedCores = otb.cores.filter(c => c.odc !== null).length
-  const standard12Colors = ['Biru','Oranye','Hijau','Coklat','Slate','Putih','Merah','Hitam','Kuning','Ungu','Rose','Aqua']
+  const mappedCores = otb.otbCore.filter(c => c.odc !== null).length
+  const standard12Colors = ['Biru', 'Oranye', 'Hijau', 'Coklat', 'Slate', 'Putih', 'Merah', 'Hitam', 'Kuning', 'Ungu', 'Rose', 'Aqua']
 
   return (
     <div className="space-y-6">
@@ -135,14 +135,14 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-                  {(otb.cores || []).length === 0 ? (
+                  {(otb.otbCore || []).length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                         Belum ada mapping core.
                       </td>
                     </tr>
                   ) : (
-                    otb.cores.map((c) => {
+                    otb.otbCore.map((c) => {
                       const tubeColor = c.tubeColor && c.tubeColor.trim() !== '' ? c.tubeColor : 'Non-tube'
                       const coreColor = c.coreColor && c.coreColor.trim() !== '' ? c.coreColor : standard12Colors[c.idx % 12]
                       const isMapped = c.odc !== null

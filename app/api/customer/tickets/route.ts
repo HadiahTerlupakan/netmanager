@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireCustomerAuth } from '@/lib/customer-auth'
 import { TicketCategory, TicketPriority } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 /**
  * GET /api/customer/tickets
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
         }
 
         const [tickets, total] = await Promise.all([
-            prisma.supportTicket.findMany({
+            prisma.supportTickets.findMany({
                 where,
                 orderBy: { createdAt: 'desc' },
                 skip,
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
                     },
                 },
             }),
-            prisma.supportTicket.count({ where }),
+            prisma.supportTickets.count({ where }),
         ])
 
         return NextResponse.json({
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
         // Generate ticket number: TKT-YYYYMMDD-XXXXX
         const today = new Date()
         const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
-        const count = await prisma.supportTicket.count({
+        const count = await prisma.supportTickets.count({
             where: {
                 createdAt: {
                     gte: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
@@ -113,14 +114,16 @@ export async function POST(request: NextRequest) {
         const ticketNumber = `TKT-${dateStr}-${String(count + 1).padStart(5, '0')}`
 
         // Create ticket
-        const ticket = await prisma.supportTicket.create({
+        const ticket = await prisma.supportTickets.create({
             data: {
+                id: randomUUID(),
                 ticketNumber,
                 pelangganId: session.id,
                 category: category as TicketCategory,
                 priority: (priority as TicketPriority) || TicketPriority.MEDIUM,
                 subject,
                 description,
+                updatedAt: new Date(),
             },
             include: {
                 pelanggan: {

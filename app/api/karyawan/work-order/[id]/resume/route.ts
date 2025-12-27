@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 // POST - Resume work order from hold
 export async function POST(
@@ -17,7 +18,7 @@ export async function POST(
         const { id } = await params
 
         // Get work order
-        const workOrder = await prisma.workOrder.findUnique({
+        const workOrder = await prisma.workOrders.findUnique({
             where: { id },
             select: { status: true, assignedToId: true }
         })
@@ -37,14 +38,15 @@ export async function POST(
         }
 
         // Update status
-        const updated = await prisma.workOrder.update({
+        const updated = await prisma.workOrders.update({
             where: { id },
             data: { status: 'IN_PROGRESS' }
         })
 
         // Create update log
-        await prisma.workOrderUpdate.create({
+        await prisma.workOrderUpdates.create({
             data: {
+                id: randomUUID(),
                 workOrderId: id,
                 createdById: session.user.id,
                 updateType: 'STATUS_CHANGE',

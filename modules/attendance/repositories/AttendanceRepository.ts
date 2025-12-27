@@ -178,8 +178,8 @@ export class AttendanceRepository {
             include: {
                 user: {
                     include: {
-                        site: true,
-                        department: true // assuming relation names
+                        sites: true,
+                        departments: true // assuming relation names
                     }
                 }
             }
@@ -194,20 +194,20 @@ export class AttendanceRepository {
             let groupKey = 'Unknown'
             let groupName = 'Unknown'
 
-            if (groupBy === 'site' && user.site) {
-                groupKey = user.site.id
-                groupName = user.site.name
-            } else if (groupBy === 'department' && user.department) {
-                groupKey = user.department.id // Assuming department has ID
+            if (groupBy === 'site' && user.sites) {
+                groupKey = user.sites.id
+                groupName = user.sites.name
+            } else if (groupBy === 'department' && user.departments) {
+                groupKey = user.departments.id // Assuming department has ID
                 // If department is just a string or relation?
-                // Based on User schema in previous edits: department: { name: true }
+                // Based on User schema in previous edits: departments: { name: true }
                 // So department is a relation.
-                // We'll assume user.departmentId or user.department.name
-                if (user.department) {
+                // We'll assume user.departmentId or user.departments.name
+                if (user.departments) {
                     // Check logic. Usually department is relation.
                     // Let's use name if ID not easily accessible or just name for grouping
-                    groupKey = user.department.name // Group by Name if ID not unique across sites? Or just Name
-                    groupName = user.department.name
+                    groupKey = user.departments.name // Group by Name if ID not unique across sites? Or just Name
+                    groupName = user.departments.name
                 }
             }
 
@@ -260,7 +260,7 @@ export class AttendanceRepository {
         // Fetch User Details
         const users = await prisma.user.findMany({
             where: { id: { in: topIds.map(g => g.userId) } },
-            select: { id: true, name: true, image: true, site: { select: { name: true } }, department: { select: { name: true } } }
+            select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
         })
 
         return topIds.map(g => {

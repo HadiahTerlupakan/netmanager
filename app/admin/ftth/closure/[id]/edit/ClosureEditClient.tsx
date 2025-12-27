@@ -6,7 +6,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
   const { id } = await params
   const detail = await prisma.joinbox.findUnique({
     where: { id },
-    include: { inputs: { orderBy: { idx: 'asc' } }, outputs: { orderBy: { idx: 'asc' } } },
+    include: { joinboxInput: { orderBy: { idx: 'asc' } }, joinboxOutput: { orderBy: { idx: 'asc' } } },
   })
 
   return (
@@ -27,8 +27,8 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
         latitude: detail?.latitude ?? null,
         longitude: detail?.longitude ?? null,
         status: detail?.status as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | undefined,
-        inputs: (detail?.inputs || []).map((x: any, i: number) => ({ idx: i, inputUnit: x.inputUnit, portUnit: x.portUnit, tubeColor: x.tubeColor, coreColor: x.coreColor })),
-        outputs: (detail?.outputs || []).map((x: any, i: number) => ({ idx: i, inputUnit: x.inputUnit, portUnit: x.portUnit, tubeColor: x.tubeColor, coreColor: x.coreColor })),
+        inputs: (detail?.joinboxInput || []).map((x: any, i: number) => ({ idx: i, inputUnit: x.inputUnit, portUnit: x.portUnit, tubeColor: x.tubeColor, coreColor: x.coreColor })),
+        outputs: (detail?.joinboxOutput || []).map((x: any, i: number) => ({ idx: i, inputUnit: x.inputUnit, portUnit: x.portUnit, tubeColor: x.tubeColor, coreColor: x.coreColor })),
       }} />
     </div>
   )

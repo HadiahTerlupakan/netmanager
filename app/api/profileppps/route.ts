@@ -4,6 +4,7 @@ import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
 import { createPPPProfileInMikroTik } from '@/modules/network/services/mikrotik-ppp-profile'
 import { requireAdmin, requireAuth } from '@/lib/auth-helpers'
+import { randomUUID } from 'crypto'
 
 /**
  * GET /api/profileppps
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
           },
         },
         _count: {
-          select: { hargaPakets: true },
+          select: { hargaPaket: true },
         },
       },
     })
@@ -222,7 +223,11 @@ export async function POST(req: NextRequest) {
 
     // Simpan Profile PPP ke database
     const profilePPP = await prisma.profilePPP.create({
-      data: prismaData,
+      data: {
+        id: randomUUID(),
+        ...prismaData,
+        updatedAt: new Date(),
+      },
       include: {
         mikroTikRouter: true,
       },
@@ -240,7 +245,7 @@ export async function POST(req: NextRequest) {
         const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId)
 
         if (rateLimit) {
-          console.log('[API ProfilePPP] Rate limit from Bandwidth:', rateLimit)
+          console.log('[API ProfilePPP] Rate limit from bandwidth:', rateLimit)
         } else {
           console.log('[API ProfilePPP] No rate limit found from Bandwidth, creating profile without rate limit')
         }

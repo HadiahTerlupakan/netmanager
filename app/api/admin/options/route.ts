@@ -4,11 +4,11 @@ import { prisma } from '@/lib/prisma'
 export async function GET() {
     try {
         const [sites, departments] = await Promise.all([
-            prisma.site.findMany({
-                select: { id: true, name: true, code: true },
-                orderBy: { name: 'asc' }
+            prisma.sites.findMany({
+                where: { isActive: true },
+                select: { id: true, name: true }
             }),
-            prisma.department.findMany({
+            prisma.departments.findMany({
                 select: { id: true, name: true },
                 orderBy: { name: 'asc' }
             })

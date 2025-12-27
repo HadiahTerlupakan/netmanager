@@ -62,7 +62,7 @@ public/uploads/*
 !public/uploads/kmz/.gitkeep
 
 # Backups
-backups/
+/backups/
 *.sql.gz
 
 
@@ -97,5 +97,5 @@ $RECYCLE.BIN/
 # Uploads & User Data
 uploads/
 public/uploads/
-backups/
+/backups/
 local_radius*.log

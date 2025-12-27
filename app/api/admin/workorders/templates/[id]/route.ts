@@ -61,19 +61,19 @@ export async function GET(
 
         const { id } = await params;
 
-        const template = await (prisma as any).workOrderTemplate.findUnique({
+        const template = await (prisma as any).workOrderTemplates.findUnique({
             where: { id },
             include: {
-                department: {
+                departments: {
                     select: {
                         id: true,
                         name: true,
                     },
                 },
-                createdBy: {
+                user: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                     },
                 },
             },
@@ -193,7 +193,7 @@ export async function PUT(
         const validatedData = workOrderTemplateUpdateSchema.parse(body);
 
         // Check if template exists
-        const existingTemplate = await (prisma as any).workOrderTemplate.findUnique({
+        const existingTemplate = await (prisma as any).workOrderTemplates.findUnique({
             where: { id },
         });
 
@@ -201,23 +201,23 @@ export async function PUT(
             return NextResponse.json({ error: 'Work order template not found' }, { status: 404 });
         }
 
-        const template = await (prisma as any).workOrderTemplate.update({
+        const template = await (prisma as any).workOrderTemplates.update({
             where: { id },
             data: {
                 ...validatedData,
                 updatedAt: new Date(),
             },
             include: {
-                department: {
+                departments: {
                     select: {
                         id: true,
                         name: true,
                     },
                 },
-                createdBy: {
+                user: {
                     select: {
                         id: true,
-                        fullName: true,
+                        name: true,
                     },
                 },
             },
@@ -293,7 +293,7 @@ export async function DELETE(
         const { id } = await params;
 
         // Check if template exists
-        const existingTemplate = await (prisma as any).workOrderTemplate.findUnique({
+        const existingTemplate = await (prisma as any).workOrderTemplates.findUnique({
             where: { id },
         });
 
@@ -302,17 +302,17 @@ export async function DELETE(
         }
 
         // Check if template is being used by any work orders
-        const workOrdersCount = await (prisma as any).workOrder.count({
+        const workOrdersCount = await (prisma as any).workOrders.count({
             where: { templateId: id },
         });
 
         if (workOrdersCount > 0) {
-            return NextResponse.json({ 
-                error: 'Cannot delete template that is being used by work orders' 
+            return NextResponse.json({
+                error: 'Cannot delete template that is being used by work orders'
             }, { status: 400 });
         }
 
-        await (prisma as any).workOrderTemplate.delete({
+        await (prisma as any).workOrderTemplates.delete({
             where: { id },
         });
 

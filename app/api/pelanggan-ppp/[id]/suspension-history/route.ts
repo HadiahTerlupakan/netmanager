@@ -294,14 +294,14 @@ export async function GET(
       },
       include: {
         // Include user information for suspendedBy and resumedBy
-        suspendedByUser: {
+        suspendedByuser: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        resumedByUser: {
+        resumedByuser: {
           select: {
             id: true,
             name: true,
@@ -352,7 +352,7 @@ export async function GET(
         reason: suspension.reason,
         suspendedAt: suspension.suspendedAt.toISOString(),
         suspendedBy: suspension.suspendedBy,
-        suspendedByUser: suspension.suspendedByUser ? {
+        suspendedByuser: suspension.suspendedByUser ? {
           id: suspension.suspendedByUser.id,
           name: suspension.suspendedByUser.name,
           email: suspension.suspendedByUser.email,
@@ -360,7 +360,7 @@ export async function GET(
         expectedResumeAt: suspension.expectedResumeAt?.toISOString() || null,
         actualResumeAt: suspension.actualResumeAt?.toISOString() || null,
         resumedBy: suspension.resumedBy,
-        resumedByUser: suspension.resumedByUser ? {
+        resumedByuser: suspension.resumedByUser ? {
           id: suspension.resumedByUser.id,
           name: suspension.resumedByUser.name,
           email: suspension.resumedByUser.email,

@@ -1,5 +1,5 @@
-
 import { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 import { PERMISSION_GROUPS, PERMISSION_GROUPS_KARYAWAN, ACTIONS } from '../lib/permission-config'
 
 const prisma = new PrismaClient()
@@ -29,6 +29,8 @@ async function main() {
                 },
                 update: {}, // No change if exists
                 create: {
+                    id: randomUUID(),
+                    updatedAt: new Date(),
                     name: `${action.charAt(0).toUpperCase() + action.slice(1)} ${resource.charAt(0).toUpperCase() + resource.slice(1)}`,
                     resource,
                     action,
@@ -50,7 +52,7 @@ async function main() {
     await prisma.role.update({
         where: { name: 'SUPER_ADMIN' },
         data: {
-            permissions: {
+            permission: {
                 set: [], // Disconnect all
                 connect: permissions.map((p) => ({ id: p.id })), // Reconnect all current
             },
@@ -65,7 +67,7 @@ async function main() {
         await prisma.role.update({
             where: { name: 'teknisi' },
             data: {
-                permissions: {
+                permission: {
                     set: [],
                     connect: karyawanPermissions.map((p) => ({ id: p.id })),
                 },

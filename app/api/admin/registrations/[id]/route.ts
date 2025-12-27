@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
         const { id } = await params
 
-        const registration = await prisma.registration.findUnique({
+        const registration = await prisma.registrations.findUnique({
             where: { id }
         })
 
@@ -50,7 +50,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
 
         // Get current registration
-        const current = await prisma.registration.findUnique({
+        const current = await prisma.registrations.findUnique({
             where: { id }
         })
 
@@ -98,7 +98,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             updateData.rejectionReason = rejectionReason
         }
 
-        const updated = await prisma.registration.update({
+        const updated = await prisma.registrations.update({
             where: { id },
             data: updateData
         })
@@ -123,7 +123,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
         const { id } = await params
 
-        await prisma.registration.delete({
+        await prisma.registrations.delete({
             where: { id }
         })
 

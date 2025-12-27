@@ -171,11 +171,11 @@ export async function GET(req: NextRequest) {
         let totalStock = 0
         let stockPerGudang: any[] = []
 
-        if (barang.stok) {
+        if (barang.barangGudang) {
           // Filter stocks by gudangId if specified, otherwise show all
           const filteredStocks = gudangId
-            ? barang.stok.filter(stock => stock.gudangId === gudangId)
-            : barang.stok
+            ? barang.barangGudang.filter(stock => stock.gudangId === gudangId)
+            : barang.barangGudang
 
           if (filteredStocks.length > 0) {
             console.log('DEBUG STOCK ITEM [0]:', JSON.stringify(filteredStocks[0], null, 2))

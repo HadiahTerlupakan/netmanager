@@ -14,7 +14,7 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const registrations = await prisma.registration.findMany({
+        const registrations = await prisma.registrations.findMany({
             orderBy: {
                 createdAt: 'desc'
             }

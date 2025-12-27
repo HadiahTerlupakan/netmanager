@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
         const user = await prisma.user.findUnique({
             where: { id: session.user.id },
             select: {
-                site: {
+                sites: {
                     select: {
                         name: true,
                         latitude: true,
@@ -26,11 +26,11 @@ export async function GET(request: NextRequest) {
 
         console.log('Attendance Config Fetch:', {
             userId: session.user.id,
-            hasSite: !!user?.site,
-            siteName: user?.site?.name,
-            lat: user?.site?.latitude,
-            lng: user?.site?.longitude,
-            radius: user?.site?.attendanceRadius
+            hasSite: !!user?.sites,
+            siteName: user?.sites?.name,
+            lat: user?.sites?.latitude,
+            lng: user?.sites?.longitude,
+            radius: user?.sites?.attendanceRadius
         })
 
         if (!user) {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             success: true,
             data: {
-                site: user.site
+                site: user.sites
             }
         })
     } catch (error) {

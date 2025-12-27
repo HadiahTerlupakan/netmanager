@@ -75,7 +75,8 @@ export async function POST(request: NextRequest) {
                 checkOut: new Date(),
                 checkOutPhoto: photoUrl,
                 checkOutLocation: location || undefined,
-                notes: notes ? (attendance.notes ? `${attendance.notes}; Checkout Note: ${notes}` : notes) : undefined
+                notes: notes ? (attendance.notes ? `${attendance.notes}; Checkout Note: ${notes}` : notes) : undefined,
+                updatedAt: new Date()
             }
         })
 

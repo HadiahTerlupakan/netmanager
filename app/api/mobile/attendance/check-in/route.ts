@@ -163,12 +163,14 @@ export async function POST(request: NextRequest) {
 
         const attendance = await prisma.attendance.create({
             data: {
+                id: crypto.randomUUID(),
                 userId,
                 checkIn: new Date(),
                 checkInPhoto: photoUrl,
                 location,
                 notes,
-                status: status
+                status: status,
+                updatedAt: new Date()
             }
         })
 

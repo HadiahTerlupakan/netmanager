@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
         }
 
         const [escalations, total] = await Promise.all([
-            (prisma as any).workOrderEscalation.findMany({
+            (prisma as any).workOrderEscalations.findMany({
                 where,
                 include: {
                     sla: {
@@ -153,13 +153,13 @@ export async function GET(request: NextRequest) {
                             resolutionTime: true,
                         },
                     },
-                    department: {
+                    departments: {
                         select: {
                             id: true,
                             name: true,
                         },
                     },
-                    createdBy: {
+                    user: {
                         select: {
                             id: true,
                             name: true,
@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
                 skip: (query.page - 1) * query.limit,
                 take: query.limit,
             }),
-            (prisma as any).workOrderEscalation.count({ where }),
+            (prisma as any).workOrderEscalations.count({ where }),
         ]);
 
         return NextResponse.json({
@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const validatedData = workOrderEscalationCreateSchema.parse(body);
 
-        const escalation = await (prisma as any).workOrderEscalation.create({
+        const escalation = await (prisma as any).workOrderEscalations.create({
             data: {
                 ...validatedData,
                 createdById: user.id,
@@ -305,13 +305,13 @@ export async function POST(request: NextRequest) {
                         resolutionTime: true,
                     },
                 },
-                department: {
+                departments: {
                     select: {
                         id: true,
                         name: true,
                     },
                 },
-                createdBy: {
+                user: {
                     select: {
                         id: true,
                         name: true,
