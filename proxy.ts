@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 import { handleCors, addCorsHeaders } from './lib/middleware/cors'
 import { getToken } from 'next-auth/jwt'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const url = request.nextUrl
   const hostname = request.headers.get('host') || ''
   const pathname = url.pathname

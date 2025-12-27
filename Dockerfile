@@ -80,8 +80,8 @@ COPY --from=builder /app/modules ./modules
 # builder stage COPY . . so middleware.ts is in /app/middleware.ts in builder.
 # runner stage needs to copy it if it's not in .next/standalone (we use complete copy).
 # However, we copy .next and server.ts.
-# Let's verify if middleware.ts is needed in runner. Yes.
-COPY --from=builder /app/middleware.ts ./middleware.ts
+# Copy proxy.ts (Next.js 16+ replacement for middleware.ts)
+COPY --from=builder /app/proxy.ts ./proxy.ts
 
 # Copy tsconfig for path resolution
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
