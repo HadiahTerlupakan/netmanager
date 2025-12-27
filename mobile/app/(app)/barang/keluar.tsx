@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator, Image, useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import tw from 'twrnc';
@@ -44,6 +44,11 @@ const KONDISI_OPTIONS = [
 export default function BarangKeluarScreen() {
     const router = useRouter();
     const { token, user } = useAuth();
+    const colorScheme = useColorScheme();
+    const isDarkMode = colorScheme === 'dark';
+    const pickerItemColor = isDarkMode ? '#FFFFFF' : '#1F2937';
+    // Ensure the collapsed picker text is always dark because our container is bg-white
+    const pickerStyle = { color: '#1F2937' };
 
     const [gudangs, setGudangs] = useState<Gudang[]>([]);
     const [barangs, setBarangs] = useState<Barang[]>([]);
@@ -285,15 +290,17 @@ export default function BarangKeluarScreen() {
                     {/* Gudang Picker */}
                     <View style={tw`mb-4`}>
                         <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Gudang *</Text>
-                        <View style={tw`bg-white border border-gray-200 rounded-xl overflow-hidden`}>
+                        <View style={tw`bg-white border border-gray-200 rounded-xl overflow-hidden justify-center h-14`}>
                             <Picker
                                 selectedValue={selectedGudang}
-                                onValueChange={(value) => setSelectedGudang(value)}
-                                style={tw`h-12`}
+                                onValueChange={(itemValue) => setSelectedGudang(String(itemValue))}
+                                mode="dropdown"
+                                style={pickerStyle}
+                                dropdownIconColor={isDarkMode ? '#FFFFFF' : '#1F2937'}
                             >
-                                <Picker.Item label="Pilih Gudang..." value="" />
+                                <Picker.Item label="Pilih Gudang..." value="" color={isDarkMode ? '#9CA3AF' : '#9CA3AF'} />
                                 {gudangs.map(g => (
-                                    <Picker.Item key={g.id} label={g.nama} value={g.id} />
+                                    <Picker.Item key={g.id} label={g.nama} value={String(g.id)} color={pickerItemColor} />
                                 ))}
                             </Picker>
                         </View>
@@ -302,21 +309,23 @@ export default function BarangKeluarScreen() {
                     {/* Barang Picker */}
                     <View style={tw`mb-4`}>
                         <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Barang *</Text>
-                        <View style={tw`bg-white border border-gray-200 rounded-xl overflow-hidden`}>
+                        <View style={tw`bg-white border border-gray-200 rounded-xl overflow-hidden justify-center h-14`}>
                             {loading ? (
-                                <View style={tw`h-12 items-center justify-center`}>
+                                <View style={tw`h-14 items-center justify-center`}>
                                     <ActivityIndicator size="small" color="#3B82F6" />
                                 </View>
                             ) : (
                                 <Picker
                                     selectedValue={selectedBarang}
-                                    onValueChange={(value) => setSelectedBarang(value)}
-                                    style={tw`h-12`}
+                                    onValueChange={(itemValue) => setSelectedBarang(String(itemValue))}
                                     enabled={!!selectedGudang}
+                                    mode="dropdown"
+                                    style={pickerStyle}
+                                    dropdownIconColor={isDarkMode ? '#FFFFFF' : '#1F2937'}
                                 >
-                                    <Picker.Item label={selectedGudang ? "Pilih Barang..." : "Pilih gudang dulu"} value="" />
+                                    <Picker.Item label={selectedGudang ? "Pilih Barang..." : "Pilih gudang dulu"} value="" color={isDarkMode ? '#9CA3AF' : '#9CA3AF'} />
                                     {barangs.map(b => (
-                                        <Picker.Item key={b.id} label={`${b.kode} - ${b.nama}`} value={b.id} />
+                                        <Picker.Item key={b.id} label={`${b.kode} - ${b.nama}`} value={String(b.id)} color={pickerItemColor} />
                                     ))}
                                 </Picker>
                             )}
@@ -336,14 +345,15 @@ export default function BarangKeluarScreen() {
                     {/* Kondisi */}
                     <View style={tw`mb-4`}>
                         <Text style={tw`text-sm font-medium text-gray-700 mb-2`}>Kondisi</Text>
-                        <View style={tw`bg-white border border-gray-200 rounded-xl overflow-hidden`}>
+                        <View style={tw`bg-white border border-gray-200 rounded-xl overflow-hidden justify-center h-14`}>
                             <Picker
                                 selectedValue={kondisi}
-                                onValueChange={(value) => setKondisi(value)}
-                                style={tw`h-12`}
+                                onValueChange={(itemValue) => setKondisi(String(itemValue))}
+                                style={pickerStyle}
+                                dropdownIconColor={isDarkMode ? '#FFFFFF' : '#1F2937'}
                             >
                                 {KONDISI_OPTIONS.map(k => (
-                                    <Picker.Item key={k.value} label={k.label} value={k.value} />
+                                    <Picker.Item key={k.value} label={k.label} value={k.value} color={pickerItemColor} />
                                 ))}
                             </Picker>
                         </View>
@@ -415,7 +425,8 @@ export default function BarangKeluarScreen() {
                         )}
 
                         {/* Hidden Watermark Views for Capture */}
-                        <View style={tw`absolute -left-[9999px]`}>
+                        {/* Hidden Watermark Views for Capture - Use 0 opacity but keep in layout bounds for reliable capture */}
+                        <View style={[tw`absolute`, { top: 0, left: 0, right: 0, opacity: 0, zIndex: -10 }]} pointerEvents="none">
                             {photos.map((photo, index) => (
                                 <View
                                     key={index}
@@ -428,28 +439,55 @@ export default function BarangKeluarScreen() {
                                         style={{ width: photo.width, height: photo.height }}
                                         resizeMode="contain"
                                     />
-                                    {/* Watermark Overlay */}
-                                    <View style={tw`absolute bottom-0 left-0 right-0 bg-black/70 p-2`}>
-                                        <Text style={tw`text-orange-400 font-bold text-xs`}>
+                                    {/* Watermark Overlay - Dynamic Sizing */}
+                                    <View style={[
+                                        tw`absolute bottom-0 left-0 right-0 bg-black/70`,
+                                        { padding: photo.width * 0.04 }
+                                    ]}>
+                                        <Text style={{ 
+                                            color: '#FB923C', // orange-400
+                                            fontWeight: 'bold', 
+                                            marginBottom: photo.width * 0.01,
+                                            fontSize: photo.width * 0.05 
+                                        }}>
                                             📤 BARANG KELUAR
                                         </Text>
-                                        <Text style={tw`text-white text-xs`}>
+                                        <Text style={{ 
+                                            color: 'white', 
+                                            fontSize: photo.width * 0.035,
+                                            marginBottom: photo.width * 0.005
+                                        }}>
                                             {selectedBarangName || 'Memilih barang...'}
                                         </Text>
-                                        <Text style={tw`text-white text-xs`}>
+                                        <Text style={{ 
+                                            color: 'white', 
+                                            fontSize: photo.width * 0.035,
+                                            marginBottom: photo.width * 0.005
+                                        }}>
                                             Jumlah: {jumlah || '0'} | Kondisi: {kondisi}
                                         </Text>
                                         {tujuanPenggunaan && (
-                                            <Text style={tw`text-white/80 text-xs`}>
+                                            <Text style={{ 
+                                                color: 'rgba(255,255,255,0.8)', 
+                                                fontSize: photo.width * 0.035,
+                                                marginBottom: photo.width * 0.02
+                                            }}>
                                                 Tujuan: {tujuanPenggunaan}
                                             </Text>
                                         )}
                                         <View style={tw`flex-row items-center mt-1`}>
-                                            <Text style={tw`text-white/80 text-[10px]`}>
+                                            <Text style={{ 
+                                                color: 'rgba(255,255,255,0.8)', 
+                                                fontSize: photo.width * 0.03 
+                                            }}>
                                                 ⏰ {format(photo.capturedAt, 'HH:mm:ss')} • {format(photo.capturedAt, 'd MMM yyyy', { locale: idLocale })}
                                             </Text>
                                         </View>
-                                        <Text style={tw`text-white/60 text-[10px]`}>
+                                        <Text style={{ 
+                                            color: 'rgba(255,255,255,0.6)', 
+                                            fontSize: photo.width * 0.03,
+                                            marginTop: photo.width * 0.01
+                                        }}>
                                             👤 {user?.name || 'User'}
                                         </Text>
                                     </View>
