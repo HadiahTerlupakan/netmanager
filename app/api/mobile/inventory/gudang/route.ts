@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
         // Check for Site-Based Restriction Policy
         // Mobile users might not have full permissions object like session, so we check role permissions
         const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || []
-        const isSiteRestricted = userPermissions.includes('k_barang:site_only')
+        const isSuperAdmin = user.role?.name === 'SUPER_ADMIN'
+        const isSiteRestricted = !isSuperAdmin && userPermissions.includes('k_barang:site_only')
 
         let whereClause: any = { isActive: true }
 
