@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import tw from 'twrnc';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
@@ -58,9 +58,47 @@ export default function BarangMasukScreen() {
     // Refs for watermark capture
     const watermarkRefs = useRef<(View | null)[]>([]);
 
+    const fetchGudangs = useCallback(async () => {
+        try {
+            const res = await axios.get(`${Config.API_URL}/api/mobile/inventory/gudang`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const list = res.data?.gudangList || res.data?.data || [];
+            setGudangs(list);
+            if (list.length === 0) {
+                Alert.alert('Info', 'Tidak ada data gudang ditemukan');
+            }
+        } catch (error) {
+            console.error('Failed to fetch gudangs:', error);
+            Alert.alert('Error', 'Gagal memuat daftar gudang. Cek koneksi internet.');
+        }
+    }, [token]);
+
+    const fetchBarangs = useCallback(async (gudangId: string) => {
+        if (!gudangId) return;
+        setLoading(true);
+        try {
+            const res = await axios.get(`${Config.API_URL}/api/mobile/inventory/barang?gudangId=${gudangId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const list = res.data?.barangList || [];
+            setBarangs(list);
+            if (list.length === 0) {
+                Alert.alert('Info', 'Gudang ini tidak memiliki barang');
+            }
+        } catch (error) {
+            console.error('Failed to fetch barangs:', error);
+            Alert.alert('Error', 'Gagal memuat daftar barang');
+        } finally {
+            setLoading(false);
+        }
+    }, [token]);
+
     useEffect(() => {
-        fetchGudangs();
-    }, []);
+        if (token) {
+            fetchGudangs();
+        }
+    }, [token, fetchGudangs]);
 
     useEffect(() => {
         if (selectedGudang) {
@@ -69,33 +107,7 @@ export default function BarangMasukScreen() {
             setBarangs([]);
             setSelectedBarang('');
         }
-    }, [selectedGudang]);
-
-    const fetchGudangs = async () => {
-        try {
-            const res = await axios.get(`${Config.API_URL}/api/mobile/inventory/gudang`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setGudangs(res.data?.gudangList || res.data?.data || []);
-        } catch (error) {
-            console.error('Failed to fetch gudangs:', error);
-            Alert.alert('Error', 'Gagal memuat daftar gudang');
-        }
-    };
-
-    const fetchBarangs = async (gudangId: string) => {
-        setLoading(true);
-        try {
-            const res = await axios.get(`${Config.API_URL}/api/mobile/inventory/barang?gudangId=${gudangId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setBarangs(res.data?.barangList || []);
-        } catch (error) {
-            console.error('Failed to fetch barangs:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [selectedGudang, token, fetchBarangs]);
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -272,6 +284,7 @@ export default function BarangMasukScreen() {
                                 selectedValue={selectedGudang}
                                 onValueChange={(value) => setSelectedGudang(value)}
                                 style={tw`h-12`}
+                                mode="dropdown"
                             >
                                 <Picker.Item label="Pilih Gudang..." value="" />
                                 {gudangs.map(g => (
@@ -295,6 +308,7 @@ export default function BarangMasukScreen() {
                                     onValueChange={(value) => setSelectedBarang(value)}
                                     style={tw`h-12`}
                                     enabled={!!selectedGudang}
+                                    mode="dropdown"
                                 >
                                     <Picker.Item label={selectedGudang ? "Pilih Barang..." : "Pilih gudang dulu"} value="" />
                                     {barangs.map(b => (

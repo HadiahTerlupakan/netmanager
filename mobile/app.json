@@ -17,6 +17,7 @@
     },
     "android": {
       "package": "com.netmanager.mobile",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -69,6 +70,7 @@
         "expo-build-properties",
         {
           "android": {
+            "usesCleartextTraffic": true,
             "gradleProperties": [
               {
                 "key": "org.gradle.jvmargs",
@@ -77,8 +79,7 @@
             ]
           }
         }
-      ],
-      "expo-build-properties"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
