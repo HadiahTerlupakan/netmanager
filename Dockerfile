@@ -67,10 +67,21 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/lib ./lib
 
 # Copy modules folder (required by server.ts for RadiusMonitor, etc.)
+# Copy modules folder (required by server.ts for RadiusMonitor, etc.)
 COPY --from=builder /app/modules ./modules
 
-# Copy proxy.ts (required by server.ts/middleware)
-COPY --from=builder /app/proxy.ts ./proxy.ts
+# proxy.ts is merged into middleware.ts, so we don't copy it anymore
+# middleware.ts is handled by default next build or root copy? 
+# Check if we need to copy middleware.ts explicitly for custom server...
+# Custom server doesn't run middleware, Next.js internal server does.
+# But since we use 'tsx server.ts' which wraps 'next start' or similar?
+# server.ts uses app.getRequestHandler() which uses middleware internally.
+# So middleware.ts needs to be in root.
+# builder stage COPY . . so middleware.ts is in /app/middleware.ts in builder.
+# runner stage needs to copy it if it's not in .next/standalone (we use complete copy).
+# However, we copy .next and server.ts.
+# Let's verify if middleware.ts is needed in runner. Yes.
+COPY --from=builder /app/middleware.ts ./middleware.ts
 
 # Copy tsconfig for path resolution
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
