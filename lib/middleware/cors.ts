@@ -32,24 +32,38 @@ function getAllowedOrigins(): CorsOptions['origin'] {
   const corsOrigin = process.env.CORS_ORIGIN
   const nodeEnv = process.env.NODE_ENV as string
 
-  // Production: require explicit origins
+  // Production: require explicit origins but allow mobile/local access
   if (nodeEnv === 'production') {
-    if (corsOrigin) {
-      // Support comma-separated origins
-      const origins = corsOrigin.split(',').map(origin => origin.trim())
-      return origins.length === 1 ? origins[0] : origins
+    return (origin: string | null) => {
+      // Allow requests with no origin (e.g. mobile apps, server-to-server)
+      if (!origin || origin === 'null') return true
+
+      // Official domains
+      const allowedDomains = [
+        'https://radpro.id',
+        'https://admin.radpro.id',
+        'https://finance.radpro.id',
+        'https://pelanggan.radpro.id',
+        'https://karyawan.radpro.id'
+      ]
+      
+      if (allowedDomains.includes(origin)) return true
+
+      // Allow localhost/127.0.0.1 for mobile app debugging/webview
+      // Mobile apps often run on localhost key in WebView
+      if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1') || origin.startsWith('capacitor://')) {
+        return true
+      }
+      
+      // Check env var override
+      if (corsOrigin) {
+        const origins = corsOrigin.split(',').map(o => o.trim())
+        if (origins.includes(origin)) return true
+      }
+
+      return false
     }
-
-    // Default production origins (should be overridden by environment variable)
-    return [
-      'https://radpro.id',
-      'https://admin.radpro.id',
-      'https://finance.radpro.id',
-      'https://pelanggan.radpro.id',
-      'https://karyawan.radpro.id'
-    ]
   }
-
   // Development: allow localhost with port restrictions
   if (nodeEnv === 'development') {
     return (origin: string | null) => {
