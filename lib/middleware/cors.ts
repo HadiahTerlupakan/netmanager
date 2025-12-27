@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { randomBytes } from 'crypto'
+// import { randomBytes } from 'crypto' // Removed for Edge Runtime compatibility
 
 /**
  * CORS Configuration
@@ -302,7 +302,8 @@ export function addSecurityHeaders(
   res.headers.set('Server', '')
 
   // Add request ID for tracking
-  const requestId = randomBytes(16).reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '')
+  // Use Web Crypto API compatible with Edge Runtime
+  const requestId = crypto.randomUUID()
   res.headers.set('X-Request-ID', requestId)
 
   return res
