@@ -4,7 +4,9 @@
  */
 
 import { OLTRepository, OnuRepository } from '../repositories'
-import { getC300GponOnuDataViaSNMP, countOnuFromSNMP } from '@/app/api/onus/sync/route'
+// NOTE: Fungsi getC300GponOnuDataViaSNMP dan countOnuFromSNMP tidak diimport dari route file
+// karena akan menyebabkan error di production. Sebagai gantinya, sync dilakukan via optimized approach saja.
+// Jika optimized approach gagal, kita skip legacy approach untuk menghindari error.
 import { fetchOnuDataPaginated } from './snmp-optimized'
 import { onuCacheService } from './onu-cache-service';
 
@@ -115,60 +117,11 @@ export async function syncAllOnuData(): Promise<number> {
 
       console.log(`[ONU-Sync] Successfully synced ${totalOnuSynced} ONUs for OLT ${olt.name}`)
     } catch (error: any) {
-      console.error(`[ONU-Sync] Error with optimized approach for OLT ${olt.name}, falling back to legacy:`, error.message)
-
-      // Fallback to legacy approach if optimized fails
-      try {
-        const onuData = await getC300GponOnuDataViaSNMP(
-          olt.ipAddress,
-          olt.snmpPort,
-          olt.snmpCommunityWrite,
-          olt.snmpVersion,
-          olt.id
-        )
-
-        if (onuData.length === 0) {
-          console.log(`[ONU-Sync] No ONU data found for OLT ${olt.name} (legacy fallback)`)
-          continue
-        }
-
-        console.log(`[ONU-Sync] Legacy fallback: Processing ${onuData.length} ONUs for OLT ${olt.name}...`)
-
-        // Upsert setiap ONU
-        let savedCount = 0
-        for (const onu of onuData) {
-          try {
-            await onuRepo.upsert(olt.id, onu.gponOnu, {
-              oltId: olt.id,
-              name: onu.name,
-              description: onu.description,
-              pppoe: onu.pppoe,
-              gponOnu: onu.gponOnu,
-              status: onu.status,
-              rxOlt: onu.rxOlt,
-              rxOnu: onu.rxOnu,
-              serialNumber: onu.serialNumber,
-              actualType: onu.actualType,
-              lastSeen: new Date(),
-            })
-            savedCount++
-          } catch (error: any) {
-            console.error(`[ONU-Sync] Error saving ONU ${onu.gponOnu}:`, error.message)
-          }
-        }
-
-        // Update OLT onuLastSync
-        await oltRepo.update(olt.id, {
-          onuLastSync: new Date(),
-        })
-
-        totalSynced += savedCount
-        console.log(`[ONU-Sync] Legacy fallback: Successfully saved ${savedCount}/${onuData.length} ONUs for OLT ${olt.name}`)
-      } catch (fallbackError: any) {
-        const errorMsg = `Error syncing OLT ${olt.name} (both optimized and legacy failed): ${fallbackError.message}`
-        console.error(`[ONU-Sync] ${errorMsg}`)
-        errors.push(errorMsg)
-      }
+      // Log error dan lanjutkan ke OLT berikutnya
+      // Legacy fallback dihapus karena fungsi getC300GponOnuDataViaSNMP tidak bisa diimport dari route file
+      const errorMsg = `Error syncing OLT ${olt.name}: ${error.message}`
+      console.error(`[ONU-Sync] ${errorMsg}`)
+      errors.push(errorMsg)
     }
   }
 
