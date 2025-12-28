@@ -1,7 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { mikrotikRouterCreateSchema } from '@/lib/validations/mikrotik'
-import { requireAdmin } from '@/lib/auth-helpers'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 
 /**
  * @swagger
@@ -126,7 +128,15 @@ import { requireAdmin } from '@/lib/auth-helpers'
 export async function GET(req: NextRequest) {
   try {
     // Cek autentikasi admin menggunakan fungsi terpusat
-    const session = await requireAdmin(req)
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("mikrotik:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const { searchParams } = new URL(req.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -154,8 +164,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   // Cek autentikasi admin menggunakan fungsi terpusat
-  const session = await requireAdmin(req)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await getServerSession(authOptions)
+  if (!session || !session.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  
+  if (!(await hasPermission("mikrotik:create"))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   const json = await req.json()
   const parsed = mikrotikRouterCreateSchema.safeParse(json)
   if (!parsed.success) {

@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
+
 
 interface PredictionResult {
   barangId: string
@@ -44,10 +39,14 @@ interface PredictionResult {
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/restock/prediction')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("restock:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const searchParams = req.nextUrl.searchParams

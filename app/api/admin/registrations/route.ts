@@ -2,16 +2,20 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
     try {
         const session = await getServerSession(authOptions)
-
-        // Basic check for admin (assuming roleId or similar exists, or simply authenticating for now)
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        // Permission check
+        if (!await hasPermission('registration:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
         const registrations = await prisma.registrations.findMany({

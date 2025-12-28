@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getInventoryRepository } from '@/lib/repositories'
+import { checkSiteRestriction } from '@/lib/site-restriction'
 
 // POST - Create barang keluar
 export async function POST(req: NextRequest) {
@@ -30,12 +31,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Stok tidak mencukupi' }, { status: 400 })
         }
 
-        // Check for Site-Based Restriction Policy
-        const userPermissions = (session.user as any).permissions || []
-        const isSiteRestricted = userPermissions.includes('k_barang:site_only')
-        const userSiteId = (session.user as any).siteId
+        // Site restriction check using centralized helper
+        const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session, 'k_barang')
 
-        if (isSiteRestricted) {
+        if (isRestricted) {
             if (!userSiteId) {
                 return NextResponse.json({ error: 'Access denied: No site assigned' }, { status: 403 })
             }

@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { encryptApiKey, decryptApiKey } from '@/lib/utils/encryption'
-
 import { verifyAuth } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 export async function GET(request: NextRequest) {
     try {
-        // Authentication check
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!await hasPermission('whatsapp:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         // Get WhatsApp settings from Settings table
@@ -53,10 +56,13 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     try {
-        // Authentication check
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!await hasPermission('whatsapp:update')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const body = await request.json()

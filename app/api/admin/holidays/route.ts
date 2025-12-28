@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
 import { requireAdmin } from '@/lib/auth-helpers'
+import { hasPermission } from '@/lib/rbac'
 
 const holidayRepo = new HolidayRepository()
 
 export async function GET(request: NextRequest) {
     const session = await requireAdmin(request)
     if (session instanceof NextResponse) return session
+
+    // Permission check
+    if (!await hasPermission('holidays:read')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const { searchParams } = new URL(request.url)
     const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : new Date().getFullYear()
@@ -23,6 +29,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     const session = await requireAdmin(request)
     if (session instanceof NextResponse) return session
+
+    // Permission check
+    if (!await hasPermission('holidays:create')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     try {
         const body = await request.json()

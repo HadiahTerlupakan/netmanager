@@ -1,7 +1,7 @@
-
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-helpers'
+import { hasPermission } from '@/lib/rbac'
 
 export async function DELETE(
     request: NextRequest,
@@ -11,6 +11,10 @@ export async function DELETE(
         const session = await requireAdmin(request)
         if (session instanceof NextResponse) {
             return session
+        }
+
+        if (!await hasPermission('attendance:delete')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
         const { id } = await params
@@ -43,6 +47,10 @@ export async function PATCH(
         const session = await requireAdmin(request)
         if (session instanceof NextResponse) {
             return session
+        }
+
+        if (!await hasPermission('attendance:update')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
         const { id } = await params

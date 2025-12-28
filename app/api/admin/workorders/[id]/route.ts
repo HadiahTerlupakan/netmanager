@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { requireAuth } from '@/lib/auth-helpers';
+import { hasPermission } from '@/lib/rbac';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -66,7 +67,12 @@ export async function GET(
     try {
         const user = await requireAuth(request);
         if (user instanceof NextResponse) {
-            return user; // Return error response if authentication fails
+            return user;
+        }
+
+        // Permission check
+        if (!await hasPermission('list:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { id } = await params;
@@ -181,7 +187,12 @@ export async function PATCH(
     try {
         const user = await requireAuth(request);
         if (user instanceof NextResponse) {
-            return user; // Return error response if authentication fails
+            return user;
+        }
+
+        // Permission check
+        if (!await hasPermission('list:update')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { id } = await params;
@@ -337,7 +348,12 @@ export async function DELETE(
     try {
         const user = await requireAuth(request);
         if (user instanceof NextResponse) {
-            return user; // Return error response if authentication fails
+            return user;
+        }
+
+        // Permission check
+        if (!await hasPermission('list:delete')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { id } = await params;

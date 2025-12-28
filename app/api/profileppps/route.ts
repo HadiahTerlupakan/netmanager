@@ -3,7 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
 import { createPPPProfileInMikroTik } from '@/modules/network/services/mikrotik-ppp-profile'
-import { requireAdmin, requireAuth } from '@/lib/auth-helpers'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { randomUUID } from 'crypto'
 
 /**
@@ -22,7 +24,14 @@ import { randomUUID } from 'crypto'
 export async function GET(req: NextRequest) {
   try {
     // Cek autentikasi menggunakan fungsi terpusat
-    const session = await requireAuth(req)
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("profileppp:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
@@ -185,7 +194,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // Cek autentikasi admin menggunakan fungsi terpusat
-    const session = await requireAdmin(req)
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("profileppp:create"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const body = await req.json()
 

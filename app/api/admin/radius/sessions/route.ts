@@ -102,13 +102,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
+import { hasPermission } from '@/lib/rbac';
 
 export async function GET(req: NextRequest) {
     try {
-        // Auth check
         const session = await requireAdmin(req);
         if (session instanceof NextResponse) {
-            return session; // Return error response if authentication fails
+            return session;
+        }
+
+        if (!await hasPermission('radius:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { searchParams } = new URL(req.url);

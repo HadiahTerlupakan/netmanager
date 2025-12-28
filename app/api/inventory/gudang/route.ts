@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/auth-helpers'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 
@@ -50,9 +52,13 @@ async function generateGudangCode(): Promise<string> {
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin(req)
-    if (session instanceof NextResponse) {
-      return session // Return error response if authentication fails
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("gudang:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const inventoryRepository = getInventoryRepository()
@@ -172,9 +178,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin(req)
-    if (session instanceof NextResponse) {
-      return session // Return error response if authentication fails
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("gudang:create"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const inventoryRepository = getInventoryRepository()

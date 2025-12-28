@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
+import { hasPermission } from '@/lib/rbac';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -11,6 +12,10 @@ export async function GET(request: NextRequest) {
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!await hasPermission('list:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { searchParams } = new URL(request.url);

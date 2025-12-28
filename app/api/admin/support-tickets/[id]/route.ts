@@ -4,6 +4,7 @@ import { verifyAuth } from '@/lib/auth'
 import { TicketStatus } from '@prisma/client'
 import { closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
 import { randomUUID } from 'crypto'
+import { hasPermission } from '@/lib/rbac'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -17,6 +18,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const user = await verifyAuth(request)
     if (!user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!await hasPermission('support:read')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const { id } = await params
@@ -92,6 +97,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const user = await verifyAuth(request)
     if (!user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!await hasPermission('support:update')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const { id } = await params

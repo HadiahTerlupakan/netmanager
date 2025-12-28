@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { checkSiteRestriction } from '@/lib/site-restriction'
 
 // GET - Get transaction history for current user
 export async function GET(req: NextRequest) {
@@ -11,22 +12,20 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // Check for Site-Based Restriction Policy
-        const user = session.user as any
-        const userId = user.id
-        const userPermissions = (user.permissions as string[]) || []
-        const isSiteRestricted = userPermissions.includes('k_barang:site_only')
+        // Site restriction check using centralized helper
+        const userId = session.user.id
+        const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session, 'k_barang')
 
         let whereClauseMasuk: any = { userId }
         let whereClauseKeluar: any = { userId }
 
-        if (isSiteRestricted) {
-            if (!user.siteId) {
+        if (isRestricted) {
+            if (!userSiteId) {
                 return NextResponse.json({ transactions: [] })
             }
             // Filter transactions where the specific Gudang belongs to the user's Site
-            whereClauseMasuk.gudang = { siteId: user.siteId }
-            whereClauseKeluar.gudang = { siteId: user.siteId }
+            whereClauseMasuk.gudang = { siteId: userSiteId }
+            whereClauseKeluar.gudang = { siteId: userSiteId }
         }
 
         // Get barang masuk

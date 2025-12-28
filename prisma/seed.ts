@@ -279,6 +279,9 @@ async function main() {
     { key: 'jamKeluarKerja', value: '17:00', description: 'Jam keluar kerja default' },
     { key: 'toleransiTelat', value: '15', description: 'Toleransi keterlambatan dalam menit' },
     { key: 'hariKerja', value: 'Mon,Tue,Wed,Thu,Fri', description: 'Hari kerja (format CSV)' },
+    // Timezone settings for deployment consistency
+    { key: 'GENERAL_TIMEZONE', value: 'Asia/Jakarta', description: 'Timezone aplikasi (IANA format)' },
+    { key: 'GENERAL_ATTENDANCE_TOLERANCE', value: '15', description: 'Toleransi keterlambatan absensi (menit)' },
   ]
 
   for (const setting of settingsData) {

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { LeaveRepository } from '@/modules/attendance/repositories/LeaveRepository'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 
 const repo = new LeaveRepository()
 
@@ -10,6 +11,11 @@ export async function GET(request: Request) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        // Permission check
+        if (!await hasPermission('izin:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
 
         // Add filter parsing if needed (e.g. from query params)
         const { searchParams } = new URL(request.url)
@@ -33,6 +39,11 @@ export async function POST(request: Request) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        // Permission check
+        if (!await hasPermission('izin:create')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
 
         const body = await request.json()
         const { userId, type, startDate, endDate, reason, attachmentUrl } = body

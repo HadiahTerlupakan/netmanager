@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth-helpers'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 
@@ -91,9 +93,13 @@ import { logger } from '@/lib/logger'
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAuth(req)
-    if (session instanceof NextResponse) {
-      return session // Return error response if authentication fails
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("masuk:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -250,9 +256,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAuth(req)
-    if (session instanceof NextResponse) {
-      return session // Return error response if authentication fails
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("masuk:create"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const body = await req.json()
@@ -346,7 +356,7 @@ export async function POST(req: NextRequest) {
       const { socketEmitter } = await import('@/lib/websocket/emitter');
       socketEmitter.inventoryUpdate({
         type: 'masuk',
-        userId: session.user.id,
+        userId: session.user.id as string,
         barangId,
         gudangId,
         jumlah: parsedJumlah,

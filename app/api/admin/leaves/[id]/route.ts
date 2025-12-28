@@ -3,6 +3,7 @@ import { LeaveRepository } from '@/modules/attendance/repositories/LeaveReposito
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createNotification } from '@/modules/notification/services/NotificationService'
+import { hasPermission } from '@/lib/rbac'
 
 const repo = new LeaveRepository()
 
@@ -12,6 +13,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        // Permission check
+        if (!await hasPermission('izin:update')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
 
         const body = await request.json()
         const { status, rejectionReason } = body
@@ -56,6 +62,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        // Permission check
+        if (!await hasPermission('izin:delete')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
 
         await repo.delete(id)
         return NextResponse.json({ message: 'Deleted successfully' })

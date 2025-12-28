@@ -10,16 +10,18 @@ import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
 import type { INas } from '@/modules/network/repositories/IRadiusRepository';
+import { hasPermission } from '@/lib/rbac';
 
 export async function GET(req: NextRequest) {
     try {
-        // Auth check
         const session = await getServerSession(authConfig);
-        if (!session?.user || false) {
-            return NextResponse.json(
-                { error: 'Unauthorized - Admin access required' },
-                { status: 401 }
-            );
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Permission check
+        if (!await hasPermission('radius:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const radiusRepo = new RadiusRepository(prisma);
@@ -44,13 +46,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
     try {
-        // Auth check
         const session = await getServerSession(authConfig);
-        if (!session?.user || false) {
-            return NextResponse.json(
-                { error: 'Unauthorized - Admin access required' },
-                { status: 401 }
-            );
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Permission check
+        if (!await hasPermission('radius:create')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const body = await req.json();

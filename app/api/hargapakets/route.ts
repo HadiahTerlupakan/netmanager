@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hargaPaketSchema } from '@/lib/validations/hargapaket'
 import { sanitizeInput } from '@/lib/utils/sanitize'
-import { requireAdmin, requireAuth } from '@/lib/auth-helpers'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 
 /**
  * @swagger
@@ -51,7 +53,14 @@ import { requireAdmin, requireAuth } from '@/lib/auth-helpers'
 export async function GET(req: NextRequest) {
   try {
     // Cek autentikasi menggunakan fungsi terpusat
-    const session = await requireAuth(req)
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("harga:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
@@ -190,7 +199,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // Cek autentikasi admin menggunakan fungsi terpusat
-    const session = await requireAdmin(req)
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("harga:create"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const body = await req.json()
 

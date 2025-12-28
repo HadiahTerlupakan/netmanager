@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server'
 import { OvertimeService } from '@/modules/overtime'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 
 export async function PATCH(
     request: Request,
-    { params }: { params: Promise<{ id: string }> } // Updated to match Next.js 15+ async params
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await getServerSession(authOptions)
@@ -13,7 +14,10 @@ export async function PATCH(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // Check constraints if needed (e.g. only HR/Manager role)
+        // Permission check
+        if (!await hasPermission('lembur:update')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
 
         const { id } = await params
         const body = await request.json()
@@ -48,6 +52,11 @@ export async function DELETE(
         const session = await getServerSession(authOptions)
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        // Permission check
+        if (!await hasPermission('lembur:delete')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
         const { id } = await params

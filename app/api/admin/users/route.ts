@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/auth-helpers'
 import { getUserService } from '@/modules/users'
 import { userCreateSchema } from '@/lib/validations/user'
 import { logger } from '@/lib/logger'
+import { getSiteFilter, checkSiteRestriction } from '@/lib/site-restriction'
 
 /**
  * @swagger
@@ -52,14 +53,8 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized: You do not have permission to view users.' }, { status: 403 })
       }
 
-      // HOTFIX: If role is 'ADMIN', ignore site_only restriction (in case of bad config)
-      const userRole = (session.user as any).role
-      const isSuperAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
-      const isSiteRestricted = !isSuperAdmin && permissions.includes('users:site_only')
-
-      // If site restricted but no siteId on user (shouldn't happen for restricted users), pass undefined (no filter) or handle error.
-      // Assuming restricted users MUST have siteId.
-      const siteIdFilter = isSiteRestricted ? (session.user as any).siteId : undefined
+      // Site restriction check using centralized helper
+      const siteIdFilter = getSiteFilter(session, 'users')
 
       const userService = getUserService()
       const users = await userService.getAllUsers(siteIdFilter)
@@ -206,12 +201,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: You do not have permission to create users.' }, { status: 403 })
     }
 
-    const userRole = (session.user as any).role
-    const isSuperAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
-    const isSiteRestricted = !isSuperAdmin && permissions.includes('users:site_only')
+    // Site restriction check using centralized helper
+    const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session, 'users')
 
-    if (isSiteRestricted) {
-      const userSiteId = (session.user as any).siteId
+    if (isRestricted) {
       if (!userSiteId) {
         return NextResponse.json({ error: 'Configuration Error: User restricted to site but has no site assigned.' }, { status: 403 })
       }

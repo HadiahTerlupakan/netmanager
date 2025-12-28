@@ -1,5 +1,5 @@
-
 import { prisma } from '@/lib/prisma'
+import { getTimezone } from '@/lib/utils/get-timezone'
 
 export class AutoCheckoutService {
     /**
@@ -15,8 +15,13 @@ export class AutoCheckoutService {
      * - Add system note.
      */
     static async runAutoCheckout() {
-        const today = new Date()
-        const endOfToday = new Date(today)
+        const timezone = await getTimezone()
+        
+        // Use timezone-aware current time
+        const now = new Date()
+        const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
+        
+        const endOfToday = new Date(nowInTz)
         endOfToday.setHours(23, 59, 59, 999)
 
         // 1. Find all active attendance (checkOut is null)
@@ -30,14 +35,17 @@ export class AutoCheckoutService {
             }
         })
 
-        console.log(`[AutoCheckout] Found ${openAttendances.length} users to auto-checkout.`)
+        console.log(`[AutoCheckout] Found ${openAttendances.length} users to auto-checkout. Timezone: ${timezone}`)
 
         let updatedCount = 0
 
         for (const attendance of openAttendances) {
             try {
                 // Determine appropriate checkout time based on CheckIn Date
+                // Explicitly keep the date component of the check-in
                 const checkInDate = new Date(attendance.checkIn)
+                
+                // Construct checkout time: Same Date, 23:59:59
                 const checkOutTime = new Date(checkInDate)
                 checkOutTime.setHours(23, 59, 59, 999)
 

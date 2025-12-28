@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-
-
 import { verifyAuth } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 export async function GET(request: NextRequest) {
     try {
-        // Authentication check
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // TODO: Add proper admin authentication
+        // Permission check
+        if (!await hasPermission('payment_gateway:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         const configs = await prisma.paymentGatewayConfig.findMany({
             orderBy: { priority: 'desc' }
         })

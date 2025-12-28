@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { checkSiteRestriction } from '@/lib/site-restriction'
 
 // GET - Get gudang list for karyawan
 export async function GET(req: NextRequest) {
@@ -11,19 +12,17 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // Check for Site-Based Restriction Policy
-        const user = session.user as any
-        const userPermissions = (user.permissions as string[]) || []
-        const isSiteRestricted = userPermissions.includes('k_barang:site_only')
+        // Site restriction check using centralized helper
+        const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session, 'k_barang')
 
         let whereClause: any = { isActive: true }
 
-        if (isSiteRestricted) {
+        if (isRestricted) {
             const { searchParams } = new URL(req.url)
             const workOrderId = searchParams.get('workOrderId')
 
-            const allowedSiteIds = []
-            if (user.siteId) allowedSiteIds.push(user.siteId)
+            const allowedSiteIds: string[] = []
+            if (userSiteId) allowedSiteIds.push(userSiteId)
 
             if (workOrderId) {
                 const wo = await prisma.workOrders.findUnique({

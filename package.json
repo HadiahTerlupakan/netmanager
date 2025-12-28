@@ -128,5 +128,8 @@
     },
     "cookie": "^0.7.2",
     "js-yaml": "^4.1.1"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

@@ -3,27 +3,20 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { hasPermission } from '@/lib/rbac'
 import { randomUUID } from 'crypto'
 
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
-
-/**
- * GET /api/inventory/opname
- * Get all stock opname records with filters
- */
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/opname')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("opname:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const searchParams = req.nextUrl.searchParams
@@ -113,10 +106,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
-    const session = await requireAdmin()
-    if (!session) {
+    const session: any = await getServerSession(authConfig as any)
+    if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to POST /api/inventory/opname')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("opname:create"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const body = await req.json()

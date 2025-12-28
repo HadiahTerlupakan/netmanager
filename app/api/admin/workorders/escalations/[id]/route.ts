@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
 import { workOrderEscalationUpdateSchema } from '@/lib/validations/workorder-escalation';
+import { hasPermission } from '@/lib/rbac';
 
 /**
  * @swagger
@@ -57,6 +58,10 @@ export async function GET(
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!await hasPermission('wo_escalation:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { id } = await params;
@@ -204,6 +209,10 @@ export async function PUT(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        if (!await hasPermission('wo_escalation:update')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const { id } = await params;
         const body = await request.json();
         const validatedData = workOrderEscalationUpdateSchema.parse(body);
@@ -312,6 +321,10 @@ export async function DELETE(
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!await hasPermission('wo_escalation:delete')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { id } = await params;

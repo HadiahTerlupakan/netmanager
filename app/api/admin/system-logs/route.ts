@@ -2,10 +2,16 @@ import { NextResponse, NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { LogType } from '@prisma/client'
+import { hasPermission } from '@/lib/rbac'
 
 export async function GET(req: NextRequest) {
     try {
         await requireAdmin(req)
+
+        // Permission check
+        if (!await hasPermission('system_log:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
 
         const { searchParams } = new URL(req.url)
         const typeKey = searchParams.get('type')

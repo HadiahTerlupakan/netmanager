@@ -5,6 +5,8 @@ import { verifyAuth } from '@/lib/auth';
 import { onWorkOrderCreated } from '@/modules/work-order/services/WorkOrderNotifications';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { hasPermission } from '@/lib/rbac';
+import { getSiteFilter } from '@/modules/roles';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -87,6 +89,11 @@ export async function GET(request: NextRequest) {
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Permission check
+        if (!await hasPermission('list:read')) {
+            return NextResponse.json({ error: 'Forbidden: You do not have permission to view work orders' }, { status: 403 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -198,6 +205,11 @@ export async function POST(request: NextRequest) {
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Permission check
+        if (!await hasPermission('list:create')) {
+            return NextResponse.json({ error: 'Forbidden: You do not have permission to create work orders' }, { status: 403 });
         }
 
         const body = await request.json();

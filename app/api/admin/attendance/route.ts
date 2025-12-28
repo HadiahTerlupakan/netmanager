@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-helpers'
+import { hasPermission } from '@/lib/rbac'
 
 export async function GET(request: NextRequest) {
     try {
         const session = await requireAdmin(request)
         if (session instanceof NextResponse) {
             return session
+        }
+
+        // Permission check
+        if (!await hasPermission('attendance:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
         const { searchParams } = new URL(request.url)

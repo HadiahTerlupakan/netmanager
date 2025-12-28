@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -13,6 +14,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const session = await getServerSession(authOptions)
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        if (!await hasPermission('registration:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
         const { id } = await params
@@ -38,6 +43,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         const session = await getServerSession(authOptions)
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        if (!await hasPermission('registration:update')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
         const { id } = await params
@@ -119,6 +128,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         const session = await getServerSession(authOptions)
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        if (!await hasPermission('registration:delete')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
         const { id } = await params

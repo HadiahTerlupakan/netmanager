@@ -5,6 +5,7 @@ import { getUserRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { logger } from '@/lib/logger'
+import { checkSiteRestriction, canAccessSite } from '@/lib/site-restriction'
 
 /**
  * @swagger
@@ -130,14 +131,10 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'Unauthorized: You do not have permission to update users.' }, { status: 403 })
     }
 
-    // Check for site_only permission
-    const userRole = (session.user as any).role
-    const isSuperAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
-    const isSiteRestricted = !isSuperAdmin && permissions.includes('users:site_only')
+    // Site restriction check using centralized helper
+    const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session, 'users')
 
-    if (isSiteRestricted) {
-      const userSiteId = (session.user as any).siteId
-
+    if (isRestricted) {
       // Fetch target user to check their site
       const targetUser = await prisma.user.findUnique({
         where: { id },
@@ -148,7 +145,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
         return NextResponse.json({ error: 'User not found' }, { status: 404 })
       }
 
-      if (targetUser.siteId !== userSiteId) {
+      if (!canAccessSite(session, 'users', targetUser.siteId)) {
         return NextResponse.json({ error: 'Unauthorized: You can only update users within your assigned site.' }, { status: 403 })
       }
 
@@ -156,9 +153,6 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
       if (data.siteId && data.siteId !== userSiteId) {
         return NextResponse.json({ error: 'Unauthorized: You cannot change user site to a different site.' }, { status: 403 })
       }
-
-      // Force siteId to remain the same if strictly enforcing
-      // But above check guards against changing it.
     }
 
     // Update user
@@ -353,16 +347,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Unauthorized: You do not have permission to view users.' }, { status: 403 })
     }
 
-    // Check for site_only permission
-    const userRole = (session.user as any).role
-    const isSuperAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
-    const isSiteRestricted = !isSuperAdmin && permissions.includes('users:site_only')
-
-    if (isSiteRestricted) {
-      const userSiteId = (session.user as any).siteId
-      if (user.siteId !== userSiteId) {
-        return NextResponse.json({ error: 'Unauthorized: You can only view users within your assigned site.' }, { status: 403 })
-      }
+    // Site restriction check using centralized helper
+    if (!canAccessSite(session, 'users', user.siteId)) {
+      return NextResponse.json({ error: 'Unauthorized: You can only view users within your assigned site.' }, { status: 403 })
     }
 
     return NextResponse.json({ user })
@@ -443,13 +430,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized: You do not have permission to delete users.' }, { status: 403 })
     }
 
-    // Check for site_only permission
-    const userRole = (session.user as any).role
-    const isSuperAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
-    const isSiteRestricted = !isSuperAdmin && permissions.includes('users:site_only')
-
-    if (isSiteRestricted) {
-      const userSiteId = (session.user as any).siteId
+    // Site restriction check using centralized helper
+    if (checkSiteRestriction(session, 'users').isRestricted) {
       const targetUser = await prisma.user.findUnique({
         where: { id },
         select: { siteId: true }
@@ -459,7 +441,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: 'User not found' }, { status: 404 })
       }
 
-      if (targetUser.siteId !== userSiteId) {
+      if (!canAccessSite(session, 'users', targetUser.siteId)) {
         return NextResponse.json({ error: 'Unauthorized: You can only delete users within your assigned site.' }, { status: 403 })
       }
     }

@@ -1,21 +1,18 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { getOnuTypeRepository } from '@/lib/repositories'
 import { onuTypeCreateSchema } from '@/lib/validations/onutype'
 
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
-
 export async function GET() {
   try {
-    const session = await requireAdmin()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    if (!(await hasPermission("onutype:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     try {
       const onuTypeRepository = getOnuTypeRepository()
@@ -55,8 +52,12 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await getServerSession(authOptions)
+  if (!session || !session.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  if (!(await hasPermission("onutype:create"))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   const json = await req.json()
   const parsed = onuTypeCreateSchema.safeParse(json)
   if (!parsed.success) {
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
       await logger.logActivity({
         action: 'CREATE',
         subject: 'ONU Type',
-        userId: session.user.id,
+        userId: session.user.id as string,
         details: { id: created.id, name: parsed.data.name }
       })
     } catch (e) {

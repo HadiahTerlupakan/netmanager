@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
+import { hasPermission } from '@/lib/rbac';
 
 // GET /api/admin/sites/[id] - Get site details
 export async function GET(
@@ -11,6 +12,10 @@ export async function GET(
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!await hasPermission('sites:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { id } = await params;
@@ -66,6 +71,10 @@ export async function PATCH(
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!await hasPermission('sites:update')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { id } = await params;
@@ -156,6 +165,10 @@ export async function DELETE(
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!await hasPermission('sites:delete')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { id } = await params;

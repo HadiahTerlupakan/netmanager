@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions, verifyAuth } from "@/lib/auth";
 import { startOfDay, endOfDay } from "date-fns";
+import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session || !session.user?.email) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const user = await verifyAuth(req as any);
+        if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        if (!(await hasPermission("finance:read"))) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         const { searchParams } = new URL(req.url);

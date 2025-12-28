@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
 import { socketEmitter } from '@/lib/websocket/emitter';
+import { hasPermission } from '@/lib/rbac';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -15,6 +16,10 @@ export async function POST(
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!await hasPermission('list:update')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const body = await request.json();

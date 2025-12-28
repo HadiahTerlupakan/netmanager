@@ -1,4 +1,12 @@
 import 'dotenv/config'
+
+// Safeguard: Set Default Timezone for the entire process if not set
+// This ensures Date() functions typically use this timezone in Node.js environment
+if (!process.env.TZ) {
+    process.env.TZ = 'Asia/Jakarta'
+}
+console.log(`[Server] Timezone set to: ${process.env.TZ} (${new Date().toString()})`)
+
 import { createServer } from 'http'
 import { parse } from 'url'
 import next from 'next'

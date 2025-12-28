@@ -9,3 +9,13 @@ export type {
 } from './repositories/RoleRepository'
 
 export { RoleService, getRoleService } from './services/RoleService'
+
+// Site Restriction (RBAC) helpers
+export {
+    checkSiteRestriction,
+    getSiteFilter,
+    canAccessSite,
+    validateSiteAccess,
+    buildSiteWhereClause
+} from './services/SiteRestrictionService'
+export type { SiteRestrictionResult } from './services/SiteRestrictionService'

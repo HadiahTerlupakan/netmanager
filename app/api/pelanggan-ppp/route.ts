@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import path from 'path'
 import { DiscountType, DurasiUnit, Status, TipePelanggan } from '@prisma/client'
-import { requireAuth } from '@/lib/auth-helpers'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { getPelangganService } from '@/modules/pelanggan'
 import { logger } from '@/lib/logger'
 
@@ -66,7 +68,14 @@ const parseEnumValue = <T extends string>(
  */
 export async function GET(req: NextRequest) {
   try {
-    await requireAuth(req)
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("pelanggan:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') as Status | null
@@ -116,7 +125,14 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireAuth(req)
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("pelanggan:create"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const formData: any = await req.formData()
 
@@ -291,7 +307,7 @@ export async function POST(req: NextRequest) {
       await logger.logActivity({
         action: 'CREATE',
         subject: 'Pelanggan',
-        userId: session?.user?.id,
+        userId: session.user.id,
         details: { id: pelanggan.id, nama: pelanggan.nama, username: pelanggan.username }
       })
     } catch (logError) {

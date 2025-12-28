@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
 import { requireAdmin } from '@/lib/auth-helpers'
+import { hasPermission } from '@/lib/rbac'
 
 const holidayRepo = new HolidayRepository()
 
@@ -10,6 +11,10 @@ export async function DELETE(
 ) {
     const session = await requireAdmin(request)
     if (session instanceof NextResponse) return session
+
+    if (!await hasPermission('holidays:delete')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     try {
         const { id } = await params
@@ -26,6 +31,10 @@ export async function PUT(
 ) {
     const session = await requireAdmin(request)
     if (session instanceof NextResponse) return session
+
+    if (!await hasPermission('holidays:update')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     try {
         const { id } = await params

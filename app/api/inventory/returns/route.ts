@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import type { CreateReturnRequest, CreateReturnResponse } from '@/types/inventory-returns'
 
-/**
- * Authentication helper - requires valid session
- */
-async function requireAuth() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session?.user) {
-    return null
-  }
-  return session
-}
+
 
 /**
  * Helper function to validate return request
@@ -102,8 +94,8 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
     // Authentication
-    const session = await requireAuth()
-    if (!session) {
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to POST /api/inventory/returns', {
         ip: req.headers.get('x-forwarded-for') || 'unknown',
         userAgent: req.headers.get('user-agent')
@@ -112,6 +104,10 @@ export async function POST(req: NextRequest) {
         { error: 'Unauthorized - Admin or Employee access required' },
         { status: 401 }
       )
+    }
+
+    if (!(await hasPermission("returns:create"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const body = await req.json()
@@ -262,7 +258,7 @@ export async function POST(req: NextRequest) {
           barangMasukId: barangMasuk.id,
           barangKeluarId: barangKeluarId, // Add missing property
           // barangReturnId: barangReturn?.id, // Uncomment when BarangReturn table is implemented
-          employeeId: session.user.id,
+          employeeId: session.user.id as string,
           tanggalPengembalian: new Date(),
           jumlahDikembalikan,
           kondisiPengembalian,
@@ -346,8 +342,8 @@ export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
     // Authentication - only ADMIN can access all returns
-    const session = await requireAuth()
-    if (!session || false) {
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
       logger.warn('Unauthorized access attempt to GET /api/inventory/returns', {
         ip: req.headers.get('x-forwarded-for') || 'unknown',
         userAgent: req.headers.get('user-agent')
@@ -356,6 +352,10 @@ export async function GET(req: NextRequest) {
         { error: 'Unauthorized - Admin access required' },
         { status: 401 }
       )
+    }
+
+    if (!(await hasPermission("returns:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const searchParams = req.nextUrl.searchParams

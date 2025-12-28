@@ -1,5 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
-import { requireAdmin, getCurrentSession } from '@/lib/auth-helpers'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { getOLTRepository } from '@/lib/repositories'
 import { oltCreateSchema } from '@/lib/validations/olt'
 
@@ -41,7 +43,14 @@ import { oltCreateSchema } from '@/lib/validations/olt'
 export async function GET(req: NextRequest) {
   try {
     // Cek autentikasi admin menggunakan fungsi terpusat
-    const session = await requireAdmin(req)
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("olt:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     const oltRepository = getOLTRepository()
     const olts = await oltRepository.findAll()
     return NextResponse.json({ olts })
@@ -171,7 +180,14 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   // Cek autentikasi admin menggunakan fungsi terpusat
-  const session = await requireAdmin(req)
+  const session = await getServerSession(authOptions)
+  if (!session || !session.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!(await hasPermission("olt:create"))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const json = await req.json()
   const parsed = oltCreateSchema.safeParse(json)

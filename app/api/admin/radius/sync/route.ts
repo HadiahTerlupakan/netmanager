@@ -9,16 +9,17 @@ import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { RadiusSyncService } from '@/modules/network';
+import { hasPermission } from '@/lib/rbac';
 
 export async function POST(req: NextRequest) {
     try {
-        // Auth check
         const session = await getServerSession(authConfig);
-        if (!session?.user || false) {
-            return NextResponse.json(
-                { error: 'Unauthorized - Admin access required' },
-                { status: 401 }
-            );
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!await hasPermission('radius:update')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const syncService = new RadiusSyncService(prisma);

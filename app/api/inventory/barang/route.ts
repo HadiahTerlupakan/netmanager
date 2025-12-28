@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, getCurrentSession } from '@/lib/auth-helpers'
+import { verifyAuth } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 
@@ -145,7 +147,14 @@ export async function GET(req: NextRequest) {
   const startTime = Date.now()
   try {
     // Cek autentikasi admin menggunakan fungsi terpusat
-    const session = await requireAdmin(req)
+    const session = await verifyAuth(req)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("barang:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const searchParams = req.nextUrl.searchParams
     const gudangId = searchParams.get('gudangId')
@@ -204,7 +213,7 @@ export async function GET(req: NextRequest) {
       logger.dbOperation('findMany', 'Barang+BarangGudang', Date.now() - dbStart)
 
       logger.apiRequest('GET', '/api/inventory/barang', 200, Date.now() - startTime, {
-        userId: session.user.id,
+        userId: session.id,
         barangCount: barangsWithStock.length,
         page,
         limit,
@@ -254,7 +263,14 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now()
   try {
     // Cek autentikasi admin menggunakan fungsi terpusat
-    const session = await requireAdmin(req)
+    const session = await verifyAuth(req)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("barang:create"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const body = await req.json()
     const { nama, satuan, isWorkOrderMaterial } = body
@@ -298,7 +314,7 @@ export async function POST(req: NextRequest) {
       logger.dbOperation('create', 'Barang', Date.now() - dbStart)
 
       logger.apiRequest('POST', '/api/inventory/barang', 201, Date.now() - startTime, {
-        userId: session.user.id,
+        userId: session.id,
         barangId: barang.id,
         kode: barang.kode,
       })
@@ -307,7 +323,7 @@ export async function POST(req: NextRequest) {
       await logger.logActivity({
         action: 'CREATE',
         subject: 'Barang',
-        userId: session.user.id,
+        userId: session.id,
         details: { id: barang.id, nama: barang.nama, kode: barang.kode }
       })
 

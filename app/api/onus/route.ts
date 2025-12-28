@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOnuRepository } from '@/lib/repositories'
 import { onuCreateSchema } from '@/lib/validations/onu'
-import { verifyAuth } from '@/lib/auth'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 
 /**
@@ -319,9 +321,13 @@ import { prisma } from '@/lib/prisma'
 export async function POST(req: NextRequest) {
   try {
     // Authentication check
-    const user = await verifyAuth(req)
-    if (!user) {
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("onu:create"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const body = await req.json()
@@ -431,7 +437,7 @@ export async function POST(req: NextRequest) {
       await logger.logActivity({
         action: 'CREATE',
         subject: 'ONU',
-        userId: user.id,
+        userId: session.user.id,
         details: { id: result.id, name: createData.name, gpon: createData.gponOnu }
       })
     } catch (e) {
@@ -543,9 +549,13 @@ async function getCachedOnus(oltId?: string) {
 export async function GET(req: NextRequest) {
   try {
     // Authentication check
-    const user = await verifyAuth(req)
-    if (!user) {
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!(await hasPermission("onu:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const { searchParams } = new URL(req.url)

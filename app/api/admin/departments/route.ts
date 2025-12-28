@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth';
+import { hasPermission } from '@/lib/rbac';
 
 // GET /api/admin/departments - List all departments
 export async function GET(request: NextRequest) {
@@ -9,6 +10,11 @@ export async function GET(request: NextRequest) {
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Permission check
+        if (!await hasPermission('department:read')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -51,6 +57,11 @@ export async function POST(request: NextRequest) {
         const user = await verifyAuth(request);
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Permission check
+        if (!await hasPermission('department:create')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const body = await request.json();

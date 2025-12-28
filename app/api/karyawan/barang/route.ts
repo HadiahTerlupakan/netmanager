@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { checkSiteRestriction } from '@/lib/site-restriction'
 
 // GET - Get barang list for karyawan (with stock from a gudang)
 export async function GET(req: NextRequest) {
@@ -18,17 +19,15 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'gudangId required' }, { status: 400 })
         }
 
-        // Check for Site-Based Restriction Policy
-        const user = session.user as any
-        const userPermissions = (user.permissions as string[]) || []
-        const isSiteRestricted = userPermissions.includes('k_barang:site_only')
+        // Site restriction check using centralized helper
+        const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session, 'k_barang')
 
         let whereClause: any = {
             gudangId
         }
 
-        if (isSiteRestricted) {
-            if (!user.siteId) {
+        if (isRestricted) {
+            if (!userSiteId) {
                 // If restricted but no site assigned, return empty
                 return NextResponse.json({ barangList: [] })
             }
@@ -36,7 +35,7 @@ export async function GET(req: NextRequest) {
             whereClause.gudang = {
                 sites: {
                     some: {
-                        id: user.siteId
+                        id: userSiteId
                     }
                 }
             }
