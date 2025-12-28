@@ -128,7 +128,7 @@ export function TransferTable({ transfers, onRefresh, onViewDetails, onDelete }:
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                       </svg>
-                      {transfer.dariGudang.kode}
+                      {transfer.dariGudang?.kode || 'N/A'}
                     </span>
 
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -139,7 +139,7 @@ export function TransferTable({ transfers, onRefresh, onViewDetails, onDelete }:
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                       </svg>
-                      {transfer.keGudang.kode}
+                      {transfer.keGudang?.kode || 'N/A'}
                     </span>
                   </div>
 
