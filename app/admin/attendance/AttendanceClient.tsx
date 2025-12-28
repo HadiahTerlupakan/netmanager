@@ -22,10 +22,10 @@ interface Attendance {
         name: string | null
         email: string
         image: string | null
-        department: {
+        departments: {
             name: string
         } | null
-        site?: {
+        sites?: {
             name: string
         } | null
     }
@@ -98,7 +98,7 @@ export function ClientComponent() {
         } finally {
             setLoading(false)
         }
-    }, [page, startDate, endDate])
+    }, [page, startDate, endDate, siteId, departmentId])
 
     useEffect(() => {
         fetchAttendances()
@@ -297,7 +297,7 @@ export function ClientComponent() {
                                     <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
-                                                <div className="h-10 w-10 flex-shrink-0 relative">
+                                                <div className="h-10 w-10 shrink-0 relative">
                                                     <Image
                                                         src={item.user.image || `https://ui-avatars.com/api/?name=${item.user.name}&background=random`}
                                                         alt="" fill className="rounded-full object-cover"
@@ -310,9 +310,9 @@ export function ClientComponent() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="text-sm font-medium text-gray-900 dark:text-white">{item.user.site?.name || '-'}</div>
+                                            <div className="text-sm font-medium text-gray-900 dark:text-white">{item.user.sites?.name || '-'}</div>
                                             <div className="text-xs text-gray-500 flex items-center gap-1">
-                                                <FaBuilding className="text-[10px]" /> {item.user.department?.name || '-'}
+                                                <FaBuilding className="text-[10px]" /> {item.user.departments?.name || '-'}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -362,7 +362,7 @@ export function ClientComponent() {
                                                     </a>
                                                 )}
 
-                                                {item.notes && <div className="text-[10px] italic text-gray-400 mt-1 line-clamp-2">"{item.notes}"</div>}
+                                                {item.notes && <div className="text-[10px] italic text-gray-400 mt-1 line-clamp-2">&ldquo;{item.notes}&rdquo;</div>}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -438,7 +438,7 @@ export function ClientComponent() {
 
             {/* Photo Modal */}
             {selectedPhoto && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onClick={() => setSelectedPhoto(null)}>
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onClick={() => setSelectedPhoto(null)}>
                     <div className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
                         <Image src={selectedPhoto} alt="Full view" fill className="object-contain" />
                         <button
@@ -453,7 +453,7 @@ export function ClientComponent() {
 
             {/* Edit Modal */}
             {isEditModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Data Absensi</h3>
