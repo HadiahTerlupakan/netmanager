@@ -92,8 +92,6 @@ export async function POST(request: NextRequest) {
             uploadDir,
             fileName,
             type ?? undefined,
-            fileName,
-            type ?? undefined,
             subFolder,
             watermarkLines
         );

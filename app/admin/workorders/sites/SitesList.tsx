@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
     HiOutlineMapPin,
@@ -38,11 +38,8 @@ export default function SitesList() {
     const [search, setSearch] = useState('')
     const [showInactive, setShowInactive] = useState(false)
 
-    useEffect(() => {
-        fetchSites()
-    }, [search, showInactive])
 
-    const fetchSites = async () => {
+    const fetchSites = useCallback(async () => {
         try {
             setLoading(true)
             const params = new URLSearchParams()
@@ -63,7 +60,11 @@ export default function SitesList() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [search, showInactive])
+
+    useEffect(() => {
+        fetchSites()
+    }, [fetchSites])
 
     const handleDelete = async (id: string, name: string) => {
         if (!confirm(`Apakah Anda yakin ingin menghapus site "${name}"?`)) {

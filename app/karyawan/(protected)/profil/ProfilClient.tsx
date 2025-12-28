@@ -14,8 +14,8 @@ import { KaryawanNotificationBell } from '@/components/karyawan/KaryawanNotifica
 export default function ProfilPage() {
     const { isLoading: authLoading, isAuthenticated, user, logout } = useKaryawanAuth()
     const [profileData, setProfileData] = useState<{
-        department?: { name: string } | null
-        site?: { name: string } | null
+        departments?: { name: string } | null
+        sites?: { name: string } | null
         workingHourMode?: 'FIXED' | 'FLEXIBLE' | 'SHIFT'
         startWorkTime?: string | null
         endWorkTime?: string | null
@@ -63,7 +63,7 @@ export default function ProfilPage() {
                 {/* Header */}
                 <div className="sticky top-0 z-20 flex items-center bg-[#f6f7f8] dark:bg-[#101922] p-4 pb-2 justify-between border-b border-gray-100 dark:border-gray-800">
                     <div className="flex size-10 shrink-0 items-center">
-                        <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-full size-10 flex items-center justify-center text-white font-bold text-lg">
+                        <div className="bg-linear-to-br from-blue-500 to-blue-700 rounded-full size-10 flex items-center justify-center text-white font-bold text-lg">
                             {user?.name?.charAt(0)?.toUpperCase() || 'K'}
                         </div>
                     </div>
@@ -78,7 +78,7 @@ export default function ProfilPage() {
                 {/* Profile Card */}
                 <div className="px-4 pt-6">
                     <div className="bg-white dark:bg-[#1c2936] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 text-center">
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-3xl font-bold mx-auto mb-4">
+                        <div className="w-20 h-20 rounded-full bg-linear-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-3xl font-bold mx-auto mb-4">
                             {user?.name?.charAt(0)?.toUpperCase() || 'K'}
                         </div>
                         <h2 className="text-xl font-bold dark:text-white">{user?.name || 'Karyawan'}</h2>
@@ -100,14 +100,14 @@ export default function ProfilPage() {
                             <MdBusiness className="text-2xl text-gray-400" />
                             <div>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Department</p>
-                                <p className="font-medium dark:text-white">{profileData?.department?.name || 'Belum diatur'}</p>
+                                <p className="font-medium dark:text-white">{profileData?.departments?.name || 'Belum diatur'}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-4 p-4">
                             <MdLocationOn className="text-2xl text-gray-400" />
                             <div>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Site</p>
-                                <p className="font-medium dark:text-white">{profileData?.site?.name || 'Belum diatur'}</p>
+                                <p className="font-medium dark:text-white">{profileData?.sites?.name || 'Belum diatur'}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-4 p-4">

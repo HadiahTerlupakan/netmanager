@@ -23,6 +23,7 @@ import {
     MdClose,
     MdImage
 } from 'react-icons/md'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
 import { SOCKET_EVENTS, type WorkOrderActivityPayload } from '@/lib/websocket/types'
@@ -118,11 +119,27 @@ export default function WorkOrderDetailClient() {
         }
     }, [authLoading, isAuthenticated, router])
 
+    const fetchWorkOrder = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/karyawan/work-order/${id}`)
+            if (res.ok) {
+                const data = await res.json()
+                setWorkOrder(data.workOrder)
+            } else {
+                router.push('/karyawan/work-order')
+            }
+        } catch (error) {
+            console.error('Failed to fetch work order:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }, [id, router])
+
     useEffect(() => {
         if (isAuthenticated && id) {
             fetchWorkOrder()
         }
-    }, [isAuthenticated, id])
+    }, [isAuthenticated, id, fetchWorkOrder])
 
     // WebSocket for real-time Activity Timeline
     const { socket, isConnected } = useSocket()
@@ -150,28 +167,11 @@ export default function WorkOrderDetailClient() {
             // Refresh data to get the new activity
             fetchWorkOrder()
         },
-        [id]
+        [id, fetchWorkOrder]
     )
 
     // Subscribe to WebSocket activity events
     useSocketEvent(SOCKET_EVENTS.WORKORDER_ACTIVITY, handleNewActivity)
-
-    const fetchWorkOrder = async () => {
-        try {
-            const res = await fetch(`/api/karyawan/work-order/${id}`)
-            if (res.ok) {
-                const data = await res.json()
-                setWorkOrder(data.workOrder)
-            } else {
-                router.push('/karyawan/work-order')
-            }
-        } catch (error) {
-            console.error('Failed to fetch work order:', error)
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
 
 
     const handleTakeTicket = async () => {
@@ -694,6 +694,7 @@ export default function WorkOrderDetailClient() {
                                     <div className="grid grid-cols-4 gap-2">
                                         {photoPreviews.map((preview, index) => (
                                             <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                                 <img src={preview} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
                                                 <button
                                                     type="button"
@@ -776,11 +777,12 @@ export default function WorkOrderDetailClient() {
                                                 <div className="space-y-1">
                                                     <p className="text-sm dark:text-white">Mengupload foto</p>
                                                     <div className="mt-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 max-w-[200px]">
-                                                        <img
+                                                        <Image
                                                             src={item.filePath}
                                                             alt={item.fileName}
+                                                            width={200}
+                                                            height={200}
                                                             className="w-full h-auto object-cover"
-                                                            loading="lazy"
                                                         />
                                                     </div>
                                                 </div>

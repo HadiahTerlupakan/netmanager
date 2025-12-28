@@ -1,7 +1,7 @@
 "use client"
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect, useMemo, createContext, useContext } from 'react'
+import { useState, useEffect, useMemo, createContext, useContext, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import {
   HiOutlineChartBar,
@@ -145,7 +145,7 @@ export default function Sidebar() {
   const { hasPermission, isLoading } = usePermission()
 
   // Filter menu items based on permissions
-  const filterNavItem = (item: MenuConfig): MenuConfig | null => {
+  const filterNavItem = useCallback((item: MenuConfig): MenuConfig | null => {
     let filteredChildren: MenuConfig[] | undefined = undefined
 
     if (item.children) {
@@ -177,7 +177,7 @@ export default function Sidebar() {
     }
 
     return { ...item, children: filteredChildren }
-  }
+  }, [hasPermission])
 
   const allNavItems = ADMIN_MENU_CONFIG
 
@@ -185,7 +185,7 @@ export default function Sidebar() {
     return allNavItems
       .map(filterNavItem)
       .filter((item): item is MenuConfig => item !== null)
-  }, [allNavItems, hasPermission])
+  }, [allNavItems, filterNavItem])
 
   // Auto-expand menu
   useEffect(() => {
