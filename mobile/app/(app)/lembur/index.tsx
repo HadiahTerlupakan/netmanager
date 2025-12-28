@@ -12,6 +12,8 @@ import { Config } from '@/constants/Config';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { captureRef } from 'react-native-view-shot';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { useOfflineMutation } from '@/hooks/useOfflineMutation';
 
 interface Overtime {
     id: string;
@@ -66,28 +68,35 @@ export default function LemburScreen() {
         return () => clearInterval(timer);
     }, []);
 
-    // Fetch data
-    const fetchData = useCallback(async () => {
-        if (!token) return;
-        try {
-            const res = await axios.get(`${Config.API_URL}/api/mobile/overtime`, {
+    // Offline Query
+    const { data: overtimeData, isLoading: loadingData, refetch: fetchData } = useOfflineQuery({
+        key: 'overtime_data',
+        fetcher: async () => {
+             const res = await axios.get(`${Config.API_URL}/api/mobile/overtime`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const data = res.data;
-            setHistory(data.history || []);
-            setHasCheckedOut(data.hasCheckedOut || false);
-            setHolidayInfo(data.holidayInfo || null);
+            return res.data;
+        },
+        enabled: !!token
+    });
+    
+    // Offline Mutation
+    const { mutate, isLoading: isMutating } = useOfflineMutation();
+
+    useEffect(() => {
+        if (overtimeData) {
+            setHistory(overtimeData.history || []);
+            setHasCheckedOut(overtimeData.hasCheckedOut || false);
+            setHolidayInfo(overtimeData.holidayInfo || null);
 
             // Find today's active request
             const todayStr = new Date().toISOString().split('T')[0];
-            const today = (data.history || []).find(
+            const today = (overtimeData.history || []).find(
                 (item: Overtime) => item.createdAt.startsWith(todayStr) || item.status === 'IN_PROGRESS'
             );
             setTodayRequest(today || null);
-        } catch (error) {
-            console.error('Failed to fetch overtime data', error);
         }
-    }, [token]);
+    }, [overtimeData]);
 
     useFocusEffect(
         useCallback(() => {
@@ -138,32 +147,26 @@ export default function LemburScreen() {
         }
     };
 
-    // Submit Request
-    const handleSubmitRequest = async () => {
         if (!reason.trim()) {
             Alert.alert('Error', 'Alasan wajib diisi');
             return;
         }
-        setLoading(true);
-        try {
-            await axios.post(
-                `${Config.API_URL}/api/mobile/overtime`,
-                {
-                    action: 'request',
-                    date: new Date().toISOString(),
-                    reason: reason.trim()
-                },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            Alert.alert('Sukses', 'Pengajuan lembur berhasil dikirim');
-            setShowRequestModal(false);
-            setReason('');
-            fetchData();
-        } catch (error: any) {
-            Alert.alert('Error', error.response?.data?.error || 'Gagal mengirim pengajuan');
-        } finally {
-            setLoading(false);
-        }
+        
+        await mutate({
+             action: 'request',
+             date: new Date().toISOString(),
+             reason: reason.trim()
+        }, {
+             url: `/api/mobile/overtime`,
+             method: 'POST',
+             onSuccess: (data, isOffline) => {
+                  Alert.alert(isOffline ? 'Offline' : 'Sukses', isOffline ? 'Pengajuan diantrikan' : 'Pengajuan berhasil dikirim');
+                  setShowRequestModal(false);
+                  setReason('');
+                  fetchData();
+             },
+             onError: (err) => Alert.alert('Error', err.message || 'Gagal mengirim pengajuan')
+        });
     };
 
     // Camera functions
@@ -209,35 +212,35 @@ export default function LemburScreen() {
         setLoading(true);
         try {
             const watermarkedUri = await captureWatermarkedPhoto();
+            if (!watermarkedUri) throw new Error('Failed to capture photo');
 
-            // Convert to base64
-            const response = await fetch(watermarkedUri!);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            const base64Promise = new Promise<string>((resolve) => {
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.readAsDataURL(blob);
-            });
-            const base64Photo = await base64Promise;
-
-            await axios.post(
-                `${Config.API_URL}/api/mobile/overtime`,
-                {
-                    action: activeAction,
-                    overtimeId: todayRequest.id,
-                    photo: base64Photo,
-                    location: `${location.coords.latitude},${location.coords.longitude}`
+            // Use useOfflineMutation with URI and Meta
+            await mutate({
+                action: activeAction,
+                overtimeId: todayRequest.id,
+                photo: null, // Placeholder
+                location: `${location.coords.latitude},${location.coords.longitude}`,
+                meta: {
+                    photos: [watermarkedUri],
+                    targetField: 'photo',
+                    singleFile: true,
+                    photoType: 'employee-attendance'
+                }
+            }, {
+                url: `/api/mobile/overtime`,
+                method: 'POST',
+                onSuccess: (data, isOffline) => {
+                     Alert.alert(isOffline ? "Offline" : "Berhasil", isOffline ? "Aksi disimpan di antrian" : (activeAction === 'start' ? "Lembur dimulai!" : "Lembur selesai!"));
+                     setPhoto(null);
+                     setCapturedTime(null);
+                     setActiveAction(null);
+                     fetchData();
                 },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+                onError: (err) => Alert.alert('Gagal', err.message || 'Terjadi kesalahan')
+            });
 
-            Alert.alert("Berhasil", activeAction === 'start' ? "Lembur dimulai!" : "Lembur selesai!");
-            setPhoto(null);
-            setCapturedTime(null);
-            setActiveAction(null);
-            fetchData();
         } catch (error: any) {
-            Alert.alert("Gagal", error.response?.data?.error || "Terjadi kesalahan.");
+            Alert.alert("Gagal", error.response?.data?.error || error.message || "Terjadi kesalahan.");
         } finally {
             setLoading(false);
         }

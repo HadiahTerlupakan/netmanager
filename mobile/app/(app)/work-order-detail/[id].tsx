@@ -19,6 +19,9 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { useOfflineMutation } from '@/hooks/useOfflineMutation';
+import { SyncService } from '@/services/SyncService';
 
 const { width } = Dimensions.get('window');
 
@@ -29,12 +32,9 @@ export default function WorkOrderDetailScreen() {
     const insets = useSafeAreaInsets();
 
     const [wo, setWo] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'INFO' | 'TASKS' | 'TIMELINE' | 'ITEMS'>('INFO');
 
     // Completion State (Moved to separate screen)
-    // const [showCompleteForm, setShowCompleteForm] = useState(false);
     const [resolutionNotes, setResolutionNotes] = useState('');
     const [photo, setPhoto] = useState<string | null>(null);
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -44,6 +44,25 @@ export default function WorkOrderDetailScreen() {
     const [availablePartners, setAvailablePartners] = useState<any[]>([]);
     const [searchPartnerQuery, setSearchPartnerQuery] = useState('');
     const [partnerLoading, setPartnerLoading] = useState(false);
+    
+    // Offline Query
+    const { data: woData, isLoading: loading, refetch: fetchDetail } = useOfflineQuery({
+        key: `work_order_${id}`,
+        fetcher: async () => {
+            const res = await axios.get(`${Config.API_URL}/api/mobile/work-orders/${id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            return res.data?.data;
+        },
+        enabled: !!id && !!token
+    });
+    
+    // Offline Mutation
+    const { mutate: updateStatus, isLoading: actionLoading } = useOfflineMutation();
+
+    useEffect(() => {
+        if (woData) setWo(woData);
+    }, [woData]);
 
     useEffect(() => {
         (async () => {
@@ -62,34 +81,9 @@ export default function WorkOrderDetailScreen() {
                 setLocation(currentLocation);
             } catch (error) {
                 console.warn("Location Error in WO Detail:", error);
-                // Fail silently or show toast?
             }
         })();
     }, []);
-
-    const fetchDetail = async () => {
-        try {
-            const res = await axios.get(`${Config.API_URL}/api/mobile/work-orders/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (res.data.success) {
-                setWo(res.data.data);
-            }
-        } catch (error) {
-            console.error('Fetch Detail Error:', error);
-            Alert.alert('Error', 'Gagal memuat detail Work Order');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useFocusEffect(
-        useCallback(() => {
-            if (id) {
-                fetchDetail();
-            }
-        }, [id])
-    );
 
     // Join WebSocket room for this Work Order
     useSocketRoom(`workorder:${id}`);
@@ -142,76 +136,92 @@ export default function WorkOrderDetailScreen() {
             router.push(`/(app)/complete-work-order/${id}`);
             return;
         }
+        
+        // Refresh location before sending
+        let finalLocation = location;
+        let locationName = '';
 
-        setActionLoading(true);
         try {
-            // Refresh location before sending
-            let finalLocation = location;
-            let locationName = '';
-
-            try {
-                finalLocation = await Location.getCurrentPositionAsync({});
-                if (finalLocation) {
-                    const reverseGeocode = await Location.reverseGeocodeAsync({
-                        latitude: finalLocation.coords.latitude,
-                        longitude: finalLocation.coords.longitude
-                    });
-
-                    if (reverseGeocode.length > 0) {
-                        const addr = reverseGeocode[0];
-                        locationName = `${addr.street || ''} ${addr.district || ''} ${addr.city || ''}`.trim();
-                        // Fallback if empty
-                        if (!locationName) locationName = addr.name || addr.region || '';
-                    }
-                }
-            } catch (e) {
-                console.log("Could not update location/geocode, using cached");
-            }
-
-            const formData = new FormData();
-            formData.append('action', action);
-
+            finalLocation = await Location.getCurrentPositionAsync({});
             if (finalLocation) {
-                formData.append('latitude', String(finalLocation.coords.latitude));
-                formData.append('longitude', String(finalLocation.coords.longitude));
-            }
-            if (locationName) {
-                formData.append('locationName', locationName);
-            }
+                const reverseGeocode = await Location.reverseGeocodeAsync({
+                    latitude: finalLocation.coords.latitude,
+                    longitude: finalLocation.coords.longitude
+                });
 
-            if (action === 'NOTE') {
-                if (resolutionNotes) formData.append('notes', resolutionNotes);
-                if (photo) {
-                    // @ts-ignore
-                    formData.append('photo', {
-                        uri: photo,
-                        name: 'upload.jpg',
-                        type: 'image/jpeg'
-                    });
+                if (reverseGeocode.length > 0) {
+                    const addr = reverseGeocode[0];
+                    locationName = `${addr.street || ''} ${addr.district || ''} ${addr.city || ''}`.trim();
+                    if (!locationName) locationName = addr.name || addr.region || '';
                 }
             }
-
-            if (action === 'PAUSE') {
-                formData.append('notes', 'Paused by technician');
-            }
-
-            await axios.post(`${Config.API_URL}/api/mobile/work-orders/${id}/update`, formData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-
-            Alert.alert('Berhasil', 'Status/Catatan Diperbarui');
-
-            fetchDetail();
-
-        } catch (error: any) {
-            console.error('Update Status Error:', error);
-            Alert.alert('Gagal', error.response?.data?.error || 'Gagal update status');
-        } finally {
-            setActionLoading(false);
+        } catch (e) {
+            console.log("Could not update location/geocode, using cached");
         }
+        
+        const isOnline = await SyncService.isOnline();
+        
+        let watermarkLines: string[] = [];
+        if (action === 'NOTE' && photo) {
+             const ticketNumber = wo?.ticket?.ticketNumber || wo?.workOrderNumber || id;
+             // Construct Location String similar to backend logic
+             const coords = (finalLocation) ? `(${finalLocation.coords.latitude.toFixed(6)}, ${finalLocation.coords.longitude.toFixed(6)})` : '';
+             let locStr = locationName || `Loc: ${coords}` || 'Loc: Unknown';
+             
+             watermarkLines = [
+                 format(new Date(), 'dd MMM yyyy HH:mm'),
+                 `#${ticketNumber}`,
+                 `Tech: ${user?.name || 'Unknown'}`,
+                 locStr
+             ];
+        }
+
+        const payload: any = {
+             action,
+             latitude: finalLocation?.coords.latitude.toString(),
+             longitude: finalLocation?.coords.longitude.toString(),
+             locationName,
+             notes: resolutionNotes
+        };
+        
+        // Validation for NOTE
+        if (action === 'NOTE' && !resolutionNotes && !photo) {
+             Alert.alert('Perhatian', 'Mohon isi catatan atau upload foto.');
+             return;
+        }
+
+        await updateStatus({
+            ...payload,
+            photoUrl: null, // Placeholder, filled by SyncService
+            meta: {
+                photos: photo ? [photo] : [],
+                targetField: 'photoUrl',
+                singleFile: true,
+                photoType: 'work-order-updates',
+                watermarkLines
+            }
+        }, {
+            url: `/api/mobile/work-orders/${id}/update`,
+            method: 'POST',
+            onSuccess: (data, isOffline) => {
+                 if (isOffline) {
+                      Alert.alert('Offline', 'Update disimpan di antrian.');
+                      // If NOTE with Photo, reset form
+                      if (action === 'NOTE') {
+                           setResolutionNotes('');
+                           setPhoto(null);
+                      }
+                 } else {
+                      Alert.alert('Berhasil', 'Status/Catatan Diperbarui');
+                      fetchDetail();
+                      if (action === 'NOTE') {
+                           setResolutionNotes('');
+                           setPhoto(null);
+                      }
+                 }
+            },
+            onError: (err) => Alert.alert('Error', err.message || 'Gagal update status')
+        });
     };
 
     const pickImage = async () => {

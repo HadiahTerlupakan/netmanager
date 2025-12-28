@@ -11,6 +11,9 @@ import axios from 'axios';
 import { Config } from '../../constants/Config';
 import { useAuth } from '../../context/AuthContext';
 import { captureRef } from 'react-native-view-shot';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { useOfflineMutation } from '@/hooks/useOfflineMutation';
+import { SyncService } from '@/services/SyncService';
 
 export default function AbsensiScreen() {
     const { user, token } = useAuth();
@@ -46,32 +49,43 @@ export default function AbsensiScreen() {
         getLocation();
     }, []);
 
-    const fetchStatus = async () => {
-        try {
-            const res = await axios.get(`${Config.API_URL}/api/mobile/attendance/history?limit=1`, {
+    const { mutate, isLoading: isMutating } = useOfflineMutation();
+
+    const { data: statusData, refetch: refetchStatus } = useOfflineQuery<any>({
+        key: 'attendance_status_latest',
+        fetcher: async () => {
+             const res = await axios.get(`${Config.API_URL}/api/mobile/attendance/history?limit=1`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            return res.data;
+        },
+        enabled: !!token
+    });
 
-            const data = res.data;
-            if (data.success && data.data.length > 0) {
-                const lastAttendance = data.data[0];
-                const today = new Date().toDateString();
-                const attendanceDate = new Date(lastAttendance.checkIn).toDateString();
+    useEffect(() => {
+        if (statusData && statusData.success && statusData.data.length > 0) {
+            const lastAttendance = statusData.data[0];
+            const today = new Date().toDateString();
+            const attendanceDate = new Date(lastAttendance.checkIn).toDateString();
 
-                if (today === attendanceDate) {
-                    setCheckInTime(format(new Date(lastAttendance.checkIn), 'HH:mm'));
-                    if (lastAttendance.checkOut) {
-                        setStatus('checked-out');
-                        setCheckOutTime(format(new Date(lastAttendance.checkOut), 'HH:mm'));
-                    } else {
-                        setStatus('checked-in');
-                    }
+            if (today === attendanceDate) {
+                setCheckInTime(format(new Date(lastAttendance.checkIn), 'HH:mm'));
+                if (lastAttendance.checkOut) {
+                    setStatus('checked-out');
+                    setCheckOutTime(format(new Date(lastAttendance.checkOut), 'HH:mm'));
+                } else {
+                    setStatus('checked-in');
                 }
+            } else {
+                // New day, reset if needed or just idle
+                 setStatus('idle');
+                 setCheckInTime(null);
+                 setCheckOutTime(null);
             }
-        } catch (e) {
-            console.error("Fetch Status Error", e);
         }
-    };
+    }, [statusData]);
+
+    const fetchStatus = refetchStatus; // Alias for compatibility called in useEffect
 
     const getLocation = async () => {
         try {
@@ -120,52 +134,113 @@ export default function AbsensiScreen() {
         }
     };
 
+    const processPhoto = async (): Promise<string | null> => {
+       return await captureWatermarkedPhoto();
+    };
+
+    const uploadPhotos = async (uris: string[]): Promise<string[]> => {
+        const uploadedUrls: string[] = [];
+        for (const uri of uris) {
+            try {
+                const formData = new FormData();
+                const filename = uri.split('/').pop() || 'photo.jpg';
+                formData.append('file', {
+                    uri: uri,
+                    type: 'image/jpeg',
+                    name: filename,
+                } as any);
+                formData.append('type', 'employee-attendance'); // Match backend upload type
+
+                const res = await axios.post(`${Config.API_URL}/api/mobile/upload`, formData, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'multipart/form-data',
+                    }
+                });
+                if (res.data?.url) uploadedUrls.push(res.data.url);
+            } catch (error) {
+                console.error('Failed to upload photo:', error);
+            }
+        }
+        return uploadedUrls;
+    };
+
     const submitAttendance = async () => {
         if (!photo || !location) {
             Alert.alert("Data Belum Lengkap", "Pastikan foto dan lokasi sudah tersedia.");
             return;
         }
 
-        setLoading(true);
-        try {
-            // Capture the watermarked version of the photo
-            const watermarkedPhotoUri = await captureWatermarkedPhoto();
+        const endpoint = status === 'idle' ? '/api/mobile/attendance/check-in' : '/api/mobile/attendance/check-out';
+        
+        // 1. Process Photo
+        const processedUri = await processPhoto();
+        if (!processedUri) return;
 
-            const endpoint = status === 'idle' ? '/api/mobile/attendance/check-in' : '/api/mobile/attendance/check-out';
+        // 2. Check Connection
+        const isOnline = await SyncService.isOnline();
+        
+        // 3. Prepare Payload (JSON)
+        const payload = {
+            location: locationName,
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            // notes: ... (if we add notes field later)
+        };
 
-            const formData = new FormData();
+        if (isOnline) {
+             setLoading(true);
+             try {
+                // Upload Photo
+                const uploadedUrls = await uploadPhotos([processedUri]);
+                const photoUrl = uploadedUrls[0];
+                
+                if (!photoUrl) throw new Error("Gagal upload foto");
 
-            // Append Watermarked Photo
-            // @ts-ignore: React Native FormData expects `uri`, `name`, `type`
-            formData.append('photo', {
-                uri: watermarkedPhotoUri,
-                name: 'selfie.jpg',
-                type: 'image/jpeg'
-            });
-
-            // But wait, I set photo to data:image... above. 
-            // I should stick to URI for upload.
-
-            formData.append('latitude', location.coords.latitude.toString());
-            formData.append('longitude', location.coords.longitude.toString());
-            formData.append('location', locationName);
-
-            const res = await axios.post(`${Config.API_URL}${endpoint}`, formData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data',
+                // Submit JSON
+                await mutate({
+                    ...payload,
+                    photoUrl: photoUrl
+                }, {
+                    url: endpoint,
+                    method: 'POST',
+                    onSuccess: () => {
+                         Alert.alert("Berhasil", status === 'idle' ? "Check-in Berhasil!" : "Check-out Berhasil!");
+                         fetchStatus();
+                         setPhoto(null);
+                    },
+                    onError: (e) => Alert.alert("Gagal", e.message || "Terjadi kesalahan")
+                });
+             } catch (error: any) {
+                 Alert.alert("Error", error.message || "Gagal Absen");
+             } finally {
+                 setLoading(false);
+             }
+        } else {
+            // Offline
+            await mutate({
+                ...payload,
+                photoUrl: null, // Placeholder
+                meta: {
+                    photos: [processedUri],
+                    targetField: 'photoUrl',
+                    singleFile: true,
+                    photoType: 'employee-attendance'
+                }
+            }, {
+                url: endpoint,
+                method: 'POST',
+                onSuccess: (data, isOffline) => {
+                    if (isOffline) {
+                        setPhoto(null);
+                        // Manually update local status to reflect action immediately?
+                        // If Check In -> Set Checked In (optimistic)
+                        // But fetchStatus relies on query cache. 
+                        // I can force update state technically, but complex.
+                        // For now just alert is enough.
+                    }
                 }
             });
-
-            Alert.alert("Berhasil", status === 'idle' ? "Check-in Berhasil!" : "Check-out Berhasil!");
-            fetchStatus();
-            setPhoto(null);
-
-        } catch (error: any) {
-            console.error("Attendance Error", error.response?.data || error.message);
-            Alert.alert("Gagal", error.response?.data?.error || "Terjadi kesalahan saat absensi.");
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -353,8 +428,8 @@ export default function AbsensiScreen() {
                                     <TouchableOpacity onPress={() => { setPhoto(null); setCapturedTime(null); }} style={tw`flex-1 bg-gray-100 py-3 rounded-xl items-center`}>
                                         <Text style={tw`font-bold text-gray-600`}>Ulang Foto</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity onPress={submitAttendance} disabled={loading} style={tw`flex-1 bg-blue-600 py-3 rounded-xl items-center`}>
-                                        <Text style={tw`font-bold text-white`}>{loading ? 'Menyimpan...' : 'Kirim Absensi'}</Text>
+                                    <TouchableOpacity onPress={submitAttendance} disabled={loading || isMutating} style={tw`flex-1 bg-blue-600 py-3 rounded-xl items-center`}>
+                                        <Text style={tw`font-bold text-white`}>{(loading || isMutating) ? 'Menyimpan...' : 'Kirim Absensi'}</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>

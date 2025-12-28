@@ -9,6 +9,8 @@ import axios from 'axios';
 import { Config } from '@/constants/Config';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { useOfflineMutation } from '@/hooks/useOfflineMutation';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -55,18 +57,24 @@ export default function IzinScreen() {
     const [permission, requestPermission] = useCameraPermissions();
     const cameraRef = useRef<CameraView>(null);
 
-    // Fetch history
-    const fetchHistory = useCallback(async () => {
-        if (!token) return;
-        try {
-            const res = await axios.get(`${Config.API_URL}/api/mobile/leaves`, {
+    // Offline Query
+    const { data: historyData, isLoading: loadingHistory, refetch: fetchHistory } = useOfflineQuery({
+        key: 'leaves_history',
+        fetcher: async () => {
+             const res = await axios.get(`${Config.API_URL}/api/mobile/leaves`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setHistory(res.data.data || []);
-        } catch (error) {
-            console.error('Failed to fetch leaves', error);
-        }
-    }, [token]);
+            return res.data?.data || [];
+        },
+        enabled: !!token
+    });
+
+    // Offline Mutation
+    const { mutate, isLoading: isMutating } = useOfflineMutation();
+
+    useEffect(() => {
+        if (historyData) setHistory(historyData);
+    }, [historyData]);
 
     useFocusEffect(
         useCallback(() => {
@@ -85,10 +93,10 @@ export default function IzinScreen() {
         if (cameraRef.current) {
             const result = await cameraRef.current.takePictureAsync({
                 quality: 0.7,
-                base64: true
+                base64: false // We use URI now for offline sync
             });
-            if (result?.base64) {
-                setPhotos(prev => [...prev, `data:image/jpeg;base64,${result.base64}`]);
+            if (result?.uri) {
+                setPhotos(prev => [...prev, result.uri]);
             }
             setShowCamera(false);
         }
@@ -109,28 +117,29 @@ export default function IzinScreen() {
             return;
         }
 
-        setLoading(true);
-        try {
-            await axios.post(
-                `${Config.API_URL}/api/mobile/leaves`,
-                {
-                    type,
-                    startDate: startDate.toISOString(),
-                    endDate: endDate.toISOString(),
-                    reason: reason.trim(),
-                    photos
-                },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            Alert.alert('Sukses', 'Pengajuan berhasil dikirim');
-            setShowModal(false);
-            resetForm();
-            fetchHistory();
-        } catch (error: any) {
-            Alert.alert('Error', error.response?.data?.error || 'Gagal mengirim pengajuan');
-        } finally {
-            setLoading(false);
-        }
+        await mutate({
+             type,
+             startDate: startDate.toISOString(),
+             endDate: endDate.toISOString(),
+             reason: reason.trim(),
+             photos: [], // Placeholder, SyncService will fill
+             meta: {
+                 photos: photos, // URIs
+                 targetField: 'photos',
+                 singleFile: false,
+                 photoType: 'employee-leave'
+             }
+        }, {
+             url: `/api/mobile/leaves`,
+             method: 'POST',
+             onSuccess: (data, isOffline) => {
+                  Alert.alert(isOffline ? 'Offline' : 'Sukses', isOffline ? 'Pengajuan diantrikan' : 'Pengajuan berhasil dikirim');
+                  setShowModal(false);
+                  resetForm();
+                  fetchHistory();
+             },
+             onError: (err) => Alert.alert('Error', err.message || 'Gagal mengirim pengajuan')
+        });
     };
 
     const resetForm = () => {

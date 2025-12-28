@@ -5,11 +5,23 @@ import { SocketProvider } from '../context/SocketContext';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import tw from 'twrnc';
+import { DatabaseService } from '../services/DatabaseService';
+import { SyncService } from '../services/SyncService';
 
 function RootLayoutNav() {
   const { user, isLoading } = useAuth();
   const segments = useSegments();
+  const segments = useSegments();
   const router = useRouter();
+
+  // Initialize Offline Services
+  useEffect(() => {
+    const initServices = async () => {
+      await DatabaseService.initDatabase();
+      SyncService.startMonitoring();
+    };
+    initServices();
+  }, []);
 
   // Handle Push Notifications
   useEffect(() => {

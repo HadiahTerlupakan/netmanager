@@ -2,7 +2,11 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Tex
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import axios from 'axios';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery'; // Using query to get ticket number if needed? or params
+import { useOfflineMutation } from '@/hooks/useOfflineMutation';
+import { SyncService } from '@/services/SyncService';
+import { format } from 'date-fns';
+import axios from 'axios'; // Still used for non-sync stuff if any?
 import { Config } from '../../../constants/Config';
 import tw from 'twrnc';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +23,10 @@ export default function CompleteWorkOrderScreen() {
     const [resolutionNotes, setResolutionNotes] = useState('');
     const [photos, setPhotos] = useState<string[]>([]); // Changed to Array
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
+    const [ticketNumber, setTicketNumber] = useState<string>(''); // To store ticket number
+
+    // Offline Mutation
+    const { mutate, isLoading: isMutating } = useOfflineMutation();
 
     useEffect(() => {
         (async () => {
@@ -32,6 +40,26 @@ export default function CompleteWorkOrderScreen() {
                 console.warn("Location Error:", error);
             }
         })();
+        
+        // Fetch specific WO details just for ticket number (lightweight)
+        // or just rely on ID if ticket number is effectively ID for offline
+        // Better: Fetch to get real ticket number
+        const fetchTicketNum = async () => {
+             try {
+                const res = await axios.get(`${Config.API_URL}/api/mobile/work-orders/${id}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.data.success) {
+                    const wo = res.data.data;
+                    setTicketNumber(wo.ticket?.ticketNumber || wo.workOrderNumber || id as string);
+                }
+             } catch (e) {
+                // If offline, we might use ID as fallback
+                setTicketNumber(id as string);
+             }
+        };
+        fetchTicketNum();
+
     }, []);
 
     const pickImage = async () => {
@@ -62,68 +90,74 @@ export default function CompleteWorkOrderScreen() {
             return;
         }
 
-        setLoading(true);
+        // Get fresh location
+        let finalLocation = location;
+        let locationName = '';
+
         try {
-            // Get fresh location
-            let finalLocation = location;
-            let locationName = '';
-
-            try {
-                finalLocation = await Location.getCurrentPositionAsync({});
-                if (finalLocation) {
-                    const reverseGeocode = await Location.reverseGeocodeAsync({
-                        latitude: finalLocation.coords.latitude,
-                        longitude: finalLocation.coords.longitude
-                    });
-                    if (reverseGeocode.length > 0) {
-                        const addr = reverseGeocode[0];
-                        locationName = `${addr.street || ''} ${addr.district || ''} ${addr.city || ''}`.trim();
-                        if (!locationName) locationName = addr.name || addr.region || '';
-                    }
-                }
-            } catch (e) {
-                console.log("Loc error", e);
-            }
-
-            const formData = new FormData();
-            formData.append('action', 'COMPLETE');
+            finalLocation = await Location.getCurrentPositionAsync({});
             if (finalLocation) {
-                formData.append('latitude', String(finalLocation.coords.latitude));
-                formData.append('longitude', String(finalLocation.coords.longitude));
-            }
-            if (locationName) {
-                formData.append('locationName', locationName);
-            }
-
-            formData.append('notes', resolutionNotes);
-
-            // Append all photos with same key 'photos'
-            photos.forEach((uri, index) => {
-                // @ts-ignore
-                formData.append('photos', {
-                    uri: uri,
-                    name: `upload_${index}.jpg`,
-                    type: 'image/jpeg'
+                const reverseGeocode = await Location.reverseGeocodeAsync({
+                    latitude: finalLocation.coords.latitude,
+                    longitude: finalLocation.coords.longitude
                 });
-            });
-
-            await axios.post(`${Config.API_URL}/api/mobile/work-orders/${id}/update`, formData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
+                if (reverseGeocode.length > 0) {
+                    const addr = reverseGeocode[0];
+                    locationName = `${addr.street || ''} ${addr.district || ''} ${addr.city || ''}`.trim();
+                    if (!locationName) locationName = addr.name || addr.region || '';
                 }
-            });
-
-            Alert.alert('Berhasil', 'Pekerjaan telah diselesaikan dan laporan terkirim!', [
-                { text: 'OK', onPress: () => router.replace('/(app)/dashboard') }
-            ]);
-
-        } catch (error: any) {
-            console.error('Complete Error:', error);
-            Alert.alert('Gagal', error.response?.data?.error || 'Gagal menyelesaikan pekerjaan');
-        } finally {
-            setLoading(false);
+            }
+        } catch (e) {
+            console.log("Loc error", e);
         }
+        
+        // Watermark Lines
+        // Construct Location String similar to backend logic
+        const coords = (finalLocation) ? `(${finalLocation.coords.latitude.toFixed(6)}, ${finalLocation.coords.longitude.toFixed(6)})` : '';
+        let locStr = locationName || `Loc: ${coords}` || 'Loc: Unknown';
+        
+        // Note: Indexing 1/N is not supported in bulk generic sync yet, simplified watermark
+        const watermarkLines = [
+             format(new Date(), 'dd MMM yyyy HH:mm'),
+             `#${ticketNumber}`,
+             `Tech: ${'Teknisi'}`, // Specific user name might not be available if not in context, 'Teknisi' is generic safe
+             locStr
+        ];
+
+        const payload = {
+            action: 'COMPLETE',
+            latitude: finalLocation?.coords.latitude.toString(),
+            longitude: finalLocation?.coords.longitude.toString(),
+            locationName,
+            notes: resolutionNotes
+        };
+        
+        await mutate({
+            ...payload,
+            photoUrls: [], // Placeholder
+            meta: {
+                photos: photos,
+                targetField: 'photoUrls', // Backend expects photoUrls array for COMPLETE
+                singleFile: false,
+                photoType: 'workorder-completion',
+                watermarkLines
+            }
+        }, {
+            url: `/api/mobile/work-orders/${id}/update`,
+            method: 'POST',
+            onSuccess: (data, isOffline) => {
+                if (isOffline) {
+                    Alert.alert('Offline', 'Laporan disimpan di antrian.', [
+                        { text: 'OK', onPress: () => router.replace('/(app)/dashboard') }
+                    ]);
+                } else {
+                    Alert.alert('Berhasil', 'Pekerjaan telah diselesaikan dan laporan terkirim!', [
+                        { text: 'OK', onPress: () => router.replace('/(app)/dashboard') }
+                    ]);
+                }
+            },
+            onError: (err) => Alert.alert('Gagal', err.message || 'Gagal menyelesaikan pekerjaan')
+        });
     };
 
     return (
@@ -199,10 +233,10 @@ export default function CompleteWorkOrderScreen() {
             <View style={tw`p-4 border-t border-gray-100`}>
                 <TouchableOpacity
                     onPress={handleSubmit}
-                    disabled={loading}
-                    style={tw`w-full bg-green-600 py-4 rounded-xl items-center shadow-lg shadow-green-200 ${(loading || !resolutionNotes || photos.length === 0) ? 'opacity-70' : ''}`}
+                    disabled={isMutating}
+                    style={tw`w-full bg-green-600 py-4 rounded-xl items-center shadow-lg shadow-green-200 ${(isMutating || !resolutionNotes || photos.length === 0) ? 'opacity-70' : ''}`}
                 >
-                    {loading ? (
+                    {isMutating ? (
                         <ActivityIndicator color="white" />
                     ) : (
                         <Text style={tw`font-bold text-white text-base`}>Kirim Laporan & Selesai</Text>

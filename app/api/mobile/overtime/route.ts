@@ -100,18 +100,21 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'ID dan foto wajib diisi' }, { status: 400 });
             }
 
-            // Convert Base64 photo to file/url
-            const dateStr = new Date().toISOString().split('T')[0];
-            const uploadDir = `public/uploads/overtime/${dateStr}`;
-            const fileName = `${userId}_start_${Date.now()}`;
-
-            const photoUrl = await convertAndSaveBase64(
-                photo,
-                uploadDir,
-                fileName,
-                'employee-attendance',
-                userId
-            );
+            // Convert Base64 photo to file/url if needed
+            let photoUrl = photo;
+            if (!photo.startsWith('http') && !photo.startsWith('/uploads')) {
+                 const dateStr = new Date().toISOString().split('T')[0];
+                 const uploadDir = `public/uploads/overtime/${dateStr}`;
+                 const fileName = `${userId}_start_${Date.now()}`;
+    
+                 photoUrl = await convertAndSaveBase64(
+                    photo,
+                    uploadDir,
+                    fileName,
+                    'employee-attendance',
+                    userId
+                 );
+            }
 
             const result = await service.startOvertime(userId, overtimeId, {
                 photo: photoUrl,
@@ -127,18 +130,21 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'ID dan foto wajib diisi' }, { status: 400 });
             }
 
-            // Convert Base64 photo to file/url
-            const dateStr = new Date().toISOString().split('T')[0];
-            const uploadDir = `public/uploads/overtime/${dateStr}`;
-            const fileName = `${userId}_stop_${Date.now()}`;
+            // Convert Base64 photo to file/url if needed
+            let photoUrl = photo;
+            if (!photo.startsWith('http') && !photo.startsWith('/uploads')) {
+                const dateStr = new Date().toISOString().split('T')[0];
+                const uploadDir = `public/uploads/overtime/${dateStr}`;
+                const fileName = `${userId}_stop_${Date.now()}`;
 
-            const photoUrl = await convertAndSaveBase64(
-                photo,
-                uploadDir,
-                fileName,
-                'employee-attendance',
-                userId
-            );
+                photoUrl = await convertAndSaveBase64(
+                    photo,
+                    uploadDir,
+                    fileName,
+                    'employee-attendance',
+                    userId
+                );
+            }
 
             const result = await service.stopOvertime(userId, overtimeId, {
                 photo: photoUrl,

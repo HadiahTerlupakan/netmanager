@@ -39,34 +39,45 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Anda belum melakukan check-in atau sudah check-out hari ini' }, { status: 400 })
         }
 
-        const formData: any = await request.formData()
-        const photo = formData.get('photo') as File
-        const notes = formData.get('notes') as string
-        const location = formData.get('location') as string
-
         let photoUrl = null
-
-        if (photo) {
-            if (!photo.type.startsWith('image/')) {
-                return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 })
+        let notes = ''
+        let location = ''
+        
+        const contentType = request.headers.get('content-type') || ''
+        
+        if (contentType.includes('application/json')) {
+            const body = await request.json()
+            photoUrl = body.photoUrl
+            notes = body.notes
+            location = body.location
+        } else {
+            const formData: any = await request.formData()
+            const photo = formData.get('photo') as File
+            notes = formData.get('notes') as string
+            location = formData.get('location') as string
+            
+            if (photo) {
+                if (!photo.type.startsWith('image/')) {
+                    return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 })
+                }
+    
+                const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+                if (photo.size > MAX_SIZE) {
+                    return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 })
+                }
+    
+                const dateStr = new Date().toISOString().split('T')[0]
+                const uploadDir = `public/uploads/attendance/${dateStr}`
+                const fileName = `${userId}_checkout_${Date.now()}`
+    
+                photoUrl = await convertAndSaveImage(
+                    photo,
+                    uploadDir,
+                    fileName,
+                    'employee-attendance',
+                    userId
+                )
             }
-
-            const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-            if (photo.size > MAX_SIZE) {
-                return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 })
-            }
-
-            const dateStr = new Date().toISOString().split('T')[0]
-            const uploadDir = `public/uploads/attendance/${dateStr}`
-            const fileName = `${userId}_checkout_${Date.now()}`
-
-            photoUrl = await convertAndSaveImage(
-                photo,
-                uploadDir,
-                fileName,
-                'employee-attendance',
-                userId
-            )
         }
 
         const updatedAttendance = await prisma.attendance.update({

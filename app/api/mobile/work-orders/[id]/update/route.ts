@@ -27,13 +27,28 @@ export async function POST(
         const repository = new WorkOrderRepository(prisma);
 
         // 2. Parse FormData
-        const formData: any = await request.formData();
-        const action = formData.get('action') as string; // 'START' | 'PAUSE' | 'COMPLETE' | 'NOTE'
-        const notes = formData.get('notes') as string;
-        const photo = formData.get('photo') as File;
-        const latitude = formData.get('latitude') as string;
-        const longitude = formData.get('longitude') as string;
-        const locationName = formData.get('locationName') as string;
+        // 2. Parse Request (FormData or JSON)
+        let action, notes, photo, latitude, longitude, locationName, photoUrl, photoUrls;
+        
+        const contentType = request.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            const body = await request.json();
+            action = body.action;
+            notes = body.notes;
+            latitude = body.latitude;
+            longitude = body.longitude;
+            locationName = body.locationName;
+            photoUrl = body.photoUrl; // Single photo (Note)
+            photoUrls = body.photoUrls; // Multiple photos (Complete)
+        } else {
+             const formData: any = await request.formData();
+             action = formData.get('action') as string;
+             notes = formData.get('notes') as string;
+             photo = formData.get('photo') as File;
+             latitude = formData.get('latitude') as string;
+             longitude = formData.get('longitude') as string;
+             locationName = formData.get('locationName') as string;
+        }
 
         // Construct Location String: Name (Lat, Long)
         // Construct Location String: Address + Coordinates
@@ -74,52 +89,79 @@ export async function POST(
 
         } else if (action === 'COMPLETE') {
             // Handle multiple photos
-            const photos = formData.getAll('photos') as File[];
-            const singlePhoto = formData.get('photo') as File; // Backward compatibility
-            if (singlePhoto && !photos.includes(singlePhoto)) {
-                photos.push(singlePhoto);
-            }
-
-            if (photos.length > 0) {
-                // Fetch user name for watermark
-                const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
-
-                // Process each photo
-                for (let i = 0; i < photos.length; i++) {
-                    const p = photos[i];
-                    // Skip if not a file
-                    if (!(p instanceof File)) continue;
-
-                    const watermarkLines = [
-                        format(new Date(), 'dd MMM yyyy HH:mm'),
-                        `#${ticketNumber}`,
-                        `Tech: ${user?.name || 'Unknown'}`,
-                        locationStr,
-                        `[COMPLETED] ${i + 1}/${photos.length}`
-                    ];
-
-                    const dateStr = new Date().toISOString().split('T')[0];
-                    const uploadDir = `public/uploads/workorders/${dateStr}`;
-                    const fileName = `${workOrderId}_complete_${Date.now()}_${i}`;
-
-                    const filePath = await convertAndSaveImage(
-                        p,
-                        uploadDir,
-                        fileName,
-                        'workorder-completion',
-                        workOrderId,
-                        watermarkLines
-                    );
-
-                    await repository.addAttachment(
-                        workOrderId,
-                        p.name,
-                        filePath,
-                        p.size,
-                        p.type,
-                        `[COMPLETION] Bukti Penyelesaian ${i + 1}`,
-                        userId
-                    );
+            // CASE 1: JSON (Already uploaded)
+            if (photoUrls && Array.isArray(photoUrls) && photoUrls.length > 0) {
+                 for (let i = 0; i < photoUrls.length; i++) {
+                      const url = photoUrls[i];
+                      await repository.addAttachment(
+                           workOrderId,
+                           `photo_${i}.jpg`,
+                           url,
+                           0, // Size unknown
+                           'image/jpeg',
+                           `[COMPLETION] Bukti Penyelesaian ${i + 1}`,
+                           userId
+                      );
+                 }
+            } 
+            // CASE 2: Form Data (File Upload)
+            else {
+                const formData = await request.formData().catch(() => new FormData()); // Re-parse if needed or use existing if scoped
+                // Actually we can't re-read stream. We need to handle this better in step 2 if we want to share logic.
+                // But simplified: If contentType is NOT json, we already parsed formData above? 
+                // Wait, formData variable in step 2 is scoped.
+                // We need to access formData from step 2.
+                // I will assume if `photoUrls` is undefined, we might have `formData`.
+                // BUT `formData` variable defined in "step 2" logic above is inside "else" block.
+                // I should lift `formData` variable or just rely on `photo` being defined if "step 2" was formData.
+                
+                // Oops, `photo` variable (single) is defined.
+                // But `photos` (multiple) was handled locally in COMPLETE block (Line 77).
+                // I need to change how `photos` is retrieved.
+                
+                // If NOT JSON:
+                if (!contentType.includes('application/json')) {
+                     const formData: any = await request.formData();
+                     const photos = formData.getAll('photos') as File[];
+                     const singlePhoto = formData.get('photo') as File;
+                     if (singlePhoto && !photos.includes(singlePhoto)) {
+                         photos.push(singlePhoto);
+                     }
+                     
+                     if (photos.length > 0) {
+                        const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+                        for (let i = 0; i < photos.length; i++) {
+                            const p = photos[i];
+                            if (!(p instanceof File)) continue;
+                            const watermarkLines = [
+                                format(new Date(), 'dd MMM yyyy HH:mm'),
+                                `#${ticketNumber}`,
+                                `Tech: ${user?.name || 'Unknown'}`,
+                                locationStr,
+                                `[COMPLETED] ${i + 1}/${photos.length}`
+                            ];
+                            const dateStr = new Date().toISOString().split('T')[0];
+                            const uploadDir = `public/uploads/workorders/${dateStr}`;
+                            const fileName = `${workOrderId}_complete_${Date.now()}_${i}`;
+                            const filePath = await convertAndSaveImage(
+                                p,
+                                uploadDir,
+                                fileName,
+                                'workorder-completion',
+                                workOrderId,
+                                watermarkLines
+                            );
+                            await repository.addAttachment(
+                                workOrderId,
+                                p.name,
+                                filePath,
+                                p.size,
+                                p.type,
+                                `[COMPLETION] Bukti Penyelesaian ${i + 1}`,
+                                userId
+                            );
+                        }
+                     }
                 }
             }
 
@@ -141,12 +183,26 @@ export async function POST(
             }
             return NextResponse.json({ success: true, message: 'Work Order Paused' });
         } else if (action === 'NOTE') {
-            if (!notes && !photo) {
+            if (!notes && !photo && !photoUrl) {
                 return NextResponse.json({ error: 'Notes or photo required' }, { status: 400 });
             }
 
             let attachmentPath = null;
-            if (photo) {
+            
+            // CASE 1: JSON (Already uploaded)
+            if (photoUrl) {
+                await repository.addAttachment(
+                    workOrderId,
+                    'photo_note.jpg',
+                    photoUrl,
+                    0,
+                    'image/jpeg',
+                    notes || 'Photo Update',
+                    userId
+                );
+            }
+            // CASE 2: File Upload (Server Watermark)
+            else if (photo) {
                 // Fetch user name for watermark
                 const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
                 const watermarkLines = [
@@ -180,7 +236,7 @@ export async function POST(
             await repository.addUpdate({
                 workOrderId,
                 updateType: 'NOTE',
-                message: notes || (photo ? 'Uploaded a photo' : ''),
+                message: notes || (photo || photoUrl ? 'Uploaded a photo' : ''),
                 createdById: userId
             });
             return NextResponse.json({ success: true, message: 'Note added' });

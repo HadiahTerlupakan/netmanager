@@ -11,6 +11,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { captureRef } from 'react-native-view-shot';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { useOfflineMutation } from '@/hooks/useOfflineMutation';
+import { SyncService } from '@/services/SyncService';
 
 interface Gudang {
     id: string;
@@ -63,56 +66,40 @@ export default function BarangMasukScreen() {
     // Refs for watermark capture
     const watermarkRefs = useRef<(View | null)[]>([]);
 
-    const fetchGudangs = useCallback(async () => {
-        try {
+    const { mutate, isLoading: isMutating } = useOfflineMutation();
+
+    // Offline Query: Gudangs
+    const { data: gudangData, isLoading: loadingGudangs } = useOfflineQuery<Gudang[]>({
+        key: 'gudang_list',
+        fetcher: async () => {
             const res = await axios.get(`${Config.API_URL}/api/mobile/inventory/gudang`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const list = res.data?.gudangList || res.data?.data || [];
-            setGudangs(list);
-            if (list.length === 0) {
-                Alert.alert('Info', 'Tidak ada data gudang ditemukan');
-            }
-        } catch (error) {
-            console.error('Failed to fetch gudangs:', error);
-            Alert.alert('Error', 'Gagal memuat daftar gudang. Cek koneksi internet.');
-        }
-    }, [token]);
+            return res.data?.gudangList || res.data?.data || [];
+        },
+        enabled: !!token
+    });
 
-    const fetchBarangs = useCallback(async (gudangId: string) => {
-        if (!gudangId) return;
-        setLoading(true);
-        try {
-            const res = await axios.get(`${Config.API_URL}/api/mobile/inventory/barang?gudangId=${gudangId}`, {
+    useEffect(() => {
+        if (gudangData) setGudangs(gudangData);
+    }, [gudangData]);
+
+    // Offline Query: Barangs
+    const { data: barangData, isLoading: loadingBarangs } = useOfflineQuery<Barang[]>({
+        key: `barang_list_${selectedGudang}`,
+        fetcher: async () => {
+             const res = await axios.get(`${Config.API_URL}/api/mobile/inventory/barang?gudangId=${selectedGudang}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const list = res.data?.barangList || [];
-            setBarangs(list);
-            if (list.length === 0) {
-                Alert.alert('Info', 'Gudang ini tidak memiliki barang');
-            }
-        } catch (error) {
-            console.error('Failed to fetch barangs:', error);
-            Alert.alert('Error', 'Gagal memuat daftar barang');
-        } finally {
-            setLoading(false);
-        }
-    }, [token]);
+            return res.data?.barangList || [];
+        },
+        enabled: !!token && !!selectedGudang
+    });
 
     useEffect(() => {
-        if (token) {
-            fetchGudangs();
-        }
-    }, [token, fetchGudangs]);
-
-    useEffect(() => {
-        if (selectedGudang) {
-            fetchBarangs(selectedGudang);
-        } else {
-            setBarangs([]);
-            setSelectedBarang('');
-        }
-    }, [selectedGudang, token, fetchBarangs]);
+        if (barangData) setBarangs(barangData);
+        else if (!selectedGudang) setBarangs([]);
+    }, [barangData, selectedGudang]);
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -181,19 +168,24 @@ export default function BarangMasukScreen() {
         }
     };
 
-    const uploadPhotos = async (): Promise<string[]> => {
+    const processPhotos = async (): Promise<string[]> => {
+        const processedUris: string[] = [];
+        for (let i = 0; i < photos.length; i++) {
+            const watermarkedUri = await captureWatermarkedPhoto(i);
+            if (watermarkedUri) processedUris.push(watermarkedUri);
+        }
+        return processedUris;
+    };
+
+    const uploadPhotos = async (uris: string[]): Promise<string[]> => {
         const uploadedUrls: string[] = [];
 
-        for (let i = 0; i < photos.length; i++) {
+        for (const uri of uris) {
             try {
-                // Capture watermarked version
-                const watermarkedUri = await captureWatermarkedPhoto(i);
-                if (!watermarkedUri) continue;
-
                 const formData = new FormData();
-                const filename = watermarkedUri.split('/').pop() || 'photo.jpg';
+                const filename = uri.split('/').pop() || 'photo.jpg';
                 formData.append('file', {
-                    uri: watermarkedUri,
+                    uri: uri,
                     type: 'image/jpeg',
                     name: filename,
                 } as any);
@@ -213,7 +205,6 @@ export default function BarangMasukScreen() {
                 console.error('Failed to upload photo:', error);
             }
         }
-
         return uploadedUrls;
     };
 
@@ -229,37 +220,64 @@ export default function BarangMasukScreen() {
             return;
         }
 
-        setSubmitting(true);
-        try {
-            // Upload photos first (with watermark)
-            let fotoBukti: string[] = [];
-            if (photos.length > 0) {
-                fotoBukti = await uploadPhotos();
-            }
+        // 1. Process Photos (Capture Watermark)
+        const processedPhotos = await processPhotos();
+        
+        // 2. Check Connection
+        const isOnline = await SyncService.isOnline();
+        
+        // 3. Prepare Data
+        const payload = {
+            barangId: selectedBarang,
+            gudangId: selectedGudang,
+            jumlah: qty,
+            kondisi,
+            keterangan,
+        };
 
-            const res = await axios.post(
-                `${Config.API_URL}/api/mobile/inventory/masuk`,
-                {
-                    barangId: selectedBarang,
-                    gudangId: selectedGudang,
-                    jumlah: qty,
-                    kondisi,
-                    keterangan,
-                    fotoBukti
-                },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            if (res.data.success) {
-                Alert.alert('Sukses', 'Barang masuk berhasil dicatat', [
-                    { text: 'OK', onPress: () => router.back() }
-                ]);
+        if (isOnline) {
+            setSubmitting(true);
+            try {
+                // Upload photos first
+                const uploadedUrls = await uploadPhotos(processedPhotos);
+                
+                // Submit via Mutate (Online)
+                await mutate({
+                    ...payload,
+                    fotoBukti: uploadedUrls
+                }, {
+                    url: '/api/mobile/inventory/masuk',
+                    method: 'POST',
+                    onSuccess: () => {
+                        Alert.alert('Sukses', 'Barang masuk berhasil dicatat', [
+                            { text: 'OK', onPress: () => router.back() }
+                        ]);
+                    },
+                    onError: (err) => Alert.alert('Error', err.message || 'Gagal menyimpan data')
+                });
+            } catch (error) {
+                Alert.alert('Error', 'Gagal upload foto atau simpan data');
+            } finally {
+                setSubmitting(false);
             }
-        } catch (error: any) {
-            console.error('Submit error:', error);
-            Alert.alert('Error', error.response?.data?.error || 'Gagal menyimpan data');
-        } finally {
-            setSubmitting(false);
+        } else {
+            // Offline - Submit to Queue with Local URIs
+            await mutate({
+                ...payload,
+                fotoBukti: [], // Placeholder
+                meta: {
+                    photos: processedPhotos, // Local URIs for SyncService
+                    targetField: 'fotoBukti' 
+                }
+            }, {
+                url: '/api/mobile/inventory/masuk',
+                method: 'POST',
+                onSuccess: (data, isOffline) => {
+                    if (isOffline) {
+                        router.back();
+                    }
+                }
+            });
         }
     };
 
@@ -480,11 +498,11 @@ export default function BarangMasukScreen() {
 
                     {/* Submit Button */}
                     <TouchableOpacity
-                        style={tw`bg-blue-600 rounded-xl py-4 items-center ${submitting ? 'opacity-50' : ''}`}
+                        style={tw`bg-blue-600 rounded-xl py-4 items-center ${(submitting || isMutating) ? 'opacity-50' : ''}`}
                         onPress={handleSubmit}
-                        disabled={submitting}
+                        disabled={submitting || isMutating}
                     >
-                        {submitting ? (
+                        {(submitting || isMutating) ? (
                             <ActivityIndicator color="white" />
                         ) : (
                             <Text style={tw`text-white font-bold text-base`}>Simpan</Text>

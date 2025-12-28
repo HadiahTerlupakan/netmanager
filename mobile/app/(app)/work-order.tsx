@@ -10,6 +10,9 @@ import { Config } from '../../constants/Config';
 import WorkOrderListItem from '../../components/dashboard/WorkOrderListItem';
 import { useRouter } from 'expo-router';
 import { FileText, Inbox, CheckCircle, MapPin, Phone, User, Wifi, WifiOff } from 'lucide-react-native';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { useOfflineMutation } from '@/hooks/useOfflineMutation';
+import { SyncService } from '@/services/SyncService';
 
 type TabType = 'tersedia' | 'aktif' | 'riwayat';
 
@@ -19,53 +22,48 @@ export default function WorkOrderScreen() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<TabType>('tersedia');
     const [workOrders, setWorkOrders] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [claiming, setClaiming] = useState<string | null>(null);
-
-    const fetchWorkOrders = async () => {
-        try {
-            let endpoint = '';
-            let params = {};
-
-            if (activeTab === 'tersedia') {
-                endpoint = `${Config.API_URL}/api/mobile/work-orders/available`;
-            } else {
-                endpoint = `${Config.API_URL}/api/mobile/work-orders`;
-                params = { type: activeTab === 'aktif' ? 'active' : 'history' };
-            }
-
-            const res = await axios.get(endpoint, {
-                headers: { Authorization: `Bearer ${token}` },
-                params
-            });
-
-            if (res.data.success) {
-                setWorkOrders(res.data.data);
-            }
-        } catch (error) {
-            console.error('Fetch WO Error:', error);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    };
+    
+    // Offline Query
+    const { data: woData, isLoading: loadingWO, refetch: refetchWO } = useOfflineQuery<any[]>({
+        key: `work_orders_${activeTab}`,
+        fetcher: async () => {
+             let endpoint = '';
+             let params = {};
+             if (activeTab === 'tersedia') {
+                 endpoint = `${Config.API_URL}/api/mobile/work-orders/available`;
+             } else {
+                 endpoint = `${Config.API_URL}/api/mobile/work-orders`;
+                 params = { type: activeTab === 'aktif' ? 'active' : 'history' };
+             }
+             
+             const res = await axios.get(endpoint, {
+                 headers: { Authorization: `Bearer ${token}` },
+                 params
+             });
+             return res.data?.data || [];
+        },
+        enabled: !!token
+    });
+    
+    // Offline Mutation for Claim
+    const { mutate: claimMutate, isLoading: isClaiming } = useOfflineMutation();
 
     useEffect(() => {
-        setLoading(true);
-        fetchWorkOrders();
-    }, [activeTab]);
+        if (woData) setWorkOrders(woData);
+    }, [woData]);
+
+    const fetchWorkOrders = refetchWO;
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-        fetchWorkOrders();
-    }, [activeTab]);
+        refetchWO().finally(() => setRefreshing(false));
+    }, [refetchWO]);
 
     // WebSocket: Auto-refresh on WO updates
     const handleWOEvent = useCallback((data: any) => {
         console.log('[WS Mobile] WO Event received, refreshing list...');
-        fetchWorkOrders();
-    }, [activeTab]);
+        refetchWO();
+    }, [refetchWO]);
 
     // Subscribe to WO events for real-time updates
     useSocketEvent(SOCKET_EVENTS.WORKORDER_NEW, handleWOEvent);
@@ -82,23 +80,31 @@ export default function WorkOrderScreen() {
                     text: 'Ya, Ambil',
                     onPress: async () => {
                         setClaiming(workOrderId);
-                        try {
-                            const res = await axios.post(
-                                `${Config.API_URL}/api/mobile/work-orders/available`,
-                                { workOrderId },
-                                { headers: { Authorization: `Bearer ${token}` } }
-                            );
-
-                            if (res.data.success) {
-                                Alert.alert('Berhasil', 'Tugas berhasil diambil!');
-                                setActiveTab('aktif');
-                            }
-                        } catch (error: any) {
-                            const errMsg = error.response?.data?.error || 'Gagal mengambil tugas';
-                            Alert.alert('Error', errMsg);
-                        } finally {
-                            setClaiming(null);
+                        
+                        const isOnline = await SyncService.isOnline();
+                        
+                        // Optimistic Update (Offline)
+                        if (!isOnline) {
+                             Alert.alert('Offline', 'Permintaan disimpan di antrian.');
+                             // Ideally update local state to remove from "Tersedia"
                         }
+
+                        await claimMutate({
+                            workOrderId
+                        }, {
+                            url: '/api/mobile/work-orders/available',
+                            method: 'POST',
+                            onSuccess: () => {
+                                if (isOnline) {
+                                    Alert.alert('Berhasil', 'Tugas berhasil diambil!');
+                                    setActiveTab('aktif');
+                                } else {
+                                    setActiveTab('aktif'); // Optimistic switch
+                                }
+                            },
+                             onError: (err) => Alert.alert('Error', err.message || 'Gagal mengambil tugas')
+                        });
+                        setClaiming(null);
                     }
                 }
             ]
@@ -168,7 +174,7 @@ export default function WorkOrderScreen() {
             </View>
 
             {/* Content */}
-            {loading && !refreshing ? (
+            {loadingWO && !refreshing && workOrders.length === 0 ? (
                 <View style={tw`flex-1 justify-center items-center`}>
                     <ActivityIndicator size="large" color="#2563eb" />
                 </View>

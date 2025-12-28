@@ -27,6 +27,16 @@ export async function POST(request: NextRequest) {
         const file = formData.get('file') as File | null;
         const type = (formData.get('type') as UploadType) || 'general';
         const subFolder = formData.get('subFolder') as string || undefined;
+        const watermarkLinesStr = formData.get('watermarkLines') as string | null;
+        
+        let watermarkLines: string[] | undefined;
+        if (watermarkLinesStr) {
+             try {
+                 watermarkLines = JSON.parse(watermarkLinesStr);
+             } catch (e) {
+                 console.warn('Invalid watermark lines JSON', e);
+             }
+        }
 
         // Validate required fields
         if (!file) {
@@ -82,7 +92,10 @@ export async function POST(request: NextRequest) {
             uploadDir,
             fileName,
             type ?? undefined,
-            subFolder
+            fileName,
+            type ?? undefined,
+            subFolder,
+            watermarkLines
         );
 
         return NextResponse.json({

@@ -60,6 +60,14 @@ export async function POST(request: Request) {
         if (photos && photos.length > 0) {
             for (let i = 0; i < photos.length; i++) {
                 const photo = photos[i]
+                
+                // If it's already a URL (from SyncService upload), just use it
+                if (photo.startsWith('http') || photo.startsWith('/uploads')) {
+                    attachments.push(photo);
+                    continue;
+                }
+                
+                // Otherwise treat as Base64
                 const timestamp = Date.now()
                 const fileName = `leave_${user.id}_${timestamp}_${i}`
                 const uploadDir = 'public/uploads/employee-leave'

@@ -111,34 +111,54 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Anda sudah melakukan check-in hari ini' }, { status: 400 })
         }
 
-        const formData: any = await request.formData()
-        const photo = formData.get('photo') as File
-        const location = formData.get('location') as string
-        const notes = formData.get('notes') as string
-
         let photoUrl = null
-
-        if (photo) {
-            if (!photo.type.startsWith('image/')) {
-                return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 })
+        let location = ''
+        let notes = ''
+        
+        const contentType = request.headers.get('content-type') || ''
+        
+        if (contentType.includes('application/json')) {
+            const body = await request.json()
+            photoUrl = body.photoUrl
+            location = body.location
+            notes = body.notes
+             // Also support latitude/longitude in body for logging
+             if (body.latitude && body.longitude) {
+                console.log('Mobile Check-In Location (JSON):', { userId, lat: body.latitude, lng: body.longitude })
+             }
+        } else {
+            const formData: any = await request.formData()
+            const photo = formData.get('photo') as File
+            location = formData.get('location') as string
+            notes = formData.get('notes') as string
+            
+            if (photo) {
+                if (!photo.type.startsWith('image/')) {
+                    return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 })
+                }
+    
+                const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+                if (photo.size > MAX_SIZE) {
+                    return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 })
+                }
+    
+                const dateStr = new Date().toISOString().split('T')[0]
+                const uploadDir = `public/uploads/attendance/${dateStr}`
+                const fileName = `${userId}_checkin_${Date.now()}`
+    
+                photoUrl = await convertAndSaveImage(
+                    photo,
+                    uploadDir,
+                    fileName,
+                    'employee-attendance',
+                    userId
+                )
             }
-
-            const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-            if (photo.size > MAX_SIZE) {
-                return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 })
-            }
-
-            const dateStr = new Date().toISOString().split('T')[0]
-            const uploadDir = `public/uploads/attendance/${dateStr}`
-            const fileName = `${userId}_checkin_${Date.now()}`
-
-            photoUrl = await convertAndSaveImage(
-                photo,
-                uploadDir,
-                fileName,
-                'employee-attendance',
-                userId
-            )
+             const latStr = formData.get('latitude') as string
+             const lngStr = formData.get('longitude') as string
+             if (latStr && lngStr) {
+                 console.log('Mobile Check-In Location (FormData):', { userId, lat: latStr, lng: lngStr })
+             }
         }
 
         let status = 'ON_TIME'
@@ -155,11 +175,8 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        const latStr = formData.get('latitude') as string
-        const lngStr = formData.get('longitude') as string
-        if (latStr && lngStr) {
-            console.log('Mobile Check-In Location:', { userId, lat: latStr, lng: lngStr, status })
-        }
+        // Logic already handled above in JSON/FormData block
+
 
         const attendance = await prisma.attendance.create({
             data: {
