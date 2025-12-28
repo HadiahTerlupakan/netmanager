@@ -99,3 +99,6 @@ uploads/
 public/uploads/
 /backups/
 local_radius*.log
+
+# Mobile App (Separate Repo)
+mobile/
