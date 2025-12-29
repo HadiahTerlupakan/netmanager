@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { PhotoUpload } from './PhotoUpload'
 import type { PhotoUploadRef } from './PhotoUpload'
+import { Combobox } from '@/components/ui/Combobox'
 
 interface MasukFormProps {
   initialData?: any
@@ -23,20 +24,40 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
   const [gudangs, setGudangs] = useState<any[]>([])
   const [currentStock, setCurrentStock] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([])
   const [transactionId, setTransactionId] = useState<string | null>(null)
+  
+  // Persist the full details of the selected barang so it doesn't disappear if search results update
+  const [persistedBarang, setPersistedBarang] = useState<any | null>(null)
+
   const photoUploadRef = useRef<PhotoUploadRef>(null)
   const router = useRouter()
+
+  const fetchBarangs = async (query = '') => {
+    setIsSearching(true)
+    try {
+        const params = new URLSearchParams()
+        params.append('limit', '50') 
+        if (query) params.append('search', query)
+        
+        const response = await fetch(`/api/inventory/barang?${params.toString()}`)
+        const data = await response.json()
+        setBarangs(data.barangs || [])
+    } catch (err) {
+        console.error('Error fetching barangs:', err)
+    } finally {
+        setIsSearching(false)
+    }
+  }
 
   useEffect(() => {
     async function fetchInitialData() {
       try {
-        // Fetch barang
-        const barangResponse = await fetch('/api/inventory/barang?limit=100')
-        const barangData = await barangResponse.json()
-        setBarangs(barangData.barangs || [])
+        // Fetch initial barang list
+        await fetchBarangs()
 
         // Fetch gudang
         const gudangResponse = await fetch('/api/inventory/gudang')
@@ -54,6 +75,13 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             tanggal: initialData.tanggal ? new Date(initialData.tanggal).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
           })
           setTransactionId(initialData.id || null)
+          
+          // If we have an initial barangId, we might need to fetch its details explicitly if not in the list
+          // But usually initialData should contain the barang object too?
+          // If initialData.barang exists, set it as persisted
+          if (initialData.barang) {
+             setPersistedBarang(initialData.barang)
+          } 
         }
       } catch (error) {
         console.error('Error fetching initial data:', error)
@@ -64,12 +92,17 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
     fetchInitialData()
   }, [initialData])
 
+  // Logic to determine the currently active barang details
+  // 1. Try to find in the current list
+  // 2. If not found, use the persisted one if IDs match
+  const selectedBarang = barangs.find(b => b.id === formData.barangId) || 
+    (persistedBarang?.id === formData.barangId ? persistedBarang : undefined)
+
   useEffect(() => {
     async function fetchCurrentStock() {
       if (formData.barangId && formData.gudangId) {
         try {
-          // Check current stock for this barang-gudang combination
-          const selectedBarang = barangs.find(b => b.id === formData.barangId)
+          // Use selectedBarang (which could be persisted)
           if (selectedBarang) {
             const stockInfo = selectedBarang.stockPerGudang?.find((s: any) => s.gudangId === formData.gudangId)
             setCurrentStock(stockInfo?.stok || 0)
@@ -83,7 +116,23 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
     }
 
     fetchCurrentStock()
-  }, [formData.barangId, formData.gudangId, barangs])
+  }, [formData.barangId, formData.gudangId, selectedBarang])
+
+  const resetForm = useCallback(() => {
+      setFormData({
+        barangId: '',
+        gudangId: '',
+        jumlah: '',
+        kondisi: 'BARU',
+        keterangan: '',
+        tanggal: new Date().toISOString().split('T')[0]
+      })
+      setCurrentStock(0)
+      setUploadedPhotos([])
+      setTransactionId(null)
+      setPersistedBarang(null)
+      onClose()
+  }, [onClose])
 
   // Effect to handle photo upload completion
   useEffect(() => {
@@ -97,34 +146,29 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
 
         // Reset form after a short delay
         setTimeout(() => {
-          setFormData({
-            barangId: '',
-            gudangId: '',
-            jumlah: '',
-            kondisi: 'BARU',
-            keterangan: '',
-            tanggal: new Date().toISOString().split('T')[0]
-          })
-          setCurrentStock(0)
-          setUploadedPhotos([])
-          setTransactionId(null)
-          onClose()
+          resetForm()
         }, 2000)
       } else if (hasError) {
         setSuccess('Barang masuk berhasil dicatat, namun beberapa foto gagal diunggah.')
       }
     }
-  }, [uploadedPhotos, transactionId, onClose])
+  }, [uploadedPhotos, transactionId, resetForm])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    console.log('handleInputChange called:', { name, value, type: e.target.type })
-    setFormData(prev => {
-      const newData = { ...prev, [name]: value }
-      console.log('Updated formData:', newData)
-      return newData
-    })
+    setFormData(prev => ({ ...prev, [name]: value }))
     setError('')
+  }
+
+  const handleBarangChange = (value: string) => {
+      setFormData(prev => ({ ...prev, barangId: value }))
+      setError('')
+      
+      // Update persisted barang when selection changes
+      const item = barangs.find(b => b.id === value)
+      if (item) {
+          setPersistedBarang(item)
+      }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -154,7 +198,6 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
         if (uploadedPhotos.length > 0) {
           setSuccess('Mengunggah foto...')
           // The PhotoUpload component will handle the upload automatically
-          // when transactionId is already set
         } else {
           setSuccess('Tidak ada foto baru untuk diunggah')
           setTimeout(() => {
@@ -162,10 +205,8 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
           }, 1000)
         }
       } else {
-        // Create mode - upload photos first, then create transaction
+        // Create mode
         const jumlah = parseInt(formData.jumlah)
-        console.log('FORM DATA before submit:', formData)
-        console.log('PARSED jumlah:', jumlah)
 
         // Upload photos first if any exist
         let fotoBuktiUrls: string[] = []
@@ -176,14 +217,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
 
           if (currentPhotos.length > 0) {
             setSuccess('Mengunggah foto...')
-
-            // Upload photos
             fotoBuktiUrls = await photoUploadRef.current.uploadPhotos()
-
-            // Get updated photos after upload
             uploadedPhotosList = photoUploadRef.current.getPhotos()
 
-            // Check if any photos failed to upload
             const failedPhotos = uploadedPhotosList.filter(photo => photo.status === 'error')
             if (failedPhotos.length > 0) {
               throw new Error(`Beberapa foto gagal diunggah: ${failedPhotos.map(p => p.error).join(', ')}`)
@@ -218,46 +254,20 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
           throw new Error(data.error || 'Gagal mencatat barang masuk')
         }
 
-        // Extract transaction ID from response
         if (data.masukId) {
           setTransactionId(data.masukId)
           setSuccess('Barang masuk berhasil dicatat!')
 
-          // Reset form after a short delay
           setTimeout(() => {
-            setFormData({
-              barangId: '',
-              gudangId: '',
-              jumlah: '',
-              kondisi: 'BARU',
-              keterangan: '',
-              tanggal: new Date().toISOString().split('T')[0]
-            })
-            setCurrentStock(0)
-            setUploadedPhotos([])
-            setTransactionId(null)
-            // Reset photo upload component
-            if (photoUploadRef.current) {
+            resetForm()
+             if (photoUploadRef.current) {
               photoUploadRef.current.resetPhotos()
             }
-            onClose()
           }, 1500)
         } else {
           setSuccess('Barang masuk berhasil dicatat!')
-
-          // Reset form
           setTimeout(() => {
-            setFormData({
-              barangId: '',
-              gudangId: '',
-              jumlah: '',
-              kondisi: 'BARU',
-              keterangan: '',
-              tanggal: new Date().toISOString().split('T')[0]
-            })
-            setCurrentStock(0)
-            setUploadedPhotos([])
-            onClose()
+            resetForm()
           }, 1000)
         }
       }
@@ -270,7 +280,6 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
     }
   }
 
-  const selectedBarang = barangs.find(b => b.id === formData.barangId)
   const selectedGudang = gudangs.find(g => g.id === formData.gudangId)
 
   const getStockStatusColor = (stock: number) => {
@@ -286,6 +295,20 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
       case 'RUSAK': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
     }
+  }
+
+  // Combine barangs with persistedBarang for the Options list to ensure selected item is always visible
+  const barangOptions = barangs.map(b => ({
+      value: b.id,
+      label: `${b.kode} - ${b.nama}`
+  }))
+  
+  // Ensure the persisted/selected item is in the options list if it's not already
+  if (persistedBarang && !barangs.find(b => b.id === persistedBarang.id)) {
+      barangOptions.unshift({
+          value: persistedBarang.id,
+          label: `${persistedBarang.kode} - ${persistedBarang.nama}`
+      })
   }
 
   return (
@@ -315,25 +338,20 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
       )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <div>
+        <div className="flex flex-col">
           <label htmlFor="barangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Barang *
           </label>
-          <select
-            id="barangId"
-            name="barangId"
-            value={formData.barangId}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            disabled={loading || !!initialData}
-          >
-            <option value="">Pilih barang</option>
-            {barangs.map((barang) => (
-              <option key={barang.id} value={barang.id}>
-                {barang.kode} - {barang.nama}
-              </option>
-            ))}
-          </select>
+           <Combobox
+             value={formData.barangId}
+             onChange={handleBarangChange}
+             options={barangOptions}
+             placeholder="Cari & pilih barang..."
+             disabled={loading || !!initialData}
+             onSearch={fetchBarangs}
+             loading={isSearching}
+             className="w-full"
+           />
           {initialData && (
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Barang tidak dapat diubah pada mode edit

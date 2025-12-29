@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
         let status = 'ON_TIME'
 
         // Logika Status: Jika punya jadwal masuk, cek keterlambatan
-        if (userDetails?.startWorkTime) {
+        if (userDetails?.workingHourMode !== 'FLEXIBLE' && userDetails?.startWorkTime) {
             const [schedHour, schedMinute] = userDetails.startWorkTime.split(':').map(Number)
 
             // Buat objek Date untuk jadwal hari ini (menggunakan konteks Timezone)

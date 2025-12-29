@@ -62,8 +62,18 @@ async function loginAsAdmin(page: Page, email: string, password: string): Promis
 // Helper to get auth cookie for API tests
 async function getAuthCookie(page: Page): Promise<string | null> {
   const cookies = await page.context().cookies()
-  const sessionCookie = cookies.find(c => c.name === 'next-auth.session-token')
-  return sessionCookie?.value || null
+  console.log('DEBUG: Found cookies:', cookies.map(c => c.name))
+  
+  // Handle chunked cookies (next-auth.session-token.0, .1, etc)
+  const sessionCookies = cookies.filter(c => c.name.includes('next-auth.session-token'))
+  
+  if (sessionCookies.length === 0) return null
+  
+  // Sort by name to ensure correct order if chunked
+  sessionCookies.sort((a, b) => a.name.localeCompare(b.name))
+  
+  // Construct full cookie string: "name1=value1; name2=value2"
+  return sessionCookies.map(c => `${c.name}=${c.value}`).join('; ')
 }
 
 test.describe('RBAC - Page Access Control', () => {
@@ -237,7 +247,7 @@ test.describe('RBAC - API Route Protection', () => {
       
       const response = await request.get('/api/admin/workorders', {
         headers: {
-          'Cookie': `next-auth.session-token=${authCookie}`
+          'Cookie': authCookie!
         }
       })
       
@@ -251,7 +261,7 @@ test.describe('RBAC - API Route Protection', () => {
       
       const response = await request.get('/api/admin/departments', {
         headers: {
-          'Cookie': `next-auth.session-token=${authCookie}`
+          'Cookie': authCookie!
         }
       })
       
@@ -263,7 +273,7 @@ test.describe('RBAC - API Route Protection', () => {
       
       const response = await request.get('/api/admin/sites', {
         headers: {
-          'Cookie': `next-auth.session-token=${authCookie}`
+          'Cookie': authCookie!
         }
       })
       
@@ -275,7 +285,7 @@ test.describe('RBAC - API Route Protection', () => {
       
       const response = await request.get('/api/admin/attendance', {
         headers: {
-          'Cookie': `next-auth.session-token=${authCookie}`
+          'Cookie': authCookie!
         }
       })
       
@@ -285,43 +295,43 @@ test.describe('RBAC - API Route Protection', () => {
     // Network & FTTH (Super Admin Verified)
     test('GET /api/olts should return 200', async ({ request }) => {
       test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/olts', { headers: { 'Cookie': `next-auth.session-token=${authCookie}` } })
+      const response = await request.get('/api/olts', { headers: { 'Cookie': authCookie! } })
       expect(response.status()).toBe(200)
     })
 
     test('GET /api/onus should return 200', async ({ request }) => {
       test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/onus', { headers: { 'Cookie': `next-auth.session-token=${authCookie}` } })
+      const response = await request.get('/api/onus', { headers: { 'Cookie': authCookie! } })
       expect(response.status()).toBe(200)
     })
 
     test('GET /api/onutypes should return 200', async ({ request }) => {
       test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/onutypes', { headers: { 'Cookie': `next-auth.session-token=${authCookie}` } })
+      const response = await request.get('/api/onutypes', { headers: { 'Cookie': authCookie! } })
       expect(response.status()).toBe(200)
     })
 
     test('GET /api/odps should return 200', async ({ request }) => {
       test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/odps', { headers: { 'Cookie': `next-auth.session-token=${authCookie}` } })
+      const response = await request.get('/api/odps', { headers: { 'Cookie': authCookie! } })
       expect(response.status()).toBe(200)
     })
 
     test('GET /api/odcs should return 200', async ({ request }) => {
       test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/odcs', { headers: { 'Cookie': `next-auth.session-token=${authCookie}` } })
+      const response = await request.get('/api/odcs', { headers: { 'Cookie': authCookie! } })
       expect(response.status()).toBe(200)
     })
 
     test('GET /api/otbs should return 200', async ({ request }) => {
       test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/otbs', { headers: { 'Cookie': `next-auth.session-token=${authCookie}` } })
+      const response = await request.get('/api/otbs', { headers: { 'Cookie': authCookie! } })
       expect(response.status()).toBe(200)
     })
 
     test('GET /api/poles should return 200', async ({ request }) => {
       test.skip(!authCookie, 'Auth cookie not available')
-      const response = await request.get('/api/poles', { headers: { 'Cookie': `next-auth.session-token=${authCookie}` } })
+      const response = await request.get('/api/poles', { headers: { 'Cookie': authCookie! } })
       expect(response.status()).toBe(200)
     })
   })
@@ -360,10 +370,10 @@ test.describe('RBAC - Sidebar Menu Visibility', () => {
 })
 
 test.describe('RBAC - 403 Forbidden Page', () => {
-  // TODO: This test is flaky (passes in isolation, fails in parallel suite).
-  // Likely due to race conditon in session/permission loading under load.
-  // Re-enable when stability is improved.
-  test.skip('QA_NO_PERMISSION user should be redirected from protected pages', async ({ page }) => {
+  // INVESTIGATION: Previously caused Redirect Loop. Fixed by strict permission check in AdminDashboardClient.
+  // Now expects stable "Akses Terbatas" state (no redirect loop).
+  test('QA_NO_PERMISSION user should be redirected from protected pages', async ({ page }) => {
+    test.setTimeout(60000) // Increase timeout for redirect/load stability
     const loggedIn = await loginAsAdmin(page, QA_USERS.noPermission.email, QA_USERS.noPermission.password)
     test.skip(!loggedIn, 'QA No Permission user login failed')
     
@@ -374,12 +384,13 @@ test.describe('RBAC - 403 Forbidden Page', () => {
     // User without users:read permission should be redirected to /admin (dashboard)
     // ensurePermission redirects to /admin by default
     const url = page.url()
-    // Valid if: redirected away from /users OR shows 403/Forbidden text
-    const has403 = await page.locator('text=403').isVisible().catch(() => false)
+    // Valid if: redirected away from /users OR shows "Akses Terbatas"
+    const hasAksesTerbatas = await page.getByText('Akses Terbatas').isVisible().catch(() => false)
     const wasRedirected = !url.endsWith('/users')
     
-    // Test passes if either condition is met
-    expect(has403 || wasRedirected).toBeTruthy()
+    // Test passes if correct strict UI is shown OR user is redirected
+    console.log(`QA_NO_PERMISSION check: URL=${url}, LimitedAccess=${hasAksesTerbatas}`)
+    expect(hasAksesTerbatas || wasRedirected).toBeTruthy()
   })
 })
 

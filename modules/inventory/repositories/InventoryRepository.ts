@@ -96,7 +96,9 @@ export class InventoryRepository implements IInventoryRepository {
     async createBarang(data: CreateBarangInput): Promise<any> {
         return this.db.barang.create({
             data: {
+                id: crypto.randomUUID(),
                 ...data,
+                updatedAt: new Date(),
                 isWorkOrderMaterial: data.isWorkOrderMaterial || false
             } as any
         })

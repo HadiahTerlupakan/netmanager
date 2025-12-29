@@ -62,7 +62,14 @@ export async function ClientComponent() {
 
         // But wait, the previous code had `item.href`. `MenuConfig` has `path`.
 
-        const hasPerm = isSuperAdmin || true // For now allow traversal to find valid link, strict check is in page
+        // Logic adapted from Sidebar.tsx to ensure consistency
+        const permissionResource = item.code
+          ? (item.code.includes('.') ? item.code.split('.').pop()! : item.code)
+          : ''
+
+        const hasPerm = isSuperAdmin || (permissionResource 
+          ? permissions.includes(`${permissionResource.toLowerCase()}:read`) 
+          : true)
 
         // If item has children, try to find a valid route in children
         if (item.children && item.children.length > 0) {

@@ -101,6 +101,10 @@ export function ClientComponent() {
     }, [page, startDate, endDate, siteId, departmentId])
 
     useEffect(() => {
+        fetchOptions()
+    }, [])
+
+    useEffect(() => {
         fetchAttendances()
     }, [fetchAttendances])
 

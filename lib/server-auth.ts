@@ -66,7 +66,7 @@ export async function ensureAdminAccess(permission?: string) {
         const hasPermission = userPermissions.includes(permission)
 
         if (!hasPermission) {
-            redirect('/admin/dashboard?error=Unauthorized')
+            redirect('/admin?error=Unauthorized')
         }
     }
 

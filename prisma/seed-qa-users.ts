@@ -84,7 +84,7 @@ const QA_ROLES: RoleDefinition[] = [
       'attendance:read', 'attendance:create', 'attendance:update', 'attendance:delete',
       'lembur:read', 'lembur:create', 'lembur:update', 'lembur:delete',
       'izin:read', 'izin:create', 'izin:update', 'izin:delete',
-      'holidays:read', 'holidays:create', 'holidays:update', 'holidays:delete',
+      'holiday:read', 'holiday:create', 'holiday:update', 'holiday:delete',
     ],
   },
   {
@@ -127,12 +127,10 @@ const QA_ROLES: RoleDefinition[] = [
     accessAdminPanel: false,
     accessEmployeePanel: true,
     permissions: [
-      'dashboard:read',
-      'list:read', 'list:update',
-      'attendance:read', 'attendance:create',
-      'lembur:read', 'lembur:create',
-      'izin:read', 'izin:create',
-      'inventory:read', 'inventory:create', 'inventory:update',
+      'k_dashboard:read',
+      'k_work_order:read', 'k_work_order:update',
+      'k_absensi:read', 'k_absensi:create',
+      'k_barang:read', 'k_barang:create', 'k_barang:update',
     ],
   },
   {

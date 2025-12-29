@@ -178,8 +178,15 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
 
             if (context) {
                 // Set canvas to match video dimensions
-                canvas.width = video.videoWidth
-                canvas.height = video.videoHeight
+                console.log(`[ABSENSI] Video dimensions: ${video.videoWidth}x${video.videoHeight}`);
+                if (video.videoWidth === 0 || video.videoHeight === 0) {
+                    console.warn('[ABSENSI] Video dimensions zero, forcing default 640x480');
+                    canvas.width = 640;
+                    canvas.height = 480;
+                } else {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                }
 
                 // Draw video frame (Mirrored to match preview)
                 context.save()
@@ -515,7 +522,9 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                             <MdRefresh className="text-xl" /> Ulang
                         </button>
                         <button
-                            onClick={handleAttendance}
+                            onClick={() => {
+                                handleAttendance();
+                            }}
                             disabled={loading}
                             className="flex items-center gap-2 px-6 py-3 text-white rounded-xl font-bold shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 shadow-blue-600/30 hover:bg-blue-700"
                         >
