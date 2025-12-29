@@ -289,7 +289,19 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
         }
     }
 
-    const getLocationPromise = (): Promise<string | null> => {
+    const fetchAddress = useCallback(async (lat: number, lng: number) => {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+            const data = await res.json()
+            if (data.display_name) {
+                setAddress(data.display_name)
+            }
+        } catch (error) {
+            console.error('Failed to fetch address:', error)
+        }
+    }, [])
+
+    const getLocationPromise = useCallback((): Promise<string | null> => {
         return new Promise((resolve) => {
             if (!navigator.geolocation) {
                 resolve(null)
@@ -313,9 +325,9 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             )
         })
-    }
+    }, [fetchAddress])
 
-    const getLocation = async () => {
+    const getLocation = useCallback(async () => {
         if (navigator.geolocation) {
             toast.loading('Mencari lokasi...', { id: 'geo-loading' })
             const loc = await getLocationPromise()
@@ -328,24 +340,12 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
         } else {
             toast.error("Browser tidak mendukung geolocation")
         }
-    }
-
-    const fetchAddress = async (lat: number, lng: number) => {
-        try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-            const data = await res.json()
-            if (data.display_name) {
-                setAddress(data.display_name)
-            }
-        } catch (error) {
-            console.error('Failed to fetch address:', error)
-        }
-    }
+    }, [getLocationPromise])
 
 
     useEffect(() => {
         getLocation()
-    }, [])
+    }, [getLocation])
 
     // Helper to convert Data URL to Blob safely
     const dataURLtoBlob = (dataurl: string) => {
@@ -504,10 +504,11 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                     </div>
 
                     <div className="relative aspect-3/4 bg-gray-100 dark:bg-gray-900">
-                        <img
+                        <Image
                             src={photo}
                             alt="Preview"
-                            className="w-full h-full object-cover"
+                            fill
+                            className="object-cover"
                         />
                     </div>
 
