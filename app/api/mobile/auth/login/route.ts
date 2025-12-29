@@ -9,23 +9,32 @@ export async function POST(req: Request) {
         const { email, password } = body
 
         if (!email || !password) {
-            return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
+            return NextResponse.json({ 
+                success: false,
+                error: 'Email dan password harus diisi' 
+            }, { status: 400 })
         }
 
         // 1. Find User
         const user = await prisma.user.findUnique({
             where: { email },
-            include: { role: true } // Include role to check permissions
+            include: { role: true }
         })
 
         if (!user || !user.passwordHash) {
-            return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+            return NextResponse.json({ 
+                success: false,
+                error: 'Email tidak terdaftar atau akun tidak aktif' 
+            }, { status: 401 })
         }
 
         // 2. Verify Password
         const isValid = await compare(password, user.passwordHash)
         if (!isValid) {
-            return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+            return NextResponse.json({ 
+                success: false,
+                error: 'Password yang Anda masukkan salah' 
+            }, { status: 401 })
         }
 
         // 3. Generate Token
@@ -50,6 +59,9 @@ export async function POST(req: Request) {
 
     } catch (error) {
         console.error('Mobile Login Error:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ 
+            success: false,
+            error: 'Terjadi kesalahan server. Silakan coba lagi.' 
+        }, { status: 500 })
     }
 }

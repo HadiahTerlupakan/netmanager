@@ -1,0 +1,394 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { prismaMock } from '../../setup'
+import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
+import { WorkOrderStatus, WorkOrderPriority, WorkOrderType } from '@prisma/client'
+
+// Mock the sync service
+vi.mock('@/modules/work-order/services/WorkOrderSyncService', () => ({
+  syncWoStatusToTicket: vi.fn().mockResolvedValue(undefined)
+}))
+
+describe('WorkOrderRepository', () => {
+  let repository: WorkOrderRepository
+
+  beforeEach(() => {
+    repository = new WorkOrderRepository(prismaMock as any)
+    vi.clearAllMocks()
+  })
+
+  describe('generateWorkOrderNumber', () => {
+    it('should generate WO number with date prefix', async () => {
+      prismaMock.workOrders.count.mockResolvedValueOnce(0)
+
+      const result = await repository.generateWorkOrderNumber()
+
+      expect(result).toMatch(/^WO-\d{8}-0001$/)
+    })
+
+    it('should increment counter if WOs exist today', async () => {
+      prismaMock.workOrders.count.mockResolvedValueOnce(3)
+
+      const result = await repository.generateWorkOrderNumber()
+
+      expect(result).toMatch(/^WO-\d{8}-0004$/)
+    })
+  })
+
+  describe('create', () => {
+    it('should create work order with PENDING status', async () => {
+      const mockWo = {
+        id: 'wo-1',
+        workOrderNumber: 'WO-20241229-001',
+        status: 'PENDING',
+        type: 'INSTALLATION',
+        title: 'Test WO',
+        description: 'Test description'
+      }
+
+      prismaMock.workOrders.findFirst.mockResolvedValueOnce(null)
+      prismaMock.workOrders.create.mockResolvedValueOnce(mockWo as any)
+
+      const result = await repository.create({
+        type: WorkOrderType.INSTALLATION,
+        title: 'Test WO',
+        description: 'Test description'
+      })
+
+      expect(result.status).toBe('PENDING')
+      expect(prismaMock.workOrders.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'PENDING',
+            priority: 'NORMAL'
+          })
+        })
+      )
+    })
+  })
+
+  describe('updateStatus', () => {
+    const baseMockWo = {
+      id: 'wo-1',
+      workOrderNumber: 'WO-001',
+      status: 'PENDING',
+      startedAt: null,
+      completedAt: null,
+      verifiedAt: null,
+      closedAt: null
+    }
+
+    it('should set startedAt when transitioning to IN_PROGRESS', async () => {
+      prismaMock.workOrders.findUnique.mockResolvedValueOnce({
+        ...baseMockWo,
+        status: 'ASSIGNED'
+      } as any)
+      prismaMock.workOrderUpdates.create.mockResolvedValueOnce({} as any)
+      prismaMock.workOrders.update.mockResolvedValueOnce({
+        ...baseMockWo,
+        status: 'IN_PROGRESS',
+        startedAt: new Date()
+      } as any)
+
+      await repository.updateStatus('wo-1', WorkOrderStatus.IN_PROGRESS, 'user-1')
+
+      expect(prismaMock.workOrders.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'IN_PROGRESS',
+            startedAt: expect.any(Date)
+          })
+        })
+      )
+    })
+
+    it('should set completedAt and calculate actualHours when COMPLETED', async () => {
+      const startedAt = new Date(Date.now() - 3600000) // 1 hour ago
+      prismaMock.workOrders.findUnique.mockResolvedValueOnce({
+        ...baseMockWo,
+        status: 'IN_PROGRESS',
+        startedAt
+      } as any)
+      prismaMock.workOrderUpdates.create.mockResolvedValueOnce({} as any)
+      prismaMock.workOrders.update.mockResolvedValueOnce({} as any)
+
+      await repository.updateStatus('wo-1', WorkOrderStatus.COMPLETED, 'user-1')
+
+      expect(prismaMock.workOrders.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'COMPLETED',
+            completedAt: expect.any(Date),
+            actualHours: expect.any(Number)
+          })
+        })
+      )
+    })
+
+    it('should set verifiedAt when VERIFIED', async () => {
+      prismaMock.workOrders.findUnique.mockResolvedValueOnce({
+        ...baseMockWo,
+        status: 'COMPLETED'
+      } as any)
+      prismaMock.workOrderUpdates.create.mockResolvedValueOnce({} as any)
+      prismaMock.workOrders.update.mockResolvedValueOnce({} as any)
+
+      await repository.updateStatus('wo-1', WorkOrderStatus.VERIFIED, 'user-1')
+
+      expect(prismaMock.workOrders.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'VERIFIED',
+            verifiedAt: expect.any(Date)
+          })
+        })
+      )
+    })
+
+    it('should set closedAt when CLOSED', async () => {
+      prismaMock.workOrders.findUnique.mockResolvedValueOnce({
+        ...baseMockWo,
+        status: 'VERIFIED'
+      } as any)
+      prismaMock.workOrderUpdates.create.mockResolvedValueOnce({} as any)
+      prismaMock.workOrders.update.mockResolvedValueOnce({} as any)
+
+      await repository.updateStatus('wo-1', WorkOrderStatus.CLOSED, 'user-1')
+
+      expect(prismaMock.workOrders.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'CLOSED',
+            closedAt: expect.any(Date)
+          })
+        })
+      )
+    })
+
+    it('should throw error if work order not found', async () => {
+      prismaMock.workOrders.findUnique.mockResolvedValueOnce(null)
+
+      await expect(
+        repository.updateStatus('non-existent', WorkOrderStatus.IN_PROGRESS)
+      ).rejects.toThrow('Work order not found')
+    })
+  })
+
+  describe('assign', () => {
+    it('should set assignedToId and change status to ASSIGNED', async () => {
+      prismaMock.workOrders.update.mockResolvedValueOnce({} as any)
+      prismaMock.workOrderAssignments.create.mockResolvedValueOnce({} as any)
+      prismaMock.workOrders.findUnique.mockResolvedValueOnce({
+        id: 'wo-1',
+        assignedToId: 'user-1',
+        status: 'ASSIGNED'
+      } as any)
+
+      await repository.assign('wo-1', 'user-1', 'Lead')
+
+      expect(prismaMock.workOrders.update).toHaveBeenCalledWith({
+        where: { id: 'wo-1' },
+        data: {
+          assignedToId: 'user-1',
+          status: 'ASSIGNED'
+        }
+      })
+
+      expect(prismaMock.workOrderAssignments.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          workOrderId: 'wo-1',
+          userId: 'user-1',
+          role: 'Lead'
+        })
+      })
+    })
+  })
+
+  describe('unassign', () => {
+    it('should clear assignedToId and revert to PENDING', async () => {
+      prismaMock.workOrders.update.mockResolvedValueOnce({
+        id: 'wo-1',
+        assignedToId: null,
+        status: 'PENDING'
+      } as any)
+
+      const result = await repository.unassign('wo-1')
+
+      expect(prismaMock.workOrders.update).toHaveBeenCalledWith({
+        where: { id: 'wo-1' },
+        data: {
+          assignedToId: null,
+          status: 'PENDING'
+        }
+      })
+      expect(result.status).toBe('PENDING')
+    })
+  })
+
+  describe('cancel', () => {
+    it('should add cancellation note and set status to CANCELLED', async () => {
+      prismaMock.workOrderUpdates.create.mockResolvedValue({} as any)
+      prismaMock.workOrders.findUnique.mockResolvedValueOnce({
+        id: 'wo-1',
+        status: 'PENDING'
+      } as any)
+      prismaMock.workOrders.update.mockResolvedValueOnce({
+        id: 'wo-1',
+        status: 'CANCELLED'
+      } as any)
+
+      await repository.cancel('wo-1', 'Customer request', 'user-1')
+
+      // First call is for cancellation note
+      expect(prismaMock.workOrderUpdates.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          workOrderId: 'wo-1',
+          updateType: 'NOTE',
+          message: expect.stringContaining('Customer request')
+        })
+      })
+    })
+  })
+
+  describe('addTask', () => {
+    it('should create task with PENDING status', async () => {
+      prismaMock.workOrderTasks.create.mockResolvedValueOnce({
+        id: 'task-1',
+        workOrderId: 'wo-1',
+        title: 'Install ONU',
+        status: 'PENDING'
+      } as any)
+
+      const result = await repository.addTask({
+        workOrderId: 'wo-1',
+        title: 'Install ONU',
+        description: 'Install new ONU device'
+      })
+
+      expect(result.status).toBe('PENDING')
+      expect(prismaMock.workOrderTasks.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          workOrderId: 'wo-1',
+          title: 'Install ONU',
+          status: 'PENDING'
+        })
+      })
+    })
+  })
+
+  describe('completeTask', () => {
+    it('should set status to COMPLETED and record completedAt', async () => {
+      prismaMock.workOrderTasks.update.mockResolvedValueOnce({
+        id: 'task-1',
+        status: 'COMPLETED',
+        completedAt: new Date(),
+        completedById: 'user-1'
+      } as any)
+
+      await repository.completeTask('task-1', 'user-1')
+
+      expect(prismaMock.workOrderTasks.update).toHaveBeenCalledWith({
+        where: { id: 'task-1' },
+        data: expect.objectContaining({
+          status: 'COMPLETED',
+          completedById: 'user-1',
+          completedAt: expect.any(Date)
+        })
+      })
+    })
+  })
+
+  describe('getStatistics', () => {
+    it('should return aggregated statistics', async () => {
+      prismaMock.workOrders.count.mockResolvedValueOnce(100)
+      prismaMock.workOrders.groupBy.mockResolvedValueOnce([
+        { status: 'PENDING', _count: 10 },
+        { status: 'IN_PROGRESS', _count: 20 },
+        { status: 'COMPLETED', _count: 30 },
+        { status: 'CLOSED', _count: 40 }
+      ] as any)
+      prismaMock.workOrders.findMany.mockResolvedValueOnce([
+        { startedAt: new Date(Date.now() - 7200000), completedAt: new Date(), actualCost: 100 }
+      ] as any)
+      prismaMock.workOrders.aggregate.mockResolvedValueOnce({
+        _avg: { rating: 4.5 },
+        _count: { rating: 50 }
+      } as any)
+      prismaMock.workOrders.count.mockResolvedValueOnce(5) // urgentOpen
+
+      const result = await repository.getStatistics()
+
+      expect(result.total).toBe(100)
+      expect(result.pending).toBe(10)
+      expect(result.inProgress).toBe(20)
+      expect(result.completed).toBe(30)
+      expect(result.closed).toBe(40)
+      expect(result.avgRating).toBe(4.5)
+    })
+  })
+
+  describe('findAll with filters', () => {
+    it('should filter by status', async () => {
+      prismaMock.workOrders.findMany.mockResolvedValueOnce([])
+      prismaMock.workOrders.count.mockResolvedValueOnce(0)
+
+      await repository.findAll({ status: WorkOrderStatus.PENDING })
+
+      expect(prismaMock.workOrders.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'PENDING'
+          })
+        })
+      )
+    })
+
+    it('should filter by multiple statuses', async () => {
+      prismaMock.workOrders.findMany.mockResolvedValueOnce([])
+      prismaMock.workOrders.count.mockResolvedValueOnce(0)
+
+      await repository.findAll({
+        status: [WorkOrderStatus.PENDING, WorkOrderStatus.ASSIGNED]
+      })
+
+      expect(prismaMock.workOrders.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: ['PENDING', 'ASSIGNED'] }
+          })
+        })
+      )
+    })
+
+    it('should filter unassigned only', async () => {
+      prismaMock.workOrders.findMany.mockResolvedValueOnce([])
+      prismaMock.workOrders.count.mockResolvedValueOnce(0)
+
+      await repository.findAll({ unassignedOnly: true })
+
+      expect(prismaMock.workOrders.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            assignedToId: null
+          })
+        })
+      )
+    })
+
+    it('should search by keyword', async () => {
+      prismaMock.workOrders.findMany.mockResolvedValueOnce([])
+      prismaMock.workOrders.count.mockResolvedValueOnce(0)
+
+      await repository.findAll({ search: 'internet' })
+
+      expect(prismaMock.workOrders.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([
+              expect.objectContaining({ title: expect.any(Object) })
+            ])
+          })
+        })
+      )
+    })
+  })
+})

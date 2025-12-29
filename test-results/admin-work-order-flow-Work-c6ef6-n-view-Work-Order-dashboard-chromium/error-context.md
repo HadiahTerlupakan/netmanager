@@ -1,0 +1,275 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - img [ref=e6]
+        - generic [ref=e8]:
+          - generic [ref=e10]: "N"
+          - generic [ref=e11]:
+            - heading "NetManager" [level=2] [ref=e12]
+            - generic [ref=e13]: Admin Portal
+      - navigation [ref=e14]:
+        - generic [ref=e15]:
+          - link "Dashboard" [ref=e16] [cursor=pointer]:
+            - /url: /admin
+            - img [ref=e18]
+            - generic [ref=e20]: Dashboard
+          - generic [ref=e21]:
+            - button "Work Orders" [ref=e22]:
+              - generic [ref=e24]:
+                - img [ref=e26]
+                - generic [ref=e29]: Work Orders
+              - img [ref=e30]
+            - generic [ref=e32]:
+              - link "Dashboard" [ref=e33] [cursor=pointer]:
+                - /url: /admin/workorders
+                - img [ref=e35]
+                - generic [ref=e37]: Dashboard
+              - link "List" [ref=e38] [cursor=pointer]:
+                - /url: /admin/workorders/list
+                - img [ref=e40]
+                - generic [ref=e42]: List
+      - generic [ref=e44]:
+        - generic [ref=e46]: Q
+        - generic [ref=e47]:
+          - paragraph [ref=e48]: QA Work Order Manager
+          - paragraph [ref=e49]: qa.workorder@test.com
+        - button "Sign Out" [ref=e50]:
+          - img [ref=e51]
+    - generic [ref=e53]:
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - img [ref=e58]
+          - generic [ref=e61]:
+            - generic [ref=e62]: "TEST:"
+            - text: TEST
+        - button "Dismiss" [ref=e64]:
+          - generic [ref=e65]: Dismiss
+          - img [ref=e66]
+      - banner [ref=e68]:
+        - generic [ref=e69]:
+          - generic [ref=e71]:
+            - generic:
+              - img
+            - textbox "Search resources..." [ref=e72]
+            - generic:
+              - generic: ⌘K
+          - generic [ref=e73]:
+            - button "Customer Support Tickets" [ref=e75]:
+              - img [ref=e76]
+              - generic "Real-time connected" [ref=e78]
+            - button "Notifications" [ref=e80]:
+              - img [ref=e81]
+              - generic "Real-time connected" [ref=e83]
+            - button [ref=e84]:
+              - img [ref=e85]
+            - button "Q QA Work Order Manager Administrator" [ref=e90] [cursor=pointer]:
+              - generic [ref=e93]: Q
+              - generic [ref=e94]:
+                - generic [ref=e95]: QA Work Order Manager
+                - generic [ref=e96]: Administrator
+      - main [ref=e97]:
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - generic [ref=e101]:
+              - heading "Work Order Dashboard" [level=1] [ref=e102]
+              - paragraph [ref=e103]: Overview of all work orders
+            - link "View All Work Orders" [ref=e104] [cursor=pointer]:
+              - /url: /admin/workorders/list
+          - generic [ref=e105]:
+            - link "Urgent Attention 10 High priority & open" [ref=e106] [cursor=pointer]:
+              - /url: /admin/workorders/list?status=PENDING&priority=HIGH,URGENT,CRITICAL
+              - generic [ref=e107]:
+                - generic [ref=e108]:
+                  - paragraph [ref=e109]: Urgent Attention
+                  - paragraph [ref=e110]: "10"
+                - img [ref=e112]
+              - paragraph [ref=e114]: High priority & open
+            - link "Unassigned 6 Waiting for assignment" [ref=e115] [cursor=pointer]:
+              - /url: /admin/workorders/list?status=PENDING
+              - generic [ref=e116]:
+                - generic [ref=e117]:
+                  - paragraph [ref=e118]: Unassigned
+                  - paragraph [ref=e119]: "6"
+                - img [ref=e121]
+              - paragraph [ref=e123]: Waiting for assignment
+            - link "Active Progress 4 Currently being worked on" [ref=e124] [cursor=pointer]:
+              - /url: /admin/workorders/list?status=IN_PROGRESS,ASSIGNED
+              - generic [ref=e125]:
+                - generic [ref=e126]:
+                  - paragraph [ref=e127]: Active Progress
+                  - paragraph [ref=e128]: "4"
+                - img [ref=e130]
+              - paragraph [ref=e134]: Currently being worked on
+            - link "Completed 1 Successfully closed" [ref=e135] [cursor=pointer]:
+              - /url: /admin/workorders/list?status=COMPLETED,VERIFIED
+              - generic [ref=e136]:
+                - generic [ref=e137]:
+                  - paragraph [ref=e138]: Completed
+                  - paragraph [ref=e139]: "1"
+                - img [ref=e141]
+              - paragraph [ref=e143]: Successfully closed
+          - generic [ref=e144]:
+            - generic [ref=e145]:
+              - generic [ref=e146]:
+                - heading "Recent Work Orders" [level=2] [ref=e148]
+                - generic [ref=e149]:
+                  - link "WO-20251226-0007 IN PROGRESS HIGH Internet Mati / FOCUT yopydojh • Budi Santoso" [ref=e150] [cursor=pointer]:
+                    - /url: /admin/workorders/cmjmptej5001cn9loc6pc4fjr
+                    - generic [ref=e151]:
+                      - generic [ref=e152]:
+                        - paragraph [ref=e153]: WO-20251226-0007
+                        - generic [ref=e154]: IN PROGRESS
+                        - generic [ref=e155]: HIGH
+                      - paragraph [ref=e156]: Internet Mati / FOCUT
+                      - generic [ref=e157]:
+                        - generic [ref=e158]: yopydojh
+                        - generic [ref=e159]: • Budi Santoso
+                    - img [ref=e160]
+                  - 'link "WO-20251226-0006 PENDING HIGH Internet Mati / FOCUT sdasdwe • Waiting: 2d 17h" [ref=e162] [cursor=pointer]':
+                    - /url: /admin/workorders/cmjmjvoav000dn9loabr8l91a
+                    - generic [ref=e163]:
+                      - generic [ref=e164]:
+                        - paragraph [ref=e165]: WO-20251226-0006
+                        - generic [ref=e166]: PENDING
+                        - generic [ref=e167]: HIGH
+                      - paragraph [ref=e168]: Internet Mati / FOCUT
+                      - generic [ref=e169]:
+                        - generic [ref=e170]: sdasdwe
+                        - generic [ref=e171]: "• Waiting: 2d 17h"
+                    - img [ref=e172]
+                  - 'link "WO-20251226-0005 PENDING HIGH Internet Mati / FOCUT data1 • Waiting: 2d 17h" [ref=e174] [cursor=pointer]':
+                    - /url: /admin/workorders/cmjmj4m3e0007n9lotrgf9iq4
+                    - generic [ref=e175]:
+                      - generic [ref=e176]:
+                        - paragraph [ref=e177]: WO-20251226-0005
+                        - generic [ref=e178]: PENDING
+                        - generic [ref=e179]: HIGH
+                      - paragraph [ref=e180]: Internet Mati / FOCUT
+                      - generic [ref=e181]:
+                        - generic [ref=e182]: data1
+                        - generic [ref=e183]: "• Waiting: 2d 17h"
+                    - img [ref=e184]
+                  - 'link "WO-20251226-0004 PENDING HIGH Internet Mati / FOCUT bajingan • Waiting: 2d 17h" [ref=e186] [cursor=pointer]':
+                    - /url: /admin/workorders/cmjmiohl40001n9lohlc9o4a6
+                    - generic [ref=e187]:
+                      - generic [ref=e188]:
+                        - paragraph [ref=e189]: WO-20251226-0004
+                        - generic [ref=e190]: PENDING
+                        - generic [ref=e191]: HIGH
+                      - paragraph [ref=e192]: Internet Mati / FOCUT
+                      - generic [ref=e193]:
+                        - generic [ref=e194]: bajingan
+                        - generic [ref=e195]: "• Waiting: 2d 17h"
+                    - img [ref=e196]
+                  - 'link "WO-20251226-0003 PENDING HIGH Internet Mati / FOCUT test40 • Waiting: 2d 22h" [ref=e198] [cursor=pointer]':
+                    - /url: /admin/workorders/cmjm8vqas0007n95z1lkfraze
+                    - generic [ref=e199]:
+                      - generic [ref=e200]:
+                        - paragraph [ref=e201]: WO-20251226-0003
+                        - generic [ref=e202]: PENDING
+                        - generic [ref=e203]: HIGH
+                      - paragraph [ref=e204]: Internet Mati / FOCUT
+                      - generic [ref=e205]:
+                        - generic [ref=e206]: test40
+                        - generic [ref=e207]: "• Waiting: 2d 22h"
+                    - img [ref=e208]
+              - generic [ref=e210]:
+                - generic [ref=e211]:
+                  - heading "Common Issues" [level=2] [ref=e212]
+                  - img [ref=e213]
+                - generic [ref=e218]:
+                  - generic [ref=e219]: Internet Mati / FOCUT
+                  - generic [ref=e220]: 11 incidents
+              - generic [ref=e223]:
+                - generic [ref=e224]:
+                  - heading "Alasan Penarikan Perangkat" [level=2] [ref=e225]
+                  - img [ref=e226]
+                - paragraph [ref=e230]: No disconnection data available
+            - generic [ref=e231]:
+              - generic [ref=e232]:
+                - generic [ref=e233]:
+                  - heading "Analytics" [level=2] [ref=e234]
+                  - combobox [ref=e235]:
+                    - option "All Time" [selected]
+                    - option "Daily"
+                    - option "Weekly"
+                    - option "Monthly"
+                    - option "Yearly"
+                - generic [ref=e236]:
+                  - generic [ref=e237]:
+                    - img [ref=e238]
+                    - heading "Top Performers" [level=3] [ref=e241]
+                  - generic [ref=e243]:
+                    - generic [ref=e244]:
+                      - generic [ref=e245]: "1"
+                      - generic [ref=e246]:
+                        - paragraph [ref=e247]: System Administrator
+                        - paragraph [ref=e248]: SUPER_ADMIN • Headquarters
+                        - paragraph [ref=e249]: 22.1h avg
+                    - generic [ref=e250]:
+                      - paragraph [ref=e251]: "1"
+                      - paragraph [ref=e252]: tasks
+                - generic [ref=e253]:
+                  - generic [ref=e254]:
+                    - img [ref=e255]
+                    - heading "Top Assists" [level=3] [ref=e258]
+                  - paragraph [ref=e259]: No assist data available
+                - generic [ref=e260]:
+                  - generic [ref=e261]:
+                    - img [ref=e262]
+                    - heading "Problematic Sites" [level=3] [ref=e264]
+                  - paragraph [ref=e265]: No site data available
+              - generic [ref=e266]:
+                - heading "Performance Overview" [level=3] [ref=e267]
+                - generic [ref=e268]:
+                  - generic [ref=e270]:
+                    - generic [ref=e271]: Avg Completion Time
+                    - generic [ref=e272]: 22.1h
+                  - generic [ref=e275]:
+                    - generic [ref=e276]:
+                      - generic [ref=e277]: Customer Satisfaction
+                      - generic [ref=e278]: N/A
+                    - paragraph [ref=e279]: 0 ratings
+          - generic [ref=e280]:
+            - heading "Department Workload" [level=2] [ref=e282]
+            - generic [ref=e283]:
+              - generic [ref=e284]:
+                - generic [ref=e285]:
+                  - heading "Technical" [level=3] [ref=e286]
+                  - generic [ref=e287]: 9 total
+                - generic [ref=e288]:
+                  - generic [ref=e289]:
+                    - paragraph [ref=e290]: "5"
+                    - paragraph [ref=e291]: Pending
+                  - generic [ref=e292]:
+                    - paragraph [ref=e293]: "4"
+                    - paragraph [ref=e294]: Active
+                  - generic [ref=e295]:
+                    - paragraph [ref=e296]: "0"
+                    - paragraph [ref=e297]: Done
+              - generic [ref=e298]:
+                - generic [ref=e299]:
+                  - heading "Operations" [level=3] [ref=e300]
+                  - generic [ref=e301]: 1 total
+                - generic [ref=e302]:
+                  - generic [ref=e303]:
+                    - paragraph [ref=e304]: "1"
+                    - paragraph [ref=e305]: Pending
+                  - generic [ref=e306]:
+                    - paragraph [ref=e307]: "0"
+                    - paragraph [ref=e308]: Active
+                  - generic [ref=e309]:
+                    - paragraph [ref=e310]: "0"
+                    - paragraph [ref=e311]: Done
+      - contentinfo [ref=e312]:
+        - generic [ref=e313]:
+          - paragraph [ref=e314]: © 2025 NetManager
+          - paragraph [ref=e315]: Next.js & Tailwind CSS
+  - button "Open Next.js Dev Tools" [ref=e321] [cursor=pointer]:
+    - img [ref=e322]
+  - alert [ref=e325]
+```
