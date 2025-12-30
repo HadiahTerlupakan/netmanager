@@ -48,7 +48,6 @@
     "@types/swagger-ui-react": "^5.18.0",
     "adm-zip": "^0.5.16",
     "bcryptjs": "^3.0.3",
-    "cesium": "^1.136.0",
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

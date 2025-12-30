@@ -59,44 +59,6 @@ const nextConfig: NextConfig = {
       )
     }
 
-    // CesiumJS Configuration
-    if (!isServer) {
-      const CopyPlugin = require('copy-webpack-plugin')
-      const webpack = require('webpack')
-      const path = require('path')
-      
-      // Define Cesium base URL
-      config.plugins.push(
-        new webpack.DefinePlugin({
-          CESIUM_BASE_URL: JSON.stringify('/cesium'),
-        })
-      )
-      
-      // Copy Cesium assets to public folder
-      config.plugins.push(
-        new CopyPlugin({
-          patterns: [
-            {
-              from: 'node_modules/cesium/Build/Cesium/Workers',
-              to: '../public/cesium/Workers',
-            },
-            {
-              from: 'node_modules/cesium/Build/Cesium/ThirdParty',
-              to: '../public/cesium/ThirdParty',
-            },
-            {
-              from: 'node_modules/cesium/Build/Cesium/Assets',
-              to: '../public/cesium/Assets',
-            },
-            {
-              from: 'node_modules/cesium/Build/Cesium/Widgets',
-              to: '../public/cesium/Widgets',
-            },
-          ],
-        })
-      )
-    }
-
     return config
   },
 
