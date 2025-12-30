@@ -78,6 +78,7 @@ export function KmzForm() {
           Nama <span className="text-red-500">*</span>
         </label>
         <input
+          name="name"
           id="name"
           type="text"
           value={name}
@@ -93,6 +94,7 @@ export function KmzForm() {
           Deskripsi
         </label>
         <textarea
+          name="description"
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -108,6 +110,7 @@ export function KmzForm() {
         </label>
         <div className="mt-1 flex items-center gap-3">
           <input
+            name="lineColor"
             id="lineColor"
             type="color"
             value={lineColor}
@@ -115,6 +118,7 @@ export function KmzForm() {
             className="h-10 w-20 cursor-pointer rounded-md border border-gray-300 dark:border-gray-700"
           />
           <input
+            name="lineColorText"
             type="text"
             value={lineColor}
             onChange={(e) => {
@@ -138,6 +142,7 @@ export function KmzForm() {
           Status
         </label>
         <select
+          name="status"
           id="status"
           value={status}
           onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')}
@@ -154,6 +159,7 @@ export function KmzForm() {
           File KMZ <span className="text-red-500">*</span>
         </label>
         <input
+          name="file"
           id="file"
           type="file"
           accept=".kmz"

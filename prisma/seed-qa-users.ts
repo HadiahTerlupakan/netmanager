@@ -69,6 +69,14 @@ const QA_ROLES: RoleDefinition[] = [
       'wo_sla:read', 'wo_sla:create', 'wo_sla:update', 'wo_sla:delete',
       'wo_escalation:read', 'wo_escalation:create', 'wo_escalation:update', 'wo_escalation:delete',
       'wo_template:read', 'wo_template:create', 'wo_template:update', 'wo_template:delete',
+      // FTTH Permissions
+      'pole:read', 'pole:create', 'pole:update',
+      'otb:read', 'otb:create', 'otb:update',
+      'odc:read', 'odc:create', 'odc:update',
+      'odp:read', 'odp:create', 'odp:update',
+      'closure:read', 'closure:create', 'closure:update',
+      'kmz:read', 'kmz:create',
+      'map:read',
     ],
   },
   {
@@ -134,6 +142,29 @@ const QA_ROLES: RoleDefinition[] = [
     ],
   },
   {
+    name: 'QA_FTTH_ADMIN',
+    description: 'FTTH Admin - Full CRUD semua modul FTTH',
+    accessAdminPanel: true,
+    accessEmployeePanel: false,
+    permissions: [
+      'dashboard:read',
+      // Pole - Full CRUD
+      'pole:read', 'pole:create', 'pole:update', 'pole:delete',
+      // OTB - Full CRUD
+      'otb:read', 'otb:create', 'otb:update', 'otb:delete',
+      // ODC - Full CRUD
+      'odc:read', 'odc:create', 'odc:update', 'odc:delete',
+      // ODP - Full CRUD
+      'odp:read', 'odp:create', 'odp:update', 'odp:delete',
+      // Closure/Joinbox - Full CRUD
+      'closure:read', 'closure:create', 'closure:update', 'closure:delete',
+      // KMZ
+      'kmz:read', 'kmz:create', 'kmz:delete',
+      // Map
+      'map:read',
+    ],
+  },
+  {
     name: 'QA_NO_PERMISSION',
     description: 'User tanpa permission untuk test 403',
     accessAdminPanel: true,
@@ -159,6 +190,7 @@ const QA_USERS: UserDefinition[] = [
   { email: 'qa.support@test.com', name: 'QA Support Agent', password: 'qatest123', roleName: 'QA_SUPPORT_AGENT', phone: '+62812-0000-1005' },
   { email: 'qa.sitemanager@test.com', name: 'QA Site Manager', password: 'qatest123', roleName: 'QA_SITE_MANAGER', phone: '+62812-0000-1006' },
   { email: 'qa.fieldtech@test.com', name: 'QA Field Tech Plus', password: 'qatest123', roleName: 'QA_FIELD_TECH_PLUS', phone: '+62812-0000-1007' },
+  { email: 'qa.ftth@test.com', name: 'QA FTTH Admin', password: 'qatest123', roleName: 'QA_FTTH_ADMIN', phone: '+62812-0000-1009' },
   { email: 'qa.noperm@test.com', name: 'QA No Permission', password: 'qatest123', roleName: 'QA_NO_PERMISSION', phone: '+62812-0000-1008' },
 ]
 

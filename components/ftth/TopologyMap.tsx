@@ -11,6 +11,13 @@ import {
   HiOutlineUserGroup
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import dynamic from 'next/dynamic'
+
+// Lazy load 3D map component
+const TopologyMap3D = dynamic(() => import('./TopologyMap3D'), {
+  ssr: false,
+  loading: () => <PageLoader />,
+})
 
 type TopologyData = {
   otbs: Array<{
@@ -128,6 +135,7 @@ export default function TopologyMap() {
   })
   const visibilityRef = useRef<VisibilityState>(visibility)
   const [selectedFeature, setSelectedFeature] = useState<any>(null)
+  const [mapMode, setMapMode] = useState<'2d' | '3d'>('2d')
 
   // Fetch data
   useEffect(() => {
@@ -1593,7 +1601,38 @@ export default function TopologyMap() {
 
       {/* Map Container */}
       <div className="relative">
-        <div ref={mapEl} className="w-full h-[600px] rounded-lg border border-gray-200 dark:border-gray-800" />
+        {/* 2D/3D Toggle Button */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+          <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
+            <button
+              onClick={() => setMapMode('2d')}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                mapMode === '2d'
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              2D Map
+            </button>
+            <button
+              onClick={() => setMapMode('3d')}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                mapMode === '3d'
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              3D Globe
+            </button>
+          </div>
+        </div>
+
+        {/* Conditional Map Render */}
+        {mapMode === '2d' ? (
+          <div ref={mapEl} className="w-full h-[600px] rounded-lg border border-gray-200 dark:border-gray-800" />
+        ) : (
+          <TopologyMap3D data={data} visibility={visibility} />
+        )}
 
         {/* Legend */}
         <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg p-4 z-10 min-w-[200px]">

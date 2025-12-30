@@ -18,7 +18,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params
   const otb = await prisma.otb.findUnique({
     where: { id },
-    include: { otbCore: { orderBy: { idx: 'asc' } } },
+    include: {
+      otbCore: {
+        orderBy: { idx: 'asc' },
+        include: { odc: { select: { id: true, name: true } } }
+      }
+    },
   })
   if (!otb) return NextResponse.json({ error: 'Not Found' }, { status: 404 })
   return NextResponse.json({ otb })

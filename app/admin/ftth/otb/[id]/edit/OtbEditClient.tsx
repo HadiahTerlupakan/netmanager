@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { useToast } from '@/components/common/ToastProvider'
 
 const MapPicker = dynamic(() => import('@/components/common/MapPicker').then(m => m.default), { ssr: false })
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
@@ -17,6 +18,7 @@ async function fetchDetail(id: string) {
 
 export function ClientComponent() {
   const router = useRouter()
+  const { show } = useToast()
   const params = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -145,6 +147,7 @@ export function ClientComponent() {
       setError(j?.error || 'Gagal menyimpan')
       return
     }
+    show({ type: 'success', title: 'Berhasil', message: 'OTB diperbarui.' })
     router.push('/admin/ftth/otb')
     router.refresh()
   }
@@ -161,25 +164,25 @@ export function ClientComponent() {
       <form onSubmit={handleSubmit} className="space-y-4 max-w-xl">
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Nama OTB</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
+          <input name="name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
         </div>
 
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Lokasi (opsional)</label>
-          <input value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
+          <input name="location" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
         </div>
 
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Catatan (opsional)</label>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
+          <textarea name="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
         </div>
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Keterangan Jumlah Kabel Feeder (opsional)</label>
-          <input value={keteranganJumlahKabelFeeder} onChange={(e) => setKeteranganJumlahKabelFeeder(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 12 Core, 24 Core, dll" />
+          <input name="keteranganJumlahKabelFeeder" value={keteranganJumlahKabelFeeder} onChange={(e) => setKeteranganJumlahKabelFeeder(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 12 Core, 24 Core, dll" />
         </div>
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <select name="status" value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
             <option value="AKTIF">Aktif</option>
             <option value="NONAKTIF">Nonaktif</option>
             <option value="MAINTENANCE">Maintenance</option>
@@ -189,11 +192,11 @@ export function ClientComponent() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Latitude (opsional)</label>
-            <input value={latitude} onChange={(e) => setLatitude(e.target.value)} type="number" step="any" min={-90} max={90} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
+            <input name="latitude" value={latitude} onChange={(e) => setLatitude(e.target.value)} type="number" step="any" min={-90} max={90} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Longitude (opsional)</label>
-            <input value={longitude} onChange={(e) => setLongitude(e.target.value)} type="number" step="any" min={-180} max={180} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
+            <input name="longitude" value={longitude} onChange={(e) => setLongitude(e.target.value)} type="number" step="any" min={-180} max={180} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
           </div>
         </div>
 
@@ -241,7 +244,7 @@ export function ClientComponent() {
         <div className="space-y-3">
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Jumlah Core</label>
-            <input type="number" min={1} step={1} value={coreCount || ''} onChange={(e) => { const v = parseInt(e.target.value || '0'); setCoreCount(Number.isNaN(v) ? 0 : Math.max(0, v)) }} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
+            <input name="coreCount" type="number" min={1} step={1} value={coreCount || ''} onChange={(e) => { const v = parseInt(e.target.value || '0'); setCoreCount(Number.isNaN(v) ? 0 : Math.max(0, v)) }} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
           </div>
 
           {coreCount > 0 && (

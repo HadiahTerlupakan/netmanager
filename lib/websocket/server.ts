@@ -1,4 +1,4 @@
-import type { Server as SocketIOServer, Socket } from 'socket.io'
+import type { Socket, Server as SocketIOServer } from 'socket.io'
 import { SOCKET_EVENTS, type SocketData } from './types'
 
 // Declare global type for Socket.io server instance
@@ -122,6 +122,13 @@ function isRoomAllowed(socket: Socket, room: string): boolean {
     // Allow joining work order rooms for Activity Timeline updates
     // TODO: Add proper validation to ensure user has access to this work order
     if (room.startsWith('workorder:')) return true
+
+    // Allow joining chat conversation rooms
+    // Format: chat:conversationId
+    if (room.startsWith('chat:')) return true
+
+    // Allow joining global chat room
+    if (room === 'chat:global') return true
 
     return false
 }

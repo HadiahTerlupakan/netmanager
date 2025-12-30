@@ -20,7 +20,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     where: { id },
     include: {
       otbCore: { include: { otb: true } },
-      odcOutput: { orderBy: { idx: 'asc' } },
+      odcOutput: {
+        orderBy: { idx: 'asc' },
+        include: { odp: { select: { id: true, name: true } } }
+      },
     },
   })
   if (!odc) return NextResponse.json({ error: 'Not Found' }, { status: 404 })

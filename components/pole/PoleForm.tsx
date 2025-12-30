@@ -119,19 +119,47 @@ export function PoleForm({ initial, mode }: { initial?: PoleFormInitial; mode: '
         <h2 className="text-md font-semibold text-gray-900 dark:text-white">Data Dasar</h2>
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Nama Pole/Tiang</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: T-012" />
+          <input
+            name="name"
+            data-testid="pole-name-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+            placeholder="Contoh: T-012"
+          />
         </div>
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Lokasi (opsional)</label>
-          <input value={location ?? ''} onChange={(e) => setLocation(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: Depan Ruko A" />
+          <input
+            name="location"
+            data-testid="pole-location-input"
+            value={location ?? ''}
+            onChange={(e) => setLocation(e.target.value)}
+            className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+            placeholder="Contoh: Depan Ruko A"
+          />
         </div>
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Catatan (opsional)</label>
-          <textarea value={notes ?? ''} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Keterangan tambahan" />
+          <textarea
+            name="notes"
+            data-testid="pole-notes-input"
+            value={notes ?? ''}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={4}
+            className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+            placeholder="Keterangan tambahan"
+          />
         </div>
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <select
+            name="status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')}
+            className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+          >
             <option value="AKTIF">Aktif</option>
             <option value="NONAKTIF">Nonaktif</option>
             <option value="MAINTENANCE">Maintenance</option>
@@ -140,11 +168,31 @@ export function PoleForm({ initial, mode }: { initial?: PoleFormInitial; mode: '
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Latitude (opsional)</label>
-            <input value={latitude} onChange={(e) => setLatitude(e.target.value)} type="number" step="any" min={-90} max={90} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: -6.200000" />
+            <input
+              name="latitude"
+              value={latitude}
+              onChange={(e) => setLatitude(e.target.value)}
+              type="number"
+              step="any"
+              min={-90}
+              max={90}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+              placeholder="Contoh: -6.200000"
+            />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Longitude (opsional)</label>
-            <input value={longitude} onChange={(e) => setLongitude(e.target.value)} type="number" step="any" min={-180} max={180} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 106.816666" />
+            <input
+              name="longitude"
+              value={longitude}
+              onChange={(e) => setLongitude(e.target.value)}
+              type="number"
+              step="any"
+              min={-180}
+              max={180}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+              placeholder="Contoh: 106.816666"
+            />
           </div>
         </div>
 
@@ -196,7 +244,7 @@ export function PoleForm({ initial, mode }: { initial?: PoleFormInitial; mode: '
       {error && (<div className="text-sm text-red-600 dark:text-red-400">{error}</div>)}
 
       <div className="flex gap-2">
-        <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-md bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60">{saving ? 'Menyimpan...' : (mode === 'create' ? 'Simpan' : 'Update')}</button>
+        <button type="submit" data-testid="pole-submit-button" disabled={saving} className="inline-flex items-center gap-2 rounded-md bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60">{saving ? 'Menyimpan...' : (mode === 'create' ? 'Simpan' : 'Update')}</button>
       </div>
     </form>
   )

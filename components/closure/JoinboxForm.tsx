@@ -192,14 +192,16 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
         const res = await fetch(`/api/otbs/${idOrLabel}`)
         if (res.ok) {
           const j = await res.json()
-          const cores = (j?.otb?.cores || []) as any[]
+          // Bug fix: API returns 'otbCore' not 'cores'
+          const cores = (j?.otb?.otbCore || []) as any[]
           return cores.sort((a, b) => a.idx - b.idx).map((c) => `SLOT-${c.idx + 1}: ${c.slotName}`)
         }
       } else if (prefix === 'odc') {
         const res = await fetch(`/api/odcs/${idOrLabel}`)
         if (res.ok) {
           const j = await res.json()
-          const outs = (j?.odc?.outputs || []) as any[]
+          // Bug fix: API returns 'odcOutput' not 'outputs'
+          const outs = (j?.odc?.odcOutput || []) as any[]
           return outs.sort((a, b) => a.idx - b.idx).map((o) => o.slotName)
         }
       } else if (prefix === 'jb') {
@@ -322,6 +324,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
         <div className="space-y-1 max-w-xs">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Jumlah Core</label>
           <input
+            name={which === 'inputs' ? 'jumlahInput' : 'jumlahOutput'}
             type="number"
             min={0}
             step={1}
@@ -371,13 +374,13 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
               {rows.map((r, i) => (
                 <div key={i} className="grid grid-cols-12 items-center px-3 py-2 gap-2">
                   <div className="col-span-3">
-                    <select className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm" value={r.inputUnit} onChange={(e) => updateRow(which, i, 'inputUnit', e.target.value)}>
+                    <select name={`${which}[${i}].inputUnit`} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm" value={r.inputUnit} onChange={(e) => updateRow(which, i, 'inputUnit', e.target.value)}>
                       <option value="">-- Pilih Unit --</option>
                       {unitOptions.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
                     </select>
                   </div>
                   <div className="col-span-3">
-                    <select className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm" value={r.portUnit} onChange={(e) => updateRow(which, i, 'portUnit', e.target.value)}>
+                    <select name={`${which}[${i}].portUnit`} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm" value={r.portUnit} onChange={(e) => updateRow(which, i, 'portUnit', e.target.value)}>
                       <option value="">-- Pilih Port --</option>
                       {(which === 'inputs' ? (inputPortOptions[i] || []) : (outputPortOptions[i] || [])).map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
@@ -385,12 +388,12 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
                     </select>
                   </div>
                   <div className="col-span-3">
-                    <select className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm" value={r.tubeColor} onChange={(e) => updateRow(which, i, 'tubeColor', e.target.value)}>
+                    <select name={`${which}[${i}].tubeColor`} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm" value={r.tubeColor} onChange={(e) => updateRow(which, i, 'tubeColor', e.target.value)}>
                       {tubeColorOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <select className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm" value={r.coreColor} onChange={(e) => updateRow(which, i, 'coreColor', e.target.value)}>
+                    <select name={`${which}[${i}].coreColor`} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm" value={r.coreColor} onChange={(e) => updateRow(which, i, 'coreColor', e.target.value)}>
                       {standard12Colors.map((c) => (<option key={c} value={c}>{c}</option>))}
                     </select>
                   </div>
@@ -413,23 +416,23 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
         <div className="space-y-4">
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Nama JOINbox</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: JB-01" />
+            <input name="name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: JB-01" />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Lokasi (opsional)</label>
-            <input value={location ?? ''} onChange={(e) => setLocation(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: Tiang 12" />
+            <input name="location" value={location ?? ''} onChange={(e) => setLocation(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: Tiang 12" />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Catatan (opsional)</label>
-            <textarea value={notes ?? ''} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Keterangan tambahan" />
+            <textarea name="notes" value={notes ?? ''} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Keterangan tambahan" />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Keterangan Jumlah Kabel Feeder (opsional)</label>
-            <input value={keteranganJumlahKabelFeeder ?? ''} onChange={(e) => setKeteranganJumlahKabelFeeder(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 12 Core, 24 Core, dll" />
+            <input name="keteranganJumlahKabelFeeder" value={keteranganJumlahKabelFeeder ?? ''} onChange={(e) => setKeteranganJumlahKabelFeeder(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 12 Core, 24 Core, dll" />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+            <select name="status" value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
               <option value="AKTIF">Aktif</option>
               <option value="NONAKTIF">Nonaktif</option>
               <option value="MAINTENANCE">Maintenance</option>
@@ -438,11 +441,11 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Latitude (opsional)</label>
-              <input value={latitude} onChange={(e) => setLatitude(e.target.value)} type="number" step="any" min={-90} max={90} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: -6.200000" />
+              <input name="latitude" value={latitude} onChange={(e) => setLatitude(e.target.value)} type="number" step="any" min={-90} max={90} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: -6.200000" />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Longitude (opsional)</label>
-              <input value={longitude} onChange={(e) => setLongitude(e.target.value)} type="number" step="any" min={-180} max={180} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 106.816666" />
+              <input name="longitude" value={longitude} onChange={(e) => setLongitude(e.target.value)} type="number" step="any" min={-180} max={180} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 106.816666" />
             </div>
           </div>
           <div className="flex items-center gap-2">

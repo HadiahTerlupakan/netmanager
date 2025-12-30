@@ -157,7 +157,8 @@ export function ClientComponent() {
         const res = await fetch(`/api/otbs/${selectedOtbId}`)
         if (!res.ok) throw new Error('Gagal memuat slot OTB')
         const j = await res.json()
-        const cores = (j?.otb?.cores || []) as any[]
+        // Bug fix: API returns 'otbCore' not 'cores'
+        const cores = (j?.otb?.otbCore || []) as any[]
         setSlots(cores.map((c: any) => ({ id: c.id, idx: c.idx, slotName: c.slotName, tubeColor: c.tubeColor || '', coreColor: c.coreColor || '' })))
       } catch (e: any) {
         setError(e.message)

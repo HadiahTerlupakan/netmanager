@@ -146,7 +146,8 @@ export function ClientComponent() {
         const res = await fetch(`/api/odcs/${selectedOdcId}`)
         if (!res.ok) throw new Error('Gagal memuat slot')
         const j = await res.json()
-        const outs = (j?.odc?.outputs || []) as any[]
+        // Bug fix: API returns 'odcOutput' not 'outputs'
+        const outs = (j?.odc?.odcOutput || []) as any[]
         setOutputs(outs.map((o: any) => ({ id: o.id, idx: o.idx, slotName: o.slotName })))
       } catch { }
     })()

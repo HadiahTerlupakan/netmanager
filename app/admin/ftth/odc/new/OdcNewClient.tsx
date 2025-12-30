@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { HiTrash } from 'react-icons/hi2'
+import { useToast } from '@/components/common/ToastProvider'
 
 const MapPicker = dynamic(() => import('@/components/common/MapPicker').then(m => m.default), { ssr: false })
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
@@ -26,6 +27,7 @@ const tubeColorOptions = ['Non-tube', ...standard12Colors]
 
 export function ClientComponent() {
   const router = useRouter()
+  const { show } = useToast()
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
@@ -127,8 +129,11 @@ export function ClientComponent() {
         const res = await fetch(`/api/otbs/${selectedOtbId}`)
         if (!res.ok) throw new Error('Gagal memuat slot OTB')
         const j = await res.json()
-        const cores = (j?.otb?.cores || []) as any[]
-        setSlots(cores.map((c: any) => ({ id: c.id, idx: c.idx, slotName: c.slotName, tubeColor: c.tubeColor || '', coreColor: c.coreColor || '' })))
+        // Bug fix: API returns 'otbCore' not 'cores'
+        const cores = (j?.otb?.otbCore || []) as any[]
+        // Filter only available slots (not linked to any ODC)
+        const availableCores = cores.filter((c: any) => !c.odc)
+        setSlots(availableCores.map((c: any) => ({ id: c.id, idx: c.idx, slotName: c.slotName, tubeColor: c.tubeColor || '', coreColor: c.coreColor || '' })))
       } catch (e: any) {
         setError(e.message)
       }
@@ -188,6 +193,7 @@ export function ClientComponent() {
         const j = await res.json().catch(() => ({}))
         throw new Error(j?.error || 'Gagal menyimpan ODC')
       }
+      show({ type: 'success', title: 'Berhasil', message: 'ODC dibuat.' })
       router.push('/admin/ftth/odc')
     } catch (err: any) {
       setError(err.message)
@@ -212,7 +218,7 @@ export function ClientComponent() {
           <div className="space-y-4">
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Nama ODC</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: ODC-RT01" />
+              <input name="name" data-testid="odc-name-input" value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: ODC-RT01" />
             </div>
 
             <div className="space-y-1">
@@ -227,15 +233,15 @@ export function ClientComponent() {
 
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Catatan (opsional)</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Keterangan tambahan" />
+              <textarea name="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Keterangan tambahan" />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Keterangan Jumlah Kabel Feeder (opsional)</label>
-              <input value={keteranganJumlahKabelFeeder} onChange={(e) => setKeteranganJumlahKabelFeeder(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 12 Core, 24 Core, dll" />
+              <input name="keteranganJumlahKabelFeeder" value={keteranganJumlahKabelFeeder} onChange={(e) => setKeteranganJumlahKabelFeeder(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 12 Core, 24 Core, dll" />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+              <select name="status" value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
                 <option value="AKTIF">Aktif</option>
                 <option value="NONAKTIF">Nonaktif</option>
                 <option value="MAINTENANCE">Maintenance</option>
@@ -245,11 +251,11 @@ export function ClientComponent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Latitude (opsional)</label>
-                <input value={latitude} onChange={(e) => setLatitude(e.target.value)} type="number" step="any" min={-90} max={90} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: -6.200000" />
+                <input name="latitude" value={latitude} onChange={(e) => setLatitude(e.target.value)} type="number" step="any" min={-90} max={90} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: -6.200000" />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Longitude (opsional)</label>
-                <input value={longitude} onChange={(e) => setLongitude(e.target.value)} type="number" step="any" min={-180} max={180} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 106.816666" />
+                <input name="longitude" value={longitude} onChange={(e) => setLongitude(e.target.value)} type="number" step="any" min={-180} max={180} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 106.816666" />
               </div>
             </div>
 
@@ -307,14 +313,14 @@ export function ClientComponent() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Pilih OTB</label>
-              <select value={selectedOtbId} onChange={(e) => setSelectedOtbId(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+              <select name="selectedOtbId" data-testid="odc-otb-select" value={selectedOtbId} onChange={(e) => setSelectedOtbId(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
                 <option value="">-- Pilih OTB --</option>
                 {otbs.map((o) => (<option key={o.id} value={o.id}>{o.name}</option>))}
               </select>
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Pilih Slot</label>
-              <select value={selectedSlotId} onChange={(e) => setSelectedSlotId(e.target.value)} disabled={!selectedOtbId} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+              <select name="selectedSlotId" data-testid="odc-slot-select" value={selectedSlotId} onChange={(e) => setSelectedSlotId(e.target.value)} disabled={!selectedOtbId} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
                 <option value="">-- Pilih Slot --</option>
                 {slots.sort((a, b) => a.idx - b.idx).map((s) => (
                   <option key={s.id} value={s.id}>
@@ -332,6 +338,7 @@ export function ClientComponent() {
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Jumlah Core</label>
             <input
+              name="jumlahCore"
               type="number"
               min={0}
               step={1}
@@ -358,6 +365,7 @@ export function ClientComponent() {
                   <div key={i} className="grid grid-cols-12 items-center px-3 py-2 gap-2">
                     <div className="col-span-3">
                       <input
+                        name={`outputCores[${i}].slotName`}
                         value={row.slotName}
                         onChange={(e) => setOutputCores((prev) => prev.map((r, idx) => idx === i ? { ...r, slotName: e.target.value } : r))}
                         className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm"
@@ -366,6 +374,7 @@ export function ClientComponent() {
                     </div>
                     <div className="col-span-3">
                       <input
+                        name={`outputCores[${i}].redaman`}
                         type="number"
                         step="0.01"
                         value={row.redaman}
@@ -376,6 +385,7 @@ export function ClientComponent() {
                     </div>
                     <div className="col-span-3">
                       <select
+                        name={`outputCores[${i}].tubeColor`}
                         value={row.tubeColor}
                         onChange={(e) => setOutputCores((prev) => prev.map((r, idx) => idx === i ? { ...r, tubeColor: e.target.value } : r))}
                         className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm"
@@ -387,6 +397,7 @@ export function ClientComponent() {
                     </div>
                     <div className="col-span-2">
                       <select
+                        name={`outputCores[${i}].coreColor`}
                         value={row.coreColor}
                         onChange={(e) => setOutputCores((prev) => prev.map((r, idx) => idx === i ? { ...r, coreColor: e.target.value } : r))}
                         className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm"
@@ -416,7 +427,7 @@ export function ClientComponent() {
         {error && (<div className="text-sm text-red-600 dark:text-red-400">{error}</div>)}
 
         <div className="flex gap-2">
-          <button type="submit" disabled={loading} className="inline-flex items-center gap-2 rounded-md bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60">{loading ? 'Menyimpan...' : 'Simpan'}</button>
+          <button type="submit" data-testid="odc-submit-button" disabled={loading} className="inline-flex items-center gap-2 rounded-md bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60">{loading ? 'Menyimpan...' : 'Simpan'}</button>
           <button type="button" onClick={() => router.back()} className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm">Batal</button>
         </div>
       </form>

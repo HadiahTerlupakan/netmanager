@@ -903,16 +903,16 @@ model SystemLog {
 }
 
 model User {
-  id                                         String                 @id
+  id                                         String                    @id
   name                                       String?
-  email                                      String                 @unique
+  email                                      String                    @unique
   passwordHash                               String?
-  createdAt                                  DateTime               @default(now())
+  createdAt                                  DateTime                  @default(now())
   updatedAt                                  DateTime
   emailVerified                              DateTime?
   image                                      String?
   departmentId                               String?
-  isActive                                   Boolean                @default(true)
+  isActive                                   Boolean                   @default(true)
   phone                                      String?
   siteId                                     String?
   roleId                                     String?
@@ -921,7 +921,7 @@ model User {
   shiftId                                    String?
   startWorkTime                              String?
   workDays                                   String?
-  workingHourMode                            WorkingHourMode        @default(FIXED)
+  workingHourMode                            WorkingHourMode           @default(FIXED)
   pushToken                                  String?
   pushTokenUpdatedAt                         DateTime?
   account                                    Account[]
@@ -933,9 +933,9 @@ model User {
   pelanggan                                  Pelanggan[]
   session                                    Session[]
   systemLog                                  SystemLog[]
-  departments                                Departments?           @relation(fields: [departmentId], references: [id])
-  role                                       Role?                  @relation(fields: [roleId], references: [id])
-  sites                                      Sites?                 @relation(fields: [siteId], references: [id])
+  departments                                Departments?              @relation(fields: [departmentId], references: [id])
+  role                                       Role?                     @relation(fields: [roleId], references: [id])
+  sites                                      Sites?                    @relation(fields: [siteId], references: [id])
   barang_keluar                              BarangKeluar[]
   barang_masuk                               BarangMasuk[]
   notifications                              Notifications[]
@@ -949,8 +949,11 @@ model User {
   work_order_tasks                           WorkOrderTasks[]
   work_order_templates                       WorkOrderTemplates[]
   work_order_updates                         WorkOrderUpdates[]
-  work_orders_work_orders_assignedToIdToUser WorkOrders[]           @relation("work_orders_assignedToIdToUser")
-  work_orders_work_orders_createdByIdToUser  WorkOrders[]           @relation("work_orders_createdByIdToUser")
+  work_orders_work_orders_assignedToIdToUser WorkOrders[]              @relation("work_orders_assignedToIdToUser")
+  work_orders_work_orders_createdByIdToUser  WorkOrders[]              @relation("work_orders_createdByIdToUser")
+  // Chat relations
+  conversation_participants                  ConversationParticipant[]
+  messages                                   Message[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -2200,4 +2203,49 @@ enum WorkingHourMode {
   FIXED
   SHIFT
   FLEXIBLE
+}
+
+// ============================================
+// CHAT MODELS
+// ============================================
+
+model Conversation {
+  id           String                    @id @default(cuid())
+  name         String? // Nama untuk group/global chat
+  isGlobal     Boolean                   @default(false)
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  messages     Message[]
+  participants ConversationParticipant[]
+
+  @@index([isGlobal])
+  @@index([updatedAt])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String?
+  imageUrl       String?
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
 }

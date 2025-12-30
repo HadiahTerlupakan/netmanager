@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 
-// GET - Get barang list for mobile (with stock from a gudang)
+// GET - Get barang list for mobile
+// Query params:
+//   - gudangId: required - Target warehouse
+//   - mode: 'masuk' | 'keluar' (default: 'keluar')
+//     - masuk: return ALL barang (master data) for receiving new stock
+//     - keluar: return only barang with existing stock in the gudang
 export async function GET(req: NextRequest) {
     try {
         const authHeader = req.headers.get('Authorization')
@@ -21,6 +26,7 @@ export async function GET(req: NextRequest) {
 
         const { searchParams } = new URL(req.url)
         const gudangId = searchParams.get('gudangId')
+        const mode = searchParams.get('mode') || 'keluar' // Default to 'keluar' for backward compatibility
 
         if (!gudangId) {
             return NextResponse.json({ error: 'gudangId required' }, { status: 400 })
@@ -44,6 +50,36 @@ export async function GET(req: NextRequest) {
         const isSuperAdmin = user.role?.name === 'SUPER_ADMIN'
         const isSiteRestricted = !isSuperAdmin && userPermissions.includes('k_barang:site_only')
 
+        // MODE: MASUK - Return ALL master barang (for receiving new stock)
+        if (mode === 'masuk') {
+            // Get all barang from master data
+            const allBarang = await prisma.barang.findMany({
+                select: {
+                    id: true,
+                    kode: true,
+                    nama: true,
+                    satuan: true,
+                    isWorkOrderMaterial: true
+                },
+                orderBy: { nama: 'asc' }
+            })
+
+            const barangList = allBarang.map(b => ({
+                id: b.id,
+                kode: b.kode,
+                nama: b.nama,
+                satuan: b.satuan,
+                isWorkOrderMaterial: b.isWorkOrderMaterial,
+                stok: 0,
+                stokBaru: 0,
+                stokBekas: 0,
+                stokRusak: 0
+            }))
+
+            return NextResponse.json({ barangList })
+        }
+
+        // MODE: KELUAR (default) - Return only barang with existing stock in gudang
         let whereClause: any = {
             gudangId
         }

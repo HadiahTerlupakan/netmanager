@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
+import { useToast } from '@/components/common/ToastProvider'
 
 const MapPicker = dynamic(() => import('@/components/common/MapPicker').then(m => m.default), { ssr: false })
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
@@ -14,6 +15,7 @@ const TUBE_COLOR_OPTIONS = ['Non-tube', ...STANDARD_12_COLORS] as const
 
 export function ClientComponent() {
   const router = useRouter()
+  const { show } = useToast()
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
   const [coreCount, setCoreCount] = useState<number>(0)
@@ -114,6 +116,7 @@ export function ClientComponent() {
         const j = await res.json().catch(() => ({}))
         throw new Error(j?.error || 'Gagal menyimpan OTB')
       }
+      show({ type: 'success', title: 'Berhasil', message: 'OTB dibuat.' })
       router.push('/admin/ftth/otb')
     } catch (err: any) {
       setError(err.message)
@@ -135,6 +138,8 @@ export function ClientComponent() {
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Nama OTB</label>
           <input
+            name="name"
+            data-testid="otb-name-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -146,6 +151,7 @@ export function ClientComponent() {
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Lokasi (opsional)</label>
           <input
+            name="location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
@@ -153,11 +159,10 @@ export function ClientComponent() {
           />
         </div>
 
-
-
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Catatan (opsional)</label>
           <textarea
+            name="notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={4}
@@ -168,6 +173,7 @@ export function ClientComponent() {
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Keterangan Jumlah Kabel Feeder (opsional)</label>
           <input
+            name="keteranganJumlahKabelFeeder"
             value={keteranganJumlahKabelFeeder}
             onChange={(e) => setKeteranganJumlahKabelFeeder(e.target.value)}
             className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
@@ -176,7 +182,12 @@ export function ClientComponent() {
         </div>
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+          <select
+            name="status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')}
+            className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+          >
             <option value="AKTIF">Aktif</option>
             <option value="NONAKTIF">Nonaktif</option>
             <option value="MAINTENANCE">Maintenance</option>
@@ -187,6 +198,7 @@ export function ClientComponent() {
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Latitude (opsional)</label>
             <input
+              name="latitude"
               value={latitude}
               onChange={(e) => setLatitude(e.target.value)}
               type="number"
@@ -200,6 +212,7 @@ export function ClientComponent() {
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Longitude (opsional)</label>
             <input
+              name="longitude"
               value={longitude}
               onChange={(e) => setLongitude(e.target.value)}
               type="number"
@@ -288,6 +301,8 @@ export function ClientComponent() {
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Jumlah Core</label>
             <input
+              name="coreCount"
+              data-testid="otb-corecount-input"
               type="number"
               min={1}
               step={1}
@@ -358,6 +373,7 @@ export function ClientComponent() {
             type="submit"
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-md bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+            data-testid="otb-submit-button"
           >
             {loading ? 'Menyimpan...' : 'Simpan'}
           </button>

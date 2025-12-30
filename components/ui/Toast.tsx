@@ -95,11 +95,11 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
         <div
             className={`flex items-start gap-3 sm:gap-3 p-5 sm:p-4 rounded-lg border shadow-lg backdrop-blur-sm animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 ${className}`}
         >
-            <Icon className={`w-6 h-6 sm:w-5 sm:h-5 mt-0.5 flex-shrink-0 ${iconColor}`} />
+            <Icon className={`w-6 h-6 sm:w-5 sm:h-5 mt-0.5 shrink-0 ${iconColor}`} />
             <p className="flex-1 text-base sm:text-sm font-medium leading-relaxed">{toast.message}</p>
             <button
                 onClick={() => onRemove(toast.id)}
-                className="flex-shrink-0 hover:opacity-70 transition-opacity touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className="shrink-0 hover:opacity-70 transition-opacity touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                 aria-label="Close notification"
             >
                 <HiXMark className="w-5 h-5 sm:w-4 sm:h-4" />
