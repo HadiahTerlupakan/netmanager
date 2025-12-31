@@ -18,8 +18,7 @@ import {
  * 
  * Security: Requires CRON_SECRET in Authorization header
  * 
- * Recommended cron schedule: Every 15 minutes
- * Example: "*/15 * * * *" with ?type=auto
+ * Recommended cron schedule: Every 15 minutes (e.g. "star/15 star star star star")
  */
 export async function GET(request: NextRequest) {
     try {

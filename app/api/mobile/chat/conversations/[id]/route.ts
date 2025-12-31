@@ -167,43 +167,44 @@ export async function POST(
             return NextResponse.json({ error: 'Not a participant' }, { status: 403 })
         }
 
-        // Create message and update conversation timestamp
-        const [message] = await prisma.$transaction([
-            prisma.message.create({
-                data: {
-                    conversationId,
-                    senderId: user.id,
-                    content: content?.trim() || null,
-                    imageUrl: imageUrl || null
-                },
-                include: {
-                    sender: {
-                        select: {
-                            id: true,
-                            name: true,
-                            image: true
-                        }
+        // Create message
+        const newMessage = await prisma.message.create({
+            data: {
+                conversationId,
+                senderId: user.id,
+                content: content?.trim() || null,
+                imageUrl: imageUrl || null
+            },
+            include: {
+                sender: {
+                    select: {
+                        id: true,
+                        name: true,
+                        image: true
                     }
                 }
-            }),
-            prisma.conversation.update({
-                where: { id: conversationId },
-                data: { updatedAt: new Date() }
-            }),
-            // Update sender's last read timestamp
-            prisma.conversationParticipant.update({
-                where: {
-                    conversationId_userId: {
-                        conversationId,
-                        userId: user.id
-                    }
-                },
-                data: { lastReadAt: new Date() }
-            })
-        ])
+            }
+        })
+
+        // Update conversation timestamp
+        await prisma.conversation.update({
+            where: { id: conversationId },
+            data: { updatedAt: new Date() }
+        })
+
+        // Update sender's last read timestamp
+        await prisma.conversationParticipant.update({
+            where: {
+                conversationId_userId: {
+                    conversationId,
+                    userId: user.id
+                }
+            },
+            data: { lastReadAt: new Date() }
+        })
 
         // Send push notifications to other participants (async, don't wait)
-        (async () => {
+        ;(async () => {
             try {
                 // Get all other participants
                 const otherParticipants = await prisma.conversationParticipant.findMany({
@@ -227,9 +228,9 @@ export async function POST(
                         ? 'Global Chat' 
                         : conversation?.name || user.name || 'Chat'
                     
-                    const notificationBody = message.imageUrl 
+                    const notificationBody = newMessage.imageUrl 
                         ? '📷 Mengirim gambar' 
-                        : (message.content || 'Pesan baru')
+                        : (newMessage.content || 'Pesan baru')
 
                     await sendPushToUsers(
                         otherUserIds,
@@ -238,7 +239,7 @@ export async function POST(
                         {
                             type: 'chat_message',
                             conversationId,
-                            messageId: message.id
+                            messageId: newMessage.id
                         }
                     )
                 }
@@ -250,19 +251,19 @@ export async function POST(
         return NextResponse.json({
             success: true,
             data: {
-                id: message.id,
-                content: message.content,
-                imageUrl: message.imageUrl,
-                senderId: message.senderId,
-                senderName: message.sender.name,
-                senderImage: message.sender.image,
-                createdAt: message.createdAt.toISOString(),
+                id: newMessage.id,
+                content: newMessage.content,
+                imageUrl: newMessage.imageUrl,
+                senderId: newMessage.senderId,
+                senderName: newMessage.sender.name,
+                senderImage: newMessage.sender.image,
+                createdAt: newMessage.createdAt.toISOString(),
                 isOwn: true
             }
         })
     } catch (error: unknown) {
         console.error('Error sending message:', error)
-        const message = error instanceof Error ? error.message : 'Unknown error'
-        return NextResponse.json({ error: message }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }
