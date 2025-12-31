@@ -407,13 +407,13 @@ export class InventoryRepository implements IInventoryRepository {
         if (dariGudangId) where.dariGudangId = dariGudangId
         if (keGudangId) where.keGudangId = keGudangId
 
-        const [items, total] = await Promise.all([
+        const [rawItems, total] = await Promise.all([
             this.db.transferAntarGudang.findMany({
                 where,
                 include: {
                     barang: { select: { id: true, kode: true, nama: true, satuan: true } },
-                    gudangDari: { select: { id: true, kode: true, nama: true } },
-                    gudangKe: { select: { id: true, kode: true, nama: true } }
+                    gudangDari: { select: { id: true, kode: true, nama: true, lokasi: true } },
+                    gudangKe: { select: { id: true, kode: true, nama: true, lokasi: true } }
                 },
                 orderBy: { tanggal: 'desc' },
                 skip,
@@ -421,6 +421,13 @@ export class InventoryRepository implements IInventoryRepository {
             }),
             this.db.transferAntarGudang.count({ where })
         ])
+
+        // Map to match frontend property names
+        const items = rawItems.map(item => ({
+            ...item,
+            dariGudang: item.gudangDari,
+            keGudang: item.gudangKe
+        }))
 
         return { items, total }
     }

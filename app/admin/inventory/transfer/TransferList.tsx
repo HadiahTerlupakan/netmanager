@@ -187,13 +187,13 @@ export default function TransferPage() {
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Barang</p>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {selectedTransfer.barang.kode} - {selectedTransfer.barang.nama}
+                    {selectedTransfer.barang?.kode} - {selectedTransfer.barang?.nama}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Jumlah</p>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {selectedTransfer.jumlah} {selectedTransfer.barang.satuan}
+                    {selectedTransfer.jumlah} {selectedTransfer.barang?.satuan}
                   </p>
                 </div>
                 <div>
@@ -212,11 +212,11 @@ export default function TransferPage() {
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
                 <p className="text-sm text-red-600 dark:text-red-400 font-medium mb-2">Gudang Sumber</p>
                 <p className="font-medium text-red-900 dark:text-red-300">
-                  {selectedTransfer.dariGudang.kode} - {selectedTransfer.dariGudang.nama}
+                  {selectedTransfer.dariGudang?.kode} - {selectedTransfer.dariGudang?.nama}
                 </p>
-                {selectedTransfer.dariGudang.lokasi && (
+                {selectedTransfer.dariGudang?.lokasi && (
                   <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                    {selectedTransfer.dariGudang.lokasi}
+                    {selectedTransfer.dariGudang?.lokasi}
                   </p>
                 )}
               </div>
@@ -224,11 +224,11 @@ export default function TransferPage() {
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                 <p className="text-sm text-green-600 dark:text-green-400 font-medium mb-2">Gudang Tujuan</p>
                 <p className="font-medium text-green-900 dark:text-green-300">
-                  {selectedTransfer.keGudang.kode} - {selectedTransfer.keGudang.nama}
+                  {selectedTransfer.keGudang?.kode} - {selectedTransfer.keGudang?.nama}
                 </p>
-                {selectedTransfer.keGudang.lokasi && (
+                {selectedTransfer.keGudang?.lokasi && (
                   <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                    {selectedTransfer.keGudang.lokasi}
+                    {selectedTransfer.keGudang?.lokasi}
                   </p>
                 )}
               </div>
