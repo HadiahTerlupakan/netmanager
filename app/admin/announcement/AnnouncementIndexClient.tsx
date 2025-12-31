@@ -14,6 +14,9 @@ interface Announcement {
     startDate: string | null;
     endDate: string | null;
     createdAt: string;
+    _count?: {
+        reads: number;
+    };
 }
 
 export function ClientComponent() {
@@ -63,15 +66,16 @@ export function ClientComponent() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Title</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Target</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Dibaca</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Dates</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {loading ? (
-                            <tr><td colSpan={5} className="px-6 py-4 text-center dark:text-gray-400">Loading...</td></tr>
+                            <tr><td colSpan={6} className="px-6 py-4 text-center dark:text-gray-400">Loading...</td></tr>
                         ) : announcements.length === 0 ? (
-                            <tr><td colSpan={5} className="px-6 py-4 text-center dark:text-gray-400">No announcements found</td></tr>
+                            <tr><td colSpan={6} className="px-6 py-4 text-center dark:text-gray-400">No announcements found</td></tr>
                         ) : (
                             announcements.map((announcement) => (
                                 <tr key={announcement.id}>
@@ -92,6 +96,14 @@ export function ClientComponent() {
                                             ${announcement.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
                                             {announcement.isActive ? 'Active' : 'Inactive'}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                                {announcement._count?.reads || 0}
+                                            </span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">orang</span>
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         {announcement.startDate ? new Date(announcement.startDate).toLocaleDateString() : 'Now'}

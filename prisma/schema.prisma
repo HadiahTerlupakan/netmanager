@@ -41,21 +41,38 @@ model Account {
 }
 
 model Announcement {
-  id        String         @id
+  id        String             @id
   title     String
   content   String
-  target    TargetAudience @default(ALL)
-  isActive  Boolean        @default(true)
-  isPinned  Boolean        @default(false)
+  target    TargetAudience     @default(ALL)
+  isActive  Boolean            @default(true)
+  isPinned  Boolean            @default(false)
   startDate DateTime?
   endDate   DateTime?
-  createdAt DateTime       @default(now())
+  createdAt DateTime           @default(now())
   updatedAt DateTime
   createdBy String?
-  user      User?          @relation(fields: [createdBy], references: [id])
+  user      User?              @relation(fields: [createdBy], references: [id])
+  reads     AnnouncementRead[]
 
   @@index([isActive])
   @@index([target])
+}
+
+model AnnouncementRead {
+  id             String       @id @default(uuid())
+  announcementId String
+  userId         String?
+  pelangganId    String?
+  portal         String // 'admin', 'employee', 'customer'
+  readAt         DateTime     @default(now())
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@unique([announcementId, pelangganId])
+  @@index([announcementId])
+  @@index([userId])
+  @@index([pelangganId])
 }
 
 model Attendance {

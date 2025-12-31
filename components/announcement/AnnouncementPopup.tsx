@@ -114,13 +114,24 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
         return () => clearTimeout(timer);
     }, [portal]);
 
-    const handleDismiss = () => {
+    const handleDismiss = async () => {
         // Store dismissed announcement IDs
         const currentAnn = announcements[currentIndex];
         const dismissedIds = JSON.parse(localStorage.getItem(`dismissed_announcements_${portal}`) || '[]');
         if (!dismissedIds.includes(currentAnn.id)) {
             dismissedIds.push(currentAnn.id);
             localStorage.setItem(`dismissed_announcements_${portal}`, JSON.stringify(dismissedIds));
+        }
+
+        // Mark as read in backend (fire and forget)
+        try {
+            fetch(`/api/announcements/${currentAnn.id}/read`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ portal })
+            }).catch(() => { /* ignore errors */ });
+        } catch {
+            // Ignore errors - this is non-critical
         }
 
         if (currentIndex < announcements.length - 1) {
@@ -136,6 +147,20 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
         // Store all announcement IDs as dismissed
         const dismissedIds = announcements.map(ann => ann.id);
         localStorage.setItem(`dismissed_announcements_${portal}`, JSON.stringify(dismissedIds));
+
+        // Mark all as read in backend (fire and forget)
+        announcements.forEach(ann => {
+            try {
+                fetch(`/api/announcements/${ann.id}/read`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ portal })
+                }).catch(() => { /* ignore errors */ });
+            } catch {
+                // Ignore errors
+            }
+        });
+
         setIsVisible(false);
     };
 

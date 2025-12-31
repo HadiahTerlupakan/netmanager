@@ -43,8 +43,12 @@ export async function GET(request: NextRequest) {
             // Admin portal might want to see announcements for admins
             where = {
                 target: { in: ['ALL', 'ADMIN'] },
-                isActive: true, // Or maybe all?
-                startDate: { lte: new Date() }
+                isActive: true,
+                startDate: { lte: new Date() },
+                OR: [
+                    { endDate: null },
+                    { endDate: { gte: new Date() } }
+                ]
             };
         } else {
             // Admin management view (shows everything)
@@ -59,7 +63,12 @@ export async function GET(request: NextRequest) {
             orderBy: [
                 { isPinned: 'desc' },
                 { createdAt: 'desc' }
-            ]
+            ],
+            include: {
+                _count: {
+                    select: { reads: true }
+                }
+            }
         });
 
         return NextResponse.json(announcements);

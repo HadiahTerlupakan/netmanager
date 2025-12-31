@@ -37,6 +37,19 @@ export default function AnnouncementBanner({ portal }: AnnouncementBannerProps) 
         fetchAnnouncements();
     }, [portal]);
 
+    const handleDismiss = () => {
+        // Mark current announcement as read (fire and forget)
+        const current = announcements[currentIndex];
+        if (current) {
+            fetch(`/api/announcements/${current.id}/read`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ portal })
+            }).catch(() => { /* ignore errors */ });
+        }
+        setIsVisible(false);
+    };
+
     if (!isVisible || announcements.length === 0) return null;
 
     const current = announcements[currentIndex];
@@ -59,7 +72,7 @@ export default function AnnouncementBanner({ portal }: AnnouncementBannerProps) 
                         </span>
                     </div>
                 </div>
-                <div className="flex-shrink-0 sm:ml-3 flex items-center">
+                <div className="shrink-0 sm:ml-3 flex items-center">
                     {announcements.length > 1 && (
                         <div className="flex space-x-2 mr-4 text-sm">
                             <button
@@ -80,7 +93,7 @@ export default function AnnouncementBanner({ portal }: AnnouncementBannerProps) 
                     <button
                         type="button"
                         className="-mr-1 flex p-2 rounded-md hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-white sm:-mr-2"
-                        onClick={() => setIsVisible(false)}
+                        onClick={handleDismiss}
                     >
                         <span className="sr-only">Dismiss</span>
                         <HiXMark className="h-6 w-6 text-white" aria-hidden="true" />
