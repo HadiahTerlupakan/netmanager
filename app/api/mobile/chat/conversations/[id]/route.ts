@@ -1,5 +1,6 @@
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { prisma } from '@/lib/prisma'
+import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService'
 import { NextRequest, NextResponse } from 'next/server'
 
 interface RouteParams {
@@ -200,6 +201,51 @@ export async function POST(
                 data: { lastReadAt: new Date() }
             })
         ])
+
+        // Send push notifications to other participants (async, don't wait)
+        (async () => {
+            try {
+                // Get all other participants
+                const otherParticipants = await prisma.conversationParticipant.findMany({
+                    where: {
+                        conversationId,
+                        userId: { not: user.id }
+                    },
+                    select: { userId: true }
+                })
+
+                if (otherParticipants.length > 0) {
+                    const otherUserIds = otherParticipants.map(p => p.userId)
+                    
+                    // Get conversation name for notification
+                    const conversation = await prisma.conversation.findUnique({
+                        where: { id: conversationId },
+                        select: { name: true, isGlobal: true }
+                    })
+                    
+                    const chatName = conversation?.isGlobal 
+                        ? 'Global Chat' 
+                        : conversation?.name || user.name || 'Chat'
+                    
+                    const notificationBody = message.imageUrl 
+                        ? '📷 Mengirim gambar' 
+                        : (message.content || 'Pesan baru')
+
+                    await sendPushToUsers(
+                        otherUserIds,
+                        `💬 ${chatName}`,
+                        `${user.name}: ${notificationBody}`,
+                        {
+                            type: 'chat_message',
+                            conversationId,
+                            messageId: message.id
+                        }
+                    )
+                }
+            } catch (pushError) {
+                console.error('[Chat] Error sending push notifications:', pushError)
+            }
+        })()
 
         return NextResponse.json({
             success: true,
