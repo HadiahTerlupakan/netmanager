@@ -1,0 +1,65 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { LocationTrackingService } from '@/modules/attendance/services/LocationTrackingService'
+
+/**
+ * GET /api/admin/location/history/[userId]
+ * Mengambil history lokasi untuk user tertentu
+ * Query params: startDate, endDate
+ */
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ userId: string }> }
+) {
+    try {
+        const session = await getServerSession(authOptions)
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { userId } = await params
+        const searchParams = request.nextUrl.searchParams
+        
+        // Parse dates - default to today
+        const startDateParam = searchParams.get('startDate')
+        const endDateParam = searchParams.get('endDate')
+        
+        let startDate = new Date()
+        startDate.setHours(0, 0, 0, 0)
+        
+        let endDate = new Date()
+        endDate.setHours(23, 59, 59, 999)
+        
+        if (startDateParam) {
+            startDate = new Date(startDateParam)
+        }
+        if (endDateParam) {
+            endDate = new Date(endDateParam)
+        }
+
+        const locationService = new LocationTrackingService()
+        
+        const [history, stats] = await Promise.all([
+            locationService.getLocationHistory(userId, startDate, endDate),
+            locationService.getLocationStats(userId, startDate)
+        ])
+
+        return NextResponse.json({
+            success: true,
+            data: {
+                locations: history,
+                stats
+            },
+            userId,
+            dateRange: {
+                start: startDate.toISOString(),
+                end: endDate.toISOString()
+            }
+        })
+
+    } catch (error: any) {
+        console.error('Error fetching location history:', error)
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+}

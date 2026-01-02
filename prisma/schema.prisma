@@ -76,24 +76,53 @@ model AnnouncementRead {
 }
 
 model Attendance {
-  id               String     @id
-  userId           String
-  checkIn          DateTime   @default(now())
-  checkOut         DateTime?
-  checkInPhoto     String?
-  checkOutPhoto    String?
-  status           String     @default("PRESENT")
-  notes            String?
-  location         String?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime
-  checkOutLocation String?
-  user             User       @relation(fields: [userId], references: [id])
-  overtime         Overtime[]
+  id                       String     @id
+  userId                   String
+  checkIn                  DateTime   @default(now())
+  checkOut                 DateTime?
+  checkInPhoto             String?
+  checkOutPhoto            String?
+  status                   String     @default("PRESENT")
+  notes                    String?
+  location                 String?
+  createdAt                DateTime   @default(now())
+  updatedAt                DateTime
+  checkOutLocation         String?
+  // Geofence fields
+  geofenceStatus           String? // INSIDE, OUTSIDE, UNKNOWN
+  geofenceDistance         Float? // Jarak ke zona terdekat (meter)
+  geofenceSiteName         String? // Nama site terdekat
+  checkOutGeofenceStatus   String?
+  checkOutGeofenceDistance Float?
+  user                     User       @relation(fields: [userId], references: [id])
+  overtime                 Overtime[]
 
   @@index([checkIn])
   @@index([status])
   @@index([userId])
+}
+
+// Live Location Tracking - stores employee location history during work hours
+model EmployeeLocation {
+  id           String   @id @default(uuid())
+  userId       String
+  latitude     Float
+  longitude    Float
+  accuracy     Float? // GPS accuracy in meters
+  altitude     Float?
+  speed        Float? // m/s
+  heading      Float? // degrees
+  batteryLevel Float? // 0-1
+  isMoving     Boolean  @default(false)
+  recordedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([recordedAt])
+  @@index([userId, recordedAt])
+  @@map("employee_locations")
 }
 
 model Bandwidth {
@@ -971,6 +1000,7 @@ model User {
   // Chat relations
   conversation_participants                  ConversationParticipant[]
   messages                                   Message[]
+  employeeLocations                          EmployeeLocation[]
 
   @@index([departmentId])
   @@index([isActive])

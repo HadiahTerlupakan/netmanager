@@ -55,6 +55,7 @@ import {
   HiOutlineClipboardDocumentCheck,
   HiOutlineTag,
   HiOutlineTicket,
+  HiOutlineMapPin,
 } from 'react-icons/hi2'
 import { useSettings } from '@/hooks/useSettings'
 import { usePermission } from '@/hooks/use-permission'
@@ -126,6 +127,7 @@ const IconMap: Record<string, React.ElementType> = {
   HiOutlineClipboardDocumentCheck,
   HiOutlineTag,
   HiOutlineTicket,
+  HiOutlineMapPin,
 }
 
 const getIcon = (name: string | undefined, className: string) => {

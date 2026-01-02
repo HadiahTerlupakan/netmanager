@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
 import { verifyMobileToken } from '@/lib/mobile-auth'
+import { GeofenceService } from '@/modules/attendance/services/GeofenceService'
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now()
@@ -114,6 +115,8 @@ export async function POST(request: NextRequest) {
         let photoUrl = null
         let location = ''
         let notes = ''
+        let latitude: number | null = null
+        let longitude: number | null = null
         
         const contentType = request.headers.get('content-type') || ''
         
@@ -122,10 +125,8 @@ export async function POST(request: NextRequest) {
             photoUrl = body.photoUrl
             location = body.location
             notes = body.notes
-             // Also support latitude/longitude in body for logging
-             if (body.latitude && body.longitude) {
-                console.log('Mobile Check-In Location (JSON):', { userId, lat: body.latitude, lng: body.longitude })
-             }
+            latitude = body.latitude
+            longitude = body.longitude
         } else {
             const formData: any = await request.formData()
             const photo = formData.get('photo') as File
@@ -154,11 +155,25 @@ export async function POST(request: NextRequest) {
                     userId
                 )
             }
-             const latStr = formData.get('latitude') as string
-             const lngStr = formData.get('longitude') as string
-             if (latStr && lngStr) {
-                 console.log('Mobile Check-In Location (FormData):', { userId, lat: latStr, lng: lngStr })
-             }
+            const latStr = formData.get('latitude') as string
+            const lngStr = formData.get('longitude') as string
+            if (latStr && lngStr) {
+                latitude = parseFloat(latStr)
+                longitude = parseFloat(lngStr)
+            }
+        }
+
+        // Geofence validation
+        let geofenceStatus = 'UNKNOWN'
+        let geofenceDistance: number | null = null
+        let geofenceSiteName: string | null = null
+        
+        if (latitude !== null && longitude !== null) {
+            const geofenceService = new GeofenceService()
+            const result = await geofenceService.validateGeofence(userId, latitude, longitude)
+            geofenceStatus = result.isInside ? 'INSIDE' : 'OUTSIDE'
+            geofenceDistance = result.nearestDistance
+            geofenceSiteName = result.nearestSiteName
         }
 
         let status = 'ON_TIME'
@@ -187,6 +202,9 @@ export async function POST(request: NextRequest) {
                 location,
                 notes,
                 status: status,
+                geofenceStatus,
+                geofenceDistance,
+                geofenceSiteName,
                 updatedAt: new Date()
             }
         })

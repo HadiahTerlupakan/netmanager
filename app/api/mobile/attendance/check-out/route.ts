@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
 import { verifyMobileToken } from '@/lib/mobile-auth'
+import { GeofenceService } from '@/modules/attendance/services/GeofenceService'
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now()
@@ -42,6 +43,8 @@ export async function POST(request: NextRequest) {
         let photoUrl = null
         let notes = ''
         let location = ''
+        let latitude: number | null = null
+        let longitude: number | null = null
         
         const contentType = request.headers.get('content-type') || ''
         
@@ -50,6 +53,8 @@ export async function POST(request: NextRequest) {
             photoUrl = body.photoUrl
             notes = body.notes
             location = body.location
+            latitude = body.latitude
+            longitude = body.longitude
         } else {
             const formData: any = await request.formData()
             const photo = formData.get('photo') as File
@@ -78,6 +83,25 @@ export async function POST(request: NextRequest) {
                     userId
                 )
             }
+
+            // Parse latitude/longitude from formData
+            const latStr = formData.get('latitude') as string
+            const lngStr = formData.get('longitude') as string
+            if (latStr && lngStr) {
+                latitude = parseFloat(latStr)
+                longitude = parseFloat(lngStr)
+            }
+        }
+
+        // Geofence validation
+        let checkOutGeofenceStatus = 'UNKNOWN'
+        let checkOutGeofenceDistance: number | null = null
+        
+        if (latitude !== null && longitude !== null) {
+            const geofenceService = new GeofenceService()
+            const result = await geofenceService.validateGeofence(userId, latitude, longitude)
+            checkOutGeofenceStatus = result.isInside ? 'INSIDE' : 'OUTSIDE'
+            checkOutGeofenceDistance = result.nearestDistance
         }
 
         const updatedAttendance = await prisma.attendance.update({
@@ -86,6 +110,8 @@ export async function POST(request: NextRequest) {
                 checkOut: new Date(),
                 checkOutPhoto: photoUrl,
                 checkOutLocation: location || undefined,
+                checkOutGeofenceStatus,
+                checkOutGeofenceDistance,
                 notes: notes ? (attendance.notes ? `${attendance.notes}; Checkout Note: ${notes}` : notes) : undefined,
                 updatedAt: new Date()
             }
