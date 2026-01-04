@@ -14,7 +14,7 @@ import {
   HiOutlineDocumentText,
   HiOutlineClock
 } from 'react-icons/hi2'
-import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import { OdpOutputTable } from './OdpOutputTable'
 
 export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -218,48 +218,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
               icon={<HiOutlineCube className="w-4 h-4" />}
             >
               <div className="overflow-hidden">
-                <ResponsiveTable
-                  data={odp.odpOutput}
-                  keyField="id"
-                  columns={[
-                    {
-                      key: 'idx',
-                      header: 'No',
-                      priority: 'primary',
-                      render: (item: any) => <span className="text-sm font-medium text-gray-900 dark:text-white">{item.idx + 1}</span>
-                    },
-                    {
-                      key: 'slotName',
-                      header: 'Nama Slot',
-                      priority: 'primary',
-                      render: (item: any) => <span className="text-sm text-gray-900 dark:text-white">{item.slotName}</span>
-                    },
-                    {
-                      key: 'redaman',
-                      header: 'Redaman',
-                      priority: 'secondary',
-                      render: (item: any) => (
-                        item.redaman != null ? (
-                          <span className="font-medium text-gray-900 dark:text-white">{item.redaman.toFixed(2)} dB</span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )
-                      )
-                    },
-                    {
-                      key: 'tubeColor',
-                      header: 'Tube Color',
-                      priority: 'secondary',
-                      render: (item: any) => <ColorBadge color={item.tubeColor || 'Non-tube'} />
-                    },
-                    {
-                      key: 'coreColor',
-                      header: 'Core Color',
-                      priority: 'secondary',
-                      render: (item: any) => <ColorBadge color={item.coreColor || '-'} />
-                    }
-                  ]}
-                />
+                <OdpOutputTable data={odp.odpOutput} />
               </div>
             </InfoCard>
           )}

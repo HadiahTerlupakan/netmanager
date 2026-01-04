@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/common/ToastProvider'
 import { StatusChangeButton } from '@/components/common/StatusChangeButton'
-import { HiEye, HiPencil, HiTrash } from 'react-icons/hi2'
+import { FiEye, FiEdit, FiTrash2 } from 'react-icons/fi'
 
 export function OdpActions({ id, status }: { id: string; status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }) {
   const router = useRouter()
@@ -34,14 +34,14 @@ export function OdpActions({ id, status }: { id: string; status?: 'AKTIF' | 'NON
         />
       )}
       <Link href={`/admin/ftth/odp/${id}`} aria-label="Lihat" title="Lihat" className="inline-flex items-center justify-center h-8 w-8 rounded border border-gray-300 dark:border-gray-700">
-        <HiEye className="h-4 w-4" />
+        <FiEye className="h-4 w-4" />
       </Link>
       <Link href={`/admin/ftth/odp/${id}/edit`} aria-label="Edit" title="Edit" className="inline-flex items-center justify-center h-8 w-8 rounded border border-gray-300 dark:border-gray-700">
-        <HiPencil className="h-4 w-4" />
+        <FiEdit className="h-4 w-4" />
       </Link>
-      <button onClick={handleDelete} aria-label="Hapus" title="Hapus" className="inline-flex items-center justify-center h-8 w-8 rounded border border-red-300 text-red-600 dark:border-red-700 dark:text-red-400">
-        <HiTrash className="h-4 w-4" />
-      </button>
+      <div role="button" tabIndex={0} onClick={handleDelete} aria-label="Hapus" title="Hapus" className="inline-flex items-center justify-center h-8 w-8 rounded border border-red-300 text-red-600 dark:border-red-700 dark:text-red-400 cursor-pointer">
+        <FiTrash2 className="h-4 w-4 shrink-0" />
+      </div>
     </div>
   )
 }

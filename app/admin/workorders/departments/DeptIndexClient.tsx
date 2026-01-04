@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlineBuildingOffice2, HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiOutlineMagnifyingGlass, HiOutlineUserGroup } from 'react-icons/hi2'
+import { HiOutlineBuildingOffice2, HiOutlinePlus, HiOutlineMagnifyingGlass, HiOutlineUserGroup } from 'react-icons/hi2'
+import { FiEdit, FiTrash2 } from 'react-icons/fi'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface Department {
@@ -124,20 +125,20 @@ export function ClientComponent() {
     ]
 
     const renderActions = (dept: Department) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-center gap-2">
             <Link
                 href={`/admin/workorders/departments/${dept.id}/edit`}
-                className="p-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                className="p-2 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/20 rounded transition-colors"
                 title="Edit"
             >
-                <HiOutlinePencil className="h-4 w-4" />
+                <FiEdit className="h-4 w-4" />
             </Link>
             <button
                 onClick={() => handleDelete(dept.id, dept.name)}
-                className="p-2 text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 rounded transition-colors"
                 title="Hapus"
             >
-                <HiOutlineTrash className="h-4 w-4" />
+                <FiTrash2 className="h-4 w-4" />
             </button>
         </div>
     )

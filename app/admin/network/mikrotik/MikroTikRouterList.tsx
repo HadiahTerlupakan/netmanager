@@ -156,22 +156,22 @@ export default function MikroTikRouterList() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Router [NAS]</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <button
             onClick={handleCheckStatus}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm"
           >
             <HiArrowPath className="w-4 h-4" />
-            Cek Status Semua Router
+            Cek Status
           </button>
           <Link
             href="/admin/network/mikrotik/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
             <span>+</span>
-            TAMBAH ROUTER [NAS]
+            Tambah Router
           </Link>
         </div>
       </div>
@@ -186,8 +186,8 @@ export default function MikroTikRouterList() {
 
       {/* Table Controls */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
             <select
               value={limit}
@@ -204,8 +204,8 @@ export default function MikroTikRouterList() {
             </select>
             <span className="text-sm text-gray-600 dark:text-gray-400">entries</span>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Search:</label>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:block">Search:</label>
             <input
               type="text"
               value={search}
@@ -214,7 +214,7 @@ export default function MikroTikRouterList() {
                 setPage(1)
               }}
               placeholder="Search router..."
-              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
             />
           </div>
         </div>
@@ -287,26 +287,26 @@ export default function MikroTikRouterList() {
           keyField="id"
           emptyMessage={search ? 'Tidak ada router yang sesuai dengan pencarian.' : 'Belum ada data Router.'}
           renderActions={(router) => (
-            <div className="flex items-center justify-end gap-1">
+            <div className="flex items-center justify-end gap-2">
               <button
-                className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                className="p-2 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                 title="Test API Connection"
               >
-                <HiArrowPath className="w-4 h-4" />
+                <HiArrowPath className="w-5 h-5" />
               </button>
               <Link
                 href={`/admin/network/mikrotik/${router.id}/edit`}
-                className="p-1.5 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className="p-2 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
                 title="Edit"
               >
-                <HiPencil className="w-4 h-4" />
+                <HiPencil className="w-5 h-5" />
               </Link>
               <button
                 onClick={() => handleDelete(router.id, router.name)}
-                className="p-1.5 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className="p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
                 title="Delete"
               >
-                <HiTrash className="w-4 h-4" />
+                <HiTrash className="w-5 h-5" />
               </button>
             </div>
           )}

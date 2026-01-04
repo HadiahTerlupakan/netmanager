@@ -186,23 +186,23 @@ export default function VlanPage() {
 
   // Render actions for each row
   const renderActions = (vlan: Vlan) => (
-    <>
+    <div className="flex items-center justify-end gap-2">
       <button
         onClick={() => handleEdit(vlan)}
-        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors"
+        className="inline-flex items-center justify-center w-8 h-8 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors"
         title="Edit VLAN"
       >
-        <HiPencil className="w-4 h-4" />
+        <HiPencil className="w-5 h-5" />
       </button>
       <button
         onClick={() => handleDelete(vlan.vlanId)}
         disabled={isDeleting}
-        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors disabled:opacity-50"
+        className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
         title="Delete VLAN"
       >
-        <HiTrash className="w-4 h-4" />
+        <HiTrash className="w-5 h-5" />
       </button>
-    </>
+    </div>
   )
 
   if (loading) {

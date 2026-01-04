@@ -326,29 +326,24 @@ export default function OLTList() {
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">OLT Management</h1>
-        <button
-          onClick={loadOlts}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          <HiArrowPath className="w-4 h-4" />
-          Refresh Now
-        </button>
-      </div>
-
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">OLTs</h2>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={loadOlts}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <HiArrowPath className="w-4 h-4" />
+            Refresh Now
+          </button>
+          <button
+            onClick={handleAdd}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+          >
+            <HiOutlinePlus className="w-4 h-4" />
+            Tambah OLT
+          </button>
         </div>
-        <button
-          onClick={handleAdd}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <HiOutlinePlus className="w-4 h-4" />
-          Tambah OLT
-        </button>
       </div>
 
       {/* OLT Management Table */}

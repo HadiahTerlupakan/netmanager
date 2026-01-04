@@ -174,16 +174,18 @@ export default function GudangPage() {
                     }
                 ]}
                 renderActions={(item) => (
-                    <div className="flex justify-end space-x-2">
+                    <div className="flex items-center gap-2">
                       <Link
                         href={`/admin/inventory/gudang/${item.id}/edit`}
-                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-2"
+                        className="p-2 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/20 rounded transition-colors"
+                        title="Edit"
                       >
                         <FiEdit className="h-4 w-4" />
                       </Link>
                       <button
                         onClick={() => handleDelete(item.id, item.nama)}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-2"
+                        className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 rounded transition-colors"
+                        title="Hapus"
                       >
                         <FiTrash2 className="h-4 w-4" />
                       </button>

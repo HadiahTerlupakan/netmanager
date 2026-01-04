@@ -295,11 +295,11 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
   ]
 
   const renderActions = (opname: StockOpnameRecord) => (
-    <div className="flex justify-center space-x-2">
+    <div className="flex items-center justify-center gap-2">
         {onView && (
         <button
             onClick={() => onView(opname)}
-            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+            className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20 rounded transition-colors"
             title="View Detail"
         >
             <FiEye className="h-4 w-4" />
@@ -308,7 +308,7 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
         {onEdit && (
         <button
             onClick={() => onEdit(opname)}
-            className="text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300"
+            className="p-2 text-yellow-600 hover:text-yellow-900 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:text-yellow-300 dark:hover:bg-yellow-900/20 rounded transition-colors"
             title="Edit"
         >
             <FiEdit2 className="h-4 w-4" />
@@ -317,7 +317,7 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
         <button
         onClick={() => handleDelete(opname.id)}
         disabled={deletingId === opname.id}
-        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
+        className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
         title="Delete"
         >
         <FiTrash2 className="h-4 w-4" />
