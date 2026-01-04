@@ -2,10 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { HiOutlineMapPin, HiOutlineUsers, HiOutlineClock, HiOutlineArrowPath, HiMagnifyingGlass, HiOutlineSignal } from 'react-icons/hi2'
+import { HiOutlineMapPin, HiOutlineUsers, HiOutlineClock, HiOutlineArrowPath, HiMagnifyingGlass, HiOutlineSignal, HiOutlineMap, HiOutlineSquares2X2 } from 'react-icons/hi2'
 import { formatDistanceToNow, format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useSocket } from '@/hooks/useSocket'
+import dynamic from 'next/dynamic'
+
+// Dynamic import untuk Map component (OpenLayers needs client-side only)
+const EmployeeLocationMap = dynamic(
+    () => import('@/components/attendance/EmployeeLocationMap'),
+    { ssr: false, loading: () => <div className="h-[500px] bg-gray-100 rounded-xl animate-pulse flex items-center justify-center"><span className="text-gray-400">Memuat peta...</span></div> }
+)
 
 interface EmployeeLocation {
     userId: string
@@ -31,8 +38,8 @@ export default function LiveMapPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
-    const [autoRefresh, setAutoRefresh] = useState(true)
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+    const [viewMode, setViewMode] = useState<'map' | 'cards'>('map') // Default to map view
 
     const fetchLocations = useCallback(async () => {
         try {
@@ -58,13 +65,7 @@ export default function LiveMapPage() {
 
     useEffect(() => {
         fetchLocations()
-        
-        // Auto refresh every 30 seconds as fallback
-        if (autoRefresh) {
-            const interval = setInterval(fetchLocations, 30000)
-            return () => clearInterval(interval)
-        }
-    }, [fetchLocations, autoRefresh])
+    }, [fetchLocations])
 
     // Real-time updates via Socket.io
     useEffect(() => {
@@ -132,23 +133,33 @@ export default function LiveMapPage() {
                             Pantau lokasi karyawan yang sedang aktif bekerja secara real-time
                         </p>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-wrap">
+                        {/* View Toggle */}
+                        <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                            <button
+                                onClick={() => setViewMode('map')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
+                                    viewMode === 'map' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                                }`}
+                            >
+                                <HiOutlineMap className="w-4 h-4" />
+                                Map
+                            </button>
+                            <button
+                                onClick={() => setViewMode('cards')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
+                                    viewMode === 'cards' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                                }`}
+                            >
+                                <HiOutlineSquares2X2 className="w-4 h-4" />
+                                Cards
+                            </button>
+                        </div>
                         {/* Stats Badge */}
                         <div className="flex items-center gap-2 bg-blue-100 px-4 py-2 rounded-full">
                             <HiOutlineUsers className="w-5 h-5 text-blue-600" />
                             <span className="font-semibold text-blue-800">{locations.length} Aktif</span>
                         </div>
-                        
-                        {/* Auto Refresh Toggle */}
-                        <button
-                            onClick={() => setAutoRefresh(!autoRefresh)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
-                                autoRefresh ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                            }`}
-                        >
-                            <HiOutlineArrowPath className={`w-4 h-4 ${autoRefresh ? 'animate-spin' : ''}`} />
-                            Auto Refresh
-                        </button>
                         
                         {/* Manual Refresh */}
                         <button
@@ -189,86 +200,102 @@ export default function LiveMapPage() {
                 </div>
             )}
 
-            {/* Employee Cards Grid */}
-            {filteredLocations.length === 0 ? (
-                <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
-                    <HiOutlineUsers className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                        {loading ? 'Memuat...' : 'Tidak Ada Karyawan Aktif'}
-                    </h3>
-                    <p className="text-gray-400">
-                        {loading ? 'Mengambil data lokasi...' : 'Belum ada karyawan yang check-in hari ini'}
-                    </p>
+            {/* Map View */}
+            {viewMode === 'map' && (
+                <div className="mb-6">
+                    <EmployeeLocationMap 
+                        locations={filteredLocations} 
+                        height={500}
+                    />
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {filteredLocations.map((loc) => (
-                        <div 
-                            key={loc.userId} 
-                            className="bg-white rounded-2xl shadow-sm p-5 hover:shadow-md transition border border-gray-100"
-                        >
-                            {/* Header with Avatar */}
-                            <div className="flex items-center gap-3 mb-4">
-                                {loc.userImage ? (
-                                    <img 
-                                        src={loc.userImage} 
-                                        alt={loc.userName} 
-                                        className="w-12 h-12 rounded-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                                        <span className="text-white font-bold text-lg">{loc.userName[0]}</span>
-                                    </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-gray-800 truncate">{loc.userName}</p>
-                                    <p className="text-sm text-gray-500 truncate">{loc.departmentName || '-'}</p>
-                                </div>
-                                {loc.isMoving && (
-                                    <span className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                                        <HiOutlineSignal className="w-3 h-3" />
-                                        Moving
-                                    </span>
-                                )}
-                            </div>
+            )}
 
-                            {/* Location Info */}
-                            <div className="space-y-2 text-sm">
-                                <div className="flex items-center gap-2 text-gray-600">
-                                    <HiOutlineMapPin className="w-4 h-4 text-blue-500" />
-                                    <span className="truncate">{loc.siteName || 'Unknown'}</span>
-                                </div>
-                                
-                                <div className="flex items-center gap-2 text-gray-600">
-                                    <HiOutlineClock className="w-4 h-4 text-green-500" />
-                                    <span>Check-in: {format(new Date(loc.checkInTime), 'HH:mm')}</span>
-                                </div>
-
-                                {/* Coordinates */}
-                                <div className="flex items-center gap-2 text-gray-400 text-xs">
-                                    <span>📍 {loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}</span>
-                                </div>
-                            </div>
-
-                            {/* Footer */}
-                            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
-                                <span>
-                                    Update: {formatDistanceToNow(new Date(loc.recordedAt), { addSuffix: true, locale: id })}
-                                </span>
-                                {loc.batteryLevel !== null && (
-                                    <span className={`px-2 py-1 rounded ${
-                                        loc.batteryLevel > 0.5 ? 'bg-green-50 text-green-600' :
-                                        loc.batteryLevel > 0.2 ? 'bg-yellow-50 text-yellow-600' :
-                                        'bg-red-50 text-red-600'
-                                    }`}>
-                                        🔋 {Math.round(loc.batteryLevel * 100)}%
-                                    </span>
-                                )}
-                            </div>
+            {/* Cards View */}
+            {viewMode === 'cards' && (
+                <>
+                    {/* Employee Cards Grid */}
+                    {filteredLocations.length === 0 ? (
+                        <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
+                            <HiOutlineUsers className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                                {loading ? 'Memuat...' : 'Tidak Ada Karyawan Aktif'}
+                            </h3>
+                            <p className="text-gray-400">
+                                {loading ? 'Mengambil data lokasi...' : 'Belum ada karyawan yang check-in hari ini'}
+                            </p>
                         </div>
-                    ))}
-                </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {filteredLocations.map((loc) => (
+                                <div 
+                                    key={loc.userId} 
+                                    className="bg-white rounded-2xl shadow-sm p-5 hover:shadow-md transition border border-gray-100"
+                                >
+                                    {/* Header with Avatar */}
+                                    <div className="flex items-center gap-3 mb-4">
+                                        {loc.userImage ? (
+                                            <img 
+                                                src={loc.userImage} 
+                                                alt={loc.userName} 
+                                                className="w-12 h-12 rounded-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                                                <span className="text-white font-bold text-lg">{loc.userName[0]}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-gray-800 truncate">{loc.userName}</p>
+                                            <p className="text-sm text-gray-500 truncate">{loc.departmentName || '-'}</p>
+                                        </div>
+                                        {loc.isMoving && (
+                                            <span className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                                                <HiOutlineSignal className="w-3 h-3" />
+                                                Moving
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Location Info */}
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex items-center gap-2 text-gray-600">
+                                            <HiOutlineMapPin className="w-4 h-4 text-blue-500" />
+                                            <span className="truncate">{loc.siteName || 'Unknown'}</span>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2 text-gray-600">
+                                            <HiOutlineClock className="w-4 h-4 text-green-500" />
+                                            <span>Check-in: {format(new Date(loc.checkInTime), 'HH:mm')}</span>
+                                        </div>
+
+                                        {/* Coordinates */}
+                                        <div className="flex items-center gap-2 text-gray-400 text-xs">
+                                            <span>📍 {loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Footer */}
+                                    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+                                        <span>
+                                            Update: {formatDistanceToNow(new Date(loc.recordedAt), { addSuffix: true, locale: id })}
+                                        </span>
+                                        {loc.batteryLevel !== null && (
+                                            <span className={`px-2 py-1 rounded ${
+                                                loc.batteryLevel > 0.5 ? 'bg-green-50 text-green-600' :
+                                                loc.batteryLevel > 0.2 ? 'bg-yellow-50 text-yellow-600' :
+                                                'bg-red-50 text-red-600'
+                                            }`}>
+                                                🔋 {Math.round(loc.batteryLevel * 100)}%
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
         </div>
     )
 }
+

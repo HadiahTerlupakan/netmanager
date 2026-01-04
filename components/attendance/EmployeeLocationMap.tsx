@@ -1,0 +1,238 @@
+"use client"
+
+import { useEffect, useRef, useState } from 'react'
+import 'ol/ol.css'
+
+interface EmployeeLocation {
+    userId: string
+    userName: string
+    userImage: string | null
+    siteName: string | null
+    departmentName: string | null
+    latitude: number
+    longitude: number
+    accuracy: number | null
+    speed?: number | null
+    heading?: number | null
+    isMoving: boolean
+    batteryLevel: number | null
+    recordedAt: string
+    checkInTime: string
+}
+
+interface EmployeeLocationMapProps {
+    locations: EmployeeLocation[]
+    height?: number | string
+    onEmployeeClick?: (employee: EmployeeLocation) => void
+}
+
+export default function EmployeeLocationMap({ 
+    locations, 
+    height = 500,
+    onEmployeeClick 
+}: EmployeeLocationMapProps) {
+    const mapEl = useRef<HTMLDivElement | null>(null)
+    const mapRef = useRef<any>(null)
+    const markerLayerRef = useRef<any>(null)
+    const overlayRef = useRef<any>(null)
+    const popupRef = useRef<HTMLDivElement | null>(null)
+    const [mapReady, setMapReady] = useState(false)
+
+    // Initialize map once
+    useEffect(() => {
+        let cleanup = () => { }
+        
+        ;(async () => {
+            if (!mapEl.current) return
+
+            const { Map, View } = await import('ol')
+            const { default: OSM } = await import('ol/source/OSM')
+            const { default: TileLayer } = await import('ol/layer/Tile')
+            const { default: VectorLayer } = await import('ol/layer/Vector')
+            const { default: VectorSource } = await import('ol/source/Vector')
+            const { fromLonLat } = await import('ol/proj')
+            const { defaults: defaultControls, Zoom, Attribution, FullScreen } = await import('ol/control')
+            const { default: Overlay } = await import('ol/Overlay')
+
+            // Default center (Jakarta)
+            const defaultCenter: [number, number] = [106.845599, -6.208763]
+            const center3857 = fromLonLat(defaultCenter)
+
+            const tile = new TileLayer({ source: new OSM() })
+            const markerSource = new VectorSource()
+            const markerLayer = new VectorLayer({ 
+                source: markerSource,
+                zIndex: 10
+            })
+            markerLayerRef.current = markerLayer
+
+            const map = new Map({
+                target: mapEl.current,
+                layers: [tile, markerLayer],
+                view: new View({
+                    center: center3857,
+                    zoom: 12
+                }),
+                controls: defaultControls({ zoom: false, rotate: false, attribution: false }).extend([
+                    new Zoom(),
+                    new Attribution({ collapsible: true, collapsed: true }),
+                    new FullScreen()
+                ]),
+            })
+            mapRef.current = map
+
+            // Create popup overlay
+            if (popupRef.current) {
+                const overlay = new Overlay({
+                    element: popupRef.current,
+                    positioning: 'bottom-center' as any,
+                    offset: [0, -15],
+                    stopEvent: false
+                })
+                map.addOverlay(overlay)
+                overlayRef.current = overlay
+            }
+
+            // Hover interaction
+            map.on('pointermove', (evt) => {
+                const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f)
+                
+                if (feature && overlayRef.current && popupRef.current) {
+                    const data = feature.get('employeeData') as EmployeeLocation
+                    if (data) {
+                        popupRef.current.innerHTML = `
+                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 min-w-[180px] border border-gray-200 dark:border-gray-700">
+                                <div class="font-semibold text-gray-800 dark:text-white text-sm">${data.userName}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${data.departmentName || '-'}</div>
+                                <div class="text-xs text-blue-600 dark:text-blue-400 mt-1">${data.siteName || 'Unknown'}</div>
+                                ${data.isMoving ? '<div class="text-xs text-green-600 mt-1">📍 Moving</div>' : ''}
+                            </div>
+                        `
+                        overlayRef.current.setPosition(evt.coordinate)
+                        popupRef.current.style.display = 'block'
+                    }
+                } else if (overlayRef.current && popupRef.current) {
+                    popupRef.current.style.display = 'none'
+                }
+
+                // Change cursor
+                map.getTargetElement().style.cursor = feature ? 'pointer' : ''
+            })
+
+            // Click interaction
+            map.on('click', (evt) => {
+                const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f)
+                if (feature && onEmployeeClick) {
+                    const data = feature.get('employeeData') as EmployeeLocation
+                    if (data) {
+                        onEmployeeClick(data)
+                    }
+                }
+            })
+
+            cleanup = () => {
+                try {
+                    map.setTarget(undefined)
+                } catch { }
+            }
+
+            // Mark map as ready after initialization
+            setMapReady(true)
+        })()
+
+        return () => cleanup()
+    }, []) // Only run once
+
+    // Update markers when locations change OR map becomes ready
+    useEffect(() => {
+        if (!mapReady) return // Wait for map to be ready
+        ;(async () => {
+            if (!markerLayerRef.current || !mapRef.current) return
+            if (locations.length === 0) return
+
+            const { default: Feature } = await import('ol/Feature')
+            const { default: Point } = await import('ol/geom/Point')
+            const { fromLonLat } = await import('ol/proj')
+            const { Style, Fill, Stroke, Text } = await import('ol/style')
+            const { default: CircleStyle } = await import('ol/style/Circle')
+
+            const source = markerLayerRef.current.getSource()
+            source.clear()
+
+            // Add markers for each employee
+            locations.forEach((loc) => {
+                const coord = fromLonLat([loc.longitude, loc.latitude])
+                const feature = new Feature({
+                    geometry: new Point(coord),
+                    employeeData: loc
+                })
+
+                // Get initial for avatar
+                const initial = loc.userName.charAt(0).toUpperCase()
+                
+                // Style based on moving status
+                const color = loc.isMoving ? '#22c55e' : '#2563eb'
+                
+                feature.setStyle(new Style({
+                    image: new CircleStyle({
+                        radius: 16,
+                        fill: new Fill({ color }),
+                        stroke: new Stroke({ color: '#ffffff', width: 3 })
+                    }),
+                    text: new Text({
+                        text: initial,
+                        font: 'bold 12px sans-serif',
+                        fill: new Fill({ color: '#ffffff' }),
+                        offsetY: 1
+                    })
+                }))
+
+                source.addFeature(feature)
+            })
+
+            // Fit view to show all markers
+            const extent = source.getExtent()
+            if (extent && extent[0] !== Infinity) {
+                mapRef.current.getView().fit(extent, {
+                    padding: [50, 50, 50, 50],
+                    maxZoom: 16,
+                    duration: 500
+                })
+            }
+        })()
+    }, [locations, mapReady]) // Re-run when locations change OR when map becomes ready
+
+    return (
+        <div className="relative">
+            <div
+                ref={mapEl}
+                style={{ height, width: '100%', borderRadius: 12, overflow: 'hidden' }}
+                className="border border-gray-200 dark:border-gray-800"
+            />
+            {/* Hidden popup element */}
+            <div 
+                ref={popupRef} 
+                className="absolute z-50"
+                style={{ display: 'none' }}
+            />
+            
+            {/* Legend */}
+            <div className="absolute bottom-4 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-200 dark:border-gray-700">
+                <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Keterangan</div>
+                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                    <span className="w-3 h-3 rounded-full bg-blue-600"></span>
+                    <span>Diam</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                    <span>Bergerak</span>
+                </div>
+            </div>
+
+            {/* Employee count badge */}
+            <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg">
+                {locations.length} Karyawan Aktif
+            </div>
+        </div>
+    )
+}

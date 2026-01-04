@@ -144,13 +144,22 @@ export class LocationTrackingService {
         recordedAt: Date
         checkInTime: Date
     }>> {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
+        // Calculate today's start in WIB timezone (UTC+7)
+        // When it's 00:00 WIB, it's 17:00 UTC previous day
+        const now = new Date()
+        const wibOffset = 7 * 60 // WIB is UTC+7, convert to minutes
+        const utcOffset = now.getTimezoneOffset() // Server's offset in minutes (negative for UTC+)
+        const totalOffset = wibOffset + utcOffset // Total offset from server time to WIB
+        
+        // Create "today at 00:00 WIB" in UTC
+        const todayWIB = new Date(now.getTime() + totalOffset * 60 * 1000)
+        todayWIB.setHours(0, 0, 0, 0)
+        const todayUTC = new Date(todayWIB.getTime() - totalOffset * 60 * 1000)
 
         // Cari semua user yang sedang check-in (belum check-out)
         const activeAttendances = await prisma.attendance.findMany({
             where: {
-                checkIn: { gte: today },
+                checkIn: { gte: todayUTC },
                 checkOut: null
             },
             include: {

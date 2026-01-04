@@ -8,30 +8,36 @@ import { LocationTrackingService } from '@/modules/attendance/services/LocationT
  * Hanya menyimpan jika user sedang dalam status check-in
  */
 export async function POST(request: NextRequest) {
+    const timestamp = new Date().toISOString()
     try {
         const authHeader = request.headers.get('Authorization')
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            console.log(`[API][${timestamp}] Location update: Missing token`)
             return NextResponse.json({ error: 'Missing or invalid token' }, { status: 401 })
         }
 
         const token = authHeader.split(' ')[1]
         const payload = await verifyMobileToken(token)
         if (!payload) {
+            console.log(`[API][${timestamp}] Location update: Invalid token`)
             return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
         }
 
         const userId = payload.id as string
         const body = await request.json()
 
-        console.log(`[API] Location update received for user ${userId}`, JSON.stringify(body))
+        console.log(`[API][${timestamp}] ========== LOCATION UPDATE ==========`)
+        console.log(`[API][${timestamp}] User ID: ${userId}`)
+        console.log(`[API][${timestamp}] Data received:`, JSON.stringify(body))
 
         const locationService = new LocationTrackingService()
 
         // Cek apakah user sedang check-in
         const isCheckedIn = await locationService.isUserCurrentlyCheckedIn(userId)
-        console.log(`[API] User ${userId} check-in status: ${isCheckedIn}`)
+        console.log(`[API][${timestamp}] User check-in status: ${isCheckedIn}`)
 
         if (!isCheckedIn) {
+            console.log(`[API][${timestamp}] ❌ User not checked in, stopping tracking`)
             return NextResponse.json({ 
                 success: false, 
                 message: 'User is not currently checked in',
@@ -41,6 +47,7 @@ export async function POST(request: NextRequest) {
 
         // Handle batch locations (offline sync)
         if (Array.isArray(body.locations)) {
+            console.log(`[API][${timestamp}] Processing batch of ${body.locations.length} locations`)
             const count = await locationService.saveLocations(userId, body.locations.map((loc: any) => ({
                 latitude: loc.latitude,
                 longitude: loc.longitude,
@@ -53,6 +60,7 @@ export async function POST(request: NextRequest) {
                 recordedAt: loc.recordedAt ? new Date(loc.recordedAt) : new Date()
             })))
 
+            console.log(`[API][${timestamp}] ✅ Batch saved: ${count} locations`)
             return NextResponse.json({ 
                 success: true, 
                 message: `Saved ${count} locations`,
@@ -61,6 +69,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Handle single location
+        console.log(`[API][${timestamp}] Saving single location...`)
         await locationService.saveLocation(userId, {
             latitude: body.latitude,
             longitude: body.longitude,
@@ -73,10 +82,12 @@ export async function POST(request: NextRequest) {
             recordedAt: body.recordedAt ? new Date(body.recordedAt) : new Date()
         })
 
+        console.log(`[API][${timestamp}] ✅ Single location saved successfully`)
+        console.log(`[API][${timestamp}] ==========================================`)
         return NextResponse.json({ success: true, message: 'Location saved' })
 
     } catch (error: any) {
-        console.error('Error saving location:', error)
+        console.error(`[API][${timestamp}] ❌ Error saving location:`, error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
