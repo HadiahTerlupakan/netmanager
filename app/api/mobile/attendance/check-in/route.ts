@@ -193,20 +193,36 @@ export async function POST(request: NextRequest) {
         // Logic already handled above in JSON/FormData block
 
 
-        const attendance = await prisma.attendance.create({
-            data: {
-                id: crypto.randomUUID(),
-                userId,
-                checkIn: new Date(),
-                checkInPhoto: photoUrl,
-                location,
-                notes,
-                status: status,
-                geofenceStatus,
-                geofenceDistance,
-                geofenceSiteName,
-                updatedAt: new Date()
+        const attendance = await prisma.$transaction(async (tx) => {
+            // Re-check for duplicate check-in inside transaction to prevent race conditions
+            const duplicateCheck = await tx.attendance.findFirst({
+                where: {
+                    userId,
+                    checkIn: {
+                        gte: effectiveToday
+                    }
+                }
+            })
+
+            if (duplicateCheck) {
+                throw new Error('DUPLICATE_ENTRY')
             }
+
+            return await tx.attendance.create({
+                data: {
+                    id: crypto.randomUUID(),
+                    userId,
+                    checkIn: new Date(),
+                    checkInPhoto: photoUrl,
+                    location,
+                    notes,
+                    status: status,
+                    geofenceStatus,
+                    geofenceDistance,
+                    geofenceSiteName,
+                    updatedAt: new Date()
+                }
+            })
         })
 
         logger.apiRequest('POST', '/api/mobile/attendance/check-in', 201, Date.now() - startTime, {
@@ -218,6 +234,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, data: attendance })
 
     } catch (error: any) {
+        if (error.message === 'DUPLICATE_ENTRY') {
+            return NextResponse.json({ error: 'Anda sudah melakukan check-in hari ini' }, { status: 400 })
+        }
         logger.error('Error in mobile check-in', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
