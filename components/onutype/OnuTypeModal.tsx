@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { HiXMark, HiCheck } from 'react-icons/hi2'
 
 type Olt = {
@@ -109,21 +110,16 @@ export default function OnuTypeModal({ isOpen, onClose, onSubmit }: OnuTypeModal
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Create Onu Type</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          >
-            <HiXMark className="text-2xl" />
-          </button>
-        </div>
-
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Create Onu Type"
+      description="Tambahkan tipe ONU baru"
+      size="2xl"
+    >
+      <div className="p-6">
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* OLT Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -283,7 +279,7 @@ export default function OnuTypeModal({ isOpen, onClose, onSubmit }: OnuTypeModal
           )}
 
           {/* Footer Buttons */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <ModalFooter>
             <button
               type="button"
               onClick={onClose}
@@ -300,10 +296,10 @@ export default function OnuTypeModal({ isOpen, onClose, onSubmit }: OnuTypeModal
               <HiCheck className="w-4 h-4" />
               Save
             </button>
-          </div>
+          </ModalFooter>
         </form>
       </div>
-    </div>
+    </Modal>
   )
 }
 

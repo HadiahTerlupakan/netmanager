@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { HiArrowPath, HiCheck, HiXMark } from 'react-icons/hi2'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 
 type TestResult = {
   success: boolean
@@ -34,19 +35,13 @@ export default function TestConnectionModal({ open, onClose, result, isLoading }
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-2xl rounded-lg border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-800 dark:bg-gray-900">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Hasil Test Koneksi</h3>
-          <button
-            onClick={onClose}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            Tutup
-          </button>
-        </div>
-
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      title="Hasil Test Koneksi"
+      size="2xl"
+    >
+      <div className="p-6">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12">
             <HiArrowPath className="mb-4 w-12 h-12 animate-spin text-gray-400" />
@@ -151,16 +146,16 @@ export default function TestConnectionModal({ open, onClose, result, isLoading }
           </div>
         )}
 
-        <div className="mt-6 flex justify-end">
+        <ModalFooter>
           <button
             onClick={onClose}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
           >
             Tutup
           </button>
-        </div>
+        </ModalFooter>
       </div>
-    </div>
+    </Modal>
   )
 }
 

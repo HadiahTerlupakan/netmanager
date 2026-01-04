@@ -57,10 +57,17 @@ export function Modal({
         '4xl': 'max-w-4xl',
     }
 
+    const titleId = title ? 'modal-title' : undefined
+    const descriptionId = description ? 'modal-description' : undefined
+
     return (
         <div
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm bg-black/30 animate-in fade-in duration-200 safe-area-inset-top safe-area-inset-bottom"
             onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={descriptionId}
         >
             <div
                 className={`bg-white dark:bg-gray-800 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 safe-area-inset-bottom`}
@@ -70,11 +77,17 @@ export function Modal({
                     <div className="flex items-start justify-between p-5 sm:p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
                         {title && (
                             <div className="flex-1 pr-4">
-                                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
+                                <h2 
+                                    id={titleId}
+                                    className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white"
+                                >
                                     {title}
                                 </h2>
                                 {description && (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                    <p 
+                                        id={descriptionId}
+                                        className="text-sm text-gray-500 dark:text-gray-400 mt-1"
+                                    >
                                         {description}
                                     </p>
                                 )}
