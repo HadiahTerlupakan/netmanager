@@ -410,26 +410,27 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         });
     }
 
-    async updateStatus(id: string, status: WorkOrderStatus, userId?: string): Promise<WorkOrders> {
+    async updateStatus(id: string, status: WorkOrderStatus, userId?: string, timestamp?: Date): Promise<WorkOrders> {
         const workOrder = await this.findById(id);
         if (!workOrder) {
             throw new Error('Work order not found');
         }
 
         const updateData: any = { status };
+        const eventTime = timestamp || new Date();
 
         if (status === 'IN_PROGRESS' && !workOrder.startedAt) {
-            updateData.startedAt = new Date();
+            updateData.startedAt = eventTime;
         } else if (status === 'COMPLETED') {
-            updateData.completedAt = new Date();
+            updateData.completedAt = eventTime;
             if (workOrder.startedAt) {
-                const hours = (new Date().getTime() - new Date(workOrder.startedAt).getTime()) / (1000 * 60 * 60);
+                const hours = (eventTime.getTime() - new Date(workOrder.startedAt).getTime()) / (1000 * 60 * 60);
                 updateData.actualHours = hours;
             }
         } else if (status === 'VERIFIED') {
-            updateData.verifiedAt = new Date();
+            updateData.verifiedAt = eventTime;
         } else if (status === 'CLOSED') {
-            updateData.closedAt = new Date();
+            updateData.closedAt = eventTime;
         }
 
         await this.addUpdate({
@@ -449,17 +450,17 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         return updatedWo;
     }
 
-    async start(id: string, userId?: string): Promise<WorkOrders> {
-        return this.updateStatus(id, 'IN_PROGRESS', userId);
+    async start(id: string, userId?: string, timestamp?: Date): Promise<WorkOrders> {
+        return this.updateStatus(id, 'IN_PROGRESS', userId, timestamp);
     }
 
-    async complete(id: string, resolutionNotes?: string, userId?: string): Promise<WorkOrders> {
+    async complete(id: string, resolutionNotes?: string, userId?: string, timestamp?: Date): Promise<WorkOrders> {
         const updateData: any = { status: 'COMPLETED' };
         if (resolutionNotes) {
             updateData.resolutionNotes = resolutionNotes;
         }
 
-        await this.updateStatus(id, 'COMPLETED', userId);
+        await this.updateStatus(id, 'COMPLETED', userId, timestamp);
         return this.update(id, updateData);
     }
 

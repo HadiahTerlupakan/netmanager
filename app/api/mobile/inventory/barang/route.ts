@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
         const gudangId = searchParams.get('gudangId')
         const mode = searchParams.get('mode') || 'keluar' // Default to 'keluar' for backward compatibility
 
-        if (!gudangId) {
+        if (!gudangId && mode !== 'masuk') {
             return NextResponse.json({ error: 'gudangId required' }, { status: 400 })
         }
 

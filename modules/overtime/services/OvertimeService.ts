@@ -92,7 +92,7 @@ export class OvertimeService {
 
         return request
     }
-    async startOvertime(userId: string, overtimeId: string, data: { photo: string, location?: string }) {
+    async startOvertime(userId: string, overtimeId: string, data: { photo: string, location?: string, timestamp?: Date }) {
         const overtime = await this.repository.findById(overtimeId)
 
         if (!overtime) throw new Error('Overtime data not found')
@@ -134,7 +134,7 @@ export class OvertimeService {
 
         return this.repository.update(overtimeId, {
             status: OvertimeStatus.IN_PROGRESS,
-            startTime: new Date(),
+            startTime: data.timestamp || new Date(),
             startPhoto: data.photo,
             startLocation: data.location,
             // Connect attendance hanya jika ada (hari kerja biasa)
@@ -143,7 +143,7 @@ export class OvertimeService {
     }
 
     // 3. Stop Overtime
-    async stopOvertime(userId: string, overtimeId: string, data: { photo: string, location?: string }) {
+    async stopOvertime(userId: string, overtimeId: string, data: { photo: string, location?: string, timestamp?: Date }) {
         const overtime = await this.repository.findById(overtimeId)
 
         if (!overtime) throw new Error('Overtime data not found')
@@ -157,16 +157,19 @@ export class OvertimeService {
             throw new Error('Data Start Time corrupt.')
         }
 
-        const endTime = new Date()
+        const endTime = data.timestamp || new Date()
         const durationMs = endTime.getTime() - new Date(overtime.startTime).getTime()
         const durationMinutes = Math.round(durationMs / 60000)
+
+        // Prevent negative duration if clocks are messed up
+        const validDuration = durationMinutes > 0 ? durationMinutes : 0
 
         return this.repository.update(overtimeId, {
             status: OvertimeStatus.COMPLETED,
             endTime: endTime,
             endPhoto: data.photo,
             endLocation: data.location,
-            duration: durationMinutes
+            duration: validDuration
         })
     }
 

@@ -28,7 +28,7 @@ export async function POST(
 
         // 2. Parse FormData
         // 2. Parse Request (FormData or JSON)
-        let action, notes, photo, latitude, longitude, locationName, photoUrl, photoUrls;
+        let action, notes, photo, latitude, longitude, locationName, photoUrl, photoUrls, timestampStr;
         
         const contentType = request.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
@@ -40,6 +40,7 @@ export async function POST(
             locationName = body.locationName;
             photoUrl = body.photoUrl; // Single photo (Note)
             photoUrls = body.photoUrls; // Multiple photos (Complete)
+            timestampStr = body.timestamp;
         } else {
              const formData: any = await request.formData();
              action = formData.get('action') as string;
@@ -48,6 +49,7 @@ export async function POST(
              latitude = formData.get('latitude') as string;
              longitude = formData.get('longitude') as string;
              locationName = formData.get('locationName') as string;
+             timestampStr = formData.get('timestamp') as string;
         }
 
         // Construct Location String: Name (Lat, Long)
@@ -63,6 +65,8 @@ export async function POST(
             locationStr = `Loc: ${coords}`;
         }
 
+        const timestamp = timestampStr ? new Date(timestampStr) : undefined;
+
         // Fetch Work Order to get Ticket Number
         const workOrder = await prisma.workOrders.findUnique({
             where: { id: workOrderId },
@@ -73,7 +77,7 @@ export async function POST(
 
         // 3. Handle Actions
         if (action === 'START') {
-            await repository.start(workOrderId, userId);
+            await repository.start(workOrderId, userId, timestamp);
 
             // Add note if provided
             if (notes) {
@@ -165,13 +169,13 @@ export async function POST(
                 }
             }
 
-            await repository.complete(workOrderId, notes, userId);
+            await repository.complete(workOrderId, notes, userId, timestamp);
             return NextResponse.json({ success: true, message: 'Work Order Completed' });
 
         } else if (action === 'PAUSE') {
             // "Pause" usually means status -> ON_HOLD or PENDING?
             // Repo doesn't have explicit 'pause'. We'll use updateStatus('ON_HOLD')
-            await repository.updateStatus(workOrderId, 'ON_HOLD', userId);
+            await repository.updateStatus(workOrderId, 'ON_HOLD', userId, timestamp);
 
             if (notes) {
                 await repository.addUpdate({

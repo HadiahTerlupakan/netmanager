@@ -94,6 +94,7 @@ model Attendance {
   geofenceSiteName         String? // Nama site terdekat
   checkOutGeofenceStatus   String?
   checkOutGeofenceDistance Float?
+  geofenceMeta             Json? // Stores offline metadata
   user                     User       @relation(fields: [userId], references: [id])
   overtime                 Overtime[]
 

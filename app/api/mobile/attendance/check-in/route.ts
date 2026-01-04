@@ -42,16 +42,131 @@ export async function POST(request: NextRequest) {
         const timezone = timezoneSetting?.value || 'Asia/Jakarta'
         const toleranceMinutes = toleranceSetting?.value ? parseInt(toleranceSetting.value) : 0
 
-        // Timezone Logic:
-        const now = new Date()
-        const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
-        const tzOffsetMs = nowInTz.getTime() - now.getTime()
+
+        // Logic continues with request parsing...
+
+
+
+        // Initialize optional fields
+        let photoUrl = null
+        let location = ''
+        let notes = ''
+        let latitude: number | null = null
+        let longitude: number | null = null
+        let offlineCapturedAt: string | null = null
+        
+        const contentType = request.headers.get('content-type') || ''
+        
+        if (contentType.includes('application/json')) {
+            const body = await request.json()
+            photoUrl = body.photoUrl
+            location = body.location
+            notes = body.notes
+            latitude = body.latitude
+            longitude = body.longitude
+            
+            // Check for offline meta
+            if (body._offline_meta && body._offline_meta.capturedAt) {
+                offlineCapturedAt = body._offline_meta.capturedAt
+            } else if (body.capturedAt) {
+                offlineCapturedAt = body.capturedAt
+            }
+        } else {
+            const formData: any = await request.formData()
+            const photo = formData.get('photo') as File
+            location = formData.get('location') as string
+            notes = formData.get('notes') as string
+            
+            // Check for offline meta in FormData (JSON string usually)
+            const metaStr = formData.get('_offline_meta') as string
+            if (metaStr) {
+                try {
+                    const meta = JSON.parse(metaStr)
+                    if (meta.capturedAt) offlineCapturedAt = meta.capturedAt
+                } catch (e) { /* ignore parse error */ }
+            }
+            
+            if (photo) {
+                if (!photo.type.startsWith('image/')) {
+                    return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 })
+                }
+    
+                const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+                if (photo.size > MAX_SIZE) {
+                    return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 })
+                }
+    
+                const dateStr = new Date().toISOString().split('T')[0]
+                const uploadDir = `public/uploads/attendance/${dateStr}`
+                const fileName = `${userId}_checkin_${Date.now()}`
+    
+                photoUrl = await convertAndSaveImage(
+                    photo,
+                    uploadDir,
+                    fileName,
+                    'employee-attendance',
+                    userId
+                )
+            }
+            const latStr = formData.get('latitude') as string
+            const lngStr = formData.get('longitude') as string
+            if (latStr && lngStr) {
+                latitude = parseFloat(latStr)
+                longitude = parseFloat(lngStr)
+            }
+        }
+
+        // Determine Check-In Time
+        // If offlineCapturedAt is valid, use it. Otherwise use server time.
+        // SECURITY NOTE: In a real strict environment, trusting client timestamp is risky.
+        // Ideally we only trust it if within a reasonable window or signed.
+        // Here we trust it for offline sync purposes to avoid false penalties.
+        let checkInTime = new Date()
+        if (offlineCapturedAt) {
+            const offlineDate = new Date(offlineCapturedAt)
+            if (!isNaN(offlineDate.getTime())) {
+                checkInTime = offlineDate
+                // Optional: Sanity check (cannot be in future)
+                if (checkInTime > new Date()) checkInTime = new Date()
+            }
+        }
+        
+        // Use checkInTime for timezone logic
+        const nowInTz = new Date(checkInTime.toLocaleString('en-US', { timeZone: timezone }))
+        const tzOffsetMs = nowInTz.getTime() - checkInTime.getTime()
         const startOfDayInTz = new Date(nowInTz)
         startOfDayInTz.setHours(0, 0, 0, 0)
+        // Adjust effectiveToday based on checkInTime, not server 'now'
         const effectiveToday = new Date(startOfDayInTz.getTime() - tzOffsetMs)
 
+        // Geofence validation
+        let geofenceStatus = 'UNKNOWN'
+        let geofenceDistance: number | null = null
+        let geofenceSiteName: string | null = null
+        
+        if (latitude !== null && longitude !== null) {
+            const geofenceService = new GeofenceService()
+            const result = await geofenceService.validateGeofence(userId, latitude, longitude)
+            geofenceStatus = result.isInside ? 'INSIDE' : 'OUTSIDE'
+            geofenceDistance = result.nearestDistance
+            geofenceSiteName = result.nearestSiteName
+        }
 
-        // 1. Auto-Checkout logic for stale sessions
+        let status = 'ON_TIME'
+
+        if (userDetails?.startWorkTime) {
+            const [schedHour, schedMinute] = userDetails.startWorkTime.split(':').map(Number)
+            const scheduleTime = new Date(startOfDayInTz)
+            scheduleTime.setHours(schedHour, schedMinute, 0, 0)
+            const toleranceMs = toleranceMinutes * 60 * 1000
+            const lateThreshold = new Date(scheduleTime.getTime() + toleranceMs)
+
+            if (nowInTz > lateThreshold) {
+                status = 'LATE'
+            }
+        }
+
+        // Auto-Checkout Logic (remains same but uses new effectiveToday)
         const staleSessions = await prisma.attendance.findMany({
             where: {
                 userId,
@@ -98,101 +213,6 @@ export async function POST(request: NextRequest) {
             }))
         }
 
-        // 2. Check for today's check-in
-        const existingAttendance = await prisma.attendance.findFirst({
-            where: {
-                userId,
-                checkIn: {
-                    gte: effectiveToday
-                }
-            }
-        })
-
-        if (existingAttendance) {
-            return NextResponse.json({ error: 'Anda sudah melakukan check-in hari ini' }, { status: 400 })
-        }
-
-        let photoUrl = null
-        let location = ''
-        let notes = ''
-        let latitude: number | null = null
-        let longitude: number | null = null
-        
-        const contentType = request.headers.get('content-type') || ''
-        
-        if (contentType.includes('application/json')) {
-            const body = await request.json()
-            photoUrl = body.photoUrl
-            location = body.location
-            notes = body.notes
-            latitude = body.latitude
-            longitude = body.longitude
-        } else {
-            const formData: any = await request.formData()
-            const photo = formData.get('photo') as File
-            location = formData.get('location') as string
-            notes = formData.get('notes') as string
-            
-            if (photo) {
-                if (!photo.type.startsWith('image/')) {
-                    return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 })
-                }
-    
-                const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-                if (photo.size > MAX_SIZE) {
-                    return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 })
-                }
-    
-                const dateStr = new Date().toISOString().split('T')[0]
-                const uploadDir = `public/uploads/attendance/${dateStr}`
-                const fileName = `${userId}_checkin_${Date.now()}`
-    
-                photoUrl = await convertAndSaveImage(
-                    photo,
-                    uploadDir,
-                    fileName,
-                    'employee-attendance',
-                    userId
-                )
-            }
-            const latStr = formData.get('latitude') as string
-            const lngStr = formData.get('longitude') as string
-            if (latStr && lngStr) {
-                latitude = parseFloat(latStr)
-                longitude = parseFloat(lngStr)
-            }
-        }
-
-        // Geofence validation
-        let geofenceStatus = 'UNKNOWN'
-        let geofenceDistance: number | null = null
-        let geofenceSiteName: string | null = null
-        
-        if (latitude !== null && longitude !== null) {
-            const geofenceService = new GeofenceService()
-            const result = await geofenceService.validateGeofence(userId, latitude, longitude)
-            geofenceStatus = result.isInside ? 'INSIDE' : 'OUTSIDE'
-            geofenceDistance = result.nearestDistance
-            geofenceSiteName = result.nearestSiteName
-        }
-
-        let status = 'ON_TIME'
-
-        if (userDetails?.startWorkTime) {
-            const [schedHour, schedMinute] = userDetails.startWorkTime.split(':').map(Number)
-            const scheduleTime = new Date(startOfDayInTz)
-            scheduleTime.setHours(schedHour, schedMinute, 0, 0)
-            const toleranceMs = toleranceMinutes * 60 * 1000
-            const lateThreshold = new Date(scheduleTime.getTime() + toleranceMs)
-
-            if (nowInTz > lateThreshold) {
-                status = 'LATE'
-            }
-        }
-
-        // Logic already handled above in JSON/FormData block
-
-
         const attendance = await prisma.$transaction(async (tx) => {
             // Re-check for duplicate check-in inside transaction to prevent race conditions
             const duplicateCheck = await tx.attendance.findFirst({
@@ -212,7 +232,7 @@ export async function POST(request: NextRequest) {
                 data: {
                     id: crypto.randomUUID(),
                     userId,
-                    checkIn: new Date(),
+                    checkIn: checkInTime,
                     checkInPhoto: photoUrl,
                     location,
                     notes,
@@ -220,6 +240,7 @@ export async function POST(request: NextRequest) {
                     geofenceStatus,
                     geofenceDistance,
                     geofenceSiteName,
+                    geofenceMeta: offlineCapturedAt ? { offline: true, capturedAt: offlineCapturedAt } : undefined, // Optional: store raw meta
                     updatedAt: new Date()
                 }
             })

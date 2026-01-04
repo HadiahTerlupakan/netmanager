@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 import { hash } from 'bcryptjs'
 import { randomUUID } from 'crypto'
-
-const prisma = new PrismaClient()
 
 import { PERMISSION_GROUPS, PERMISSION_GROUPS_KARYAWAN, ACTIONS } from '../lib/permission-config'
 
@@ -385,4 +383,4 @@ main()
     console.error('❌ Seed failed:', e)
     process.exit(1)
   })
-  .finally(() => prisma.$disconnect())
+

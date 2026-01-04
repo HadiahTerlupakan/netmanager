@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
         // Action: START OVERTIME
         if (action === 'start') {
-            const { overtimeId, photo, location } = body;
+            const { overtimeId, photo, location, timestamp } = body;
             if (!overtimeId || !photo) {
                 return NextResponse.json({ error: 'ID dan foto wajib diisi' }, { status: 400 });
             }
@@ -118,14 +118,15 @@ export async function POST(request: NextRequest) {
 
             const result = await service.startOvertime(userId, overtimeId, {
                 photo: photoUrl,
-                location
+                location,
+                timestamp: timestamp ? new Date(timestamp) : undefined
             });
             return NextResponse.json(result);
         }
 
         // Action: STOP OVERTIME
         if (action === 'stop') {
-            const { overtimeId, photo, location } = body;
+            const { overtimeId, photo, location, timestamp } = body;
             if (!overtimeId || !photo) {
                 return NextResponse.json({ error: 'ID dan foto wajib diisi' }, { status: 400 });
             }
@@ -148,7 +149,8 @@ export async function POST(request: NextRequest) {
 
             const result = await service.stopOvertime(userId, overtimeId, {
                 photo: photoUrl,
-                location
+                location,
+                timestamp: timestamp ? new Date(timestamp) : undefined
             });
             return NextResponse.json(result);
         }
