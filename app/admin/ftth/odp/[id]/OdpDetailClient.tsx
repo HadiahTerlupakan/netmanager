@@ -14,6 +14,7 @@ import {
   HiOutlineDocumentText,
   HiOutlineClock
 } from 'react-icons/hi2'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -216,43 +217,49 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
               title="OUTPUT - Output Cores"
               icon={<HiOutlineCube className="w-4 h-4" />}
             >
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-                  <thead className="bg-gray-50 dark:bg-gray-900">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">No</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Nama Slot</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Redaman</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Tube Color</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Core Color</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-                    {odp.odpOutput.map((o) => (
-                      <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                          {o.idx + 1}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                          {o.slotName}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                          {o.redaman != null ? (
-                            <span className="font-medium">{o.redaman.toFixed(2)} dB</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <ColorBadge color={o.tubeColor || 'Non-tube'} />
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <ColorBadge color={o.coreColor || '-'} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="overflow-hidden">
+                <ResponsiveTable
+                  data={odp.odpOutput}
+                  keyField="id"
+                  columns={[
+                    {
+                      key: 'idx',
+                      header: 'No',
+                      priority: 'primary',
+                      render: (item: any) => <span className="text-sm font-medium text-gray-900 dark:text-white">{item.idx + 1}</span>
+                    },
+                    {
+                      key: 'slotName',
+                      header: 'Nama Slot',
+                      priority: 'primary',
+                      render: (item: any) => <span className="text-sm text-gray-900 dark:text-white">{item.slotName}</span>
+                    },
+                    {
+                      key: 'redaman',
+                      header: 'Redaman',
+                      priority: 'secondary',
+                      render: (item: any) => (
+                        item.redaman != null ? (
+                          <span className="font-medium text-gray-900 dark:text-white">{item.redaman.toFixed(2)} dB</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )
+                      )
+                    },
+                    {
+                      key: 'tubeColor',
+                      header: 'Tube Color',
+                      priority: 'secondary',
+                      render: (item: any) => <ColorBadge color={item.tubeColor || 'Non-tube'} />
+                    },
+                    {
+                      key: 'coreColor',
+                      header: 'Core Color',
+                      priority: 'secondary',
+                      render: (item: any) => <ColorBadge color={item.coreColor || '-'} />
+                    }
+                  ]}
+                />
               </div>
             </InfoCard>
           )}

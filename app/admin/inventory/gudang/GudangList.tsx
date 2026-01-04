@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { FiPlus, FiEdit, FiTrash2, FiHome } from 'react-icons/fi'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 interface Gudang {
   id: string
@@ -129,78 +130,66 @@ export default function GudangPage() {
           </div>
         ) : (
           <div className="overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Kode
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Nama Gudang
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Lokasi
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Terakhir Update
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {gudangs.map((gudang) => (
-                  <tr key={gudang.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {gudang.kode}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">
-                        {gudang.nama}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {gudang.lokasi || '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${gudang.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                        }`}>
-                        {gudang.isActive ? 'Aktif' : 'Tidak Aktif'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {new Date(gudang.updatedAt).toLocaleDateString('id-ID')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <Link
-                          href={`/admin/inventory/gudang/${gudang.id}/edit`}
-                          className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
-                        >
-                          <FiEdit className="h-4 w-4" />
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(gudang.id, gudang.nama)}
-                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ResponsiveTable<Gudang>
+                data={gudangs}
+                loading={loading}
+                keyField="id"
+                columns={[
+                    {
+                        key: 'kode',
+                        header: 'Kode',
+                        priority: 'primary',
+                        render: (item) => <span className="text-sm font-medium text-gray-900 dark:text-white">{item.kode}</span>
+                    },
+                    {
+                        key: 'nama',
+                        header: 'Nama Gudang',
+                        priority: 'primary',
+                        render: (item) => <div className="text-sm text-gray-900 dark:text-white">{item.nama}</div>
+                    },
+                    {
+                        key: 'lokasi',
+                        header: 'Lokasi',
+                        priority: 'secondary',
+                        render: (item) => <div className="text-sm text-gray-500 dark:text-gray-400">{item.lokasi || '-'}</div>
+                    },
+                    {
+                        key: 'isActive',
+                        header: 'Status',
+                        priority: 'primary',
+                        render: (item) => (
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${item.isActive
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                              }`}>
+                              {item.isActive ? 'Aktif' : 'Tidak Aktif'}
+                            </span>
+                        )
+                    },
+                    {
+                        key: 'updatedAt',
+                        header: 'Terakhir Update',
+                        priority: 'tertiary',
+                        render: (item) => <span className="text-sm text-gray-500 dark:text-gray-400">{new Date(item.updatedAt).toLocaleDateString('id-ID')}</span>
+                    }
+                ]}
+                renderActions={(item) => (
+                    <div className="flex justify-end space-x-2">
+                      <Link
+                        href={`/admin/inventory/gudang/${item.id}/edit`}
+                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-2"
+                      >
+                        <FiEdit className="h-4 w-4" />
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(item.id, item.nama)}
+                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-2"
+                      >
+                        <FiTrash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                )}
+            />
           </div>
         )}
       </div>

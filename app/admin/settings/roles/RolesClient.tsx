@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
 import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 interface Role {
     id: string
@@ -90,62 +91,63 @@ export function ClientComponent() {
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                <table className="w-full text-left">
-                    <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-100 dark:border-gray-700">
-                        <tr>
-                            <th className="px-6 py-4 font-semibold text-gray-700 dark:text-gray-200">Nama Role</th>
-                            <th className="px-6 py-4 font-semibold text-gray-700 dark:text-gray-200">Deskripsi</th>
-                            <th className="px-6 py-4 font-semibold text-gray-700 dark:text-gray-200 text-center">Users</th>
-                            <th className="px-6 py-4 font-semibold text-gray-700 dark:text-gray-200 text-right">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                        {roles.map((role) => (
-                            <tr key={role.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{role.name}</td>
-                                <td className="px-6 py-4 text-gray-500 dark:text-gray-400">{role.description || '-'}</td>
-                                <td className="px-6 py-4 text-center">
-                                    <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs px-2 py-1 rounded-full">
-                                        {role._count?.user || 0} User
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        {hasPermission('roles:update') && (
-                                            <Link
-                                                href={`/admin/settings/roles/${role.id}`}
-                                                className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                                                title="Edit Role"
-                                            >
-                                                <FiEdit2 />
-                                            </Link>
-                                        )}
-                                        {hasPermission('roles:delete') && role.name !== 'SUPER_ADMIN' && (
-                                            <button
-                                                onClick={() => handleDelete(role.id, role.name)}
-                                                disabled={(role._count?.user || 0) > 0}
-                                                className={`p-2 rounded-lg transition-colors ${(role._count?.user || 0) > 0
-                                                    ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
-                                                    : 'text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-                                                    }`}
-                                                title={(role._count?.user || 0) > 0 ? 'Tidak dapat menghapus role yang memiliki user aktif' : 'Hapus Role'}
-                                            >
-                                                <FiTrash2 />
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                        {roles.length === 0 && (
-                            <tr>
-                                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                                    Belum ada data role.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                <ResponsiveTable<Role>
+                    data={roles}
+                    loading={loading}
+                    keyField="id"
+                    columns={[
+                        {
+                            key: 'name',
+                            header: 'Nama Role',
+                            priority: 'primary',
+                            render: (item) => <span className="font-medium text-gray-900 dark:text-white">{item.name}</span>
+                        },
+                        {
+                            key: 'description',
+                            header: 'Deskripsi',
+                            priority: 'primary',
+                            render: (item) => <span className="text-gray-500 dark:text-gray-400">{item.description || '-'}</span>
+                        },
+                        {
+                            key: '_count',
+                            header: 'Users',
+                            priority: 'secondary',
+                            align: 'center',
+                            render: (item) => (
+                                <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs px-2 py-1 rounded-full">
+                                    {item._count?.user || 0} User
+                                </span>
+                            )
+                        }
+                    ]}
+                    emptyMessage="Belum ada data role."
+                    renderActions={(item) => (
+                        <div className="flex justify-end gap-2">
+                            {hasPermission('roles:update') && (
+                                <Link
+                                    href={`/admin/settings/roles/${item.id}`}
+                                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                    title="Edit Role"
+                                >
+                                    <FiEdit2 />
+                                </Link>
+                            )}
+                            {hasPermission('roles:delete') && item.name !== 'SUPER_ADMIN' && (
+                                <button
+                                    onClick={() => handleDelete(item.id, item.name)}
+                                    disabled={(item._count?.user || 0) > 0}
+                                    className={`p-2 rounded-lg transition-colors ${(item._count?.user || 0) > 0
+                                        ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                                        : 'text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                        }`}
+                                    title={(item._count?.user || 0) > 0 ? 'Tidak dapat menghapus role yang memiliki user aktif' : 'Hapus Role'}
+                                >
+                                    <FiTrash2 />
+                                </button>
+                            )}
+                        </div>
+                    )}
+                />
             </div>
         </div>
     )

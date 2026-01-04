@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma'
 import { StatCard } from '@/components/common/StatCard'
 import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
-import { ColorBadge } from '@/components/common/ColorBadge'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import {
   HiOutlineCube,
@@ -12,6 +11,7 @@ import {
   HiOutlineDocumentText,
   HiOutlineClock
 } from 'react-icons/hi2'
+import ClosureDetailTable from '@/components/closure/ClosureDetailTable'
 
 export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -109,48 +109,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
             title="INPUT"
             icon={<HiOutlineCube className="w-4 h-4" />}
           >
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-                <thead className="bg-gray-50 dark:bg-gray-900">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">No</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Input Unit</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Port Unit</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Tube Color</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Core Color</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-                  {detail.joinboxInput.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                        Tidak ada data input.
-                      </td>
-                    </tr>
-                  ) : (
-                    detail.joinboxInput.map((r) => (
-                      <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                          {r.idx + 1}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                          {r.inputUnit}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                          {r.portUnit}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <ColorBadge color={r.tubeColor || 'Non-tube'} />
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <ColorBadge color={r.coreColor || '-'} />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <ClosureDetailTable data={detail.joinboxInput} type="Input" />
           </InfoCard>
 
           {/* OUTPUT */}
@@ -158,48 +117,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
             title="OUTPUT"
             icon={<HiOutlineCube className="w-4 h-4" />}
           >
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-                <thead className="bg-gray-50 dark:bg-gray-900">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">No</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Input Unit</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Port Unit</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Tube Color</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Core Color</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-                  {detail.joinboxOutput.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                        Tidak ada data output.
-                      </td>
-                    </tr>
-                  ) : (
-                    detail.joinboxOutput.map((r) => (
-                      <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                          {r.idx + 1}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                          {r.inputUnit}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                          {r.portUnit}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <ColorBadge color={r.tubeColor || 'Non-tube'} />
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <ColorBadge color={r.coreColor || '-'} />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <ClosureDetailTable data={detail.joinboxOutput} type="Output" />
           </InfoCard>
         </div>
 

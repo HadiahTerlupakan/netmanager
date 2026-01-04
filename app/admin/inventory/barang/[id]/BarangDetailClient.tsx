@@ -11,6 +11,7 @@ import {
   FiUpload,
   FiClipboard
 } from 'react-icons/fi'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 export function ClientComponent() {
   const params = useParams()
@@ -134,7 +135,7 @@ export function ClientComponent() {
         <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <FiEye className="h-6 w-6 text-gray-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
@@ -156,7 +157,7 @@ export function ClientComponent() {
         <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <div className="h-6 w-6 bg-blue-100 rounded-full flex items-center justify-center">
                   <span className="text-blue-600 text-xs font-bold">{barang.kode.slice(-1)}</span>
                 </div>
@@ -180,7 +181,7 @@ export function ClientComponent() {
         <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <div className="h-6 w-6 bg-green-100 rounded-full flex items-center justify-center">
                   <span className="text-green-600 text-xs font-bold">S</span>
                 </div>
@@ -204,7 +205,7 @@ export function ClientComponent() {
         <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <div className="h-6 w-6 bg-purple-100 rounded-full flex items-center justify-center">
                   <span className="text-purple-600 text-xs font-bold">G</span>
                 </div>
@@ -256,73 +257,79 @@ export function ClientComponent() {
               </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-900">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Gudang
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Kode
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Stok
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Aksi
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {barang.stockPerGudang.map((stock: any) => (
-                    <tr key={stock.gudangId}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {stock.gudangNama}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {stock.gudangKode}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStockStatusColor(stock.stok)}`}>
-                          {stock.stok} {barang.satuan}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {stock.stok === 0 ? 'Habis' : stock.stok < 5 ? 'Menipis' : 'Tersedia'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <Link
-                            href="/admin/inventory/masuk"
-                            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
-                            title="Barang Masuk"
-                          >
-                            <FiDownload className="h-4 w-4" />
-                          </Link>
-                          <Link
-                            href="/admin/inventory/keluar"
-                            className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300"
-                            title="Barang Keluar"
-                          >
-                            <FiUpload className="h-4 w-4" />
-                          </Link>
-                          <Link
-                            href="/admin/inventory/opname"
-                            className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300"
-                            title="Stock Opname"
-                          >
-                            <FiClipboard className="h-4 w-4" />
-                          </Link>
+            <div className="overflow-hidden">
+              <ResponsiveTable
+                data={barang.stockPerGudang}
+                keyField="gudangId"
+                columns={[
+                  {
+                    key: 'gudangNama',
+                    header: 'Gudang',
+                    priority: 'primary',
+                    render: (item: any) => (
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {item.gudangNama}
+                        <div className="text-xs text-gray-500 dark:text-gray-400 sm:hidden">
+                          {item.gudangKode}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'gudangKode',
+                    header: 'Kode',
+                    priority: 'secondary',
+                    render: (item: any) => (
+                      <span className="text-gray-500 dark:text-gray-400">{item.gudangKode}</span>
+                    )
+                  },
+                  {
+                    key: 'stok',
+                    header: 'Stok',
+                    priority: 'primary',
+                    render: (item: any) => (
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStockStatusColor(item.stok)}`}>
+                        {item.stok} {barang.satuan}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'status',
+                    header: 'Status',
+                    priority: 'secondary',
+                    render: (item: any) => (
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {item.stok === 0 ? 'Habis' : item.stok < 5 ? 'Menipis' : 'Tersedia'}
+                      </span>
+                    )
+                  }
+                ]}
+                renderActions={(item: any) => (
+                  <div className="flex justify-end space-x-2">
+                    <Link
+                      href="/admin/inventory/masuk"
+                      className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 p-2"
+                      title="Barang Masuk"
+                    >
+                      <FiDownload className="h-4 w-4" />
+                    </Link>
+                    <Link
+                      href="/admin/inventory/keluar"
+                      className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300 p-2"
+                      title="Barang Keluar"
+                    >
+                      <FiUpload className="h-4 w-4" />
+                    </Link>
+                    <Link
+                      href="/admin/inventory/opname"
+                      className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300 p-2"
+                      title="Stock Opname"
+                    >
+                      <FiClipboard className="h-4 w-4" />
+                    </Link>
+                  </div>
+                )}
+              />
             </div>
           )}
         </div>

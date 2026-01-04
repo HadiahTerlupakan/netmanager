@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FiEdit, FiTrash2, FiEye, FiSearch, FiLayers } from 'react-icons/fi'
+import { FiEdit, FiTrash2, FiEye, FiSearch } from 'react-icons/fi'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { useSocketEvent } from '@/hooks/useSocket'
 
 interface Barang {
   id: string
@@ -19,8 +21,6 @@ interface Barang {
   createdAt: string
   updatedAt: string
 }
-
-import { useSocketEvent } from '@/hooks/useSocket'
 
 export function BarangTable() {
   const [barangs, setBarangs] = useState<Barang[]>([])
@@ -117,8 +117,138 @@ export function BarangTable() {
     }
   }
 
+  // Define columns for ResponsiveTable
+  const columns: Column<Barang>[] = [
+    {
+      key: 'kode',
+      header: 'Kode',
+      priority: 'primary',
+      render: (item) => (
+        <span className="text-sm font-medium text-gray-900 dark:text-white">
+          {item.kode}
+        </span>
+      )
+    },
+    {
+      key: 'nama',
+      header: 'Nama Barang',
+      priority: 'primary',
+      render: (item) => (
+        <div className="text-sm text-gray-900 dark:text-white font-medium">
+          {item.nama}
+        </div>
+      )
+    },
+    {
+      key: 'satuan',
+      header: 'Satuan',
+      priority: 'secondary',
+      align: 'center',
+      render: (item) => (
+        <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+          {item.satuan}
+        </span>
+      )
+    },
+    {
+      key: 'totalStock',
+      header: 'Total Stok',
+      priority: 'primary',
+      align: 'center',
+      render: (item) => (
+        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${item.totalStock === 0
+          ? 'bg-red-100 text-red-800'
+          : item.totalStock < 5
+            ? 'bg-yellow-100 text-yellow-800'
+            : 'bg-green-100 text-green-800'
+          }`}>
+          {item.totalStock}
+        </span>
+      )
+    },
+    {
+      key: 'stockPerGudang',
+      header: 'Stok per Gudang',
+      priority: 'tertiary',
+      render: (item) => (
+        <div className="max-w-xs">
+          {item.stockPerGudang.length === 0 ? (
+            <span className="text-sm text-gray-500 italic">Tidak ada stok</span>
+          ) : (
+            <div className="flex flex-wrap gap-1">
+              {item.stockPerGudang.slice(0, 3).map((stock) => (
+                <div
+                  key={stock.gudangId}
+                  className="inline-flex items-center"
+                  title={`${stock.gudangNama}: ${stock.stok}`}
+                >
+                  <span className="text-xs text-gray-600 dark:text-gray-400 mr-1">
+                    {stock.gudangKode}:
+                  </span>
+                  <span
+                    className={`px-1.5 py-0.5 text-xs rounded ${stock.stok === 0
+                      ? 'bg-red-100 text-red-800'
+                      : stock.stok < 5
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-green-100 text-green-800'
+                      }`}
+                  >
+                    {stock.stok}
+                  </span>
+                </div>
+              ))}
+              {item.stockPerGudang.length > 3 && (
+                <span className="text-xs text-gray-500 italic">
+                  +{item.stockPerGudang.length - 3} lagi
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'updatedAt',
+      header: 'Update',
+      priority: 'tertiary',
+      align: 'center',
+      render: (item) => (
+        <span className="text-sm text-gray-500 dark:text-gray-400">
+          {new Date(item.updatedAt).toLocaleDateString('id-ID')}
+        </span>
+      )
+    }
+  ]
+
+  // Render actions for each row
+  const renderActions = (item: Barang) => (
+    <>
+      <Link
+        href={`/admin/inventory/barang/${item.id}`}
+        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+        title="Detail"
+      >
+        <FiEye className="h-4 w-4" />
+      </Link>
+      <Link
+        href={`/admin/inventory/barang/${item.id}/edit`}
+        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-1"
+        title="Edit"
+      >
+        <FiEdit className="h-4 w-4" />
+      </Link>
+      <button
+        onClick={() => handleDelete(item.id, item.kode)}
+        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
+        title="Hapus"
+      >
+        <FiTrash2 className="h-4 w-4" />
+      </button>
+    </>
+  )
+
   return (
-    <div className="overflow-x-auto">
+    <div>
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
           {error}
@@ -162,149 +292,20 @@ export function BarangTable() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="min-w-full overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-800">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Kode
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Nama Barang
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Satuan
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Total Stok
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Stok per Gudang
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Update
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Aksi
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-            {loading ? (
-              <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
-                  Memuat data...
-                </td>
-              </tr>
-            ) : barangs.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                  Tidak ada data barang
-                </td>
-              </tr>
-            ) : (
-              barangs.map((barang) => (
-                <tr key={barang.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {barang.kode}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm text-gray-900 dark:text-white font-medium">
-                      {barang.nama}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-center">
-                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                      {barang.satuan}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-center">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${barang.totalStock === 0
-                      ? 'bg-red-100 text-red-800'
-                      : barang.totalStock < 5
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-green-100 text-green-800'
-                      }`}>
-                      {barang.totalStock}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="max-w-xs">
-                      {barang.stockPerGudang.length === 0 ? (
-                        <span className="text-sm text-gray-500 italic">Tidak ada stok</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {barang.stockPerGudang.slice(0, 3).map((stock) => (
-                            <div
-                              key={stock.gudangId}
-                              className="inline-flex items-center"
-                              title={`${stock.gudangNama}: ${stock.stok}`}
-                            >
-                              <span className="text-xs text-gray-600 dark:text-gray-400 mr-1">
-                                {stock.gudangKode}:
-                              </span>
-                              <span
-                                className={`px-1.5 py-0.5 text-xs rounded ${stock.stok === 0
-                                  ? 'bg-red-100 text-red-800'
-                                  : stock.stok < 5
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-green-100 text-green-800'
-                                  }`}
-                              >
-                                {stock.stok}
-                              </span>
-                            </div>
-                          ))}
-                          {barang.stockPerGudang.length > 3 && (
-                            <span className="text-xs text-gray-500 italic">
-                              +{barang.stockPerGudang.length - 3} lagi
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(barang.updatedAt).toLocaleDateString('id-ID')}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
-                    <div className="flex items-center justify-center space-x-1">
-                      <Link
-                        href={`/admin/inventory/barang/${barang.id}`}
-                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1"
-                        title="Detail"
-                      >
-                        <FiEye className="h-4 w-4" />
-                      </Link>
-                      <Link
-                        href={`/admin/inventory/barang/${barang.id}/edit`}
-                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-1"
-                        title="Edit"
-                      >
-                        <FiEdit className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(barang.id, barang.kode)}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
-                        title="Hapus"
-                      >
-                        <FiTrash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Responsive Table */}
+      <ResponsiveTable
+        data={barangs}
+        columns={columns}
+        keyField="id"
+        loading={loading}
+        emptyMessage="Tidak ada data barang"
+        loadingMessage="Memuat data..."
+        renderActions={renderActions}
+      />
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 gap-3">
           <div className="text-sm text-gray-700 dark:text-gray-300">
             Menampilkan {((page - 1) * pagination.limit) + 1} hingga{' '}
             {Math.min(page * pagination.limit, pagination.total)} dari{' '}

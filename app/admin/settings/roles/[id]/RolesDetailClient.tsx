@@ -7,6 +7,7 @@ import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
 import { FiArrowLeft, FiSave } from 'react-icons/fi'
 import { PERMISSION_GROUPS, PERMISSION_GROUPS_KARYAWAN, ACTIONS } from '@/lib/permission-config'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 export function ClientComponent() {
     const router = useRouter()
@@ -265,24 +266,58 @@ export function ClientComponent() {
                                         </div>
                                     </div>
 
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-50/50 dark:bg-gray-700/30 border-b border-gray-100 dark:border-gray-700">
-                                                <tr>
-                                                    <th className="px-6 py-3 font-medium text-gray-500">Resource</th>
-                                                    {ACTIONS.map(action => (
-                                                        <th key={action} className="px-6 py-3 font-medium text-gray-500 dark:text-gray-400 text-center w-24">
-                                                            {action}
-                                                        </th>
-                                                    ))}
-                                                    <th className="px-6 py-3 font-medium text-gray-500 dark:text-gray-400 text-center w-24">All</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                                {resources.map(resource => {
-                                                    const resourceActions = ACTIONS.map(action => `${resource}:${action}`)
-                                                    const isAllResourceChecked = resourceActions.every(p => formData.permissions.includes(p))
+                                    <ResponsiveTable
+                                        data={resources.map(r => ({ id: r, name: r }))}
+                                        keyField="id"
+                                        columns={[
+                                            {
+                                                key: 'name',
+                                                header: 'Resource',
+                                                priority: 'primary' as const,
+                                                render: (item: { id: string, name: string }) => (
+                                                    <span className="font-medium text-gray-700 dark:text-gray-300 capitalize">
+                                                        {item.name.replace(/^k_/, '').replace(/_/g, ' ')}
+                                                    </span>
+                                                )
+                                            },
+                                            ...ACTIONS.map(action => ({
+                                                key: action,
+                                                header: action,
+                                                priority: 'primary' as const,
+                                                align: 'center' as const,
+                                                render: (item: { id: string, name: string }) => {
+                                                    const permissionId = `${item.id}:${action}`
+                                                    const isChecked = formData.permissions.includes(permissionId)
+                                                    
+                                                    const togglePermission = () => {
+                                                        let newPermissions = [...formData.permissions]
+                                                        if (isChecked) {
+                                                            newPermissions = newPermissions.filter(p => p !== permissionId)
+                                                        } else {
+                                                            newPermissions.push(permissionId)
+                                                        }
+                                                        setFormData({ ...formData, permissions: newPermissions })
+                                                    }
 
+                                                    return (
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={togglePermission}
+                                                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300 cursor-pointer"
+                                                        />
+                                                    )
+                                                }
+                                            })),
+                                            {
+                                                key: 'all',
+                                                header: 'All',
+                                                priority: 'primary' as const,
+                                                align: 'center' as const,
+                                                render: (item: { id: string, name: string }) => {
+                                                    const resourceActions = ACTIONS.map(action => `${item.id}:${action}`)
+                                                    const isAllResourceChecked = resourceActions.every(p => formData.permissions.includes(p))
+                                                    
                                                     const handleResourceAllToggle = (checked: boolean) => {
                                                         let newPermissions = [...formData.permissions]
                                                         if (checked) {
@@ -296,49 +331,17 @@ export function ClientComponent() {
                                                     }
 
                                                     return (
-                                                        <tr key={resource} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
-                                                            <td className="px-6 py-3 font-medium text-gray-700 dark:text-gray-300 capitalize">
-                                                                {resource.replace(/^k_/, '').replace(/_/g, ' ')}
-                                                            </td>
-                                                            {ACTIONS.map(action => {
-                                                                const permissionId = `${resource}:${action}`
-                                                                const isChecked = formData.permissions.includes(permissionId)
-
-                                                                const togglePermission = () => {
-                                                                    let newPermissions = [...formData.permissions]
-                                                                    if (isChecked) {
-                                                                        newPermissions = newPermissions.filter(p => p !== permissionId)
-                                                                    } else {
-                                                                        newPermissions.push(permissionId)
-                                                                    }
-                                                                    setFormData({ ...formData, permissions: newPermissions })
-                                                                }
-
-                                                                return (
-                                                                    <td key={action} className="px-6 py-3 text-center">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={isChecked}
-                                                                            onChange={togglePermission}
-                                                                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300 cursor-pointer"
-                                                                        />
-                                                                    </td>
-                                                                )
-                                                            })}
-                                                            <td className="px-6 py-3 text-center border-l border-gray-100 dark:border-gray-700">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={isAllResourceChecked}
-                                                                    onChange={(e) => handleResourceAllToggle(e.target.checked)}
-                                                                    className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 cursor-pointer"
-                                                                />
-                                                            </td>
-                                                        </tr>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isAllResourceChecked}
+                                                            onChange={(e) => handleResourceAllToggle(e.target.checked)}
+                                                            className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 cursor-pointer"
+                                                        />
                                                     )
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                                }
+                                            }
+                                        ]}
+                                    />
                                 </div>
                             )
                         })}

@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react'
 import { RestockSettingsForm } from '@/components/inventory/RestockSettingsForm'
 import { Modal } from '@/components/ui/Modal'
 import { FiTrendingUp, FiTrendingDown, FiMinus, FiAlertTriangle, FiAlertCircle, FiCheckCircle, FiXCircle } from 'react-icons/fi'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface PredictionData {
   barangId: string
   gudangId: string
+  id?: string
   barangKode: string
   barangNama: string
   satuan: string
@@ -83,7 +85,12 @@ export default function RestockPage() {
         filteredPredictions = filteredPredictions.filter((p: PredictionData) => p.urgency === filterUrgency)
       }
 
-      setPredictions(filteredPredictions)
+      const mappedPredictions = filteredPredictions.map((p: PredictionData) => ({
+        ...p,
+        id: `${p.barangId}-${p.gudangId}`
+      }))
+
+      setPredictions(mappedPredictions)
       setSummary(data.summary || {})
     } catch (error) {
       console.error('Error fetching predictions:', error)
@@ -151,6 +158,116 @@ export default function RestockPage() {
     if (days <= 30) return 'text-yellow-600'
     return 'text-green-600'
   }
+
+  const columns: Column<PredictionData>[] = [
+    {
+      key: 'barang',
+      header: 'Barang',
+      priority: 'primary',
+      render: (prediction) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-gray-900 dark:text-white">
+            {prediction.barangKode}
+          </span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {prediction.barangNama}
+          </span>
+        </div>
+      )
+    },
+    {
+      key: 'gudang',
+      header: 'Gudang',
+      priority: 'secondary',
+      render: (prediction) => (
+        <div className="flex flex-col">
+          <span className="text-sm text-gray-900 dark:text-white">
+            {prediction.gudangKode}
+          </span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {prediction.gudangNama}
+          </span>
+        </div>
+      )
+    },
+    {
+      key: 'stok',
+      header: 'Status Stok',
+      priority: 'primary',
+      render: (prediction) => (
+        <div className="flex flex-col space-y-1">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium">Stok: {prediction.currentStok} {prediction.satuan}</span>
+            {getUrgencyBadge(prediction.urgency)}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            Min: {prediction.minStok} | Max: {prediction.maxStok}
+          </div>
+          <div className={`text-xs ${getDaysUntilColor(prediction.daysUntilStockout)}`}>
+            {prediction.daysUntilStockout <= 0 ? 'STOK HABIS' : `${prediction.daysUntilStockout} hari lagi`}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'usage',
+      header: 'Penggunaan',
+      priority: 'secondary',
+      render: (prediction) => (
+        <div className="flex flex-col space-y-1">
+          <div className="text-sm">
+            Rata-rata: {prediction.avgDailyUsage.toFixed(1)}/hari
+          </div>
+          <div className="flex items-center space-x-1">
+            <span>Tren:</span>
+            <span>{getTrendIcon(prediction.usageTrend)}</span>
+            <span className="text-xs capitalize">{prediction.usageTrend}</span>
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            Lead time: {prediction.leadTimeDays} hari
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'prediction',
+      header: 'Prediksi',
+      priority: 'secondary',
+      render: (prediction) => (
+        <div className="flex flex-col space-y-1">
+          <div className="text-sm">
+            Reorder: {prediction.reorderPoint} {prediction.satuan}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            Restock: {formatDate(prediction.nextRestockDate)}
+          </div>
+          <div>
+            {getRiskBadge(prediction.riskLevel)}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'recommendation',
+      header: 'Rekomendasi',
+      priority: 'primary',
+      render: (prediction) => (
+        <div className="flex flex-col space-y-2">
+          {prediction.recommendedOrderQty > 0 ? (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
+              <div className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                Order: {prediction.recommendedOrderQty} {prediction.satuan}
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              Tidak perlu restock
+            </div>
+          )}
+        </div>
+      )
+    }
+  ]
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -232,7 +349,7 @@ export default function RestockPage() {
         <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -248,7 +365,7 @@ export default function RestockPage() {
 
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
                   <FiXCircle className="text-white w-5 h-5" />
                 </div>
@@ -262,7 +379,7 @@ export default function RestockPage() {
 
           <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-6">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
                   <FiAlertTriangle className="text-white w-5 h-5" />
                 </div>
@@ -276,7 +393,7 @@ export default function RestockPage() {
 
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
                   <span className="text-white font-bold">7</span>
                 </div>
@@ -304,141 +421,20 @@ export default function RestockPage() {
       )}
 
       {/* Predictions Table */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
             Prediksi Kebutuhan Restock
           </h3>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-600 dark:text-gray-400">Memuat prediksi...</span>
-            </div>
-          ) : predictions.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full mb-4">
-                <svg className="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Belum ada data prediksi</h3>
-              <p className="text-gray-500 dark:text-gray-400">
-                Atur pengaturan restock untuk barang di gudang terlebih dahulu
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Barang
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Gudang
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Status Stok
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Penggunaan
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Prediksi
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Rekomendasi
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {predictions.map((prediction) => (
-                    <tr key={`${prediction.barangId}-${prediction.gudangId}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">
-                            {prediction.barangKode}
-                          </span>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {prediction.barangNama}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="text-sm text-gray-900 dark:text-white">
-                            {prediction.gudangKode}
-                          </span>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {prediction.gudangNama}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col space-y-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium">Stok: {prediction.currentStok} {prediction.satuan}</span>
-                            {getUrgencyBadge(prediction.urgency)}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            Min: {prediction.minStok} | Max: {prediction.maxStok}
-                          </div>
-                          <div className={`text-xs ${getDaysUntilColor(prediction.daysUntilStockout)}`}>
-                            {prediction.daysUntilStockout <= 0 ? 'STOK HABIS' : `${prediction.daysUntilStockout} hari lagi`}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col space-y-1">
-                          <div className="text-sm">
-                            Rata-rata: {prediction.avgDailyUsage.toFixed(1)}/hari
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <span>Tren:</span>
-                            <span>{getTrendIcon(prediction.usageTrend)}</span>
-                            <span className="text-xs capitalize">{prediction.usageTrend}</span>
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            Lead time: {prediction.leadTimeDays} hari
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col space-y-1">
-                          <div className="text-sm">
-                            Reorder: {prediction.reorderPoint} {prediction.satuan}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            Restock: {formatDate(prediction.nextRestockDate)}
-                          </div>
-                          <div>
-                            {getRiskBadge(prediction.riskLevel)}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col space-y-2">
-                          {prediction.recommendedOrderQty > 0 ? (
-                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
-                              <div className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                                Order: {prediction.recommendedOrderQty} {prediction.satuan}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              Tidak perlu restock
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
+        <ResponsiveTable
+            data={predictions}
+            columns={columns}
+            keyField="id"
+            loading={loading}
+            emptyMessage="Belum ada data prediksi. Atur pengaturan restock untuk barang di gudang terlebih dahulu."
+            loadingMessage="Memuat prediksi..."
+        />
       </div>
 
       {/* Settings Form Modal */}

@@ -5,6 +5,7 @@ import { HiPencil, HiTrash, HiExclamationCircle } from 'react-icons/hi2'
 import Modal from '@/components/common/Modal'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 type Bandwidth = {
   id: string
@@ -290,7 +291,7 @@ export default function BandwidthPage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <HiExclamationCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
             <div className="flex-1">
@@ -302,93 +303,86 @@ export default function BandwidthPage() {
       )}
 
       {/* Main Content Card */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  #
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Nama
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Max Limit D/U
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Priority
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Aksi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-              {bandwidths.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Tidak ada data bandwidth. Klik &quot;Tambah Bandwidth&quot; untuk menambahkan.
-                  </td>
-                </tr>
-              ) : (
-                bandwidths.map((bandwidth, index) => (
-                  <tr key={bandwidth.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {index + 1}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {bandwidth.name}
-                      </div>
-                      {bandwidth.description && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          {bandwidth.description}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      <div>{bandwidth.maxLimitDownload} / {bandwidth.maxLimitUpload}</div>
-                      {bandwidth.burstLimitDownload && bandwidth.burstLimitUpload && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          Burst: {bandwidth.burstLimitDownload} / {bandwidth.burstLimitUpload}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {bandwidth.priority || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={bandwidth.status} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(bandwidth)}
-                          className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
-                          title="Edit"
-                        >
-                          <HiPencil className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(bandwidth.id)}
-                          className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                          title="Delete"
-                        >
-                          <HiTrash className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <ResponsiveTable
+        data={bandwidths}
+        columns={[
+          {
+            key: 'name',
+            header: 'Nama',
+            priority: 'primary',
+            render: (item) => (
+              <div>
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                  {item.name}
+                </div>
+                {item.description && (
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {item.description}
+                  </div>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'maxLimitDownload',
+            header: 'Max Limit D/U',
+            priority: 'primary',
+            render: (item) => (
+              <span className="text-sm text-gray-900 dark:text-white">
+                {item.maxLimitDownload} / {item.maxLimitUpload}
+              </span>
+            ),
+          },
+          {
+            key: 'burstLimitDownload',
+            header: 'Burst Limit D/U',
+            priority: 'secondary',
+            render: (item) => (
+              item.burstLimitDownload && item.burstLimitUpload ? (
+                <span className="text-sm text-gray-900 dark:text-white">
+                  {item.burstLimitDownload} / {item.burstLimitUpload}
+                </span>
+              ) : <span className="text-sm text-gray-500">-</span>
+            ),
+          },
+          {
+            key: 'priority',
+            header: 'Priority',
+            priority: 'secondary',
+            render: (item) => (
+              <span className="text-sm text-gray-900 dark:text-white">
+                {item.priority || '-'}
+              </span>
+            ),
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            priority: 'primary',
+            render: (item) => <StatusBadge status={item.status} />,
+          },
+        ]}
+        keyField="id"
+        emptyMessage='Tidak ada data bandwidth. Klik "Tambah Bandwidth" untuk menambahkan.'
+        renderActions={(item) => (
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => handleEdit(item)}
+              className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
+              title="Edit"
+            >
+              <HiPencil className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => handleDelete(item.id)}
+              className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              title="Delete"
+            >
+              <HiTrash className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+      />
 
       {/* Modal Create/Edit Bandwidth */}
       <Modal

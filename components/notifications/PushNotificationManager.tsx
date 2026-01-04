@@ -152,7 +152,7 @@ export function PushNotificationManager({ className }: PushNotificationManagerPr
     return (
         <div className={`bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4 ${className}`}>
             <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                     <HiBell className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <div className="flex-1">
@@ -180,7 +180,7 @@ export function PushNotificationManager({ className }: PushNotificationManagerPr
                 </div>
                 <button
                     onClick={dismissBanner}
-                    className="flex-shrink-0 p-1 hover:bg-indigo-100 dark:hover:bg-indigo-800 rounded"
+                    className="shrink-0 p-1 hover:bg-indigo-100 dark:hover:bg-indigo-800 rounded"
                 >
                     <HiXMark className="w-5 h-5 text-gray-500" />
                 </button>

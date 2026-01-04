@@ -50,7 +50,7 @@ export function PWAInstallBanner() {
     // For iOS - show instructions banner (since beforeinstallprompt is not supported)
     if (isIOS) {
         return (
-            <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl shadow-2xl p-4 z-50 animate-slide-up">
+            <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-2xl shadow-2xl p-4 z-50 animate-slide-up">
                 <button
                     onClick={handleDismiss}
                     className="absolute top-2 right-2 p-1 text-white/70 hover:text-white"
@@ -58,7 +58,7 @@ export function PWAInstallBanner() {
                     <HiXMark className="w-5 h-5" />
                 </button>
                 <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 p-2 bg-white/20 rounded-lg">
+                    <div className="shrink-0 p-2 bg-white/20 rounded-lg">
                         <HiOutlineArrowDownTray className="w-6 h-6" />
                     </div>
                     <div className="flex-1">
@@ -101,7 +101,7 @@ export function PWAInstallBanner() {
     if (!canInstall) return null
 
     return (
-        <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl shadow-2xl p-4 z-50 animate-slide-up">
+        <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-2xl shadow-2xl p-4 z-50 animate-slide-up">
             <button
                 onClick={handleDismiss}
                 className="absolute top-2 right-2 p-1 text-white/70 hover:text-white"
@@ -109,7 +109,7 @@ export function PWAInstallBanner() {
                 <HiXMark className="w-5 h-5" />
             </button>
             <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 p-2 bg-white/20 rounded-lg">
+                <div className="shrink-0 p-2 bg-white/20 rounded-lg">
                     <HiOutlineArrowDownTray className="w-6 h-6" />
                 </div>
                 <div className="flex-1">

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { HiArrowPath, HiPencil, HiTrash } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 type Olt = { id: string; name: string; ipAddress: string }
 type Vlan = {
@@ -155,6 +156,55 @@ export default function VlanPage() {
     }
   }
 
+  // Define columns for ResponsiveTable
+  const columns: Column<Vlan>[] = [
+    {
+      key: 'vlanId',
+      header: 'ID',
+      priority: 'primary',
+      render: (vlan) => (
+        <span className="text-sm font-medium text-gray-900 dark:text-white">{vlan.vlanId}</span>
+      )
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      priority: 'primary',
+      render: (vlan) => (
+        <span className="text-sm text-gray-900 dark:text-white">{vlan.name}</span>
+      )
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      priority: 'secondary',
+      render: (vlan) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">{vlan.description || '-'}</span>
+      )
+    }
+  ]
+
+  // Render actions for each row
+  const renderActions = (vlan: Vlan) => (
+    <>
+      <button
+        onClick={() => handleEdit(vlan)}
+        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors"
+        title="Edit VLAN"
+      >
+        <HiPencil className="w-4 h-4" />
+      </button>
+      <button
+        onClick={() => handleDelete(vlan.vlanId)}
+        disabled={isDeleting}
+        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors disabled:opacity-50"
+        title="Delete VLAN"
+      >
+        <HiTrash className="w-4 h-4" />
+      </button>
+    </>
+  )
+
   if (loading) {
     return <PageLoader />
   }
@@ -224,12 +274,6 @@ export default function VlanPage() {
             </div>
           )}
 
-          {!error && vlans.length === 0 && !refreshing && (
-            <div className="p-12 text-center">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Tidak ada data VLAN ditemukan</p>
-            </div>
-          )}
-
           {vlans.length > 0 && (
             <>
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -237,63 +281,22 @@ export default function VlanPage() {
                   VLAN List ({vlans.length} VLANs)
                 </h2>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                        ID
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                        Name
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-                    {vlans.map((vlan) => (
-                      <tr key={vlan.vlanId} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">{vlan.vlanId}</div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="text-sm text-gray-900 dark:text-white">{vlan.name}</div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {vlan.description || '-'}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleEdit(vlan)}
-                              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors"
-                              title="Edit VLAN"
-                            >
-                              <HiPencil className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(vlan.vlanId)}
-                              disabled={isDeleting}
-                              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors disabled:opacity-50"
-                              title="Delete VLAN"
-                            >
-                              <HiTrash className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ResponsiveTable
+                data={vlans}
+                columns={columns}
+                keyField="vlanId"
+                loading={refreshing}
+                emptyMessage="Tidak ada data VLAN ditemukan"
+                loadingMessage="Memuat data..."
+                renderActions={renderActions}
+              />
             </>
+          )}
+
+          {!error && vlans.length === 0 && !refreshing && (
+            <div className="p-12 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Tidak ada data VLAN ditemukan</p>
+            </div>
           )}
         </div>
       )}
@@ -359,4 +362,3 @@ export default function VlanPage() {
     </div>
   )
 }
-

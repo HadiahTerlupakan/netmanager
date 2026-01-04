@@ -15,6 +15,7 @@ import {
 } from 'react-icons/hi2'
 import { formatDistanceToNow, format } from 'date-fns'
 import { id } from 'date-fns/locale'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 interface Ticket {
     id: string
@@ -328,92 +329,107 @@ export default function SupportContext() {
 
             {/* Tickets Table */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-                {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
-                    </div>
-                ) : tickets.length === 0 ? (
-                    <div className="text-center py-20 text-gray-500">
-                        <HiOutlineChatBubbleLeftRight className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        <p>Tidak ada tiket ditemukan</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                                <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Tiket</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Pelanggan</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Status</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Kategori</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Dibuat</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Balasan</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Rating</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                {tickets.map((ticket) => (
-                                    <tr
-                                        key={ticket.id}
-                                        onClick={() => router.push(`/admin/support/${ticket.id}`)}
-                                        className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
-                                    >
-                                        <td className="px-4 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-1.5 h-10 rounded-full ${getPriorityColor(ticket.priority)}`} />
-                                                <div>
-                                                    <div className="font-medium text-gray-900 dark:text-white">
-                                                        {ticket.subject}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500 font-mono">
-                                                        #{ticket.ticketNumber}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                                {ticket.pelanggan.nama}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                                {ticket.pelanggan.idPelanggan}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${getStatusColor(ticket.status)}`}>
-                                                {getStatusLabel(ticket.status)}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">
-                                            {getCategoryLabel(ticket.category)}
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <div className="text-sm text-gray-900 dark:text-white">
-                                                {format(new Date(ticket.createdAt), 'dd MMM yyyy', { locale: id })}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                                {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true, locale: id })}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                                    {ticket.replyCount}
-                                                </span>
-                                                {ticket.lastReply && !ticket.lastReply.isFromAdmin && ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED' && (
-                                                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Perlu balasan" />
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            {renderStars(extractRating(ticket))}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                <ResponsiveTable
+                    data={tickets}
+                    keyField="id"
+                    loading={loading}
+                    onRowClick={(ticket) => router.push(`/admin/support/${ticket.id}`)}
+                    emptyMessage={
+                        <div className="text-center py-12">
+                            <HiOutlineChatBubbleLeftRight className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                            <p>Tidak ada tiket ditemukan</p>
+                        </div>
+                    }
+                    columns={[
+                        {
+                            key: 'ticketNumber',
+                            header: 'Tiket',
+                            priority: 'primary',
+                            render: (ticket: Ticket) => (
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-1.5 h-10 rounded-full ${getPriorityColor(ticket.priority)}`} />
+                                    <div>
+                                        <div className="font-medium text-gray-900 dark:text-white">
+                                            {ticket.subject}
+                                        </div>
+                                        <div className="text-xs text-gray-500 font-mono">
+                                            #{ticket.ticketNumber}
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        },
+                        {
+                            key: 'pelanggan',
+                            header: 'Pelanggan',
+                            priority: 'primary',
+                            render: (ticket: Ticket) => (
+                                <div>
+                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {ticket.pelanggan.nama}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                        {ticket.pelanggan.idPelanggan}
+                                    </div>
+                                </div>
+                            )
+                        },
+                        {
+                            key: 'status',
+                            header: 'Status',
+                            priority: 'secondary',
+                            render: (ticket: Ticket) => (
+                                <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${getStatusColor(ticket.status)}`}>
+                                    {getStatusLabel(ticket.status)}
+                                </span>
+                            )
+                        },
+                        {
+                            key: 'category',
+                            header: 'Kategori',
+                            priority: 'secondary',
+                            render: (ticket: Ticket) => (
+                                <span className="text-sm text-gray-600 dark:text-gray-400">{getCategoryLabel(ticket.category)}</span>
+                            )
+                        },
+                        {
+                            key: 'createdAt',
+                            header: 'Dibuat',
+                            priority: 'tertiary',
+                            render: (ticket: Ticket) => (
+                                <div>
+                                    <div className="text-sm text-gray-900 dark:text-white">
+                                        {format(new Date(ticket.createdAt), 'dd MMM yyyy', { locale: id })}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                        {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true, locale: id })}
+                                    </div>
+                                </div>
+                            )
+                        },
+                        {
+                            key: 'replyCount',
+                            header: 'Balasan',
+                            priority: 'tertiary',
+                            render: (ticket: Ticket) => (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {ticket.replyCount}
+                                    </span>
+                                    {ticket.lastReply && !ticket.lastReply.isFromAdmin && ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED' && (
+                                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Perlu balasan" />
+                                    )}
+                                </div>
+                            )
+                        },
+                        {
+                            key: 'rating',
+                            header: 'Rating',
+                            priority: 'tertiary',
+                            render: (ticket: Ticket) => renderStars(extractRating(ticket))
+                        }
+                    ]}
+                />
 
                 {/* Pagination */}
                 {totalPages > 1 && (

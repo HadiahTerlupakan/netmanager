@@ -301,14 +301,14 @@ export function EnhancedOpnameForm({ onClose, onSuccess, defaultGudangId }: Enha
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-800 flex items-start">
-            <FiAlertCircle className="mt-0.5 mr-2 flex-shrink-0" />
+            <FiAlertCircle className="mt-0.5 mr-2 shrink-0" />
             <div>{error}</div>
           </div>
         )}
 
         {success && (
           <div className="p-4 bg-green-50 border border-green-200 rounded-md text-green-800 flex items-center">
-            <FiCheckCircle className="mr-2 flex-shrink-0" />
+            <FiCheckCircle className="mr-2 shrink-0" />
             <div>{success}</div>
           </div>
         )}

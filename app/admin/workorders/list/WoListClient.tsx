@@ -17,6 +17,7 @@ import {
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { useToast } from '@/components/common/ToastProvider'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface WorkOrder {
     id: string
@@ -280,6 +281,142 @@ export function ClientComponent() {
 
     const hasActiveFilters = filterStatus || filterPriority || filterType || unassignedOnly || search
 
+    // Define columns for ResponsiveTable
+    const columns: Column<WorkOrder>[] = [
+        {
+            key: 'workOrderNumber',
+            header: 'WO Number',
+            priority: 'primary',
+            render: (wo) => (
+                <span className="text-sm font-medium text-gray-900 dark:text-white">{wo.workOrderNumber}</span>
+            )
+        },
+        {
+            key: 'title',
+            header: 'Title',
+            priority: 'primary',
+            render: (wo) => (
+                <div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{wo.title}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{wo.type}</div>
+                </div>
+            )
+        },
+        {
+            key: 'customer',
+            header: 'Customer',
+            priority: 'secondary',
+            render: (wo) => (
+                <div>
+                    <div className="text-sm text-gray-900 dark:text-white">
+                        {wo.pelanggan?.nama || wo.contactName || <span className="text-gray-400">Guest</span>}
+                    </div>
+                    {wo.pelanggan?.idPelanggan && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{wo.pelanggan.idPelanggan}</div>
+                    )}
+                </div>
+            )
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            priority: 'primary',
+            render: (wo) => (
+                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statusColors[wo.status]}`}>
+                    {statusLabels[wo.status]}
+                </span>
+            )
+        },
+        {
+            key: 'priority',
+            header: 'Priority',
+            priority: 'secondary',
+            render: (wo) => (
+                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${priorityColors[wo.priority]}`}>
+                    {wo.priority}
+                </span>
+            )
+        },
+        {
+            key: 'assignedTo',
+            header: 'Assigned To',
+            priority: 'tertiary',
+            render: (wo) => (
+                <span className="text-sm text-gray-900 dark:text-white">
+                    {wo.assignedTo ? wo.assignedTo.name : <span className="text-gray-400">Unassigned</span>}
+                </span>
+            )
+        },
+        {
+            key: 'createdAt',
+            header: 'Created',
+            priority: 'tertiary',
+            render: (wo) => (
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {formatDistanceToNow(new Date(wo.createdAt), { addSuffix: true, locale: localeId })}
+                </span>
+            )
+        }
+    ]
+
+    // Render actions for each row
+    const renderActions = (wo: WorkOrder) => (
+        <>
+            {wo.status !== 'CANCELLED' && wo.status !== 'CLOSED' && wo.status !== 'COMPLETED' && (
+                <>
+                    <button
+                        onClick={(e) => openCancelModal(wo.id, e)}
+                        className="p-1 text-gray-500 dark:text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded"
+                        title="Batalkan"
+                    >
+                        <HiXCircle className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={(e) => openDeleteModal(wo.id, e)}
+                        className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                        title="Hapus Permanen"
+                    >
+                        <HiTrash className="w-5 h-5" />
+                    </button>
+                </>
+            )}
+            {wo.status === 'COMPLETED' && (
+                <>
+                    <button
+                        onClick={(e) => openRejectModal(wo.id, e)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        title="Tolak"
+                    >
+                        <HiXMark className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={(e) => handleVerify(wo.id, e)}
+                        className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                        title="Verifikasi"
+                    >
+                        <HiCheckCircle className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={(e) => openDeleteModal(wo.id, e)}
+                        className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                        title="Hapus Permanen"
+                    >
+                        <HiTrash className="w-5 h-5" />
+                    </button>
+                </>
+            )}
+            {wo.status === 'CANCELLED' && (
+                <button
+                    onClick={(e) => openDeleteModal(wo.id, e)}
+                    className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                    title="Hapus Permanen"
+                >
+                    <HiTrash className="w-5 h-5" />
+                </button>
+            )}
+        </>
+    )
+
     if (status === 'loading' || loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -410,132 +547,21 @@ export function ClientComponent() {
 
             {/* Table */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead className="bg-gray-50 dark:bg-gray-700">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">WO Number</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Title</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Customer</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assigned To</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            {workOrders.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                                        {hasActiveFilters ? 'No work orders found with current filters' : 'No work orders yet'}
-                                    </td>
-                                </tr>
-                            ) : (
-                                workOrders.map((wo) => (
-                                    <tr
-                                        key={wo.id}
-                                        className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                                        onClick={() => router.push(`/admin/workorders/${wo.id}`)}
-                                    >
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">{wo.workOrderNumber}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-sm font-medium text-gray-900 dark:text-white">{wo.title}</div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">{wo.type}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-sm text-gray-900 dark:text-white">
-                                                {wo.pelanggan?.nama || wo.contactName || <span className="text-gray-400">Guest</span>}
-                                            </div>
-                                            {wo.pelanggan?.idPelanggan && (
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">{wo.pelanggan.idPelanggan}</div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statusColors[wo.status]}`}>
-                                                {statusLabels[wo.status]}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${priorityColors[wo.priority]}`}>
-                                                {wo.priority}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                                            {wo.assignedTo ? wo.assignedTo.name : (
-                                                <span className="text-gray-400">Unassigned</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                                            {formatDistanceToNow(new Date(wo.createdAt), { addSuffix: true, locale: localeId })}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {wo.status !== 'CANCELLED' && wo.status !== 'CLOSED' && wo.status !== 'COMPLETED' && (
-                                                    <>
-                                                        <button
-                                                            onClick={(e) => openCancelModal(wo.id, e)}
-                                                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded"
-                                                            title="Batalkan"
-                                                        >
-                                                            <HiXCircle className="w-5 h-5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => openDeleteModal(wo.id, e)}
-                                                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                                                            title="Hapus Permanen"
-                                                        >
-                                                            <HiTrash className="w-5 h-5" />
-                                                        </button>
-                                                    </>
-                                                )}
-                                                {wo.status === 'COMPLETED' && (
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <button
-                                                            onClick={(e) => openRejectModal(wo.id, e)}
-                                                            className="p-1 text-red-600 hover:bg-red-50 rounded"
-                                                            title="Tolak"
-                                                        >
-                                                            <HiXMark className="w-5 h-5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => handleVerify(wo.id, e)}
-                                                            className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
-                                                            title="Verifikasi"
-                                                        >
-                                                            <HiCheckCircle className="w-5 h-5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => openDeleteModal(wo.id, e)}
-                                                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                                                            title="Hapus Permanen"
-                                                        >
-                                                            <HiTrash className="w-5 h-5" />
-                                                        </button>
-                                                    </div>
-                                                )}
-                                                {wo.status === 'CANCELLED' && (
-                                                    <button
-                                                        onClick={(e) => openDeleteModal(wo.id, e)}
-                                                        className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                                                        title="Hapus Permanen"
-                                                    >
-                                                        <HiTrash className="w-5 h-5" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                <ResponsiveTable
+                    data={workOrders}
+                    columns={columns}
+                    keyField="id"
+                    loading={loading}
+                    emptyMessage={hasActiveFilters ? 'No work orders found with current filters' : 'No work orders yet'}
+                    loadingMessage="Memuat data..."
+                    renderActions={renderActions}
+                    onRowClick={(wo) => router.push(`/admin/workorders/${wo.id}`)}
+                />
             </div>
 
             {/* Pagination */}
             {totalPages > 1 && (
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                     <div className="text-sm text-gray-600 dark:text-gray-400">
                         Page {page} of {totalPages}
                     </div>

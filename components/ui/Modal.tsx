@@ -83,7 +83,7 @@ export function Modal({
                         {showCloseButton && (
                             <button
                                 onClick={onClose}
-                                className="ml-auto min-w-[44px] min-h-[44px] p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors touch-manipulation flex items-center justify-center flex-shrink-0"
+                                className="ml-auto min-w-[44px] min-h-[44px] p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors touch-manipulation flex items-center justify-center shrink-0"
                                 aria-label="Close modal"
                             >
                                 <HiXMark className="w-6 h-6 sm:w-5 sm:h-5" />

@@ -12,6 +12,7 @@ import {
     HiOutlinePencil,
     HiOutlineFunnel
 } from "react-icons/hi2";
+import ResponsiveTable from "@/components/ui/ResponsiveTable";
 
 type Expense = {
     id: string;
@@ -108,54 +109,65 @@ export function ClientComponent() { // ExpensePage() {
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700">
-                            <tr>
-                                <th className="px-6 py-4 font-medium">Tanggal</th>
-                                <th className="px-6 py-4 font-medium">Kategori</th>
-                                <th className="px-6 py-4 font-medium">Keterangan</th>
-                                <th className="px-6 py-4 font-medium">Jumlah</th>
-                                <th className="px-6 py-4 font-medium">Dinput Oleh</th>
-                                <th className="px-6 py-4 font-medium text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {loading ? (
-                                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">Memuat data...</td></tr>
-                            ) : expenses.length === 0 ? (
-                                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">Belum ada data pengeluaran</td></tr>
-                            ) : (
-                                expenses.map((expense) => (
-                                    <tr key={expense.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                        <td className="px-6 py-4 text-gray-900 dark:text-white font-medium">
-                                            {format(new Date(expense.date), "dd MMM yyyy", { locale: id })}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                                                {expense.category}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300 max-w-xs truncate">
-                                            {expense.description || "-"}
-                                        </td>
-                                        <td className="px-6 py-4 text-rose-600 font-semibold font-mono">
-                                            Rp {Number(expense.amount).toLocaleString("id-ID")}
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
-                                            {expense.user?.name || "System"}
-                                        </td>
-                                        <td className="px-6 py-4 text-right space-x-2">
-                                            <button onClick={() => handleDelete(expense.id)} className="text-gray-400 hover:text-red-500 transition-colors">
-                                                <HiOutlineTrash className="w-4 h-4" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                <ResponsiveTable
+                    data={expenses}
+                    loading={loading}
+                    keyField="id"
+                    columns={[
+                        {
+                            key: 'date',
+                            header: 'Tanggal',
+                            priority: 'primary',
+                            render: (item) => format(new Date(item.date), "dd MMM yyyy", { locale: id })
+                        },
+                        {
+                            key: 'category',
+                            header: 'Kategori',
+                            priority: 'primary',
+                            render: (item) => (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                    {item.category}
+                                </span>
+                            )
+                        },
+                        {
+                            key: 'description',
+                            header: 'Keterangan',
+                            priority: 'secondary',
+                            render: (item) => (
+                                <span className="text-gray-600 dark:text-gray-300 max-w-xs truncate block">
+                                    {item.description || "-"}
+                                </span>
+                            )
+                        },
+                        {
+                            key: 'amount',
+                            header: 'Jumlah',
+                            priority: 'primary',
+                            render: (item) => (
+                                <span className="text-rose-600 font-semibold font-mono">
+                                    Rp {Number(item.amount).toLocaleString("id-ID")}
+                                </span>
+                            )
+                        },
+                        {
+                            key: 'user',
+                            header: 'Dinput Oleh',
+                            priority: 'tertiary',
+                            render: (item) => item.user?.name || "System"
+                        }
+                    ]}
+                    emptyMessage="Belum ada data pengeluaran"
+                    renderActions={(item) => (
+                        <button 
+                            onClick={() => handleDelete(item.id)} 
+                            className="text-gray-400 hover:text-red-500 transition-colors p-2"
+                            title="Hapus"
+                        >
+                            <HiOutlineTrash className="w-4 h-4" />
+                        </button>
+                    )}
+                />
             </div>
 
             {/* Modal Form */}

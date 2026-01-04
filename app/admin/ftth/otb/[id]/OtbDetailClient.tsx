@@ -13,6 +13,7 @@ import {
   HiOutlineMapPin,
   HiOutlineDocumentText
 } from 'react-icons/hi2'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -123,61 +124,61 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
             title="Mapping Core"
             icon={<HiOutlineCube className="w-4 h-4" />}
           >
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-                <thead className="bg-gray-50 dark:bg-gray-900">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">No</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Nama Slot</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Tube Color</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Core Color</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-                  {(otb.otbCore || []).length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                        Belum ada mapping core.
-                      </td>
-                    </tr>
-                  ) : (
-                    otb.otbCore.map((c) => {
-                      const tubeColor = c.tubeColor && c.tubeColor.trim() !== '' ? c.tubeColor : 'Non-tube'
-                      const coreColor = c.coreColor && c.coreColor.trim() !== '' ? c.coreColor : standard12Colors[c.idx % 12]
-                      const isMapped = c.odc !== null
-                      return (
-                        <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                            {c.idx + 1}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                            {c.slotName}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <ColorBadge color={tubeColor} />
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <ColorBadge color={coreColor} />
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {isMapped ? (
-                              <Link href={`/admin/ftth/odc/${c.odc!.id}`} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-medium hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
-                                <HiCheck className="w-3 h-3" />
-                                Terhubung ke {c.odc!.name}
-                              </Link>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-900/20 text-gray-600 dark:text-gray-400 text-xs font-medium">
-                                Tersedia
-                              </span>
-                            )}
-                          </td>
-                        </tr>
+            <div className="overflow-hidden">
+              <ResponsiveTable
+                data={otb.otbCore || []}
+                keyField="id"
+                columns={[
+                  {
+                    key: 'idx',
+                    header: 'No',
+                    priority: 'primary',
+                    render: (item: any) => <span className="text-sm font-medium text-gray-900 dark:text-white">{item.idx + 1}</span>
+                  },
+                  {
+                    key: 'slotName',
+                    header: 'Nama Slot',
+                    priority: 'primary',
+                    render: (item: any) => <span className="text-sm text-gray-900 dark:text-white">{item.slotName}</span>
+                  },
+                  {
+                    key: 'tubeColor',
+                    header: 'Tube Color',
+                    priority: 'secondary',
+                    render: (item: any) => {
+                      const tubeColor = item.tubeColor && item.tubeColor.trim() !== '' ? item.tubeColor : 'Non-tube'
+                      return <ColorBadge color={tubeColor} />
+                    }
+                  },
+                  {
+                    key: 'coreColor',
+                    header: 'Core Color',
+                    priority: 'secondary',
+                    render: (item: any) => {
+                      const coreColor = item.coreColor && item.coreColor.trim() !== '' ? item.coreColor : standard12Colors[item.idx % 12]
+                      return <ColorBadge color={coreColor} />
+                    }
+                  },
+                  {
+                    key: 'status',
+                    header: 'Status',
+                    priority: 'primary',
+                    render: (item: any) => (
+                      item.odc ? (
+                        <Link href={`/admin/ftth/odc/${item.odc.id}`} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-medium hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
+                          <HiCheck className="w-3 h-3" />
+                          Terhubung ke {item.odc.name}
+                        </Link>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-900/20 text-gray-600 dark:text-gray-400 text-xs font-medium">
+                          Tersedia
+                        </span>
                       )
-                    })
-                  )}
-                </tbody>
-              </table>
+                    )
+                  }
+                ]}
+                emptyMessage="Belum ada mapping core."
+              />
             </div>
           </InfoCard>
         </div>

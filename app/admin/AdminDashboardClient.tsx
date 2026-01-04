@@ -6,6 +6,7 @@ import { getUserRepository, getMikroTikRouterRepository } from '@/lib/repositori
 import { HiOutlineUsers } from 'react-icons/hi2'
 import { HiOutlineServer } from 'react-icons/hi2'
 import { DashboardSocketUpdate } from '@/components/dashboard/DashboardSocketUpdate'
+import DashboardSiteTable from '@/components/dashboard/DashboardSiteTable'
 import { getTopEmployees, getTopProblematicSites, getTopDismantleSites, getTopInstallationSites } from '@/app/admin/_services/dashboard'
 
 
@@ -230,34 +231,11 @@ export async function ClientComponent() {
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Site Bermasalah</h3>
             <p className="text-xs text-gray-500">Tiket Trouble</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left text-gray-500 dark:text-gray-400">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                <tr>
-                  <th scope="col" className="px-3 py-2">Site</th>
-                  <th scope="col" className="px-3 py-2 text-right">Jml</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topProblematicSites.map((site, index) => (
-                  <tr key={site.siteId} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                    <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">
-                      <div className="flex items-center space-x-2">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${index === 0 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>#{index + 1}</span>
-                        <span className="truncate max-w-[120px]" title={site.siteName}>{site.siteName}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right font-bold text-red-600 dark:text-red-400">{site.count}</td>
-                  </tr>
-                ))}
-                {topProblematicSites.length === 0 && (
-                  <tr>
-                    <td colSpan={2} className="px-3 py-2 text-center text-xs">No Data</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DashboardSiteTable 
+            data={topProblematicSites} 
+            color="red" 
+            emptyMessage="Tidak ada data troubled site" 
+          />
         </div>
 
         {/* Top 5 Dismantle Sites */}
@@ -266,34 +244,11 @@ export async function ClientComponent() {
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Site Dismantle</h3>
             <p className="text-xs text-gray-500">Pemutusan</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left text-gray-500 dark:text-gray-400">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                <tr>
-                  <th scope="col" className="px-3 py-2">Site</th>
-                  <th scope="col" className="px-3 py-2 text-right">Jml</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topDismantleSites.map((site, index) => (
-                  <tr key={site.siteId} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                    <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">
-                      <div className="flex items-center space-x-2">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${index === 0 ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'}`}>#{index + 1}</span>
-                        <span className="truncate max-w-[120px]" title={site.siteName}>{site.siteName}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right font-bold text-orange-600 dark:text-orange-400">{site.count}</td>
-                  </tr>
-                ))}
-                {topDismantleSites.length === 0 && (
-                  <tr>
-                    <td colSpan={2} className="px-3 py-2 text-center text-xs">No Data</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DashboardSiteTable 
+            data={topDismantleSites} 
+            color="orange" 
+            emptyMessage="Tidak ada data dismantle" 
+          />
         </div>
 
         {/* Top 5 New Installation Sites */}
@@ -302,34 +257,11 @@ export async function ClientComponent() {
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Pemasangan Baru</h3>
             <p className="text-xs text-gray-500">Instalasi Baru</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left text-gray-500 dark:text-gray-400">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                <tr>
-                  <th scope="col" className="px-3 py-2">Site</th>
-                  <th scope="col" className="px-3 py-2 text-right">Jml</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topInstallationSites.map((site, index) => (
-                  <tr key={site.siteId} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                    <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">
-                      <div className="flex items-center space-x-2">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${index === 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>#{index + 1}</span>
-                        <span className="truncate max-w-[120px]" title={site.siteName}>{site.siteName}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right font-bold text-green-600 dark:text-green-400">{site.count}</td>
-                  </tr>
-                ))}
-                {topInstallationSites.length === 0 && (
-                  <tr>
-                    <td colSpan={2} className="px-3 py-2 text-center text-xs">No Data</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DashboardSiteTable 
+            data={topInstallationSites} 
+            color="green" 
+            emptyMessage="Tidak ada data pasang baru" 
+          />
         </div>
 
       </div>

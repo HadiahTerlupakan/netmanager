@@ -5,6 +5,7 @@ import { HiPencil, HiTrash, HiExclamationCircle } from 'react-icons/hi2'
 import Modal from '@/components/common/Modal'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 type ProfilePPP = {
   id: string
@@ -278,113 +279,109 @@ export default function ProfilePPPPage() {
       )}
 
       {/* Main Content Card */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  #
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Nama Profile
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Local Address
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Remote Address
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  DNS Server
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Target MikroTik
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Paket Terkait
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Aksi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-              {profilePPPs.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Tidak ada data profile PPP. Klik &quot;Tambah Profile PPP&quot; untuk menambahkan.
-                  </td>
-                </tr>
+      <ResponsiveTable
+        data={profilePPPs}
+        columns={[
+          {
+            key: 'name',
+            header: 'Nama Profile',
+            priority: 'primary',
+            render: (item) => (
+              <div>
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                  {item.name}
+                </div>
+                {item.description && (
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {item.description}
+                  </div>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'localAddress',
+            header: 'Local Address',
+            priority: 'primary',
+            render: (item) => (
+              <span className="text-sm text-gray-900 dark:text-white">
+                {item.localAddress}
+              </span>
+            ),
+          },
+          {
+            key: 'remoteAddress',
+            header: 'Remote Address',
+            priority: 'primary',
+            render: (item) => (
+              <span className="text-sm text-gray-900 dark:text-white">
+                {item.remoteAddress}
+              </span>
+            ),
+          },
+          {
+            key: 'dnsServer',
+            header: 'DNS Server',
+            priority: 'secondary',
+            render: (item) => (
+              <span className="text-sm text-gray-900 dark:text-white">
+                {item.dnsServer || '-'}
+              </span>
+            ),
+          },
+          {
+            key: 'mikroTikRouter',
+            header: 'Target MikroTik',
+            priority: 'secondary',
+            render: (item) => (
+              item.mikroTikRouter ? (
+                <div>
+                  <div className="font-medium text-sm text-gray-900 dark:text-white">{item.mikroTikRouter.name}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{item.mikroTikRouter.ipAddress}</div>
+                </div>
               ) : (
-                profilePPPs.map((profile, index) => (
-                  <tr key={profile.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {index + 1}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {profile.name}
-                      </div>
-                      {profile.description && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          {profile.description}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {profile.localAddress}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {profile.remoteAddress}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {profile.dnsServer || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {profile.mikroTikRouter ? (
-                        <div>
-                          <div className="font-medium">{profile.mikroTikRouter.name}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">{profile.mikroTikRouter.ipAddress}</div>
-                        </div>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {profile._count?.hargaPakets || 0} paket
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={profile.status} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(profile)}
-                          className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
-                          title="Edit"
-                        >
-                          <HiPencil className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(profile.id)}
-                          className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                          title="Delete"
-                        >
-                          <HiTrash className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                <span className="text-sm text-gray-500">-</span>
+              )
+            ),
+          },
+          {
+            key: 'paketTerkait',
+            header: 'Paket Terkait',
+            priority: 'secondary',
+            render: (item) => (
+              <span className="text-sm text-gray-900 dark:text-white">
+                {item._count?.hargaPakets || 0} paket
+              </span>
+            ),
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            priority: 'primary',
+            render: (item) => <StatusBadge status={item.status} />,
+          },
+        ]}
+        keyField="id"
+        emptyMessage='Tidak ada data profile PPP. Klik "Tambah Profile PPP" untuk menambahkan.'
+        renderActions={(item) => (
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => handleEdit(item)}
+              className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
+              title="Edit"
+            >
+              <HiPencil className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => handleDelete(item.id)}
+              className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              title="Delete"
+            >
+              <HiTrash className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+      />
 
       {/* Modal Create/Edit Profile PPP */}
       <Modal

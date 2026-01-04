@@ -7,6 +7,7 @@ import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface Attendance {
     id: string
@@ -189,6 +190,163 @@ export function ClientComponent() {
         }
     }
 
+    // Define columns for ResponsiveTable
+    const columns: Column<Attendance>[] = [
+        {
+            key: 'user',
+            header: 'Karyawan',
+            priority: 'primary',
+            render: (item) => (
+                <div className="flex items-center">
+                    <div className="h-10 w-10 shrink-0 relative">
+                        <Image
+                            src={item.user.image || `https://ui-avatars.com/api/?name=${item.user.name}&background=random`}
+                            alt="" fill className="rounded-full object-cover"
+                        />
+                    </div>
+                    <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{item.user.name}</div>
+                        <div className="text-xs text-gray-500">{item.user.email}</div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: 'sites',
+            header: 'Site / Dept',
+            priority: 'secondary',
+            render: (item) => (
+                <div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{item.user.sites?.name || '-'}</div>
+                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                        <FaBuilding className="text-[10px]" /> {item.user.departments?.name || '-'}
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: 'checkIn',
+            header: 'Tanggal',
+            priority: 'primary',
+            render: (item) => (
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {format(new Date(item.checkIn), 'dd MMM yyyy', { locale: id })}
+                </span>
+            )
+        },
+        {
+            key: 'jamKerja',
+            header: 'Jam Kerja',
+            priority: 'primary',
+            render: (item) => (
+                <div>
+                    <div className="text-sm text-green-600 font-mono bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded inline-block mb-1">
+                        IN: {format(new Date(item.checkIn), 'HH:mm', { locale: id })}
+                    </div>
+                    {item.checkOut ? (
+                        <div className="text-sm text-red-600 font-mono bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded inline-block">
+                            OUT: {format(new Date(item.checkOut), 'HH:mm', { locale: id })}
+                        </div>
+                    ) : (
+                        <div className="text-xs text-gray-400 italic mt-1">Belum checkout</div>
+                    )}
+                </div>
+            )
+        },
+        {
+            key: 'location',
+            header: 'Lokasi',
+            priority: 'tertiary',
+            render: (item) => (
+                <div className="flex flex-col gap-1 max-w-[200px]">
+                    {item.location ? (
+                        <a
+                            href={`https://www.google.com/maps?q=${item.location}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
+                            title={`Lokasi Masuk: ${item.location}`}
+                        >
+                            <MdLocationOn className="text-green-600 shrink-0" />
+                            <span className="text-xs group-hover:underline font-medium">Lokasi Masuk</span>
+                        </a>
+                    ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                    )}
+                    {item.checkOutLocation && (
+                        <a
+                            href={`https://www.google.com/maps?q=${item.checkOutLocation}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
+                            title={`Lokasi Pulang: ${item.checkOutLocation}`}
+                        >
+                            <MdLocationOn className="text-red-500 shrink-0" />
+                            <span className="text-xs group-hover:underline font-medium">Lokasi Pulang</span>
+                        </a>
+                    )}
+                    {item.notes && <div className="text-[10px] italic text-gray-400 mt-1 line-clamp-2">&ldquo;{item.notes}&rdquo;</div>}
+                </div>
+            )
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            priority: 'primary',
+            render: (item) => (
+                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${item.status === 'LATE' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                    item.status === 'SICK' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                        'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                    }`}>
+                    {item.status}
+                </span>
+            )
+        },
+        {
+            key: 'foto',
+            header: 'Foto',
+            priority: 'secondary',
+            render: (item) => (
+                <div className="flex gap-2">
+                    {item.checkInPhoto && (
+                        <button onClick={() => setSelectedPhoto(item.checkInPhoto)} className="relative group">
+                            <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-blue-500 transition-all">
+                                <Image src={item.checkInPhoto} alt="In" fill className="object-cover" />
+                            </div>
+                        </button>
+                    )}
+                    {item.checkOutPhoto && (
+                        <button onClick={() => setSelectedPhoto(item.checkOutPhoto)} className="relative group">
+                            <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-orange-500 transition-all">
+                                <Image src={item.checkOutPhoto} alt="Out" fill className="object-cover" />
+                            </div>
+                        </button>
+                    )}
+                </div>
+            )
+        }
+    ]
+
+    // Render actions for each row
+    const renderActions = (item: Attendance) => (
+        <>
+            <button
+                onClick={() => handleEditClick(item)}
+                className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-2 rounded-full transition-colors dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400"
+                title="Edit Data"
+            >
+                <MdEdit size={18} />
+            </button>
+            <button
+                onClick={() => handleDelete(item.id)}
+                className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-2 rounded-full transition-colors dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400"
+                title="Hapus Data"
+            >
+                <MdDelete size={18} />
+            </button>
+        </>
+    )
+
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Data Absensi</h1>
@@ -275,153 +433,20 @@ export function ClientComponent() {
                 </div>
             </div>
 
-            {/* Table */}
+            {/* Responsive Table */}
             <div className="bg-white shadow rounded-lg overflow-hidden dark:bg-gray-800">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead className="bg-gray-50 dark:bg-gray-700">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Karyawan</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Site / Dept</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jam Kerja</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lokasi</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Foto</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-                            {loading ? (
-                                <tr><td colSpan={8} className="px-6 py-10 text-center text-gray-500">Memuat data...</td></tr>
-                            ) : attendances.length === 0 ? (
-                                <tr><td colSpan={8} className="px-6 py-10 text-center text-gray-500">Tidak ada data ditemukan</td></tr>
-                            ) : (
-                                attendances.map((item) => (
-                                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="h-10 w-10 shrink-0 relative">
-                                                    <Image
-                                                        src={item.user.image || `https://ui-avatars.com/api/?name=${item.user.name}&background=random`}
-                                                        alt="" fill className="rounded-full object-cover"
-                                                    />
-                                                </div>
-                                                <div className="ml-4">
-                                                    <div className="text-sm font-medium text-gray-900 dark:text-white">{item.user.name}</div>
-                                                    <div className="text-xs text-gray-500">{item.user.email}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-sm font-medium text-gray-900 dark:text-white">{item.user.sites?.name || '-'}</div>
-                                            <div className="text-xs text-gray-500 flex items-center gap-1">
-                                                <FaBuilding className="text-[10px]" /> {item.user.departments?.name || '-'}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {format(new Date(item.checkIn), 'dd MMM yyyy', { locale: id })}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-green-600 font-mono bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded inline-block mb-1">
-                                                IN: {format(new Date(item.checkIn), 'HH:mm', { locale: id })}
-                                            </div>
-                                            {item.checkOut ? (
-                                                <div className="text-sm text-red-600 font-mono bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded inline-block">
-                                                    OUT: {format(new Date(item.checkOut), 'HH:mm', { locale: id })}
-                                                </div>
-                                            ) : (
-                                                <div className="text-xs text-gray-400 italic mt-1">Belum checkout</div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                                            <div className="flex flex-col gap-1 max-w-[200px]">
-                                                {/* Check In */}
-                                                {item.location ? (
-                                                    <a
-                                                        href={`https://www.google.com/maps?q=${item.location}`}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
-                                                        title={`Lokasi Masuk: ${item.location}`}
-                                                    >
-                                                        <MdLocationOn className="text-green-600 shrink-0" />
-                                                        <span className="text-xs group-hover:underline font-medium">Lokasi Masuk</span>
-                                                    </a>
-                                                ) : (
-                                                    <span className="text-xs text-gray-400">-</span>
-                                                )}
-
-                                                {/* Check Out */}
-                                                {item.checkOutLocation && (
-                                                    <a
-                                                        href={`https://www.google.com/maps?q=${item.checkOutLocation}`}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
-                                                        title={`Lokasi Pulang: ${item.checkOutLocation}`}
-                                                    >
-                                                        <MdLocationOn className="text-red-500 shrink-0" />
-                                                        <span className="text-xs group-hover:underline font-medium">Lokasi Pulang</span>
-                                                    </a>
-                                                )}
-
-                                                {item.notes && <div className="text-[10px] italic text-gray-400 mt-1 line-clamp-2">&ldquo;{item.notes}&rdquo;</div>}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${item.status === 'LATE' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                                item.status === 'SICK' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                                    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                                }`}>
-                                                {item.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex gap-2">
-                                                {item.checkInPhoto && (
-                                                    <button onClick={() => setSelectedPhoto(item.checkInPhoto)} className="relative group">
-                                                        <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-blue-500 transition-all">
-                                                            <Image src={item.checkInPhoto} alt="In" fill className="object-cover" />
-                                                        </div>
-                                                    </button>
-                                                )}
-                                                {item.checkOutPhoto && (
-                                                    <button onClick={() => setSelectedPhoto(item.checkOutPhoto)} className="relative group">
-                                                        <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-orange-500 transition-all">
-                                                            <Image src={item.checkOutPhoto} alt="Out" fill className="object-cover" />
-                                                        </div>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleEditClick(item)}
-                                                    className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-2 rounded-full transition-colors dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400"
-                                                    title="Edit Data"
-                                                >
-                                                    <MdEdit size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(item.id)}
-                                                    className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-2 rounded-full transition-colors dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400"
-                                                    title="Hapus Data"
-                                                >
-                                                    <MdDelete size={18} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                <ResponsiveTable
+                    data={attendances}
+                    columns={columns}
+                    keyField="id"
+                    loading={loading}
+                    emptyMessage="Tidak ada data ditemukan"
+                    loadingMessage="Memuat data..."
+                    renderActions={renderActions}
+                />
 
                 {/* Pagination Controls */}
-                <div className="px-6 py-3 flex justify-between items-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <div className="px-6 py-3 flex flex-col sm:flex-row justify-between items-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 gap-3">
                     <button
                         disabled={page === 1}
                         onClick={() => setPage(p => p - 1)}

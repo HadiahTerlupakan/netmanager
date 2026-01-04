@@ -13,6 +13,7 @@ import {
   HiOutlineMapPin,
   HiOutlineDocumentText
 } from 'react-icons/hi2'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 export async function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -175,59 +176,66 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
               title="OUTPUT - Output Cores"
               icon={<HiOutlineCube className="w-4 h-4" />}
             >
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-                  <thead className="bg-gray-50 dark:bg-gray-900">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">No</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Nama Slot</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Redaman</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Tube Color</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Core Color</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-                    {odc.odcOutput.map((o) => {
-                      const isMapped = o.odp !== null
-                      return (
-                        <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                            {o.idx + 1}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                            {o.slotName}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                            {o.redaman != null ? (
-                              <span className="font-medium">{o.redaman.toFixed(2)} dB</span>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <ColorBadge color={o.tubeColor || 'Non-tube'} />
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <ColorBadge color={o.coreColor || '-'} />
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {isMapped ? (
-                              <Link href={`/admin/ftth/odp/${o.odp!.id}`} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 text-xs font-medium hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">
-                                <HiCheck className="w-3 h-3" />
-                                Terhubung ke {o.odp!.name}
-                              </Link>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-900/20 text-gray-600 dark:text-gray-400 text-xs font-medium">
-                                Tersedia
-                              </span>
-                            )}
-                          </td>
-                        </tr>
+              <div className="overflow-hidden">
+                <ResponsiveTable
+                  data={odc.odcOutput}
+                  keyField="id"
+                  columns={[
+                    {
+                      key: 'idx',
+                      header: 'No',
+                      priority: 'primary',
+                      render: (item: any) => <span className="text-sm font-medium text-gray-900 dark:text-white">{item.idx + 1}</span>
+                    },
+                    {
+                      key: 'slotName',
+                      header: 'Nama Slot',
+                      priority: 'primary',
+                      render: (item: any) => <span className="text-sm text-gray-900 dark:text-white">{item.slotName}</span>
+                    },
+                    {
+                      key: 'redaman',
+                      header: 'Redaman',
+                      priority: 'secondary',
+                      render: (item: any) => (
+                        item.redaman != null ? (
+                          <span className="font-medium text-gray-900 dark:text-white">{item.redaman.toFixed(2)} dB</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )
                       )
-                    })}
-                  </tbody>
-                </table>
+                    },
+                    {
+                      key: 'tubeColor',
+                      header: 'Tube Color',
+                      priority: 'secondary',
+                      render: (item: any) => <ColorBadge color={item.tubeColor || 'Non-tube'} />
+                    },
+                    {
+                      key: 'coreColor',
+                      header: 'Core Color',
+                      priority: 'secondary',
+                      render: (item: any) => <ColorBadge color={item.coreColor || '-'} />
+                    },
+                    {
+                      key: 'status',
+                      header: 'Status',
+                      priority: 'primary',
+                      render: (item: any) => (
+                        item.odp ? (
+                          <Link href={`/admin/ftth/odp/${item.odp.id}`} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 text-xs font-medium hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">
+                            <HiCheck className="w-3 h-3" />
+                            Terhubung ke {item.odp.name}
+                          </Link>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-900/20 text-gray-600 dark:text-gray-400 text-xs font-medium">
+                            Tersedia
+                          </span>
+                        )
+                      )
+                    }
+                  ]}
+                />
               </div>
             </InfoCard>
           )}

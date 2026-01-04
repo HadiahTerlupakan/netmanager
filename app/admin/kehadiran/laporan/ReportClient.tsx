@@ -17,6 +17,7 @@ import { Bar, Line, Doughnut } from 'react-chartjs-2'
 import { FaCalendarAlt, FaSearch } from 'react-icons/fa'
 import { MdTrendingUp, MdTrendingDown, MdAccessTime, MdPeople } from 'react-icons/md'
 import toast from 'react-hot-toast'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 ChartJS.register(
     CategoryScale,
@@ -256,7 +257,7 @@ export function ClientComponent() {
 
                         {/* Top Overall (Accumulated) */}
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border-2 border-indigo-500/20 relative overflow-hidden">
-                            <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full opacity-10 blur-xl"></div>
+                            <div className="absolute -right-6 -top-6 w-24 h-24 bg-linear-to-br from-indigo-500 to-purple-500 rounded-full opacity-10 blur-xl"></div>
                             <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200 flex items-center gap-2 relative z-10">
                                 <span className="text-2xl">👑</span> Star Employees
                                 <span className="text-xs font-normal text-gray-500">(Overall Score)</span>
@@ -266,7 +267,7 @@ export function ClientComponent() {
                                     <p className="text-gray-400 text-sm italic">Belum ada data cukup.</p>
                                 ) : (
                                     data.attendance.combinedTopEmployees?.map((item: any, idx: number) => (
-                                        <div key={item.user.id} className="flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-900/20 dark:to-gray-800 border border-indigo-100 dark:border-indigo-900/50">
+                                        <div key={item.user.id} className="flex items-center gap-3 p-2 rounded-lg bg-linear-to-r from-indigo-50 to-white dark:from-indigo-900/20 dark:to-gray-800 border border-indigo-100 dark:border-indigo-900/50">
                                             <div className={`font-bold w-6 h-6 rounded-full flex items-center justify-center text-xs ${idx === 0 ? 'bg-yellow-400 text-white shadow-sm' : idx === 1 ? 'bg-gray-300 text-white' : idx === 2 ? 'bg-amber-600 text-white' : 'text-gray-400'}`}>
                                                 {idx + 1}
                                             </div>
@@ -351,65 +352,81 @@ export function ClientComponent() {
                         {/* By Department */}
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
                             <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Performa per Departemen</h3>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                                        <tr>
-                                            <th className="px-4 py-3">Departemen</th>
-                                            <th className="px-4 py-3 text-right">Hadir</th>
-                                            <th className="px-4 py-3 text-right">Terlambat</th>
-                                            <th className="px-4 py-3 text-right">Lembur (Jam)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {data.attendance.byDepartment.map((dept: any) => {
-                                            const ot = data.overtime.byDepartment.find((o: any) => o.name === dept.name)
-                                            return (
-                                                <tr key={dept.name} className="border-b dark:border-gray-700">
-                                                    <td className="px-4 py-3 font-medium">{dept.name}</td>
-                                                    <td className="px-4 py-3 text-right">{dept.present}</td>
-                                                    <td className="px-4 py-3 text-right text-yellow-600">{dept.late}</td>
-                                                    <td className="px-4 py-3 text-right text-purple-600">
-                                                        {ot ? (ot.duration / 60).toFixed(1) : '0.0'}
-                                                    </td>
-                                                </tr>
-                                            )
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <ResponsiveTable<any>
+                                data={data.attendance.byDepartment}
+                                loading={loading}
+                                keyField="name"
+                                columns={[
+                                    {
+                                        key: 'name',
+                                        header: 'Departemen',
+                                        priority: 'primary',
+                                        render: (item) => <span className="font-medium">{item.name}</span>
+                                    },
+                                    {
+                                        key: 'present',
+                                        header: 'Hadir',
+                                        priority: 'primary',
+                                        render: (item) => <span className="text-right block">{item.present}</span>
+                                    },
+                                    {
+                                        key: 'late',
+                                        header: 'Terlambat',
+                                        priority: 'secondary',
+                                        render: (item) => <span className="text-right text-yellow-600 block">{item.late}</span>
+                                    },
+                                    {
+                                        key: 'overtime',
+                                        header: 'Lembur (Jam)',
+                                        priority: 'secondary',
+                                        render: (item) => {
+                                            const ot = data.overtime.byDepartment.find((o: any) => o.name === item.name)
+                                            return <span className="text-right text-purple-600 block">{ot ? (ot.duration / 60).toFixed(1) : '0.0'}</span>
+                                        }
+                                    }
+                                ]}
+                                emptyMessage="Tidak ada data departemen"
+                            />
                         </div>
 
                         {/* By Site */}
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
                             <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Performa per Site</h3>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                                        <tr>
-                                            <th className="px-4 py-3">Site</th>
-                                            <th className="px-4 py-3 text-right">Hadir</th>
-                                            <th className="px-4 py-3 text-right">Terlambat</th>
-                                            <th className="px-4 py-3 text-right">Lembur (Jam)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {data.attendance.bySite.map((site: any) => {
-                                            const ot = data.overtime.bySite.find((o: any) => o.name === site.name)
-                                            return (
-                                                <tr key={site.name} className="border-b dark:border-gray-700">
-                                                    <td className="px-4 py-3 font-medium">{site.name}</td>
-                                                    <td className="px-4 py-3 text-right">{site.present}</td>
-                                                    <td className="px-4 py-3 text-right text-yellow-600">{site.late}</td>
-                                                    <td className="px-4 py-3 text-right text-purple-600">
-                                                        {ot ? (ot.duration / 60).toFixed(1) : '0.0'}
-                                                    </td>
-                                                </tr>
-                                            )
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <ResponsiveTable<any>
+                                data={data.attendance.bySite}
+                                loading={loading}
+                                keyField="name"
+                                columns={[
+                                    {
+                                        key: 'name',
+                                        header: 'Site',
+                                        priority: 'primary',
+                                        render: (item) => <span className="font-medium">{item.name}</span>
+                                    },
+                                    {
+                                        key: 'present',
+                                        header: 'Hadir',
+                                        priority: 'primary',
+                                        render: (item) => <span className="text-right block">{item.present}</span>
+                                    },
+                                    {
+                                        key: 'late',
+                                        header: 'Terlambat',
+                                        priority: 'secondary',
+                                        render: (item) => <span className="text-right text-yellow-600 block">{item.late}</span>
+                                    },
+                                    {
+                                        key: 'overtime',
+                                        header: 'Lembur (Jam)',
+                                        priority: 'secondary',
+                                        render: (item) => {
+                                            const ot = data.overtime.bySite.find((o: any) => o.name === item.name)
+                                            return <span className="text-right text-purple-600 block">{ot ? (ot.duration / 60).toFixed(1) : '0.0'}</span>
+                                        }
+                                    }
+                                ]}
+                                emptyMessage="Tidak ada data site"
+                            />
                         </div>
                     </div>
                 </>

@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { HiOutlineChartBar, HiPencil, HiTrash, HiArrowPath } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 import { useSocketEvent } from '@/hooks/useSocket'
 import { useDebounce } from '@/hooks/useDebounce'
 import { toast } from 'react-hot-toast'
@@ -219,123 +220,97 @@ export default function MikroTikRouterList() {
         </div>
 
         {/* Table */}
-        <div className={`overflow-x-auto relative ${data.routers.length === 0 ? 'min-h-[200px]' : ''}`}>
-          {loading && (
-            <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center z-10">
-              <PageLoader />
+        <ResponsiveTable
+          loading={loading}
+          data={data.routers}
+          columns={[
+            {
+              key: 'status',
+              header: 'Status',
+              priority: 'primary',
+              render: (router) => (
+                <div className="text-center">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${router.pingStatus === 'online'
+                      ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
+                      : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
+                      }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${router.pingStatus === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    {router.pingStatus === 'online' ? 'Online' : 'Offline'}
+                  </span>
+                </div>
+              )
+            },
+            {
+              key: 'name',
+              header: 'Nama Router',
+              priority: 'primary',
+              render: (router) => <div className="text-sm font-semibold text-gray-900 dark:text-white">{router.name}</div>
+            },
+            {
+              key: 'ipAddress',
+              header: 'IP Address',
+              priority: 'primary',
+              render: (router) => <div className="text-sm text-gray-600 dark:text-gray-400 font-mono">{router.ipAddress}</div>
+            },
+            {
+              key: 'timezone',
+              header: 'Zona Waktu',
+              priority: 'secondary',
+              render: (router) => <div className="text-sm text-gray-600 dark:text-gray-400">{router.timezone}</div>
+            },
+            {
+              key: 'userOnline',
+              header: 'User Online',
+              priority: 'secondary',
+              render: (router) => (
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
+                  <HiOutlineChartBar className="w-3.5 h-3.5" />
+                  <span className="text-[11px] font-medium">{router.userOnline} Active</span>
+                </div>
+              )
+            },
+            {
+              key: 'description',
+              header: 'Deskripsi',
+              priority: 'tertiary',
+              render: (router) => <div className="text-sm text-gray-500 dark:text-gray-400 max-w-[200px] truncate">{router.description || '-'}</div>
+            },
+            {
+              key: 'lastStatusCheck',
+              header: 'Last Check',
+              priority: 'secondary',
+              render: (router) => <div className="text-xs text-gray-500 dark:text-gray-500">{formatDateTime(router.lastStatusCheck)}</div>
+            }
+          ]}
+          keyField="id"
+          emptyMessage={search ? 'Tidak ada router yang sesuai dengan pencarian.' : 'Belum ada data Router.'}
+          renderActions={(router) => (
+            <div className="flex items-center justify-end gap-1">
+              <button
+                className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                title="Test API Connection"
+              >
+                <HiArrowPath className="w-4 h-4" />
+              </button>
+              <Link
+                href={`/admin/network/mikrotik/${router.id}/edit`}
+                className="p-1.5 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                title="Edit"
+              >
+                <HiPencil className="w-4 h-4" />
+              </Link>
+              <button
+                onClick={() => handleDelete(router.id, router.name)}
+                className="p-1.5 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                title="Delete"
+              >
+                <HiTrash className="w-4 h-4" />
+              </button>
             </div>
           )}
-
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[50px]">
-
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[100px]">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Nama Router
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  IP Address
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Zona Waktu
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[120px]">
-                  User Online
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">
-                  Deskripsi
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Last Check
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[100px]">
-                  Aksi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-              {data.routers.length === 0 && !loading ? (
-                <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <span className="text-gray-400 text-lg">📭</span>
-                      <span>{search ? 'Tidak ada router yang sesuai dengan pencarian.' : 'Belum ada data Router.'}</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                data.routers.map((router) => (
-                  <tr key={router.id} className="group hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {/* API Test Button */}
-                      <button
-                        className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                        title="Test API Connection"
-                      >
-                        <HiArrowPath className="w-4 h-4" />
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-center">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${router.pingStatus === 'online'
-                          ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
-                          : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
-                          }`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${router.pingStatus === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                        {router.pingStatus === 'online' ? 'Online' : 'Offline'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white">{router.name}</div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400 font-mono">
-                      {router.ipAddress}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {router.timezone}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
-                        <HiOutlineChartBar className="w-3.5 h-3.5" />
-                        <span className="text-[11px] font-medium">{router.userOnline} Active</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-[200px] truncate hidden md:table-cell">
-                      {router.description || '-'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-gray-500">
-                      {formatDateTime(router.lastStatusCheck)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Link
-                          href={`/admin/network/mikrotik/${router.id}/edit`}
-                          className="p-1.5 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                          title="Edit"
-                        >
-                          <HiPencil className="w-4 h-4" />
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(router.id, router.name)}
-                          className="p-1.5 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <HiTrash className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        />
 
         {/* Pagination */}
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">

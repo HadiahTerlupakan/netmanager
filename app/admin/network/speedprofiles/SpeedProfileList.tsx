@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { HiOutlineExclamationCircle, HiPencil, HiTrash } from 'react-icons/hi2'
 import SpeedProfileModal from '@/components/speedprofile/SpeedProfileModal'
 import PageLoader from '@/components/ui/PageLoader'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 type SpeedProfile = {
   id: string
@@ -204,7 +205,7 @@ export default function SpeedProfilesPage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <HiOutlineExclamationCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
             <div className="flex-1">
@@ -289,86 +290,75 @@ export default function SpeedProfilesPage() {
 
                   {/* Table Content */}
                   {isExpanded && (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                              #
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                              Name
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                              Type
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                              Fixed
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                              Assured
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                              Maximum
-                            </th>
-                            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                              Action
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-                          {profiles.length === 0 ? (
-                            <tr>
-                              <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                                No profiles found
-                              </td>
-                            </tr>
-                          ) : (
-                            profiles.map((profile, index) => (
-                              <tr key={profile.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                  {index + 1}
-                                </td>
-                                <td className="px-4 py-4">
-                                  <span className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                                    {profile.name}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                  {profile.type}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                  {profile.fixed ? `${profile.fixed} kbps` : '-'}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                  {profile.assured ? `${profile.assured} kbps` : '-'}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                  {profile.maximum ? `${profile.maximum} kbps` : '-'}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
-                                  <div className="flex items-center justify-end gap-2">
-                                    <button
-                                      className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
-                                      title="Edit"
-                                    >
-                                      <HiPencil className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDelete(profile.id)}
-                                      className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                      title="Delete"
-                                    >
-                                      <HiTrash className="w-5 h-5" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                    <ResponsiveTable
+                      data={profiles}
+                      columns={[
+                        {
+                          key: 'name',
+                          header: 'Name',
+                          priority: 'primary',
+                          render: (profile) => (
+                            <span className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                              {profile.name}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'type',
+                          header: 'Type',
+                          priority: 'primary',
+                        },
+                        {
+                          key: 'fixed',
+                          header: 'Fixed',
+                          priority: 'secondary',
+                          render: (profile) => (
+                            <span className="text-sm text-gray-900 dark:text-white">
+                              {profile.fixed ? `${profile.fixed} kbps` : '-'}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'assured',
+                          header: 'Assured',
+                          priority: 'secondary',
+                          render: (profile) => (
+                            <span className="text-sm text-gray-900 dark:text-white">
+                              {profile.assured ? `${profile.assured} kbps` : '-'}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'maximum',
+                          header: 'Maximum',
+                          priority: 'secondary',
+                          render: (profile) => (
+                            <span className="text-sm text-gray-900 dark:text-white">
+                              {profile.maximum ? `${profile.maximum} kbps` : '-'}
+                            </span>
+                          ),
+                        },
+                      ]}
+                      keyField="id"
+                      emptyMessage="No profiles found"
+                      renderActions={(profile) => (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
+                            title="Edit"
+                          >
+                            <HiPencil className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(profile.id)}
+                            className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                            title="Delete"
+                          >
+                            <HiTrash className="w-5 h-5" />
+                          </button>
+                        </div>
+                      )}
+                    />
                   )}
                 </div>
               )

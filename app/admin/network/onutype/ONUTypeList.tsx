@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import OnuTypeModal from '@/components/onutype/OnuTypeModal'
 import { HiExclamationCircle, HiArrowPath, HiEye, HiTrash, HiXMark } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 type OnuType = {
   id: string
@@ -300,7 +301,7 @@ export default function OnuTypePage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <HiExclamationCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
             <div className="flex-1">
@@ -399,74 +400,74 @@ export default function OnuTypePage() {
                 {/* Table Content */}
                 {isExpanded && (
                   <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                            #
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                            ONU Type
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                            Ethernet Ports
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                            Wifi
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                            VoIP Ports
-                          </th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                            Action
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-                        {types.map((onuType, index) => (
-                          <tr key={onuType.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                              {index + 1}
-                            </td>
-                            <td className="px-4 py-4">
-                              <span className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                                {onuType.name}
-                              </span>
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <ResponsiveTable
+                      data={types}
+                      columns={[
+                        {
+                          key: 'name',
+                          header: 'ONU Type',
+                          priority: 'primary',
+                          render: (onuType) => (
+                            <span className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                              {onuType.name}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'ethernetPorts',
+                          header: 'Ethernet Ports',
+                          priority: 'secondary',
+                          render: (onuType) => (
+                            <span className="text-sm text-gray-900 dark:text-white">
                               {onuType.ethernetPorts}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'wifi',
+                          header: 'Wifi',
+                          priority: 'secondary',
+                          render: (onuType) => (
+                            <span className="text-sm text-gray-900 dark:text-white">
                               {onuType.wifi}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'voipPorts',
+                          header: 'VoIP Ports',
+                          priority: 'secondary',
+                          render: (onuType) => (
+                            <span className="text-sm text-gray-900 dark:text-white">
                               {onuType.voipPorts}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  onClick={() => {
-                                    setSelectedOnuType(onuType)
-                                    setIsDetailModalOpen(true)
-                                  }}
-                                  className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                                  title="View Details"
-                                >
-                                  <HiEye className="w-5 h-5" />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(onuType.id)}
-                                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                  title="Delete"
-                                >
-                                  <HiTrash className="w-5 h-5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </span>
+                          ),
+                        },
+                      ]}
+                      keyField="id"
+                      emptyMessage="No ONU types found"
+                      renderActions={(onuType) => (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedOnuType(onuType)
+                              setIsDetailModalOpen(true)
+                            }}
+                            className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                            title="View Details"
+                          >
+                            <HiEye className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(onuType.id)}
+                            className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                            title="Delete"
+                          >
+                            <HiTrash className="w-5 h-5" />
+                          </button>
+                        </div>
+                      )}
+                    />
                   </div>
                 )}
               </div>

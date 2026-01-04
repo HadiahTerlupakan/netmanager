@@ -6,6 +6,7 @@ import { HiOutlineShieldCheck, HiOutlineUser } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 interface SystemLog {
     id: string
@@ -77,72 +78,74 @@ export function ClientComponent() {
                     </div>
                 ) : (
                     <>
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                                            Waktu
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                                            Pengguna
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                                            Aksi
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                                            Detail
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-                                    {logs.map((log) => (
-                                        <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                                <div className="flex items-center gap-2">
-                                                    <HiOutlineClock className="w-4 h-4 text-gray-400" />
-                                                    {format(new Date(log.createdAt), 'dd MMM yyyy HH:mm:ss', { locale: id })}
+                        <ResponsiveTable
+                            data={logs}
+                            loading={loading}
+                            keyField="id"
+                            columns={[
+                                {
+                                    key: 'createdAt',
+                                    header: 'Waktu',
+                                    priority: 'primary',
+                                    render: (item) => (
+                                        <div className="flex items-center gap-2">
+                                            <HiOutlineClock className="w-4 h-4 text-gray-400" />
+                                            {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm:ss', { locale: id })}
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'user',
+                                    header: 'Pengguna',
+                                    priority: 'primary',
+                                    render: (item) => (
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
+                                                <HiOutlineUser className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                                    {item.user?.name || '-'}
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
-                                                        <HiOutlineUser className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                                            {log.user?.name || '-'}
-                                                        </div>
-                                                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                            {log.user?.email || '-'}
-                                                        </div>
-                                                    </div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {item.user?.email || '-'}
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                                                    {log.action}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate">
-                                                {log.details ? (
-                                                    <span title={log.details}>
-                                                        {(() => {
-                                                            try {
-                                                                const parsed = JSON.parse(log.details)
-                                                                return Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(', ')
-                                                            } catch {
-                                                                return log.details
-                                                            }
-                                                        })()}
-                                                    </span>
-                                                ) : '-'}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                            </div>
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'action',
+                                    header: 'Aksi',
+                                    priority: 'primary',
+                                    render: (item) => (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                            {item.action}
+                                        </span>
+                                    )
+                                },
+                                {
+                                    key: 'detail',
+                                    header: 'Detail',
+                                    priority: 'secondary',
+                                    render: (item) => (
+                                        <span className="text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate block" title={item.details || ''}>
+                                            {item.details ? (
+                                                (() => {
+                                                    try {
+                                                        const parsed = JSON.parse(item.details)
+                                                        return Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(', ')
+                                                    } catch {
+                                                        return item.details
+                                                    }
+                                                })()
+                                            ) : '-'}
+                                        </span>
+                                    )
+                                }
+                            ]}
+                            emptyMessage="Belum ada data log login."
+                        />
 
                         {/* Pagination */}
                         {pagination.totalPages > 1 && (

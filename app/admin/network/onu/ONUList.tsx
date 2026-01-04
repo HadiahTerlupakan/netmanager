@@ -21,6 +21,7 @@ import {
   HiSignal,
   HiFunnel
 } from 'react-icons/hi2'
+import { ResponsiveTable } from '@/components/ui/ResponsiveTable'
 import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
 
 type OnuData = {
@@ -1471,120 +1472,107 @@ export default function AllOnuPage() {
       </div>
 
       {/* Data Table - Optimized dengan pagination dan Load More */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-              <tr>
-                <th className="px-4 py-3 text-left">
-                  <input type="checkbox" className="rounded border-gray-300" />
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
-                  OLT
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
-                  Description
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
-                  PPPoE
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
-                  Gpon Onu
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
-                  RX OLT
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
-                  RX ONU
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
-                  Serial Number
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-900 dark:hover:text-white">
-                  Actual Type
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-              {loading ? (
-                <tr key="loading">
-                  <td colSpan={12} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center justify-center gap-2">
-                      <HiArrowPath className="w-5 h-5 animate-spin" />
-                      Memuat data ONU...
-                    </div>
-                  </td>
-                </tr>
-              ) : onus.length === 0 ? (
-                <tr key="empty">
-                  <td colSpan={12} className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Tidak ada data ONU di database. Data akan tersedia setelah background scheduler sync (runs every 5 minutes). Klik &quot;Refresh&quot; untuk force fetch dari SNMP.
-                  </td>
-                </tr>
-              ) : (
-                onus.map((onu, index) => (
-                  <tr key={`${onu.oltId}-${onu.gponOnu}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <input type="checkbox" className="rounded border-gray-300" />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{onu.olt?.name || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{onu.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.description || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.pppoe || '-'}</td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                        {onu.gponOnu}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(onu.status)}
-                        <span className="text-sm text-gray-900 dark:text-white capitalize">{onu.status}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <SignalBars rxOlt={onu.rxOlt} />
-                        <span className={`text-sm font-medium ${getSignalColor(onu.rxOlt)}`}>
-                          {onu.rxOlt || 'N/A'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <SignalBars rxOlt={onu.rxOnu} />
-                        <span className={`text-sm font-medium ${getSignalColor(onu.rxOnu)}`}>
-                          {onu.rxOnu || 'N/A'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 font-mono">
-                      {onu.serialNumber || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{onu.actualType || '-'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors">
-                          <HiCog6Tooth className="w-4 h-4" />
-                          Setting
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+      <ResponsiveTable
+        data={onus}
+        keyField="gponOnu"
+        loading={loading}
+        loadingMessage="Memuat data ONU..."
+        emptyMessage="Tidak ada data ONU di database. Data akan tersedia setelah background scheduler sync (runs every 5 minutes). Klik 'Refresh' untuk force fetch dari SNMP."
+        columns={[
+          {
+            key: 'gponOnu',
+            header: 'GPON ONU',
+            priority: 'primary',
+            render: (onu: OnuData) => (
+              <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                {onu.gponOnu}
+              </span>
+            )
+          },
+          {
+            key: 'name',
+            header: 'NAME',
+            priority: 'primary',
+            render: (onu: OnuData) => <span className="text-sm font-medium text-gray-900 dark:text-white">{onu.name}</span>
+          },
+          {
+            key: 'status',
+            header: 'STATUS',
+            priority: 'primary',
+            render: (onu: OnuData) => (
+              <div className="flex items-center gap-2">
+                {getStatusIcon(onu.status)}
+                <span className="text-sm text-gray-900 dark:text-white capitalize">{onu.status}</span>
+              </div>
+            )
+          },
+          {
+            key: 'olt',
+            header: 'OLT',
+            priority: 'tertiary',
+            render: (onu: OnuData) => <span className="text-sm text-gray-900 dark:text-white">{onu.olt?.name || '-'}</span>
+          },
+          {
+            key: 'desc',
+            header: 'DESCRIPTION',
+            priority: 'tertiary',
+            render: (onu: OnuData) => <span className="text-sm text-gray-600 dark:text-gray-400">{onu.description || '-'}</span>
+          },
+          {
+            key: 'rx_olt',
+            header: 'RX OLT',
+            priority: 'secondary',
+            render: (onu: OnuData) => (
+              <div className="flex items-center gap-2">
+                <SignalBars rxOlt={onu.rxOlt} />
+                <span className={`text-sm font-medium ${getSignalColor(onu.rxOlt)}`}>
+                  {onu.rxOlt || 'N/A'}
+                </span>
+              </div>
+            )
+          },
+          {
+            key: 'rx_onu',
+            header: 'RX ONU',
+            priority: 'secondary',
+            render: (onu: OnuData) => (
+              <div className="flex items-center gap-2">
+                <SignalBars rxOlt={onu.rxOnu} />
+                <span className={`text-sm font-medium ${getSignalColor(onu.rxOnu)}`}>
+                  {onu.rxOnu || 'N/A'}
+                </span>
+              </div>
+            )
+          },
+          {
+            key: 'sn',
+            header: 'S/N',
+            priority: 'tertiary',
+            render: (onu: OnuData) => <span className="text-sm text-gray-600 dark:text-gray-400 font-mono">{onu.serialNumber || '-'}</span>
+          },
+          {
+            key: 'type',
+            header: 'TYPE',
+            priority: 'tertiary',
+            render: (onu: OnuData) => <span className="text-sm text-gray-600 dark:text-gray-400">{onu.actualType || '-'}</span>
+          },
+          {
+            key: 'pppoe',
+            header: 'PPPoE',
+            priority: 'tertiary',
+            render: (onu: OnuData) => <span className="text-sm text-gray-600 dark:text-gray-400">{onu.pppoe || '-'}</span>
+          }
+        ]}
+        renderActions={(onu: OnuData) => (
+          <div className="flex items-center gap-2">
+            <button className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors">
+              <HiCog6Tooth className="w-4 h-4" />
+              Setting
+            </button>
+          </div>
+        )}
+      />
 
         {/* Pagination */}
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">

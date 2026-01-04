@@ -15,6 +15,7 @@ import {
     MdInstallDesktop,
     MdCancel
 } from 'react-icons/md'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface Registration {
     id: string
@@ -130,6 +131,116 @@ export default function AdminRegistrationsPage() {
         return acc
     }, {} as Record<string, number>)
 
+    const columns: Column<Registration>[] = [
+        {
+            key: 'createdAt',
+            header: 'Tanggal',
+            priority: 'secondary',
+            render: (reg) => (
+                <div className="text-sm text-gray-900 dark:text-white">
+                    <div>{new Date(reg.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                    <div className="text-xs text-slate-400">
+                        {new Date(reg.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: 'name',
+            header: 'Nama',
+            priority: 'primary',
+            render: (reg) => (
+                <div className="text-sm font-medium text-slate-900 dark:text-white">
+                    {reg.name}
+                </div>
+            )
+        },
+        {
+            key: 'phone',
+            header: 'Kontak',
+            priority: 'secondary',
+            render: (reg) => (
+                <div className="flex flex-col text-sm">
+                    <span className="text-gray-900 dark:text-white">{reg.phone}</span>
+                    <span className="text-slate-400 text-xs">{reg.email}</span>
+                </div>
+            )
+        },
+        {
+            key: 'location',
+            header: 'Area / Lokasi',
+            priority: 'secondary',
+            render: (reg) => (
+                <div className="text-sm text-gray-900 dark:text-white">
+                    {reg.location || '-'}
+                </div>
+            )
+        },
+        {
+            key: 'packageName',
+            header: 'Paket',
+            priority: 'tertiary',
+            render: (reg) => (
+                <>
+                    {reg.packageName ? (
+                        <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-semibold">
+                            {reg.packageName}
+                        </span>
+                    ) : (
+                        <span className="text-slate-400 dark:text-slate-500 italic">-</span>
+                    )}
+                </>
+            )
+        },
+        {
+            key: 'ipAddress',
+            header: 'IP Address',
+            priority: 'tertiary',
+            render: (reg) => {
+                const ipInfo = reg.ipAddress ? ipInfoCache[reg.ipAddress] : null
+                return reg.ipAddress ? (
+                    <div className="flex flex-col">
+                        <span className="font-mono text-xs text-gray-900 dark:text-gray-300">{reg.ipAddress}</span>
+                        {ipInfo ? (
+                            <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+                                <MdPublic className="text-slate-400" />
+                                <span>{ipInfo.country} • {ipInfo.isp}</span>
+                            </div>
+                        ) : (
+                            <span className="text-xs text-slate-400 dark:text-slate-500 italic">Loading...</span>
+                        )}
+                    </div>
+                ) : (
+                    <span className="text-slate-400 dark:text-slate-500 italic">-</span>
+                )
+            }
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            priority: 'primary',
+            render: (reg) => {
+                const statusConfig = getStatusConfig(reg.status)
+                const StatusIcon = statusConfig.icon
+                return (
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${statusConfig.color}`}>
+                        <StatusIcon className="text-sm" />
+                        {statusConfig.label}
+                    </span>
+                )
+            }
+        }
+    ]
+
+    const renderActions = (reg: Registration) => (
+        <Link
+            href={`/admin/registrations/${reg.id}`}
+            className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium"
+        >
+            <MdVisibility /> Detail
+        </Link>
+    )
+
     return (
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
@@ -176,100 +287,15 @@ export default function AdminRegistrationsPage() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-gray-700/50 text-slate-600 dark:text-slate-300 text-sm uppercase tracking-wider">
-                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Tanggal</th>
-                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Nama</th>
-                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Kontak</th>
-                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Area / Lokasi</th>
-                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Paket</th>
-                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">IP Address</th>
-                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Status</th>
-                                <th className="p-4 font-semibold border-b border-slate-200 dark:border-gray-700">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm text-slate-700 dark:text-slate-300">
-                            {isLoading ? (
-                                <tr>
-                                    <td colSpan={8} className="p-8 text-center text-slate-500">Memuat data...</td>
-                                </tr>
-                            ) : filteredRegistrations.length === 0 ? (
-                                <tr>
-                                    <td colSpan={8} className="p-8 text-center text-slate-500">
-                                        {searchTerm || statusFilter ? 'Tidak ada data yang cocok dengan filter.' : 'Belum ada data pendaftaran.'}
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredRegistrations.map((reg) => {
-                                    const ipInfo = reg.ipAddress ? ipInfoCache[reg.ipAddress] : null
-                                    const statusConfig = getStatusConfig(reg.status)
-                                    const StatusIcon = statusConfig.icon
-
-                                    return (
-                                        <tr key={reg.id} className="hover:bg-slate-50 dark:hover:bg-gray-700/30 transition-colors">
-                                            <td className="p-4 whitespace-nowrap">
-                                                {new Date(reg.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                <div className="text-xs text-slate-400">
-                                                    {new Date(reg.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                                                </div>
-                                            </td>
-                                            <td className="p-4 font-medium text-slate-900 dark:text-white">{reg.name}</td>
-                                            <td className="p-4">
-                                                <div className="flex flex-col">
-                                                    <span>{reg.phone}</span>
-                                                    <span className="text-slate-400 text-xs">{reg.email}</span>
-                                                </div>
-                                            </td>
-                                            <td className="p-4">{reg.location || '-'}</td>
-                                            <td className="p-4">
-                                                {reg.packageName ? (
-                                                    <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-semibold">
-                                                        {reg.packageName}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-slate-400 dark:text-slate-500 italic">-</span>
-                                                )}
-                                            </td>
-                                            <td className="p-4">
-                                                {reg.ipAddress ? (
-                                                    <div className="flex flex-col">
-                                                        <span className="font-mono text-xs">{reg.ipAddress}</span>
-                                                        {ipInfo ? (
-                                                            <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
-                                                                <MdPublic className="text-slate-400" />
-                                                                <span>{ipInfo.country} • {ipInfo.isp}</span>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-xs text-slate-400 dark:text-slate-500 italic">Loading...</span>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-slate-400 dark:text-slate-500 italic">-</span>
-                                                )}
-                                            </td>
-                                            <td className="p-4">
-                                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${statusConfig.color}`}>
-                                                    <StatusIcon className="text-sm" />
-                                                    {statusConfig.label}
-                                                </span>
-                                            </td>
-                                            <td className="p-4">
-                                                <Link
-                                                    href={`/admin/registrations/${reg.id}`}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium"
-                                                >
-                                                    <MdVisibility /> Detail
-                                                </Link>
-                                            </td>
-                                        </tr>
-                                    )
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                <ResponsiveTable
+                    data={filteredRegistrations}
+                    columns={columns}
+                    keyField="id"
+                    loading={isLoading}
+                    emptyMessage={searchTerm || statusFilter ? 'Tidak ada data yang cocok dengan filter.' : 'Belum ada data pendaftaran.'}
+                    loadingMessage="Memuat data pendaftaran..."
+                    renderActions={renderActions}
+                />
             </div>
         </div>
     )

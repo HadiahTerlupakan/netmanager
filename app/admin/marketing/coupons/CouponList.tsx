@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { HiOutlinePlus, HiTrash, HiPencil } from 'react-icons/hi2'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 interface Coupon {
     id: string
@@ -68,68 +69,73 @@ export default function CouponList() {
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-gray-700">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-                        <thead className="bg-gray-50 dark:bg-gray-700/50 text-xs uppercase font-semibold text-gray-500 dark:text-gray-400">
-                            <tr>
-                                <th className="px-6 py-4">Kode</th>
-                                <th className="px-6 py-4">Diskon</th>
-                                <th className="px-6 py-4">Berlaku</th>
-                                <th className="px-6 py-4">Penggunaan / Kuota</th>
-                                <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4 text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {coupons.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                                        Tidak ada kupon ditemukan. Buat satu untuk memulai.
-                                    </td>
-                                </tr>
-                            ) : (
-                                coupons.map((coupon) => (
-                                    <tr key={coupon.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                                            {coupon.code}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {coupon.discountType === 'FIXED'
-                                                ? `Rp ${coupon.discountValue.toLocaleString('id-ID')}`
-                                                : `${coupon.discountValue}%`
-                                            }
-                                        </td>
-                                        <td className="px-6 py-4 text-xs space-y-1">
-                                            <div>Mulai: {new Date(coupon.startDate).toLocaleDateString()}</div>
-                                            <div>Selesai: {new Date(coupon.endDate).toLocaleDateString()}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 max-w-[100px]">
-                                                    <div
-                                                        className="bg-blue-600 h-2.5 rounded-full"
-                                                        style={{ width: `${Math.min((coupon.usedCount / (coupon.quota || 1)) * 100, 100)}%` }}
-                                                    ></div>
-                                                </div>
-                                                <span className="text-xs">
-                                                    {coupon.usedCount} / {coupon.quota === 0 ? 'ထ' : coupon.quota}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <StatusBadge status={coupon.isActive ? 'AKTIF' : 'NONAKTIF'} />
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <button onClick={() => handleDelete(coupon.id)} className="text-red-600 hover:text-red-800 p-2">
-                                                <HiTrash className="w-5 h-5" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                <ResponsiveTable<Coupon>
+                    data={coupons}
+                    loading={loading}
+                    keyField="id"
+                    columns={[
+                        {
+                            key: 'code',
+                            header: 'Kode',
+                            priority: 'primary',
+                            render: (item) => <span className="font-medium text-gray-900 dark:text-white">{item.code}</span>
+                        },
+                        {
+                            key: 'discountValue',
+                            header: 'Diskon',
+                            priority: 'primary',
+                            render: (item) => (
+                                <span>
+                                    {item.discountType === 'FIXED'
+                                        ? `Rp ${item.discountValue.toLocaleString('id-ID')}`
+                                        : `${item.discountValue}%`
+                                    }
+                                </span>
+                            )
+                        },
+                        {
+                            key: 'berlaku',
+                            header: 'Berlaku',
+                            priority: 'secondary',
+                            render: (item) => (
+                                <div className="text-xs space-y-1">
+                                    <div>Mulai: {new Date(item.startDate).toLocaleDateString()}</div>
+                                    <div>Selesai: {new Date(item.endDate).toLocaleDateString()}</div>
+                                </div>
+                            )
+                        },
+                        {
+                            key: 'quota',
+                            header: 'Penggunaan / Kuota',
+                            priority: 'secondary',
+                            render: (item) => (
+                                <div className="flex items-center gap-2">
+                                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 max-w-[100px]">
+                                        <div
+                                            className="bg-blue-600 h-2.5 rounded-full"
+                                            style={{ width: `${Math.min((item.usedCount / (item.quota || 1)) * 100, 100)}%` }}
+                                        ></div>
+                                    </div>
+                                    <span className="text-xs">
+                                        {item.usedCount} / {item.quota === 0 ? 'ထ' : item.quota}
+                                    </span>
+                                </div>
+                            )
+                        },
+                        {
+                            key: 'isActive',
+                            header: 'Status',
+                            priority: 'primary',
+                            render: (item) => <StatusBadge status={item.isActive ? 'AKTIF' : 'NONAKTIF'} />
+                        }
+                    ]}
+                    emptyMessage="Tidak ada kupon ditemukan. Buat satu untuk memulai."
+                    renderActions={(item) => (
+                        <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-800 p-2">
+                            <HiTrash className="w-5 h-5" />
+                        </button>
+                    )}
+                />
             </div>
         </div>
     )

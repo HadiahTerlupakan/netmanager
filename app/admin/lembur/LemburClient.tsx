@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { MdCheckCircle, MdCancel, MdPending, MdAccessTime, MdTimer, MdDoneAll, MdPlayArrow, MdLocationOn, MdDelete } from 'react-icons/md'
 import { FaSearch, FaCalendarAlt, FaBuilding } from 'react-icons/fa'
 import Image from 'next/image'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface Overtime {
     id: string
@@ -157,7 +158,7 @@ export function ClientComponent() {
             case 'APPROVED':
                 return (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                        <MdCheckCircle /> Disetujui (Menunggu Pelaksanaan)
+                        <MdCheckCircle /> Disetujui
                     </span>
                 )
             case 'IN_PROGRESS':
@@ -181,11 +182,191 @@ export function ClientComponent() {
             default:
                 return (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                        <MdPending /> Menunggu Approval
+                        <MdPending /> Menunggu
                     </span>
                 )
         }
     }
+
+    // Define columns for ResponsiveTable
+    const columns: Column<Overtime>[] = [
+        {
+            key: 'user',
+            header: 'Karyawan',
+            priority: 'primary',
+            render: (item) => (
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 relative">
+                        {item.user.image ? (
+                            <Image src={item.user.image} alt="" fill className="object-cover rounded-full" />
+                        ) : (
+                            <span className="font-bold text-xs">{item.user.name?.charAt(0) || 'U'}</span>
+                        )}
+                    </div>
+                    <div className="min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{item.user.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{item.user.email}</p>
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: 'siteDept',
+            header: 'Site/Dept',
+            priority: 'secondary',
+            render: (item) => (
+                <div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{item.user.site?.name || '-'}</div>
+                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                        <FaBuilding className="text-[10px]" /> {item.user.department?.name || '-'}
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: 'tanggalAlasan',
+            header: 'Tanggal & Alasan',
+            priority: 'primary',
+            render: (item) => (
+                <div className="text-gray-600 dark:text-gray-300">
+                    <div className="text-sm font-medium">
+                        {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                    <p className="text-xs mt-1 max-w-[150px] truncate" title={item.reason}>
+                        &quot;{item.reason}&quot;
+                    </p>
+                    {item.rejectionReason && (
+                        <p className="text-xs text-red-500 mt-1 italic truncate" title={item.rejectionReason}>
+                            Ket: {item.rejectionReason}
+                        </p>
+                    )}
+                </div>
+            )
+        },
+        {
+            key: 'waktuLembur',
+            header: 'Waktu Lembur',
+            priority: 'secondary',
+            render: (item) => (
+                <div className="flex flex-col gap-1 text-xs">
+                    {item.startTime ? (
+                        <div className="flex items-center gap-1">
+                            <span className="font-bold text-green-600">Start:</span>
+                            {new Date(item.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                    ) : <span className="text-gray-400 italic">Belum mulai</span>}
+                    {item.endTime && (
+                        <div className="flex items-center gap-1">
+                            <span className="font-bold text-red-600">End:</span>
+                            {new Date(item.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                    )}
+                    {item.duration != null && (
+                        <span className="text-purple-600 font-bold mt-1 bg-purple-50 dark:bg-purple-900/20 px-1.5 py-0.5 rounded w-fit">
+                            {item.duration} Menit
+                        </span>
+                    )}
+                </div>
+            )
+        },
+        {
+            key: 'lokasi',
+            header: 'Lokasi',
+            priority: 'tertiary',
+            render: (item) => (
+                <div className="flex flex-col gap-2 max-w-[180px]">
+                    {item.startLocation ? (
+                        <a
+                            href={`https://www.google.com/maps?q=${item.startLocation}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
+                            title={`Lokasi Mulai: ${item.startLocation}`}
+                        >
+                            <MdLocationOn className="text-green-600 shrink-0" />
+                            <span className="text-xs group-hover:underline font-medium">Mulai</span>
+                        </a>
+                    ) : <span className="text-xs text-gray-400">-</span>}
+                    {item.endLocation && (
+                        <a
+                            href={`https://www.google.com/maps?q=${item.endLocation}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
+                            title={`Lokasi Selesai: ${item.endLocation}`}
+                        >
+                            <MdLocationOn className="text-red-600 shrink-0" />
+                            <span className="text-xs group-hover:underline font-medium">Selesai</span>
+                        </a>
+                    )}
+                </div>
+            )
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            priority: 'primary',
+            render: (item) => getStatusBadge(item.status)
+        },
+        {
+            key: 'foto',
+            header: 'Foto',
+            priority: 'tertiary',
+            render: (item) => (
+                <div className="flex gap-2">
+                    {item.startPhoto && (
+                        <button onClick={() => setSelectedPhoto(item.startPhoto!)} className="relative group" title="Foto Mulai">
+                            <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-green-500 transition-all relative">
+                                <Image src={item.startPhoto} alt="Start" fill className="object-cover" />
+                            </div>
+                        </button>
+                    )}
+                    {item.endPhoto && (
+                        <button onClick={() => setSelectedPhoto(item.endPhoto!)} className="relative group" title="Foto Selesai">
+                            <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-red-500 transition-all relative">
+                                <Image src={item.endPhoto} alt="End" fill className="object-cover" />
+                            </div>
+                        </button>
+                    )}
+                    {!item.startPhoto && !item.endPhoto && <span className="text-xs text-gray-400">-</span>}
+                </div>
+            )
+        }
+    ]
+
+    // Render actions for each row
+    const renderActions = (item: Overtime) => (
+        <>
+            {item.status === 'PENDING' && (
+                <>
+                    <button
+                        onClick={() => handleAction(item.id, 'approve')}
+                        disabled={processingId === item.id}
+                        className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Setujui"
+                    >
+                        <MdCheckCircle className="text-lg" />
+                    </button>
+                    <button
+                        onClick={() => setRejectId(item.id)}
+                        disabled={processingId === item.id}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Tolak"
+                    >
+                        <MdCancel className="text-lg" />
+                    </button>
+                </>
+            )}
+            <button
+                onClick={() => handleDelete(item.id)}
+                disabled={processingId === item.id}
+                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                title="Hapus"
+            >
+                <MdDelete className="text-lg" />
+            </button>
+        </>
+    )
 
     return (
         <div className="space-y-6">
@@ -272,181 +453,18 @@ export function ClientComponent() {
 
             {/* Table */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
-                            <tr>
-                                <th className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">Karyawan</th>
-                                <th className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">Site/Dept</th>
-                                <th className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">Tanggal & Alasan</th>
-                                <th className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">Waktu Lembur</th>
-                                <th className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">Lokasi</th>
-                                <th className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">Status</th>
-                                <th className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">Foto</th>
-                                <th className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {isLoading ? (
-                                <tr><td colSpan={8} className="px-6 py-10 text-center text-gray-500">Memuat data...</td></tr>
-                            ) : requests.length === 0 ? (
-                                <tr>
-                                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                                        Tidak ada data pengajuan lembur yang sesuai filter.
-                                    </td>
-                                </tr>
-                            ) : (
-                                requests.map((item) => (
-                                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
-                                                    {item.user.image ? (
-                                                        <Image src={item.user.image} alt="" fill className="object-cover rounded-full" />
-                                                    ) : (
-                                                        <span className="font-bold text-xs">{item.user.name?.charAt(0) || 'U'}</span>
-                                                    )}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{item.user.name}</p>
-                                                    <p className="text-xs text-gray-500 truncate">{item.user.email}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="text-sm font-medium text-gray-900 dark:text-white">{item.user.site?.name || '-'}</div>
-                                            <div className="text-xs text-gray-500 flex items-center gap-1">
-                                                <FaBuilding className="text-[10px]" /> {item.user.department?.name || '-'}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                                            <div className="text-sm font-medium">
-                                                {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                            </div>
-                                            <p className="text-gray-600 dark:text-gray-300 text-xs mt-1 max-w-[150px] truncate" title={item.reason}>
-                                                "{item.reason}"
-                                            </p>
-                                            {item.rejectionReason && (
-                                                <p className="text-xs text-red-500 mt-1 italic truncate" title={item.rejectionReason}>
-                                                    Ket: {item.rejectionReason}
-                                                </p>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-col gap-1 text-xs">
-                                                {item.startTime ? (
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="font-bold text-green-600">Start:</span>
-                                                        {new Date(item.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                                                    </div>
-                                                ) : <span className="text-gray-400 italic">Belum mulai</span>}
-
-                                                {item.endTime ? (
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="font-bold text-red-600">End:</span>
-                                                        {new Date(item.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                                                    </div>
-                                                ) : null}
-
-                                                {item.duration != null && (
-                                                    <span className="text-purple-600 font-bold mt-1 bg-purple-50 dark:bg-purple-900/20 px-1.5 py-0.5 rounded w-fit">
-                                                        {item.duration} Menit
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-col gap-2 max-w-[180px]">
-                                                {item.startLocation ? (
-                                                    <a
-                                                        href={`https://www.google.com/maps?q=${item.startLocation}`}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
-                                                        title={`Lokasi Mulai: ${item.startLocation}`}
-                                                    >
-                                                        <MdLocationOn className="text-green-600 shrink-0" />
-                                                        <span className="text-xs group-hover:underline font-medium">Mulai</span>
-                                                    </a>
-                                                ) : <span className="text-xs text-gray-400">-</span>}
-
-                                                {item.endLocation && (
-                                                    <a
-                                                        href={`https://www.google.com/maps?q=${item.endLocation}`}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
-                                                        title={`Lokasi Selesai: ${item.endLocation}`}
-                                                    >
-                                                        <MdLocationOn className="text-red-600 shrink-0" />
-                                                        <span className="text-xs group-hover:underline font-medium">Selesai</span>
-                                                    </a>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {getStatusBadge(item.status)}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex gap-2">
-                                                {item.startPhoto && (
-                                                    <button onClick={() => setSelectedPhoto(item.startPhoto!)} className="relative group" title="Foto Mulai">
-                                                        <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-green-500 transition-all">
-                                                            <Image src={item.startPhoto} alt="Start" fill className="object-cover" />
-                                                        </div>
-                                                    </button>
-                                                )}
-                                                {item.endPhoto && (
-                                                    <button onClick={() => setSelectedPhoto(item.endPhoto!)} className="relative group" title="Foto Selesai">
-                                                        <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-red-500 transition-all">
-                                                            <Image src={item.endPhoto} alt="End" fill className="object-cover" />
-                                                        </div>
-                                                    </button>
-                                                )}
-                                                {!item.startPhoto && !item.endPhoto && <span className="text-xs text-gray-400">-</span>}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex gap-1">
-                                                {item.status === 'PENDING' && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleAction(item.id, 'approve')}
-                                                            disabled={processingId === item.id}
-                                                            className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
-                                                            title="Setujui"
-                                                        >
-                                                            <MdCheckCircle className="text-lg" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setRejectId(item.id)}
-                                                            disabled={processingId === item.id}
-                                                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                                                            title="Tolak"
-                                                        >
-                                                            <MdCancel className="text-lg" />
-                                                        </button>
-                                                    </>
-                                                )}
-                                                <button
-                                                    onClick={() => handleDelete(item.id)}
-                                                    disabled={processingId === item.id}
-                                                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                                                    title="Hapus"
-                                                >
-                                                    <MdDelete className="text-lg" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                <ResponsiveTable
+                    data={requests}
+                    columns={columns}
+                    keyField="id"
+                    loading={isLoading}
+                    emptyMessage="Tidak ada data pengajuan lembur yang sesuai filter."
+                    loadingMessage="Memuat data..."
+                    renderActions={renderActions}
+                />
 
                 {/* Pagination Controls */}
-                <div className="px-6 py-3 flex justify-between items-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <div className="px-6 py-3 flex flex-col sm:flex-row justify-between items-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 gap-3">
                     <button
                         disabled={page === 1}
                         onClick={() => setPage(p => p - 1)}
@@ -498,7 +516,7 @@ export function ClientComponent() {
 
             {/* Photo Modal */}
             {selectedPhoto && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onClick={() => setSelectedPhoto(null)}>
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onClick={() => setSelectedPhoto(null)}>
                     <div className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
                         <Image src={selectedPhoto} alt="Full view" fill className="object-contain" />
                         <button

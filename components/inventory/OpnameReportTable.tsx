@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { FiEdit2, FiTrash2, FiEye, FiFilter, FiDownload, FiMinusCircle } from 'react-icons/fi'
 import type { StockOpnameRecord } from '@/lib/types/inventory'
-
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface OpnameReportTableProps {
   onEdit?: (opname: StockOpnameRecord) => void
@@ -26,6 +26,18 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
     barangId: '',
     gudangId: ''
   })
+
+  // Calculate statistics
+  const totalItems = opnameList.length
+  const akurasiStok = totalItems > 0
+    ? Math.round((opnameList.filter(item => item.selisih === 0).length / totalItems) * 100)
+    : 100
+  const totalBaik = opnameList.reduce((sum, item) => sum + item.kondisiBaik, 0)
+  const totalRusak = opnameList.reduce((sum, item) => sum + item.kondisiRusak, 0)
+  const totalHilang = opnameList
+    .filter(item => item.selisih < 0)
+    .reduce((sum, item) => sum + Math.abs(item.selisih), 0)
+  const totalPerluPerhatian = totalRusak + totalHilang
 
   const limit = 20
 
@@ -159,17 +171,164 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
     })
   }
 
-  // Calculate statistics
-  const totalItems = opnameList.length
-  const akurasiStok = totalItems > 0
-    ? Math.round((opnameList.filter(item => item.selisih === 0).length / totalItems) * 100)
-    : 100
-  const totalBaik = opnameList.reduce((sum, item) => sum + item.kondisiBaik, 0)
-  const totalRusak = opnameList.reduce((sum, item) => sum + item.kondisiRusak, 0)
-  const totalHilang = opnameList
-    .filter(item => item.selisih < 0)
-    .reduce((sum, item) => sum + Math.abs(item.selisih), 0)
-  const totalPerluPerhatian = totalRusak + totalHilang
+  const columns: Column<StockOpnameRecord>[] = [
+    {
+      key: 'createdAt',
+      header: 'Tanggal',
+      priority: 'secondary',
+      render: (item) => (
+        <div className="text-sm text-gray-900 dark:text-white">
+          {formatDate(item.createdAt)}
+        </div>
+      )
+    },
+    {
+      key: 'barang',
+      header: 'Barang',
+      priority: 'primary',
+      render: (item) => (
+        <>
+            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                {item.barang.kode}
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+                {item.barang.nama}
+            </div>
+        </>
+      )
+    },
+    {
+      key: 'gudang',
+      header: 'Gudang',
+      priority: 'secondary',
+      render: (item) => (
+        <div className="text-sm text-gray-900 dark:text-white">
+          {item.gudang.nama}
+        </div>
+      )
+    },
+    {
+      key: 'stokSistem',
+      header: 'Stok Sistem',
+      priority: 'tertiary',
+      render: (item) => (
+        <div className="text-center">
+            <span className="text-sm font-medium text-blue-600">
+                {item.stokSistem}
+            </span>
+        </div>
+      )
+    },
+    {
+      key: 'stokFisik',
+      header: 'Stok Fisik',
+      priority: 'primary',
+      render: (item) => (
+        <div className="text-center">
+            <span className="text-sm font-bold text-green-600">
+                {item.stokFisik}
+            </span>
+        </div>
+      )
+    },
+    {
+      key: 'selisih',
+      header: 'Selisih',
+      priority: 'primary',
+      render: (item) => {
+        const selisihBadge = getSelisihBadge(item.selisih)
+        return (
+            <div className="flex flex-col items-center gap-1">
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${selisihBadge.color}`}>
+                {selisihBadge.text}
+                </span>
+                {selisihBadge.isHilang && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                    <FiMinusCircle className="w-3 h-3" /> HILANG
+                </span>
+                )}
+            </div>
+        )
+      }
+    },
+    {
+      key: 'kondisi',
+      header: 'Kondisi',
+      priority: 'secondary',
+      render: (item) => {
+        const qualityBadge = getQualityBadge(item.kondisiBaik, item.kondisiRusak, item.kondisiExpire)
+        return (
+            <div className="flex flex-col space-y-1">
+                <div className="text-xs text-gray-600">
+                {item.kondisiBaik}/{item.kondisiRusak}/{item.kondisiExpire}
+                </div>
+                {qualityBadge && (
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${qualityBadge.color}`}>
+                    {qualityBadge.text}
+                </span>
+                )}
+            </div>
+        )
+      }
+    },
+    {
+      key: 'location',
+      header: 'Lokasi',
+      priority: 'tertiary',
+      render: (item) => (
+        <div className="text-sm text-gray-900 dark:text-white">
+            <div>{item.lokasiPenyimpanan || '-'}</div>
+            {item.nomorRak && (
+            <div className="text-xs text-gray-500">Rak {item.nomorRak}</div>
+            )}
+        </div>
+      )
+    },
+    {
+      key: 'pic',
+      header: 'PIC',
+      priority: 'tertiary',
+      render: (item) => (
+        <div className="text-sm text-gray-900 dark:text-white">
+          {item.pic || '-'}
+        </div>
+      )
+    }
+  ]
+
+  const renderActions = (opname: StockOpnameRecord) => (
+    <div className="flex justify-center space-x-2">
+        {onView && (
+        <button
+            onClick={() => onView(opname)}
+            className="inline-flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 border border-blue-200"
+            title="View Detail"
+        >
+            <FiEye className="h-4 w-4" />
+        </button>
+        )}
+        {onEdit && (
+        <button
+            onClick={() => onEdit(opname)}
+            className="inline-flex items-center justify-center w-8 h-8 rounded text-yellow-600 hover:bg-yellow-50 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 border border-yellow-200"
+            title="Edit"
+        >
+            <FiEdit2 className="h-4 w-4" />
+        </button>
+        )}
+        <button
+        onClick={() => {
+            console.log('Delete clicked for ID:', opname.id)
+            handleDelete(opname.id)
+        }}
+        disabled={deletingId === opname.id}
+        className="inline-flex items-center justify-center w-8 h-8 rounded text-red-600 hover:bg-red-50 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 border border-red-200"
+        title="Delete"
+        >
+        <FiTrash2 className="h-4 w-4" />
+        </button>
+    </div>
+  )
 
   return (
     <div className="space-y-4">
@@ -258,12 +417,7 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
           </span>
         </div>
 
-        {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">Memuat data...</p>
-          </div>
-        ) : error ? (
+        {error ? (
           <div className="text-center py-8">
             <p className="text-red-600">{error}</p>
             <button
@@ -273,158 +427,16 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
               Retry
             </button>
           </div>
-        ) : opnameList.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500 dark:text-gray-400">Belum ada data stock opname</p>
-          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Tanggal
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Barang
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Gudang
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Stok Sistem
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Stok Fisik
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Selisih
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Kondisi
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Lokasi
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    PIC
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {opnameList.map((opname) => {
-                  const selisihBadge = getSelisihBadge(opname.selisih)
-                  const qualityBadge = getQualityBadge(opname.kondisiBaik, opname.kondisiRusak, opname.kondisiExpire)
-
-                  return (
-                    <tr key={opname.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          {formatDate(opname.createdAt)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {opname.barang.kode}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {opname.barang.nama}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          {opname.gudang.nama}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-sm font-medium text-blue-600">
-                          {opname.stokSistem}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-sm font-bold text-green-600">
-                          {opname.stokFisik}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${selisihBadge.color}`}>
-                            {selisihBadge.text}
-                          </span>
-                          {selisihBadge.isHilang && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
-                              <FiMinusCircle className="w-3 h-3" /> HILANG
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col space-y-1">
-                          <div className="text-xs text-gray-600">
-                            {opname.kondisiBaik}/{opname.kondisiRusak}/{opname.kondisiExpire}
-                          </div>
-                          {qualityBadge && (
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${qualityBadge.color}`}>
-                              {qualityBadge.text}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          <div>{opname.lokasiPenyimpanan || '-'}</div>
-                          {opname.nomorRak && (
-                            <div className="text-xs text-gray-500">Rak {opname.nomorRak}</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          {opname.pic || '-'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-center space-x-2">
-                          {onView && (
-                            <button
-                              onClick={() => onView(opname)}
-                              className="inline-flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 border border-blue-200"
-                              title="View Detail"
-                            >
-                              <FiEye className="h-4 w-4" />
-                            </button>
-                          )}
-                          {onEdit && (
-                            <button
-                              onClick={() => onEdit(opname)}
-                              className="inline-flex items-center justify-center w-8 h-8 rounded text-yellow-600 hover:bg-yellow-50 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 border border-yellow-200"
-                              title="Edit"
-                            >
-                              <FiEdit2 className="h-4 w-4" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => {
-                              console.log('Delete clicked for ID:', opname.id)
-                              handleDelete(opname.id)
-                            }}
-                            disabled={deletingId === opname.id}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded text-red-600 hover:bg-red-50 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 border border-red-200"
-                            title="Delete"
-                          >
-                            <FiTrash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+            <ResponsiveTable
+                data={opnameList}
+                columns={columns}
+                keyField="id"
+                loading={loading}
+                emptyMessage="Belum ada data stock opname"
+                loadingMessage="Memuat data..."
+                renderActions={renderActions}
+            />
         )}
 
         {/* Pagination */}
@@ -442,7 +454,7 @@ export function OpnameReportTable({ onEdit, onView, refreshTrigger = 0 }: Opname
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
-                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                 >
                   Next
                 </button>

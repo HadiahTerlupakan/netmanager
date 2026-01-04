@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FiEdit, FiTrash2, FiEye, FiCamera, FiPaperclip, FiCheckCircle, FiAlertTriangle, FiXCircle, FiUser } from 'react-icons/fi'
+import { FiEdit, FiTrash2, FiEye, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiUser } from 'react-icons/fi'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface BarangMasuk {
   id: string
@@ -126,172 +127,173 @@ export function MasukTable({
     }
   }
 
+  // Define columns for ResponsiveTable
+  const columns: Column<BarangMasuk>[] = [
+    {
+      key: 'tanggal',
+      header: 'Tanggal',
+      priority: 'primary',
+      render: (item) => (
+        <span className="text-sm text-gray-500 dark:text-gray-400">
+          {new Date(item.tanggal).toLocaleDateString('id-ID')}
+        </span>
+      )
+    },
+    {
+      key: 'barang',
+      header: 'Barang',
+      priority: 'primary',
+      render: (item) => (
+        <div className="text-sm">
+          <div className="font-medium text-gray-900 dark:text-white">
+            {item.barang.kode}
+          </div>
+          <div className="text-gray-500 dark:text-gray-400">
+            {item.barang.nama}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'gudang',
+      header: 'Gudang',
+      priority: 'secondary',
+      render: (item) => (
+        <div className="text-sm">
+          <div className="font-medium text-gray-900 dark:text-white">
+            {item.gudang.kode}
+          </div>
+          <div className="text-gray-500 dark:text-gray-400">
+            {item.gudang.nama}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'jumlah',
+      header: 'Jumlah',
+      priority: 'primary',
+      render: (item) => (
+        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+          +{item.jumlah} {item.barang.satuan}
+        </span>
+      )
+    },
+    {
+      key: 'kondisi',
+      header: 'Kondisi',
+      priority: 'secondary',
+      render: (item) => (
+        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${item.kondisi === 'BARU'
+          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+          : item.kondisi === 'BEKAS'
+            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+          }`}>
+          {item.kondisi === 'BARU' && <><FiCheckCircle className="mr-1" /> Baru</>}
+          {item.kondisi === 'BEKAS' && <><FiAlertTriangle className="mr-1" /> Bekas</>}
+          {item.kondisi === 'RUSAK' && <><FiXCircle className="mr-1" /> Rusak</>}
+        </span>
+      )
+    },
+    {
+      key: 'keterangan',
+      header: 'Keterangan',
+      priority: 'tertiary',
+      render: (item) => (
+        <div className="text-sm text-gray-900 dark:text-white max-w-xs truncate">
+          {item.keterangan || '-'}
+        </div>
+      )
+    },
+    {
+      key: 'user',
+      header: 'Diproses Oleh',
+      priority: 'tertiary',
+      render: (item) => (
+        item.user ? (
+          <div className="text-sm">
+            <div className="font-medium text-green-600 dark:text-green-400 flex items-center">
+              <FiUser className="mr-1" /> {item.user.name || 'Unknown'}
+            </div>
+            <div className="text-gray-500 dark:text-gray-400 text-xs">
+              {item.user.email}
+            </div>
+          </div>
+        ) : (
+          <span className="text-sm text-gray-500 dark:text-gray-400">System</span>
+        )
+      )
+    },
+    {
+      key: 'fotoBukti',
+      header: 'Foto',
+      priority: 'tertiary',
+      align: 'center',
+      render: (item) => (
+        item.fotoBukti && item.fotoBukti.length > 0 ? (
+          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+            <FiPaperclip className="h-3 w-3 mr-1" />
+            {item.fotoBukti.length}
+          </span>
+        ) : (
+          <span className="text-sm text-gray-400 dark:text-gray-500">
+            <FiCamera className="h-4 w-4" />
+          </span>
+        )
+      )
+    }
+  ]
+
+  // Render actions for each row
+  const renderActions = (item: BarangMasuk) => (
+    <>
+      <button
+        onClick={() => onView?.(item)}
+        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+        title="Lihat Detail"
+      >
+        <FiEye className="h-4 w-4" />
+      </button>
+      <button
+        onClick={() => onEdit?.(item)}
+        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-1"
+        title="Edit"
+      >
+        <FiEdit className="h-4 w-4" />
+      </button>
+      <button
+        onClick={() => handleDelete(item.id, item.barang.kode, item.jumlah)}
+        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
+        title="Hapus"
+      >
+        <FiTrash2 className="h-4 w-4" />
+      </button>
+    </>
+  )
+
   return (
-    <div className="overflow-x-auto">
+    <div>
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
           {error}
         </div>
       )}
 
-      {/* Table */}
-      <div className="min-w-full overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-800">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Tanggal
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Barang
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Gudang
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Jumlah
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Kondisi
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Keterangan
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Diproses Oleh
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Foto
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Aksi
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-            {loading ? (
-              <tr>
-                <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
-                  Memuat data...
-                </td>
-              </tr>
-            ) : masukList.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
-                  Tidak ada data barang masuk
-                </td>
-              </tr>
-            ) : (
-              masukList.map((masuk) => (
-                <tr key={masuk.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(masuk.tanggal).toLocaleDateString('id-ID')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm">
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {masuk.barang.kode}
-                      </div>
-                      <div className="text-gray-500 dark:text-gray-400">
-                        {masuk.barang.nama}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm">
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {masuk.gudang.kode}
-                      </div>
-                      <div className="text-gray-500 dark:text-gray-400">
-                        {masuk.gudang.nama}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                      +{masuk.jumlah} {masuk.barang.satuan}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${masuk.kondisi === 'BARU'
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                      : masuk.kondisi === 'BEKAS'
-                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-                      }`}>
-                      {masuk.kondisi === 'BARU' && <><FiCheckCircle className="mr-1" /> Baru</>}
-                      {masuk.kondisi === 'BEKAS' && <><FiAlertTriangle className="mr-1" /> Bekas</>}
-                      {masuk.kondisi === 'RUSAK' && <><FiXCircle className="mr-1" /> Rusak</>}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {masuk.keterangan || '-'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {masuk.user ? (
-                      <div className="text-sm">
-                        <div className="font-medium text-green-600 dark:text-green-400">
-                          <FiUser className="mr-1" /> {masuk.user.name || 'Unknown'}
-                        </div>
-                        <div className="text-gray-500 dark:text-gray-400">
-                          {masuk.user.email}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-gray-500 dark:text-gray-400">System</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    {masuk.fotoBukti && masuk.fotoBukti.length > 0 ? (
-                      <div className="flex items-center justify-center space-x-1">
-                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                          <FiPaperclip className="h-3 w-3 mr-1" />
-                          {masuk.fotoBukti.length}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-gray-400 dark:text-gray-500">
-                        <FiCamera className="h-4 w-4" />
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => onView?.(masuk)}
-                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                        title="Lihat Detail"
-                      >
-                        <FiEye className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => onEdit?.(masuk)}
-                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
-                        title="Edit"
-                      >
-                        <FiEdit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(masuk.id, masuk.barang.kode, masuk.jumlah)}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                        title="Hapus"
-                      >
-                        <FiTrash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Responsive Table */}
+      <ResponsiveTable
+        data={masukList}
+        columns={columns}
+        keyField="id"
+        loading={loading}
+        emptyMessage="Tidak ada data barang masuk"
+        loadingMessage="Memuat data..."
+        renderActions={renderActions}
+      />
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 gap-3">
           <div className="text-sm text-gray-700 dark:text-gray-300">
             Menampilkan {((page - 1) * pagination.limit) + 1} hingga{' '}
             {Math.min(page * pagination.limit, pagination.total)} dari{' '}

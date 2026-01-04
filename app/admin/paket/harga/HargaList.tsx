@@ -5,6 +5,7 @@ import { HiPencil, HiTrash, HiExclamationCircle, HiStar } from 'react-icons/hi2'
 import Modal from '@/components/common/Modal'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 type ProfilePPP = {
   id: string
@@ -252,141 +253,127 @@ export default function HargaPaketPage() {
       )}
 
       {/* Main Content Card */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  #
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Nama Paket
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Profile PPP
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Harga
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Durasi
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  Aksi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-              {hargaPakets.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Tidak ada data paket. Klik &quot;Tambah Paket&quot; untuk menambahkan.
-                  </td>
-                </tr>
-              ) : (
-                hargaPakets.map((paket, index) => (
-                  <tr key={paket.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {index + 1}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {paket.name}
-                          </div>
-                          {paket.description && (
-                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                              {paket.description}
-                            </div>
-                          )}
-                        </div>
-                        {paket.featured && (
-                          <HiStar className="w-5 h-5 text-yellow-500" title="Paket Unggulan" />
-                        )}
+      <ResponsiveTable
+        data={hargaPakets}
+        columns={[
+          {
+            key: 'name',
+            header: 'Nama Paket',
+            priority: 'primary',
+            render: (item) => (
+              <div className="flex items-center gap-2">
+                <div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    {item.name}
+                  </div>
+                  {item.description && (
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {item.description}
+                    </div>
+                  )}
+                </div>
+                {item.featured && (
+                  <HiStar className="w-5 h-5 text-yellow-500" title="Paket Unggulan" />
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'profilePPP',
+            header: 'Profile PPP',
+            priority: 'secondary',
+            render: (item) => (
+              <span className="text-sm text-gray-900 dark:text-white">
+                {item.profilePPP.name}
+              </span>
+            ),
+          },
+          {
+            key: 'harga',
+            header: 'Harga',
+            priority: 'primary',
+            render: (item) => (
+              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                <div>{formatRupiah(item.harga)}</div>
+                {item.useDiscount && item.discountType && item.discountValue && (
+                  <>
+                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      - Diskon: {
+                        item.discountType === 'FIXED'
+                          ? formatRupiah(item.discountValue)
+                          : `${item.discountValue}%`
+                      } = {
+                        formatRupiah(
+                          item.discountType === 'FIXED'
+                            ? Math.max(0, item.harga - item.discountValue)
+                            : Math.round(item.harga * (1 - item.discountValue / 100))
+                        )
+                      }
+                    </div>
+                    {item.discountDuration && item.discountDurationUnit && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Durasi: {item.discountDuration} {item.discountDurationUnit === 'JAM' ? 'jam' : item.discountDurationUnit === 'HARI' ? 'hari' : item.discountDurationUnit === 'BULAN' ? 'bulan' : 'tahun'}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {paket.profilePPP.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      <div>
-                        <div>{formatRupiah(paket.harga)}</div>
-                        {paket.useDiscount && paket.discountType && paket.discountValue && (
-                          <>
-                            <div className="text-xs text-green-600 dark:text-green-400 mt-1">
-                              - Diskon: {
-                                paket.discountType === 'FIXED'
-                                  ? formatRupiah(paket.discountValue)
-                                  : `${paket.discountValue}%`
-                              } = {
-                                formatRupiah(
-                                  paket.discountType === 'FIXED'
-                                    ? Math.max(0, paket.harga - paket.discountValue)
-                                    : Math.round(paket.harga * (1 - paket.discountValue / 100))
-                                )
-                              }
-                            </div>
-                            {paket.discountDuration && paket.discountDurationUnit && (
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Durasi: {paket.discountDuration} {paket.discountDurationUnit === 'JAM' ? 'jam' : paket.discountDurationUnit === 'HARI' ? 'hari' : paket.discountDurationUnit === 'BULAN' ? 'bulan' : 'tahun'}
-                              </div>
-                            )}
-                          </>
-                        )}
-                        {paket.usePPN && paket.ppnPercentage && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            + PPN {paket.ppnPercentage}% = {
-                              formatRupiah(
-                                paket.useDiscount && paket.discountType && paket.discountValue
-                                  ? Math.round(
-                                    (paket.discountType === 'FIXED'
-                                      ? Math.max(0, paket.harga - paket.discountValue)
-                                      : Math.round(paket.harga * (1 - paket.discountValue / 100))
-                                    ) * (1 + paket.ppnPercentage / 100)
-                                  )
-                                  : Math.round(paket.harga * (1 + paket.ppnPercentage / 100))
-                              )
-                            }
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {paket.durasi} {paket.durasiUnit === 'JAM' ? 'jam' : paket.durasiUnit === 'HARI' ? 'hari' : paket.durasiUnit === 'BULAN' ? 'bulan' : 'tahun'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={paket.status} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(paket)}
-                          className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
-                          title="Edit"
-                        >
-                          <HiPencil className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(paket.id)}
-                          className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                          title="Delete"
-                        >
-                          <HiTrash className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                    )}
+                  </>
+                )}
+                {item.usePPN && item.ppnPercentage && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    + PPN {item.ppnPercentage}% = {
+                      formatRupiah(
+                        item.useDiscount && item.discountType && item.discountValue
+                          ? Math.round(
+                            (item.discountType === 'FIXED'
+                              ? Math.max(0, item.harga - item.discountValue)
+                              : Math.round(item.harga * (1 - item.discountValue / 100))
+                            ) * (1 + item.ppnPercentage / 100)
+                          )
+                          : Math.round(item.harga * (1 + item.ppnPercentage / 100))
+                      )
+                    }
+                  </div>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'durasi',
+            header: 'Durasi',
+            priority: 'secondary',
+            render: (item) => (
+              <span className="text-sm text-gray-900 dark:text-white">
+                {item.durasi} {item.durasiUnit === 'JAM' ? 'jam' : item.durasiUnit === 'HARI' ? 'hari' : item.durasiUnit === 'BULAN' ? 'bulan' : 'tahun'}
+              </span>
+            ),
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            priority: 'primary',
+            render: (item) => <StatusBadge status={item.status} />,
+          },
+        ]}
+        keyField="id"
+        emptyMessage='Tidak ada data paket. Klik "Tambah Paket" untuk menambahkan.'
+        renderActions={(item) => (
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => handleEdit(item)}
+              className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
+              title="Edit"
+            >
+              <HiPencil className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => handleDelete(item.id)}
+              className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              title="Delete"
+            >
+              <HiTrash className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+      />
 
       {/* Modal Create/Edit Harga Paket */}
       <Modal

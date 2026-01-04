@@ -6,6 +6,7 @@ import { HiOutlineUser, HiOutlineTag } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
+import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 interface SystemLog {
     id: string
@@ -77,70 +78,74 @@ export function ClientComponent() {
                     </div>
                 ) : (
                     <>
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                                            Waktu
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                                            Pengguna
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                                            Subjek
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                                            Aksi
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                                            Detail
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-                                    {logs.map((log) => (
-                                        <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                                <div className="flex items-center gap-2">
-                                                    <HiOutlineClock className="w-4 h-4 text-gray-400" />
-                                                    {format(new Date(log.createdAt), 'dd MMM yyyy HH:mm', { locale: id })}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
-                                                    <HiOutlineUser className="w-4 h-4 text-gray-400" />
-                                                    {log.user?.name || log.user?.email || 'System'}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                    <HiOutlineTag className="w-4 h-4 text-gray-400" />
-                                                    {log.subject}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${log.action === 'CREATE' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                                                        log.action === 'UPDATE' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
-                                                            log.action === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                                                    }`}>
-                                                    {log.action}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                                                <button
-                                                    onClick={() => setSelectedLog(log)}
-                                                    className="text-indigo-600 dark:text-indigo-400 hover:underline"
-                                                >
-                                                    Lihat Detail
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <ResponsiveTable
+                            data={logs}
+                            loading={loading}
+                            keyField="id"
+                            columns={[
+                                {
+                                    key: 'createdAt',
+                                    header: 'Waktu',
+                                    priority: 'primary',
+                                    render: (item) => (
+                                        <div className="flex items-center gap-2">
+                                            <HiOutlineClock className="w-4 h-4 text-gray-400" />
+                                            {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm', { locale: id })}
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'user',
+                                    header: 'Pengguna',
+                                    priority: 'primary',
+                                    render: (item) => (
+                                        <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+                                            <HiOutlineUser className="w-4 h-4 text-gray-400" />
+                                            {item.user?.name || item.user?.email || 'System'}
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'subject',
+                                    header: 'Subjek',
+                                    priority: 'secondary',
+                                    render: (item) => (
+                                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            <HiOutlineTag className="w-4 h-4 text-gray-400" />
+                                            {item.subject}
+                                        </div>
+                                    )
+                                },
+                                {
+                                    key: 'action',
+                                    header: 'Aksi',
+                                    priority: 'primary',
+                                    render: (item) => (
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.action === 'CREATE' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                                                item.action === 'UPDATE' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                    item.action === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                            }`}>
+                                            {item.action}
+                                        </span>
+                                    )
+                                },
+                                {
+                                    key: 'detail',
+                                    header: 'Detail',
+                                    priority: 'secondary',
+                                    render: (item) => (
+                                        <button
+                                            onClick={() => setSelectedLog(item)}
+                                            className="text-indigo-600 dark:text-indigo-400 hover:underline text-sm"
+                                        >
+                                            Lihat Detail
+                                        </button>
+                                    )
+                                }
+                            ]}
+                            emptyMessage="Belum ada data log aktivitas."
+                        />
 
                         {/* Pagination ... (Same as Login Page) */}
                         {pagination.totalPages > 1 && (

@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { MdCheckCircle, MdCancel, MdPending, MdAdd, MdDelete } from 'react-icons/md'
 import toast from 'react-hot-toast'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface LeaveRequest {
     id: string
@@ -238,6 +239,75 @@ export function IzinClient() {
         }
     }
 
+    // Define columns for ResponsiveTable
+    const columns: Column<LeaveRequest>[] = [
+        {
+            key: 'user',
+            header: 'Karyawan',
+            priority: 'primary',
+            render: (req) => (
+                <div className="flex items-center gap-3">
+                    <div className="size-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
+                        {req.user.name?.charAt(0) || 'U'}
+                    </div>
+                    <div>
+                        <div className="font-bold text-gray-900 dark:text-white">{req.user.name}</div>
+                        <div className="text-xs text-gray-500">{req.user.department?.name} - {req.user.site?.name}</div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: 'type',
+            header: 'Tipe',
+            priority: 'secondary',
+            render: (req) => <span className="font-medium">{req.type}</span>
+        },
+        {
+            key: 'tanggal',
+            header: 'Tanggal',
+            priority: 'primary',
+            render: (req) => (
+                <span className="text-gray-500">
+                    {format(new Date(req.startDate), 'dd MMM yyyy', { locale: id })} - {format(new Date(req.endDate), 'dd MMM yyyy', { locale: id })}
+                </span>
+            )
+        },
+        {
+            key: 'reason',
+            header: 'Alasan',
+            priority: 'tertiary',
+            render: (req) => (
+                <span className="text-gray-500 truncate max-w-xs block" title={req.reason}>{req.reason}</span>
+            )
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            priority: 'primary',
+            render: (req) => getStatusBadge(req.status)
+        }
+    ]
+
+    // Render actions for each row
+    const renderActions = (req: LeaveRequest) => (
+        <>
+            <button
+                onClick={() => openActionModal(req)}
+                className="text-blue-600 hover:text-blue-800 font-bold text-xs"
+            >
+                Detail
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+                onClick={() => handleDelete(req.id)}
+                className="text-red-500 hover:text-red-700"
+            >
+                <MdDelete className="text-lg" />
+            </button>
+        </>
+    )
+
     return (
         <div className="p-6">
             <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -269,70 +339,15 @@ export function IzinClient() {
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300">
-                            <tr>
-                                <th className="px-6 py-3">Karyawan</th>
-                                <th className="px-6 py-3">Tipe</th>
-                                <th className="px-6 py-3">Tanggal</th>
-                                <th className="px-6 py-3">Alasan</th>
-                                <th className="px-6 py-3">Status</th>
-                                <th className="px-6 py-3">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Memuat data...</td>
-                                </tr>
-                            ) : leaves.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Tidak ada pengajuan ditemukan.</td>
-                                </tr>
-                            ) : (
-                                leaves.map((req) => (
-                                    <tr key={req.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="size-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
-                                                    {req.user.name?.charAt(0) || 'U'}
-                                                </div>
-                                                <div>
-                                                    <div className="font-bold text-gray-900 dark:text-white">{req.user.name}</div>
-                                                    <div className="text-xs text-gray-500">{req.user.department?.name} - {req.user.site?.name}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 font-medium">{req.type}</td>
-                                        <td className="px-6 py-4 text-gray-500">
-                                            {format(new Date(req.startDate), 'dd MMM yyyy', { locale: id })} - {format(new Date(req.endDate), 'dd MMM yyyy', { locale: id })}
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-500 truncate max-w-xs" title={req.reason}>{req.reason}</td>
-                                        <td className="px-6 py-4">{getStatusBadge(req.status)}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => openActionModal(req)}
-                                                    className="text-blue-600 hover:text-blue-800 font-bold text-xs"
-                                                >
-                                                    Detail
-                                                </button>
-                                                <span className="text-gray-300">|</span>
-                                                <button
-                                                    onClick={() => handleDelete(req.id)}
-                                                    className="text-red-500 hover:text-red-700"
-                                                >
-                                                    <MdDelete className="text-lg" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                <ResponsiveTable
+                    data={leaves}
+                    columns={columns}
+                    keyField="id"
+                    loading={loading}
+                    emptyMessage="Tidak ada pengajuan ditemukan."
+                    loadingMessage="Memuat data..."
+                    renderActions={renderActions}
+                />
             </div>
         </div>
     )

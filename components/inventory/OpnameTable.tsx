@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FiEdit2, FiTrash2, FiEye, FiSearch, FiFilter, FiMinusCircle } from 'react-icons/fi'
+import { FiEdit2, FiTrash2, FiEye, FiMinusCircle } from 'react-icons/fi'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
 interface StockOpnameRecord {
   id: string
@@ -184,6 +185,146 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
     })
   }
 
+  const columns: Column<StockOpnameRecord>[] = [
+    {
+      key: 'createdAt',
+      header: 'Tanggal',
+      priority: 'secondary',
+      render: (opname) => (
+        <div className="text-sm text-gray-900 dark:text-white">
+          {formatDate(opname.createdAt)}
+        </div>
+      )
+    },
+    {
+      key: 'barang',
+      header: 'Barang',
+      priority: 'primary',
+      render: (opname) => (
+        <>
+          <div className="text-sm font-medium text-gray-900 dark:text-white">
+            {opname.barang.kode}
+          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {opname.barang.nama}
+          </div>
+        </>
+      )
+    },
+    {
+      key: 'gudang',
+      header: 'Gudang',
+      priority: 'secondary',
+      render: (opname) => (
+        <div className="text-sm text-gray-900 dark:text-white">
+          {opname.gudang.nama}
+        </div>
+      )
+    },
+    {
+      key: 'stokSistem',
+      header: 'Stok Sistem',
+      priority: 'tertiary',
+      render: (opname) => (
+        <div className="text-center">
+            <span className="text-sm font-medium text-blue-600">
+                {opname.stokSistem}
+            </span>
+        </div>
+      )
+    },
+    {
+      key: 'stokFisik',
+      header: 'Stok Fisik',
+      priority: 'primary',
+      render: (opname) => (
+        <div className="text-center">
+            <span className="text-sm font-bold text-green-600">
+                {opname.stokFisik}
+            </span>
+        </div>
+      )
+    },
+    {
+      key: 'kondisi',
+      header: 'Kondisi (B/R/BKS)',
+      priority: 'secondary',
+      render: (opname) => {
+        const qualityBadge = getQualityBadge(opname.kondisiBaik, opname.kondisiRusak, opname.kondisiExpire)
+        return (
+            <div className="text-xs space-y-1">
+                <div className="flex justify-center space-x-2">
+                <span className="text-green-600">{opname.kondisiBaik}</span>
+                <span className="text-red-600">{opname.kondisiRusak}</span>
+                <span className="text-orange-600">{opname.kondisiExpire}</span>
+                </div>
+                {qualityBadge && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                    <FiMinusCircle className="w-3 h-3" /> HILANG
+                </span>
+                )}
+            </div>
+        )
+      }
+    },
+    {
+      key: 'selisih',
+      header: 'Selisih',
+      priority: 'primary',
+      render: (opname) => {
+          const selisihBadge = getSelisihBadge(opname.selisih)
+          return (
+            <div className="text-center">
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${selisihBadge.color}`}>
+                {selisihBadge.text}
+                </span>
+            </div>
+          )
+      }
+    },
+    {
+      key: 'pic',
+      header: 'PIC',
+      priority: 'tertiary',
+      render: (opname) => (
+        <div className="text-sm text-gray-900 dark:text-white">
+          {opname.pic || '-'}
+        </div>
+      )
+    }
+  ]
+
+  const renderActions = (opname: StockOpnameRecord) => (
+    <div className="flex justify-center space-x-2">
+        {onView && (
+        <button
+            onClick={() => onView(opname)}
+            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+            title="View Detail"
+        >
+            <FiEye className="h-4 w-4" />
+        </button>
+        )}
+        {onEdit && (
+        <button
+            onClick={() => onEdit(opname)}
+            className="text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300"
+            title="Edit"
+        >
+            <FiEdit2 className="h-4 w-4" />
+        </button>
+        )}
+        <button
+        onClick={() => handleDelete(opname.id)}
+        disabled={deletingId === opname.id}
+        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
+        title="Delete"
+        >
+        <FiTrash2 className="h-4 w-4" />
+        </button>
+    </div>
+  )
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -247,12 +388,7 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
           </span>
         </div>
 
-        {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">Memuat data...</p>
-          </div>
-        ) : error ? (
+        {error ? (
           <div className="text-center py-8">
             <p className="text-red-600">{error}</p>
             <button
@@ -262,202 +398,79 @@ export function OpnameTable({ onEdit, onView, refreshTrigger = 0 }: OpnameTableP
               Retry
             </button>
           </div>
-        ) : opnameList.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500 dark:text-gray-400">Belum ada data stock opname</p>
-          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Tanggal
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Barang
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Gudang
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Stok Sistem
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Stok Fisik
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Kondisi (B/R/BKS)
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Selisih
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    PIC
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {opnameList.map((opname) => {
-                  const selisihBadge = getSelisihBadge(opname.selisih)
-                  const qualityBadge = getQualityBadge(opname.kondisiBaik, opname.kondisiRusak, opname.kondisiExpire)
-
-                  return (
-                    <tr key={opname.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          {formatDate(opname.createdAt)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {opname.barang.kode}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {opname.barang.nama}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          {opname.gudang.nama}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-sm font-medium text-blue-600">
-                          {opname.stokSistem}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-sm font-bold text-green-600">
-                          {opname.stokFisik}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-xs space-y-1">
-                          <div className="flex justify-center space-x-2">
-                            <span className="text-green-600">{opname.kondisiBaik}</span>
-                            <span className="text-red-600">{opname.kondisiRusak}</span>
-                            <span className="text-orange-600">{opname.kondisiExpire}</span>
-                          </div>
-                          {qualityBadge && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
-                              <FiMinusCircle className="w-3 h-3" /> HILANG
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${selisihBadge.color}`}>
-                          {selisihBadge.text}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          {opname.pic || '-'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-center space-x-2">
-                          {onView && (
-                            <button
-                              onClick={() => onView(opname)}
-                              className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                              title="View Detail"
-                            >
-                              <FiEye className="h-4 w-4" />
-                            </button>
-                          )}
-                          {onEdit && (
-                            <button
-                              onClick={() => onEdit(opname)}
-                              className="text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300"
-                              title="Edit"
-                            >
-                              <FiEdit2 className="h-4 w-4" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDelete(opname.id)}
-                            disabled={deletingId === opname.id}
-                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
-                            title="Delete"
-                          >
-                            <FiTrash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+            <ResponsiveTable
+                data={opnameList}
+                columns={columns}
+                keyField="id"
+                loading={loading}
+                emptyMessage="Belum ada data stock opname"
+                loadingMessage="Memuat data..."
+                renderActions={renderActions}
+            />
         )}
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="bg-white dark:bg-gray-800 px-4 py-3 border-t border-gray-200 dark:border-gray-700 sm:px-6">
+            <div className="bg-white dark:bg-gray-800 px-4 py-3 border-t border-gray-200 dark:border-gray-700 sm:px-6">
             <div className="flex items-center justify-between">
-              <div className="flex-1 flex justify-between sm:hidden">
+                <div className="flex-1 flex justify-between sm:hidden">
                 <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                 >
-                  Previous
+                    Previous
                 </button>
                 <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                 >
-                  Next
+                    Next
                 </button>
-              </div>
-              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                </div>
+                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
                     Menampilkan <span className="font-medium">{(currentPage - 1) * limit + 1}</span> hingga{' '}
                     <span className="font-medium">{Math.min(currentPage * limit, total)}</span> dari{' '}
                     <span className="font-medium">{total}</span> hasil
-                  </p>
+                    </p>
                 </div>
                 <div>
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                     <button
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                     >
-                      Previous
+                        Previous
                     </button>
                     {[...Array(totalPages)].map((_, i) => i + 1).map((page) => (
-                      <button
+                        <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
                         className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === page
                             ? 'z-10 bg-blue-50 border-blue-500 text-blue-600 dark:bg-blue-900/20'
                             : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'
-                          }`}
-                      >
+                            }`}
+                        >
                         {page}
-                      </button>
+                        </button>
                     ))}
                     <button
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                     >
-                      Next
+                        Next
                     </button>
-                  </nav>
+                    </nav>
                 </div>
-              </div>
+                </div>
             </div>
-          </div>
+            </div>
         )}
       </div>
     </div>
