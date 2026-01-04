@@ -39,22 +39,33 @@ export class AttendanceService {
 
     async getCombinedTopEmployees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
         // Fetch raw aggregates
-        const [attendanceStats, overtimeStats] = await Promise.all([
-            this.repository.getUserAttendanceStats(startDate, endDate, siteId, departmentId),
+        const [attendanceRecords, overtimeStats] = await Promise.all([
+            this.repository.getUserAttendanceRecords(startDate, endDate, siteId, departmentId),
             this.overtimeRepository.getUserOvertimeStats(startDate, endDate, siteId, departmentId)
         ])
 
         // Merge Map
         const userScores = new Map<string, { days: number, otMinutes: number, score: number }>()
 
-        // Process Attendance (1 Day = 10 Points)
-        attendanceStats.forEach(stat => {
-            if (!userScores.has(stat.userId)) {
-                userScores.set(stat.userId, { days: 0, otMinutes: 0, score: 0 })
+        // Process Attendance with Penalty Logic
+        attendanceRecords.forEach(record => {
+            if (!userScores.has(record.userId)) {
+                userScores.set(record.userId, { days: 0, otMinutes: 0, score: 0 })
             }
-            const entry = userScores.get(stat.userId)!
-            entry.days = stat._count._all
-            entry.score += (entry.days * 10)
+            const entry = userScores.get(record.userId)!
+            
+            entry.days += 1
+            
+            // PENALTY LOGIC: Check for Auto-Checkout flag in notes
+            const isAutoCheckout = record.notes && record.notes.includes('Auto-Checkout')
+            
+            if (isAutoCheckout) {
+                entry.score += 5 // Penalty: Only 5 points if forgot to checkout
+            } else if (record.status === 'LATE') {
+                entry.score += 9 // Penalty: -1 point (10 - 1) if Late
+            } else {
+                entry.score += 10 // Normal: 10 points
+            }
         })
 
         // Process Overtime (1 Hour = 1 Point => 60 Mins = 1 Point => 1 Min = 1/60 Point)

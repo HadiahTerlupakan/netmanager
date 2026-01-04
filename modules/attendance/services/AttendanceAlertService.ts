@@ -132,7 +132,8 @@ export async function getUsersNeedingCheckInReminder(
  * Get users who need check-out reminder based on their individual schedules
  */
 export async function getUsersNeedingCheckOutReminder(
-    reminderMinutes: number = 30
+    reminderMinutes: number = 30,
+    windowMinutes: number = 30
 ): Promise<UserSchedule[]> {
     const now = new Date()
 
@@ -172,7 +173,7 @@ export async function getUsersNeedingCheckOutReminder(
         const user = att.user
         if (!user.endWorkTime) return false
         if (!isWorkDay(user.workDays, now)) return false
-        if (!isInReminderWindow(user.endWorkTime, reminderMinutes, now)) return false
+        if (!isInReminderWindow(user.endWorkTime, reminderMinutes, now, windowMinutes)) return false
         
         return true
     }).map(att => ({
@@ -341,6 +342,47 @@ export async function processIncompleteAttendance(): Promise<{
     }
 }
 
+// New Function: Late Checkout Reminder (3-4 hours after shift)
+export async function processLateCheckOutReminders(): Promise<{ usersNotified: number; details: string[] }> {
+    // 3 hours (180 mins) to 4 hours (240 mins) window
+    // so reminderMinutes = 180, windowMinutes = 60
+    const reminderMinutes = 180 
+    const windowMinutes = 60
+    
+    try {
+        const users = await getUsersNeedingCheckOutReminder(reminderMinutes, windowMinutes)
+        
+        if (users.length === 0) {
+            return { usersNotified: 0, details: [] }
+        }
+
+        const details: string[] = []
+        let notified = 0
+
+        for (const user of users) {
+            if (user.pushToken) {
+                await sendPushNotification(
+                    user.userId,
+                    '🛑 Belum Absen Pulang?',
+                    `Sudah 3 jam lewat dari jam pulang (${user.endWorkTime}). Jangan lupa Check-Out agar tidak kena penalti!`,
+                    {
+                        type: 'attendance_reminder',
+                        action: 'check_out'
+                    }
+                )
+                notified++
+                details.push(`${user.userName} (${user.endWorkTime})`)
+            }
+        }
+
+        console.log(`[AttendanceAlert] Sent LATE check-out reminder to ${notified} users`)
+        return { usersNotified: notified, details }
+    } catch (error) {
+        console.error('[AttendanceAlert] Error sending late check-out reminders:', error)
+        return { usersNotified: 0, details: [] }
+    }
+}
+
 /**
  * Main function to be called by cron job every 15 minutes
  * Automatically checks all users based on their individual schedules
@@ -350,20 +392,24 @@ export async function runScheduledAttendanceCheck(
 ): Promise<{
     checkIn: { usersNotified: number; details: string[] }
     checkOut: { usersNotified: number; details: string[] }
+    lateCheckOut: { usersNotified: number; details: string[] }
 }> {
-    const [checkInResult, checkOutResult] = await Promise.all([
+    const [checkInResult, checkOutResult, lateCheckOutResult] = await Promise.all([
         processCheckInReminders(reminderMinutes),
-        processCheckOutReminders(reminderMinutes)
+        processCheckOutReminders(reminderMinutes),
+        processLateCheckOutReminders()
     ])
 
     console.log('[AttendanceAlert] Scheduled check completed:', {
         checkIn: checkInResult.usersNotified,
-        checkOut: checkOutResult.usersNotified
+        checkOut: checkOutResult.usersNotified,
+        lateCheckOut: lateCheckOutResult.usersNotified
     })
 
     return {
         checkIn: checkInResult,
-        checkOut: checkOutResult
+        checkOut: checkOutResult,
+        lateCheckOut: lateCheckOutResult
     }
 }
 

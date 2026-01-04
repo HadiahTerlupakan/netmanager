@@ -291,4 +291,27 @@ export class AttendanceRepository {
             _count: { _all: true }
         })
     }
+
+    async getUserAttendanceRecords(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate },
+            status: { in: ['ON_TIME', 'LATE', 'PRESENT'] }
+        }
+
+        if (siteId || departmentId) {
+            where.user = {
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            }
+        }
+
+        return prisma.attendance.findMany({
+            where,
+            select: {
+                userId: true,
+                notes: true,
+                status: true
+            }
+        })
+    }
 }
