@@ -274,6 +274,39 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const { id } = await params
     const routerRepository = getMikroTikRouterRepository()
+    
+    // 1. Get Router Details for Deprovisioning
+    const router = await routerRepository.findById(id)
+    
+    if (router) {
+         // Auto Deprovisioning
+         try {
+            // Lazy load service
+            const { MikroTikProvisioningService } = await import('@/modules/network/services/MikroTikProvisioningService');
+            const provisioningService = new MikroTikProvisioningService();
+            
+            console.log(`Deprovisioning router ${router.ipAddress}...`);
+            const result = await provisioningService.deprovisionRadius(
+                {
+                    ip: router.ipAddress,
+                    port: router.apiPort,
+                    username: router.apiUsername,
+                    password: router.apiPassword,
+                },
+                null, // Auto-detect IP to remove
+                router.isolirUrl // Pass isolirUrl for cleanup
+            );
+            if (!result.success) {
+                console.warn(`Deprovisioning failed: ${result.logs.join(', ')}`);
+            } else {
+                console.log(`Deprovisioning success: ${result.logs.join(', ')}`);
+            }
+         } catch (e) {
+             console.error('Failed to auto-deprovision:', e);
+             // Continue deletion anyway
+         }
+    }
+
     await routerRepository.delete(id)
 
     // System Log

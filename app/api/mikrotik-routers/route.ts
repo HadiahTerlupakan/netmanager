@@ -170,27 +170,79 @@ export async function POST(req: NextRequest) {
   if (!(await hasPermission("mikrotik:create"))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
-  const json = await req.json()
-  const parsed = mikrotikRouterCreateSchema.safeParse(json)
+  const body = await req.json()
+  const parsed = mikrotikRouterCreateSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-  const data = parsed.data
+  const {
+    name,
+    ipAddress,
+    timezone,
+    apiPort,
+    apiUsername,
+    apiPassword,
+    authPort,
+    accountingPort,
+    secretRadius,
+    isolirUrl,
+    description,
+  } = parsed.data
   try {
     const routerRepository = getMikroTikRouterRepository()
+    // 3. Create Router (Repository)
+    // NAS sync happens inside Repository
     const router = await routerRepository.create({
-      name: data.name,
-      ipAddress: data.ipAddress,
-      timezone: data.timezone,
-      apiPort: data.apiPort,
-      apiUsername: data.apiUsername,
-      apiPassword: data.apiPassword,
-      authPort: data.authPort,
-      accountingPort: data.accountingPort,
-      secretRadius: data.secretRadius,
-      isolirUrl: data.isolirUrl,
-      description: data.description,
+      name,
+      ipAddress,
+      timezone,
+      apiPort: Number(apiPort),
+      apiUsername,
+      apiPassword,
+      authPort: Number(authPort),
+      accountingPort: Number(accountingPort),
+      secretRadius,
+      isolirUrl,
+      description,
     })
+
+    // 4. Auto Provisioning (Optional)
+    let provisioningResult = { success: true, logs: [] as string[] };
+    if (body.autoConfigure) {
+      console.log('Starting Auto Provisioning...');
+      try {
+        // Wrap import in try-catch to prevent module loading errors from crashing the request
+        const serviceModule = await import('@/modules/network/services/MikroTikProvisioningService');
+        if (serviceModule && serviceModule.MikroTikProvisioningService) {
+            const { MikroTikProvisioningService } = serviceModule;
+            const provisioningService = new MikroTikProvisioningService();
+            
+            provisioningResult = await provisioningService.provisionRadius(
+            {
+                ip: ipAddress,
+                port: Number(apiPort),
+                username: apiUsername,
+                password: apiPassword,
+            },
+            null, // Auto-detect IP
+            secretRadius,
+            isolirUrl // Pass optional Isolir URL
+            );
+
+            if (!provisioningResult.success) {
+                console.warn(`Router created but provisioning failed: ${provisioningResult.logs.join(', ')}`);
+            }
+        } else {
+            console.error('Failed to load MikroTikProvisioningService module');
+            provisioningResult = { success: false, logs: ['Internal Error: Could not load provisioning service'] };
+        }
+      } catch (e: any) {
+        console.error('Provisioning CRITICAL error:', e);
+        // Do not fail the request if provisioning fails, just log it. 
+        // We still want to return the success response for the Router creation.
+        provisioningResult = { success: false, logs: [e.message || 'Unknown provisioning error'] };
+      }
+    }
 
     // Trigger initial status check (running in background so response isn't delayed too much, 
     // or await it if fast enough. 5s timeout is acceptable for "Add" action)
@@ -208,7 +260,7 @@ export async function POST(req: NextRequest) {
         action: 'CREATE',
         subject: 'MikroTik Router',
         userId: session.user.id,
-        details: { id: router.id, name: data.name, ip: data.ipAddress }
+        details: { id: router.id, name: name, ip: ipAddress }
       })
     } catch (e) {
       console.error('Logging failed', e)

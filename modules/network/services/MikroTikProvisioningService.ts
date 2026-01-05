@@ -1,0 +1,385 @@
+import { RouterOSAPI } from 'node-routeros-v2';
+import { networkInterfaces } from 'os';
+
+export class MikroTikProvisioningService {
+    
+    private detectServerIp(targetRouterIp: string): string {
+        const nets = networkInterfaces();
+        const results: string[] = [];
+        
+        // Simple logic: return the first non-internal IPv4 address
+        // Ideally we would check routing tables or matching subnets, but that's complex without system calls.
+        
+        for (const name of Object.keys(nets)) {
+            for (const net of nets[name]!) {
+                // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
+                if (net.family === 'IPv4' && !net.internal) {
+                    results.push(net.address);
+                }
+            }
+        }
+
+        if (results.length === 0) return '127.0.0.1'; // Fallback
+        
+        // If we have multiple IPs, how do we choose? 
+        // A simple heuristic: if target is in common private ranges, try to match the first octet.
+        const targetParts = targetRouterIp.split('.');
+        if (targetParts.length === 4) {
+             const bestMatch = results.find(ip => ip.startsWith(`${targetParts[0]}.`));
+             if (bestMatch) return bestMatch;
+        }
+
+        return results[0];
+    }
+
+    /**
+     * Provisions the RADIUS configuration on a MikroTik router.
+     * 
+     * @param routerDetails Connection details for the MikroTik router
+     * @param radiusServerIp (Optional) The IP address of the NetManager/RADIUS server. If not provided, it will be auto-detected.
+     * @param radiusSecret The shared secret for RADIUS
+     */
+    async provisionRadius(
+        routerDetails: {
+            ip: string;
+            port: number;
+            username: string;
+            password: string;
+        },
+        radiusServerIp: string | null,
+        radiusSecret: string,
+        isolirUrl: string | null | undefined = null
+    ): Promise<{ success: boolean; logs: string[] }> {
+        const logs: string[] = [];
+        
+        // Auto-detect IP if not provided
+        const finalServerIp = radiusServerIp || this.detectServerIp(routerDetails.ip);
+        console.log(`[Provisioning] Starting provisioning for Router: ${routerDetails.ip}`);
+        console.log(`[Provisioning] Detected/Used Server IP (RADIUS Address): ${finalServerIp}`);
+        logs.push(`Using Server IP for RADIUS: ${finalServerIp}`);
+
+        const conn = new RouterOSAPI({
+            host: routerDetails.ip,
+            port: routerDetails.port,
+            user: routerDetails.username,
+            password: routerDetails.password,
+            timeout: 10000,
+        });
+
+        try {
+            console.log(`[Provisioning] Connecting to ${routerDetails.ip}...`);
+            await conn.connect();
+            console.log(`[Provisioning] Connected.`);
+            logs.push(`Connected to MikroTik at ${routerDetails.ip}`);
+
+            // --- 1. RADIUS Provisioning ---
+            // Check if RADIUS entry for this server already exists
+            const existingRadius: any[] = await conn.write('/radius/print', [
+                '?address=' + finalServerIp,
+                '?comment=added by netmanager'
+            ]) as any[];
+
+            if (existingRadius && existingRadius.length > 0) {
+                // Update existing
+                for (const r of existingRadius) {
+                    await conn.write('/radius/set', [
+                        '=.id=' + r['.id'],
+                        '=secret=' + radiusSecret,
+                        '=service=ppp,login,hotspot',
+                        '=timeout=3000ms'
+                    ]);
+                    logs.push(`Updated existing RADIUS config for ${finalServerIp}`);
+                }
+            } else {
+                // Add new
+                await conn.write('/radius/add', [
+                    '=address=' + finalServerIp,
+                    '=secret=' + radiusSecret,
+                    '=service=ppp,login,hotspot',
+                    '=timeout=3000ms',
+                    '=comment=added by netmanager'
+                ]);
+                logs.push(`Added new RADIUS config for ${finalServerIp}`);
+            }
+
+            // Configure Incoming (CoA)
+            await conn.write('/radius/incoming/set', [
+                '=accept=yes',
+                '=port=3799'
+            ]);
+            logs.push(`Configured RADIUS Incoming (CoA) on port 3799`);
+
+
+            // --- 2. Firewall Provisioning (Address Lists) ---
+            const addressListItems = [{ address: finalServerIp, comment: `accept.${finalServerIp}` }];
+            if (isolirUrl) {
+                try {
+                    // Extract hostname
+                    const domain = isolirUrl.replace(/^https?:\/\//, '').split('/')[0];
+                    if (domain) addressListItems.push({ address: domain, comment: `accept.${domain}` });
+                } catch (e) { console.warn('Invalid Isolir URL format'); }
+            }
+
+            for (const item of addressListItems) {
+                const existingList = await conn.write('/ip/firewall/address-list/print', [
+                    '?list=netmanager_allow',
+                    '?address=' + item.address
+                ]) as any[];
+
+                if (existingList.length === 0) {
+                    await conn.write('/ip/firewall/address-list/add', [
+                        '=list=netmanager_allow',
+                        '=address=' + item.address,
+                        '=comment=' + item.comment
+                    ]);
+                    logs.push(`Added Firewall Address List: ${item.address}`);
+                }
+            }
+
+            // --- 3. Firewall Filter Rules (WhiteList) ---
+            // Determine "Top" position (before the first rule if any)
+            let placeBeforeArgs: string[] = [];
+            try {
+                // Get the ID of the first rule to place explicitly before it
+                const firstRule = await conn.write('/ip/firewall/filter/print', ['=.proplist=.id', '=.limit=1']) as any[];
+                if (firstRule && firstRule.length > 0) {
+                    placeBeforeArgs = ['=place-before=' + firstRule[0]['.id']];
+                }
+            } catch (e) { /* ignore */ }
+
+            // Rule 1: Input (Router Access from Server)
+            const inputRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-input-bypass']) as any[];
+            if (inputRule.length === 0) {
+                await conn.write('/ip/firewall/filter/add', [
+                    '=chain=input',
+                    '=action=accept',
+                    '=src-address-list=netmanager_allow',
+                    ...placeBeforeArgs,
+                    '=comment=netmanager-input-bypass'
+                ]);
+                logs.push('Added Firewall Filter: Input Bypass (Top Priority)');
+            }
+
+            // Rule 2: Forward (User Access to Server/Isolir)
+            const forwardRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-forward-bypass']) as any[];
+            if (forwardRule.length === 0) {
+                await conn.write('/ip/firewall/filter/add', [
+                    '=chain=forward',
+                    '=action=accept',
+                    '=dst-address-list=netmanager_allow',
+                    ...placeBeforeArgs,
+                    '=comment=netmanager-forward-bypass'
+                ]);
+                logs.push('Added Firewall Filter: Forward Bypass (Top Priority)');
+            }
+
+            // Rule 3: Drop Expired TCP
+            const dropTcpRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-drop-expired-tcp']) as any[];
+            if (dropTcpRule.length === 0) {
+                await conn.write('/ip/firewall/filter/add', [
+                    '=chain=forward',
+                    '=action=reject',
+                    '=protocol=tcp',
+                    '=src-address=10.127.0.0/18',
+                    ...placeBeforeArgs,
+                    '=comment=netmanager-drop-expired-tcp'
+                ]);
+                logs.push('Added Firewall Filter: Drop Expired TCP');
+            }
+
+            // Rule 4: Drop Expired UDP (Except DNS)
+            const dropUdpRule = await conn.write('/ip/firewall/filter/print', ['?comment=netmanager-drop-expired-udp']) as any[];
+            if (dropUdpRule.length === 0) {
+                await conn.write('/ip/firewall/filter/add', [
+                    '=chain=forward',
+                    '=action=reject',
+                    '=protocol=udp',
+                    '=src-address=10.127.0.0/18',
+                    '=dst-port=!53,5353',
+                    ...placeBeforeArgs,
+                    '=comment=netmanager-drop-expired-udp'
+                ]);
+                logs.push('Added Firewall Filter: Drop Expired UDP');
+            }
+
+            // --- 4. PPP Profile (Expired Users) ---
+            const expiredProfile = await conn.write('/ppp/profile/print', ['?name=expired users']) as any[];
+            if (expiredProfile.length === 0) {
+                await conn.write('/ppp/profile/add', [
+                    '=name=expired users',
+                    '=local-address=10.127.0.1',
+                    '=dns-server=8.8.8.8,1.1.1.1',
+                    '=comment=added by netmanager' // consistency
+                ]);
+                logs.push('Added PPP Profile: expired users');
+            }
+
+            // --- 5. Web Proxy (Isolir Redirection) ---
+            console.log(`[Provisioning] Isolir URL provided: "${isolirUrl}"`);
+            
+            if (isolirUrl) {
+                console.log('[Provisioning] Configuring Web Proxy...');
+                try {
+                    const domain = isolirUrl.replace(/^https?:\/\//, '').split('/')[0];
+                    if (domain) {
+                        // 1. Enable Proxy on Port 8181
+                        await conn.write('/ip/proxy/set', [
+                            '=enabled=yes',
+                            '=port=8181'
+                        ]);
+                        logs.push('Configured Web Proxy: Enabled on port 8181');
+
+                        // 2. Add Access Rule for Expired Users
+                        const proxyRule = await conn.write('/ip/proxy/access/print', [
+                            '?comment=added by netmanager - 10.127.0.0/18'
+                        ]) as any[];
+
+                        if (proxyRule.length === 0) {
+                            await conn.write('/ip/proxy/access/add', [
+                                '=src-address=10.127.0.0/18',
+                                '=action=redirect',
+                                '=action-data=' + domain,
+                                '=comment=added by netmanager - 10.127.0.0/18'
+                            ]);
+                            logs.push(`Added Web Proxy Access Rule: Redirect 10.127.0.0/18 to ${domain}`);
+                        }
+                    }
+                } catch (e: any) {
+                    console.error(`[Provisioning] Web Proxy Error: ${e.message}`);
+                    logs.push(`Failed to configure Web Proxy: ${e.message}`);
+                }
+            } else {
+                 console.log('[Provisioning] No Isolir URL provided, skipping Web Proxy.');
+            }
+
+
+            conn.close();
+            return { success: true, logs };
+
+        } catch (error: any) {
+            logs.push(`Error: ${error.message}`);
+            // Ensure connection is closed
+            try { conn.close(); } catch(e) {}
+            return { success: false, logs };
+        }
+    }
+    async deprovisionRadius(
+        routerDetails: {
+            ip: string;
+            port: number;
+            username: string;
+            password: string;
+        },
+        radiusServerIp: string | null,
+        isolirUrl: string | null | undefined = null
+    ): Promise<{ success: boolean; logs: string[] }> {
+        const logs: string[] = [];
+        const finalServerIp = radiusServerIp || this.detectServerIp(routerDetails.ip);
+        
+        console.log(`[Deprovisioning] Starting removal for Router: ${routerDetails.ip}`);
+
+        const conn = new RouterOSAPI({
+            host: routerDetails.ip,
+            port: routerDetails.port,
+            user: routerDetails.username,
+            password: routerDetails.password,
+            timeout: 10000,
+        });
+
+        try {
+            await conn.connect();
+            logs.push(`Connected to MikroTik at ${routerDetails.ip}`);
+
+            // 1. Remove RADIUS Config
+            const existingRadius: any[] = await conn.write('/radius/print', [
+                '?address=' + finalServerIp,
+                '?comment=added by netmanager'
+            ]) as any[];
+
+            if (existingRadius && existingRadius.length > 0) {
+                for (const r of existingRadius) {
+                    await conn.write('/radius/remove', [
+                        '=.id=' + r['.id']
+                    ]);
+                    logs.push(`Removed RADIUS config for ${finalServerIp} (ID: ${r['.id']})`);
+                }
+            }
+
+            // 2. Remove Firewall Address Lists
+            const ipsToRemove = [finalServerIp];
+            if (isolirUrl) {
+                try {
+                    const domain = isolirUrl.replace(/^https?:\/\//, '').split('/')[0];
+                    if (domain) ipsToRemove.push(domain);
+                } catch (e) {}
+            }
+            
+            for (const addr of ipsToRemove) {
+                 const items = await conn.write('/ip/firewall/address-list/print', [
+                     '?list=netmanager_allow',
+                     '?address=' + addr
+                 ]) as any[];
+                 for (const item of items) {
+                     await conn.write('/ip/firewall/address-list/remove', ['=.id=' + item['.id']]);
+                     logs.push(`Removed Firewall Address List: ${addr}`);
+                 }
+            }
+
+            // 3. Remove Firewall Filter Rules
+            const filterComments = [
+                'netmanager-input-bypass',
+                'netmanager-forward-bypass',
+                'netmanager-drop-expired-tcp',
+                'netmanager-drop-expired-udp'
+            ];
+            for (const comment of filterComments) {
+                 const rules = await conn.write('/ip/firewall/filter/print', ['?comment=' + comment]) as any[];
+                 for (const rule of rules) {
+                     await conn.write('/ip/firewall/filter/remove', ['=.id=' + rule['.id']]);
+                     logs.push(`Removed Firewall Filter: ${comment}`);
+                 }
+            }
+
+            // 4. Remove PPP Profile
+            const pppProfiles = await conn.write('/ppp/profile/print', ['?name=expired users']) as any[];
+            for (const p of pppProfiles) {
+                 await conn.write('/ppp/profile/remove', ['=.id=' + p['.id']]);
+                 logs.push('Removed PPP Profile: expired users');
+            }
+
+            // 5. Remove Web Proxy Access Rule
+            const proxyRules = await conn.write('/ip/proxy/access/print', ['?comment=added by netmanager - 10.127.0.0/18']) as any[];
+            for (const r of proxyRules) {
+                 await conn.write('/ip/proxy/access/remove', ['=.id=' + r['.id']]);
+                 logs.push('Removed Web Proxy Access Rule');
+            }
+
+            // 6. Reset Global Settings (Revert Enablement)
+            try {
+                // Disable RADIUS Incoming
+                await conn.write('/radius/incoming/set', ['=accept=no']);
+                logs.push('Disabled RADIUS Incoming (CoA)');
+            } catch (e: any) {
+                logs.push(`Failed to disable Radius Incoming: ${e.message}`);
+            }
+
+            if (isolirUrl) {
+                try {
+                    // Disable Web Proxy (only if we likely enabled it via Isolir)
+                    await conn.write('/ip/proxy/set', ['=enabled=no']);
+                    logs.push('Disabled Web Proxy');
+                } catch (e: any) {
+                     logs.push(`Failed to disable Web Proxy: ${e.message}`);
+                }
+            }
+
+            conn.close();
+            return { success: true, logs };
+
+        } catch (error: any) {
+            logs.push(`Error: ${error.message}`);
+            try { conn.close(); } catch(e) {}
+            return { success: false, logs };
+        }
+    }
+}

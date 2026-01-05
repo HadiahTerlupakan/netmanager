@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import TestConnectionModal from '@/components/mikrotik/TestConnectionModal'
+import ScriptGeneratorModal from '@/components/mikrotik/ScriptGeneratorModal'
 import { HiArrowPath } from 'react-icons/hi2'
 
 export function ClientComponent() {
@@ -14,6 +15,7 @@ export function ClientComponent() {
   const [isTesting, setIsTesting] = useState(false)
   const [testResult, setTestResult] = useState<any>(null)
   const [showTestModal, setShowTestModal] = useState(false)
+  const [showScriptModal, setShowScriptModal] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     ipAddress: '',
@@ -159,7 +161,11 @@ export function ClientComponent() {
           <button className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
             Panduan Dasar
           </button>
-          <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+          <button 
+            type="button"
+            onClick={() => setShowScriptModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
             <span>&lt;/&gt;</span>
             SCRIPT GENERATOR
           </button>
@@ -296,14 +302,36 @@ export function ClientComponent() {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             ! Secret Radius
           </label>
-          <input
-            type="text"
-            value={formData.secretRadius}
-            onChange={(e) => setFormData({ ...formData, secretRadius: e.target.value })}
-            required
-            placeholder="Secret Radius"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={formData.secretRadius}
+              onChange={(e) => setFormData({ ...formData, secretRadius: e.target.value })}
+              required
+              placeholder="Secret Radius"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let result = '';
+                for (let i = 0; i < 20; i++) {
+                  result += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                setFormData({ ...formData, secretRadius: result });
+              }}
+              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              title="Generate Random Secret"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Klik tombol refresh untuk generate secret acak baru. Jangan lupa update juga konfigurasi di MikroTik.
+          </p>
         </div>
 
         {/* URL Info Isolir (Optional) */}
@@ -380,6 +408,12 @@ export function ClientComponent() {
         onClose={() => setShowTestModal(false)}
         result={testResult}
         isLoading={isTesting}
+      />
+
+      <ScriptGeneratorModal
+        open={showScriptModal}
+        onClose={() => setShowScriptModal(false)}
+        secret={formData.secretRadius}
       />
     </div>
   )
