@@ -127,14 +127,16 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   try {
     // Check permissions
     const permissions = (session.user as any).permissions || []
-    if (!permissions.includes('users:update')) {
+    const isSelfUpdate = session.user.id === id
+    
+    if (!permissions.includes('users:update') && !isSelfUpdate) {
       return NextResponse.json({ error: 'Unauthorized: You do not have permission to update users.' }, { status: 403 })
     }
 
     // Site restriction check using centralized helper
     const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session, 'users')
 
-    if (isRestricted) {
+    if (isRestricted && !isSelfUpdate) {
       // Fetch target user to check their site
       const targetUser = await prisma.user.findUnique({
         where: { id },
@@ -343,12 +345,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     // Check permissions
     const permissions = (session.user as any).permissions || []
-    if (!permissions.includes('users:read')) {
+    const isSelfView = session.user.id === id
+
+    if (!permissions.includes('users:read') && !isSelfView) {
       return NextResponse.json({ error: 'Unauthorized: You do not have permission to view users.' }, { status: 403 })
     }
 
     // Site restriction check using centralized helper
-    if (!canAccessSite(session, 'users', user.siteId)) {
+    if (!isSelfView && !canAccessSite(session, 'users', user.siteId)) {
       return NextResponse.json({ error: 'Unauthorized: You can only view users within your assigned site.' }, { status: 403 })
     }
 

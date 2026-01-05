@@ -200,7 +200,7 @@ export const authConfig: NextAuthOptions = {
             id: user.id,
             email: user.email,
             name: user.name ?? null,
-            image: null,
+            image: user.image ?? null,
           } as any
         } catch (error) {
           console.error('[AUTH] Error in authorize:', error)

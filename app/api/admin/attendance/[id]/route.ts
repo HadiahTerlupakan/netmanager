@@ -79,7 +79,7 @@ export async function PATCH(
         if (notes !== undefined) updateData.notes = notes
 
         // Auto-calculate status if checkIn changes
-        if (checkIn && existingAttendance.user.startWorkTime) {
+        if (checkIn && existingAttendance.user.startWorkTime && existingAttendance.user.workingHourMode !== 'FLEXIBLE') {
             const userDetails = existingAttendance.user
 
             // Fetch Tolerance Setting and Timezone

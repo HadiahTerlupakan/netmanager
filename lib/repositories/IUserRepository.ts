@@ -22,6 +22,7 @@ export interface UserCreateData {
 
 export interface UserUpdateData {
   name?: string | null
+  image?: string | null
   passwordHash?: string
   phone?: string | null
   departmentId?: string | null
@@ -33,6 +34,7 @@ export interface UserPublic {
   id: string
   name: string | null
   email: string
+  image: string | null
   phone: string | null
   departmentId: string | null
   siteId: string | null

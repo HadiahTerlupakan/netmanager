@@ -49,7 +49,9 @@ interface UserData {
   roleId?: string | null
   isActive: boolean
   department?: { name: string } | null
+  departments?: { name: string } | null
   site?: { code: string; name: string } | null
+  sites?: { code: string; name: string } | null
   role?: { name: string } | null
   // New fields
   workingHourMode?: string
@@ -332,12 +334,12 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
 
         {/* Profile Header Card */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 rounded-bl-full -mr-16 -mt-16 pointer-events-none" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-linear-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 rounded-bl-full -mr-16 -mt-16 pointer-events-none" />
 
           <div className="relative flex flex-col md:flex-row gap-8 items-start">
             {/* Avatar */}
-            <div className="flex-shrink-0">
-              <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform duration-300">
+            <div className="shrink-0">
+              <div className="w-32 h-32 rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform duration-300">
                 <span className="text-4xl font-bold text-white">
                   {formData.name ? formData.name.charAt(0).toUpperCase() : '?'}
                 </span>
@@ -396,7 +398,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
               Departemen
             </h3>
             <p className="text-xl font-medium text-gray-900 dark:text-white">
-              {departments.find(d => d.id === formData.departmentId)?.name || '-'}
+              {departments.find(d => d.id === formData.departmentId)?.name || user?.departments?.name || user?.department?.name || '-'}
             </p>
           </div>
 
@@ -409,7 +411,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
             <p className="text-xl font-medium text-gray-900 dark:text-white">
               {sites.find(s => s.id === formData.siteId)
                 ? `${sites.find(s => s.id === formData.siteId)?.code} - ${sites.find(s => s.id === formData.siteId)?.name}`
-                : '-'}
+                : user?.sites ? `${user.sites.code} - ${user.sites.name}` : user?.site ? `${user.site.code} - ${user.site.name}` : '-'}
             </p>
           </div>
         </div>
@@ -439,7 +441,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Account Information Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 bg-linear-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
                 <HiOutlineUserCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
@@ -586,7 +588,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
 
         {/* Organization Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 bg-linear-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                 <HiOutlineBuildingOffice className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -651,7 +653,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
 
         {/* Status Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 bg-linear-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
                 <HiOutlineShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -700,7 +702,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         {errors.submit && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
             <div className="flex items-center gap-3">
-              <HiOutlineExclamationTriangle className="w-6 h-6 text-red-500 dark:text-red-400 flex-shrink-0" />
+              <HiOutlineExclamationTriangle className="w-6 h-6 text-red-500 dark:text-red-400 shrink-0" />
               <p className="text-red-700 dark:text-red-300">{errors.submit}</p>
             </div>
           </div>
@@ -717,7 +719,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-3 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (
               <>

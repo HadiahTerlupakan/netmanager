@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
 
         let status = 'ON_TIME'
 
-        if (userDetails?.startWorkTime) {
+        if (userDetails?.startWorkTime && userDetails?.workingHourMode !== 'FLEXIBLE') {
             const [schedHour, schedMinute] = userDetails.startWorkTime.split(':').map(Number)
             const scheduleTime = new Date(startOfDayInTz)
             scheduleTime.setHours(schedHour, schedMinute, 0, 0)

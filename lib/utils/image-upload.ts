@@ -3,7 +3,7 @@ import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { isR2Enabled, uploadToR2, generateR2Key } from './r2-client'
 
-export type UploadType = 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer' | 'employee-attendance' | 'employee-leave' | 'workorder-completion' | 'work-order-updates' | 'tickets'
+export type UploadType = 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer' | 'employee-attendance' | 'employee-leave' | 'workorder-completion' | 'work-order-updates' | 'tickets' | 'user-profile'
 
 /**
  * Konversi dan simpan gambar ke WebP format
