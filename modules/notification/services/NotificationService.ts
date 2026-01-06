@@ -27,6 +27,7 @@ export interface WorkOrderNotificationData {
     type: string;
     priority: string;
     departmentId?: string;
+    siteId?: string; // Added for strict filtering
     assignedToId?: string;
 }
 
@@ -159,39 +160,102 @@ async function sendPushToDepartment(departmentId: string, payload: PushPayload) 
 }
 
 /**
- * Create notification for new Work Order (notify all department users)
+ * Create notification for new Work Order (notify users by Department AND Site)
  */
 export async function notifyNewWorkOrder(data: WorkOrderNotificationData) {
     const priorityEmoji = getPriorityEmoji(data.priority);
     const typeLabel = getWorkOrderTypeLabel(data.type);
 
-    const notification = await createNotification({
-        type: 'WORK_ORDER',
-        priority: data.priority as NotificationPriority,
-        title: `${priorityEmoji} Work Order Baru: ${data.workOrderNumber}`,
-        message: `[${typeLabel}] ${data.title}`,
-        link: `/admin/workorders/${data.workOrderId}`,
-        departmentId: data.departmentId,
-        sourceType: 'WORK_ORDER',
-        sourceId: data.workOrderId,
+    // 1. Find all eligible users
+    // Logic: User must match Dept AND Site
+    const whereCondition: any = {
+        isActive: true, // Only active users
+        AND: [
+            // Department Filter
+            data.departmentId
+                ? { OR: [{ departmentId: null }, { departmentId: data.departmentId }] }
+                : { departmentId: null }, // If user has no dept, can see global
+
+            // Site Filter
+            data.siteId
+                ? { OR: [{ siteId: null }, { siteId: data.siteId }] }
+                : { siteId: null } // If user has no site, can see global
+        ]
+    };
+
+    // However, if WO has NO Department, it's global? (Usually WO has Dept)
+    // Let's refine based on the STRICT logic we defined in API:
+    // API GET logic:
+    // user.deptId must permit WO.deptId -> (wo.dept is null OR wo.dept == user.dept)
+    // user.siteId must permit WO.siteId -> (wo.site is null OR wo.site == user.site)
+    // Here we have WO, seeking Users.
+    // User is eligible if:
+    // (User.dept == WO.dept OR User.dept == NULL [if we treat null dept as super-admin/all-access? NO, usually null dept is strict])
+    // WAIT. API Logic was: User sees WO if (User.Dept == WO.Dept OR WO.Dept == Null).
+    // So here: Find Users where (User.Dept == WO.Dept OR User.Dept == ?) -> No, we want users who CAN see this WO.
+    // User can see if: (User.Dept == WO.Dept) || (WO.Dept == NULL) -- If WO.Dept is NULL, ALL users with matching Site can see.
+    // So query:
+    // If WO.Dept is NOT NULL: User.Dept MUST be WO.Dept. (Or User is Admin? We ignore role checks for now, assumtion is finding target workers)
+    // If WO.Site is NOT NULL: User.Site MUST be WO.Site.
+    
+    // Revised Query Construction:
+    const criteria: any = { isActive: true };
+
+    if (data.departmentId) {
+        criteria.departmentId = data.departmentId;
+    }
+    // If data.departmentId is null, we notify all departments? Or specific "Global" users?
+    // Let's assume if WO has no dept, it notifies EVERYONE (filtered by site).
+
+    if (data.siteId) {
+        criteria.siteId = data.siteId;
+    }
+    // If data.siteId is null, notify users of ALL sites? 
+    // Usually WO always has site. If null, maybe only users with null site?
+    // Let's stick to strict matching. User must match properties if they exist on WO.
+
+    // Correction: Notification logic often wants to be broader than API access. 
+    // But user asked for "Strict like API".
+    // API: User sees WO if user matches WO.
+    // So here: Find User where User.Dept == WO.Dept AND User.Site == WO.Site.
+    // What about User with Null Dept? Null Dept usually means broken record or special. 
+    // What about User with Null Site? Null Site usually means "Head Office" or "Global".
+    // If WO is Site A. User is Site Null.
+    // API logic: siteFilter = { siteId: { in: [null, user.siteId] } }.
+    // Meaning User(Null) asks for Site(Null). User(Null) CANNOT see Site(A).
+    // So User(Null) should NOT get notification for Site(A).
+    // Correct.
+    
+    // Implementation:
+    const users = await prisma.user.findMany({
+        where: criteria,
+        select: { id: true }
     });
 
-    // Send push to department
-    if (data.departmentId) {
-        await sendPushToDepartment(data.departmentId, {
-            title: `${priorityEmoji} Work Order Baru`,
-            body: `[${typeLabel}] ${data.title}`,
-            data: {
-                url: `/admin/workorders/${data.workOrderId}`,
-                type: 'WORK_ORDER',
-                sourceId: data.workOrderId,
-            },
-            tag: `wo-new-${data.workOrderId}`,
-            requireInteraction: data.priority === 'URGENT' || data.priority === 'HIGH',
-        });
-    }
+    if (users.length === 0) return null;
 
-    return notification;
+    // 2. Send notification to each user individually
+    const promises = users.map(async (user) => {
+        // DB Notification
+        await createNotification({
+            type: 'WORK_ORDER',
+            priority: data.priority as NotificationPriority,
+            title: `${priorityEmoji} Work Order Baru: ${data.workOrderNumber}`,
+            message: `[${typeLabel}] ${data.title}`,
+            link: `/admin/workorders/${data.workOrderId}`,
+            userId: user.id, // Targeting specific user
+            sourceType: 'WORK_ORDER',
+            sourceId: data.workOrderId,
+        });
+
+        // Push Notification (Direct to User)
+        // Note: createNotification already handles push to user if userId is provided!
+        // So we don't need to call sendPushToUser manually here anymore.
+    });
+
+    await Promise.all(promises);
+
+    return { count: users.length };
 }
 
 /**

@@ -5,13 +5,27 @@ import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrder
 import { convertAndSaveImage } from '@/lib/utils/image-upload';
 import { format } from 'date-fns';
 
+// Valid status transitions
+const VALID_TRANSITIONS: Record<string, string[]> = {
+    'PENDING': ['ASSIGNED'],
+    'ASSIGNED': ['IN_PROGRESS', 'CANCELLED'],
+    'IN_PROGRESS': ['ON_HOLD', 'COMPLETED', 'CANCELLED'],
+    'ON_HOLD': ['IN_PROGRESS', 'CANCELLED'],
+    'COMPLETED': ['VERIFIED', 'IN_PROGRESS'], // Allow re-open
+    'VERIFIED': ['CLOSED'],
+    'CLOSED': [],
+    'CANCELLED': [],
+};
+
 export async function POST(
     request: NextRequest,
     props: { params: Promise<{ id: string }> }
 ) {
     const params = await props.params;
     try {
-        // 1. Auth Check
+        // ============================================
+        // 1. AUTHENTICATION CHECK
+        // ============================================
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -26,11 +40,52 @@ export async function POST(
         const workOrderId = params.id;
         const repository = new WorkOrderRepository(prisma);
 
-        // 2. Parse FormData
-        // 2. Parse Request (FormData or JSON)
-        let action, notes, photo, latitude, longitude, locationName, photoUrl, photoUrls, timestampStr;
-        
+        // ============================================
+        // 2. FETCH WORK ORDER & AUTHORIZATION CHECK
+        // ============================================
+        const workOrder = await prisma.workOrders.findUnique({
+            where: { id: workOrderId },
+            include: {
+                ticket: { select: { ticketNumber: true } },
+                assignments: { select: { userId: true, status: true } },
+                department: { select: { id: true, name: true } },
+            }
+        });
+
+        if (!workOrder) {
+            return NextResponse.json({ error: 'Work Order not found' }, { status: 404 });
+        }
+
+        // Check if user is authorized to update this WO
+        const isAssignedTo = workOrder.assignedToId === userId;
+        const isAssignmentMember = workOrder.assignments.some(
+            (a) => a.userId === userId && a.status !== 'REJECTED'
+        );
+        const isCreator = workOrder.createdById === userId;
+
+        if (!isAssignedTo && !isAssignmentMember && !isCreator) {
+            return NextResponse.json(
+                { error: 'You are not authorized to update this Work Order' },
+                { status: 403 }
+            );
+        }
+
+        // ============================================
+        // 3. PARSE REQUEST (JSON or FormData)
+        // ============================================
+        let action: string | undefined;
+        let notes: string | undefined;
+        let photo: File | undefined;
+        let photos: File[] = [];
+        let latitude: string | number | undefined;
+        let longitude: string | number | undefined;
+        let locationName: string | undefined;
+        let photoUrl: string | undefined;
+        let photoUrls: string[] | undefined;
+        let timestampStr: string | undefined;
+
         const contentType = request.headers.get('content-type') || '';
+        
         if (contentType.includes('application/json')) {
             const body = await request.json();
             action = body.action;
@@ -38,24 +93,37 @@ export async function POST(
             latitude = body.latitude;
             longitude = body.longitude;
             locationName = body.locationName;
-            photoUrl = body.photoUrl; // Single photo (Note)
-            photoUrls = body.photoUrls; // Multiple photos (Complete)
+            photoUrl = body.photoUrl;
+            photoUrls = body.photoUrls;
             timestampStr = body.timestamp;
         } else {
-             const formData: any = await request.formData();
-             action = formData.get('action') as string;
-             notes = formData.get('notes') as string;
-             photo = formData.get('photo') as File;
-             latitude = formData.get('latitude') as string;
-             longitude = formData.get('longitude') as string;
-             locationName = formData.get('locationName') as string;
-             timestampStr = formData.get('timestamp') as string;
+            // Parse FormData ONCE and extract all fields including photos
+            const formData = await request.formData();
+            action = formData.get('action') as string;
+            notes = formData.get('notes') as string;
+            photo = formData.get('photo') as File | null || undefined;
+            latitude = formData.get('latitude') as string;
+            longitude = formData.get('longitude') as string;
+            locationName = formData.get('locationName') as string;
+            timestampStr = formData.get('timestamp') as string;
+            
+            // Extract multiple photos for COMPLETE action
+            const photosFromForm = formData.getAll('photos') as File[];
+            photos = photosFromForm.filter(p => p instanceof File);
+            
+            // Also include single photo if provided separately
+            if (photo instanceof File && !photos.some(p => p.name === photo!.name)) {
+                photos.push(photo);
+            }
         }
 
-        // Construct Location String: Name (Lat, Long)
-        // Construct Location String: Address + Coordinates
+        // ============================================
+        // 4. BUILD LOCATION STRING
+        // ============================================
         let locationStr = 'Loc: Unknown';
-        const coords = (latitude && longitude) ? `(${latitude.slice(0, 8)}, ${longitude.slice(0, 8)})` : '';
+        const coords = (latitude && longitude) 
+            ? `(${String(latitude).slice(0, 8)}, ${String(longitude).slice(0, 8)})` 
+            : '';
 
         if (locationName && coords) {
             locationStr = `${locationName} ${coords}`;
@@ -66,20 +134,29 @@ export async function POST(
         }
 
         const timestamp = timestampStr ? new Date(timestampStr) : undefined;
+        const ticketNumber = workOrder.ticket?.ticketNumber || workOrder.workOrderNumber || workOrderId;
 
-        // Fetch Work Order to get Ticket Number
-        const workOrder = await prisma.workOrders.findUnique({
-            where: { id: workOrderId },
-            include: { ticket: { select: { ticketNumber: true } } }
-        });
+        // ============================================
+        // 5. VALIDATE ACTION
+        // ============================================
+        if (!action) {
+            return NextResponse.json({ error: 'Action is required' }, { status: 400 });
+        }
 
-        const ticketNumber = workOrder?.ticket?.ticketNumber || workOrder?.workOrderNumber || workOrderId;
-
-        // 3. Handle Actions
+        // ============================================
+        // 6. HANDLE ACTIONS
+        // ============================================
         if (action === 'START') {
+            // Validate status transition: only ASSIGNED can be started
+            if (!['ASSIGNED', 'ON_HOLD'].includes(workOrder.status)) {
+                return NextResponse.json(
+                    { error: `Cannot start Work Order with status: ${workOrder.status}. Must be ASSIGNED or ON_HOLD.` },
+                    { status: 400 }
+                );
+            }
+
             await repository.start(workOrderId, userId, timestamp);
 
-            // Add note if provided
             if (notes) {
                 await repository.addUpdate({
                     workOrderId,
@@ -92,80 +169,67 @@ export async function POST(
             return NextResponse.json({ success: true, message: 'Work Order Started' });
 
         } else if (action === 'COMPLETE') {
-            // Handle multiple photos
-            // CASE 1: JSON (Already uploaded)
+            // Validate status transition
+            if (workOrder.status !== 'IN_PROGRESS') {
+                return NextResponse.json(
+                    { error: `Cannot complete Work Order with status: ${workOrder.status}. Must be IN_PROGRESS.` },
+                    { status: 400 }
+                );
+            }
+
+            // Handle photos from JSON (already uploaded URLs)
             if (photoUrls && Array.isArray(photoUrls) && photoUrls.length > 0) {
-                 for (let i = 0; i < photoUrls.length; i++) {
-                      const url = photoUrls[i];
-                      await repository.addAttachment(
-                           workOrderId,
-                           `photo_${i}.jpg`,
-                           url,
-                           0, // Size unknown
-                           'image/jpeg',
-                           `[COMPLETION] Bukti Penyelesaian ${i + 1}`,
-                           userId
-                      );
-                 }
-            } 
-            // CASE 2: Form Data (File Upload)
-            else {
-                const formData = await request.formData().catch(() => new FormData()); // Re-parse if needed or use existing if scoped
-                // Actually we can't re-read stream. We need to handle this better in step 2 if we want to share logic.
-                // But simplified: If contentType is NOT json, we already parsed formData above? 
-                // Wait, formData variable in step 2 is scoped.
-                // We need to access formData from step 2.
-                // I will assume if `photoUrls` is undefined, we might have `formData`.
-                // BUT `formData` variable defined in "step 2" logic above is inside "else" block.
-                // I should lift `formData` variable or just rely on `photo` being defined if "step 2" was formData.
+                for (let i = 0; i < photoUrls.length; i++) {
+                    const url = photoUrls[i];
+                    await repository.addAttachment(
+                        workOrderId,
+                        `photo_${i}.jpg`,
+                        url,
+                        0,
+                        'image/jpeg',
+                        `[COMPLETION] Bukti Penyelesaian ${i + 1}`,
+                        userId
+                    );
+                }
+            }
+            // Handle photos from FormData (need processing)
+            else if (photos.length > 0) {
+                const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
                 
-                // Oops, `photo` variable (single) is defined.
-                // But `photos` (multiple) was handled locally in COMPLETE block (Line 77).
-                // I need to change how `photos` is retrieved.
-                
-                // If NOT JSON:
-                if (!contentType.includes('application/json')) {
-                     const formData: any = await request.formData();
-                     const photos = formData.getAll('photos') as File[];
-                     const singlePhoto = formData.get('photo') as File;
-                     if (singlePhoto && !photos.includes(singlePhoto)) {
-                         photos.push(singlePhoto);
-                     }
-                     
-                     if (photos.length > 0) {
-                        const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
-                        for (let i = 0; i < photos.length; i++) {
-                            const p = photos[i];
-                            if (!(p instanceof File)) continue;
-                            const watermarkLines = [
-                                format(new Date(), 'dd MMM yyyy HH:mm'),
-                                `#${ticketNumber}`,
-                                `Tech: ${user?.name || 'Unknown'}`,
-                                locationStr,
-                                `[COMPLETED] ${i + 1}/${photos.length}`
-                            ];
-                            const dateStr = new Date().toISOString().split('T')[0];
-                            const uploadDir = `public/uploads/workorders/${dateStr}`;
-                            const fileName = `${workOrderId}_complete_${Date.now()}_${i}`;
-                            const filePath = await convertAndSaveImage(
-                                p,
-                                uploadDir,
-                                fileName,
-                                'workorder-completion',
-                                workOrderId,
-                                watermarkLines
-                            );
-                            await repository.addAttachment(
-                                workOrderId,
-                                p.name,
-                                filePath,
-                                p.size,
-                                p.type,
-                                `[COMPLETION] Bukti Penyelesaian ${i + 1}`,
-                                userId
-                            );
-                        }
-                     }
+                for (let i = 0; i < photos.length; i++) {
+                    const p = photos[i];
+                    if (!(p instanceof File)) continue;
+                    
+                    const watermarkLines = [
+                        format(new Date(), 'dd MMM yyyy HH:mm'),
+                        `#${ticketNumber}`,
+                        `Tech: ${user?.name || 'Unknown'}`,
+                        locationStr,
+                        `[COMPLETED] ${i + 1}/${photos.length}`
+                    ];
+                    
+                    const dateStr = new Date().toISOString().split('T')[0];
+                    const uploadDir = `public/uploads/workorders/${dateStr}`;
+                    const fileName = `${workOrderId}_complete_${Date.now()}_${i}`;
+                    
+                    const filePath = await convertAndSaveImage(
+                        p,
+                        uploadDir,
+                        fileName,
+                        'workorder-completion',
+                        workOrderId,
+                        watermarkLines
+                    );
+                    
+                    await repository.addAttachment(
+                        workOrderId,
+                        p.name,
+                        filePath,
+                        p.size,
+                        p.type,
+                        `[COMPLETION] Bukti Penyelesaian ${i + 1}`,
+                        userId
+                    );
                 }
             }
 
@@ -173,8 +237,14 @@ export async function POST(
             return NextResponse.json({ success: true, message: 'Work Order Completed' });
 
         } else if (action === 'PAUSE') {
-            // "Pause" usually means status -> ON_HOLD or PENDING?
-            // Repo doesn't have explicit 'pause'. We'll use updateStatus('ON_HOLD')
+            // Validate: only IN_PROGRESS can be paused
+            if (workOrder.status !== 'IN_PROGRESS') {
+                return NextResponse.json(
+                    { error: `Cannot pause Work Order with status: ${workOrder.status}. Must be IN_PROGRESS.` },
+                    { status: 400 }
+                );
+            }
+
             await repository.updateStatus(workOrderId, 'ON_HOLD', userId, timestamp);
 
             if (notes) {
@@ -186,14 +256,13 @@ export async function POST(
                 });
             }
             return NextResponse.json({ success: true, message: 'Work Order Paused' });
+
         } else if (action === 'NOTE') {
             if (!notes && !photo && !photoUrl) {
                 return NextResponse.json({ error: 'Notes or photo required' }, { status: 400 });
             }
 
-            let attachmentPath = null;
-            
-            // CASE 1: JSON (Already uploaded)
+            // Handle photo from JSON URL
             if (photoUrl) {
                 await repository.addAttachment(
                     workOrderId,
@@ -205,9 +274,8 @@ export async function POST(
                     userId
                 );
             }
-            // CASE 2: File Upload (Server Watermark)
-            else if (photo) {
-                // Fetch user name for watermark
+            // Handle photo from FormData
+            else if (photo instanceof File) {
                 const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
                 const watermarkLines = [
                     format(new Date(), 'dd MMM yyyy HH:mm'),
@@ -217,7 +285,7 @@ export async function POST(
                 ];
 
                 const dateStr = new Date().toISOString().split('T')[0];
-                attachmentPath = await convertAndSaveImage(
+                const attachmentPath = await convertAndSaveImage(
                     photo,
                     `public/uploads/workorders/${dateStr}`,
                     `${workOrderId}_note_${Date.now()}`,
@@ -243,6 +311,7 @@ export async function POST(
                 message: notes || (photo || photoUrl ? 'Uploaded a photo' : ''),
                 createdById: userId
             });
+            
             return NextResponse.json({ success: true, message: 'Note added' });
         }
 

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Permission check
-        if (!await hasPermission('sites:read')) {
+        if (!await hasPermission('site:read')) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Permission check
-        if (!await hasPermission('sites:create')) {
+        if (!await hasPermission('site:create')) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 

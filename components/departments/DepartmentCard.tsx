@@ -15,7 +15,7 @@ interface Department {
     createdAt: Date
     updatedAt: Date
     _count: {
-        employees: number
+        user: number
     }
 }
 
@@ -58,7 +58,7 @@ export default function DepartmentCard({
                         <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                             <HiOutlineUsers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <span className="text-gray-700 dark:text-gray-300 font-medium">{department._count.employees}</span>
+                        <span className="text-gray-700 dark:text-gray-300 font-medium">{department._count.user}</span>
                         <span className="text-gray-500 dark:text-gray-400 text-xs">karyawan</span>
                     </div>
                 </div>

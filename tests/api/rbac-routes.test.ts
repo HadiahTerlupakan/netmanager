@@ -42,8 +42,8 @@ const PROTECTED_ROUTES = [
   // Core Resources
   { path: 'app/api/admin/departments/route.ts', permissions: ['department:read', 'department:create'] },
   { path: 'app/api/admin/departments/[id]/route.ts', permissions: ['department:read', 'department:update', 'department:delete'] },
-  { path: 'app/api/admin/sites/route.ts', permissions: ['sites:read', 'sites:create'] },
-  { path: 'app/api/admin/sites/[id]/route.ts', permissions: ['sites:read', 'sites:update', 'sites:delete'] },
+  { path: 'app/api/admin/sites/route.ts', permissions: ['site:read', 'site:create'] },
+  { path: 'app/api/admin/sites/[id]/route.ts', permissions: ['site:read', 'site:update', 'site:delete'] },
   { path: 'app/api/admin/holidays/route.ts', permissions: ['holidays:read', 'holidays:create'] },
   { path: 'app/api/admin/holidays/[id]/route.ts', permissions: ['holidays:update', 'holidays:delete'] },
   { path: 'app/api/admin/registrations/route.ts', permissions: ['registration:read'] },

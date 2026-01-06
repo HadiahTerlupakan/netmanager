@@ -4,7 +4,7 @@ export const PERMISSION_GROUPS = {
     FTTH: ['ftth', 'otb', 'odc', 'odp', 'closure', 'pole', 'kmz', 'map'],
     PAKET: ['paket', 'bandwidth', 'profileppp', 'harga'],
     PELANGGAN: ['pelanggan', 'ppp', 'registration'],
-    INVENTORY: ['inventory', 'barang', 'masuk', 'keluar', 'transfer', 'restock', 'opname', 'gudang', 'returns'],
+    INVENTORY: ['inventory', 'barang', 'masuk', 'keluar', 'transfer', 'restock', 'opname', 'gudang'],
     WORKORDERS: ['workorders', 'work_order_dashboard', 'list', 'site', 'department'],
     KEHADIRAN: ['kehadiran', 'attendance', 'report', 'lembur', 'holiday', 'izin'],
     FINANCE: ['finance', 'daily_income', 'period_income', 'expense', 'profit_loss'],

@@ -17,10 +17,44 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
         }
 
+        const userId = payload.id as string;
+
+        // Fetch user to get department and site
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { departmentId: true, siteId: true }
+        });
+
+        // Strict Filtering Logic:
+        // 1. If WO has Dept, User must be in that Dept (or User is Dept-less? No, usually Users must be in Dept)
+        //    Easier: WO Dept is NULL OR WO Dept == User Dept
+        // 2. If WO has Site, User must be in that Site (or WO Site is NULL)
+        
+        const departmentFilter: any = { departmentId: null };
+        if (user?.departmentId) {
+            departmentFilter.departmentId = { in: [null, user.departmentId] }; // Allow null or match
+        }
+
+        const siteFilter: any = { siteId: null };
+        if (user?.siteId) {
+            siteFilter.siteId = { in: [null, user.siteId] }; // Allow null or match
+        }
+
         const workOrders = await prisma.workOrders.findMany({
             where: {
                 status: 'PENDING',
-                assignedToId: null
+                assignedToId: null,
+                AND: [
+                    // Handle Department Match
+                    user?.departmentId 
+                        ? { OR: [{ departmentId: null }, { departmentId: user.departmentId }] }
+                        : { departmentId: null }, // If user has no dept, can only see global
+
+                    // Handle Site Match
+                    user?.siteId 
+                        ? { OR: [{ siteId: null }, { siteId: user.siteId }] }
+                        : { siteId: null } // If user has no site, can only see global location
+                ]
             },
             select: {
                 id: true,
@@ -97,6 +131,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'workOrderId is required' }, { status: 400 });
         }
 
+        // Fetch User to check permissions
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { departmentId: true, siteId: true }
+        });
+
         // Check if work order exists and is available
         const workOrder = await prisma.workOrders.findUnique({
             where: { id: workOrderId }
@@ -112,6 +152,22 @@ export async function POST(request: NextRequest) {
 
         if (workOrder.assignedToId) {
             return NextResponse.json({ error: 'Work order sudah diambil orang lain' }, { status: 400 });
+        }
+
+        // Strict Check Authorization (Site AND Department match)
+        // 1. Check Department
+        const isDeptValid = !workOrder.departmentId || (user?.departmentId && workOrder.departmentId === user.departmentId);
+        
+        // 2. Check Site
+        const isSiteValid = !workOrder.siteId || (user?.siteId && workOrder.siteId === user.siteId);
+
+        if (!isDeptValid || !isSiteValid) {
+            let errorMsg = 'Anda tidak memiliki akses ke Work Order ini (';
+            if (!isDeptValid) errorMsg += 'Beda Department';
+            if (!isDeptValid && !isSiteValid) errorMsg += ' & ';
+            if (!isSiteValid) errorMsg += 'Beda Site';
+            errorMsg += ')';
+             return NextResponse.json({ error: errorMsg }, { status: 403 });
         }
 
         // Assign work order to user

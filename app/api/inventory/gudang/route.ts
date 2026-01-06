@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
     const inventoryRepository = getInventoryRepository()
 
     const body = await req.json()
-    const { nama, lokasi, isActive } = body
+    const { nama, lokasi, isActive, siteIds } = body
 
     // Validation
     if (!nama) {
@@ -199,6 +199,8 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Note: siteIds is optional, gudang-site relationship managed from Site menu
 
     try {
       const dbStart = Date.now()
@@ -210,7 +212,8 @@ export async function POST(req: NextRequest) {
         kode,
         nama,
         lokasi,
-        isActive: isActive ?? true
+        isActive: isActive ?? true,
+        siteIds
       })
 
       logger.dbOperation('create', 'Gudang', Date.now() - dbStart)

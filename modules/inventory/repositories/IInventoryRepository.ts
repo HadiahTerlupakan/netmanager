@@ -81,6 +81,7 @@ export interface CreateGudangInput {
     nama: string
     lokasi?: string | null
     isActive?: boolean
+    siteIds?: string[]  // Array of site IDs to connect
 }
 
 export interface UpdateGudangInput {

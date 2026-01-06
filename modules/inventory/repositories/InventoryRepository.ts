@@ -359,11 +359,18 @@ export class InventoryRepository implements IInventoryRepository {
     }
 
     async createGudang(data: CreateGudangInput): Promise<any> {
+        const { siteIds, ...gudangData } = data
         return this.db.gudang.create({
             data: {
                 id: crypto.randomUUID(),
-                ...data,
-                updatedAt: new Date()
+                ...gudangData,
+                updatedAt: new Date(),
+                sites: siteIds && siteIds.length > 0 ? {
+                    connect: siteIds.map(id => ({ id }))
+                } : undefined
+            },
+            include: {
+                sites: { select: { id: true, name: true, code: true } }
             }
         })
     }

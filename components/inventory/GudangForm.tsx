@@ -27,7 +27,6 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validation
     if (!formData.nama.trim()) {
       setError('Nama gudang harus diisi')
       return
@@ -38,12 +37,9 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
 
     try {
       if (initialData?.id) {
-        // Update existing gudang
         const response = await fetch(`/api/inventory/gudang/${initialData.id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         })
 
@@ -52,12 +48,9 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
           throw new Error(data.error || 'Gagal mengupdate gudang')
         }
       } else {
-        // Create new gudang
         const response = await fetch('/api/inventory/gudang', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         })
 
@@ -84,16 +77,14 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
         </div>
       )}
 
-      {/* Show automatic code info for new gudang */}
       {!initialData?.id && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
           <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
-            <FiInfo className="w-4 h-4 flex-shrink-0" /> Kode gudang akan di-generate otomatis
+            <FiInfo className="w-4 h-4 shrink-0" /> Kode gudang akan di-generate otomatis
           </p>
         </div>
       )}
 
-      {/* Show kode field for editing existing gudang */}
       {initialData?.id && (
         <div>
           <label htmlFor="kode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -125,9 +116,6 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
           placeholder="Contoh: Gudang Utama"
           disabled={loading}
         />
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Nama lengkap lokasi gudang
-        </p>
       </div>
 
       <div>
@@ -143,9 +131,6 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
           placeholder="Contoh: Jl. Sudirman No. 123, Jakarta"
           disabled={loading}
         />
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Alamat lengkap gudang (opsional)
-        </p>
       </div>
 
       <div>
@@ -162,9 +147,6 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
             Gudang Aktif
           </label>
         </div>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Centang jika gudang ini dapat digunakan untuk penyimpanan barang
-        </p>
       </div>
 
       <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">

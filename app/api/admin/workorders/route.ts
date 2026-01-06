@@ -244,6 +244,7 @@ export async function POST(request: NextRequest) {
             type: workOrder.type,
             priority: workOrder.priority,
             departmentId: workOrder.departmentId,
+            siteId: workOrder.siteId,
             assignedToId: workOrder.assignedToId,
         });
 

@@ -56,7 +56,10 @@ export async function GET(req: NextRequest) {
             }
 
             if (allowedSiteIds.length === 0) {
-                return NextResponse.json({ error: 'Access denied: No site assigned' }, { status: 403 })
+                return NextResponse.json({ 
+                    error: 'Anda belum memiliki site yang ditentukan. Silakan hubungi admin untuk assign site ke akun Anda.',
+                    code: 'NO_SITE_ASSIGNED'
+                }, { status: 403 })
             }
 
             // Filter by Site (User's site OR WorkOrder's site) using many-to-many relation

@@ -19,26 +19,26 @@ interface WorkOrderData {
     type: string;
     priority: string;
     departmentId?: string | null;
+    siteId?: string | null;
     assignedToId?: string | null;
 }
 
 /**
  * Trigger notification when a new Work Order is created
- * - Notifies all employees in the department
+ * - Notifies all employees in the department (filtered by Site)
  */
 export async function onWorkOrderCreated(workOrder: WorkOrderData) {
     try {
-        if (workOrder.departmentId) {
-            await notifyNewWorkOrder({
-                workOrderId: workOrder.id,
-                workOrderNumber: workOrder.workOrderNumber,
-                title: workOrder.title,
-                type: workOrder.type,
-                priority: workOrder.priority,
-                departmentId: workOrder.departmentId,
-            });
-            console.log(`[Notification] New WO notification sent to department: ${workOrder.departmentId}`);
-        }
+        await notifyNewWorkOrder({
+            workOrderId: workOrder.id,
+            workOrderNumber: workOrder.workOrderNumber,
+            title: workOrder.title,
+            type: workOrder.type,
+            priority: workOrder.priority,
+            departmentId: workOrder.departmentId || undefined,
+            siteId: workOrder.siteId || undefined
+        });
+        console.log(`[Notification] New WO notification triggered for Dept: ${workOrder.departmentId}, Site: ${workOrder.siteId}`);
     } catch (error) {
         console.error('[Notification] Error sending new WO notification:', error);
     }

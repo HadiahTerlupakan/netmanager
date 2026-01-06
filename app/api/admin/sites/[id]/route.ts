@@ -14,7 +14,7 @@ export async function GET(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        if (!await hasPermission('sites:read')) {
+        if (!await hasPermission('site:read')) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
@@ -73,7 +73,7 @@ export async function PATCH(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        if (!await hasPermission('sites:update')) {
+        if (!await hasPermission('site:update')) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
@@ -167,7 +167,7 @@ export async function DELETE(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        if (!await hasPermission('sites:delete')) {
+        if (!await hasPermission('site:delete')) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
