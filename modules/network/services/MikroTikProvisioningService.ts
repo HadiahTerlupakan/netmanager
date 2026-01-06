@@ -382,4 +382,117 @@ export class MikroTikProvisioningService {
             return { success: false, logs };
         }
     }
+
+    /**
+     * Creates a limited API user for routine connections.
+     * The master user credentials are preserved for provisioning/deletion.
+     * 
+     * @param routerDetails Connection details (using master credentials)
+     * @returns Generated username and password for the API user
+     */
+    async createApiUser(
+        routerDetails: {
+            ip: string;
+            port: number;
+            username: string;
+            password: string;
+        }
+    ): Promise<{ success: boolean; logs: string[]; username?: string; password?: string }> {
+        const logs: string[] = [];
+        const GROUP_NAME = 'netmanager.api';
+        const GROUP_POLICY = 'read,write,policy,test,sensitive,api,!local,!telnet,!ssh,!ftp,!reboot,!winbox,!password,!web,!sniff,!romon,!rest-api';
+        
+        // Generate random username and password
+        const randomSuffix = Math.random().toString(36).substring(2, 8);
+        const generatedUsername = `netmanager_${randomSuffix}`;
+        const generatedPassword = this.generateSecurePassword(16);
+
+        const conn = new RouterOSAPI({
+            host: routerDetails.ip,
+            port: routerDetails.port,
+            user: routerDetails.username,
+            password: routerDetails.password,
+            timeout: 10000,
+        });
+
+        try {
+            console.log(`[API User] Connecting to ${routerDetails.ip}...`);
+            await conn.connect();
+            logs.push(`Connected to MikroTik at ${routerDetails.ip}`);
+
+            // --- 1. Check/Create Group ---
+            const existingGroups: any[] = await conn.write('/user/group/print', [
+                '?name=' + GROUP_NAME
+            ]) as any[];
+
+            if (existingGroups && existingGroups.length > 0) {
+                // Update existing group policy
+                await conn.write('/user/group/set', [
+                    '=.id=' + existingGroups[0]['.id'],
+                    '=policy=' + GROUP_POLICY,
+                    '=comment=NetManager API Group - DO NOT DELETE'
+                ]);
+                logs.push(`Updated existing group: ${GROUP_NAME}`);
+            } else {
+                // Create new group
+                await conn.write('/user/group/add', [
+                    '=name=' + GROUP_NAME,
+                    '=policy=' + GROUP_POLICY,
+                    '=comment=NetManager API Group - DO NOT DELETE'
+                ]);
+                logs.push(`Created group: ${GROUP_NAME}`);
+            }
+
+            // --- 2. Remove old NetManager users (cleanup) ---
+            const oldUsers: any[] = await conn.write('/user/print', [
+                '?comment=NetManager API User - DO NOT DELETE'
+            ]) as any[];
+            
+            for (const user of oldUsers) {
+                try {
+                    await conn.write('/user/remove', ['=.id=' + user['.id']]);
+                    logs.push(`Removed old API user: ${user.name}`);
+                } catch (e) {
+                    // Ignore errors when removing
+                }
+            }
+
+            // --- 3. Create new API user ---
+            await conn.write('/user/add', [
+                '=name=' + generatedUsername,
+                '=password=' + generatedPassword,
+                '=group=' + GROUP_NAME,
+                '=comment=NetManager API User - DO NOT DELETE'
+            ]);
+            logs.push(`Created API user: ${generatedUsername}`);
+
+            conn.close();
+            console.log(`[API User] Successfully created API user: ${generatedUsername}`);
+            
+            return { 
+                success: true, 
+                logs, 
+                username: generatedUsername, 
+                password: generatedPassword 
+            };
+
+        } catch (error: any) {
+            logs.push(`Error: ${error.message}`);
+            console.error(`[API User] Error creating API user:`, error.message);
+            try { conn.close(); } catch(e) {}
+            return { success: false, logs };
+        }
+    }
+
+    /**
+     * Generates a secure random password
+     */
+    private generateSecurePassword(length: number): string {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+        let password = '';
+        for (let i = 0; i < length; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return password;
+    }
 }

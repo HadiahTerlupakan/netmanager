@@ -197,8 +197,8 @@ export async function getIPPoolRanges(
     const conn = await connectToMikroTik({
       ipAddress: router.ipAddress,
       apiPort: router.apiPort,
-      apiUsername: router.apiUsername,
-      apiPassword: router.apiPassword,
+      apiUsername: router.apiUsernameGenerated || router.apiUsername,
+      apiPassword: router.apiPasswordGenerated || router.apiPassword,
     })
 
     try {
@@ -344,8 +344,8 @@ export async function createPPPProfileInMikroTik(
     const conn = await connectToMikroTik({
       ipAddress: router.ipAddress,
       apiPort: router.apiPort,
-      apiUsername: router.apiUsername,
-      apiPassword: router.apiPassword,
+      apiUsername: router.apiUsernameGenerated || router.apiUsername,
+      apiPassword: router.apiPasswordGenerated || router.apiPassword,
     })
 
     try {
@@ -517,8 +517,8 @@ export async function updatePPPProfileInMikroTik(
     const conn = await connectToMikroTik({
       ipAddress: router.ipAddress,
       apiPort: router.apiPort,
-      apiUsername: router.apiUsername,
-      apiPassword: router.apiPassword,
+      apiUsername: router.apiUsernameGenerated || router.apiUsername,
+      apiPassword: router.apiPasswordGenerated || router.apiPassword,
     })
 
     try {
@@ -826,8 +826,8 @@ export async function deletePPPProfileInMikroTik(
     const conn = await connectToMikroTik({
       ipAddress: router.ipAddress,
       apiPort: router.apiPort,
-      apiUsername: router.apiUsername,
-      apiPassword: router.apiPassword,
+      apiUsername: router.apiUsernameGenerated || router.apiUsername,
+      apiPassword: router.apiPasswordGenerated || router.apiPassword,
     })
 
     try {

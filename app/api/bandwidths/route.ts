@@ -261,8 +261,14 @@ export async function POST(req: NextRequest) {
       }
     })
 
+    const { randomUUID } = await import('crypto')
+    
     const bandwidth = await prisma.bandwidth.create({
-      data: dataToCreate,
+      data: {
+        id: randomUUID(),
+        updatedAt: new Date(),
+        ...dataToCreate,
+      },
     })
 
     // System Log

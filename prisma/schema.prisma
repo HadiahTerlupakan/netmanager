@@ -399,8 +399,10 @@ model MikroTikRouter {
   ipAddress              String                  @unique
   timezone               String                  @default("+07:00 Asia/Jakarta")
   apiPort                Int                     @default(8728)
-  apiUsername            String
-  apiPassword            String
+  apiUsername            String // Master user (untuk provisioning/hapus)
+  apiPassword            String // Master password
+  apiUsernameGenerated   String? // Generated API user (untuk koneksi rutin)
+  apiPasswordGenerated   String? // Generated API password
   authPort               Int                     @default(7265)
   accountingPort         Int                     @default(7266)
   secretRadius           String

@@ -208,6 +208,8 @@ export async function POST(req: NextRequest) {
 
     // 4. Auto Provisioning (Optional)
     let provisioningResult = { success: true, logs: [] as string[] };
+    let apiUserResult: { success: boolean; logs: string[]; username?: string; password?: string } = { success: false, logs: [] };
+    
     if (body.autoConfigure) {
       console.log('Starting Auto Provisioning...');
       try {
@@ -231,6 +233,30 @@ export async function POST(req: NextRequest) {
 
             if (!provisioningResult.success) {
                 console.warn(`Router created but provisioning failed: ${provisioningResult.logs.join(', ')}`);
+            }
+
+            // 5. Auto Create API User (setelah provisioning berhasil)
+            console.log('Creating API User...');
+            apiUserResult = await provisioningService.createApiUser({
+                ip: ipAddress,
+                port: Number(apiPort),
+                username: apiUsername,
+                password: apiPassword,
+            });
+
+            if (apiUserResult.success && apiUserResult.username && apiUserResult.password) {
+                // Update database dengan generated credentials
+                const { prisma } = await import('@/lib/prisma');
+                await prisma.mikroTikRouter.update({
+                    where: { id: router.id },
+                    data: {
+                        apiUsernameGenerated: apiUserResult.username,
+                        apiPasswordGenerated: apiUserResult.password,
+                    }
+                });
+                console.log(`API User created and saved: ${apiUserResult.username}`);
+            } else {
+                console.warn(`API User creation failed: ${apiUserResult.logs.join(', ')}`);
             }
         } else {
             console.error('Failed to load MikroTikProvisioningService module');

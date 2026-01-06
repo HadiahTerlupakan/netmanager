@@ -483,13 +483,32 @@ export async function DELETE(
 
     const { id } = await params
 
-    // Ambil data profile sebelum dihapus untuk hapus di MikroTik
+    // Ambil data profile sebelum dihapus untuk cek relasi dan hapus di MikroTik
     const profile = await prisma.profilePPP.findUnique({
       where: { id },
       include: {
         mikroTikRouter: true,
+        hargaPaket: {
+          select: { id: true, name: true }
+        }
       },
     })
+
+    if (!profile) {
+      return NextResponse.json({ error: 'Profile PPP tidak ditemukan' }, { status: 404 })
+    }
+
+    // Cek apakah ada HargaPaket yang masih menggunakan profile ini
+    if (profile.hargaPaket && profile.hargaPaket.length > 0) {
+      const paketNames = profile.hargaPaket.slice(0, 3).map(p => p.name).join(', ')
+      const moreCount = profile.hargaPaket.length > 3 ? ` dan ${profile.hargaPaket.length - 3} lainnya` : ''
+      return NextResponse.json(
+        { 
+          error: `Profile PPP "${profile.name}" tidak dapat dihapus karena masih digunakan oleh ${profile.hargaPaket.length} paket (${paketNames}${moreCount}). Hapus atau ubah profile pada paket tersebut terlebih dahulu.` 
+        },
+        { status: 400 }
+      )
+    }
 
     // Hapus dari database
     await prisma.profilePPP.delete({
@@ -498,7 +517,7 @@ export async function DELETE(
 
     // Hapus profile PPP di MikroTik jika ada router
     // Juga hapus IP Pool yang terkait jika dibuat oleh netmanager
-    if (profile?.mikroTikRouterId && profile.mikroTikRouter) {
+    if (profile.mikroTikRouterId && profile.mikroTikRouter) {
       try {
         const mikrotikResult = await deletePPPProfileInMikroTik(
           profile.mikroTikRouterId,

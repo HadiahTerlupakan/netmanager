@@ -83,12 +83,16 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
     // Check status untuk setiap router secara parallel
     const checkPromises = routers.map(async (router) => {
       try {
+        // Gunakan generated API user jika tersedia, fallback ke master user
+        const apiUsername = router.apiUsernameGenerated || router.apiUsername
+        const apiPassword = router.apiPasswordGenerated || router.apiPassword
+        
         // Test API connection dan ambil jumlah user online
         const apiResult = await testMikroTikAPI(
           router.ipAddress,
           router.apiPort,
-          router.apiUsername,
-          router.apiPassword,
+          apiUsername,
+          apiPassword,
           5000
         )
 
@@ -136,12 +140,16 @@ export async function checkSingleMikroTikRouterStatus(id: string): Promise<boole
 
     if (!router) return false
 
+    // Gunakan generated API user jika tersedia, fallback ke master user
+    const apiUsername = router.apiUsernameGenerated || router.apiUsername
+    const apiPassword = router.apiPasswordGenerated || router.apiPassword
+
     // Test API connection dan ambil jumlah user online
     const apiResult = await testMikroTikAPI(
       router.ipAddress,
       router.apiPort,
-      router.apiUsername,
-      router.apiPassword,
+      apiUsername,
+      apiPassword,
       5000
     )
 

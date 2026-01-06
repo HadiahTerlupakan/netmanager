@@ -35,8 +35,10 @@ export interface MikroTikRouterPublic {
   ipAddress: string
   timezone: string
   apiPort: number
-  apiUsername: string
-  apiPassword: string
+  apiUsername: string                 // Master user (untuk provisioning/hapus)
+  apiPassword: string                 // Master password
+  apiUsernameGenerated: string | null // Generated API user (untuk koneksi rutin)
+  apiPasswordGenerated: string | null // Generated API password
   authPort: number
   accountingPort: number
   secretRadius: string

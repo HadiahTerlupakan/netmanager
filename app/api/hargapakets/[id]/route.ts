@@ -338,6 +338,32 @@ export async function DELETE(
     }
 
     const { id } = await params
+    
+    // Cek apakah ada pelanggan yang masih menggunakan paket ini
+    const hargaPaket = await prisma.hargaPaket.findUnique({
+      where: { id },
+      include: {
+        pelanggan: {
+          select: { id: true, nama: true }
+        }
+      }
+    })
+
+    if (!hargaPaket) {
+      return NextResponse.json({ error: 'Harga paket tidak ditemukan' }, { status: 404 })
+    }
+
+    if (hargaPaket.pelanggan && hargaPaket.pelanggan.length > 0) {
+      const pelangganNames = hargaPaket.pelanggan.slice(0, 3).map(p => p.nama).join(', ')
+      const moreCount = hargaPaket.pelanggan.length > 3 ? ` dan ${hargaPaket.pelanggan.length - 3} lainnya` : ''
+      return NextResponse.json(
+        { 
+          error: `Paket "${hargaPaket.name}" tidak dapat dihapus karena masih digunakan oleh ${hargaPaket.pelanggan.length} pelanggan (${pelangganNames}${moreCount}). Pindahkan pelanggan ke paket lain terlebih dahulu.` 
+        },
+        { status: 400 }
+      )
+    }
+
     await prisma.hargaPaket.delete({
       where: { id },
     })

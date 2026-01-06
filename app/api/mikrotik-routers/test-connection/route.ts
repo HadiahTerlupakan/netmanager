@@ -153,13 +153,32 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
-    const {
+    let {
       ipAddress,
       apiPort = 8728,
       apiUsername,
       apiPassword,
       routerId, // Optional: untuk update status connection di database
     } = body
+
+    // Jika routerId ada, ambil data router dari database dan gunakan generated user jika tersedia
+    if (routerId) {
+      try {
+        const routerRepository = getMikroTikRouterRepository()
+        const router = await routerRepository.findById(routerId)
+        if (router) {
+          // Override dengan data dari database
+          ipAddress = router.ipAddress
+          apiPort = router.apiPort
+          // Gunakan generated user jika tersedia, fallback ke master
+          apiUsername = router.apiUsernameGenerated || router.apiUsername
+          apiPassword = router.apiPasswordGenerated || router.apiPassword
+          console.log(`[Test Connection] Using ${router.apiUsernameGenerated ? 'generated' : 'master'} user for router ${router.name}`)
+        }
+      } catch (e) {
+        console.error('Error fetching router:', e)
+      }
+    }
 
     if (!ipAddress) {
       return NextResponse.json({ error: 'IP Address is required' }, { status: 400 })

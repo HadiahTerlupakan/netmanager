@@ -181,26 +181,56 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
   }
 
   async delete(id: string): Promise<void> {
-    // Fetch existing router first to get IP for NAS deletion
+    // Fetch existing router first to check relations and get IP for NAS deletion
     const existingRouter = await this.client.mikroTikRouter.findUnique({
       where: { id },
-      select: { ipAddress: true }
+      select: { 
+        ipAddress: true,
+        name: true,
+        profilePPP: {
+          select: { 
+            id: true, 
+            name: true,
+            hargaPaket: {
+              select: { id: true }
+            }
+          }
+        },
+      }
     });
+
+    if (!existingRouter) {
+      throw new Error('Router tidak ditemukan');
+    }
+
+    // Check for related ProfilePPP - prevent deletion if has relations
+    if (existingRouter.profilePPP && existingRouter.profilePPP.length > 0) {
+      const profileNames = existingRouter.profilePPP.map(p => p.name).join(', ');
+      const hasActivePackages = existingRouter.profilePPP.some(p => p.hargaPaket.length > 0);
+      
+      if (hasActivePackages) {
+        throw new Error(
+          `Router "${existingRouter.name}" tidak dapat dihapus karena masih memiliki ${existingRouter.profilePPP.length} Profile PPP yang terhubung (${profileNames}) dan beberapa memiliki paket harga aktif. Hapus atau pindahkan Profile PPP terlebih dahulu.`
+        );
+      } else {
+        throw new Error(
+          `Router "${existingRouter.name}" tidak dapat dihapus karena masih memiliki ${existingRouter.profilePPP.length} Profile PPP yang terhubung (${profileNames}). Hapus atau pindahkan Profile PPP terlebih dahulu.`
+        );
+      }
+    }
 
     await this.client.mikroTikRouter.delete({
       where: { id },
     })
 
     // Delete NAS
-    if (existingRouter) {
-      try {
-        const nas = await this.radiusRepo.getNasByIp(existingRouter.ipAddress);
-        if (nas && nas.id) {
-          await this.radiusRepo.deleteNas(nas.id);
-        }
-      } catch (error) {
-        console.error(`Failed to delete NAS for router ${id}:`, error);
+    try {
+      const nas = await this.radiusRepo.getNasByIp(existingRouter.ipAddress);
+      if (nas && nas.id) {
+        await this.radiusRepo.deleteNas(nas.id);
       }
+    } catch (error) {
+      console.error(`Failed to delete NAS for router ${id}:`, error);
     }
   }
 

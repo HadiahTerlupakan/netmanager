@@ -48,6 +48,7 @@ export class MikroTikPPPSecretService {
 
   /**
    * Helper: Get router config dari pelanggan
+   * Menggunakan generated API user jika tersedia, fallback ke master user
    */
   private async getRouterFromPelanggan(pelangganId: string): Promise<{
     router: RouterConfig;
@@ -73,12 +74,17 @@ export class MikroTikPPPSecretService {
     }
 
     const router = pelanggan.hargaPaket.profilePPP.mikroTikRouter;
+    
+    // Gunakan generated API user jika tersedia, fallback ke master user
+    const apiUsername = router.apiUsernameGenerated || router.apiUsername;
+    const apiPassword = router.apiPasswordGenerated || router.apiPassword;
+    
     return {
       router: {
         ipAddress: router.ipAddress,
         apiPort: router.apiPort,
-        apiUsername: router.apiUsername,
-        apiPassword: router.apiPassword,
+        apiUsername: apiUsername,
+        apiPassword: apiPassword,
       },
       routerId: router.id,
       pelanggan,
@@ -105,8 +111,8 @@ export class MikroTikPPPSecretService {
       const conn = await this.connectToRouter({
         ipAddress: router.ipAddress,
         apiPort: router.apiPort,
-        apiUsername: router.apiUsername,
-        apiPassword: router.apiPassword,
+        apiUsername: router.apiUsernameGenerated || router.apiUsername,
+        apiPassword: router.apiPasswordGenerated || router.apiPassword,
       });
 
       try {
@@ -166,8 +172,8 @@ export class MikroTikPPPSecretService {
       const conn = await this.connectToRouter({
         ipAddress: router.ipAddress,
         apiPort: router.apiPort,
-        apiUsername: router.apiUsername,
-        apiPassword: router.apiPassword,
+        apiUsername: router.apiUsernameGenerated || router.apiUsername,
+        apiPassword: router.apiPasswordGenerated || router.apiPassword,
       });
 
       try {
@@ -216,8 +222,8 @@ export class MikroTikPPPSecretService {
       const conn = await this.connectToRouter({
         ipAddress: router.ipAddress,
         apiPort: router.apiPort,
-        apiUsername: router.apiUsername,
-        apiPassword: router.apiPassword,
+        apiUsername: router.apiUsernameGenerated || router.apiUsername,
+        apiPassword: router.apiPasswordGenerated || router.apiPassword,
       });
 
       try {
@@ -265,8 +271,8 @@ export class MikroTikPPPSecretService {
       const conn = await this.connectToRouter({
         ipAddress: router.ipAddress,
         apiPort: router.apiPort,
-        apiUsername: router.apiUsername,
-        apiPassword: router.apiPassword,
+        apiUsername: router.apiUsernameGenerated || router.apiUsername,
+        apiPassword: router.apiPasswordGenerated || router.apiPassword,
       });
 
       try {

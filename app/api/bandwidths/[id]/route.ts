@@ -337,6 +337,32 @@ export async function DELETE(
     }
 
     const { id } = await params
+    
+    // Cek apakah ada HargaPaket yang masih menggunakan bandwidth ini
+    const bandwidth = await prisma.bandwidth.findUnique({
+      where: { id },
+      include: {
+        hargaPaket: {
+          select: { id: true, name: true }
+        }
+      }
+    })
+
+    if (!bandwidth) {
+      return NextResponse.json({ error: 'Bandwidth tidak ditemukan' }, { status: 404 })
+    }
+
+    if (bandwidth.hargaPaket && bandwidth.hargaPaket.length > 0) {
+      const paketNames = bandwidth.hargaPaket.slice(0, 3).map(p => p.name).join(', ')
+      const moreCount = bandwidth.hargaPaket.length > 3 ? ` dan ${bandwidth.hargaPaket.length - 3} lainnya` : ''
+      return NextResponse.json(
+        { 
+          error: `Bandwidth "${bandwidth.name}" tidak dapat dihapus karena masih digunakan oleh ${bandwidth.hargaPaket.length} paket (${paketNames}${moreCount}). Hapus atau ubah bandwidth pada paket tersebut terlebih dahulu.` 
+        },
+        { status: 400 }
+      )
+    }
+
     await prisma.bandwidth.delete({
       where: { id },
     })
