@@ -254,6 +254,27 @@ export function ClientComponent() {
             )
         },
         {
+            key: 'durasi',
+            header: 'Durasi',
+            priority: 'primary',
+            render: (item) => {
+                if (!item.checkOut) return <span className="text-gray-400 text-sm">-</span>
+
+                const start = new Date(item.checkIn).getTime()
+                const end = new Date(item.checkOut).getTime()
+                const diffMs = end - start
+                
+                const hours = Math.floor(diffMs / (1000 * 60 * 60))
+                const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+                
+                return (
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {hours}h {minutes}m
+                    </span>
+                )
+            }
+        },
+        {
             key: 'location',
             header: 'Lokasi',
             priority: 'tertiary',

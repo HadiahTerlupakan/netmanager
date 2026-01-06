@@ -77,9 +77,9 @@ export async function GET(req: NextRequest) {
     // 3. User is NOT requesting (and authorized for) view=all
     //    (Super Admins or users with Admin Panel access can view all)
     const isSuperAdmin = role === 'SUPER_ADMIN'
-    const hasAdminAccess = (session.user as any).accessAdminPanel
-
-    const canViewAll = isSuperAdmin || hasAdminAccess
+    // ONLY Super Admin can bypass site restrictions via view=all
+    // Other users with accessAdminPanel must still respect k_barang:site_only permission
+    const canViewAll = isSuperAdmin 
 
     let shouldRestrict = permissions.includes('k_barang:site_only') && siteId
 

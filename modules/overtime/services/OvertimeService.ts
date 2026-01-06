@@ -123,6 +123,14 @@ export class OvertimeService {
             },
             orderBy: {
                 checkIn: 'desc'
+            },
+            include: {
+                user: {
+                    select: {
+                        workingHourMode: true,
+                        flexibleTargetHour: true
+                    }
+                }
             }
         })
 
@@ -130,6 +138,22 @@ export class OvertimeService {
         // Jika BUKAN hari libur, dan TIDAK ADA attendance yg checkout -> error
         if (!isHoliday && !attendance) {
             throw new Error('Anda harus melakukan Checkout absen reguler terlebih dahulu sebelum memulai lembur.')
+        }
+
+        // VALIDASI KHUSUS FLEXIBLE:
+        // Cek apakah sudah memenuhi target jam kerja
+        if (attendance && attendance.user.workingHourMode === 'FLEXIBLE') {
+            const checkInTime = new Date(attendance.checkIn).getTime()
+            const checkOutTime = new Date(attendance.checkOut!).getTime() // Pasti ada krn query filter
+            const durationHours = (checkOutTime - checkInTime) / (1000 * 60 * 60)
+            
+            // Default target 8 jam jika null
+            const targetHours = attendance.user.flexibleTargetHour || 8
+
+            if (durationHours < targetHours) {
+                const shortfall = (targetHours - durationHours).toFixed(1)
+                throw new Error(`Total jam kerja Anda (${durationHours.toFixed(1)} jam) belum memenuhi target harian (${targetHours} jam). Kurang: ${shortfall} jam. Tidak dapat memulai lembur.`)
+            }
         }
 
         return this.repository.update(overtimeId, {

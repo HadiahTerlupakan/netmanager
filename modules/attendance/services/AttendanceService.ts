@@ -27,7 +27,8 @@ export class AttendanceService {
                 lateCount: (stats.statusCounts['LATE'] || 0),
                 sickCount: (stats.statusCounts['SICK'] || 0),
                 attendanceRate: stats.total > 0 ? 100 : 0,
-                lateRate: stats.total > 0 ? ((stats.statusCounts['LATE'] || 0) / stats.total) * 100 : 0
+                lateRate: stats.total > 0 ? ((stats.statusCounts['LATE'] || 0) / stats.total) * 100 : 0,
+                avgDurationMinutes: stats.avgDurationMinutes
             },
             trends: dailyStats,
             bySite: groupedBySite,

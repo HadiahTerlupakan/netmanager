@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { FiPlus, FiBox } from 'react-icons/fi'
 import { BarangTable } from '@/components/inventory/BarangTable'
+import { InventoryStats } from '@/components/inventory/InventoryStats'
 
 export default function BarangPage() {
   return (
@@ -27,24 +28,7 @@ export default function BarangPage() {
         </Link>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-          <div className="flex items-center">
-            <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-full">
-              <FiBox className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-200">
-                Total Barang
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {/* Will be populated by API */}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <InventoryStats />
 
       {/* Barang Table */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">

@@ -393,23 +393,119 @@ export async function runScheduledAttendanceCheck(
     checkIn: { usersNotified: number; details: string[] }
     checkOut: { usersNotified: number; details: string[] }
     lateCheckOut: { usersNotified: number; details: string[] }
+    flexible: { usersNotified: number; details: string[] }
 }> {
-    const [checkInResult, checkOutResult, lateCheckOutResult] = await Promise.all([
+    const [checkInResult, checkOutResult, lateCheckOutResult, flexibleReminderResult] = await Promise.all([
         processCheckInReminders(reminderMinutes),
         processCheckOutReminders(reminderMinutes),
-        processLateCheckOutReminders()
+        processLateCheckOutReminders(),
+        processFlexibleReminders()
     ])
 
     console.log('[AttendanceAlert] Scheduled check completed:', {
         checkIn: checkInResult.usersNotified,
         checkOut: checkOutResult.usersNotified,
-        lateCheckOut: lateCheckOutResult.usersNotified
+        lateCheckOut: lateCheckOutResult.usersNotified,
+        flexible: flexibleReminderResult.usersNotified
     })
 
     return {
         checkIn: checkInResult,
         checkOut: checkOutResult,
-        lateCheckOut: lateCheckOutResult
+        lateCheckOut: lateCheckOutResult,
+        flexible: flexibleReminderResult
+    }
+}
+
+/**
+ * Send reminders to Flexible users who have exceeded their target hours
+ * Triggers every ~1 hour after passing the target duration
+ */
+export async function processFlexibleReminders(): Promise<{ usersNotified: number; details: string[] }> {
+    try {
+        const now = new Date()
+        const startOfDay = new Date(now)
+        startOfDay.setHours(0, 0, 0, 0)
+        const endOfDay = new Date(now)
+        endOfDay.setHours(23, 59, 59, 999)
+
+        // Find Flexible users currently Checked-In (CheckOut is null)
+        const activeFlexibleSessions = await prisma.attendance.findMany({
+            where: {
+                checkIn: { gte: startOfDay, lte: endOfDay },
+                checkOut: null,
+                user: {
+                    isActive: true,
+                    pushToken: { not: null },
+                    workingHourMode: 'FLEXIBLE'
+                }
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        flexibleTargetHour: true,
+                        pushToken: true
+                    }
+                }
+            }
+        })
+
+        if (activeFlexibleSessions.length === 0) {
+            return { usersNotified: 0, details: [] }
+        }
+
+        const details: string[] = []
+        let notified = 0
+
+        for (const session of activeFlexibleSessions) {
+            const checkInTime = new Date(session.checkIn).getTime()
+            const currentTime = now.getTime()
+            const durationHours = (currentTime - checkInTime) / (1000 * 60 * 60)
+            const targetHours = session.user.flexibleTargetHour || 8
+
+            // Only notify if duration exceeds target
+            if (durationHours > targetHours) {
+                const excessHours = durationHours - targetHours
+                
+                // Logic to trigger roughly every hour (within 15 min window of the cron job)
+                // e.g., if excess is 1.05h (1h 3m) -> Notify
+                // if excess is 2.1h (2h 6m) -> Notify
+                // Using modulo 1 check
+                const remainder = excessHours % 1
+                
+                // Trigger if we are in the first 0.25 (15 mins) of a new hour block
+                // OR if it's the very first time crossing the threshold (within first 15 mins)
+                if (remainder >= 0 && remainder <= 0.25) {
+                    
+                    const hoursWorked = Math.floor(durationHours)
+                    const minutesWorked = Math.round((durationHours % 1) * 60)
+
+                    await sendPushNotification(
+                        session.user.id,
+                        '⏳ Reminder Durasi Kerja',
+                        `Halo ${session.user.name}, Anda telah bekerja selama ${hoursWorked} jam ${minutesWorked} menit (Target: ${targetHours} jam). Jangan lupa Check-Out jika pekerjaan sudah selesai.`,
+                        {
+                            type: 'attendance_reminder',
+                            action: 'check_out'
+                        }
+                    )
+                    
+                    notified++
+                    details.push(`${session.user.name} (${hoursWorked}h ${minutesWorked}m)`)
+                }
+            }
+        }
+
+        if (notified > 0) {
+            console.log(`[AttendanceAlert] Sent FLEXIBLE reminder to ${notified} users`)
+        }
+        
+        return { usersNotified: notified, details }
+    } catch (error) {
+        console.error('[AttendanceAlert] Error sending flexible reminders:', error)
+        return { usersNotified: 0, details: [] }
     }
 }
 

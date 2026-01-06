@@ -55,7 +55,7 @@ export function StockOpnameRecorder({ onClose, onSuccess }: StockOpnameRecorderP
   useEffect(() => {
     async function fetchGudangs() {
       try {
-        const response = await fetch('/api/inventory/gudang')
+        const response = await fetch('/api/inventory/gudang?view=all')
         const data = await response.json()
         setGudangs(data.gudangs || [])
       } catch (error) {

@@ -129,7 +129,7 @@ export function ClientComponent() {
             {data && (
                 <>
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border-l-4 border-blue-500">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -140,6 +140,21 @@ export function ClientComponent() {
                             </div>
                             <div className="mt-2 text-xs text-blue-600 font-medium">
                                 Rate: {data.attendance.summary.attendanceRate}%
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border-l-4 border-teal-500">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-gray-500 text-sm">Rata-rata Jam Kerja</p>
+                                    <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                                        {formatDuration(data.attendance.summary.avgDurationMinutes || 0)}
+                                    </p>
+                                </div>
+                                <MdAccessTime className="text-3xl text-teal-200" />
+                            </div>
+                            <div className="mt-2 text-xs text-teal-600 font-medium">
+                                per hari / karyawan
                             </div>
                         </div>
 

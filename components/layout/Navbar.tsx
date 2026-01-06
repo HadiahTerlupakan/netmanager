@@ -100,7 +100,7 @@ export default function Navbar() {
                     {session.user.name || 'User'}
                   </span>
                   <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate leading-tight">
-                    {(session.user as any).employee?.department?.name || 'Administrator'}
+                    {(session.user as any).departmentName || ((session.user as any).role || '').replace(/_/g, ' ')}
                   </span>
                 </div>
               </button>

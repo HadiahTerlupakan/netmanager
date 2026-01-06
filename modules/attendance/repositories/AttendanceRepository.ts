@@ -43,8 +43,36 @@ export class AttendanceRepository {
 
         const total = await prisma.attendance.count({ where })
 
+        // Calculate Average Working Hours
+        // Since we can't aggregate date diff in Prisma easily, we fetch records with checkout
+        const completedAttendance = await prisma.attendance.findMany({
+            where: {
+                ...where,
+                checkOut: { not: null }
+            },
+            select: {
+                checkIn: true,
+                checkOut: true
+            }
+        })
+
+        let totalDurationMinutes = 0
+        completedAttendance.forEach(att => {
+            if (att.checkOut && att.checkIn) {
+                const start = new Date(att.checkIn).getTime()
+                const end = new Date(att.checkOut).getTime()
+                const diffMinutes = (end - start) / (1000 * 60)
+                if (diffMinutes > 0) totalDurationMinutes += diffMinutes
+            }
+        })
+
+        const avgDurationMinutes = completedAttendance.length > 0
+            ? Math.round(totalDurationMinutes / completedAttendance.length)
+            : 0
+
         return {
             total,
+            avgDurationMinutes,
             statusCounts: statusCounts.reduce((acc, curr) => {
                 acc[curr.status] = curr._count._all
                 return acc

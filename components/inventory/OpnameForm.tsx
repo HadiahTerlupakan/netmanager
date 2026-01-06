@@ -39,7 +39,7 @@ export function OpnameForm({ initialData, onClose, onSuccess }: OpnameFormProps)
       try {
         const [barangRes, gudangRes] = await Promise.all([
           fetch('/api/inventory/barang'),
-          fetch('/api/inventory/gudang')
+          fetch('/api/inventory/gudang?view=all')
         ])
 
         if (barangRes.ok) {

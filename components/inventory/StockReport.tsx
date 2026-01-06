@@ -53,7 +53,7 @@ export function StockReport() {
 
     async function fetchGudangList() {
         try {
-            const response = await fetch('/api/inventory/gudang')
+            const response = await fetch('/api/inventory/gudang?view=all')
             if (!response.ok) throw new Error('Gagal memuat daftar gudang')
             const data = await response.json()
             // API returns { gudangs: [...] }
@@ -174,7 +174,7 @@ export function StockReport() {
             {!loading && !error && gudangData && (
                 <>
                     {/* Gudang Info & Summary Cards */}
-                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow p-6 text-white">
+                    <div className="bg-linear-to-r from-blue-600 to-blue-700 rounded-lg shadow p-6 text-white">
                         <div className="flex items-center gap-4 mb-4">
                             <div className="p-3 bg-white/20 rounded-lg">
                                 <FiMapPin className="h-6 w-6" />

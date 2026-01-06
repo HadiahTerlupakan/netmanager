@@ -229,7 +229,8 @@ export const authConfig: NextAuthOptions = {
                 include: {
                   permission: true
                 }
-              }
+              },
+              departments: true // Include department details
             }
           })
 
@@ -237,6 +238,9 @@ export const authConfig: NextAuthOptions = {
           token.accessAdminPanel = dbUser?.role?.accessAdminPanel ?? false
           token.accessEmployeePanel = dbUser?.role?.accessEmployeePanel ?? false
           token.permissions = dbUser?.role?.permission.map(p => `${p.resource}:${p.action}`) || []
+          
+          // Store department detail
+          token.departmentName = dbUser?.departments?.name
 
           // Handle SUPER_ADMIN special case - they should have access to everything
           if (token.role === 'SUPER_ADMIN') {
@@ -251,6 +255,7 @@ export const authConfig: NextAuthOptions = {
           console.log('[AUTH JWT] Token initialized:', {
             id: token.id,
             role: token.role,
+            department: token.departmentName,
             accessAdmin: token.accessAdminPanel,
             accessEmployee: token.accessEmployeePanel,
             permissionsCount: token.permissions?.length
@@ -273,7 +278,8 @@ export const authConfig: NextAuthOptions = {
               include: {
                 permission: true
               }
-            }
+            },
+            departments: true
           }
         })
 
@@ -282,6 +288,7 @@ export const authConfig: NextAuthOptions = {
           token.email = dbUser.email
           token.picture = dbUser.image
           token.departmentId = dbUser.departmentId
+          token.departmentName = dbUser.departments?.name
           token.siteId = dbUser.siteId
 
           token.role = dbUser.role?.name || 'USER'
@@ -308,6 +315,7 @@ export const authConfig: NextAuthOptions = {
         (session.user as any).accessEmployeePanel = token.accessEmployeePanel;
         (session.user as any).permissions = token.permissions;
         (session.user as any).departmentId = token.departmentId;
+        (session.user as any).departmentName = token.departmentName;
         (session.user as any).siteId = token.siteId;
       }
       return session
