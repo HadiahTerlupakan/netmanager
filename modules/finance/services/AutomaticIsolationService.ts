@@ -25,12 +25,6 @@ export class AutomaticIsolationService {
                 return;
             }
 
-            // 2. Get tolerance days (default 1 day)
-            const toleranceSetting = await prisma.settings.findUnique({
-                where: { key: 'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI' }
-            });
-            const toleranceDays = parseInt(toleranceSetting?.value || '1');
-
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
@@ -56,14 +50,9 @@ export class AutomaticIsolationService {
                     const dueDate = new Date(customer.jatuhTempo);
                     dueDate.setHours(0, 0, 0, 0);
 
-                    // Difference in days
+                    // Difference in days (untuk logging saja)
                     const diffTime = Math.abs(today.getTime() - dueDate.getTime());
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                    // Check tolerance
-                    if (diffDays < toleranceDays) {
-                        continue; // Within tolerance period
-                    }
 
                     console.log(`[AutoIsolation] Isolating ${customer.nama} (Due: ${customer.jatuhTempo}, Late: ${diffDays} days)`);
 

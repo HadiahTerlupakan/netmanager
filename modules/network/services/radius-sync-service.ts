@@ -1,25 +1,60 @@
 /**
  * RADIUS Sync Service
  * 
- * High-level service for syncing Pelanggan data to RADIUS tables.
+ * High-level service for syncing Pelanggan data to RADIUS tables or MikroTik.
  * Handles status changes, bandwidth updates, and bulk operations.
+ * 
+ * Mode Koneksi:
+ * - RADIUS: Pelanggan auth via FreeRADIUS
+ * - MIKROTIK_API: Pelanggan auth via PPP Secret di MikroTik langsung
  */
 
 import { PrismaClient, Status } from '@prisma/client';
 import { RadiusRepository } from '../repositories/RadiusRepository';
+import { MikroTikPPPSecretService } from './MikroTikPPPSecretService';
+
+// Connection mode types
+export type ConnectionMode = 'RADIUS' | 'MIKROTIK_API';
 
 export class RadiusSyncService {
     private radiusRepo: RadiusRepository;
+    private pppSecretService: MikroTikPPPSecretService;
 
     constructor(private prisma: PrismaClient) {
         this.radiusRepo = new RadiusRepository(prisma);
+        this.pppSecretService = new MikroTikPPPSecretService(prisma);
     }
 
     /**
-     * Sync single customer to RADIUS
+     * Get connection mode from settings
+     * Default: RADIUS (backward compatible)
+     */
+    async getConnectionMode(): Promise<ConnectionMode> {
+        try {
+            const setting = await this.prisma.settings.findUnique({
+                where: { key: 'PPP_CONNECTION_MODE' }
+            });
+            if (setting?.value === 'MIKROTIK_API') {
+                return 'MIKROTIK_API';
+            }
+        } catch (error) {
+            // Settings table might not exist or other error, default to RADIUS
+            console.warn('[RadiusSyncService] Could not read connection mode, defaulting to RADIUS');
+        }
+        return 'RADIUS';
+    }
+
+    /**
+     * Sync single customer to RADIUS or MikroTik
      */
     async syncSingleCustomer(pelangganId: string): Promise<void> {
-        await this.radiusRepo.syncPelangganToRadius(pelangganId);
+        const mode = await this.getConnectionMode();
+        
+        if (mode === 'MIKROTIK_API') {
+            await this.pppSecretService.syncNewCustomer(pelangganId);
+        } else {
+            await this.radiusRepo.syncPelangganToRadius(pelangganId);
+        }
     }
 
     /**
@@ -35,7 +70,9 @@ export class RadiusSyncService {
 
     /**
      * Handle customer status change
-     * Automatically enables/disables RADIUS user based on status
+     * - AKTIF: Sync user (RADIUS mode: sync to radcheck, API mode: create secret)
+     * - ISOLIR/NONAKTIF: Ubah profile ke "expired users" di MikroTik (SAMA untuk kedua mode)
+     * - DISMANTLE: Hapus user (RADIUS mode: hapus dari radcheck, API mode: hapus secret)
      */
     async handleStatusChange(pelangganId: string, newStatus: Status): Promise<void> {
         const pelanggan = await this.prisma.pelanggan.findUnique({
@@ -47,20 +84,33 @@ export class RadiusSyncService {
             throw new Error(`Pelanggan ${pelangganId} not found`);
         }
 
+        const mode = await this.getConnectionMode();
+
         if (newStatus === 'AKTIF') {
             // Re-sync to enable user
             await this.syncSingleCustomer(pelangganId);
-        } else if (newStatus === 'ISOLIR') {
-            // Isolir logic: For now we disable the user in RADIUS (same as NONAKTIF)
-            // In the future, this could move the user to an "Isolated" profile/pool
-            await this.radiusRepo.deleteRadiusUser(pelanggan.username);
+            // Kembalikan profile normal di MikroTik
+            await this.pppSecretService.unIsolateCustomer(pelangganId);
+
+        } else if (newStatus === 'ISOLIR' || newStatus === 'NONAKTIF') {
+            // Isolir: Ubah profile ke "expired users" di MikroTik
+            // SAMA untuk kedua mode - isolir selalu via MikroTik
+            await this.pppSecretService.isolateCustomer(pelangganId);
+
         } else if (newStatus === 'DISMANTLE') {
-            // Dismantle logic: Remove user from RADIUS
-            await this.radiusRepo.deleteRadiusUser(pelanggan.username);
+            // Dismantle: Hapus user sepenuhnya
+            if (mode === 'MIKROTIK_API') {
+                // Hapus secret dari MikroTik
+                await this.pppSecretService.dismantleCustomer(pelangganId);
+            } else {
+                // Hapus dari RADIUS + hapus secret di MikroTik jika ada
+                await this.radiusRepo.deleteRadiusUser(pelanggan.username);
+                await this.pppSecretService.dismantleCustomer(pelangganId);
+            }
+
         } else {
-            // NONAKTIF or MAINTENANCE
-            // Disable by deleting from RADIUS
-            await this.radiusRepo.deleteRadiusUser(pelanggan.username);
+            // MAINTENANCE atau status lainnya - isolir
+            await this.pppSecretService.isolateCustomer(pelangganId);
         }
     }
 

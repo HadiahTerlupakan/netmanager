@@ -1,0 +1,474 @@
+/**
+ * MikroTik PPP Secret Service
+ * 
+ * Mengelola PPP Secret di MikroTik Router untuk pelanggan PPP.
+ * Digunakan dalam mode API MikroTik (bukan RADIUS).
+ */
+
+import { PrismaClient, Status } from '@prisma/client';
+import { RouterOSAPI } from 'node-routeros-v2';
+import { prisma as defaultPrisma } from '@/lib/prisma';
+
+interface PPPSecretData {
+  name: string;
+  password: string;
+  profile: string;
+  service?: string;
+  comment?: string;
+  disabled?: boolean;
+}
+
+interface RouterConfig {
+  ipAddress: string;
+  apiPort: number;
+  apiUsername: string;
+  apiPassword: string;
+}
+
+const EXPIRED_PROFILE = 'expired users';
+const CONNECTION_TIMEOUT = 10000;
+
+export class MikroTikPPPSecretService {
+  constructor(private prisma: PrismaClient = defaultPrisma) {}
+
+  /**
+   * Helper: Connect ke MikroTik Router
+   */
+  private async connectToRouter(config: RouterConfig): Promise<RouterOSAPI> {
+    const conn = new RouterOSAPI({
+      host: config.ipAddress,
+      port: config.apiPort,
+      user: config.apiUsername,
+      password: config.apiPassword,
+      timeout: CONNECTION_TIMEOUT,
+    });
+    await conn.connect();
+    return conn;
+  }
+
+  /**
+   * Helper: Get router config dari pelanggan
+   */
+  private async getRouterFromPelanggan(pelangganId: string): Promise<{
+    router: RouterConfig;
+    routerId: string;
+    pelanggan: any;
+    profileName: string;
+  } | null> {
+    const pelanggan = await this.prisma.pelanggan.findUnique({
+      where: { id: pelangganId },
+      include: {
+        hargaPaket: {
+          include: {
+            profilePPP: {
+              include: { mikroTikRouter: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!pelanggan?.hargaPaket?.profilePPP?.mikroTikRouter) {
+      return null;
+    }
+
+    const router = pelanggan.hargaPaket.profilePPP.mikroTikRouter;
+    return {
+      router: {
+        ipAddress: router.ipAddress,
+        apiPort: router.apiPort,
+        apiUsername: router.apiUsername,
+        apiPassword: router.apiPassword,
+      },
+      routerId: router.id,
+      pelanggan,
+      profileName: pelanggan.hargaPaket.profilePPP.name,
+    };
+  }
+
+  /**
+   * Buat PPP Secret di MikroTik
+   */
+  async createSecret(
+    routerId: string,
+    data: PPPSecretData
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const router = await this.prisma.mikroTikRouter.findUnique({
+        where: { id: routerId }
+      });
+
+      if (!router) {
+        return { success: false, error: 'Router tidak ditemukan' };
+      }
+
+      const conn = await this.connectToRouter({
+        ipAddress: router.ipAddress,
+        apiPort: router.apiPort,
+        apiUsername: router.apiUsername,
+        apiPassword: router.apiPassword,
+      });
+
+      try {
+        // Cek apakah secret sudah ada
+        const existing = await conn.write('/ppp/secret/print', [
+          `?name=${data.name}`
+        ]) as any[];
+
+        if (existing && existing.length > 0) {
+          // Update jika sudah ada
+          await conn.write('/ppp/secret/set', [
+            `=.id=${existing[0]['.id']}`,
+            `=password=${data.password}`,
+            `=profile=${data.profile}`,
+            `=comment=${data.comment || 'added by netmanager'}`,
+          ]);
+        } else {
+          // Buat baru
+          await conn.write('/ppp/secret/add', [
+            `=name=${data.name}`,
+            `=password=${data.password}`,
+            `=profile=${data.profile}`,
+            `=service=${data.service || 'pppoe'}`,
+            `=comment=${data.comment || 'added by netmanager'}`,
+          ]);
+        }
+
+        conn.close();
+        return { success: true };
+      } catch (error: any) {
+        conn.close();
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('[PPPSecretService] createSecret error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Update PPP Secret profile
+   */
+  async setSecretProfile(
+    routerId: string,
+    username: string,
+    profileName: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const router = await this.prisma.mikroTikRouter.findUnique({
+        where: { id: routerId }
+      });
+
+      if (!router) {
+        return { success: false, error: 'Router tidak ditemukan' };
+      }
+
+      const conn = await this.connectToRouter({
+        ipAddress: router.ipAddress,
+        apiPort: router.apiPort,
+        apiUsername: router.apiUsername,
+        apiPassword: router.apiPassword,
+      });
+
+      try {
+        const secrets = await conn.write('/ppp/secret/print', [
+          `?name=${username}`
+        ]) as any[];
+
+        if (!secrets || secrets.length === 0) {
+          conn.close();
+          return { success: false, error: 'PPP Secret tidak ditemukan' };
+        }
+
+        await conn.write('/ppp/secret/set', [
+          `=.id=${secrets[0]['.id']}`,
+          `=profile=${profileName}`,
+        ]);
+
+        conn.close();
+        return { success: true };
+      } catch (error: any) {
+        conn.close();
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('[PPPSecretService] setSecretProfile error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Disconnect active PPPoE session
+   */
+  async disconnectSession(
+    routerId: string,
+    username: string
+  ): Promise<{ success: boolean; disconnected: number; error?: string }> {
+    try {
+      const router = await this.prisma.mikroTikRouter.findUnique({
+        where: { id: routerId }
+      });
+
+      if (!router) {
+        return { success: false, disconnected: 0, error: 'Router tidak ditemukan' };
+      }
+
+      const conn = await this.connectToRouter({
+        ipAddress: router.ipAddress,
+        apiPort: router.apiPort,
+        apiUsername: router.apiUsername,
+        apiPassword: router.apiPassword,
+      });
+
+      try {
+        // Cari active sessions
+        const sessions = await conn.write('/ppp/active/print', [
+          `?name=${username}`
+        ]) as any[];
+
+        let disconnected = 0;
+        for (const session of sessions || []) {
+          await conn.write('/ppp/active/remove', [
+            `=.id=${session['.id']}`
+          ]);
+          disconnected++;
+        }
+
+        conn.close();
+        return { success: true, disconnected };
+      } catch (error: any) {
+        conn.close();
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('[PPPSecretService] disconnectSession error:', error);
+      return { success: false, disconnected: 0, error: error.message };
+    }
+  }
+
+  /**
+   * Hapus PPP Secret dari MikroTik
+   */
+  async deleteSecret(
+    routerId: string,
+    username: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const router = await this.prisma.mikroTikRouter.findUnique({
+        where: { id: routerId }
+      });
+
+      if (!router) {
+        return { success: false, error: 'Router tidak ditemukan' };
+      }
+
+      const conn = await this.connectToRouter({
+        ipAddress: router.ipAddress,
+        apiPort: router.apiPort,
+        apiUsername: router.apiUsername,
+        apiPassword: router.apiPassword,
+      });
+
+      try {
+        // Disconnect dulu jika masih aktif
+        const activeSessions = await conn.write('/ppp/active/print', [
+          `?name=${username}`
+        ]) as any[];
+        
+        for (const session of activeSessions || []) {
+          await conn.write('/ppp/active/remove', [`=.id=${session['.id']}`]);
+        }
+
+        // Hapus secret
+        const secrets = await conn.write('/ppp/secret/print', [
+          `?name=${username}`
+        ]) as any[];
+
+        for (const secret of secrets || []) {
+          await conn.write('/ppp/secret/remove', [`=.id=${secret['.id']}`]);
+        }
+
+        conn.close();
+        return { success: true };
+      } catch (error: any) {
+        conn.close();
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('[PPPSecretService] deleteSecret error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Isolasi pelanggan: Ubah profile ke "expired users" + disconnect
+   */
+  async isolateCustomer(
+    pelangganId: string
+  ): Promise<{ success: boolean; logs: string[]; error?: string }> {
+    const logs: string[] = [];
+
+    try {
+      const data = await this.getRouterFromPelanggan(pelangganId);
+      if (!data) {
+        return { 
+          success: false, 
+          logs, 
+          error: 'Pelanggan atau router tidak ditemukan' 
+        };
+      }
+
+      const { router, routerId, pelanggan } = data;
+      logs.push(`Connecting to router ${router.ipAddress}`);
+
+      // 1. Ubah profile ke expired users
+      const profileResult = await this.setSecretProfile(
+        routerId, 
+        pelanggan.username, 
+        EXPIRED_PROFILE
+      );
+      
+      if (!profileResult.success) {
+        return { success: false, logs, error: profileResult.error };
+      }
+      logs.push(`Profile diubah ke "${EXPIRED_PROFILE}"`);
+
+      // 2. Disconnect session
+      const disconnectResult = await this.disconnectSession(
+        routerId, 
+        pelanggan.username
+      );
+      logs.push(`Disconnected ${disconnectResult.disconnected} session(s)`);
+
+      return { success: true, logs };
+    } catch (error: any) {
+      console.error('[PPPSecretService] isolateCustomer error:', error);
+      return { success: false, logs, error: error.message };
+    }
+  }
+
+  /**
+   * Un-isolasi pelanggan: Kembalikan profile normal + disconnect
+   */
+  async unIsolateCustomer(
+    pelangganId: string
+  ): Promise<{ success: boolean; logs: string[]; error?: string }> {
+    const logs: string[] = [];
+
+    try {
+      const data = await this.getRouterFromPelanggan(pelangganId);
+      if (!data) {
+        return { 
+          success: false, 
+          logs, 
+          error: 'Pelanggan atau router tidak ditemukan' 
+        };
+      }
+
+      const { router, routerId, pelanggan, profileName } = data;
+      logs.push(`Connecting to router ${router.ipAddress}`);
+
+      // 1. Kembalikan profile normal
+      const profileResult = await this.setSecretProfile(
+        routerId, 
+        pelanggan.username, 
+        profileName
+      );
+      
+      if (!profileResult.success) {
+        return { success: false, logs, error: profileResult.error };
+      }
+      logs.push(`Profile dikembalikan ke "${profileName}"`);
+
+      // 2. Disconnect session agar reload dengan profile baru
+      const disconnectResult = await this.disconnectSession(
+        routerId, 
+        pelanggan.username
+      );
+      logs.push(`Disconnected ${disconnectResult.disconnected} session(s)`);
+
+      return { success: true, logs };
+    } catch (error: any) {
+      console.error('[PPPSecretService] unIsolateCustomer error:', error);
+      return { success: false, logs, error: error.message };
+    }
+  }
+
+  /**
+   * Dismantle pelanggan: Hapus secret sepenuhnya
+   */
+  async dismantleCustomer(
+    pelangganId: string
+  ): Promise<{ success: boolean; logs: string[]; error?: string }> {
+    const logs: string[] = [];
+
+    try {
+      const data = await this.getRouterFromPelanggan(pelangganId);
+      if (!data) {
+        return { 
+          success: false, 
+          logs, 
+          error: 'Pelanggan atau router tidak ditemukan' 
+        };
+      }
+
+      const { routerId, pelanggan } = data;
+      logs.push(`Menghapus secret untuk ${pelanggan.username}`);
+
+      const result = await this.deleteSecret(routerId, pelanggan.username);
+      
+      if (!result.success) {
+        return { success: false, logs, error: result.error };
+      }
+      logs.push('PPP Secret berhasil dihapus');
+
+      return { success: true, logs };
+    } catch (error: any) {
+      console.error('[PPPSecretService] dismantleCustomer error:', error);
+      return { success: false, logs, error: error.message };
+    }
+  }
+
+  /**
+   * Sync PPP Secret saat pelanggan didaftarkan
+   */
+  async syncNewCustomer(
+    pelangganId: string
+  ): Promise<{ success: boolean; logs: string[]; error?: string }> {
+    const logs: string[] = [];
+
+    try {
+      const data = await this.getRouterFromPelanggan(pelangganId);
+      if (!data) {
+        return { 
+          success: false, 
+          logs, 
+          error: 'Pelanggan atau router tidak ditemukan' 
+        };
+      }
+
+      const { routerId, pelanggan, profileName } = data;
+      logs.push(`Creating PPP Secret untuk ${pelanggan.username}`);
+
+      const result = await this.createSecret(routerId, {
+        name: pelanggan.username,
+        password: pelanggan.password,
+        profile: profileName,
+        service: 'pppoe',
+        comment: `customer: ${pelanggan.nama}`,
+      });
+
+      if (!result.success) {
+        return { success: false, logs, error: result.error };
+      }
+      logs.push('PPP Secret berhasil dibuat');
+
+      return { success: true, logs };
+    } catch (error: any) {
+      console.error('[PPPSecretService] syncNewCustomer error:', error);
+      return { success: false, logs, error: error.message };
+    }
+  }
+}
+
+export default MikroTikPPPSecretService;

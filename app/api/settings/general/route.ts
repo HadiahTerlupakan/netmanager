@@ -219,6 +219,9 @@ export async function GET(req: NextRequest) {
             'GENERAL_DISABLE_PERPANJANGAN_PAKET',
             'GENERAL_TIMEZONE',
             'GENERAL_ATTENDANCE_TOLERANCE',
+            'PPP_CONNECTION_MODE',
+            'GENERAL_AUTO_ISOLASI_ENABLED',
+            'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI',
           ],
         },
       },
@@ -249,6 +252,9 @@ export async function GET(req: NextRequest) {
       disablePerpanjanganPaket: settingsMap.get('GENERAL_DISABLE_PERPANJANGAN_PAKET') || '5',
       timezone: settingsMap.get('GENERAL_TIMEZONE') || 'Asia/Jakarta',
       attendanceTolerance: settingsMap.get('GENERAL_ATTENDANCE_TOLERANCE') || '0',
+      pppConnectionMode: settingsMap.get('PPP_CONNECTION_MODE') || 'RADIUS',
+      autoIsolirEnabled: settingsMap.get('GENERAL_AUTO_ISOLASI_ENABLED') !== 'false',
+      autoIsolirHariToleransi: settingsMap.get('GENERAL_AUTO_ISOLASI_HARI_TOLERANSI') || '1',
     })
   } catch (error: any) {
     console.error('Error fetching general settings:', error)
@@ -297,7 +303,10 @@ export async function POST(req: NextRequest) {
       disablePerpanjanganPaket,
       timezone,
       attendanceTolerance,
-    } = body
+      pppConnectionMode,
+      autoIsolirEnabled,
+      autoIsolirHariToleransi,
+    } = body as any
 
     // Upsert semua pengaturan
     await Promise.all([
@@ -475,6 +484,60 @@ export async function POST(req: NextRequest) {
           key: 'GENERAL_ATTENDANCE_TOLERANCE',
           value: attendanceTolerance?.trim() || '0',
           description: 'Toleransi keterlambatan (menit)',
+          encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
+        },
+      }),
+
+      // PPP Connection Mode
+      prisma.settings.upsert({
+        where: { key: 'PPP_CONNECTION_MODE' },
+        update: {
+          value: pppConnectionMode || 'RADIUS',
+          description: 'Mode koneksi PPP: RADIUS atau MIKROTIK_API',
+          updatedAt: new Date(),
+        },
+        create: {
+          key: 'PPP_CONNECTION_MODE',
+          value: pppConnectionMode || 'RADIUS',
+          description: 'Mode koneksi PPP: RADIUS atau MIKROTIK_API',
+          encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
+        },
+      }),
+
+      // Auto Isolir Enabled
+      prisma.settings.upsert({
+        where: { key: 'GENERAL_AUTO_ISOLASI_ENABLED' },
+        update: {
+          value: autoIsolirEnabled === false ? 'false' : 'true',
+          description: 'Aktifkan isolir otomatis',
+          updatedAt: new Date(),
+        },
+        create: {
+          key: 'GENERAL_AUTO_ISOLASI_ENABLED',
+          value: autoIsolirEnabled === false ? 'false' : 'true',
+          description: 'Aktifkan isolir otomatis',
+          encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
+        },
+      }),
+
+      // Auto Isolir Hari Toleransi
+      prisma.settings.upsert({
+        where: { key: 'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI' },
+        update: {
+          value: autoIsolirHariToleransi?.trim() || '1',
+          description: 'Hari toleransi sebelum isolir otomatis',
+          updatedAt: new Date(),
+        },
+        create: {
+          key: 'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI',
+          value: autoIsolirHariToleransi?.trim() || '1',
+          description: 'Hari toleransi sebelum isolir otomatis',
           encrypted: false,
           updatedAt: new Date(),
           id: randomUUID()

@@ -11,6 +11,7 @@ export * from './services/onu-sync-helpers';
 export * from './services/onu-sync-incremental';
 export * from './services/onu-sync-bulk-optimized';
 export * from './services/radius-sync-service';
+export * from './services/MikroTikPPPSecretService';
 export * from './services/onu-sync';
 export * from './services/snmp-optimized';
 // Add other services as needed

@@ -23,6 +23,7 @@ type GeneralSettings = {
   disablePerpanjanganPaket: string
   timezone: string
   attendanceTolerance: string
+  pppConnectionMode: 'RADIUS' | 'MIKROTIK_API'
 }
 
 export function ClientComponent() {
@@ -41,7 +42,8 @@ export function ClientComponent() {
     invoiceOtomatis: '5',
     disablePerpanjanganPaket: '5',
     timezone: 'Asia/Jakarta',
-    attendanceTolerance: '0'
+    attendanceTolerance: '0',
+    pppConnectionMode: 'RADIUS',
   })
 
   // Update current time every second based on selected timezone
@@ -92,6 +94,7 @@ export function ClientComponent() {
           disablePerpanjanganPaket: data.disablePerpanjanganPaket || '5',
           timezone: data.timezone || 'Asia/Jakarta',
           attendanceTolerance: data.attendanceTolerance || '0',
+          pppConnectionMode: data.pppConnectionMode || 'RADIUS',
         })
       } else {
         const errorData = await res.json()
@@ -413,6 +416,44 @@ export function ClientComponent() {
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Karyawan yang check-in lewat dari jam masuk + toleransi ini akan dianggap TERLAMBAT. (0 = Tidak ada toleransi)
               </p>
+            </div>
+
+            {/* PPP Network Settings */}
+            <div className="space-y-4 p-4 bg-linear-to-r from-blue-50/50 to-cyan-50/50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                </svg>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Pengaturan Jaringan PPP
+                </span>
+              </div>
+
+              {/* Mode Koneksi */}
+              <div className="space-y-2">
+                <label htmlFor="pppConnectionMode" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Mode Koneksi PPP
+                </label>
+                <select
+                  id="pppConnectionMode"
+                  name="pppConnectionMode"
+                  value={settings.pppConnectionMode}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                >
+                  <option value="RADIUS">RADIUS - Autentikasi via FreeRADIUS Server</option>
+                  <option value="MIKROTIK_API">MikroTik API - PPP Secret langsung di Router</option>
+                </select>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {settings.pppConnectionMode === 'RADIUS' 
+                    ? 'Pelanggan diautentikasi via FreeRADIUS. User disimpan di database RADIUS.'
+                    : 'RADIUS dinonaktifkan di router. User dibuat langsung sebagai PPP Secret di MikroTik.'
+                  }
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <strong>Isolir:</strong> Kedua mode sama - ubah profile ke &quot;expired users&quot; di MikroTik.
+                </p>
+              </div>
             </div>
 
             {/* Zona Waktu */}
