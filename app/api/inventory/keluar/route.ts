@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
+import { validateGudangAccess } from '@/lib/inventory-validation'
 
 /**
  * @swagger
@@ -367,6 +368,11 @@ export async function POST(req: NextRequest) {
         { error: 'fotoMetadata harus berupa object JSON' },
         { status: 400 }
       )
+    }
+
+    const access = await validateGudangAccess(session, gudangId)
+    if (!access.allowed) {
+      return NextResponse.json({ error: access.error || 'Forbidden' }, { status: 403 })
     }
 
     try {

@@ -46,7 +46,7 @@ export function BarangTable() {
   useEffect(() => {
     async function fetchGudangs() {
       try {
-        const response = await fetch('/api/inventory/gudang')
+        const response = await fetch('/api/inventory/gudang?view=all')
         const data = await response.json()
         setGudangs(data.gudangs || [])
       } catch (error) {
@@ -183,7 +183,7 @@ export function BarangTable() {
                   title={`${stock.gudangNama}: ${stock.stok}`}
                 >
                   <span className="text-xs text-gray-600 dark:text-gray-400 mr-1">
-                    {stock.gudangKode}:
+                    {stock.gudangNama}:
                   </span>
                   <span
                     className={`px-1.5 py-0.5 text-xs rounded ${stock.stok === 0

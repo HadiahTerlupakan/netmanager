@@ -4,6 +4,7 @@ import { authConfig } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
+import { validateGudangAccess } from '@/lib/inventory-validation'
 
 /**
  * GET /api/inventory/transfer
@@ -130,6 +131,16 @@ export async function POST(req: NextRequest) {
         { error: 'fotoBukti harus berupa array URL foto' },
         { status: 400 }
       )
+    }
+
+    const accessDari = await validateGudangAccess(session, dariGudangId)
+    if (!accessDari.allowed) {
+      return NextResponse.json({ error: `Gudang Sumber: ${accessDari.error}` }, { status: 403 })
+    }
+
+    const accessKe = await validateGudangAccess(session, keGudangId)
+    if (!accessKe.allowed) {
+      return NextResponse.json({ error: `Gudang Tujuan: ${accessKe.error}` }, { status: 403 })
     }
 
     try {

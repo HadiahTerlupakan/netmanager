@@ -32,9 +32,10 @@ export function ClientComponent() {
         const data = await response.json()
         const barangData = data.barang || data
 
-        // Map stok to stockPerGudang if needed
-        if (barangData.stok && !barangData.stockPerGudang) {
-          barangData.stockPerGudang = barangData.stok.map((s: any) => ({
+        // Map stok/barangGudang to stockPerGudang if needed
+        const rawStock = barangData.barangGudang || barangData.stok
+        if (rawStock && !barangData.stockPerGudang) {
+          barangData.stockPerGudang = rawStock.map((s: any) => ({
             gudangId: s.gudangId,
             gudangKode: s.gudang?.kode,
             gudangNama: s.gudang?.nama,
@@ -259,7 +260,7 @@ export function ClientComponent() {
           ) : (
             <div className="overflow-hidden">
               <ResponsiveTable
-                data={barang.stockPerGudang}
+                data={barang.stockPerGudang || []}
                 keyField="gudangId"
                 columns={[
                   {

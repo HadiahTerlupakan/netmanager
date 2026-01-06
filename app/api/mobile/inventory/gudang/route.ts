@@ -33,10 +33,12 @@ export async function GET(req: NextRequest) {
         }
 
         // Check for Site-Based Restriction Policy
-        // Mobile users might not have full permissions object like session, so we check role permissions
-        const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || []
-        const isSuperAdmin = user.role?.name === 'SUPER_ADMIN'
-        const isSiteRestricted = !isSuperAdmin && userPermissions.includes('k_barang:site_only')
+        // Mobile users are restricted to their site by default unless SUPER_ADMIN
+        // This fixes the issue where users see Gudang outside their site
+        const isSuperAdmin = user.role?.name === 'SUPER_ADMIN';
+        
+        // Strict default: Restricted unless Super Admin
+        const isSiteRestricted = !isSuperAdmin; 
 
         let whereClause: any = { isActive: true }
 
@@ -70,16 +72,24 @@ export async function GET(req: NextRequest) {
             }
         }
 
+        console.log('[Mobile Gudang] User:', user.name, 'Role:', user.role?.name);
+        console.log('[Mobile Gudang] isSiteRestricted:', isSiteRestricted);
+        console.log('[Mobile Gudang] WhereClause:', JSON.stringify(whereClause, null, 2));
+
         const gudangs = await prisma.gudang.findMany({
             where: whereClause,
             select: {
                 id: true,
                 kode: true,
                 nama: true,
-                lokasi: true
+                lokasi: true,
+                sites: { select: { id: true, name: true } } // Debug: see attached sites
             },
             orderBy: { nama: 'asc' }
         })
+
+        console.log('[Mobile Gudang] Found:', gudangs.length, 'warehouses');
+        gudangs.forEach(g => console.log(`- ${g.nama} (Sites: ${g.sites.map(s => s.name).join(', ') || 'NONE'})`));
 
         return NextResponse.json({ gudangList: gudangs })
     } catch (error) {
