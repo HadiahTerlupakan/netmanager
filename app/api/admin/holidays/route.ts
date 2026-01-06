@@ -11,7 +11,11 @@ export async function GET(request: NextRequest) {
     if (session instanceof NextResponse) return session
 
     // Permission check
-    if (!await hasPermission('holidays:read')) {
+    // Fix: permission key is "holiday" (singular) based on permission-config.ts
+    const hasAccess = await hasPermission('holiday:read')
+    const isAdmin = session.user.role === 'ADMIN'
+
+    if (!hasAccess && !isAdmin) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -31,7 +35,10 @@ export async function POST(request: NextRequest) {
     if (session instanceof NextResponse) return session
 
     // Permission check
-    if (!await hasPermission('holidays:create')) {
+    const hasAccess = await hasPermission('holiday:create')
+    const isAdmin = session.user.role === 'ADMIN'
+
+    if (!hasAccess && !isAdmin) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
