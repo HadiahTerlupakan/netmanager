@@ -39,7 +39,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
             await createNotification({
                 type: 'SYSTEM',
-                priority: status === 'APPROVED' ? 'HIGH' : 'NORMAL',
+                priority: 'NORMAL', // Changed from HIGH to NORMAL to prevent Admin broadcast
                 title,
                 message,
                 link: '/karyawan/izin',

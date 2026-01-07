@@ -44,15 +44,20 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json()
-        const { type, startDate, endDate, reason, photos } = body
+        const { type, startDate, endDate, reason, photos, replacementDate } = body
 
         if (!type || !startDate || !endDate || !reason) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
         // Validate attachment for non-CUTI types
-        if (type !== 'CUTI' && (!photos || photos.length === 0)) {
+        if (type !== 'CUTI' && type !== 'TUKAR_LIBUR' && (!photos || photos.length === 0)) {
             return NextResponse.json({ error: 'Foto bukti wajib diupload' }, { status: 400 })
+        }
+
+        // Validate replacementDate for TUKAR_LIBUR
+        if (type === 'TUKAR_LIBUR' && !replacementDate) {
+            return NextResponse.json({ error: 'Tanggal pengganti wajib diisi untuk Tukar Libur' }, { status: 400 })
         }
 
         // Convert base64 photos to URLs
@@ -86,6 +91,7 @@ export async function POST(request: Request) {
             type: type as LeaveType,
             startDate: new Date(startDate),
             endDate: new Date(endDate),
+            replacementDate: replacementDate ? new Date(replacementDate) : null,
             reason,
             attachmentUrl: attachments.length > 0 ? attachments[0] : null,
             attachments: attachments,
@@ -97,6 +103,7 @@ export async function POST(request: Request) {
             const userData = await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } })
             const admins = await prisma.user.findMany({
                 where: {
+                    isActive: true, // Only notify active admins
                     OR: [
                         { role: { name: 'SUPER_ADMIN' } },
                         {

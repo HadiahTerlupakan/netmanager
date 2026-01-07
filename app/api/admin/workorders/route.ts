@@ -103,6 +103,7 @@ export async function GET(request: NextRequest) {
         const priority = searchParams.get('priority');
         const type = searchParams.get('type');
         const departmentId = searchParams.get('departmentId');
+        const siteId = searchParams.get('siteId');
         const assignedToId = searchParams.get('assignedToId');
         const search = searchParams.get('search');
         const unassignedOnly = searchParams.get('unassignedOnly') === 'true';
@@ -112,6 +113,7 @@ export async function GET(request: NextRequest) {
         if (priority) filters.priority = priority.includes(',') ? priority.split(',') : priority;
         if (type) filters.type = type.includes(',') ? type.split(',') : type;
         if (departmentId) filters.departmentId = departmentId;
+        if (siteId) filters.siteId = siteId;
         if (assignedToId) filters.assignedToId = assignedToId;
         if (search) filters.search = search;
         if (unassignedOnly) filters.unassignedOnly = true;

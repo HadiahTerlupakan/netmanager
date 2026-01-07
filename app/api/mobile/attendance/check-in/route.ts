@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { GeofenceService } from '@/modules/attendance/services/GeofenceService'
+import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now()
@@ -138,6 +139,15 @@ export async function POST(request: NextRequest) {
         startOfDayInTz.setHours(0, 0, 0, 0)
         // Adjust effectiveToday based on checkInTime, not server 'now'
         const effectiveToday = new Date(startOfDayInTz.getTime() - tzOffsetMs)
+
+        // Holiday Check
+        const holidayRepo = new HolidayRepository()
+        // Use nowInTz to ensure we check the holiday for the USER'S timezone date
+        const { isHoliday } = await holidayRepo.isHoliday(nowInTz)
+
+        if (isHoliday) {
+             return NextResponse.json({ error: 'Check-in gagal: Hari ini adalah Hari Libur Nasional. Gunakan menu Lembur jika memiliki jadwal lembur.' }, { status: 400 })
+        }
 
         // Geofence validation
         let geofenceStatus = 'UNKNOWN'

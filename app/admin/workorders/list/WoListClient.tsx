@@ -38,6 +38,9 @@ interface WorkOrder {
     department?: {
         name: string
     } | null
+    site?: {
+        name: string
+    } | null
     createdAt: string
 }
 
@@ -81,12 +84,14 @@ export function ClientComponent() {
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [showFilters, setShowFilters] = useState(false)
+    const [sites, setSites] = useState<{ id: string, name: string }[]>([])
 
     // Filters
     const [search, setSearch] = useState('')
     const [filterStatus, setFilterStatus] = useState('')
     const [filterPriority, setFilterPriority] = useState('')
     const [filterType, setFilterType] = useState('')
+    const [filterSite, setFilterSite] = useState('')
     const [unassignedOnly, setUnassignedOnly] = useState(false)
 
     // Approval states
@@ -106,8 +111,21 @@ export function ClientComponent() {
 
         if (session?.user && status === 'authenticated') {
             fetchWorkOrders()
+            fetchSites()
         }
-    }, [session, status, router, page, search, filterStatus, filterPriority, filterType, unassignedOnly])
+    }, [session, status, router, page, search, filterStatus, filterPriority, filterType, filterSite, unassignedOnly])
+
+    const fetchSites = async () => {
+        try {
+            const response = await fetch('/api/admin/sites?active=true')
+            if (response.ok) {
+                const data = await response.json()
+                setSites(data.sites || [])
+            }
+        } catch (error) {
+            console.error('Error fetching sites:', error)
+        }
+    }
 
     const fetchWorkOrders = async () => {
         setLoading(true)
@@ -121,6 +139,7 @@ export function ClientComponent() {
             if (filterStatus) params.append('status', filterStatus)
             if (filterPriority) params.append('priority', filterPriority)
             if (filterType) params.append('type', filterType)
+            if (filterSite) params.append('siteId', filterSite)
             if (unassignedOnly) params.append('unassignedOnly', 'true')
 
             const response = await fetch(`/api/admin/workorders?${params}`)
@@ -275,6 +294,7 @@ export function ClientComponent() {
         setFilterStatus('')
         setFilterPriority('')
         setFilterType('')
+        setFilterSite('')
         setUnassignedOnly(false)
         setSearch('')
     }
@@ -315,6 +335,16 @@ export function ClientComponent() {
                         <div className="text-xs text-gray-500 dark:text-gray-400">{wo.pelanggan.idPelanggan}</div>
                     )}
                 </div>
+            )
+        },
+        {
+            key: 'site',
+            header: 'Site',
+            priority: 'secondary',
+            render: (wo) => (
+                <span className="text-sm text-gray-900 dark:text-white">
+                    {wo.site ? wo.site.name : '-'}
+                </span>
             )
         },
         {
@@ -528,6 +558,21 @@ export function ClientComponent() {
                                 />
                                 <span className="text-sm text-gray-700 dark:text-gray-300">Unassigned Only</span>
                             </label>
+
+                        </div>
+
+                        <div className="md:col-span-4 lg:col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Site / Area</label>
+                            <select
+                                value={filterSite}
+                                onChange={(e) => setFilterSite(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 dark:bg-gray-700 dark:text-white"
+                            >
+                                <option value="">Semua Site</option>
+                                {sites.map((site) => (
+                                    <option key={site.id} value={site.id}>{site.name}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                 </div>

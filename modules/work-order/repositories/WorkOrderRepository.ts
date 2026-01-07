@@ -295,6 +295,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             where.pelangganId = filters.pelangganId;
         }
 
+        if (filters?.siteId) {
+            where.siteId = filters.siteId;
+        }
+        
         if (filters?.search) {
             const searchFilter = {
                 OR: [
@@ -339,6 +343,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                             nama: true,
                             email: true,
                             noTelp: true,
+                        },
+                    },
+                    site: {
+                        select: {
+                            id: true,
+                            name: true,
+                            code: true,
                         },
                     },
                     department: {
@@ -948,6 +959,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         id: true,
                         idPelanggan: true,
                         nama: true,
+                    },
+                },
+                site: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
                     },
                 },
                 department: {

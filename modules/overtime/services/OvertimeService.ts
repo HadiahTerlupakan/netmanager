@@ -140,9 +140,8 @@ export class OvertimeService {
             throw new Error('Anda harus melakukan Checkout absen reguler terlebih dahulu sebelum memulai lembur.')
         }
 
-        // VALIDASI KHUSUS FLEXIBLE:
-        // Cek apakah sudah memenuhi target jam kerja
-        if (attendance && attendance.user.workingHourMode === 'FLEXIBLE') {
+        // Check whether it is a holiday or not
+        if (attendance && attendance.user.workingHourMode === 'FLEXIBLE' && !isHoliday) {
             const checkInTime = new Date(attendance.checkIn).getTime()
             const checkOutTime = new Date(attendance.checkOut!).getTime() // Pasti ada krn query filter
             const durationHours = (checkOutTime - checkInTime) / (1000 * 60 * 60)

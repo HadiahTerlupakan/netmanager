@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyMobileToken } from '@/lib/mobile-auth'
+import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
 
 export async function GET(request: NextRequest) {
     try {
@@ -32,6 +33,12 @@ export async function GET(request: NextRequest) {
             prisma.attendance.count({ where: { userId } })
         ])
 
+        // Check Holiday for Today (User Filter? Timezone?)
+        // Ideally we should use user's timezone, but for now server time or basic check is okay for display.
+        // We will assume server time ~ user time for simplicity or refine later.
+        const holidayRepo = new HolidayRepository()
+        const { isHoliday, holiday } = await holidayRepo.isHoliday(new Date())
+
         return NextResponse.json({
             success: true,
             data: attendances,
@@ -40,6 +47,10 @@ export async function GET(request: NextRequest) {
                 limit,
                 total,
                 totalPages: Math.ceil(total / limit)
+            },
+            today: {
+                isHoliday,
+                holidayName: holiday?.description || null
             }
         })
 

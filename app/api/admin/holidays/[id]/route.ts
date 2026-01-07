@@ -12,7 +12,7 @@ export async function DELETE(
     const session = await requireAdmin(request)
     if (session instanceof NextResponse) return session
 
-    if (!await hasPermission('holidays:delete')) {
+    if (session.user.role !== 'ADMIN' && !await hasPermission('holiday:delete')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -32,7 +32,7 @@ export async function PUT(
     const session = await requireAdmin(request)
     if (session instanceof NextResponse) return session
 
-    if (!await hasPermission('holidays:update')) {
+    if (session.user.role !== 'ADMIN' && !await hasPermission('holiday:update')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

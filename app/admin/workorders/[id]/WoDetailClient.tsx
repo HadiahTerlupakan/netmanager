@@ -108,14 +108,14 @@ type TimelineItem =
     | { type: 'attachment'; date: Date; id: string; data: WorkOrderAttachment }
 
 const statusColors: Record<string, string> = {
-    PENDING: 'bg-gray-100 text-gray-800',
-    ASSIGNED: 'bg-blue-100 text-blue-800',
-    IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
-    ON_HOLD: 'bg-orange-100 text-orange-800',
-    COMPLETED: 'bg-green-100 text-green-800',
-    VERIFIED: 'bg-emerald-100 text-emerald-800',
-    CLOSED: 'bg-slate-100 text-slate-800',
-    CANCELLED: 'bg-red-100 text-red-800',
+    PENDING: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200',
+    ASSIGNED: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200',
+    IN_PROGRESS: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200',
+    ON_HOLD: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200',
+    COMPLETED: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200',
+    VERIFIED: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200',
+    CLOSED: 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200',
+    CANCELLED: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200',
 }
 
 export function ClientComponent() {
@@ -507,7 +507,8 @@ export function ClientComponent() {
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Work Order Info */}
-                    <div className="bg-white rounded-lg shadow p-6">
+                    {/* Work Order Info */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
                                 {editMode === 'status' ? (
@@ -515,7 +516,7 @@ export function ClientComponent() {
                                         <select
                                             value={editValues.status}
                                             onChange={(e) => setEditValues({ ...editValues, status: e.target.value })}
-                                            className="px-3 py-1 border rounded text-sm"
+                                            className="px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                         >
                                             <option value="PENDING">Pending</option>
                                             <option value="ASSIGNED">Assigned</option>
@@ -527,7 +528,7 @@ export function ClientComponent() {
                                         </select>
                                         <button
                                             onClick={() => handleUpdateField('status')}
-                                            className="p-1 bg-green-500 text-white rounded"
+                                            className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
                                         >
                                             <HiCheck className="w-4 h-4" />
                                         </button>
@@ -535,7 +536,7 @@ export function ClientComponent() {
                                 ) : (
                                     <button
                                         onClick={() => setEditMode('status')}
-                                        className="flex items-center gap-1 hover:bg-gray-50 rounded px-2 py-1"
+                                        className="flex items-center gap-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded px-2 py-1"
                                     >
                                         <span className={`px-3 py-1 text-sm font-medium rounded-full ${statusColors[workOrder.status]}`}>
                                             {workOrder.status.replace('_', ' ')}
@@ -549,7 +550,7 @@ export function ClientComponent() {
                                         <select
                                             value={editValues.priority}
                                             onChange={(e) => setEditValues({ ...editValues, priority: e.target.value })}
-                                            className="px-3 py-1 border rounded text-sm"
+                                            className="px-3 py-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                         >
                                             <option value="LOW">Low</option>
                                             <option value="NORMAL">Normal</option>
@@ -559,7 +560,7 @@ export function ClientComponent() {
                                         </select>
                                         <button
                                             onClick={() => handleUpdateField('priority')}
-                                            className="p-1 bg-green-500 text-white rounded"
+                                            className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
                                         >
                                             <HiCheck className="w-4 h-4" />
                                         </button>
@@ -567,9 +568,9 @@ export function ClientComponent() {
                                 ) : (
                                     <button
                                         onClick={() => setEditMode('priority')}
-                                        className="flex items-center gap-1 hover:bg-gray-50 rounded px-2 py-1"
+                                        className="flex items-center gap-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded px-2 py-1"
                                     >
-                                        <span className="px-2 py-1 text-xs font-medium bg-gray-100 rounded">
+                                        <span className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
                                             {workOrder.priority}
                                         </span>
                                         <HiPencil className="w-3 h-3 text-gray-400" />
@@ -580,19 +581,19 @@ export function ClientComponent() {
 
                         <div className="space-y-3 text-sm">
                             <div>
-                                <span className="text-gray-600">Type:</span>{' '}
-                                <span className="font-medium">{workOrder.type}</span>
+                                <span className="text-gray-600 dark:text-gray-400">Type:</span>{' '}
+                                <span className="font-medium text-gray-900 dark:text-gray-200">{workOrder.type}</span>
                             </div>
                             <div>
-                                <span className="text-gray-600">Description:</span>
-                                <p className="mt-1 text-gray-900">{workOrder.description}</p>
+                                <span className="text-gray-600 dark:text-gray-400">Description:</span>
+                                <p className="mt-1 text-gray-900 dark:text-gray-200">{workOrder.description}</p>
                             </div>
                             {workOrder.ticket && (
                                 <div>
-                                    <span className="text-gray-600">Related Ticket:</span>{' '}
+                                    <span className="text-gray-600 dark:text-gray-400">Related Ticket:</span>{' '}
                                     <Link
                                         href={`/admin/helpdesk/tiket/${workOrder.ticket.ticketNumber.split('-').pop()}`}
-                                        className="text-sky-600 hover:underline"
+                                        className="text-sky-600 dark:text-sky-400 hover:underline"
                                     >
                                         {workOrder.ticket.ticketNumber}
                                     </Link>
@@ -602,17 +603,17 @@ export function ClientComponent() {
                     </div>
 
                     {/* Tasks Checklist */}
-                    <div className="bg-white rounded-lg shadow p-6">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-semibold text-gray-900">Tasks Checklist</h3>
-                            <span className="text-sm text-gray-600">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">Tasks Checklist</h3>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
                                 {completedTasks}/{totalTasks} completed
                             </span>
                         </div>
 
                         {totalTasks > 0 && (
                             <div className="mb-4">
-                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                                     <div
                                         className="bg-sky-600 h-2 rounded-full transition-all"
                                         style={{ width: `${progressPercent}%` }}
@@ -623,14 +624,14 @@ export function ClientComponent() {
 
                         <div className="space-y-2 mb-4">
                             {workOrder.tasks?.map((task) => (
-                                <div key={task.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded">
+                                <div key={task.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded">
                                     <input
                                         type="checkbox"
                                         checked={task.status === 'COMPLETED'}
                                         readOnly
-                                        className="rounded border-gray-300"
+                                        className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:checked:bg-sky-600"
                                     />
-                                    <span className={task.status === 'COMPLETED' ? 'line-through text-gray-500' : ''}>
+                                    <span className={task.status === 'COMPLETED' ? 'line-through text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-200'}>
                                         {task.title}
                                     </span>
                                 </div>
@@ -644,7 +645,7 @@ export function ClientComponent() {
                                 onChange={(e) => setNewTask(e.target.value)}
                                 onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
                                 placeholder="Add new task..."
-                                className="flex-1 px-3 py-2 border rounded-lg text-sm"
+                                className="flex-1 px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                                 disabled={addingTask}
                             />
                             <button
@@ -658,12 +659,12 @@ export function ClientComponent() {
                     </div>
 
                     {/* Timeline */}
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h3 className="font-semibold text-gray-900 mb-4">Activity Timeline</h3>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Activity Timeline</h3>
 
                         {/* New Comment Input */}
                         <div className="mb-6 flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 shrink-0">
                                 <HiUserCircle className="w-6 h-6" />
                             </div>
                             <div className="flex-1">
@@ -671,7 +672,7 @@ export function ClientComponent() {
                                     value={newComment}
                                     onChange={(e) => setNewComment(e.target.value)}
                                     placeholder="Write a comment or ask a question..."
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 min-h-[80px]"
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 min-h-[80px] dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                                 />
                                 <div className="flex justify-end mt-2">
                                     <button
@@ -689,24 +690,24 @@ export function ClientComponent() {
                             {timelineItems.length > 0 ? (
                                 timelineItems.map((item) => (
                                     <div key={item.id} className="flex gap-3">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${item.type === 'comment' ? 'bg-indigo-100' :
-                                            item.type === 'update' ? 'bg-sky-100' : 'bg-orange-100'
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${item.type === 'comment' ? 'bg-indigo-100 dark:bg-indigo-900/30' :
+                                            item.type === 'update' ? 'bg-sky-100 dark:bg-sky-900/30' : 'bg-orange-100 dark:bg-orange-900/30'
                                             }`}>
                                             {item.type === 'comment' ? (
-                                                <HiChatBubbleLeft className="w-4 h-4 text-indigo-600" />
+                                                <HiChatBubbleLeft className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                                             ) : item.type === 'update' ? (
-                                                <HiClock className="w-4 h-4 text-sky-600" />
+                                                <HiClock className="w-4 h-4 text-sky-600 dark:text-sky-400" />
                                             ) : (
-                                                <HiPhoto className="w-4 h-4 text-orange-600" />
+                                                <HiPhoto className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                                             )}
                                         </div>
                                         <div className="flex-1">
                                             {item.type === 'update' || item.type === 'comment' ? (
-                                                <div className={`${(item.data as any).updateType === 'COMMENT' ? 'bg-gray-50 p-3 rounded-lg border border-gray-100' : ''}`}>
-                                                    <p className="text-sm text-gray-900 whitespace-pre-wrap">{(item.data as any).message}</p>
+                                                <div className={`${(item.data as any).updateType === 'COMMENT' ? 'bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700' : ''}`}>
+                                                    <p className="text-sm text-gray-900 dark:text-gray-200 whitespace-pre-wrap">{(item.data as any).message}</p>
                                                 </div>
                                             ) : (
-                                                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-1 inline-block">
+                                                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600 mb-1 inline-block">
                                                     <a
                                                         href={item.data.filePath}
                                                         target="_blank"
@@ -720,13 +721,13 @@ export function ClientComponent() {
                                                         />
                                                     </a>
                                                     {item.data.caption && (
-                                                        <p className="text-xs text-gray-600 italic">
+                                                        <p className="text-xs text-gray-600 dark:text-gray-400 italic">
                                                             {item.data.caption.replace(/^\[(HOLD|NOTE)\]\s*/, '')}
                                                         </p>
                                                     )}
                                                 </div>
                                             )}
-                                            <p className="text-xs text-gray-500 mt-1">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                 {item.type === 'update' || item.type === 'comment' ? (
                                                     <>
                                                         {(item.data as any).createdBy && `${(item.data as any).createdBy.firstName} ${(item.data as any).createdBy.lastName} · `}
@@ -743,7 +744,7 @@ export function ClientComponent() {
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-sm text-gray-500">No activity yet</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">No activity yet</p>
                             )}
                         </div>
                     </div>
@@ -752,41 +753,41 @@ export function ClientComponent() {
                 {/* Sidebar */}
                 <div className="space-y-6">
                     {/* Customer Info */}
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                             <HiUserCircle className="w-5 h-5" />
                             Customer Info
                             {!workOrder.pelanggan && (
-                                <span className="text-xs font-normal bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Guest</span>
+                                <span className="text-xs font-normal bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">Guest</span>
                             )}
                         </h3>
                         <div className="space-y-3 text-sm">
                             <div>
-                                <p className="text-gray-600">Name</p>
-                                <p className="font-medium">{workOrder.pelanggan?.nama || workOrder.contactName || '-'}</p>
+                                <p className="text-gray-600 dark:text-gray-400">Name</p>
+                                <p className="font-medium text-gray-900 dark:text-white">{workOrder.pelanggan?.nama || workOrder.contactName || '-'}</p>
                             </div>
                             {workOrder.pelanggan?.idPelanggan && (
                                 <div>
-                                    <p className="text-gray-600">ID</p>
-                                    <p className="font-medium">{workOrder.pelanggan.idPelanggan}</p>
+                                    <p className="text-gray-600 dark:text-gray-400">ID</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">{workOrder.pelanggan.idPelanggan}</p>
                                 </div>
                             )}
                             {(workOrder.pelanggan?.email) && (
                                 <div>
-                                    <p className="text-gray-600">Email</p>
-                                    <p className="font-medium">{workOrder.pelanggan.email}</p>
+                                    <p className="text-gray-600 dark:text-gray-400">Email</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">{workOrder.pelanggan.email}</p>
                                 </div>
                             )}
                             {(workOrder.pelanggan?.noTelp || workOrder.contactPhone) && (
                                 <div>
-                                    <p className="text-gray-600">Phone</p>
-                                    <p className="font-medium">{workOrder.pelanggan?.noTelp || workOrder.contactPhone}</p>
+                                    <p className="text-gray-600 dark:text-gray-400">Phone</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">{workOrder.pelanggan?.noTelp || workOrder.contactPhone}</p>
                                 </div>
                             )}
                             {workOrder.locationAddress && (
                                 <div>
-                                    <p className="text-gray-600">Address</p>
-                                    <p className="font-medium">{workOrder.locationAddress}</p>
+                                    <p className="text-gray-600 dark:text-gray-400">Address</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">{workOrder.locationAddress}</p>
                                 </div>
                             )}
                         </div>
@@ -794,22 +795,22 @@ export function ClientComponent() {
 
                     {/* Completion Report - Only Show if Completed */}
                     {(workOrder.status === 'COMPLETED' || workOrder.status === 'VERIFIED' || workOrder.status === 'CLOSED') && (
-                        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-emerald-500">
-                            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-emerald-500">
+                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                 <HiCheckCircle className="w-5 h-5 text-emerald-600" />
                                 Laporan Penyelesaian
                             </h3>
 
                             <div className="space-y-4">
                                 <div>
-                                    <h4 className="text-sm font-medium text-gray-700 mb-1">Catatan Penyelesaian</h4>
-                                    <div className="bg-emerald-50 rounded-lg p-3 text-sm text-gray-800">
+                                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catatan Penyelesaian</h4>
+                                    <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-3 text-sm text-gray-800 dark:text-emerald-100">
                                         {workOrder.resolutionNotes || <span className="text-gray-400 italic">Tidak ada catatan</span>}
                                     </div>
                                 </div>
 
                                 <div>
-                                    <h4 className="text-sm font-medium text-gray-700 mb-2">Foto Dokumentasi ({completionAttachments.length})</h4>
+                                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Foto Dokumentasi ({completionAttachments.length})</h4>
                                     {completionAttachments.length > 0 ? (
                                         <div className="grid grid-cols-2 gap-2">
                                             {completionAttachments.map((att) => (
@@ -823,18 +824,18 @@ export function ClientComponent() {
                                                     <img
                                                         src={att.filePath}
                                                         alt="Bukti Selesai"
-                                                        className="w-full h-full object-cover rounded-lg border border-gray-200 group-hover:border-emerald-500 transition-colors"
+                                                        className="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-gray-700 group-hover:border-emerald-500 transition-colors"
                                                     />
                                                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg" />
                                                 </a>
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-gray-500 italic">Tidak ada foto dokumentasi</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 italic">Tidak ada foto dokumentasi</p>
                                     )}
                                 </div>
 
-                                <div className="pt-2 border-t border-gray-100 flex justify-between text-xs text-gray-500">
+                                <div className="pt-2 border-t border-gray-100 dark:border-gray-700 flex justify-between text-xs text-gray-500 dark:text-gray-400">
                                     <span>Diselesaikan oleh: {workOrder.assignedTo?.name}</span>
                                     <span>{workOrder.completedAt ? format(new Date(workOrder.completedAt), 'dd MMM HH:mm', { locale: localeId }) : '-'}</span>
                                 </div>
@@ -843,32 +844,32 @@ export function ClientComponent() {
                     )}
 
                     {/* Assignment */}
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h3 className="font-semibold text-gray-900 mb-4">Assignment</h3>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Assignment</h3>
                         {workOrder.assignedTo ? (
                             <div className="text-sm">
-                                <p className="text-gray-600">Assigned to:</p>
-                                <p className="font-medium text-gray-900">
+                                <p className="text-gray-600 dark:text-gray-400">Assigned to:</p>
+                                <p className="font-medium text-gray-900 dark:text-white">
                                     {workOrder.assignedTo.name}
                                 </p>
                             </div>
                         ) : (
-                            <p className="text-sm text-gray-500">Not assigned yet</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Not assigned yet</p>
                         )}
                         {workOrder.department && (
                             <div className="text-sm mt-3">
-                                <p className="text-gray-600">Department:</p>
-                                <p className="font-medium text-gray-900">{workOrder.department.name}</p>
+                                <p className="text-gray-600 dark:text-gray-400">Department:</p>
+                                <p className="font-medium text-gray-900 dark:text-white">{workOrder.department.name}</p>
                             </div>
                         )}
                         {workOrder.assignments && workOrder.assignments.filter((a: any) => a.role === 'PARTNER').length > 0 && (
                             <div className="text-sm mt-3">
-                                <p className="text-gray-600">Partner:</p>
+                                <p className="text-gray-600 dark:text-gray-400">Partner:</p>
                                 <div className="space-y-1 mt-1">
                                     {workOrder.assignments
                                         .filter((a: any) => a.role === 'PARTNER')
                                         .map((a: any) => (
-                                            <p key={a.id} className="font-medium text-gray-900">{a.user?.name || a.user?.firstName + ' ' + a.user?.lastName}</p>
+                                            <p key={a.id} className="font-medium text-gray-900 dark:text-white">{a.user?.name || a.user?.firstName + ' ' + a.user?.lastName}</p>
                                         ))}
                                 </div>
                             </div>
@@ -877,22 +878,22 @@ export function ClientComponent() {
 
                     {/* Schedule */}
                     {workOrder.scheduledDate && (
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                 <HiCalendar className="w-5 h-5" />
                                 Schedule
                             </h3>
                             <div className="space-y-2 text-sm">
                                 <div>
-                                    <p className="text-gray-600">Date</p>
-                                    <p className="font-medium">
+                                    <p className="text-gray-600 dark:text-gray-400">Date</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">
                                         {format(new Date(workOrder.scheduledDate), 'dd MMM yyyy', { locale: localeId })}
                                     </p>
                                 </div>
                                 {workOrder.scheduledTimeStart && (
                                     <div>
-                                        <p className="text-gray-600">Time</p>
-                                        <p className="font-medium">
+                                        <p className="text-gray-600 dark:text-gray-400">Time</p>
+                                        <p className="font-medium text-gray-900 dark:text-white">
                                             {workOrder.scheduledTimeStart}
                                             {workOrder.scheduledTimeEnd && ` - ${workOrder.scheduledTimeEnd}`}
                                         </p>
@@ -904,18 +905,18 @@ export function ClientComponent() {
 
                     {/* Location */}
                     {workOrder.locationAddress && (
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                 <HiMapPin className="w-5 h-5" />
                                 Location
                             </h3>
-                            <p className="text-sm text-gray-900">{workOrder.locationAddress}</p>
+                            <p className="text-sm text-gray-900 dark:text-white">{workOrder.locationAddress}</p>
                             {workOrder.contactName && (
                                 <div className="mt-3 text-sm">
-                                    <p className="text-gray-600">Contact</p>
-                                    <p className="font-medium">{workOrder.contactName}</p>
+                                    <p className="text-gray-600 dark:text-gray-400">Contact</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">{workOrder.contactName}</p>
                                     {workOrder.contactPhone && (
-                                        <p className="text-gray-600">{workOrder.contactPhone}</p>
+                                        <p className="text-gray-600 dark:text-gray-400">{workOrder.contactPhone}</p>
                                     )}
                                 </div>
                             )}
@@ -924,8 +925,8 @@ export function ClientComponent() {
 
                     {/* Completion Photos */}
                     {completionAttachments.length > 0 && (
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                 <HiPhoto className="w-5 h-5" />
                                 Bukti Penyelesaian ({completionAttachments.length} foto)
                             </h3>
@@ -941,7 +942,7 @@ export function ClientComponent() {
                                         <img
                                             src={attachment.filePath}
                                             alt={attachment.caption || 'Bukti Penyelesaian'}
-                                            className="w-full h-32 object-cover rounded-lg border border-gray-200 group-hover:opacity-90 transition-opacity"
+                                            className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-700 group-hover:opacity-90 transition-opacity"
                                         />
                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-lg transition-colors flex items-center justify-center">
                                             <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-medium transition-opacity">
@@ -949,7 +950,7 @@ export function ClientComponent() {
                                             </span>
                                         </div>
                                         {attachment.caption && (
-                                            <p className="text-xs text-gray-500 mt-1 text-center truncate">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center truncate">
                                                 {attachment.caption.replace(/^\[COMPLETION\]\s*/, '')}
                                             </p>
                                         )}
@@ -964,17 +965,17 @@ export function ClientComponent() {
             {/* Reject Modal */}
             {showRejectModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
                         <div className="p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Tolak Hasil Pekerjaan</h3>
-                            <p className="text-sm text-gray-500 mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Tolak Hasil Pekerjaan</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                                 Work order akan dikembalikan ke status In Progress. Silakan berikan alasan penolakan untuk petugas.
                             </p>
                             <textarea
                                 value={rejectReason}
                                 onChange={(e) => setRejectReason(e.target.value)}
                                 placeholder="Alasan penolakan (wajib diisi)..."
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px]"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px] dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                             />
                             <div className="flex justify-end gap-3 mt-6">
                                 <button
@@ -982,7 +983,7 @@ export function ClientComponent() {
                                         setShowRejectModal(false)
                                         setRejectReason('')
                                     }}
-                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                                 >
                                     Batal
                                 </button>
@@ -1001,17 +1002,17 @@ export function ClientComponent() {
             {/* Cancel Modal */}
             {showCancelModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
                         <div className="p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Batalkan Work Order</h3>
-                            <p className="text-sm text-gray-500 mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Batalkan Work Order</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                                 Tindakan ini tidak dapat dibatalkan. Work order akan ditandai sebagai Cancelled.
                             </p>
                             <textarea
                                 value={cancelReason}
                                 onChange={(e) => setCancelReason(e.target.value)}
                                 placeholder="Alasan pembatalan (wajib diisi)..."
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px]"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px] dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                             />
                             <div className="flex justify-end gap-3 mt-6">
                                 <button
@@ -1019,7 +1020,7 @@ export function ClientComponent() {
                                         setShowCancelModal(false)
                                         setCancelReason('')
                                     }}
-                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                                 >
                                     Kembali
                                 </button>
@@ -1039,25 +1040,25 @@ export function ClientComponent() {
             {/* Verify Confirm Modal */}
             {showVerifyModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200">
                         <div className="p-6">
                             <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                                    <HiCheckCircle className="w-6 h-6 text-emerald-600" />
+                                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+                                    <HiCheckCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                                 </div>
-                                <h3 className="text-lg font-semibold text-gray-900">Verifikasi Work Order</h3>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Verifikasi Work Order</h3>
                             </div>
 
-                            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
                                 Apakah Anda yakin ingin memverifikasi work order ini?
                                 <br />
-                                <span className="font-medium text-gray-900">Status akan berubah menjadi VERIFIED dan stok barang akan terpotong secara permanen.</span>
+                                <span className="font-medium text-gray-900 dark:text-white">Status akan berubah menjadi VERIFIED dan stok barang akan terpotong secara permanen.</span>
                             </p>
 
                             <div className="flex justify-end gap-3">
                                 <button
                                     onClick={() => setShowVerifyModal(false)}
-                                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition-colors"
+                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
                                     disabled={processingApproval}
                                 >
                                     Batal
@@ -1085,16 +1086,16 @@ export function ClientComponent() {
             {/* Delete Modal */}
             {showDeleteModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg max-w-md w-full p-6">
-                        <h3 className="text-lg font-bold mb-4 text-red-600">Hapus Permanen Work Order?</h3>
-                        <p className="text-gray-600 mb-6">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
+                        <h3 className="text-lg font-bold mb-4 text-red-600 dark:text-red-400">Hapus Permanen Work Order?</h3>
+                        <p className="text-gray-600 dark:text-gray-400 mb-6">
                             Tindakan ini tidak dapat dibatalkan. Work Order beserta seluruh data terkait (tasks, history, lampiran) akan dihapus permanen dari database.
                         </p>
                         <div className="flex justify-end gap-3">
                             <button
                                 onClick={() => setShowDeleteModal(false)}
                                 disabled={processingApproval}
-                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                             >
                                 Batal
                             </button>

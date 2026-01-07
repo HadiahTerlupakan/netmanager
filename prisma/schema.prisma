@@ -371,6 +371,7 @@ model LeaveRequest {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime
   attachments     String[]    @default([])
+  replacementDate DateTime?
   user            User        @relation(fields: [userId], references: [id])
 
   @@index([startDate])
@@ -2114,6 +2115,7 @@ enum LeaveType {
   CUTI
   IZIN
   LAINNYA
+  TUKAR_LIBUR
 }
 
 enum LogType {

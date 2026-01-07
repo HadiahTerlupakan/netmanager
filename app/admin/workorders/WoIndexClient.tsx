@@ -9,7 +9,7 @@ import PageLoader from '@/components/ui/PageLoader'
 import { useSocketEvent } from '@/hooks/useSocket'
 
 type Statistics = { total: number; pending: number; assigned: number; inProgress: number; onHold: number; completed: number; verified: number; closed: number; cancelled: number; urgentOpen: number; avgCompletionTimeHours: number; totalCost: number; avgRating: number | null; totalWithRating: number }
-type WorkOrder = { id: string; workOrderNumber: string; title: string; status: string; priority: string; type: string; contactName?: string | null; pelanggan?: { nama: string } | null; assignedTo: { name: string } | null; department: { name: string } | null; createdAt: string }
+type WorkOrder = { id: string; workOrderNumber: string; title: string; status: string; priority: string; type: string; contactName?: string | null; pelanggan?: { nama: string } | null; assignedTo: { name: string } | null; department: { name: string } | null; site?: { name: string } | null; createdAt: string }
 type DepartmentWorkload = { departmentName: string; total: number; pending: number; inProgress: number; completed: number }
 type TopPerformer = { userName: string; role?: string; site?: string; count: number; avgCompletionTime: number }
 type IssueStatistic = { issue: string; count: number }
@@ -158,6 +158,7 @@ export function ClientComponent() {
                                             <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{wo.title}</p>
                                             <div className="flex items-center gap-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
                                                 <span>{wo.pelanggan?.nama || wo.contactName || 'Guest'}</span>
+                                                {wo.site && <span>• <span className="font-semibold">Site:</span> {wo.site.name}</span>}
                                                 {wo.assignedTo && <span>• {wo.assignedTo.name}</span>}
                                                 {wo.status === 'PENDING' && <span className="text-orange-600 dark:text-orange-400 font-medium">• Waiting: {getTimeWaiting(wo.createdAt)}</span>}
                                             </div>

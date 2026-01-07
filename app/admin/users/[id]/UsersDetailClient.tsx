@@ -21,6 +21,7 @@ import {
   HiOutlineIdentification
 } from 'react-icons/hi2'
 import WorkingHoursSettings from './WorkingHoursSettings'
+import UserPerformanceStats from './UserPerformanceStats'
 
 interface Department {
   id: string
@@ -108,6 +109,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
   const fetchDepartments = async () => {
     try {
       const res = await fetch('/api/admin/departments')
+      if (res.status === 403) return // Ignore forbidden
       const data = await res.json()
       if (res.ok) {
         setDepartments(data.data || [])
@@ -120,6 +122,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
   const fetchRoles = async () => {
     try {
       const res = await fetch('/api/roles')
+      if (res.status === 403) return // Ignore forbidden
       const data = await res.json()
       if (res.ok) {
         setRoles(Array.isArray(data) ? data : [])
@@ -132,6 +135,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
   const fetchSites = async () => {
     try {
       const res = await fetch('/api/admin/sites?activeOnly=true')
+      if (res.status === 403) return // Ignore forbidden
       const data = await res.json()
       if (res.ok) {
         setSites(data.data || [])
@@ -415,6 +419,10 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
             </p>
           </div>
         </div>
+
+        {/* User Performance Stats (New Metric Section) */}
+        <UserPerformanceStats userId={id as string} />
+
       </div>
     )
   }
