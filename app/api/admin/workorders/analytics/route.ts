@@ -62,10 +62,29 @@ export async function GET(request: NextRequest) {
             departmentIdFilter = user.departmentId;
         }
 
+        // NEW: Enforce Site Restriction Logic
+        let siteIdFilter: string | undefined = undefined;
+        const hasSiteRestriction = user.permissions?.includes('workorders:site_only');
+        
+        if (hasSiteRestriction && !isSuperAdmin) {
+            if (!user.siteId) {
+                 return NextResponse.json({
+                    success: true,
+                    data: {
+                        issues: [],
+                        sites: [],
+                        disconnections: []
+                    },
+                    message: "Restricted access: No site assigned."
+                });
+            }
+            siteIdFilter = user.siteId;
+        }
+
         const [issueStats, siteStats, disconnectionStats] = await Promise.all([
-            workOrderRepo.getIssueStatistics(5, dateFrom, dateTo, departmentIdFilter),
-            workOrderRepo.getSiteStatistics(5, dateFrom, dateTo, departmentIdFilter),
-            workOrderRepo.getDisconnectionStatistics(dateFrom, dateTo, departmentIdFilter)
+            workOrderRepo.getIssueStatistics(5, dateFrom, dateTo, departmentIdFilter, siteIdFilter),
+            workOrderRepo.getSiteStatistics(5, dateFrom, dateTo, departmentIdFilter, siteIdFilter),
+            workOrderRepo.getDisconnectionStatistics(dateFrom, dateTo, departmentIdFilter, siteIdFilter)
         ]);
 
         return NextResponse.json({

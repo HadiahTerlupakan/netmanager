@@ -29,6 +29,7 @@ export const odpCreateSchema = z.object({
   odcId: z.string().min(1, 'ODC wajib dipilih'),
   odcOutputId: z.string().min(1, 'Slot wajib dipilih'),
   outputs: z.array(odpOutputSchema).optional(),
+  siteId: z.string().optional(),
 })
 
 export const odpUpdateSchema = odpCreateSchema.partial().refine(

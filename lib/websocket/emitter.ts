@@ -62,13 +62,14 @@ export const socketEmitter = {
     },
 
     /**
-     * Emit notification to all admins
+     * Emit notification to all admins (optionally segmented by site)
      */
-    notifyAdmins(notification: NotificationPayload) {
+    notifyAdmins(notification: NotificationPayload, siteId?: string) {
         const io = getSocketServer()
         if (io) {
-            io.to('admin:notifications').emit(SOCKET_EVENTS.NOTIFICATION_NEW, notification)
-            console.log(`[WS] Emitted notification to all admins`)
+            const room = siteId ? `admin:notifications:site:${siteId}` : 'admin:notifications'
+            io.to(room).emit(SOCKET_EVENTS.NOTIFICATION_NEW, notification)
+            console.log(`[WS] Emitted notification to ${room}`)
         }
     },
 
@@ -84,34 +85,37 @@ export const socketEmitter = {
     },
 
     /**
-     * Emit new support ticket to all admins
+     * Emit new support ticket to all admins (optionally segmented by site)
      */
-    newTicket(ticket: TicketPayload) {
+    newTicket(ticket: TicketPayload, siteId?: string) {
         const io = getSocketServer()
         if (io) {
-            io.to('admin:tickets').emit(SOCKET_EVENTS.TICKET_NEW, ticket)
-            console.log(`[WS] Emitted new ticket: ${ticket.ticketNumber}`)
+            const room = siteId ? `admin:tickets:site:${siteId}` : 'admin:tickets'
+            io.to(room).emit(SOCKET_EVENTS.TICKET_NEW, ticket)
+            console.log(`[WS] Emitted new ticket to ${room}: ${ticket.ticketNumber}`)
         }
     },
 
     /**
-     * Emit ticket update to all admins
+     * Emit ticket update to all admins (optionally segmented by site)
      */
-    updateTicket(ticket: TicketPayload) {
+    updateTicket(ticket: TicketPayload, siteId?: string) {
         const io = getSocketServer()
         if (io) {
-            io.to('admin:tickets').emit(SOCKET_EVENTS.TICKET_UPDATE, ticket)
+            const room = siteId ? `admin:tickets:site:${siteId}` : 'admin:tickets'
+            io.to(room).emit(SOCKET_EVENTS.TICKET_UPDATE, ticket)
         }
     },
 
     /**
      * Emit ticket reply notification
      */
-    ticketReply(ticket: TicketPayload, targetUserId?: string) {
+    ticketReply(ticket: TicketPayload, siteId?: string, targetUserId?: string) {
         const io = getSocketServer()
         if (io) {
             // Notify admins
-            io.to('admin:tickets').emit(SOCKET_EVENTS.TICKET_REPLY, ticket)
+            const room = siteId ? `admin:tickets:site:${siteId}` : 'admin:tickets'
+            io.to(room).emit(SOCKET_EVENTS.TICKET_REPLY, ticket)
 
             // If target user specified (e.g., customer), notify them too
             if (targetUserId) {
@@ -152,23 +156,25 @@ export const socketEmitter = {
     },
 
     /**
-     * Update ticket count for admins
+     * Update ticket count for admins (optionally segmented by site)
      */
-    updateTicketCount(count: number) {
+    updateTicketCount(count: number, siteId?: string) {
         const io = getSocketServer()
         if (io) {
             const payload: CountPayload = { count }
-            io.to('admin:tickets').emit(SOCKET_EVENTS.TICKET_COUNT, payload)
+            const room = siteId ? `admin:tickets:site:${siteId}` : 'admin:tickets'
+            io.to(room).emit(SOCKET_EVENTS.TICKET_COUNT, payload)
         }
     },
 
     /**
      * Emit new work order notification
      */
-    newWorkOrder(workOrder: WorkOrderPayload, departmentId?: string) {
+    newWorkOrder(workOrder: WorkOrderPayload, departmentId?: string, siteId?: string) {
         const io = getSocketServer()
         if (io) {
-            io.to('admin:workorders').emit(SOCKET_EVENTS.WORKORDER_NEW, workOrder)
+            const adminRoom = siteId ? `admin:workorders:site:${siteId}` : 'admin:workorders'
+            io.to(adminRoom).emit(SOCKET_EVENTS.WORKORDER_NEW, workOrder)
 
             if (departmentId) {
                 io.to(`department:${departmentId}`).emit(SOCKET_EVENTS.WORKORDER_NEW, workOrder)
@@ -179,10 +185,11 @@ export const socketEmitter = {
     /**
      * Emit work order update
      */
-    updateWorkOrder(workOrder: WorkOrderPayload) {
+    updateWorkOrder(workOrder: WorkOrderPayload, siteId?: string) {
         const io = getSocketServer()
         if (io) {
-            io.to('admin:workorders').emit(SOCKET_EVENTS.WORKORDER_UPDATE, workOrder)
+            const adminRoom = siteId ? `admin:workorders:site:${siteId}` : 'admin:workorders'
+            io.to(adminRoom).emit(SOCKET_EVENTS.WORKORDER_UPDATE, workOrder)
 
             // Notify assigned user if exists
             if (workOrder.assignedToId) {
@@ -247,17 +254,19 @@ export const socketEmitter = {
         barangId?: string,
         gudangId?: string,
         jumlah?: number,
-        totalStok?: number
+        totalStok?: number,
+        siteId?: string
     }) {
         const io = getSocketServer()
         if (io) {
             // Broadcast to admin:inventory room
-            io.to('admin:inventory').emit(SOCKET_EVENTS.INVENTORY_UPDATE, data)
+            const adminRoom = data.siteId ? `admin:inventory:site:${data.siteId}` : 'admin:inventory'
+            io.to(adminRoom).emit(SOCKET_EVENTS.INVENTORY_UPDATE, data)
 
             // Also emit to the user who made the transaction (for mobile real-time stats)
             io.to(`user:${data.userId}`).emit(SOCKET_EVENTS.INVENTORY_UPDATE, data)
 
-            console.log(`[WS] Emitted inventory update: ${data.type} to admin and user:${data.userId}`)
+            console.log(`[WS] Emitted inventory update: ${data.type} to ${adminRoom} and user:${data.userId}`)
         } else {
             // Fallback via HTTP
             emitViaHttp(SOCKET_EVENTS.INVENTORY_UPDATE, `user:${data.userId}`, data)

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { getOLTRepository } from '@/lib/repositories'
 import { oltUpdateSchema } from '@/lib/validations/olt'
+import { hasPermission } from '@/lib/rbac'
 
 /**
  * @swagger
@@ -44,6 +45,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!olt) {
     return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 })
   }
+
+  // RBAC: Check site restrictions
+  const isSiteRestricted = (await hasPermission("olt:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = (session.user as any).siteId;
+
+  if (isSiteRestricted) {
+    if (!userSiteId || (olt.siteId && olt.siteId !== userSiteId)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
   return NextResponse.json({ olt })
 }
 
@@ -202,6 +214,23 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   if (parsed.data.telnetPort !== undefined) data.telnetPort = parsed.data.telnetPort
 
   try {
+     const existingOlt = await oltRepository.findById(id);
+     if (!existingOlt) {
+        return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 });
+     }
+
+     // RBAC: Check site restrictions
+     const isSiteRestricted = (await hasPermission("olt:site_only")) && session.user.role !== 'SUPER_ADMIN';
+     const userSiteId = (session.user as any).siteId;
+
+     if (isSiteRestricted) {
+        if (!userSiteId || (existingOlt.siteId && existingOlt.siteId !== userSiteId)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+        // Force siteId to remain same or set to userSiteId
+        data.siteId = userSiteId;
+     }
+
     await oltRepository.update(id, data)
 
     // System Log
@@ -275,6 +304,21 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (session instanceof NextResponse) return session
   const { id } = await params
   const oltRepository = getOLTRepository()
+  const existingOlt = await oltRepository.findById(id);
+  if (!existingOlt) {
+      return NextResponse.json({ error: 'OLT tidak ditemukan' }, { status: 404 });
+  }
+
+  // RBAC: Check site restrictions
+  const isSiteRestricted = (await hasPermission("olt:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = (session.user as any).siteId;
+
+  if (isSiteRestricted) {
+    if (!userSiteId || (existingOlt.siteId && existingOlt.siteId !== userSiteId)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
   await oltRepository.delete(id)
 
   // System Log

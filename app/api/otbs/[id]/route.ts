@@ -4,6 +4,7 @@ import { authConfig } from '@/lib/auth'
 import { getOtbRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
 import { otbUpdateSchema } from '@/lib/validations/otb'
+import { hasPermission } from '@/lib/rbac'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -26,6 +27,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     },
   })
   if (!otb) return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+
+  // RBAC: Check site restrictions
+  const session: any = await getServerSession(authConfig as any);
+  const isSiteRestricted = session?.user && (await hasPermission("otb:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = session?.user?.siteId;
+
+  if (isSiteRestricted) {
+    if (!userSiteId || (otb.siteId && otb.siteId !== userSiteId)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
   return NextResponse.json({ otb })
 }
 
@@ -38,6 +51,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
   const { id } = await params
+
+  // RBAC: Check site restrictions
+  const isSiteRestricted = (await hasPermission("otb:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = (session.user as any).siteId;
+
+  if (isSiteRestricted) {
+     const existingOtb = await prisma.otb.findUnique({ where: { id } });
+     if (!existingOtb) return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+
+     if (!userSiteId || (existingOtb.siteId && existingOtb.siteId !== userSiteId)) {
+         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+     }
+     // Force siteId
+     parsed.data.siteId = userSiteId;
+  }
+
   const repo = getOtbRepository()
   await repo.update(id, parsed.data as any)
   return NextResponse.json({ ok: true })
@@ -54,6 +83,18 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     where: { id },
     include: { otbCore: true },
   })
+
+  if (otb) {
+      // RBAC: Check site restrictions
+      const isSiteRestricted = (await hasPermission("otb:site_only")) && session.user.role !== 'SUPER_ADMIN';
+      const userSiteId = (session.user as any).siteId;
+
+      if (isSiteRestricted) {
+        if (!userSiteId || (otb.siteId && otb.siteId !== userSiteId)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+      }
+  }
 
   if (!otb) {
     return NextResponse.json({ error: 'OTB tidak ditemukan' }, { status: 404 })

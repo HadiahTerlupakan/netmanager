@@ -31,7 +31,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     filters: import('./IMikroTikRouterRepository').RouterFilters,
     pagination: import('./IMikroTikRouterRepository').PaginationOptions
   ): Promise<import('./IMikroTikRouterRepository').PaginatedRouterResult> {
-    const { search } = filters
+    const { search, siteId } = filters
     const { page, limit } = pagination
     const skip = (page - 1) * limit
 
@@ -43,6 +43,10 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         { ipAddress: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
       ]
+    }
+
+    if (siteId) {
+      whereClause.siteId = siteId
     }
 
     const [routers, total] = await Promise.all([
@@ -91,6 +95,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         description: data.description ?? null,
         pingStatus: 'offline',
         userOnline: 0,
+        siteId: data.siteId ?? undefined,
       },
       select: { id: true, ipAddress: true, secretRadius: true, name: true, description: true },
     })
@@ -140,6 +145,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         ...(data.pingStatus !== undefined && { pingStatus: data.pingStatus }),
         ...(data.userOnline !== undefined && { userOnline: data.userOnline }),
         ...(data.lastStatusCheck !== undefined && { lastStatusCheck: data.lastStatusCheck }),
+        ...(data.siteId !== undefined && { siteId: data.siteId }),
       },
     })
 
@@ -234,20 +240,26 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     }
   }
 
-  async count(): Promise<number> {
-    return await this.client.mikroTikRouter.count()
+  async count(siteId?: string): Promise<number> {
+    const where: any = {}
+    if (siteId) where.siteId = siteId
+    return await this.client.mikroTikRouter.count({ where })
   }
 
-  async getStatistics(): Promise<MikroTikRouterStatistics> {
-    const total = await this.client.mikroTikRouter.count()
+  async getStatistics(siteId?: string): Promise<MikroTikRouterStatistics> {
+    const where: any = {}
+    if (siteId) where.siteId = siteId
+
+    const total = await this.client.mikroTikRouter.count({ where })
     const online = await this.client.mikroTikRouter.count({
-      where: { pingStatus: 'online' }
+      where: { ...where, pingStatus: 'online' }
     })
     const offline = await this.client.mikroTikRouter.count({
-      where: { pingStatus: 'offline' }
+      where: { ...where, pingStatus: 'offline' }
     })
 
     const routers = await this.client.mikroTikRouter.findMany({
+      where,
       select: { userOnline: true }
     })
     const totalUserOnline = routers.reduce((sum, router) => sum + router.userOnline, 0)

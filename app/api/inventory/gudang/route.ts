@@ -208,12 +208,24 @@ export async function POST(req: NextRequest) {
       // Generate automatic gudang code
       const kode = await generateGudangCode()
 
+      // NEW: Enforce Site Restriction on Creation
+      const permissions = (session.user as any).permissions || []
+      const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
+      const userSiteId = (session.user as any).siteId
+
+      let finalSiteIds = siteIds
+      if (!isSuperAdmin && permissions.includes('k_barang:site_only')) {
+        if (userSiteId) {
+          finalSiteIds = [userSiteId] // Force assignment to user's site
+        }
+      }
+
       const gudang = await inventoryRepository.createGudang({
         kode,
         nama,
         lokasi,
         isActive: isActive ?? true,
-        siteIds
+        siteIds: finalSiteIds
       })
 
       logger.dbOperation('create', 'Gudang', Date.now() - dbStart)

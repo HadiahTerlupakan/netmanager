@@ -6,8 +6,9 @@ import { randomUUID } from 'crypto'
 export class OLTRepository implements IOLTRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findAll(): Promise<OLTPublic[]> {
+  async findAll(siteId?: string): Promise<OLTPublic[]> {
     const olts = await this.client.olt.findMany({
+      where: siteId ? { siteId } : {},
       orderBy: { createdAt: 'desc' },
     })
     return olts
@@ -43,6 +44,7 @@ export class OLTRepository implements IOLTRepository {
         telnetUsername: data.telnetUsername ?? 'zte',
         telnetPassword: data.telnetPassword,
         telnetPort: data.telnetPort ?? 23,
+        siteId: data.siteId,
       },
       select: { id: true },
     })
@@ -72,6 +74,7 @@ export class OLTRepository implements IOLTRepository {
         ...(data.telnetUsername !== undefined && { telnetUsername: data.telnetUsername }),
         ...(data.telnetPassword !== undefined && { telnetPassword: data.telnetPassword }),
         ...(data.telnetPort !== undefined && { telnetPort: data.telnetPort }),
+        ...(data.siteId !== undefined && { siteId: data.siteId }),
       },
     })
   }

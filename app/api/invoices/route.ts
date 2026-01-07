@@ -4,6 +4,7 @@ import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { invoiceSchema } from '@/lib/validations/invoice'
 import { randomUUID } from 'crypto'
+import { hasPermission } from '@/lib/rbac'
 
 /**
  * @swagger
@@ -89,6 +90,27 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search')
 
     const where: any = {}
+    
+    // RBAC: Check site restrictions
+    if ((await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN') {
+        const userSiteId = (session.user as any).siteId
+        if (userSiteId) {
+            where.siteId = userSiteId
+        } else {
+             // User restricted but no site? Return empty
+             return NextResponse.json({
+                data: [],
+                pagination: {
+                    page,
+                    limit,
+                    total: 0,
+                    totalPages: 0,
+                    hasNext: false,
+                    hasPrev: false,
+                },
+             })
+        }
+    }
     if (status) {
       where.status = status
     }
@@ -288,6 +310,32 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // RBAC: Check site restrictions for creation
+    let finalSiteId = invoiceData.siteId
+    const isRestricted = (await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN'
+    
+    if (isRestricted) {
+         const userSiteId = (session.user as any).siteId
+         if (!userSiteId) {
+             return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
+         }
+         
+         // Ensure Pelanggan belongs to the same site
+         if (pelanggan.siteId && pelanggan.siteId !== userSiteId) {
+             return NextResponse.json({ error: 'Pelanggan tidak berada di site anda' }, { status: 403 })
+         }
+         
+         // If Pelanggan has no site, maybe prevent? Or allow if user matches?
+         // Safer to require Pelanggan site match or at least inherit user site if valid.
+         // Let's enforce that we set the invoice siteId to user's siteID
+         finalSiteId = userSiteId
+    } else {
+        // If not restricted, auto-fill siteId from Pelanggan if not provided
+        if (!finalSiteId && pelanggan.siteId) {
+            finalSiteId = pelanggan.siteId
+        }
+    }
+
     // Generate invoice number
     const currentYear = new Date().getFullYear()
     const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0')
@@ -330,6 +378,7 @@ export async function POST(req: NextRequest) {
         id: randomUUID(),
         invoiceNumber,
         ...invoiceData,
+        siteId: finalSiteId,
         subtotal,
         taxAmount,
         discountAmount,

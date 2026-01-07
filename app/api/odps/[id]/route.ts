@@ -4,6 +4,7 @@ import { authConfig } from '@/lib/auth'
 import { getOdpRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
 import { odpUpdateSchema } from '@/lib/validations/odp'
+import { hasPermission } from '@/lib/rbac'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -20,6 +21,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     include: { odcOutput: { include: { odc: true } }, odpOutput: { orderBy: { idx: 'asc' } } },
   })
   if (!odp) return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+
+  // RBAC: Check site restrictions
+  const session: any = await getServerSession(authConfig as any);
+  const isSiteRestricted = session?.user && (await hasPermission("odp:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = session?.user?.siteId;
+
+  if (isSiteRestricted) {
+    if (!userSiteId || (odp.siteId && odp.siteId !== userSiteId)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
   return NextResponse.json({ odp })
 }
 
@@ -32,6 +45,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
   const { id } = await params
+
+  // RBAC: Check site restrictions
+  const isSiteRestricted = (await hasPermission("odp:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = (session.user as any).siteId;
+
+  if (isSiteRestricted) {
+     const existingOdp = await prisma.odp.findUnique({ where: { id } });
+     if (!existingOdp) return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+
+     if (!userSiteId || (existingOdp.siteId && existingOdp.siteId !== userSiteId)) {
+         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+     }
+     // Force siteId
+     parsed.data.siteId = userSiteId;
+  }
+
   const repo = getOdpRepository()
   const updateData: any = {
     ...(parsed.data.name !== undefined && { name: parsed.data.name }),
@@ -42,6 +71,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     ...(parsed.data.longitude !== undefined && { longitude: parsed.data.longitude }),
     ...(parsed.data.status !== undefined && { status: parsed.data.status }),
     ...(parsed.data.odcOutputId !== undefined && { odcOutputId: parsed.data.odcOutputId }),
+    ...(parsed.data.siteId !== undefined && { siteId: parsed.data.siteId }),
     ...(parsed.data.outputs !== undefined && {
       outputs: parsed.data.outputs.map((o, idx) => ({
         idx: o.idx ?? idx,
@@ -81,6 +111,18 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     where: { id },
     include: { odpOutput: true },
   })
+
+  if (odp) {
+     // RBAC: Check site restrictions
+     const isSiteRestricted = (await hasPermission("odp:site_only")) && session.user.role !== 'SUPER_ADMIN';
+     const userSiteId = (session.user as any).siteId;
+
+     if (isSiteRestricted) {
+        if (!userSiteId || (odp.siteId && odp.siteId !== userSiteId)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+     }
+  }
 
   if (!odp) {
     return NextResponse.json({ error: 'ODP tidak ditemukan' }, { status: 404 })

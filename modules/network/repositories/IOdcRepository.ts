@@ -16,6 +16,7 @@ export interface OdcCreateData {
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   otbCoreId: string
   outputs?: OdcOutputData[]
+  siteId?: string | null
 }
 
 export interface OdcUpdateData {
@@ -28,6 +29,7 @@ export interface OdcUpdateData {
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   otbCoreId?: string
   outputs?: OdcOutputData[]
+  siteId?: string | null
 }
 
 export interface OdcPublic {
@@ -42,10 +44,11 @@ export interface OdcPublic {
   createdAt: Date
   updatedAt: Date
   otbCoreId: string
+  siteId: string | null
 }
 
 export interface IOdcRepository {
-  findAll(): Promise<OdcPublic[]>
+  findAll(siteId?: string): Promise<OdcPublic[]>
   findById(id: string): Promise<OdcPublic | null>
   create(data: OdcCreateData): Promise<{ id: string }>
   update(id: string, data: OdcUpdateData): Promise<void>

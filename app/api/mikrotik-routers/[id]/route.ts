@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
+import { hasPermission } from '@/lib/rbac'
 import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { mikrotikRouterUpdateSchema } from '@/lib/validations/mikrotik'
 
@@ -67,6 +68,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!router) {
       return NextResponse.json({ error: 'Router tidak ditemukan' }, { status: 404 })
     }
+
+    if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
+        const userSiteId = (session.user as any).siteId
+        if (!userSiteId || router.siteId !== userSiteId) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+    }
+
     return NextResponse.json({ router })
   } catch (error: any) {
     console.error('Error fetching MikroTik Router:', error)
@@ -190,6 +199,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const data = parsed.data
   try {
     const routerRepository = getMikroTikRouterRepository()
+
+    // Check ownership before update
+    const existingRouter = await routerRepository.findById(id)
+    if (!existingRouter) {
+        return NextResponse.json({ error: 'Router tidak ditemukan' }, { status: 404 })
+    }
+
+    if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
+        const userSiteId = (session.user as any).siteId
+        if (!userSiteId || existingRouter.siteId !== userSiteId) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+        // Force siteId to remain unchanged or set to user's site
+        data.siteId = userSiteId
+    }
+
     await routerRepository.update(id, {
       name: data.name,
       ipAddress: data.ipAddress,
@@ -202,6 +227,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       secretRadius: data.secretRadius,
       isolirUrl: data.isolirUrl,
       description: data.description,
+      siteId: data.siteId,
     })
 
     // System Log
@@ -279,6 +305,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const router = await routerRepository.findById(id)
     
     if (router) {
+         if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
+            const userSiteId = (session.user as any).siteId
+            if (!userSiteId || router.siteId !== userSiteId) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            }
+        }
          // Auto Deprovisioning
          try {
             // Lazy load service

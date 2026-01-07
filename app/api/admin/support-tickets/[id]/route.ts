@@ -40,6 +40,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                         noTelp: true,
                         alamat: true,
                         status: true,
+
+                        siteId: true,
                         hargaPaket: {
                             select: {
                                 name: true,
@@ -74,6 +76,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 { success: false, error: 'Tiket tidak ditemukan' },
                 { status: 404 }
             )
+        }
+
+
+        // Site restriction check
+        if ((await hasPermission('support:site_only')) && user.role !== 'SUPER_ADMIN') {
+            if (!user.siteId) {
+                return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
+            }
+            if (ticket.pelanggan?.siteId !== user.siteId) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            }
         }
 
         return NextResponse.json({
@@ -112,6 +125,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         // Find ticket first
         const existingTicket = await prisma.supportTickets.findUnique({
             where: { id },
+             include: {
+                pelanggan: {
+                    select: {
+                        siteId: true
+                    }
+                }
+            }
         })
 
         if (!existingTicket) {
@@ -119,6 +139,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                 { success: false, error: 'Tiket tidak ditemukan' },
                 { status: 404 }
             )
+        }
+
+
+        // Site restriction check
+        if ((await hasPermission('support:site_only')) && user.role !== 'SUPER_ADMIN') {
+            if (!user.siteId) {
+                return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
+            }
+            if (existingTicket.pelanggan?.siteId !== user.siteId) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            }
         }
 
         const updateData: any = {}
@@ -206,6 +237,81 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         console.error('[Admin Support Ticket PATCH] Error:', error)
         return NextResponse.json(
             { success: false, error: 'Gagal mengupdate tiket' },
+            { status: 500 }
+        )
+    }
+}
+
+/**
+ * DELETE /api/admin/support-tickets/[id]
+ * Delete ticket
+ */
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+    const user = await verifyAuth(request)
+    if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!await hasPermission('support:delete')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { id } = await params
+
+    try {
+        const ticket = await prisma.supportTickets.findUnique({
+            where: { id },
+             include: {
+                pelanggan: {
+                    select: {
+                        siteId: true
+                    }
+                }
+            }
+        })
+
+        if (!ticket) {
+            return NextResponse.json(
+                { success: false, error: 'Tiket tidak ditemukan' },
+                { status: 404 }
+            )
+        }
+
+        // Site restriction check
+        if ((await hasPermission('support:site_only')) && user.role !== 'SUPER_ADMIN') {
+            if (!user.siteId) {
+                return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
+            }
+            if (ticket.pelanggan?.siteId !== user.siteId) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            }
+        }
+
+        await prisma.supportTickets.delete({
+            where: { id },
+        })
+
+          // System Log
+        try {
+            const { logger } = await import('@/lib/logger');
+            await logger.logActivity({
+                action: 'DELETE',
+                subject: 'Support Ticket',
+                userId: user.id,
+                details: { id: ticket.id }
+            });
+        } catch (e) {
+            console.error('Logging failed', e);
+        }
+
+        return NextResponse.json({
+            success: true,
+            message: 'Tiket berhasil dihapus',
+        })
+    } catch (error) {
+        console.error('[Admin Support Ticket DELETE] Error:', error)
+        return NextResponse.json(
+            { success: false, error: 'Gagal menghapus tiket' },
             { status: 500 }
         )
     }

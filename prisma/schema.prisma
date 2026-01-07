@@ -212,11 +212,14 @@ model Expense {
   userId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime
+  siteId      String?
   user        User?    @relation(fields: [userId], references: [id])
+  site        Sites?   @relation(fields: [siteId], references: [id])
 
   @@index([category])
   @@index([date])
   @@index([userId])
+  @@index([siteId])
 }
 
 model HargaPaket {
@@ -277,7 +280,9 @@ model Invoice {
   createdBy      String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime
+  siteId         String?
   pelanggan      Pelanggan     @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  site           Sites?        @relation(fields: [siteId], references: [id])
   invoiceItem    InvoiceItem[]
   payment        Payment[]
 
@@ -286,6 +291,7 @@ model Invoice {
   @@index([issueDate])
   @@index([pelangganId])
   @@index([status])
+  @@index([siteId])
 }
 
 model InvoiceItem {
@@ -414,12 +420,15 @@ model MikroTikRouter {
   lastStatusCheck        DateTime?
   createdAt              DateTime                @default(now())
   updatedAt              DateTime
+  siteId                 String?
+  site                   Sites?                  @relation(fields: [siteId], references: [id])
   profilePPP             ProfilePPP[]
   configuration_restores ConfigurationRestores[]
   network_alerts         NetworkAlerts[]
   network_performance    NetworkPerformance[]
 
   @@index([pingStatus])
+  @@index([siteId])
 }
 
 model Odc {
@@ -435,7 +444,11 @@ model Odc {
   otbCoreId                   String      @unique
   keteranganJumlahKabelFeeder String?
   otbCore                     OtbCore     @relation(fields: [otbCoreId], references: [id])
+  siteId                      String?
   odcOutput                   OdcOutput[]
+  site                        Sites?      @relation(fields: [siteId], references: [id])
+
+  @@index([siteId])
 }
 
 model OdcOutput {
@@ -465,8 +478,12 @@ model Odp {
   odcOutputId                 String      @unique
   keteranganJumlahKabelFeeder String?
   odcOutput                   OdcOutput   @relation(fields: [odcOutputId], references: [id])
+  siteId                      String?
   odpOutput                   OdpOutput[]
   pelanggan                   Pelanggan[]
+  site                        Sites?      @relation(fields: [siteId], references: [id])
+
+  @@index([siteId])
 }
 
 model OdpOutput {
@@ -512,6 +529,10 @@ model Olt {
   configuration_restores ConfigurationRestores[]
   network_alerts         NetworkAlerts[]
   network_performance    NetworkPerformance[]
+  siteId                 String?
+  site                   Sites?                  @relation(fields: [siteId], references: [id])
+
+  @@index([siteId])
 }
 
 model Onu {
@@ -637,7 +658,11 @@ model Otb {
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime
   keteranganJumlahKabelFeeder String?
+  siteId                      String?
   otbCore                     OtbCore[]
+  site                        Sites?    @relation(fields: [siteId], references: [id])
+
+  @@index([siteId])
 }
 
 model OtbCore {
@@ -782,12 +807,15 @@ model Pelanggan {
   hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])
   odp                           Odp?                @relation(fields: [odpId], references: [id])
   user                          User?               @relation(fields: [userId], references: [id])
+  siteId                        String?
+  site                          Sites?              @relation(fields: [siteId], references: [id])
   customer_usage                CustomerUsage[]
   service_suspension            ServiceSuspension[]
   support_tickets               SupportTickets[]
   work_orders                   WorkOrders[]
 
   @@index([email])
+  @@index([siteId])
   @@index([hargaPaketId])
   @@index([idPelanggan])
   @@index([jatuhTempo])
@@ -820,6 +848,10 @@ model Pole {
   status     Status   @default(AKTIF)
   createdAt  DateTime @default(now())
   updatedAt  DateTime
+  siteId     String?
+  site       Sites?   @relation(fields: [siteId], references: [id])
+
+  @@index([siteId])
 }
 
 model ProfilePPP {
@@ -893,6 +925,8 @@ model Role {
   isRestricted        Boolean      @default(false)
   user                User[]
   permission          Permission[]
+
+  @@map("roles")
 }
 
 model Session {
@@ -1356,6 +1390,7 @@ model Notifications {
   message      String
   link         String?
   isRead       Boolean      @default(false)
+  siteId       String?
   departmentId String?
   sourceType   String?
   sourceId     String?
@@ -1363,6 +1398,7 @@ model Notifications {
   readAt       DateTime?
   userId       String?
   departments  Departments? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  sites        Sites?       @relation(fields: [siteId], references: [id], onDelete: Cascade)
   user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
@@ -1667,20 +1703,30 @@ model ServiceSuspension {
 }
 
 model Sites {
-  id               String       @id
-  code             String       @unique
+  id               String           @id
+  code             String           @unique
   name             String
   description      String?
   address          String?
   latitude         Float?
   longitude        Float?
-  isActive         Boolean      @default(true)
-  createdAt        DateTime     @default(now())
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
   updatedAt        DateTime
-  attendanceRadius Int          @default(100)
+  attendanceRadius Int              @default(100)
   user             User[]
   work_orders      WorkOrders[]
-  gudang           Gudang[]     @relation("GudangToSite")
+  gudang           Gudang[]         @relation("GudangToSite")
+  pelanggan        Pelanggan[]
+  mikrotikRouter   MikroTikRouter[]
+  expenses         Expense[]
+  invoices         Invoice[]
+  olts             Olt[]
+  otbs             Otb[]
+  poles            Pole[]
+  odcs             Odc[]
+  odps             Odp[]
+  notifications    Notifications[]
 
   @@index([isActive])
   @@map("sites")

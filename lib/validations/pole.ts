@@ -18,6 +18,7 @@ export const poleCreateSchema = z.object({
     .nullable(),
   status: z.enum(['AKTIF', 'NONAKTIF', 'MAINTENANCE']).optional().default('AKTIF'),
   cableSlack: z.boolean().optional(),
+  siteId: z.string().optional(),
 })
 
 export const poleUpdateSchema = poleCreateSchema.partial().refine(

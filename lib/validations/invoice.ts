@@ -17,6 +17,7 @@ export const invoiceSchema = z.object({
   taxAmount: z.number().min(0, 'Jumlah pajak minimal 0').default(0),
   discountAmount: z.number().min(0, 'Jumlah diskon minimal 0').default(0),
   items: z.array(invoiceItemSchema).min(1, 'Minimal harus ada 1 item'),
+  siteId: z.string().optional(),
 }).refine((data) => {
   // Validate due date is after issue date
   if (data.dueDate <= data.issueDate) {

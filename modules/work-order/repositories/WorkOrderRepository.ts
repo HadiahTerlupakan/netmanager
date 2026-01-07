@@ -704,7 +704,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
     async getStatistics(filters?: Omit<WorkOrderFilters, 'search'>): Promise<WorkOrderStatistics> {
         const where: any = {};
-
+        
+        if (filters?.siteId) where.siteId = filters.siteId;
         if (filters?.departmentId) where.departmentId = filters.departmentId;
         if (filters?.assignedToId !== undefined) where.assignedToId = filters.assignedToId;
         if (filters?.pelangganId) where.pelangganId = filters.pelangganId;
@@ -1291,8 +1292,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     /**
      * Get statistics on most common issues (based on Title keywords)
      */
-    async getIssueStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string): Promise<Array<{ issue: string; count: number }>> {
+    async getIssueStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<Array<{ issue: string; count: number }>> {
         const where: any = {};
+        if (siteId) {
+            where.siteId = siteId;
+        }
         if (departmentId) {
             where.departmentId = departmentId;
         }
@@ -1334,8 +1338,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     /**
      * Get statistics on sites with most work orders and their most common issue
      */
-    async getSiteStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string): Promise<Array<{ siteName: string; count: number; mostCommonIssue: string }>> {
+    async getSiteStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<Array<{ siteName: string; count: number; mostCommonIssue: string }>> {
         const where: any = {};
+        if (siteId) {
+            where.siteId = siteId;
+        }
         if (departmentId) {
             where.departmentId = departmentId;
         }
@@ -1404,12 +1411,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     /**
      * Get statistics on disconnection reasons
      */
-    async getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date, departmentId?: string): Promise<Array<{ reason: string; count: number }>> {
+    async getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<Array<{ reason: string; count: number }>> {
         const where: any = {
             type: 'DISCONNECTION',
             status: 'COMPLETED',
         };
         
+        if (siteId) where.siteId = siteId;
         if (departmentId) where.departmentId = departmentId;
 
         if (dateFrom) {

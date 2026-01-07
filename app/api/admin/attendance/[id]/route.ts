@@ -23,7 +23,30 @@ export async function DELETE(
             return NextResponse.json({ error: 'ID is required' }, { status: 400 })
         }
 
-        // Optional: Check if exists first, or just delete
+        // Check existence and ownership
+        const existing = await prisma.attendance.findUnique({
+            where: { id },
+            include: { user: true }
+        })
+
+        if (!existing) {
+             return NextResponse.json({ error: 'Data not found' }, { status: 404 })
+        }
+
+        // OWNERSHIP CHECK
+        const user = session.user as any;
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+
+        if (!isSuperAdmin) {
+            const recordUser = existing.user;
+            if (user.permissions?.includes('attendance:site_only') && recordUser.siteId !== user.siteId) {
+                return NextResponse.json({ error: 'Forbidden: Restricted to your Site' }, { status: 403 })
+            }
+            if (user.permissions?.includes('attendance:department_only') && recordUser.departmentId !== user.departmentId) {
+                 return NextResponse.json({ error: 'Forbidden: Restricted to your Dept' }, { status: 403 })
+            }
+        }
+
         await prisma.attendance.delete({
             where: { id }
         })
@@ -67,6 +90,23 @@ export async function PATCH(
             where: { id },
             include: { user: true }
         })
+
+        if (!existingAttendance) {
+            return NextResponse.json({ error: 'Data not found' }, { status: 404 })
+        }
+
+        // OWNERSHIP CHECK
+        const user = session.user as any;
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+        if (!isSuperAdmin) {
+            const recordUser = existingAttendance.user;
+            if (user.permissions?.includes('attendance:site_only') && recordUser.siteId !== user.siteId) {
+                return NextResponse.json({ error: 'Forbidden: Restricted to your Site' }, { status: 403 })
+            }
+            if (user.permissions?.includes('attendance:department_only') && recordUser.departmentId !== user.departmentId) {
+                 return NextResponse.json({ error: 'Forbidden: Restricted to your Dept' }, { status: 403 })
+            }
+        }
 
         if (!existingAttendance) {
             return NextResponse.json({ error: 'Data not found' }, { status: 404 })

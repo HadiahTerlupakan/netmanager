@@ -27,8 +27,9 @@ export class InventoryRepository implements IInventoryRepository {
         search?: string
         gudangId?: string
         isWorkOrderMaterial?: boolean
+        siteId?: string
     }): Promise<{ items: BarangWithStock[]; total: number }> {
-        const { skip, take, search, gudangId, isWorkOrderMaterial } = params || {}
+        const { skip, take, search, gudangId, isWorkOrderMaterial, siteId } = params || {}
 
         const where: Prisma.BarangWhereInput = {}
 
@@ -57,7 +58,12 @@ export class InventoryRepository implements IInventoryRepository {
             where,
             include: {
                 barangGudang: {
-                    where: gudangId ? { gudangId } : undefined,
+                    where: {
+                        AND: [
+                            gudangId ? { gudangId } : {},
+                            siteId ? { gudang: { sites: { some: { id: siteId } } } } : {}
+                        ]
+                    },
                     include: {
                         gudang: true
                     }
@@ -406,13 +412,21 @@ export class InventoryRepository implements IInventoryRepository {
         barangId?: string
         dariGudangId?: string
         keGudangId?: string
+        siteId?: string
     }): Promise<{ items: any[]; total: number }> {
-        const { skip, take, barangId, dariGudangId, keGudangId } = params || {}
+        const { skip, take, barangId, dariGudangId, keGudangId, siteId } = params || {}
         const where: Prisma.TransferAntarGudangWhereInput = {}
 
         if (barangId) where.barangId = barangId
         if (dariGudangId) where.dariGudangId = dariGudangId
         if (keGudangId) where.keGudangId = keGudangId
+
+        if (siteId) {
+            where.OR = [
+                { gudangDari: { sites: { some: { id: siteId } } } },
+                { gudangKe: { sites: { some: { id: siteId } } } }
+            ]
+        }
 
         const [rawItems, total] = await Promise.all([
             this.db.transferAntarGudang.findMany({

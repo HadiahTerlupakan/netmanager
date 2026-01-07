@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getPoleRepository } from '@/lib/repositories'
 import { poleUpdateSchema } from '@/lib/validations/pole'
+import { hasPermission } from '@/lib/rbac'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -19,6 +20,17 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const repo = getPoleRepository()
   const item = await repo.findById(id)
   if (!item) return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+
+  // RBAC: Check site restrictions
+  const isSiteRestricted = (await hasPermission("pole:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = (session.user as any).siteId;
+
+  if (isSiteRestricted) {
+    if (!userSiteId || (item.siteId && item.siteId !== userSiteId)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
   return NextResponse.json({ pole: item })
 }
 
@@ -32,6 +44,22 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   }
   const { id } = await ctx.params
   const repo = getPoleRepository()
+
+  // RBAC: Check site restrictions
+  const isSiteRestricted = (await hasPermission("pole:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = (session.user as any).siteId;
+
+  if (isSiteRestricted) {
+     const existing = await repo.findById(id);
+     if (!existing) return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+
+     if (!userSiteId || (existing.siteId && existing.siteId !== userSiteId)) {
+         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+     }
+     // Force siteId
+     parsed.data.siteId = userSiteId;
+  }
+
   try {
     await repo.update(id, parsed.data)
     return NextResponse.json({ ok: true })
@@ -54,6 +82,22 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   }
   const { id } = await ctx.params
   const repo = getPoleRepository()
+
+  // RBAC: Check site restrictions
+  const isSiteRestricted = (await hasPermission("pole:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = (session.user as any).siteId;
+
+  if (isSiteRestricted) {
+     const existing = await repo.findById(id);
+     if (!existing) return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+
+     if (!userSiteId || (existing.siteId && existing.siteId !== userSiteId)) {
+         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+     }
+     // Force siteId
+     parsed.data.siteId = userSiteId;
+  }
+
   try {
     await repo.update(id, parsed.data)
     return NextResponse.json({ ok: true })
@@ -71,6 +115,20 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await ctx.params
   const repo = getPoleRepository()
+
+  // RBAC: Check site restrictions
+  const isSiteRestricted = (await hasPermission("pole:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = (session.user as any).siteId;
+
+  if (isSiteRestricted) {
+     const existing = await repo.findById(id);
+     if (existing) {
+        if (!userSiteId || (existing.siteId && existing.siteId !== userSiteId)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+     }
+  }
+
   try {
     await repo.delete(id)
     return NextResponse.json({ ok: true })

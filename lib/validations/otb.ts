@@ -28,7 +28,8 @@ export const otbCreateSchema = z.object({
         coreColor: z.string().optional().default(''),
       })
     )
-    .optional()
+    .optional(),
+  siteId: z.string().optional(),
 })
 
 export const otbUpdateSchema = otbCreateSchema.partial().refine(

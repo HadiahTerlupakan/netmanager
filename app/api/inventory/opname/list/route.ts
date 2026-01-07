@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { hasPermission } from '@/lib/rbac'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -25,6 +26,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    if (!(await hasPermission("opname:read"))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const searchParams = req.nextUrl.searchParams
     const barangId = searchParams.get('barangId')
     const gudangId = searchParams.get('gudangId')
@@ -39,6 +44,23 @@ export async function GET(req: NextRequest) {
       const where: any = {}
       if (barangId) where.barangId = barangId
       if (gudangId) where.gudangId = gudangId
+
+      // SITE RESTRICTION
+      const permissions = (session.user as any).permissions || []
+      const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
+      
+      if (!isSuperAdmin && (permissions.includes('opname:site_only') || permissions.includes('k_barang:site_only'))) {
+          const userSiteId = (session.user as any).siteId
+          if (userSiteId) {
+               where.gudang = {
+                   sites: {
+                       some: {
+                           id: userSiteId
+                       }
+                   }
+               }
+          }
+      }
 
       const [opnameList, total] = await Promise.all([
         prisma.stockOpname.findMany({

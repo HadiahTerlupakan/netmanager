@@ -6,6 +6,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getPelangganService } from '@/modules/pelanggan'
+import type { FilterOptions } from '@/modules/pelanggan'
 import { logger } from '@/lib/logger'
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
@@ -79,11 +80,27 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') as Status | null
+    const siteIdParam = searchParams.get('siteId')
+
+    const isSiteRestricted =
+      (await hasPermission('pelanggan:site_only')) &&
+      session.user.role !== 'SUPER_ADMIN'
+
+    const filter: FilterOptions = {}
+    if (status) filter.status = status
+
+    if (isSiteRestricted) {
+      const userSiteId = (session.user as any).siteId
+      if (!userSiteId) {
+        return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
+      }
+      filter.siteId = userSiteId
+    } else if (siteIdParam) {
+      filter.siteId = siteIdParam
+    }
 
     const pelangganService = getPelangganService()
-    const pelanggans = await pelangganService.getAllPelanggan(
-      status ? { status } : undefined
-    )
+    const pelanggans = await pelangganService.getAllPelanggan(filter)
 
     return NextResponse.json(pelanggans, {
       headers: {
@@ -148,6 +165,20 @@ export async function POST(req: NextRequest) {
     const jatuhTempo = formData.get('jatuhTempo') as string
     const status = formData.get('status') as string
     const autoIsolir = parseBooleanFlag(formData.get('autoIsolir'), true)
+    let siteId = formData.get('siteId') as string | null
+
+    const isSiteRestricted =
+      (await hasPermission('pelanggan:site_only')) &&
+      session.user.role !== 'SUPER_ADMIN'
+
+    // Force siteId for restricted users
+    if (isSiteRestricted) {
+      const userSiteId = (session.user as any).siteId
+      if (!userSiteId) {
+        return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
+      }
+      siteId = userSiteId
+    }
 
     // Validate required fields
     if (!idPelanggan || !nama || !username || !password || !passwordLogin || !hargaPaketId || !tanggalAktif || !jatuhTempo) {
@@ -200,6 +231,9 @@ export async function POST(req: NextRequest) {
     const biayaLainnyaDiskon = biayaLainnyaDiskonRaw ? parseFloat(biayaLainnyaDiskonRaw) : null
     const keteranganBiayaLainnya = formData.get('keteranganBiayaLainnya') as string | null
     const odpId = formData.get('odpId') as string | null
+
+    // For non-restricted users, if siteId is empty, it remains null (global customer?)
+    // Or we might want to enforce siteId for everyone? For now, optional.
 
     // Parse enum values
     const tipeValue = parseEnumValue(tipe, TipePelanggan) ?? TipePelanggan.REGULER
@@ -295,6 +329,7 @@ export async function POST(req: NextRequest) {
       biayaLainnyaDiskon: useDiskonBiayaLainnya ? biayaLainnyaDiskon : null,
       keteranganBiayaLainnya,
       odpId,
+      siteId,
     })
 
     // Revalidate cache

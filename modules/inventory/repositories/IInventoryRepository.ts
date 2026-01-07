@@ -120,6 +120,7 @@ export interface IInventoryRepository {
         barangId?: string
         dariGudangId?: string
         keGudangId?: string
+        siteId?: string
     }): Promise<{ items: any[]; total: number }>
 
     findTransferById(id: string): Promise<any | null>
@@ -148,6 +149,7 @@ export interface IInventoryRepository {
         search?: string
         gudangId?: string
         isWorkOrderMaterial?: boolean
+        siteId?: string
     }): Promise<{ items: BarangWithStock[]; total: number }>
 
     findBarangById(id: string): Promise<BarangWithStock | null>

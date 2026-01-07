@@ -13,8 +13,21 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  const isSiteRestricted = (await hasPermission("odc:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = (session.user as any).siteId;
+
+  let filterSiteId: string | undefined;
+
+  if (isSiteRestricted) {
+    if (!userSiteId) {
+         // User restricted but has no site
+         return NextResponse.json({ odcs: [] });
+    }
+    filterSiteId = userSiteId;
+  }
+
   const repo = getOdcRepository()
-  const odcs = await repo.findAll()
+  const odcs = await repo.findAll(filterSiteId)
   return NextResponse.json({ odcs })
 }
 
@@ -31,6 +44,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
   const data = parsed.data
+
+  // RBAC: Check site restrictions
+  const isSiteRestricted = (await hasPermission("odc:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = (session.user as any).siteId;
+
+  if (isSiteRestricted) {
+      if (!userSiteId) {
+          return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 });
+      }
+      // Force siteId
+      data.siteId = userSiteId;
+  }
   const repo = getOdcRepository()
   const created = await repo.create({
     name: data.name,
@@ -40,6 +65,7 @@ export async function POST(req: Request) {
     latitude: data.latitude ?? null,
     longitude: data.longitude ?? null,
     otbCoreId: data.otbCoreId,
+    siteId: data.siteId,
     outputs: data.outputs?.map((o, idx) => ({
       idx: o.idx ?? idx,
       slotName: o.slotName,

@@ -107,8 +107,17 @@ export async function GET(req: NextRequest) {
     const barangId = searchParams.get('barangId')
     const gudangId = searchParams.get('gudangId')
     const search = searchParams.get('search')
-    const siteId = searchParams.get('siteId')
+    let siteId = searchParams.get('siteId')
     const page = parseInt(searchParams.get('page') || '1')
+
+    // SITE RESTRICTION
+    const permissions = (session.user as any).permissions || []
+    const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
+    
+    // Check specific or general site_only permission
+    if (!isSuperAdmin && (permissions.includes('masuk:site_only') || permissions.includes('k_barang:site_only'))) {
+        siteId = (session.user as any).siteId
+    }
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
 

@@ -83,12 +83,19 @@ export async function GET(request: NextRequest) {
         const type = searchParams.get('type') as NotificationType | undefined;
         const excludeTypes = searchParams.get('excludeTypes')?.split(',') as NotificationType[] | undefined;
 
+        // Enforce Site Restriction
+        const permissions = (session.user as any).permissions || []
+        const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
+        const siteId = (!isSuperAdmin && permissions.includes('site_only'))
+            ? (session.user as any).siteId
+            : undefined;
+
         const { notifications, total } = await getNotificationsForUser(
             session.user.id,
-            { unreadOnly, limit, offset, type, excludeTypes }
+            { unreadOnly, limit, offset, type, excludeTypes, siteId }
         );
 
-        const unreadCount = await getUnreadCount(session.user.id, excludeTypes);
+        const unreadCount = await getUnreadCount(session.user.id, excludeTypes, siteId);
 
         return NextResponse.json({
             success: true,
@@ -148,11 +155,17 @@ export async function PATCH(request: NextRequest) {
         // Cek autentikasi menggunakan fungsi terpusat
         const session = await requireAuth(request);
 
-
         const body = await request.json().catch(() => ({}));
         const type = body.type as NotificationType | undefined;
 
-        await markAllAsRead(session.user.id, type);
+        // Enforce Site Restriction
+        const permissions = (session.user as any).permissions || []
+        const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
+        const siteId = (!isSuperAdmin && permissions.includes('site_only'))
+            ? (session.user as any).siteId
+            : undefined;
+
+        await markAllAsRead(session.user.id, type, siteId);
 
         return NextResponse.json({
             success: true,

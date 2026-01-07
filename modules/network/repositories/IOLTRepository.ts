@@ -17,6 +17,7 @@ export interface OLTCreateData {
   telnetUsername?: string
   telnetPassword: string
   telnetPort?: number
+  siteId?: string | null
 }
 
 export interface OLTUpdateData {
@@ -40,6 +41,7 @@ export interface OLTUpdateData {
   telnetPort?: number
   onuLastSync?: Date | null
   onuSyncEnabled?: boolean
+  siteId?: string | null
 }
 
 export interface OLTPublic {
@@ -66,10 +68,11 @@ export interface OLTPublic {
   onuSyncEnabled: boolean
   createdAt: Date
   updatedAt: Date
+  siteId: string | null
 }
 
 export interface IOLTRepository {
-  findAll(): Promise<OLTPublic[]>
+  findAll(siteId?: string): Promise<OLTPublic[]>
   findById(id: string): Promise<OLTPublic | null>
   create(data: OLTCreateData): Promise<{ id: string }>
   update(id: string, data: OLTUpdateData): Promise<void>

@@ -49,6 +49,7 @@ export interface CreatePelangganDTO {
     biayaLainnyaDiskon?: number | null
     keteranganBiayaLainnya?: string | null
     odpId?: string | null
+    siteId?: string | null
 }
 
 // Use Prisma's generated type for accurate typing
@@ -67,6 +68,7 @@ export type PelangganWithPackage = Prisma.PelangganGetPayload<typeof pelangganWi
 
 export interface FilterOptions {
     status?: Status
+    siteId?: string
 }
 
 export class PelangganRepository {
@@ -74,6 +76,9 @@ export class PelangganRepository {
         const where: any = {}
         if (filter?.status) {
             where.status = filter.status
+        }
+        if (filter?.siteId) {
+            where.siteId = filter.siteId
         }
 
         return prisma.pelanggan.findMany({
@@ -160,6 +165,7 @@ export class PelangganRepository {
                 biayaLainnyaDiskon: data.biayaLainnyaDiskon,
                 keteranganBiayaLainnya: data.keteranganBiayaLainnya,
                 odpId: data.odpId,
+                siteId: data.siteId,
             },
             include: {
                 hargaPaket: {

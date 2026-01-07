@@ -50,6 +50,7 @@ export interface CreatePelangganInput {
     biayaLainnyaDiskon?: number | null
     keteranganBiayaLainnya?: string | null
     odpId?: string | null
+    siteId?: string | null
 }
 
 export class PelangganService {
@@ -151,6 +152,7 @@ export class PelangganService {
             biayaLainnyaDiskon: data.biayaLainnyaDiskon,
             keteranganBiayaLainnya: data.keteranganBiayaLainnya?.trim() || null,
             odpId: data.odpId?.trim() || null,
+            siteId: data.siteId,
         })
 
         // RADIUS Auto-Sync Hook

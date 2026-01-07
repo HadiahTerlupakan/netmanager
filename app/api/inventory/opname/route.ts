@@ -34,6 +34,28 @@ export async function GET(req: NextRequest) {
       if (barangId) where.barangId = barangId
       if (gudangId) where.gudangId = gudangId
 
+      // NEW: Enforce Site Restriction Logic
+      const permissions = session.user.permissions || []
+      const isSuperAdmin = session.user.role === 'SUPER_ADMIN'
+      const userSiteId = session.user.siteId
+
+      if (!isSuperAdmin && permissions.includes('opname:site_only')) {
+        if (!userSiteId) {
+          return NextResponse.json({
+            opnameList: [],
+            pagination: { page, limit, total: 0, totalPages: 0 }
+          })
+        }
+        // Filter by gudang that belongs to user's site
+        where.gudang = {
+          sites: {
+            some: {
+              id: userSiteId
+            }
+          }
+        }
+      }
+
       const [opnameList, total] = await Promise.all([
         prisma.stockOpname.findMany({
           where,
@@ -142,6 +164,13 @@ export async function POST(req: NextRequest) {
         { error: 'Barang, gudang, dan stok fisik harus diisi dengan benar' },
         { status: 400 }
       )
+    }
+
+    // NEW: Validate Gudang Access
+    const { validateGudangAccess } = await import('@/lib/inventory-validation');
+    const access = await validateGudangAccess(session, gudangId);
+    if (!access.allowed) {
+      return NextResponse.json({ error: access.error || 'Forbidden' }, { status: 403 });
     }
 
     // Validate condition breakdown

@@ -9,7 +9,9 @@ export interface MikroTikRouterCreateData {
   accountingPort?: number
   secretRadius: string
   isolirUrl?: string | null
+
   description?: string | null
+  siteId?: string | null
 }
 
 export interface MikroTikRouterUpdateData {
@@ -26,7 +28,9 @@ export interface MikroTikRouterUpdateData {
   description?: string | null
   pingStatus?: string
   userOnline?: number
+
   lastStatusCheck?: Date | null
+  siteId?: string | null
 }
 
 export interface MikroTikRouterPublic {
@@ -48,7 +52,9 @@ export interface MikroTikRouterPublic {
   userOnline: number
   lastStatusCheck: Date | null
   createdAt: Date
+
   updatedAt: Date
+  siteId: string | null
 }
 
 export interface MikroTikRouterStatistics {
@@ -60,6 +66,7 @@ export interface MikroTikRouterStatistics {
 
 export interface RouterFilters {
   search?: string
+  siteId?: string
 }
 
 // Use PaginationOptions from IOnuRepository
@@ -81,7 +88,7 @@ export interface IMikroTikRouterRepository {
   create(data: MikroTikRouterCreateData): Promise<{ id: string }>
   update(id: string, data: MikroTikRouterUpdateData): Promise<void>
   delete(id: string): Promise<void>
-  count(): Promise<number>
-  getStatistics(): Promise<MikroTikRouterStatistics>
+  count(siteId?: string): Promise<number>
+  getStatistics(siteId?: string): Promise<MikroTikRouterStatistics>
 }
 

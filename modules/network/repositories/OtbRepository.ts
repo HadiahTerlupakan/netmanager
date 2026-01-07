@@ -6,9 +6,12 @@ import type { IOtbRepository, OtbCreateData, OtbUpdateData, OtbPublic } from './
 export class OtbRepository implements IOtbRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findAll(): Promise<OtbPublic[]> {
-    const items = await this.client.otb.findMany({ orderBy: { createdAt: 'desc' } })
-    return items
+  async findAll(siteId?: string): Promise<OtbPublic[]> {
+    const items = await this.client.otb.findMany({
+        where: siteId ? { siteId } : {},
+        orderBy: { createdAt: 'desc' }
+    })
+    return items as unknown as OtbPublic[]
   }
 
   async findById(id: string): Promise<OtbPublic | null> {
@@ -30,6 +33,7 @@ export class OtbRepository implements IOtbRepository {
           latitude: data.latitude ?? null,
           longitude: data.longitude ?? null,
           status: data.status ?? 'AKTIF',
+          siteId: data.siteId,
         },
         select: { id: true },
       })
@@ -64,6 +68,7 @@ export class OtbRepository implements IOtbRepository {
           ...(data.latitude !== undefined && { latitude: data.latitude }),
           ...(data.longitude !== undefined && { longitude: data.longitude }),
           ...(data.status !== undefined && { status: data.status }),
+          ...(data.siteId !== undefined && { siteId: data.siteId }),
         },
       })
 

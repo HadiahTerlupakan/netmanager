@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireAdmin } from '@/lib/auth-helpers'
+import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import { promises as fs } from 'fs'
@@ -228,6 +229,16 @@ export async function GET(
         { error: 'Pelanggan tidak ditemukan' },
         { status: 404 }
       )
+    }
+
+    if (isAdmin) {
+      const isSiteRestricted = (await hasPermission("pelanggan:site_only")) && session.user.role !== 'SUPER_ADMIN'
+      if (isSiteRestricted) {
+        const userSiteId = (session.user as any).siteId
+        if (pelanggan.siteId !== userSiteId) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+      }
     }
 
     // Hapus password dari response
@@ -527,6 +538,14 @@ export async function PUT(
         { error: 'Pelanggan tidak ditemukan' },
         { status: 404 }
       )
+    }
+
+    const isSiteRestricted = (await hasPermission("pelanggan:site_only")) && session.user.role !== 'SUPER_ADMIN'
+    if (isSiteRestricted) {
+        const userSiteId = (session.user as any).siteId
+        if (existingPelanggan.siteId !== userSiteId) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
     }
 
     const formData: any = await req.formData()
@@ -1059,6 +1078,14 @@ export async function DELETE(
         { error: 'Pelanggan tidak ditemukan' },
         { status: 404 }
       )
+    }
+
+    const isSiteRestricted = (await hasPermission("pelanggan:site_only")) && session.user.role !== 'SUPER_ADMIN'
+    if (isSiteRestricted) {
+        const userSiteId = (session.user as any).siteId
+        if (pelanggan.siteId !== userSiteId) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
     }
 
 

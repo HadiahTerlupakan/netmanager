@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { updateInvoiceSchema, sendInvoiceSchema } from '@/lib/validations/invoice'
+import { hasPermission } from '@/lib/rbac'
 
 /**
  * @swagger
@@ -69,7 +70,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     })
 
     if (!invoice) {
-      return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 })
+        return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 })
+    }
+
+    // RBAC: Check site restrictions
+    if ((await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN') {
+        const userSiteId = (session.user as any).siteId
+        // If invoice has siteId, strict match
+        // If invoice has NO siteId, assume accessible OR restricted (safer to allow for legacy data if needed, but for now strict)
+        // Let's rely on siteId being present for strictness.
+        if (invoice.siteId && userSiteId && invoice.siteId !== userSiteId) {
+             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+        // If current user has site, but invoice has none?
+        // Maybe allow if inferred from Pelanggan? The query included pelanggan.
+        if (!invoice.siteId && invoice.pelanggan.siteId && userSiteId && invoice.pelanggan.siteId !== userSiteId) {
+             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
     }
 
     return NextResponse.json(invoice)
@@ -197,6 +214,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 })
     }
 
+    // RBAC: Check site restrictions
+    const isRestricted = (await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN'
+    const userSiteId = (session.user as any).siteId
+
+    if (isRestricted) {
+         if (existingInvoice.siteId && userSiteId && existingInvoice.siteId !== userSiteId) {
+             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+         }
+    }
+
     const body = await req.json()
     const validation = updateInvoiceSchema.safeParse(body)
 
@@ -208,6 +235,23 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const { items, ...updateData } = validation.data
+
+    // If restricted, prevent changing siteId or force it to user site
+    if (isRestricted && updateData.siteId && updateData.siteId !== userSiteId) {
+         return NextResponse.json({ error: 'Cannot change invoice site to another site' }, { status: 403 })
+    }
+    // Force valid siteId if updating
+    if (isRestricted) {
+        // We can either delete siteId from updateData to ignore it, or force it.
+        // updateData is gathered from validation.data.
+        // If user didn't send siteId, it's undefined.
+        // If strict, we can force current user site if the invoice didn't have one before.
+        if (!existingInvoice.siteId && userSiteId) {
+            updateData.siteId = userSiteId
+        } else if (existingInvoice.siteId) {
+            updateData.siteId = existingInvoice.siteId
+        }
+    }
 
     // Update invoice and items if provided
     let updatedInvoice
@@ -370,6 +414,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     if (!existingInvoice) {
       return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 })
+    }
+
+    // RBAC: Check site restrictions
+    if ((await hasPermission("invoice:site_only")) && session.user.role !== 'SUPER_ADMIN') {
+        const userSiteId = (session.user as any).siteId
+        if (existingInvoice.siteId && userSiteId && existingInvoice.siteId !== userSiteId) {
+             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
     }
 
     // Check if invoice has payments

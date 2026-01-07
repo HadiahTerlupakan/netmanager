@@ -23,8 +23,21 @@ export async function GET(request: NextRequest) {
         const startDateStr = searchParams.get('startDate')
         const endDateStr = searchParams.get('endDate')
         const userId = searchParams.get('userId')
-        const siteId = searchParams.get('siteId')
-        const departmentId = searchParams.get('departmentId')
+        const status = searchParams.get('status') // Added status search param
+        let siteId = searchParams.get('siteId')
+        let departmentId = searchParams.get('departmentId')
+
+        // NEW: Enforce RBAC Restrictions
+        const user = session.user as any;
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+
+        // Existing attendance restrictions
+        if (user.permissions?.includes('attendance:site_only') && !isSuperAdmin) {
+            siteId = user.siteId;
+        }
+        if (user.permissions?.includes('attendance:department_only') && !isSuperAdmin) {
+            departmentId = user.departmentId;
+        }
 
         const where: any = {}
 

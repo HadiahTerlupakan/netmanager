@@ -21,8 +21,19 @@ export async function GET(request: Request) {
         const limit = parseInt(searchParams.get('limit') || '10')
         const skip = (page - 1) * limit
 
-        const siteId = searchParams.get('siteId') || undefined
-        const departmentId = searchParams.get('departmentId') || undefined
+        let siteId = searchParams.get('siteId') || undefined
+        let departmentId = searchParams.get('departmentId') || undefined
+
+        // NEW: Enforce RBAC Restrictions
+        const user = session.user as any;
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+
+        if (user.permissions?.includes('lembur:site_only') && !isSuperAdmin) {
+            siteId = user.siteId;
+        }
+        if (user.permissions?.includes('lembur:department_only') && !isSuperAdmin) {
+            departmentId = user.departmentId;
+        }
         const status = searchParams.get('status') || undefined
         const startDateStr = searchParams.get('startDate')
         const endDateStr = searchParams.get('endDate')

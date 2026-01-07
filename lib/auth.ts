@@ -352,7 +352,17 @@ export const handler = NextAuth(authConfig)
 import { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
-export async function verifyAuth(request: NextRequest) {
+export interface UserSession {
+  id: string
+  email: string
+  name: string | null
+  role: string | undefined
+  departmentId: string | undefined
+  siteId: string | undefined
+  permissions: string[] | undefined
+}
+
+export async function verifyAuth(request: NextRequest): Promise<UserSession | null> {
   try {
     const token = await getToken({
       req: request as any,
@@ -369,6 +379,7 @@ export async function verifyAuth(request: NextRequest) {
       name: token.name as string | null,
       role: token.role as string | undefined, // Added role
       departmentId: token.departmentId as string | undefined, // Added departmentId
+      siteId: token.siteId as string | undefined, // Added siteId
       permissions: token.permissions as string[] | undefined, // Added permissions
     }
   } catch (error) {

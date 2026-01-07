@@ -19,6 +19,7 @@ export const oltCreateSchema = z.object({
   telnetUsername: z.string().trim().optional(),
   telnetPassword: z.string().min(1, 'Password Telnet wajib diisi'),
   telnetPort: z.number().int().min(1).max(65535).optional(),
+  siteId: z.string().optional(),
 })
 
 export const oltUpdateSchema = z.object({
@@ -40,5 +41,6 @@ export const oltUpdateSchema = z.object({
   telnetUsername: z.string().trim().optional(),
   telnetPassword: z.string().optional(),
   telnetPort: z.number().int().min(1).max(65535).optional(),
+  siteId: z.string().optional(),
 })
 

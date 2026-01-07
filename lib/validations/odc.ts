@@ -31,6 +31,7 @@ export const odcCreateSchema = z.object({
   status: z.enum(['AKTIF', 'NONAKTIF', 'MAINTENANCE']).optional().default('AKTIF'),
   otbCoreId: z.string().min(1, 'Slot OTB wajib dipilih'),
   outputs: z.array(odcOutputSchema).optional(),
+  siteId: z.string().optional(),
 })
 
 export const odcUpdateSchema = odcCreateSchema.partial().refine(

@@ -17,11 +17,21 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
-        // Add filter parsing if needed (e.g. from query params)
         const { searchParams } = new URL(request.url)
         const status = searchParams.get('status')
-        const siteId = searchParams.get('siteId')
-        const departmentId = searchParams.get('departmentId')
+        let siteId = searchParams.get('siteId')
+        let departmentId = searchParams.get('departmentId')
+
+        // NEW: Enforce RBAC Restrictions
+        const user = session.user as any;
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+
+        if (user.permissions?.includes('izin:site_only') && !isSuperAdmin) {
+            siteId = user.siteId;
+        }
+        if (user.permissions?.includes('izin:department_only') && !isSuperAdmin) {
+            departmentId = user.departmentId;
+        }
 
         const leaves = await repo.findAll({
             status: status as any,

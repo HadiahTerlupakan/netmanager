@@ -16,6 +16,7 @@ export interface CreateNotificationData {
     link?: string;
     userId?: string;
     departmentId?: string;
+    siteId?: string;
     sourceType?: string;
     sourceId?: string;
 }
@@ -45,6 +46,7 @@ export async function createNotification(data: CreateNotificationData) {
             link: data.link,
             userId: data.userId,
             departmentId: data.departmentId,
+            siteId: data.siteId,
             sourceType: data.sourceType,
             sourceId: data.sourceId,
         },
@@ -87,7 +89,7 @@ export async function createNotification(data: CreateNotificationData) {
 
     // Also notify admins for important notifications
     if (data.priority === 'HIGH' || data.priority === 'URGENT' || data.type === 'ALERT') {
-        socketEmitter.notifyAdmins(wsPayload);
+        socketEmitter.notifyAdmins(wsPayload, data.siteId);
     }
 
     return notification;
@@ -289,6 +291,7 @@ export async function notifyNewWorkOrder(data: WorkOrderNotificationData) {
             message: `[${typeLabel}] ${data.title}`,
             link: `/admin/workorders/${data.workOrderId}`,
             userId: user.id,
+            siteId: data.siteId, // Pass siteId to store it
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
@@ -311,6 +314,7 @@ export async function notifyWorkOrderAssigned(data: WorkOrderNotificationData & 
             message: `${data.workOrderNumber}: ${data.title}`,
             link: `/admin/workorders/${data.workOrderId}`,
             userId: data.assignedToId,
+            siteId: data.siteId,
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
@@ -336,6 +340,7 @@ export async function notifyWorkOrderAssigned(data: WorkOrderNotificationData & 
             message: `${data.workOrderNumber} assigned to ${data.assigneeName || 'user'}`,
             link: `/admin/workorders/${data.workOrderId}`,
             userId: user.id,
+            siteId: data.siteId,
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         })
@@ -369,6 +374,7 @@ export async function notifyWorkOrderStatusChange(
             message: `${data.workOrderNumber}: ${data.oldStatus} → ${data.newStatus}`,
             link: `/admin/workorders/${data.workOrderId}`,
             userId: user.id,
+            siteId: data.siteId,
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
@@ -406,6 +412,7 @@ export async function notifyWorkOrderUpdate(
             message: data.updateMessage,
             link: `/admin/workorders/${data.workOrderId}`,
             userId: user.id,
+            siteId: data.siteId,
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
@@ -466,6 +473,7 @@ export async function notifyAdminsAboutMobileAction(data: {
             message: `${data.triggeredByName || 'Teknisi'}: ${data.actionMessage}`,
             link: `/admin/workorders/${data.workOrderId}`,
             userId: user.id,
+            siteId: data.siteId,
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
@@ -487,6 +495,7 @@ export async function getNotificationsForUser(
         offset?: number;
         type?: NotificationType;
         excludeTypes?: NotificationType[];
+        siteId?: string; // Add siteId to options
     }
 ) {
     // Get user's department
@@ -498,7 +507,12 @@ export async function getNotificationsForUser(
     const where: any = {
         OR: [
             { userId }, // Direct notifications
-            ...(user?.departmentId ? [{ departmentId: user.departmentId }] : []),
+            {
+                AND: [
+                    { departmentId: user?.departmentId || 'NONE' },
+                    options?.siteId ? { OR: [{ siteId: options.siteId }, { siteId: null }] } : {}
+                ]
+            }
         ],
     };
 
@@ -533,7 +547,7 @@ export async function getNotificationsForUser(
 /**
  * Get unread notification count for a user
  */
-export async function getUnreadCount(userId: string, excludeTypes?: NotificationType[]): Promise<number> {
+export async function getUnreadCount(userId: string, excludeTypes?: NotificationType[], siteId?: string): Promise<number> {
     const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { departmentId: true },
@@ -543,7 +557,12 @@ export async function getUnreadCount(userId: string, excludeTypes?: Notification
         isRead: false,
         OR: [
             { userId },
-            ...(user?.departmentId ? [{ departmentId: user.departmentId }] : []),
+            {
+                AND: [
+                    { departmentId: user?.departmentId || 'NONE' },
+                    siteId ? { OR: [{ siteId: siteId }, { siteId: null }] } : {}
+                ]
+            }
         ],
     };
 
@@ -573,7 +592,7 @@ export async function markAsRead(notificationId: string) {
 /**
  * Mark all notifications as read for a user
  */
-export async function markAllAsRead(userId: string, type?: NotificationType) {
+export async function markAllAsRead(userId: string, type?: NotificationType, siteId?: string) {
     const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { departmentId: true },
@@ -583,7 +602,12 @@ export async function markAllAsRead(userId: string, type?: NotificationType) {
         isRead: false,
         OR: [
             { userId },
-            ...(user?.departmentId ? [{ departmentId: user.departmentId }] : []),
+            {
+                AND: [
+                    { departmentId: user?.departmentId || 'NONE' },
+                    siteId ? { OR: [{ siteId: siteId }, { siteId: null }] } : {}
+                ]
+            }
         ],
     };
 

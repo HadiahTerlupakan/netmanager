@@ -6,8 +6,11 @@ import type { IOdpRepository, OdpCreateData, OdpUpdateData, OdpPublic } from './
 export class OdpRepository implements IOdpRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findAll(): Promise<OdpPublic[]> {
-    const items = await this.client.odp.findMany({ orderBy: { createdAt: 'desc' } })
+  async findAll(siteId?: string): Promise<OdpPublic[]> {
+    const items = await this.client.odp.findMany({
+        where: siteId ? { siteId } : {},
+        orderBy: { createdAt: 'desc' }
+    })
     return items as unknown as OdpPublic[]
   }
 
@@ -29,6 +32,7 @@ export class OdpRepository implements IOdpRepository {
           longitude: data.longitude ?? null,
           status: data.status ?? 'AKTIF',
           odcOutputId: data.odcOutputId,
+          siteId: data.siteId,
           updatedAt: new Date(),
         },
         select: { id: true },
@@ -65,7 +69,9 @@ export class OdpRepository implements IOdpRepository {
           ...(data.latitude !== undefined && { latitude: data.latitude }),
           ...(data.longitude !== undefined && { longitude: data.longitude }),
           ...(data.status !== undefined && { status: data.status }),
+          ...(data.status !== undefined && { status: data.status }),
           ...(data.odcOutputId !== undefined && { odcOutputId: data.odcOutputId }),
+          ...(data.siteId !== undefined && { siteId: data.siteId }),
           updatedAt: new Date(),
         },
       })

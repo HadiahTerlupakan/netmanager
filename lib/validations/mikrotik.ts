@@ -12,6 +12,7 @@ export const mikrotikRouterCreateSchema = z.object({
   secretRadius: z.string().trim().min(1, 'Secret Radius wajib diisi'),
   isolirUrl: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
+  siteId: z.string().optional().nullable(),
 })
 
 export const mikrotikRouterUpdateSchema = z.object({
@@ -26,5 +27,6 @@ export const mikrotikRouterUpdateSchema = z.object({
   secretRadius: z.string().trim().min(1).optional(),
   isolirUrl: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
+  siteId: z.string().optional().nullable(),
 })
 

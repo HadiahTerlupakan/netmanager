@@ -32,6 +32,17 @@ export async function GET(request: NextRequest) {
 
     try {
         const where: any = {}
+        
+        // Site restriction check
+        if ((await hasPermission('support:site_only')) && user.role !== 'SUPER_ADMIN') {
+            if (!user.siteId) {
+                return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
+            }
+             // Filter tickets where associated Pelanggan is in the user's site
+            where.pelanggan = {
+                siteId: user.siteId
+            }
+        }
 
         // Status filter
         if (status && Object.values(TicketStatus).includes(status as TicketStatus)) {
@@ -108,16 +119,16 @@ export async function GET(request: NextRequest) {
 
         // Get stats for all statuses
         const [openCount, inProgressCount, waitingCustomerCount, resolvedCount, closedCount] = await Promise.all([
-            prisma.supportTickets.count({ where: { status: TicketStatus.OPEN } }),
-            prisma.supportTickets.count({ where: { status: TicketStatus.IN_PROGRESS } }),
-            prisma.supportTickets.count({ where: { status: TicketStatus.WAITING_CUSTOMER } }),
-            prisma.supportTickets.count({ where: { status: TicketStatus.RESOLVED } }),
-            prisma.supportTickets.count({ where: { status: TicketStatus.CLOSED } }),
+            prisma.supportTickets.count({ where: { ...where, status: TicketStatus.OPEN } }),
+            prisma.supportTickets.count({ where: { ...where, status: TicketStatus.IN_PROGRESS } }),
+            prisma.supportTickets.count({ where: { ...where, status: TicketStatus.WAITING_CUSTOMER } }),
+            prisma.supportTickets.count({ where: { ...where, status: TicketStatus.RESOLVED } }),
+            prisma.supportTickets.count({ where: { ...where, status: TicketStatus.CLOSED } }),
         ])
 
         // Get closed tickets with ratings from replies
         const closedTicketsWithReplies = await prisma.supportTickets.findMany({
-            where: { status: TicketStatus.CLOSED },
+            where: { ...where, status: TicketStatus.CLOSED },
             include: {
                 replies: {
                     where: {

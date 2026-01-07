@@ -144,10 +144,28 @@ export async function GET(req: NextRequest) {
 
     const routerRepository = getMikroTikRouterRepository()
 
+    // RBAC: Check site restrictions
+    let siteIdFilter: string | undefined = undefined
+    if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
+        const userSiteId = (session.user as any).siteId
+        if (!userSiteId) {
+             // User has site restriction but no site assigned, return empty or error?
+             // Returning empty list is safer
+             return NextResponse.json({
+                routers: [],
+                total: 0,
+                page,
+                limit,
+                totalPages: 0
+             })
+        }
+        siteIdFilter = userSiteId
+    }
+
     // Use findWithFilters if pagination params are present, otherwise findAll for backward compatibility if needed
     // But better to always use paginated response for consistency on this route
     const result = await routerRepository.findWithFilters(
-      { search },
+      { search, siteId: siteIdFilter },
       { page, limit }
     )
 
@@ -187,7 +205,18 @@ export async function POST(req: NextRequest) {
     secretRadius,
     isolirUrl,
     description,
+    siteId,
   } = parsed.data
+
+  // RBAC: Check site restrictions for creation
+  let finalSiteId = siteId
+  if ((await hasPermission("mikrotik:site_only")) && session.user.role !== 'SUPER_ADMIN') {
+       const userSiteId = (session.user as any).siteId
+       if (!userSiteId) {
+           return NextResponse.json({ error: 'User tidak memiliki akses site untuk membuat router' }, { status: 403 })
+       }
+       finalSiteId = userSiteId
+  }
   try {
     const routerRepository = getMikroTikRouterRepository()
     // 3. Create Router (Repository)
@@ -203,7 +232,9 @@ export async function POST(req: NextRequest) {
       accountingPort: Number(accountingPort),
       secretRadius,
       isolirUrl,
+
       description,
+      siteId: finalSiteId,
     })
 
     // 4. Auto Provisioning (Optional)

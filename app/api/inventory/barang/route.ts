@@ -165,14 +165,21 @@ export async function GET(req: NextRequest) {
 
     try {
       const dbStart = Date.now()
-
       const inventoryRepository = getInventoryRepository()
+
+      // Enforce Site Restriction
+      const permissions = session.permissions || []
+      const isSuperAdmin = session.role === 'SUPER_ADMIN'
+      const siteId = (!isSuperAdmin && (permissions.includes('barang:site_only') || permissions.includes('k_barang:site_only')))
+        ? session.siteId
+        : undefined
 
       const { items: barangs, total } = await inventoryRepository.findAllBarang({
         skip: offset,
         take: limit,
         search: search || undefined,
-        gudangId: gudangId || undefined
+        gudangId: gudangId || undefined,
+        siteId
       })
 
       // Calculate total stock per item and filter by gudang if needed

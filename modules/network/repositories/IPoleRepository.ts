@@ -6,6 +6,7 @@ export interface PoleCreateData {
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   cableSlack?: boolean
+  siteId?: string | null
 }
 
 export interface PoleUpdateData {
@@ -16,6 +17,7 @@ export interface PoleUpdateData {
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   cableSlack?: boolean
+  siteId?: string | null
 }
 
 export interface PolePublic {
@@ -29,10 +31,11 @@ export interface PolePublic {
   cableSlack: boolean
   createdAt: Date
   updatedAt: Date
+  siteId: string | null
 }
 
 export interface IPoleRepository {
-  findAll(): Promise<PolePublic[]>
+  findAll(siteId?: string): Promise<PolePublic[]>
   findById(id: string): Promise<PolePublic | null>
   create(data: PoleCreateData): Promise<{ id: string }>
   update(id: string, data: PoleUpdateData): Promise<void>

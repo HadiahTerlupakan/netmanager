@@ -26,9 +26,18 @@ export async function GET(req: NextRequest) {
     const barangId = searchParams.get('barangId') || undefined
     const dariGudangId = searchParams.get('dariGudangId') || undefined
     const keGudangId = searchParams.get('keGudangId') || undefined
+    let siteId = searchParams.get('siteId') || undefined
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
+
+    // SITE RESTRICTION
+    const permissions = (session.user as any).permissions || []
+    const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
+    
+    if (!isSuperAdmin && (permissions.includes('transfer:site_only') || permissions.includes('k_barang:site_only'))) {
+        siteId = (session.user as any).siteId
+    }
 
     const inventoryRepository = getInventoryRepository()
 
@@ -40,7 +49,8 @@ export async function GET(req: NextRequest) {
         dariGudangId,
         keGudangId,
         skip: offset,
-        take: limit
+        take: limit,
+        siteId
       })
 
       logger.dbOperation('findMany', 'TransferAntarGudang+Relations', Date.now() - dbStart)

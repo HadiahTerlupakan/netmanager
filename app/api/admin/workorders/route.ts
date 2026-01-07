@@ -117,23 +117,37 @@ export async function GET(request: NextRequest) {
         // NEW: Enforce Department Restriction Logic
         // If user has 'department_only' permission and is NOT a Super Admin, force restrict to their department
         const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
+        const hasSiteRestriction = user.permissions?.includes('workorders:site_only');
         const isSuperAdmin = user.role === 'SUPER_ADMIN';
 
         if (hasDepartmentRestriction && !isSuperAdmin) {
             if (!user.departmentId) {
-                // If restricted but no department assigned, show nothing (or throw error)
-                return NextResponse.json({ 
+                // If restricted but no department assigned, show nothing
+                 return NextResponse.json({ 
                     success: true, 
                     data: [], 
                     pagination: { total: 0, pages: 0, current: page, limit },
                     message: "Restricted access: No department assigned to your account."
                 });
             }
-            // Force override any client-provided departmentId
             filters.departmentId = user.departmentId;
         } else {
-             // Standard behavior: Allow client filter if provided, otherwise show all
              if (departmentId) filters.departmentId = departmentId;
+        }
+
+        // NEW: Enforce Site Restriction Logic
+        if (hasSiteRestriction && !isSuperAdmin) {
+            if (!user.siteId) {
+                 return NextResponse.json({ 
+                    success: true, 
+                    data: [], 
+                    pagination: { total: 0, pages: 0, current: page, limit },
+                    message: "Restricted access: No site assigned to your account."
+                });
+            }
+            filters.siteId = user.siteId;
+        } else {
+             if (siteId) filters.siteId = siteId;
         }
 
         const result = await workOrderRepo.findAll(filters, page, limit);

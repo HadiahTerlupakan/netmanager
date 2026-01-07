@@ -17,8 +17,19 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url)
         const startDateStr = searchParams.get('startDate')
         const endDateStr = searchParams.get('endDate')
-        const siteId = searchParams.get('siteId') || undefined
-        const departmentId = searchParams.get('departmentId') || undefined
+        let siteId = searchParams.get('siteId') || undefined
+        let departmentId = searchParams.get('departmentId') || undefined
+
+        // NEW: Enforce RBAC Restrictions
+        const user = session.user as any
+        const isSuperAdmin = user.role === 'SUPER_ADMIN'
+
+        if (user.permissions?.includes('attendance:site_only') && !isSuperAdmin) {
+            siteId = user.siteId
+        }
+        if (user.permissions?.includes('attendance:department_only') && !isSuperAdmin) {
+            departmentId = user.departmentId
+        }
 
         if (!startDateStr || !endDateStr) {
             return NextResponse.json({ error: 'Start date and End date required' }, { status: 400 })

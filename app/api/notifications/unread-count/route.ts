@@ -15,7 +15,14 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const excludeTypes = searchParams.get('excludeTypes')?.split(',') as NotificationType[] | undefined;
 
-        const count = await getUnreadCount(session.user.id, excludeTypes);
+        // Enforce Site Restriction
+        const permissions = (session.user as any).permissions || []
+        const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
+        const siteId = (!isSuperAdmin && permissions.includes('site_only'))
+            ? (session.user as any).siteId
+            : undefined;
+
+        const count = await getUnreadCount(session.user.id, excludeTypes, siteId);
 
         return NextResponse.json({ count });
     } catch (error) {

@@ -6,8 +6,11 @@ import type { IOdcRepository, OdcCreateData, OdcUpdateData, OdcPublic } from './
 export class OdcRepository implements IOdcRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findAll(): Promise<OdcPublic[]> {
-    const items = await this.client.odc.findMany({ orderBy: { createdAt: 'desc' } })
+  async findAll(siteId?: string): Promise<OdcPublic[]> {
+    const items = await this.client.odc.findMany({
+        where: siteId ? { siteId } : {},
+        orderBy: { createdAt: 'desc' }
+    })
     return items as unknown as OdcPublic[]
   }
 
@@ -29,6 +32,7 @@ export class OdcRepository implements IOdcRepository {
           longitude: data.longitude ?? null,
           status: data.status ?? 'AKTIF',
           otbCoreId: data.otbCoreId,
+          siteId: data.siteId,
           updatedAt: new Date(),
         },
         select: { id: true },
@@ -66,6 +70,7 @@ export class OdcRepository implements IOdcRepository {
           ...(data.longitude !== undefined && { longitude: data.longitude }),
           ...(data.status !== undefined && { status: data.status }),
           ...(data.otbCoreId !== undefined && { otbCoreId: data.otbCoreId }),
+          ...(data.siteId !== undefined && { siteId: data.siteId }),
           updatedAt: new Date(),
         },
       })

@@ -23,6 +23,25 @@ export async function PATCH(
         const body = await request.json()
         const { action, reason } = body // action: 'approve' | 'reject'
 
+        // NEW: Ownership Check
+        const existing = await import('@/lib/prisma').then(m => m.prisma.overtime.findUnique({
+            where: { id },
+            include: { user: true }
+        }))
+
+        if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+        const user = session.user as any;
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+        if (!isSuperAdmin) {
+             if (user.permissions?.includes('lembur:site_only') && existing.user.siteId !== user.siteId) {
+                 return NextResponse.json({ error: 'Forbidden: Restricted to your Site' }, { status: 403 })
+             }
+             if (user.permissions?.includes('lembur:department_only') && existing.user.departmentId !== user.departmentId) {
+                  return NextResponse.json({ error: 'Forbidden: Restricted to your Dept' }, { status: 403 })
+             }
+        }
+
         const service = new OvertimeService()
 
         if (action === 'approve') {
@@ -57,6 +76,25 @@ export async function DELETE(
         // Permission check
         if (!await hasPermission('lembur:delete')) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
+        // NEW: Ownership Check
+        const existing = await import('@/lib/prisma').then(m => m.prisma.overtime.findUnique({
+            where: { id },
+            include: { user: true }
+        }))
+
+        if (existing) {
+            const user = session.user as any;
+            const isSuperAdmin = user.role === 'SUPER_ADMIN';
+            if (!isSuperAdmin) {
+                    if (user.permissions?.includes('lembur:site_only') && existing.user.siteId !== user.siteId) {
+                        return NextResponse.json({ error: 'Forbidden: Restricted to your Site' }, { status: 403 })
+                    }
+                    if (user.permissions?.includes('lembur:department_only') && existing.user.departmentId !== user.departmentId) {
+                        return NextResponse.json({ error: 'Forbidden: Restricted to your Dept' }, { status: 403 })
+                    }
+            }
         }
 
         const { id } = await params

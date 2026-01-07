@@ -6,8 +6,11 @@ import type { IPoleRepository, PoleCreateData, PoleUpdateData, PolePublic } from
 export class PoleRepository implements IPoleRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findAll(): Promise<PolePublic[]> {
-    const items = await this.client.pole.findMany({ orderBy: { createdAt: 'desc' } })
+  async findAll(siteId?: string): Promise<PolePublic[]> {
+    const items = await this.client.pole.findMany({
+        where: siteId ? { siteId } : {},
+        orderBy: { createdAt: 'desc' }
+    })
     return items as unknown as PolePublic[]
   }
 
@@ -28,6 +31,7 @@ export class PoleRepository implements IPoleRepository {
         longitude: data.longitude ?? null,
         status: data.status ?? 'AKTIF',
         cableSlack: data.cableSlack ?? false,
+        siteId: data.siteId,
       },
       select: { id: true },
     })
@@ -46,6 +50,7 @@ export class PoleRepository implements IPoleRepository {
         ...(data.longitude !== undefined && { longitude: data.longitude }),
         ...(data.status !== undefined && { status: data.status }),
         ...(data.cableSlack !== undefined && { cableSlack: data.cableSlack }),
+        ...(data.siteId !== undefined && { siteId: data.siteId }),
       },
     })
   }

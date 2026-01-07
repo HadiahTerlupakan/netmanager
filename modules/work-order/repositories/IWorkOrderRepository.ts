@@ -216,10 +216,10 @@ export interface IWorkOrderRepository {
 
     // Statistics
     getStatistics(filters?: Omit<WorkOrderFilters, 'search'>): Promise<WorkOrderStatistics>;
-    getTopPerformers(limit?: number, dateFrom?: Date, dateTo?: Date): Promise<TopPerformer[]>;
-    getIssueStatistics(limit?: number, dateFrom?: Date, dateTo?: Date): Promise<IssueStatistic[]>;
-    getSiteStatistics(limit?: number, dateFrom?: Date, dateTo?: Date): Promise<SiteStatistic[]>;
-    getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date): Promise<Array<{ reason: string; count: number }>>;
+    getTopPerformers(limit?: number, dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<TopPerformer[]>;
+    getIssueStatistics(limit?: number, dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<IssueStatistic[]>;
+    getSiteStatistics(limit?: number, dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<SiteStatistic[]>;
+    getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<Array<{ reason: string; count: number }>>;
     getUserWorkOrderStats(dateFrom: Date, dateTo: Date): Promise<Array<{ userId: string; count: number }>>;
     getSiteStatsByType(types: WorkOrderType[], limit: number, dateFrom: Date, dateTo: Date): Promise<Array<{ siteId: string; siteName: string; count: number }>>;
 

@@ -82,6 +82,23 @@ export async function GET(
             return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
         }
 
+        // NEW: Strict Access Control (Site & Department)
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+        
+        // 1. Site Check
+        if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
+            if (workOrder.siteId !== user.siteId) {
+                return NextResponse.json({ error: 'Forbidden: Restricted to your Site' }, { status: 403 });
+            }
+        }
+
+        // 2. Department Check
+        if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
+            if (workOrder.departmentId !== user.departmentId) {
+                 return NextResponse.json({ error: 'Forbidden: Restricted to your Department' }, { status: 403 });
+            }
+        }
+
         return NextResponse.json({
             success: true,
             data: workOrder,
@@ -197,6 +214,28 @@ export async function PATCH(
 
         const { id } = await params;
         const body = await request.json();
+
+        // NEW: Pre-fetch for Access Control
+        const existingWO = await workOrderRepo.findById(id);
+        if (!existingWO) {
+            return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
+        }
+
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+
+        // 1. Site Check
+        if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
+            if (existingWO.siteId !== user.siteId) {
+                return NextResponse.json({ error: 'Forbidden: You can only update tickets in your Site' }, { status: 403 });
+            }
+        }
+        
+        // 2. Department Check
+        if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
+             if (existingWO.departmentId !== user.departmentId) {
+                return NextResponse.json({ error: 'Forbidden: You can only update tickets in your Department' }, { status: 403 });
+            }
+        }
 
         // Handle rejection reason or explicitly provided reason
         if (body.rejectionReason) {
@@ -360,6 +399,28 @@ export async function DELETE(
         const { searchParams } = new URL(request.url);
         const reason = searchParams.get('reason') || 'Cancelled by admin';
         const isPermanent = searchParams.get('permanent') === 'true';
+
+        // NEW: Pre-fetch for Access Control
+        const existingWO = await workOrderRepo.findById(id);
+        if (!existingWO) {
+             return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
+        }
+
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+
+        // 1. Site Check
+        if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
+            if (existingWO.siteId !== user.siteId) {
+                return NextResponse.json({ error: 'Forbidden: You can only delete tickets in your Site' }, { status: 403 });
+            }
+        }
+        
+        // 2. Department Check
+        if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
+             if (existingWO.departmentId !== user.departmentId) {
+                return NextResponse.json({ error: 'Forbidden: You can only delete tickets in your Department' }, { status: 403 });
+            }
+        }
 
         if (isPermanent) {
             await workOrderRepo.delete(id);

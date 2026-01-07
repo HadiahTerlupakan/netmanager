@@ -59,6 +59,33 @@ export async function GET(request: NextRequest) {
             filters.departmentId = user.departmentId;
         }
 
+        // NEW: Enforce Site Restriction Logic
+        const hasSiteRestriction = user.permissions?.includes('workorders:site_only');
+        if (hasSiteRestriction && !isSuperAdmin) {
+             if (!user.siteId) {
+                 return NextResponse.json({
+                    success: true,
+                    data: {
+                        total: 0,
+                        pending: 0,
+                        assigned: 0,
+                        inProgress: 0,
+                        onHold: 0,
+                        completed: 0,
+                        verified: 0,
+                        closed: 0,
+                        cancelled: 0,
+                        urgentOpen: 0,
+                        avgCompletionTimeHours: 0,
+                        totalCost: 0,
+                        avgRating: null,
+                        totalWithRating: 0
+                    },
+                });
+            }
+            filters.siteId = user.siteId;
+        }
+
         const stats = await workOrderRepo.getStatistics(filters);
 
         return NextResponse.json({

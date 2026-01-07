@@ -38,6 +38,16 @@ export async function GET(req: Request) {
             };
         }
 
+        if ((await hasPermission("expense:site_only")) && user.role !== 'SUPER_ADMIN') {
+            const userSiteId = (user as any).siteId;
+            if (userSiteId) {
+                where.siteId = userSiteId;
+            } else {
+                 // If user is restricted but has no site, return empty
+                 return NextResponse.json([]);
+            }
+        }
+
         // @ts-ignore
         const expenses = await prisma.expense.findMany({
             where,
@@ -80,6 +90,7 @@ const expenseSchema = z.object({
     date: z.string().or(z.date()).transform((val) => new Date(val)),
     category: z.string().min(1, "Category is required"),
     description: z.string().optional(),
+    siteId: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -100,7 +111,16 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Invalid input", details: validation.error.format() }, { status: 400 });
         }
 
-        const { amount, date, category, description } = validation.data;
+        const { amount, date, category, description, siteId } = validation.data;
+
+        let finalSiteId = siteId;
+        if ((await hasPermission("expense:site_only")) && session.user.role !== 'SUPER_ADMIN') {
+             const userSiteId = (session.user as any).siteId;
+             if (!userSiteId) {
+                 return NextResponse.json({ error: "User restricted but has no site" }, { status: 403 });
+             }
+             finalSiteId = userSiteId;
+        }
 
         // @ts-ignore
         const expense = await prisma.expense.create({
@@ -112,6 +132,7 @@ export async function POST(req: Request) {
                 description,
                 userId: session.user.id,
                 updatedAt: new Date(),
+                siteId: finalSiteId,
             },
         });
 

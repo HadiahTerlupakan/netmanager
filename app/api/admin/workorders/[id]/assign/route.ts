@@ -22,6 +22,25 @@ export async function POST(
         }
 
         const { id } = await params;
+
+        // NEW: Ownership Check
+        const existingWO = await workOrderRepo.findById(id);
+        if (!existingWO) {
+            return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
+        }
+
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+        if (user.permissions?.includes('workorders:site_only') && !isSuperAdmin) {
+            if (existingWO.siteId !== user.siteId) {
+                return NextResponse.json({ error: 'Forbidden: Restricted to your Site' }, { status: 403 });
+            }
+        }
+        if (user.permissions?.includes('workorders:department_only') && !isSuperAdmin) {
+            if (existingWO.departmentId !== user.departmentId) {
+                return NextResponse.json({ error: 'Forbidden: Restricted to your Department' }, { status: 403 });
+            }
+        }
+
         const body = await request.json();
 
         if (!body.employeeId) {

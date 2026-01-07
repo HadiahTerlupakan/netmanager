@@ -8,6 +8,7 @@ export interface OdpCreateData {
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   odcOutputId: string
   outputs?: OdpOutputData[]
+  siteId?: string | null
 }
 
 export interface OdpUpdateData {
@@ -20,6 +21,7 @@ export interface OdpUpdateData {
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   odcOutputId?: string
   outputs?: OdpOutputData[]
+  siteId?: string | null
 }
 
 export interface OdpPublic {
@@ -34,6 +36,7 @@ export interface OdpPublic {
   createdAt: Date
   updatedAt: Date
   odcOutputId: string
+  siteId: string | null
 }
 
 export interface OdpOutputData {
@@ -45,7 +48,7 @@ export interface OdpOutputData {
 }
 
 export interface IOdpRepository {
-  findAll(): Promise<OdpPublic[]>
+  findAll(siteId?: string): Promise<OdpPublic[]>
   findById(id: string): Promise<OdpPublic | null>
   create(data: OdpCreateData): Promise<{ id: string }>
   update(id: string, data: OdpUpdateData): Promise<void>

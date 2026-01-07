@@ -4,6 +4,7 @@ import { authConfig } from '@/lib/auth'
 import { getOdcRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
 import { odcUpdateSchema } from '@/lib/validations/odc'
+import { hasPermission } from '@/lib/rbac'
 
 async function requireAdmin() {
   const session: any = await getServerSession(authConfig as any)
@@ -27,6 +28,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     },
   })
   if (!odc) return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+  if (!odc) return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+
+  // RBAC: Check site restrictions
+  const session: any = await getServerSession(authConfig as any);
+  const isSiteRestricted = session?.user && (await hasPermission("odc:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = session?.user?.siteId;
+
+  if (isSiteRestricted) {
+    if (!userSiteId || (odc.siteId && odc.siteId !== userSiteId)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
   return NextResponse.json({ odc })
 }
 
@@ -39,6 +53,23 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
+
+    // RBAC: Check site restrictions
+  const isSiteRestricted = (await hasPermission("odc:site_only")) && session.user.role !== 'SUPER_ADMIN';
+  const userSiteId = (session.user as any).siteId;
+
+  const existingOdc = await prisma.odc.findUnique({ where: { id } });
+  if (!existingOdc) {
+      return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+  }
+
+  if (isSiteRestricted) {
+    if (!userSiteId || (existingOdc.siteId && existingOdc.siteId !== userSiteId)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    // Force siteId
+    parsed.data.siteId = userSiteId;
+  }
   const repo = getOdcRepository()
   const updateData: any = {
     ...(parsed.data.name !== undefined && { name: parsed.data.name }),
@@ -49,6 +80,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     ...(parsed.data.longitude !== undefined && { longitude: parsed.data.longitude }),
     ...(parsed.data.status !== undefined && { status: parsed.data.status }),
     ...(parsed.data.otbCoreId !== undefined && { otbCoreId: parsed.data.otbCoreId }),
+    ...(parsed.data.siteId !== undefined && { siteId: parsed.data.siteId }),
     ...(parsed.data.outputs !== undefined && {
       outputs: parsed.data.outputs.map((o, idx) => ({
         idx: o.idx ?? idx,
@@ -88,6 +120,18 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     where: { id },
     include: { odcOutput: { include: { odp: true } } },
   })
+  
+  if (odc) {
+      // RBAC: Check site restrictions
+      const isSiteRestricted = (await hasPermission("odc:site_only")) && session.user.role !== 'SUPER_ADMIN';
+      const userSiteId = (session.user as any).siteId;
+
+      if (isSiteRestricted) {
+        if (!userSiteId || (odc.siteId && odc.siteId !== userSiteId)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+      }
+  }
 
   if (!odc) {
     return NextResponse.json({ error: 'ODC tidak ditemukan' }, { status: 404 })

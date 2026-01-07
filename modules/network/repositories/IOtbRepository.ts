@@ -13,6 +13,7 @@ export interface OtbCreateData {
     tubeColor: string
     coreColor: string
   }>
+  siteId?: string | null
 }
 
 export interface OtbUpdateData {
@@ -30,6 +31,7 @@ export interface OtbUpdateData {
     tubeColor: string
     coreColor: string
   }>
+  siteId?: string | null
 }
 
 export interface OtbPublic {
@@ -44,10 +46,11 @@ export interface OtbPublic {
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE'
   createdAt: Date
   updatedAt: Date
+  siteId: string | null
 }
 
 export interface IOtbRepository {
-  findAll(): Promise<OtbPublic[]>
+  findAll(siteId?: string): Promise<OtbPublic[]>
   findById(id: string): Promise<OtbPublic | null>
   create(data: OtbCreateData): Promise<{ id: string }>
   update(id: string, data: OtbUpdateData): Promise<void>
