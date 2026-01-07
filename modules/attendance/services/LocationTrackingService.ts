@@ -127,8 +127,9 @@ export class LocationTrackingService {
 
     /**
      * Ambil lokasi terakhir untuk semua karyawan yang sedang aktif (untuk Live Map)
+     * @param filters Optional filters for RBAC (siteId, departmentId)
      */
-    async getLiveLocations(): Promise<Array<{
+    async getLiveLocations(filters?: { siteId?: string; departmentId?: string }): Promise<Array<{
         userId: string
         userName: string
         userImage: string | null
@@ -156,11 +157,21 @@ export class LocationTrackingService {
         todayWIB.setHours(0, 0, 0, 0)
         const todayUTC = new Date(todayWIB.getTime() - totalOffset * 60 * 1000)
 
+        // Build user filter for RBAC restrictions
+        const userFilter: any = {};
+        if (filters?.siteId) {
+            userFilter.siteId = filters.siteId;
+        }
+        if (filters?.departmentId) {
+            userFilter.departmentId = filters.departmentId;
+        }
+
         // Cari semua user yang sedang check-in (belum check-out)
         const activeAttendances = await prisma.attendance.findMany({
             where: {
                 checkIn: { gte: todayUTC },
-                checkOut: null
+                checkOut: null,
+                user: Object.keys(userFilter).length > 0 ? userFilter : undefined
             },
             include: {
                 user: {
