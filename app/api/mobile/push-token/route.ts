@@ -24,6 +24,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Push token required' }, { status: 400 })
         }
 
+        // Unique Token Enforcement: Remove this token from any other users
+        // This prevents "Shared Device" notification leaks
+        await prisma.user.updateMany({
+            where: { 
+                pushToken: pushToken,
+                id: { not: user.id }
+            },
+            data: { 
+                pushToken: null, 
+                pushTokenUpdatedAt: null 
+            }
+        })
+
         // Update user with push token
         await prisma.user.update({
             where: { id: user.id },

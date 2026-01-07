@@ -367,6 +367,9 @@ export async function verifyAuth(request: NextRequest) {
       id: token.id as string,
       email: token.email as string,
       name: token.name as string | null,
+      role: token.role as string | undefined, // Added role
+      departmentId: token.departmentId as string | undefined, // Added departmentId
+      permissions: token.permissions as string[] | undefined, // Added permissions
     }
   } catch (error) {
     console.error('Error verifying auth:', error)

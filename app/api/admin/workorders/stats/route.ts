@@ -26,6 +26,39 @@ export async function GET(request: NextRequest) {
         if (departmentId) filters.departmentId = departmentId;
         if (assignedToId) filters.assignedToId = assignedToId;
 
+        // NEW: Enforce Department Restriction Logic
+        // If user has 'department_only' permission and is NOT a Super Admin, force restrict to their department
+        const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+
+        if (hasDepartmentRestriction && !isSuperAdmin) {
+            if (!user.departmentId) {
+                // If restricted but no department assigned, return empty stats or throw error?
+                // For stats, returning 0s is safer than error
+                 return NextResponse.json({
+                    success: true,
+                    data: {
+                        total: 0,
+                        pending: 0,
+                        assigned: 0,
+                        inProgress: 0,
+                        onHold: 0,
+                        completed: 0,
+                        verified: 0,
+                        closed: 0,
+                        cancelled: 0,
+                        urgentOpen: 0,
+                        avgCompletionTimeHours: 0,
+                        totalCost: 0,
+                        avgRating: null,
+                        totalWithRating: 0
+                    },
+                });
+            }
+            // Force override any client-provided departmentId
+            filters.departmentId = user.departmentId;
+        }
+
         const stats = await workOrderRepo.getStatistics(filters);
 
         return NextResponse.json({

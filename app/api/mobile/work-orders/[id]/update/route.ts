@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { convertAndSaveImage } from '@/lib/utils/image-upload';
 import { format } from 'date-fns';
+import { notifyAdminsAboutMobileAction } from '@/modules/notification';
 
 // Valid status transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -40,6 +41,12 @@ export async function POST(
         const workOrderId = params.id;
         const repository = new WorkOrderRepository(prisma);
 
+        // Fetch User to get Name (for notifications)
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true }
+        });
+
         // ============================================
         // 2. FETCH WORK ORDER & AUTHORIZATION CHECK
         // ============================================
@@ -49,6 +56,7 @@ export async function POST(
                 ticket: { select: { ticketNumber: true } },
                 assignments: { select: { userId: true, status: true } },
                 department: { select: { id: true, name: true } },
+                site: { select: { id: true, name: true } },
             }
         });
 
@@ -166,7 +174,34 @@ export async function POST(
                 });
             }
 
+            // Notify Admins
+            await notifyAdminsAboutMobileAction({
+                workOrderId,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                actionType: 'START',
+                actionMessage: 'Memulai pengerjaan Work Order',
+                triggeredByUserId: userId,
+                triggeredByName: (user?.name as string) || (payload.name as string),
+                departmentId: workOrder.departmentId || undefined,
+                siteId: workOrder.siteId || undefined,
+            });
+
             return NextResponse.json({ success: true, message: 'Work Order Started' });
+
+        } else if (action === 'CLAIM') {
+            // Validate status: must be PENDING
+            if (workOrder.status !== 'PENDING') {
+                return NextResponse.json(
+                    { error: `Cannot claim Work Order with status: ${workOrder.status}. Must be PENDING.` },
+                    { status: 400 }
+                );
+            }
+
+            // Assign to self
+            await repository.assign(workOrderId, userId, 'Lead', userId);
+            
+            return NextResponse.json({ success: true, message: 'Work Order Claimed' });
 
         } else if (action === 'COMPLETE') {
             // Validate status transition
@@ -234,6 +269,20 @@ export async function POST(
             }
 
             await repository.complete(workOrderId, notes, userId, timestamp);
+
+            // Notify Admins
+            await notifyAdminsAboutMobileAction({
+                workOrderId,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                actionType: 'COMPLETE',
+                actionMessage: 'Menyelesaikan Work Order',
+                triggeredByUserId: userId,
+                triggeredByName: (user?.name as string) || (payload.name as string),
+                departmentId: workOrder.departmentId || undefined,
+                siteId: workOrder.siteId || undefined,
+            });
+
             return NextResponse.json({ success: true, message: 'Work Order Completed' });
 
         } else if (action === 'PAUSE') {
@@ -255,6 +304,20 @@ export async function POST(
                     createdById: userId
                 });
             }
+
+            // Notify Admins
+            await notifyAdminsAboutMobileAction({
+                workOrderId,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                actionType: 'PAUSE',
+                actionMessage: `Menunda Work Order: ${notes || ''}`,
+                triggeredByUserId: userId,
+                triggeredByName: (user?.name as string) || (payload.name as string),
+                departmentId: workOrder.departmentId || undefined,
+                siteId: workOrder.siteId || undefined,
+            });
+
             return NextResponse.json({ success: true, message: 'Work Order Paused' });
 
         } else if (action === 'NOTE') {
@@ -312,6 +375,19 @@ export async function POST(
                 createdById: userId
             });
             
+            // Notify Admins
+            await notifyAdminsAboutMobileAction({
+                workOrderId,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                actionType: 'NOTE',
+                actionMessage: `Menambahkan Catatan: ${notes || 'Photo update'}`,
+                triggeredByUserId: userId,
+                triggeredByName: (user?.name as string) || (payload.name as string),
+                departmentId: workOrder.departmentId || undefined,
+                siteId: workOrder.siteId || undefined,
+            });
+
             return NextResponse.json({ success: true, message: 'Note added' });
         }
 

@@ -3,6 +3,7 @@ import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { randomUUID } from 'crypto';
+import { notifyAdminsAboutMobileAction } from '@/modules/notification';
 
 // POST: Add Partner
 export async function POST(
@@ -70,7 +71,13 @@ export async function POST(
         // Get work order for notification
         const workOrder = await prisma.workOrders.findUnique({
             where: { id },
-            select: { workOrderNumber: true, title: true }
+            select: { workOrderNumber: true, title: true, departmentId: true, siteId: true }
+        });
+
+        // Get partner user name for notification
+        const partnerUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true }
         });
 
         // Emit WebSocket to notify partner user in real-time
@@ -94,6 +101,21 @@ export async function POST(
             status: 'PENDING',
             priority: 'NORMAL'
         }, userId);
+
+        // Notify Admin Portal about partner invite
+        if (workOrder) {
+            await notifyAdminsAboutMobileAction({
+                workOrderId: id,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                actionType: 'PARTNER_INVITE',
+                actionMessage: `Mengundang ${partnerUser?.name || 'rekan'} sebagai partner kerja`,
+                triggeredByUserId: payload.id as string,
+                triggeredByName: (payload.name as string) || undefined,
+                departmentId: workOrder.departmentId || undefined,
+                siteId: workOrder.siteId || undefined,
+            });
+        }
 
         return NextResponse.json({
             success: true,

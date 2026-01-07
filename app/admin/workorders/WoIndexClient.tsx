@@ -163,7 +163,7 @@ export function ClientComponent() {
                                                 {wo.status === 'PENDING' && <span className="text-orange-600 dark:text-orange-400 font-medium">• Waiting: {getTimeWaiting(wo.createdAt)}</span>}
                                             </div>
                                         </div>
-                                        <HiChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-4" />
+                                        <HiChevronRight className="w-5 h-5 text-gray-400 shrink-0 ml-4" />
                                     </Link>
                                 ))}
                             </div>

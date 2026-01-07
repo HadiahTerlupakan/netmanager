@@ -41,9 +41,26 @@ export async function GET(request: NextRequest) {
             dateTo = new Date();
         }
 
+        // NEW: Enforce Department Restriction Logic
+        let departmentIdFilter: string | undefined = undefined;
+        const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+
+        if (hasDepartmentRestriction && !isSuperAdmin) {
+            if (!user.departmentId) {
+                 return NextResponse.json({
+                    success: true,
+                    data: [],
+                    topAssists: [],
+                    message: "Restricted access: No department assigned."
+                });
+            }
+            departmentIdFilter = user.departmentId;
+        }
+
         const [topPerformers, topAssists] = await Promise.all([
-            workOrderRepo.getTopPerformers(5, dateFrom, dateTo),
-            workOrderRepo.getTopAssists(5, dateFrom, dateTo)
+            workOrderRepo.getTopPerformers(5, dateFrom, dateTo, departmentIdFilter),
+            workOrderRepo.getTopAssists(5, dateFrom, dateTo, departmentIdFilter)
         ]);
 
         return NextResponse.json({

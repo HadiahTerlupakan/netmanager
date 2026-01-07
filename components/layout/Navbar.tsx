@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { signOut, useSession } from 'next-auth/react'
 import { HiBars3, HiMagnifyingGlass, HiOutlineCog6Tooth, HiOutlineUser, HiArrowRightOnRectangle } from 'react-icons/hi2'
+import { WorkOrderBell } from '@/components/notifications/WorkOrderBell'
 import { AdminNotificationBell } from '@/components/notifications/AdminNotificationBell'
 import { CustomerSupportBell } from '@/components/notifications/CustomerSupportBell'
 
@@ -58,6 +59,9 @@ export default function Navbar() {
 
         {/* Right: Actions & Profile */}
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+
+          {/* Work Order Notifications (NEW) */}
+          <WorkOrderBell />
 
           {/* Customer Support Tickets */}
           <CustomerSupportBell />

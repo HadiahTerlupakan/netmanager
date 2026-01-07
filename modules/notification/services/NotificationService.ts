@@ -162,133 +162,184 @@ async function sendPushToDepartment(departmentId: string, payload: PushPayload) 
 /**
  * Create notification for new Work Order (notify users by Department AND Site)
  */
+/**
+ * Helper to find eligible recipients for a notification based on Access Rights
+ * Logic: 
+ * 1. User Must be Active
+ * 2. User must have 'workorders:read' permission
+ * 3. Site Access Check:
+ *    - If user has NO 'workorders:site_only' permission → can see ALL sites
+ *    - If user HAS 'workorders:site_only' → must match WO site OR be global (siteId: null)
+ */
+async function findEligibleRecipients(departmentId?: string, siteId?: string, excludeUserId?: string) {
+    // First, find all users with workorders:read permission
+    console.log(`[NotificationDebug] Finding recipients for Dept: ${departmentId}, Site: ${siteId}`);
+    
+    const usersWithPermission = await prisma.user.findMany({
+        where: {
+            isActive: true,
+            ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+            // Department Filter: If WO has Dept, users must match Dept OR match Global (null) OR have 'read_all_departments' permission
+            ...(departmentId ? {
+                OR: [
+                    { departmentId: departmentId },
+                    { departmentId: null },
+                    {
+                        role: {
+                            permission: {
+                                none: { // "None" matching means they DO NOT have the restriction
+                                    resource: 'workorders',
+                                    action: 'department_only'
+                                }
+                            }
+                        }
+                    }
+                ]
+            } : {}),
+            role: {
+                permission: {
+                    some: {
+                        resource: 'workorders',
+                        action: 'read'
+                    }
+                }
+            }
+        },
+        select: { 
+            id: true,
+            name: true,
+            departmentId: true,
+            siteId: true,
+            role: {
+                select: {
+                    name: true,
+                    permission: {
+                        where: {
+                            resource: 'workorders',
+                            action: 'site_only'
+                        },
+                        select: { id: true }
+                    }
+                }
+            }
+        }
+    });
+
+    console.log(`[NotificationDebug] Found ${usersWithPermission.length} potential users with 'workorders:read'`);
+
+    // Filter based on site_only permission and Explicitly Exclude ID (Safety Net)
+    const eligibleUsers = usersWithPermission.filter(user => {
+        // Strict exclusion check (in case Prisma query missed it or ID format differs slightly)
+        if (excludeUserId && user.id === excludeUserId) {
+             console.log(`[NotificationDebug] Explicitly excluding user ${user.name} (${user.id})`);
+             return false;
+        }
+
+        const hasSiteOnly = user.role?.permission && user.role.permission.length > 0;
+        
+        if (!hasSiteOnly) {
+           // console.log(`[NotificationDebug] User ${user.name} accepted (No Site Limit)`);
+            return true;
+        }
+        
+        // User HAS site_only restriction
+        if (!siteId) {
+            // WO has no site → global WO, everyone can see
+            return true;
+        }
+        
+        const match = user.siteId === siteId || user.siteId === null; // Allow site-restricted users to see if they are assigned to that site
+        if (!match) {
+             console.log(`[NotificationDebug] User ${user.name} rejected (Site Mismatch: UserSite=${user.siteId} vs WOSite=${siteId})`);
+        }
+        return match;
+    });
+
+    return eligibleUsers.map(u => ({ id: u.id }));
+}
+
+
+/**
+ * Create notification for new Work Order (notify users by Department AND Site)
+ */
 export async function notifyNewWorkOrder(data: WorkOrderNotificationData) {
     const priorityEmoji = getPriorityEmoji(data.priority);
     const typeLabel = getWorkOrderTypeLabel(data.type);
 
-    // 1. Find all eligible users
-    // Logic: User must match Dept AND Site
-    const whereCondition: any = {
-        isActive: true, // Only active users
-        AND: [
-            // Department Filter
-            data.departmentId
-                ? { OR: [{ departmentId: null }, { departmentId: data.departmentId }] }
-                : { departmentId: null }, // If user has no dept, can see global
-
-            // Site Filter
-            data.siteId
-                ? { OR: [{ siteId: null }, { siteId: data.siteId }] }
-                : { siteId: null } // If user has no site, can see global
-        ]
-    };
-
-    // However, if WO has NO Department, it's global? (Usually WO has Dept)
-    // Let's refine based on the STRICT logic we defined in API:
-    // API GET logic:
-    // user.deptId must permit WO.deptId -> (wo.dept is null OR wo.dept == user.dept)
-    // user.siteId must permit WO.siteId -> (wo.site is null OR wo.site == user.site)
-    // Here we have WO, seeking Users.
-    // User is eligible if:
-    // (User.dept == WO.dept OR User.dept == NULL [if we treat null dept as super-admin/all-access? NO, usually null dept is strict])
-    // WAIT. API Logic was: User sees WO if (User.Dept == WO.Dept OR WO.Dept == Null).
-    // So here: Find Users where (User.Dept == WO.Dept OR User.Dept == ?) -> No, we want users who CAN see this WO.
-    // User can see if: (User.Dept == WO.Dept) || (WO.Dept == NULL) -- If WO.Dept is NULL, ALL users with matching Site can see.
-    // So query:
-    // If WO.Dept is NOT NULL: User.Dept MUST be WO.Dept. (Or User is Admin? We ignore role checks for now, assumtion is finding target workers)
-    // If WO.Site is NOT NULL: User.Site MUST be WO.Site.
+    console.log(`[NotificationDebug] Processing New WO Notification: ${data.workOrderNumber}`);
+    const recipients = await findEligibleRecipients(data.departmentId, data.siteId);
     
-    // Revised Query Construction:
-    const criteria: any = { isActive: true };
+    console.log(`[Notification] New WO ${data.workOrderNumber}: Found ${recipients.length} recipients`);
 
-    if (data.departmentId) {
-        criteria.departmentId = data.departmentId;
+    if (recipients.length === 0) {
+        console.warn(`[NotificationDebug] NO RECIPIENTS FOUND for New WO ${data.workOrderNumber}. Check Dept/Site/Permissions.`);
+        return null; 
     }
-    // If data.departmentId is null, we notify all departments? Or specific "Global" users?
-    // Let's assume if WO has no dept, it notifies EVERYONE (filtered by site).
 
-    if (data.siteId) {
-        criteria.siteId = data.siteId;
-    }
-    // If data.siteId is null, notify users of ALL sites? 
-    // Usually WO always has site. If null, maybe only users with null site?
-    // Let's stick to strict matching. User must match properties if they exist on WO.
+    const promises = recipients.map(async (user) => {
+        const isAssignee = user.id === data.assignedToId;
+        const personalizedTitle = isAssignee 
+            ? `📋 Work Order Di-assign ke Anda`
+            : `${priorityEmoji} Work Order Baru: ${data.workOrderNumber}`;
 
-    // Correction: Notification logic often wants to be broader than API access. 
-    // But user asked for "Strict like API".
-    // API: User sees WO if user matches WO.
-    // So here: Find User where User.Dept == WO.Dept AND User.Site == WO.Site.
-    // What about User with Null Dept? Null Dept usually means broken record or special. 
-    // What about User with Null Site? Null Site usually means "Head Office" or "Global".
-    // If WO is Site A. User is Site Null.
-    // API logic: siteFilter = { siteId: { in: [null, user.siteId] } }.
-    // Meaning User(Null) asks for Site(Null). User(Null) CANNOT see Site(A).
-    // So User(Null) should NOT get notification for Site(A).
-    // Correct.
-    
-    // Implementation:
-    const users = await prisma.user.findMany({
-        where: criteria,
-        select: { id: true }
-    });
-
-    if (users.length === 0) return null;
-
-    // 2. Send notification to each user individually
-    const promises = users.map(async (user) => {
-        // DB Notification
         await createNotification({
             type: 'WORK_ORDER',
             priority: data.priority as NotificationPriority,
-            title: `${priorityEmoji} Work Order Baru: ${data.workOrderNumber}`,
+            title: personalizedTitle,
             message: `[${typeLabel}] ${data.title}`,
             link: `/admin/workorders/${data.workOrderId}`,
-            userId: user.id, // Targeting specific user
+            userId: user.id,
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
-
-        // Push Notification (Direct to User)
-        // Note: createNotification already handles push to user if userId is provided!
-        // So we don't need to call sendPushToUser manually here anymore.
     });
 
     await Promise.all(promises);
-
-    return { count: users.length };
+    return { count: recipients.length };
 }
 
 /**
  * Create notification when Work Order is assigned to a user
  */
-export async function notifyWorkOrderAssigned(data: WorkOrderNotificationData & { assigneeName?: string }) {
-    if (!data.assignedToId) return null;
-
-    const notification = await createNotification({
-        type: 'WORK_ORDER',
-        priority: data.priority as NotificationPriority,
-        title: `📋 Work Order Di-assign ke Anda`,
-        message: `${data.workOrderNumber}: ${data.title}`,
-        link: `/admin/workorders/${data.workOrderId}`,
-        userId: data.assignedToId,
-        sourceType: 'WORK_ORDER',
-        sourceId: data.workOrderId,
-    });
-
-    // Send push to assigned user
-    await sendPushToUser(data.assignedToId, {
-        title: '📋 Work Order Di-assign ke Anda',
-        body: `${data.workOrderNumber}: ${data.title}`,
-        data: {
-            url: `/admin/workorders/${data.workOrderId}`,
+export async function notifyWorkOrderAssigned(data: WorkOrderNotificationData & { assigneeName?: string; triggeredByUserId?: string }) {
+    // Notify Assignee
+    if (data.assignedToId && data.assignedToId !== data.triggeredByUserId) {
+        await createNotification({
             type: 'WORK_ORDER',
+            priority: data.priority as NotificationPriority,
+            title: `📋 Work Order Di-assign ke Anda`,
+            message: `${data.workOrderNumber}: ${data.title}`,
+            link: `/admin/workorders/${data.workOrderId}`,
+            userId: data.assignedToId,
+            sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
-        },
-        tag: `wo-assigned-${data.workOrderId}`,
-        requireInteraction: true,
-    });
+        });
 
-    return notification;
+        // Push to Assignee (Explicit Push with interaction)
+        await sendPushToUser(data.assignedToId, {
+            title: '📋 Work Order Di-assign ke Anda',
+            body: `${data.workOrderNumber}: ${data.title}`,
+            data: { url: `/admin/workorders/${data.workOrderId}`, type: 'WORK_ORDER', sourceId: data.workOrderId },
+            tag: `wo-assigned-${data.workOrderId}`,
+            requireInteraction: true,
+        });
+    }
+
+    // Also notify Admins/Department (excluding assignee)
+    const observers = await findEligibleRecipients(data.departmentId, data.siteId, data.assignedToId);
+    
+    await Promise.all(observers.map(user => 
+        createNotification({
+            type: 'WORK_ORDER',
+            priority: 'NORMAL',
+            title: `👤 Work Order Assigned`,
+            message: `${data.workOrderNumber} assigned to ${data.assigneeName || 'user'}`,
+            link: `/admin/workorders/${data.workOrderId}`,
+            userId: user.id,
+            sourceType: 'WORK_ORDER',
+            sourceId: data.workOrderId,
+        })
+    ));
 }
 
 /**
@@ -298,37 +349,40 @@ export async function notifyWorkOrderStatusChange(
     data: WorkOrderNotificationData & {
         oldStatus: string;
         newStatus: string;
+        triggeredByUserId?: string;
     }
 ) {
-    if (!data.assignedToId) return null;
-
     const statusLabel = getStatusLabel(data.newStatus);
     const statusEmoji = getStatusEmoji(data.newStatus);
+    
+    // Find recipients (exclude the person who triggered the action)
+    const recipients = await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId);
+    
+    await Promise.all(recipients.map(async (user) => {
+        const isAssignee = user.id === data.assignedToId;
+        const personalizedTitle = isAssignee ? `${statusEmoji} Status WO Anda Berubah` : `${statusEmoji} Status WO Berubah`;
 
-    const notification = await createNotification({
-        type: 'WORK_ORDER',
-        priority: 'NORMAL',
-        title: `${statusEmoji} Status WO Berubah`,
-        message: `${data.workOrderNumber}: ${data.oldStatus} → ${data.newStatus}`,
-        link: `/admin/workorders/${data.workOrderId}`,
-        userId: data.assignedToId,
-        sourceType: 'WORK_ORDER',
-        sourceId: data.workOrderId,
-    });
-
-    // Send push to assigned user
-    await sendPushToUser(data.assignedToId, {
-        title: `${statusEmoji} Status WO Berubah: ${statusLabel}`,
-        body: `${data.workOrderNumber}: ${data.title}`,
-        data: {
-            url: `/admin/workorders/${data.workOrderId}`,
+        await createNotification({
             type: 'WORK_ORDER',
+            priority: 'NORMAL',
+            title: personalizedTitle,
+            message: `${data.workOrderNumber}: ${data.oldStatus} → ${data.newStatus}`,
+            link: `/admin/workorders/${data.workOrderId}`,
+            userId: user.id,
+            sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
-        },
-        tag: `wo-status-${data.workOrderId}`,
-    });
+        });
 
-    return notification;
+        // Push only to assignee (if they are not the triggerer)
+        if (isAssignee && data.assignedToId !== data.triggeredByUserId) {
+            await sendPushToUser(user.id, {
+                title: `${statusEmoji} Status WO Berubah: ${statusLabel}`,
+                body: `${data.workOrderNumber}: ${data.title}`,
+                data: { url: `/admin/workorders/${data.workOrderId}`, type: 'WORK_ORDER', sourceId: data.workOrderId },
+                tag: `wo-status-${data.workOrderId}`,
+            });
+        }
+    }));
 }
 
 /**
@@ -338,34 +392,88 @@ export async function notifyWorkOrderUpdate(
     data: WorkOrderNotificationData & {
         updateMessage: string;
         updatedByName?: string;
+        triggeredByUserId?: string;
     }
 ) {
-    if (!data.assignedToId) return null;
+    // Notify Assignee + Admins/Department (exclude triggerer)
+    const recipients = await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId);
 
-    const notification = await createNotification({
-        type: 'WORK_ORDER',
-        priority: 'NORMAL',
-        title: `💬 Update pada ${data.workOrderNumber}`,
-        message: data.updateMessage,
-        link: `/admin/workorders/${data.workOrderId}`,
-        userId: data.assignedToId,
-        sourceType: 'WORK_ORDER',
-        sourceId: data.workOrderId,
-    });
-
-    // Send push to assigned user
-    await sendPushToUser(data.assignedToId, {
-        title: `💬 Update pada ${data.workOrderNumber}`,
-        body: data.updateMessage,
-        data: {
-            url: `/admin/workorders/${data.workOrderId}`,
+    await Promise.all(recipients.map(async (user) => {
+        await createNotification({
             type: 'WORK_ORDER',
+            priority: 'NORMAL',
+            title: `💬 Update pada ${data.workOrderNumber}`,
+            message: data.updateMessage,
+            link: `/admin/workorders/${data.workOrderId}`,
+            userId: user.id,
+            sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
-        },
-        tag: `wo-update-${data.workOrderId}`,
+        });
+
+        if (user.id === data.assignedToId && data.assignedToId !== data.triggeredByUserId) {
+             await sendPushToUser(data.assignedToId, {
+                title: `💬 Update pada ${data.workOrderNumber}`,
+                body: data.updateMessage,
+                data: { url: `/admin/workorders/${data.workOrderId}`, type: 'WORK_ORDER', sourceId: data.workOrderId },
+                tag: `wo-update-${data.workOrderId}`,
+            });
+        }
+    }));
+}
+
+/**
+ * Notify Admin Portal users about mobile Work Order actions
+ * This sends notifications to users who have workorders permission,
+ * EXCLUDING the user who triggered the action (no self-notifications)
+ */
+export async function notifyAdminsAboutMobileAction(data: {
+    workOrderId: string;
+    workOrderNumber: string;
+    title: string;
+    actionType: 'CLAIM' | 'START' | 'COMPLETE' | 'PAUSE' | 'NOTE' | 'MATERIAL_PICKUP' | 'PARTNER_INVITE' | 'PARTNER_RESPONSE';
+    actionMessage: string;
+    triggeredByUserId: string;
+    triggeredByName?: string;
+    departmentId?: string;
+    siteId?: string;
+}) {
+    const actionEmojis: Record<string, string> = {
+        CLAIM: '🎯',
+        START: '▶️',
+        COMPLETE: '✅',
+        PAUSE: '⏸️',
+        NOTE: '📝',
+        MATERIAL_PICKUP: '📦',
+        PARTNER_INVITE: '🤝',
+        PARTNER_RESPONSE: '📨'
+    };
+    
+    const emoji = actionEmojis[data.actionType] || '📋';
+
+    // Get admin users who should be notified (with workorders permission, excluding the triggerer)
+    const adminUsersRaw = await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId);
+    
+    // Explicitly filter again to be absolutely sure
+    const adminUsers = adminUsersRaw.filter(u => u.id !== data.triggeredByUserId);
+
+    console.log(`[Notification] Admin Action '${data.actionType}': Notifying ${adminUsers.length} users (Filtered out: ${adminUsersRaw.length - adminUsers.length})`);
+
+    const promises = adminUsers.map(async (user) => {
+        await createNotification({
+            type: 'WORK_ORDER',
+            priority: 'NORMAL',
+            title: `${emoji} ${data.workOrderNumber}`,
+            message: `${data.triggeredByName || 'Teknisi'}: ${data.actionMessage}`,
+            link: `/admin/workorders/${data.workOrderId}`,
+            userId: user.id,
+            sourceType: 'WORK_ORDER',
+            sourceId: data.workOrderId,
+        });
     });
 
-    return notification;
+    await Promise.all(promises);
+    console.log(`[Notification] Admin notified about mobile action: ${data.actionType} on ${data.workOrderNumber}`);
+    return { count: adminUsers.length };
 }
 
 /**
@@ -378,6 +486,7 @@ export async function getNotificationsForUser(
         limit?: number;
         offset?: number;
         type?: NotificationType;
+        excludeTypes?: NotificationType[];
     }
 ) {
     // Get user's department
@@ -388,7 +497,7 @@ export async function getNotificationsForUser(
 
     const where: any = {
         OR: [
-            { userId },
+            { userId }, // Direct notifications
             ...(user?.departmentId ? [{ departmentId: user.departmentId }] : []),
         ],
     };
@@ -399,6 +508,13 @@ export async function getNotificationsForUser(
 
     if (options?.type) {
         where.type = options.type;
+    }
+
+    // Exclude specific types (e.g., WORK_ORDER from general notifications)
+    if (options?.excludeTypes && options.excludeTypes.length > 0) {
+        where.type = {
+            notIn: options.excludeTypes
+        };
     }
 
     const [notifications, total] = await Promise.all([
@@ -417,21 +533,28 @@ export async function getNotificationsForUser(
 /**
  * Get unread notification count for a user
  */
-export async function getUnreadCount(userId: string): Promise<number> {
+export async function getUnreadCount(userId: string, excludeTypes?: NotificationType[]): Promise<number> {
     const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { departmentId: true },
     });
 
-    return prisma.notifications.count({
-        where: {
-            isRead: false,
-            OR: [
-                { userId },
-                ...(user?.departmentId ? [{ departmentId: user.departmentId }] : []),
-            ],
-        },
-    });
+    const where: any = {
+        isRead: false,
+        OR: [
+            { userId },
+            ...(user?.departmentId ? [{ departmentId: user.departmentId }] : []),
+        ],
+    };
+
+    // Exclude specific types
+    if (excludeTypes && excludeTypes.length > 0) {
+        where.type = {
+            notIn: excludeTypes
+        };
+    }
+
+    return prisma.notifications.count({ where });
 }
 
 /**

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { randomUUID } from 'crypto'
+import { notifyAdminsAboutMobileAction } from '@/modules/notification'
 
 // POST - Add materials/barang to work order (creates barang keluar)
 export async function POST(
@@ -22,6 +23,13 @@ export async function POST(
         }
 
         const userId = decoded.id as string
+
+        // Fetch user to get name (for accurate notifications)
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true }
+        })
+
         const { id } = await params.params
         const body = await req.json()
         const { items } = body
@@ -42,8 +50,8 @@ export async function POST(
             return NextResponse.json({ error: 'Work order ini bukan milik Anda' }, { status: 403 })
         }
 
-        if (workOrder.status !== 'IN_PROGRESS') {
-            return NextResponse.json({ error: 'Work order harus dalam status IN_PROGRESS' }, { status: 400 })
+        if (!['ASSIGNED', 'IN_PROGRESS'].includes(workOrder.status)) {
+            return NextResponse.json({ error: 'Work order harus dalam status ASSIGNED atau IN_PROGRESS' }, { status: 400 })
         }
 
         // Process each item - create barang keluar and update stock
@@ -111,7 +119,9 @@ export async function POST(
                     nama: keluar.barang.nama,
                     jumlah,
                     satuan: keluar.barang.satuan,
-                    kondisi: kondisi || 'BARU'
+                    kondisi: kondisi || 'BARU',
+                    barangId,
+                    gudangId
                 })
             }
 
@@ -139,6 +149,20 @@ export async function POST(
             })
 
             return createdItems
+        })
+
+        // Notify Admin Portal about material pickup
+        const materialList = results.map(m => `${m.nama} (${m.jumlah})`).join(', ')
+        await notifyAdminsAboutMobileAction({
+            workOrderId: id,
+            workOrderNumber: workOrder.workOrderNumber,
+            title: workOrder.title,
+            actionType: 'MATERIAL_PICKUP',
+            actionMessage: `Mengambil barang: ${materialList}`,
+            triggeredByUserId: userId,
+            triggeredByName: (user?.name as string) || (decoded.name as string),
+            departmentId: workOrder.departmentId || undefined,
+            siteId: workOrder.siteId || undefined,
         })
 
         return NextResponse.json({ success: true, items: results })

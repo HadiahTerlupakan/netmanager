@@ -3,6 +3,7 @@ import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { randomUUID } from 'crypto';
+import { notifyAdminsAboutMobileAction } from '@/modules/notification';
 
 export async function POST(
     request: NextRequest,
@@ -77,7 +78,7 @@ export async function POST(
         // Get work order for WebSocket emit
         const workOrder = await prisma.workOrders.findUnique({
             where: { id },
-            select: { workOrderNumber: true, title: true, assignedToId: true }
+            select: { workOrderNumber: true, title: true, assignedToId: true, departmentId: true, siteId: true }
         });
 
         // Emit WebSocket to notify in real-time
@@ -123,6 +124,19 @@ export async function POST(
                 status: response,
                 priority: 'NORMAL'
             }, payload.id as string);
+
+            // Notify Admin Portal about partner response
+            await notifyAdminsAboutMobileAction({
+                workOrderId: id,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                actionType: 'PARTNER_RESPONSE',
+                actionMessage: response === 'APPROVED' ? 'Menerima undangan sebagai partner kerja' : 'Menolak undangan sebagai partner kerja',
+                triggeredByUserId: payload.id as string,
+                triggeredByName: (payload.name as string) || undefined,
+                departmentId: workOrder.departmentId || undefined,
+                siteId: workOrder.siteId || undefined,
+            });
         }
 
         return NextResponse.json({

@@ -13,6 +13,12 @@ import type {
     TopPerformer,
 } from './IWorkOrderRepository';
 import { syncWoStatusToTicket } from '../services/WorkOrderSyncService';
+import { 
+    notifyNewWorkOrder, 
+    notifyWorkOrderAssigned, 
+    notifyWorkOrderStatusChange, 
+    notifyWorkOrderUpdate 
+} from '../../notification/services/NotificationService';
 import { randomUUID } from 'crypto';
 
 export class WorkOrderRepository implements IWorkOrderRepository {
@@ -46,7 +52,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         // Destructure pelangganId to handle it separately
         const { pelangganId, ...restData } = data;
 
-        return this.prisma.workOrders.create({
+        const result = await this.prisma.workOrders.create({
             data: {
                 id: randomUUID(),
                 updatedAt: new Date(),
@@ -61,11 +67,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 siteId: restData.siteId || null,
                 departmentId: restData.departmentId || null,
                 assignedToId: restData.assignedToId || null,
-                // Other fields if needed, or spread remaining safe fields?
-                // But restData contains incompatible types if spread blindly?
-                // Actually restData has strings. Strings are fine for other fields.
-                // The issue was strict checking on FKs.
-                // Let's explicitely map known fields.
                 contactName: restData.contactName,
                 contactPhone: restData.contactPhone,
                 scheduledDate: restData.scheduledDate,
@@ -77,6 +78,20 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 internalNotes: restData.internalNotes,
             },
         });
+
+        // Notify Creation
+        await notifyNewWorkOrder({
+            workOrderId: result.id,
+            workOrderNumber: result.workOrderNumber,
+            title: result.title,
+            type: result.type,
+            priority: result.priority,
+            departmentId: result.departmentId || undefined,
+            siteId: result.siteId || undefined,
+            assignedToId: result.assignedToId || undefined
+        }).catch(err => console.error('Failed to notify new WO:', err));
+
+        return result;
     }
 
     async findById(id: string): Promise<WorkOrderWithRelations | null> {
@@ -458,6 +473,21 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         // Sync to Ticket
         await syncWoStatusToTicket(id, status);
 
+        // Notify Status Change - always notify (removed assignedToId check so admins see it)
+        await notifyWorkOrderStatusChange({
+            workOrderId: id,
+            workOrderNumber: workOrder.workOrderNumber,
+            title: workOrder.title,
+            type: workOrder.type,
+            priority: workOrder.priority,
+            departmentId: workOrder.departmentId || undefined,
+            siteId: workOrder.siteId || undefined,
+            assignedToId: workOrder.assignedToId || undefined,
+            oldStatus: workOrder.status,
+            newStatus: status,
+            triggeredByUserId: userId
+        }).catch(err => console.error('Failed to notify WO status change:', err));
+
         return updatedWo;
     }
 
@@ -494,7 +524,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         return this.updateStatus(id, 'CANCELLED', userId);
     }
 
-    async assign(id: string, employeeId: string, role?: string): Promise<WorkOrders> {
+    async assign(id: string, employeeId: string, role?: string, triggeredByUserId?: string): Promise<WorkOrders> {
         await this.prisma.workOrders.update({
             where: { id },
             data: {
@@ -504,7 +534,27 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         });
 
         await this.addAssignment(id, employeeId, role || 'Lead');
-        return this.findById(id) as Promise<WorkOrders>;
+        
+        const wo = await this.findById(id) as WorkOrders; // Need full object for notify
+        
+        console.log(`[RepoDebug] Assigning WO ${id} to ${employeeId} by ${triggeredByUserId}`);
+        
+        // Notify Assignment
+        await notifyWorkOrderAssigned({
+            workOrderId: id,
+            workOrderNumber: wo.workOrderNumber,
+            title: wo.title,
+            type: wo.type,
+            priority: wo.priority,
+            departmentId: wo.departmentId || undefined,
+            siteId: wo.siteId || undefined,
+            assignedToId: employeeId,
+            triggeredByUserId
+        })
+        .then(() => console.log(`[RepoDebug] Notification sent for assignment of ${wo.workOrderNumber}`))
+        .catch(err => console.error('[RepoDebug] Failed to notify WO assignment:', err));
+
+        return wo;
     }
 
     async unassign(id: string): Promise<WorkOrders> {
@@ -572,13 +622,38 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async addUpdate(data: AddUpdateData): Promise<WorkOrderUpdates> {
-        return this.prisma.workOrderUpdates.create({
+        const update = await this.prisma.workOrderUpdates.create({
             data: {
                 id: randomUUID(),
                 ...data,
                 createdById: data.createdById,
             },
         });
+
+        // Notify Update/Comment
+        // We need WO details for the notification.
+        const workOrder = await this.prisma.workOrders.findUnique({
+             where: { id: data.workOrderId },
+             select: { workOrderNumber: true, title: true, type: true, priority: true, assignedToId: true, departmentId: true, siteId: true }
+        });
+
+        if (workOrder) {
+            // Notify everyone, will be filtered by NotificationService
+             await notifyWorkOrderUpdate({
+                workOrderId: data.workOrderId,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                type: workOrder.type,
+                priority: workOrder.priority,
+                departmentId: workOrder.departmentId || undefined,
+                siteId: workOrder.siteId || undefined,
+                assignedToId: workOrder.assignedToId || undefined,
+                updateMessage: data.message,
+                triggeredByUserId: data.createdById
+            }).catch(err => console.error('Failed to notify WO update:', err));
+        }
+
+        return update;
     }
 
     async getUpdates(workOrderId: string): Promise<WorkOrderUpdates[]> {
@@ -718,13 +793,17 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     /**
      * Get top performers based on completed tasks and average completion time
      */
-    async getTopPerformers(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<TopPerformer[]> {
+    async getTopPerformers(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string): Promise<TopPerformer[]> {
         const where: any = {
             status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
             assignedToId: { not: null },
             completedAt: { not: null },
             startedAt: { not: null },
         };
+
+        if (departmentId) {
+            where.departmentId = departmentId;
+        }
 
         if (dateFrom || dateTo) {
             where.completedAt = {};
@@ -791,10 +870,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     /**
      * Get top assists - employees who assist as partners the most
      */
-    async getTopAssists(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<TopPerformer[]> {
+    async getTopAssists(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string): Promise<TopPerformer[]> {
         const workOrderWhere: any = {
             status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
         };
+        if (departmentId) {
+            workOrderWhere.departmentId = departmentId;
+        }
 
         if (dateFrom || dateTo) {
             workOrderWhere.completedAt = {};
@@ -995,7 +1077,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     /**
      * Get department workload statistics
      */
-    async getDepartmentWorkload(): Promise<Array<{
+    async getDepartmentWorkload(departmentId?: string): Promise<Array<{
         departmentId: string | null;
         departmentName: string;
         total: number;
@@ -1003,7 +1085,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         inProgress: number;
         completed: number;
     }>> {
+        const where: any = {};
+        if (departmentId) {
+            where.id = departmentId;
+        }
+
         const departments = await this.prisma.departments.findMany({
+            where,
             select: {
                 id: true,
                 name: true,
@@ -1203,8 +1291,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     /**
      * Get statistics on most common issues (based on Title keywords)
      */
-    async getIssueStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<Array<{ issue: string; count: number }>> {
+    async getIssueStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string): Promise<Array<{ issue: string; count: number }>> {
         const where: any = {};
+        if (departmentId) {
+            where.departmentId = departmentId;
+        }
         if (dateFrom || dateTo) {
             where.createdAt = {};
             if (dateFrom) where.createdAt.gte = dateFrom;
@@ -1243,8 +1334,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     /**
      * Get statistics on sites with most work orders and their most common issue
      */
-    async getSiteStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date): Promise<Array<{ siteName: string; count: number; mostCommonIssue: string }>> {
+    async getSiteStatistics(limit: number = 5, dateFrom?: Date, dateTo?: Date, departmentId?: string): Promise<Array<{ siteName: string; count: number; mostCommonIssue: string }>> {
         const where: any = {};
+        if (departmentId) {
+            where.departmentId = departmentId;
+        }
 
         if (dateFrom || dateTo) {
             where.createdAt = {};
@@ -1310,11 +1404,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     /**
      * Get statistics on disconnection reasons
      */
-    async getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date): Promise<Array<{ reason: string; count: number }>> {
+    async getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date, departmentId?: string): Promise<Array<{ reason: string; count: number }>> {
         const where: any = {
             type: 'DISCONNECTION',
             status: 'COMPLETED',
         };
+        
+        if (departmentId) where.departmentId = departmentId;
 
         if (dateFrom) {
             where.completedAt = { gte: dateFrom };

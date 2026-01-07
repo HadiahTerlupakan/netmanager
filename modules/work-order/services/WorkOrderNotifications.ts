@@ -50,7 +50,8 @@ export async function onWorkOrderCreated(workOrder: WorkOrderData) {
  */
 export async function onWorkOrderAssigned(
     workOrder: WorkOrderData,
-    assigneeName?: string
+    assigneeName?: string,
+    triggeredByUserId?: string
 ) {
     try {
         if (workOrder.assignedToId) {
@@ -62,6 +63,7 @@ export async function onWorkOrderAssigned(
                 priority: workOrder.priority,
                 assignedToId: workOrder.assignedToId,
                 assigneeName,
+                triggeredByUserId,
             });
             console.log(`[Notification] Assignment notification sent to employee: ${workOrder.assignedToId}`);
         }

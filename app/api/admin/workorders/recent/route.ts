@@ -21,7 +21,24 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const limit = parseInt(searchParams.get('limit') || '5');
 
-        const workOrders = await workOrderRepo.getRecentWorkOrders(limit);
+        const filters: any = {};
+        
+        // NEW: Enforce Department Restriction Logic
+        const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+
+        if (hasDepartmentRestriction && !isSuperAdmin) {
+            if (!user.departmentId) {
+                return NextResponse.json({
+                    success: true,
+                    data: [],
+                    message: "Restricted access: No department assigned."
+                });
+            }
+            filters.departmentId = user.departmentId;
+        }
+
+        const workOrders = await workOrderRepo.getRecentWorkOrders(limit, filters);
 
         return NextResponse.json({
             success: true,

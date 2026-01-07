@@ -41,6 +41,7 @@ export async function POST(req: Request) {
         const tokenPayload = {
             id: user.id,
             email: user.email,
+            name: user.name,
             role: user.role?.name || 'USER'
         }
         const token = await signMobileToken(tokenPayload)

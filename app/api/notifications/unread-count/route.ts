@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
-import { getUnreadCount } from '@/modules/notification';
+import { getUnreadCount, type NotificationType } from '@/modules/notification';
 
 // GET /api/notifications/unread-count - Get unread notification count
 export async function GET(request: NextRequest) {
@@ -12,7 +12,10 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const count = await getUnreadCount(session.user.id);
+        const { searchParams } = new URL(request.url);
+        const excludeTypes = searchParams.get('excludeTypes')?.split(',') as NotificationType[] | undefined;
+
+        const count = await getUnreadCount(session.user.id, excludeTypes);
 
         return NextResponse.json({ count });
     } catch (error) {

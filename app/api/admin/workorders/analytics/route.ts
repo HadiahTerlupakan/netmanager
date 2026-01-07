@@ -42,10 +42,30 @@ export async function GET(request: NextRequest) {
             dateTo = new Date();
         }
 
+        // NEW: Enforce Department Restriction Logic
+        let departmentIdFilter: string | undefined = undefined;
+        const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+
+        if (hasDepartmentRestriction && !isSuperAdmin) {
+            if (!user.departmentId) {
+                 return NextResponse.json({
+                    success: true,
+                    data: {
+                        issues: [],
+                        sites: [],
+                        disconnections: []
+                    },
+                    message: "Restricted access: No department assigned."
+                });
+            }
+            departmentIdFilter = user.departmentId;
+        }
+
         const [issueStats, siteStats, disconnectionStats] = await Promise.all([
-            workOrderRepo.getIssueStatistics(5, dateFrom, dateTo),
-            workOrderRepo.getSiteStatistics(5, dateFrom, dateTo),
-            workOrderRepo.getDisconnectionStatistics(dateFrom, dateTo)
+            workOrderRepo.getIssueStatistics(5, dateFrom, dateTo, departmentIdFilter),
+            workOrderRepo.getSiteStatistics(5, dateFrom, dateTo, departmentIdFilter),
+            workOrderRepo.getDisconnectionStatistics(dateFrom, dateTo, departmentIdFilter)
         ]);
 
         return NextResponse.json({

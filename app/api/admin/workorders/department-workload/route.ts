@@ -18,7 +18,24 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
-        const workload = await workOrderRepo.getDepartmentWorkload();
+        let departmentIdFilter: string | undefined = undefined;
+
+        // NEW: Enforce Department Restriction Logic
+        const hasDepartmentRestriction = user.permissions?.includes('workorders:department_only');
+        const isSuperAdmin = user.role === 'SUPER_ADMIN';
+
+        if (hasDepartmentRestriction && !isSuperAdmin) {
+            if (!user.departmentId) {
+                return NextResponse.json({
+                    success: true,
+                    data: [],
+                    message: "Restricted access: No department assigned."
+                });
+            }
+            departmentIdFilter = user.departmentId;
+        }
+
+        const workload = await workOrderRepo.getDepartmentWorkload(departmentIdFilter);
 
         return NextResponse.json({
             success: true,

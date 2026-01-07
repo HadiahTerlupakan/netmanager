@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'crypto';
+import { notifyAdminsAboutMobileAction } from '@/modules/notification';
 
 // GET - List available work orders (PENDING status, not assigned)
 export async function GET(request: NextRequest) {
@@ -19,10 +20,10 @@ export async function GET(request: NextRequest) {
 
         const userId = payload.id as string;
 
-        // Fetch user to get department and site
+        // Fetch user to get department, site and name
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { departmentId: true, siteId: true }
+            select: { departmentId: true, siteId: true, name: true }
         });
 
         // Strict Filtering Logic:
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
         // Fetch User to check permissions
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { departmentId: true, siteId: true }
+            select: { departmentId: true, siteId: true, name: true }
         });
 
         // Check if work order exists and is available
@@ -206,6 +207,21 @@ export async function POST(request: NextRequest) {
                 newStatus: 'ASSIGNED'
             }
         });
+
+
+        // Notify Admin Portal about CLAIM action
+        await notifyAdminsAboutMobileAction({
+            workOrderId,
+            workOrderNumber: updatedWorkOrder.workOrderNumber,
+            title: updatedWorkOrder.title,
+            actionType: 'CLAIM',
+            actionMessage: 'Mengambil/Claim tiket Work Order',
+            triggeredByUserId: userId,
+            triggeredByName: (user?.name as string) || (payload.name as string),
+            departmentId: updatedWorkOrder.departmentId || undefined,
+            siteId: updatedWorkOrder.siteId || undefined,
+        });
+        console.log(`[Mobile Claim] Notifying admins with triggeredByName: '${user?.name}' (DB) vs '${payload.name}' (Token)`);
 
         return NextResponse.json({ success: true, workOrder: updatedWorkOrder });
     } catch (error) {

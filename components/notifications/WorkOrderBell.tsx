@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { HiOutlineBell, HiCheck, HiOutlineWrench, HiOutlineExclamationTriangle, HiOutlineInformationCircle } from 'react-icons/hi2'
+import { HiOutlineBell, HiCheck, HiOutlineWrench, HiOutlineClipboardDocumentList } from 'react-icons/hi2'
 import { formatDistanceToNow } from 'date-fns'
 import { id } from 'date-fns/locale'
-import { useRealtimeNotifications } from '@/lib/websocket/hooks/useRealtimeNotifications'
+import { useRealtimeWorkOrders } from '@/lib/websocket/hooks/useRealtimeWorkOrders'
 
-export function AdminNotificationBell() {
+export function WorkOrderBell() {
     const {
         notifications,
         unreadCount,
@@ -15,7 +15,8 @@ export function AdminNotificationBell() {
         isConnected,
         markAsRead,
         markAllAsRead,
-    } = useRealtimeNotifications({ limit: 5, excludeTypes: ['WORK_ORDER'] })
+        refresh
+    } = useRealtimeWorkOrders({ limit: 5 })
 
     const [isOpen, setIsOpen] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
@@ -30,17 +31,13 @@ export function AdminNotificationBell() {
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
-
-    const getTypeIcon = (type: string) => {
-        switch (type) {
-            case 'WORK_ORDER':
-                return <HiOutlineWrench className="w-5 h-5 text-blue-500" />
-            case 'ALERT':
-                return <HiOutlineExclamationTriangle className="w-5 h-5 text-red-500" />
-            default:
-                return <HiOutlineInformationCircle className="w-5 h-5 text-gray-500" />
+    
+    // Refresh when dropdown is opened to ensure data is fresh
+    useEffect(() => {
+        if (isOpen) {
+            refresh()
         }
-    }
+    }, [isOpen, refresh])
 
     const getPriorityColor = (priority: string) => {
         switch (priority) {
@@ -50,19 +47,20 @@ export function AdminNotificationBell() {
             case 'HIGH':
                 return 'border-l-orange-500'
             default:
-                return 'border-l-indigo-500'
+                return 'border-l-blue-500'
         }
     }
 
     return (
         <div className="relative" ref={dropdownRef}>
-            {/* Bell Button */}
+            {/* Wrench Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="relative p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 rounded-full transition-all duration-200 group"
-                aria-label="Notifications"
+                className="relative p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-full transition-all duration-200 group"
+                aria-label="Work Order Notifications"
+                title="Notifikasi Work Order"
             >
-                <HiOutlineBell className="w-6 h-6" />
+                <HiOutlineClipboardDocumentList className="w-6 h-6" />
                 {!loading && unreadCount > 0 && (
                     <span className="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white dark:border-gray-900 group-hover:scale-110 transition-transform px-1">
                         {unreadCount > 99 ? '99+' : unreadCount}
@@ -78,9 +76,12 @@ export function AdminNotificationBell() {
             {isOpen && (
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* Header */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-blue-50/50 dark:bg-blue-900/20">
                         <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Notifikasi</h3>
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <HiOutlineWrench className="w-4 h-4 text-blue-600" />
+                                Work Orders
+                            </h3>
                             {isConnected && (
                                 <span className="text-[10px] text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded">
                                     Live
@@ -90,10 +91,10 @@ export function AdminNotificationBell() {
                         {unreadCount > 0 && (
                             <button
                                 onClick={markAllAsRead}
-                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                             >
                                 <HiCheck className="w-3.5 h-3.5" />
-                                Tandai semua dibaca
+                                Tandai dibaca
                             </button>
                         )}
                     </div>
@@ -102,20 +103,20 @@ export function AdminNotificationBell() {
                     <div className="max-h-[400px] overflow-y-auto">
                         {notifications.length === 0 ? (
                             <div className="py-8 text-center text-gray-500 dark:text-gray-400">
-                                <HiOutlineBell className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                                <p className="text-sm">Tidak ada notifikasi</p>
+                                <HiOutlineClipboardDocumentList className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                                <p className="text-sm">Tidak ada notifikasi WO</p>
                             </div>
                         ) : (
                             <div className="divide-y divide-gray-50 dark:divide-gray-800">
                                 {notifications.map((notification) => (
                                     <div
                                         key={notification.id}
-                                        className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 ${getPriorityColor(notification.priority)} ${!notification.isRead ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''
+                                        className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 ${getPriorityColor(notification.priority)} ${!notification.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''
                                             }`}
                                     >
                                         <div className="flex gap-3">
                                             <div className="shrink-0 mt-0.5">
-                                                {getTypeIcon(notification.type)}
+                                                <HiOutlineWrench className="w-5 h-5 text-blue-500" />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-start justify-between gap-2">
@@ -125,7 +126,7 @@ export function AdminNotificationBell() {
                                                     {!notification.isRead && (
                                                         <button
                                                             onClick={() => markAsRead(notification.id)}
-                                                            className="shrink-0 p-1 text-gray-400 hover:text-indigo-600 rounded"
+                                                            className="shrink-0 p-1 text-gray-400 hover:text-blue-600 rounded"
                                                             title="Tandai dibaca"
                                                         >
                                                             <HiCheck className="w-4 h-4" />
@@ -146,7 +147,7 @@ export function AdminNotificationBell() {
                                                                 markAsRead(notification.id)
                                                                 setIsOpen(false)
                                                             }}
-                                                            className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                                                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                                                         >
                                                             Lihat Detail →
                                                         </Link>
@@ -164,11 +165,11 @@ export function AdminNotificationBell() {
                     {notifications.length > 0 && (
                         <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
                             <Link
-                                href="/admin/notifications"
+                                href="/admin/work-orders"
                                 onClick={() => setIsOpen(false)}
-                                className="block text-center text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                                className="block text-center text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
                             >
-                                Lihat Semua Notifikasi
+                                Lihat Semua Work Order
                             </Link>
                         </div>
                     )}

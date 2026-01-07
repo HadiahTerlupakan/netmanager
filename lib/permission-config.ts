@@ -43,5 +43,5 @@ export type PermissionGroup = keyof typeof PERMISSION_GROUPS
  * Contoh penggunaan di Role Matrix:
  * - Role "Manager" dengan `users:read` + `users:site_only` = hanya lihat users di site-nya
  * - Role "Admin" dengan `users:read` (tanpa site_only) = lihat semua users
- */
-export const ACTIONS = ['read', 'create', 'update', 'delete', 'site_only'] as const
+ * */
+export const ACTIONS = ['read', 'create', 'update', 'delete', 'site_only', 'department_only'] as const

@@ -28,7 +28,7 @@ export async function POST(
             return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 });
         }
 
-        const workOrder = await workOrderRepo.assign(id, body.employeeId, body.role);
+        const workOrder = await workOrderRepo.assign(id, body.employeeId, body.role, user.id);
 
         await workOrderRepo.addUpdate({
             workOrderId: id,

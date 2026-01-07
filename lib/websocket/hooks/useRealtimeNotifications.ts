@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSocket, useSocketEvent } from '../SocketContext'
 import { SOCKET_EVENTS, type NotificationPayload, type CountPayload } from '../types'
 
@@ -18,6 +18,7 @@ export interface Notification {
 interface UseRealtimeNotificationsOptions {
     limit?: number
     autoFetch?: boolean
+    excludeTypes?: string[]  // e.g., ['WORK_ORDER'] to exclude from general notifications
 }
 
 interface UseRealtimeNotificationsResult {
@@ -36,19 +37,30 @@ interface UseRealtimeNotificationsResult {
 export function useRealtimeNotifications(
     options: UseRealtimeNotificationsOptions = {}
 ): UseRealtimeNotificationsResult {
-    const { limit = 5, autoFetch = true } = options
+    const { limit = 5, autoFetch = true, excludeTypes = [] } = options
     const { socket, isConnected } = useSocket()
 
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [unreadCount, setUnreadCount] = useState(0)
     const [loading, setLoading] = useState(true)
+    const [hasFetched, setHasFetched] = useState(false)
 
-    // Fetch notifications from API
+    // Stabilize excludeTypes array reference using JSON comparison
+    const excludeTypesKey = JSON.stringify(excludeTypes)
+    const stableExcludeTypes = useMemo(() => excludeTypes, [excludeTypesKey])
+
+    // Build query params with stable reference
+    const excludeParam = useMemo(() => 
+        stableExcludeTypes.length > 0 ? `&excludeTypes=${stableExcludeTypes.join(',')}` : '',
+        [stableExcludeTypes]
+    )
+
+    // Fetch notifications from API - only once on mount
     const fetchNotifications = useCallback(async () => {
         try {
             const [countRes, listRes] = await Promise.all([
-                fetch('/api/notifications/unread-count'),
-                fetch(`/api/notifications?limit=${limit}`),
+                fetch(`/api/notifications/unread-count${excludeParam ? `?excludeTypes=${stableExcludeTypes.join(',')}` : ''}`),
+                fetch(`/api/notifications?limit=${limit}${excludeParam}`),
             ])
 
             if (countRes.ok) {
@@ -65,19 +77,33 @@ export function useRealtimeNotifications(
         } finally {
             setLoading(false)
         }
-    }, [limit])
+    }, [limit, excludeParam, stableExcludeTypes])
 
-    // Initial fetch
+    // Initial fetch - only once on mount
     useEffect(() => {
-        if (autoFetch) {
+        if (autoFetch && !hasFetched) {
+            setHasFetched(true)
             fetchNotifications()
         }
-    }, [autoFetch, fetchNotifications])
+    }, [autoFetch, hasFetched, fetchNotifications])
 
     // Handle new notification from WebSocket
     const handleNewNotification = useCallback(
         (payload: NotificationPayload) => {
+            // Skip if this type is excluded
+            if (stableExcludeTypes.includes(payload.type)) {
+                return
+            }
+
             console.log('[Notifications] New notification received:', payload.title)
+
+            // Play notification sound
+            try {
+                const audio = new Audio('/sounds/notification.mp3');
+                audio.play().catch((err) => console.log('Audio play failed:', err));
+            } catch (error) {
+                // Ignore audio errors (e.g. storage or format issues)
+            }
 
             // Add to beginning of list
             setNotifications((prev) => {
@@ -91,7 +117,7 @@ export function useRealtimeNotifications(
             // Increment unread count
             setUnreadCount((prev) => prev + 1)
         },
-        [limit]
+        [limit, stableExcludeTypes]
     )
 
     // Handle count update from WebSocket

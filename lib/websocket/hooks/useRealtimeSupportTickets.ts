@@ -92,6 +92,15 @@ export function useRealtimeSupportTickets(
     const handleNewTicket = useCallback(
         (payload: TicketPayload) => {
             console.log('[Tickets] New ticket received:', payload.ticketNumber)
+            
+            // Play notification sound
+            try {
+                const audio = new Audio('/sounds/notification.mp3');
+                audio.play().catch((err) => console.log('Audio play failed:', err));
+            } catch (error) {
+                // Ignore audio errors
+            }
+            
             // Refetch to get complete ticket data with relations
             fetchTickets()
         },
@@ -118,6 +127,15 @@ export function useRealtimeSupportTickets(
     const handleTicketReply = useCallback(
         (payload: TicketPayload) => {
             console.log('[Tickets] Ticket reply:', payload.ticketNumber)
+
+            // Play notification sound
+            try {
+                const audio = new Audio('/sounds/notification.mp3');
+                audio.play().catch((err) => console.log('Audio play failed:', err));
+            } catch (error) {
+                // Ignore audio errors
+            }
+
             // Refetch to get updated lastReply
             fetchTickets()
         },

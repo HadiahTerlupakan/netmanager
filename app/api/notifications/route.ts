@@ -81,13 +81,14 @@ export async function GET(request: NextRequest) {
         const limit = parseInt(searchParams.get('limit') || '50');
         const offset = parseInt(searchParams.get('offset') || '0');
         const type = searchParams.get('type') as NotificationType | undefined;
+        const excludeTypes = searchParams.get('excludeTypes')?.split(',') as NotificationType[] | undefined;
 
         const { notifications, total } = await getNotificationsForUser(
             session.user.id,
-            { unreadOnly, limit, offset, type }
+            { unreadOnly, limit, offset, type, excludeTypes }
         );
 
-        const unreadCount = await getUnreadCount(session.user.id);
+        const unreadCount = await getUnreadCount(session.user.id, excludeTypes);
 
         return NextResponse.json({
             success: true,

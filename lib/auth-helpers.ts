@@ -29,39 +29,22 @@ function logSecurityEvent(
  */
 export async function getCurrentSession(request: NextRequest) {
   try {
-    console.log('[AUTH-DEBUG] Attempting to get session...')
-    console.log('[AUTH-DEBUG] Environment check:', {
-      NODE_ENV: process.env.NODE_ENV,
-      NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-      NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? 'SET' : 'NOT_SET'
-    })
-    
     const session: any = await getServerSession(authConfig as any)
-    console.log('[AUTH-DEBUG] Session result:', session ? 'Session found' : 'No session')
     
     if (!session) {
-      console.log('[AUTH-DEBUG] No session found - checking cookies...')
-      // Log cookie details for debugging
-      const cookies = request.headers.get('cookie') || ''
-      console.log('[AUTH-DEBUG] Request cookies:', cookies)
       return null
     }
     
     if (session?.user) {
-      console.log('[AUTH-DEBUG] User found:', session.user.id, session.user.email)
       // Jika session ada dan user ada, tapi role tidak ada, set role sebagai ADMIN
       if (!session.user.role) {
-        // All authenticated users are now ADMIN
         session.user.role = 'ADMIN'
-        console.log('[AUTH-DEBUG] Role set to ADMIN')
       }
-    } else {
-      console.log('[AUTH-DEBUG] No user in session')
     }
     
     return session
   } catch (error) {
-    console.error('[AUTH-DEBUG] Error getting session:', error)
+    console.error('[AUTH] Error getting session:', error)
     return null
   }
 }
