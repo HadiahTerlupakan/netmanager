@@ -18,6 +18,7 @@ import {
 import PageLoader from '@/components/ui/PageLoader'
 import { useToast } from '@/components/common/ToastProvider'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { usePermission } from '@/hooks/use-permission'
 
 interface WorkOrder {
     id: string
@@ -78,6 +79,17 @@ export function ClientComponent() {
     const { data: session, status } = useSession()
     const router = useRouter()
     const { show } = useToast()
+    const { hasPermission } = usePermission()
+    
+    // CRUD permissions
+    const canCreate = hasPermission('list:create')
+    const canUpdate = hasPermission('list:update')  // Edit data
+    const canDelete = hasPermission('list:delete')  // Hapus permanen
+    
+    // Workflow action permissions (terpisah dari CRUD)
+    const canCancel = hasPermission('list:cancel')  // Batalkan WO
+    const canVerify = hasPermission('list:verify')  // Verifikasi & Tolak WO
+
     const [loading, setLoading] = useState(true)
     const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
     const [total, setTotal] = useState(0)
@@ -394,48 +406,58 @@ export function ClientComponent() {
         <>
             {wo.status !== 'CANCELLED' && wo.status !== 'CLOSED' && wo.status !== 'COMPLETED' && (
                 <>
-                    <button
-                        onClick={(e) => openCancelModal(wo.id, e)}
-                        className="p-1 text-gray-500 dark:text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded"
-                        title="Batalkan"
-                    >
-                        <HiXCircle className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={(e) => openDeleteModal(wo.id, e)}
-                        className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                        title="Hapus Permanen"
-                    >
-                        <HiTrash className="w-5 h-5" />
-                    </button>
+                    {canCancel && (
+                        <button
+                            onClick={(e) => openCancelModal(wo.id, e)}
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded"
+                            title="Batalkan"
+                        >
+                            <HiXCircle className="w-5 h-5" />
+                        </button>
+                    )}
+                    {canDelete && (
+                        <button
+                            onClick={(e) => openDeleteModal(wo.id, e)}
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Hapus Permanen"
+                        >
+                            <HiTrash className="w-5 h-5" />
+                        </button>
+                    )}
                 </>
             )}
             {wo.status === 'COMPLETED' && (
                 <>
-                    <button
-                        onClick={(e) => openRejectModal(wo.id, e)}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
-                        title="Tolak"
-                    >
-                        <HiXMark className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={(e) => handleVerify(wo.id, e)}
-                        className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
-                        title="Verifikasi"
-                    >
-                        <HiCheckCircle className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={(e) => openDeleteModal(wo.id, e)}
-                        className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                        title="Hapus Permanen"
-                    >
-                        <HiTrash className="w-5 h-5" />
-                    </button>
+                    {canVerify && (
+                        <>
+                            <button
+                                onClick={(e) => openRejectModal(wo.id, e)}
+                                className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                title="Tolak"
+                            >
+                                <HiXMark className="w-5 h-5" />
+                            </button>
+                            <button
+                                onClick={(e) => handleVerify(wo.id, e)}
+                                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                                title="Verifikasi"
+                            >
+                                <HiCheckCircle className="w-5 h-5" />
+                            </button>
+                        </>
+                    )}
+                    {canDelete && (
+                        <button
+                            onClick={(e) => openDeleteModal(wo.id, e)}
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Hapus Permanen"
+                        >
+                            <HiTrash className="w-5 h-5" />
+                        </button>
+                    )}
                 </>
             )}
-            {wo.status === 'CANCELLED' && (
+            {wo.status === 'CANCELLED' && canDelete && (
                 <button
                     onClick={(e) => openDeleteModal(wo.id, e)}
                     className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
@@ -472,13 +494,15 @@ export function ClientComponent() {
                         <span>Filter</span>
                         {hasActiveFilters && <span className="w-2 h-2 bg-sky-500 rounded-full"></span>}
                     </button>
-                    <Link
-                        href="/admin/workorders/new"
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700"
-                    >
-                        <HiPlus className="w-5 h-5" />
-                        <span>New Work Order</span>
-                    </Link>
+                    {canCreate && (
+                        <Link
+                            href="/admin/workorders/new"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700"
+                        >
+                            <HiPlus className="w-5 h-5" />
+                            <span>New Work Order</span>
+                        </Link>
+                    )}
                 </div>
             </div>
 

@@ -12,10 +12,14 @@ import {
   FiClipboard
 } from 'react-icons/fi'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import { usePermission } from '@/hooks/use-permission'
 
 export function ClientComponent() {
   const params = useParams()
   const router = useRouter()
+  const { hasPermission } = usePermission()
+  const canUpdate = hasPermission('barang:update')
+
   const [barang, setBarang] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -121,13 +125,15 @@ export function ClientComponent() {
         </div>
 
         <div className="flex items-center space-x-3">
-          <Link
-            href={`/admin/inventory/barang/${barang.id}/edit`}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-          >
-            <FiEdit className="h-4 w-4 mr-1" />
-            Edit
-          </Link>
+          {canUpdate && (
+            <Link
+              href={`/admin/inventory/barang/${barang.id}/edit`}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              <FiEdit className="h-4 w-4 mr-1" />
+              Edit
+            </Link>
+          )}
         </div>
       </div>
 

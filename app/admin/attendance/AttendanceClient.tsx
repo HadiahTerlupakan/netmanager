@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { usePermission } from '@/hooks/use-permission'
 
 interface Attendance {
     id: string
@@ -33,6 +34,10 @@ interface Attendance {
 }
 
 export function ClientComponent() {
+    const { hasPermission } = usePermission()
+    const canUpdate = hasPermission('attendance:update')
+    const canDelete = hasPermission('attendance:delete')
+
     const [attendances, setAttendances] = useState<Attendance[]>([])
     const [loading, setLoading] = useState(true)
     const [page, setPage] = useState(1)
@@ -351,20 +356,24 @@ export function ClientComponent() {
     // Render actions for each row
     const renderActions = (item: Attendance) => (
         <>
-            <button
-                onClick={() => handleEditClick(item)}
-                className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-2 rounded-full transition-colors dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400"
-                title="Edit Data"
-            >
-                <MdEdit size={18} />
-            </button>
-            <button
-                onClick={() => handleDelete(item.id)}
-                className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-2 rounded-full transition-colors dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400"
-                title="Hapus Data"
-            >
-                <MdDelete size={18} />
-            </button>
+            {canUpdate && (
+                <button
+                    onClick={() => handleEditClick(item)}
+                    className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-2 rounded-full transition-colors dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400"
+                    title="Edit Data"
+                >
+                    <MdEdit size={18} />
+                </button>
+            )}
+            {canDelete && (
+                <button
+                    onClick={() => handleDelete(item.id)}
+                    className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 p-2 rounded-full transition-colors dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400"
+                    title="Hapus Data"
+                >
+                    <MdDelete size={18} />
+                </button>
+            )}
         </>
     )
 

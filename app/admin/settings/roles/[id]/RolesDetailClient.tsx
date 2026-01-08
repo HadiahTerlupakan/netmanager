@@ -7,6 +7,8 @@ import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
 import { FiArrowLeft, FiSave } from 'react-icons/fi'
 import { PERMISSION_GROUPS, PERMISSION_GROUPS_KARYAWAN, ACTIONS } from '@/lib/permission-config'
+import { getResourceCapabilities } from '@/lib/resource-capabilities'
+import type { ResourceAction } from '@/lib/resource-capabilities'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
 export function ClientComponent() {
@@ -286,6 +288,15 @@ export function ClientComponent() {
                                                 priority: 'primary' as const,
                                                 align: 'center' as const,
                                                 render: (item: { id: string, name: string }) => {
+                                                    // Check if this action is available for this resource
+                                                    const availableActions = getResourceCapabilities(item.id)
+                                                    if (!availableActions.includes(action as ResourceAction)) {
+                                                        // Action not available for this resource - show disabled/empty cell
+                                                        return (
+                                                            <span className="text-gray-300 dark:text-gray-600">—</span>
+                                                        )
+                                                    }
+
                                                     const permissionId = `${item.id}:${action}`
                                                     const isChecked = formData.permissions.includes(permissionId)
                                                     
@@ -315,7 +326,9 @@ export function ClientComponent() {
                                                 priority: 'primary' as const,
                                                 align: 'center' as const,
                                                 render: (item: { id: string, name: string }) => {
-                                                    const resourceActions = ACTIONS.map(action => `${item.id}:${action}`)
+                                                    // Only consider available actions for this resource
+                                                    const availableActions = getResourceCapabilities(item.id)
+                                                    const resourceActions = availableActions.map(action => `${item.id}:${action}`)
                                                     const isAllResourceChecked = resourceActions.every(p => formData.permissions.includes(p))
                                                     
                                                     const handleResourceAllToggle = (checked: boolean) => {

@@ -207,13 +207,21 @@ export async function PATCH(
             return user;
         }
 
-        // Permission check
-        if (!await hasPermission('list:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
-
         const { id } = await params;
         const body = await request.json();
+
+        // Determine Permission based on action
+        let requiredPermission = 'list:update';
+
+        // 1. Verification/Rejection Logic
+        if (body.status === 'VERIFIED' || body.rejectionReason) {
+            requiredPermission = 'list:verify';
+        }
+
+        // Permission check
+        if (!await hasPermission(requiredPermission)) {
+            return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
+        }
 
         // NEW: Pre-fetch for Access Control
         const existingWO = await workOrderRepo.findById(id);
@@ -390,15 +398,19 @@ export async function DELETE(
             return user;
         }
 
-        // Permission check
-        if (!await hasPermission('list:delete')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
-
         const { id } = await params;
         const { searchParams } = new URL(request.url);
         const reason = searchParams.get('reason') || 'Cancelled by admin';
         const isPermanent = searchParams.get('permanent') === 'true';
+
+        // Permission check
+        // Permanent delete requires list:delete
+        // Cancel requires list:cancel
+        const requiredPermission = isPermanent ? 'list:delete' : 'list:cancel';
+        
+        if (!await hasPermission(requiredPermission)) {
+            return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
+        }
 
         // NEW: Pre-fetch for Access Control
         const existingWO = await workOrderRepo.findById(id);

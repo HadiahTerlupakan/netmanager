@@ -13,6 +13,7 @@ import {
     HiOutlineSignal
 } from 'react-icons/hi2'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { usePermission } from '@/hooks/use-permission'
 
 interface Site {
     id: string
@@ -33,6 +34,11 @@ interface Site {
 }
 
 export default function SitesList() {
+    const { hasPermission } = usePermission()
+    const canCreate = hasPermission('site:create')
+    const canUpdate = hasPermission('site:update')
+    const canDelete = hasPermission('site:delete')
+
     const [sites, setSites] = useState<Site[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -190,20 +196,24 @@ export default function SitesList() {
 
     const renderActions = (site: Site) => (
         <div className="flex items-center justify-end gap-2 text-right">
-            <Link
-                href={`/admin/workorders/sites/${site.id}/edit`}
-                className="p-2 text-gray-500 hover:text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
-                title="Edit Site"
-            >
-                <HiOutlinePencil className="h-5 w-5" />
-            </Link>
-            <button
-                onClick={() => handleDelete(site.id, site.name)}
-                className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/20 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                title="Hapus Site"
-            >
-                <HiOutlineTrash className="h-5 w-5" />
-            </button>
+            {canUpdate && (
+                <Link
+                    href={`/admin/workorders/sites/${site.id}/edit`}
+                    className="p-2 text-gray-500 hover:text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                    title="Edit Site"
+                >
+                    <HiOutlinePencil className="h-5 w-5" />
+                </Link>
+            )}
+            {canDelete && (
+                <button
+                    onClick={() => handleDelete(site.id, site.name)}
+                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/20 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Hapus Site"
+                >
+                    <HiOutlineTrash className="h-5 w-5" />
+                </button>
+            )}
         </div>
     )
 
@@ -219,13 +229,15 @@ export default function SitesList() {
                         Kelola lokasi dan area kerja untuk Work Orders
                     </p>
                 </div>
-                <Link
-                    href="/admin/workorders/sites/new"
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-shadow shadow-sm"
-                >
-                    <HiOutlinePlus className="h-5 w-5 mr-2" />
-                    Tambah Site
-                </Link>
+                {canCreate && (
+                    <Link
+                        href="/admin/workorders/sites/new"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-shadow shadow-sm"
+                    >
+                        <HiOutlinePlus className="h-5 w-5 mr-2" />
+                        Tambah Site
+                    </Link>
+                )}
             </div>
 
             {/* Search and Filter */}

@@ -7,6 +7,7 @@ import { MasukForm } from '@/components/inventory/MasukForm'
 import { MasukTable } from '@/components/inventory/MasukTable'
 import { DetailMasukModal } from '@/components/inventory/DetailMasukModal'
 import { getWithAuth } from '@/lib/api-client'
+import { usePermission } from '@/hooks/use-permission'
 
 interface Site {
   id: string
@@ -50,6 +51,10 @@ interface BarangMasuk {
 }
 
 export default function BarangMasukPage() {
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('stockmasuk:create')
+  const canUpdate = hasPermission('stockmasuk:update')
+
   const [showForm, setShowForm] = useState(false)
   const [editingMasuk, setEditingMasuk] = useState<BarangMasuk | null>(null)
   const [viewingMasuk, setViewingMasuk] = useState<BarangMasuk | null>(null)
@@ -128,13 +133,15 @@ export default function BarangMasukPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowForm(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-        >
-          <FiPlus className="h-4 w-4 mr-2" />
-          Barang Masuk
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            <FiPlus className="h-4 w-4 mr-2" />
+            Barang Masuk
+          </button>
+        )}
       </div>
 
       {/* Form Modal */}
@@ -265,7 +272,7 @@ export default function BarangMasukPage() {
 
         <div className="p-6">
           <MasukTable
-            onEdit={handleEdit}
+            onEdit={canUpdate ? handleEdit : undefined}
             onView={handleView}
             refreshTrigger={refreshTrigger}
             search={search}
@@ -282,7 +289,7 @@ export default function BarangMasukPage() {
         masuk={viewingMasuk}
         isOpen={!!viewingMasuk}
         onClose={handleViewClose}
-        onEdit={handleEdit}
+        onEdit={canUpdate ? handleEdit : undefined}
       />
     </div>
   )

@@ -8,8 +8,13 @@ import { OpnameReportTable } from '@/components/inventory/OpnameReportTable'
 import { OpnameForm } from '@/components/inventory/OpnameForm'
 import { StockReport } from '@/components/inventory/StockReport'
 import type { StockOpnameRecord, StockOpnameFormData } from '@/lib/types/inventory'
+import { usePermission } from '@/hooks/use-permission'
 
 export default function StockOpnamePage() {
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('stockopname:create')
+  const canUpdate = hasPermission('stockopname:update')
+
   const [activeTab, setActiveTab] = useState<'report' | 'input' | 'history'>('report')
   const [showForm, setShowForm] = useState(false)
   const [editingOpname, setEditingOpname] = useState<StockOpnameRecord | null>(null)
@@ -70,16 +75,18 @@ export default function StockOpnamePage() {
             <FiPieChart className="inline mr-2 h-4 w-4" />
             Laporan Stok per Gudang
           </button>
-          <button
-            onClick={() => setActiveTab('input')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'input'
-              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
-          >
-            <FiClipboard className="inline mr-2 h-4 w-4" />
-            Input Stock Opname
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => setActiveTab('input')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'input'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+            >
+              <FiClipboard className="inline mr-2 h-4 w-4" />
+              Input Stock Opname
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('history')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'history'
@@ -103,7 +110,7 @@ export default function StockOpnamePage() {
           {/* Instructions */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <FiClipboard className="h-5 w-5 text-blue-400" />
               </div>
               <div className="ml-3">
@@ -147,7 +154,7 @@ export default function StockOpnamePage() {
       {activeTab === 'history' && (
         <div className="space-y-6">
           <OpnameReportTable
-            onEdit={handleEdit}
+            onEdit={canUpdate ? handleEdit : undefined}
             onView={handleView}
             refreshTrigger={refreshTrigger}
           />

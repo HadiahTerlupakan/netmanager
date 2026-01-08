@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { FiPlus, FiEdit, FiTrash2, FiHome } from 'react-icons/fi'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import { usePermission } from '@/hooks/use-permission'
 
 interface Gudang {
   id: string
@@ -16,6 +17,11 @@ interface Gudang {
 }
 
 export default function GudangPage() {
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('gudang:create')
+  const canUpdate = hasPermission('gudang:update')
+  const canDelete = hasPermission('gudang:delete')
+
   const [gudangs, setGudangs] = useState<Gudang[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -88,13 +94,15 @@ export default function GudangPage() {
             Kelola lokasi penyimpanan barang
           </p>
         </div>
-        <Link
-          href="/admin/inventory/gudang/new"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          <FiPlus className="h-4 w-4 mr-2" />
-          Tambah Gudang
-        </Link>
+        {canCreate && (
+          <Link
+            href="/admin/inventory/gudang/new"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <FiPlus className="h-4 w-4 mr-2" />
+            Tambah Gudang
+          </Link>
+        )}
       </div>
 
       {error && (
@@ -119,13 +127,15 @@ export default function GudangPage() {
               Mulai dengan menambah gudang pertama Anda.
             </p>
             <div className="mt-6">
-              <Link
-                href="/admin/inventory/gudang/new"
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <FiPlus className="h-4 w-4 mr-2" />
-                Tambah Gudang
-              </Link>
+              {canCreate && (
+                <Link
+                  href="/admin/inventory/gudang/new"
+                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  <FiPlus className="h-4 w-4 mr-2" />
+                  Tambah Gudang
+                </Link>
+              )}
             </div>
           </div>
         ) : (
@@ -175,20 +185,24 @@ export default function GudangPage() {
                 ]}
                 renderActions={(item) => (
                     <div className="flex items-center gap-2">
-                      <Link
-                        href={`/admin/inventory/gudang/${item.id}/edit`}
-                        className="p-2 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/20 rounded transition-colors"
-                        title="Edit"
-                      >
-                        <FiEdit className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(item.id, item.nama)}
-                        className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 rounded transition-colors"
-                        title="Hapus"
-                      >
-                        <FiTrash2 className="h-4 w-4" />
-                      </button>
+                      {canUpdate && (
+                        <Link
+                          href={`/admin/inventory/gudang/${item.id}/edit`}
+                          className="p-2 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/20 rounded transition-colors"
+                          title="Edit"
+                        >
+                          <FiEdit className="h-4 w-4" />
+                        </Link>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(item.id, item.nama)}
+                          className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 rounded transition-colors"
+                          title="Hapus"
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                 )}
             />

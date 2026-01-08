@@ -7,6 +7,7 @@ import { KeluarForm } from '@/components/inventory/KeluarForm'
 import { KeluarTable } from '@/components/inventory/KeluarTable'
 import { DetailKeluarModal } from '@/components/inventory/DetailKeluarModal'
 import { getWithAuth } from '@/lib/api-client'
+import { usePermission } from '@/hooks/use-permission'
 
 interface Site {
   id: string
@@ -52,6 +53,10 @@ interface BarangKeluar {
 }
 
 export default function BarangKeluarPage() {
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('stockkeluar:create')
+  const canUpdate = hasPermission('stockkeluar:update')
+
   const [showForm, setShowForm] = useState(false)
   const [editingKeluar, setEditingKeluar] = useState<BarangKeluar | null>(null)
   const [viewingKeluar, setViewingKeluar] = useState<BarangKeluar | null>(null)
@@ -130,13 +135,15 @@ export default function BarangKeluarPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowForm(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-        >
-          <FiPlus className="h-4 w-4 mr-2" />
-          Barang Keluar
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+          >
+            <FiPlus className="h-4 w-4 mr-2" />
+            Barang Keluar
+          </button>
+        )}
       </div>
 
       {/* Form Modal */}
@@ -267,7 +274,7 @@ export default function BarangKeluarPage() {
 
         <div className="p-6">
           <KeluarTable
-            onEdit={handleEdit}
+            onEdit={canUpdate ? handleEdit : undefined}
             onView={handleView}
             refreshTrigger={refreshTrigger}
             search={search}
@@ -284,7 +291,7 @@ export default function BarangKeluarPage() {
         keluar={viewingKeluar}
         isOpen={!!viewingKeluar}
         onClose={handleViewClose}
-        onEdit={handleEdit}
+        onEdit={canUpdate ? handleEdit : undefined}
       />
     </div>
   )

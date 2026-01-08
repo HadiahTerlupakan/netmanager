@@ -22,6 +22,7 @@ import {
 import PageLoader from '@/components/ui/PageLoader'
 import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
 import { SOCKET_EVENTS, type WorkOrderActivityPayload } from '@/lib/websocket/types'
+import { usePermission } from '@/hooks/use-permission'
 
 interface WorkOrderUpdateType {
     id: string
@@ -123,6 +124,15 @@ export function ClientComponent() {
     const router = useRouter()
     const params = useParams()
     const workOrderId = params?.id as string
+    const { hasPermission } = usePermission()
+    
+    // CRUD permissions
+    const canUpdate = hasPermission('list:update')  // Edit data (status, priority, etc)
+    const canDelete = hasPermission('list:delete')  // Hapus permanen
+    
+    // Workflow action permissions (terpisah dari CRUD)
+    const canCancel = hasPermission('list:cancel')  // Batalkan WO
+    const canVerify = hasPermission('list:verify')  // Verifikasi & Tolak WO
 
     const [loading, setLoading] = useState(true)
     const [workOrder, setWorkOrder] = useState<WorkOrderDetail | null>(null)
@@ -463,7 +473,7 @@ export function ClientComponent() {
                     <h1 className="text-2xl font-bold text-gray-900">{workOrder.workOrderNumber}</h1>
                     <p className="text-gray-600 mt-1">{workOrder.title}</p>
                 </div>
-                {workOrder.status !== 'CANCELLED' && workOrder.status !== 'CLOSED' && workOrder.status !== 'COMPLETED' && (
+                {canCancel && workOrder.status !== 'CANCELLED' && workOrder.status !== 'CLOSED' && workOrder.status !== 'COMPLETED' && (
                     <button
                         onClick={() => setShowCancelModal(true)}
                         disabled={processingApproval}
@@ -473,15 +483,17 @@ export function ClientComponent() {
                         Batalkan
                     </button>
                 )}
-                <button
-                    onClick={() => setShowDeleteModal(true)}
-                    disabled={processingApproval}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-red-600 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
-                >
-                    <HiXMark className="w-5 h-5" />
-                    Hapus
-                </button>
-                {workOrder.status === 'COMPLETED' && (
+                {canDelete && (
+                    <button
+                        onClick={() => setShowDeleteModal(true)}
+                        disabled={processingApproval}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-red-600 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                    >
+                        <HiXMark className="w-5 h-5" />
+                        Hapus
+                    </button>
+                )}
+                {canVerify && workOrder.status === 'COMPLETED' && (
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setShowRejectModal(true)}

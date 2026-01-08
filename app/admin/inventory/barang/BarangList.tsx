@@ -2,11 +2,15 @@
 
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { FiPlus, FiBox } from 'react-icons/fi'
+import { FiPlus } from 'react-icons/fi'
 import { BarangTable } from '@/components/inventory/BarangTable'
 import { InventoryStats } from '@/components/inventory/InventoryStats'
+import { usePermission } from '@/hooks/use-permission'
 
 export default function BarangPage() {
+  const { hasPermission, isLoading } = usePermission()
+  const canCreate = hasPermission('barang:create')
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -19,13 +23,15 @@ export default function BarangPage() {
             Kelola daftar barang dan stok inventory
           </p>
         </div>
-        <Link
-          href="/admin/inventory/barang/new"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          <FiPlus className="h-4 w-4 mr-2" />
-          Tambah Barang
-        </Link>
+        {canCreate && (
+          <Link
+            href="/admin/inventory/barang/new"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <FiPlus className="h-4 w-4 mr-2" />
+            Tambah Barang
+          </Link>
+        )}
       </div>
 
       <InventoryStats />
