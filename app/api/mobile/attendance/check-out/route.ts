@@ -33,11 +33,39 @@ export async function POST(request: NextRequest) {
             },
             orderBy: {
                 checkIn: 'desc'
+            },
+            include: {
+                user: {
+                    select: {
+                        workingHourMode: true,
+                        flexibleTargetHour: true,
+                        name: true
+                    }
+                }
             }
         })
 
         if (!attendance) {
             return NextResponse.json({ error: 'Anda belum melakukan check-in atau sudah check-out hari ini' }, { status: 400 })
+        }
+
+        // Calculate working duration for FLEXIBLE users
+        let workDurationWarning: string | null = null
+        if (attendance.user.workingHourMode === 'FLEXIBLE') {
+            const checkInTime = new Date(attendance.checkIn).getTime()
+            const now = Date.now()
+            const durationHours = (now - checkInTime) / (1000 * 60 * 60)
+            const targetHours = attendance.user.flexibleTargetHour || 8
+
+            if (durationHours < targetHours) {
+                const workedHours = Math.floor(durationHours)
+                const workedMinutes = Math.round((durationHours % 1) * 60)
+                const remainingHours = targetHours - durationHours
+                const remainingHoursInt = Math.floor(remainingHours)
+                const remainingMinutes = Math.round((remainingHours % 1) * 60)
+                
+                workDurationWarning = `Jam kerja Anda baru ${workedHours} jam ${workedMinutes} menit. Target kerja: ${targetHours} jam. Kurang ${remainingHoursInt} jam ${remainingMinutes} menit.`
+            }
         }
 
         let photoUrl = null
@@ -122,7 +150,11 @@ export async function POST(request: NextRequest) {
             attendanceId: updatedAttendance.id
         })
 
-        return NextResponse.json({ success: true, data: updatedAttendance })
+        return NextResponse.json({ 
+            success: true, 
+            data: updatedAttendance,
+            ...(workDurationWarning && { warning: workDurationWarning })
+        })
 
     } catch (error: any) {
         logger.error('Error in mobile check-out', error)

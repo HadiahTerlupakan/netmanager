@@ -26,11 +26,26 @@ export class AutoCheckoutService {
 
         // 1. Find all active attendance (checkOut is null)
         // We catch everything up to the current moment.
+        // IMPORTANT: Exclude FLEXIBLE users - they don't have fixed schedules
+        // so they shouldn't be auto-checked out and marked as MANGKIR
         const openAttendances = await prisma.attendance.findMany({
             where: {
                 checkOut: null,
                 checkIn: {
                     lte: endOfToday
+                },
+                user: {
+                    workingHourMode: {
+                        not: 'FLEXIBLE'
+                    }
+                }
+            },
+            include: {
+                user: {
+                    select: {
+                        name: true,
+                        workingHourMode: true
+                    }
                 }
             }
         })
