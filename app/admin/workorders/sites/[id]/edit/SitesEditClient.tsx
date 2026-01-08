@@ -17,7 +17,7 @@ interface Site {
     longitude: number | null
     attendanceRadius: number
     isActive: boolean
-    gudangs: { id: string }[]
+    gudang: { id: string }[]
 }
 
 export function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
@@ -60,7 +60,7 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
                     longitude: site.longitude?.toString() || '',
                     attendanceRadius: site.attendanceRadius?.toString() || '100',
                     isActive: site.isActive,
-                    gudangIds: site.gudangs ? site.gudangs.map(g => g.id) : []
+                    gudangIds: site.gudang ? site.gudang.map(g => g.id) : []
                 })
             } catch (error) {
                 console.error('Error fetching site:', error)

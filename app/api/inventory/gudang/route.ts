@@ -78,10 +78,13 @@ export async function GET(req: NextRequest) {
     //    (Super Admins or users with Admin Panel access can view all)
     const isSuperAdmin = role === 'SUPER_ADMIN'
     // ONLY Super Admin can bypass site restrictions via view=all
-    // Other users with accessAdminPanel must still respect k_barang:site_only permission
+    // Other users with accessAdminPanel must still respect site_only permission
     const canViewAll = isSuperAdmin 
 
-    let shouldRestrict = permissions.includes('k_barang:site_only') && siteId
+    // Check strict site restriction
+    // Support both administrative 'gudang:site_only' and mobile 'k_barang:site_only'
+    const hasRestriction = permissions.includes('gudang:site_only') || permissions.includes('k_barang:site_only')
+    let shouldRestrict = hasRestriction && siteId
 
     if (viewAll && canViewAll) {
       shouldRestrict = false
@@ -214,7 +217,9 @@ export async function POST(req: NextRequest) {
       const userSiteId = (session.user as any).siteId
 
       let finalSiteIds = siteIds
-      if (!isSuperAdmin && permissions.includes('k_barang:site_only')) {
+      const hasRestriction = permissions.includes('gudang:site_only') || permissions.includes('k_barang:site_only')
+      
+      if (!isSuperAdmin && hasRestriction) {
         if (userSiteId) {
           finalSiteIds = [userSiteId] // Force assignment to user's site
         }
