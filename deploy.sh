@@ -270,6 +270,96 @@ backup() {
     ls -lh backups/*.sql.gz 2>/dev/null | tail -5
 }
 
+# Restore database from backup
+restore() {
+    local backup_file="$1"
+    
+    # Check if backup file is provided
+    if [ -z "$backup_file" ]; then
+        log_error "File backup tidak diberikan!"
+        log_info "Usage: ./deploy.sh restore <backup_file.sql.gz>"
+        log_info "Contoh: ./deploy.sh restore backups/netmanager_20260108_081239.sql.gz"
+        echo ""
+        log_info "Backup files yang tersedia:"
+        ls -lh backups/*.sql.gz 2>/dev/null || echo "  (tidak ada backup ditemukan)"
+        exit 1
+    fi
+    
+    # Check if file exists
+    if [ ! -f "$backup_file" ]; then
+        log_error "File backup tidak ditemukan: $backup_file"
+        exit 1
+    fi
+    
+    check_docker
+    check_env
+    
+    # Show warning
+    echo ""
+    log_warning "============================================"
+    log_warning "  PERINGATAN: RESTORE DATABASE"
+    log_warning "============================================"
+    echo ""
+    log_warning "Proses ini akan MENGHAPUS SEMUA DATA di database"
+    log_warning "dan menggantinya dengan data dari backup file:"
+    echo ""
+    echo "  File: $backup_file"
+    echo "  Size: $(ls -lh "$backup_file" | awk '{print $5}')"
+    echo ""
+    
+    # Confirmation
+    read -p "Apakah Anda yakin ingin melanjutkan? (ketik 'yes' untuk konfirmasi): " confirm
+    
+    if [ "$confirm" != "yes" ]; then
+        log_info "Restore dibatalkan."
+        exit 0
+    fi
+    
+    # Offer to backup current data first
+    echo ""
+    read -p "Apakah Anda ingin backup data saat ini terlebih dahulu? (y/n): " backup_first
+    
+    if [ "$backup_first" = "y" ] || [ "$backup_first" = "Y" ]; then
+        log_info "Membuat backup data saat ini..."
+        backup
+        echo ""
+    fi
+    
+    # Ensure database container is running
+    log_info "Memastikan database container berjalan..."
+    docker compose -f $COMPOSE_FILE up -d db
+    sleep 5  # Wait for db to be ready
+    
+    # Get database credentials from .env
+    source .env
+    local db_user="${POSTGRES_USER:-netmgr}"
+    local db_name="${POSTGRES_DB:-netmanager}"
+    
+    # Drop and recreate database
+    log_info "Menghapus database existing..."
+    docker exec netmanager-db psql -U "$db_user" -d postgres -c "DROP DATABASE IF EXISTS $db_name;" 2>/dev/null || true
+    
+    log_info "Membuat database baru..."
+    docker exec netmanager-db psql -U "$db_user" -d postgres -c "CREATE DATABASE $db_name;"
+    
+    # Import backup
+    log_info "Mengimport data dari backup..."
+    if [[ "$backup_file" == *.gz ]]; then
+        # Compressed file
+        gunzip -c "$backup_file" | docker exec -i netmanager-db psql -U "$db_user" -d "$db_name"
+    else
+        # Uncompressed file
+        docker exec -i netmanager-db psql -U "$db_user" -d "$db_name" < "$backup_file"
+    fi
+    
+    log_success "============================================"
+    log_success "  RESTORE SELESAI!"
+    log_success "============================================"
+    echo ""
+    log_info "Database telah di-restore dari: $backup_file"
+    log_info "Jalankan './deploy.sh restart' jika aplikasi sudah berjalan"
+}
+
 # Show logs
 logs() {
     local service=${1:-app}
@@ -333,6 +423,7 @@ show_help() {
     echo "  deploy nginx  - Deploy with Nginx (for Cloudflare/CDN)"
     echo "  update        - Update application (backup + rebuild + migrate)"
     echo "  backup        - Create database backup"
+    echo "  restore <file>- Restore database from backup file"
     echo "  seed          - Seed database with initial data"
     echo "  logs [svc]    - Show logs (default: app)"
     echo "  status        - Show service status"
@@ -358,6 +449,9 @@ case "$1" in
         ;;
     backup)
         backup
+        ;;
+    restore)
+        restore "$2"
         ;;
     seed)
         seed
