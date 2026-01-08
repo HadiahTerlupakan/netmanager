@@ -39,48 +39,16 @@ Edit file `lib/resource-capabilities.ts` dan tambahkan resource baru:
 
 ---
 
-## Step 2: Add Permissions to Database
+## Step 2: Register Permissions (Automatic)
 
-Buat script migration atau gunakan Prisma Studio untuk menambah permission:
+Tidak perlu menjalankan script migration manual. Sistem sekarang memiliki fitur "Self-Healing Permissions".
 
-```typescript
-// scripts/add-[feature]-permissions.ts
-import { PrismaClient } from "@prisma/client";
-import { createId } from "@paralleldrive/cuid2";
-
-const prisma = new PrismaClient();
-
-async function main() {
-  const permissions = [
-    {
-      name: "finance_report:read",
-      description: "Lihat laporan keuangan",
-      resource: "finance_report",
-      action: "read",
-    },
-    {
-      name: "finance_report:site_only",
-      description: "Akses per site",
-      resource: "finance_report",
-      action: "site_only",
-    },
-  ];
-
-  for (const perm of permissions) {
-    await prisma.permission.upsert({
-      where: { name: perm.name },
-      update: {},
-      create: { id: createId(), ...perm },
-    });
-    console.log(`✓ ${perm.name}`);
-  }
-}
-
-main().finally(() => prisma.$disconnect());
-```
-
-// turbo
-Jalankan: `npx ts-node scripts/add-[feature]-permissions.ts`
+1.  Login sebagai **SUPER_ADMIN**
+2.  Masuk ke **Settings → Roles**
+3.  Edit Role (misal: "Administrator")
+4.  Centang permission baru yang muncul di list (berdasarkan config di Step 1)
+5.  Klik **Simpan**
+6.  **Selesai!** Permission otomatis dibuat di database.
 
 ---
 

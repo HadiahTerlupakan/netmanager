@@ -2,6 +2,7 @@ import { RoleRepository } from '../repositories/RoleRepository'
 import type { CreateRoleDTO, UpdateRoleDTO, RoleWithCount, RoleWithPermissions, FilterOptions } from '../repositories/RoleRepository'
 import type { Role } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 export class RoleService {
     private roleRepository: RoleRepository
@@ -39,13 +40,53 @@ export class RoleService {
         // Deduplicate permissions
         const uniquePermissions = [...new Set(data.permissions)]
 
-        // Parse and find existing permissions
+        // 1. Parse requested permissions
         const requestedPairs = uniquePermissions.map((p) => {
             const [resource, action] = p.split(':')
             return { resource, action }
         })
 
-        const existingPermissions = await prisma.permission.findMany({
+        if (requestedPairs.length > 0) {
+            // 2. Find existing permissions to check what's missing
+            const existingPermissions = await prisma.permission.findMany({
+                where: {
+                    OR: requestedPairs.map(pair => ({
+                        resource: pair.resource,
+                        action: pair.action
+                    }))
+                },
+                select: {
+                    resource: true,
+                    action: true
+                }
+            })
+
+            // 3. Identify missing permissions
+            const missingPermissions = requestedPairs.filter(req =>
+                !existingPermissions.some(exist =>
+                    exist.resource === req.resource && exist.action === req.action
+                )
+            )
+
+            // 4. Create missing permissions if any
+            if (missingPermissions.length > 0) {
+                await prisma.permission.createMany({
+                    data: missingPermissions.map(p => ({
+                        id: randomUUID(),
+                        resource: p.resource,
+                        action: p.action,
+                        // Helper to capitalise first letter
+                        name: `${p.action.charAt(0).toUpperCase() + p.action.slice(1)} ${p.resource.charAt(0).toUpperCase() + p.resource.slice(1)}`,
+                        description: `Allow ${p.action} on ${p.resource}`,
+                        updatedAt: new Date()
+                    })),
+                    skipDuplicates: true
+                })
+            }
+        }
+
+        // 5. Fetch ALL permission IDs (now that they all exist)
+        const finalPermissions = await prisma.permission.findMany({
             where: {
                 OR: requestedPairs.map(pair => ({
                     resource: pair.resource,
@@ -61,7 +102,7 @@ export class RoleService {
             accessAdminPanel: data.accessAdminPanel,
             accessEmployeePanel: data.accessEmployeePanel,
             isRestricted: data.isRestricted,
-            permissionIds: existingPermissions.map(p => p.id)
+            permissionIds: finalPermissions.map(p => p.id)
         })
     }
 
@@ -87,13 +128,53 @@ export class RoleService {
         // Deduplicate permissions
         const uniquePermissions = [...new Set(data.permissions)]
 
-        // Parse and find existing permissions
+        // 1. Parse requested permissions
         const requestedPairs = uniquePermissions.map((p) => {
             const [resource, action] = p.split(':')
             return { resource, action }
         })
 
-        const existingPermissions = await prisma.permission.findMany({
+        if (requestedPairs.length > 0) {
+            // 2. Find existing permissions to check what's missing
+            const existingPermissions = await prisma.permission.findMany({
+                where: {
+                    OR: requestedPairs.map(pair => ({
+                        resource: pair.resource,
+                        action: pair.action
+                    }))
+                },
+                select: {
+                    resource: true,
+                    action: true
+                }
+            })
+
+            // 3. Identify missing permissions
+            const missingPermissions = requestedPairs.filter(req =>
+                !existingPermissions.some(exist =>
+                    exist.resource === req.resource && exist.action === req.action
+                )
+            )
+
+            // 4. Create missing permissions if any
+            if (missingPermissions.length > 0) {
+                await prisma.permission.createMany({
+                    data: missingPermissions.map(p => ({
+                        id: randomUUID(),
+                        resource: p.resource,
+                        action: p.action,
+                        // Helper to capitalise first letter
+                        name: `${p.action.charAt(0).toUpperCase() + p.action.slice(1)} ${p.resource.charAt(0).toUpperCase() + p.resource.slice(1)}`,
+                        description: `Allow ${p.action} on ${p.resource}`,
+                        updatedAt: new Date()
+                    })),
+                    skipDuplicates: true
+                })
+            }
+        }
+
+        // 5. Fetch ALL permission IDs (now that they all exist)
+        const finalPermissions = await prisma.permission.findMany({
             where: {
                 OR: requestedPairs.map(pair => ({
                     resource: pair.resource,
@@ -109,7 +190,7 @@ export class RoleService {
             accessAdminPanel: data.accessAdminPanel,
             accessEmployeePanel: data.accessEmployeePanel,
             isRestricted: data.isRestricted,
-            permissionIds: existingPermissions.map(p => p.id)
+            permissionIds: finalPermissions.map(p => p.id)
         })
     }
 
