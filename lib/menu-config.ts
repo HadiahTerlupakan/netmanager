@@ -142,6 +142,13 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineChatBubbleLeftRight',
     },
     {
+        code: 'CHAT',
+        name: 'Chat',
+        path: '/admin/chat',
+        icon: 'HiOutlineChatBubbleLeftRight',
+    },
+
+    {
         code: 'MARKETING',
         name: 'Marketing',
         path: '/admin/marketing',
@@ -169,6 +176,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'PENGATURAN.ROLES', name: 'Hak Akses & Role', path: '/admin/settings/roles', icon: 'HiOutlineShieldCheck' },
             { code: 'PENGATURAN.PAYMENT_GATEWAY', name: 'Payment Gateway', path: '/admin/pengaturan/payment-gateway', icon: 'HiOutlineCreditCard' },
             { code: 'PENGATURAN.API', name: 'API', path: '/admin/pengaturan/api', icon: 'HiOutlineCodeBracket' },
+            { code: 'PENGATURAN.NADA_DERING', name: 'Nada Dering', path: '/admin/pengaturan/nada-dering', icon: 'HiOutlineSpeakerWave' },
         ],
     },
     {

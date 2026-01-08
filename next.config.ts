@@ -147,7 +147,7 @@ const nextConfig: NextConfig = {
               "base-uri 'self'",
               "form-action 'self'",
               "object-src 'none'",
-              "media-src 'self'",
+              "media-src 'self' blob: data:",
               "manifest-src 'self'",
               "worker-src 'self' blob:",
               "frame-src 'self'",

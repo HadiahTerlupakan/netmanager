@@ -196,6 +196,10 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete'],
         description: 'API keys'
     },
+    nada_dering: {
+        actions: ['read'],
+        description: 'Pengaturan nada dering notifikasi'
+    },
     
     // ====== OTHERS ======
     announcement: {
@@ -213,6 +217,16 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     expense: {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
         description: 'Pengeluaran'
+    },
+    
+    // ====== CHAT MODULE ======
+    chat: {
+        actions: ['read', 'create'],
+        description: 'Fitur chat untuk komunikasi - read: baca pesan, create: kirim pesan'
+    },
+    broadcast: {
+        actions: ['create'],
+        description: 'Kirim broadcast ke semua users'
     },
 }
 
