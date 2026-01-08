@@ -1008,6 +1008,7 @@ model User {
   workingHourMode                            WorkingHourMode           @default(FIXED)
   pushToken                                  String?
   pushTokenUpdatedAt                         DateTime?
+  tokenVersion                               Int                       @default(0)
   account                                    Account[]
   announcement                               Announcement[]
   attendance                                 Attendance[]

@@ -282,4 +282,25 @@ export const socketEmitter = {
             io.emit(event, data)
         }
     },
+
+    /**
+     * Force logout a specific user by emitting session:forceLogout event
+     * This will be received by both web and mobile clients
+     */
+    forceLogout(userId: string) {
+        const io = getSocketServer()
+        if (io) {
+            io.to(`user:${userId}`).emit(SOCKET_EVENTS.FORCE_LOGOUT, { 
+                message: 'Sesi Anda telah diakhiri oleh administrator',
+                timestamp: new Date().toISOString()
+            })
+            console.log(`[WS] Emitted force logout to user:${userId}`)
+        } else {
+            // Fallback via HTTP
+            emitViaHttp(SOCKET_EVENTS.FORCE_LOGOUT, `user:${userId}`, { 
+                message: 'Sesi Anda telah diakhiri oleh administrator',
+                timestamp: new Date().toISOString()
+            })
+        }
+    },
 }

@@ -251,6 +251,9 @@ export const authConfig: NextAuthOptions = {
           // Legacy support (optional)
           token.departmentId = dbUser?.departmentId
           token.siteId = dbUser?.siteId
+          
+          // Token version for force logout feature
+          token.tokenVersion = dbUser?.tokenVersion ?? 0
 
           console.log('[AUTH JWT] Token initialized:', {
             id: token.id,
@@ -290,6 +293,7 @@ export const authConfig: NextAuthOptions = {
           token.departmentId = dbUser.departmentId
           token.departmentName = dbUser.departments?.name
           token.siteId = dbUser.siteId
+          token.tokenVersion = dbUser.tokenVersion ?? 0
 
           token.role = dbUser.role?.name || 'USER'
           token.accessAdminPanel = dbUser.role?.accessAdminPanel ?? false
@@ -308,7 +312,30 @@ export const authConfig: NextAuthOptions = {
     },
 
     async session({ session, token }) {
-      if (session.user) {
+      if (session.user && token.id) {
+        // Validate tokenVersion against database (Force Logout feature)
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { tokenVersion: true, isActive: true }
+          });
+
+          // If user doesn't exist, is inactive, or token version mismatch - invalidate session
+          if (!dbUser || !dbUser.isActive) {
+            console.log(`[AUTH SESSION] User ${token.id} not found or inactive. Invalidating session.`);
+            return { ...session, user: undefined, expires: new Date(0).toISOString() };
+          }
+
+          const tokenVersion = (token.tokenVersion as number) ?? 0;
+          if (dbUser.tokenVersion > tokenVersion) {
+            console.log(`[AUTH SESSION] Token version mismatch for user ${token.id}. DB: ${dbUser.tokenVersion}, Token: ${tokenVersion}. Forcing logout.`);
+            return { ...session, user: undefined, expires: new Date(0).toISOString() };
+          }
+        } catch (error) {
+          console.error('[AUTH SESSION] Error validating tokenVersion:', error);
+          // On error, allow session to continue (fail-open for auth)
+        }
+
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
         (session.user as any).accessAdminPanel = token.accessAdminPanel;

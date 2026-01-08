@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlinePlus, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye, HiOutlineTrash, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineFunnel } from 'react-icons/hi2'
+import { HiOutlinePlus, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye, HiOutlineTrash, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineFunnel, HiOutlineArrowRightOnRectangle } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { toast } from 'react-hot-toast'
 
 interface User {
     id: string
@@ -34,6 +35,8 @@ export default function UserList() {
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
     const [deleteUserId, setDeleteUserId] = useState<string | null>(null)
     const [deleting, setDeleting] = useState(false)
+    const [forceLogoutUserId, setForceLogoutUserId] = useState<string | null>(null)
+    const [forcingLogout, setForcingLogout] = useState(false)
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1)
@@ -72,6 +75,27 @@ export default function UserList() {
             console.error('Error deleting user:', error)
         } finally {
             setDeleting(false)
+        }
+    }
+
+    const handleForceLogout = async (userId: string) => {
+        setForcingLogout(true)
+        try {
+            const res = await fetch(`/api/admin/users/${userId}/force-logout`, {
+                method: 'POST',
+            })
+            const data = await res.json()
+            if (res.ok) {
+                toast.success(data.message || 'User berhasil di-logout paksa')
+                setForceLogoutUserId(null)
+            } else {
+                toast.error(data.error || 'Gagal force logout user')
+            }
+        } catch (error) {
+            console.error('Error force logout user:', error)
+            toast.error('Terjadi kesalahan saat force logout')
+        } finally {
+            setForcingLogout(false)
         }
     }
 
@@ -191,6 +215,13 @@ export default function UserList() {
             >
                 Edit
             </Link>
+            <button
+                onClick={() => setForceLogoutUserId(user.id)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-md hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
+                title="Force Logout"
+            >
+                <HiOutlineArrowRightOnRectangle className="w-4 h-4" />
+            </button>
             <button
                 onClick={() => setDeleteUserId(user.id)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
@@ -380,6 +411,39 @@ export default function UserList() {
                                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                                 >
                                     {deleting ? 'Menghapus...' : 'Ya, Hapus'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Force Logout Confirmation Modal */}
+            {forceLogoutUserId && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <HiOutlineArrowRightOnRectangle className="w-8 h-8 text-orange-600 dark:text-orange-400" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Force Logout User?</h3>
+                            <p className="text-gray-600 dark:text-gray-400 mb-6">
+                                User ini akan di-logout paksa dari semua perangkat (Web & Mobile). User harus login ulang untuk mengakses sistem.
+                            </p>
+                            <div className="flex items-center justify-center gap-3">
+                                <button
+                                    onClick={() => setForceLogoutUserId(null)}
+                                    disabled={forcingLogout}
+                                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={() => handleForceLogout(forceLogoutUserId)}
+                                    disabled={forcingLogout}
+                                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50"
+                                >
+                                    {forcingLogout ? 'Memproses...' : 'Ya, Force Logout'}
                                 </button>
                             </div>
                         </div>

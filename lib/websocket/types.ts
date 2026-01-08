@@ -26,6 +26,9 @@ export const SOCKET_EVENTS = {
     // Inventory
     INVENTORY_UPDATE: 'inventory:update',
 
+    // Session management
+    FORCE_LOGOUT: 'session:forceLogout',
+
     // Connection management
     JOIN_ROOM: 'join:room',
     LEAVE_ROOM: 'leave:room',
