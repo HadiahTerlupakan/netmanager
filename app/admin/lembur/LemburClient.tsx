@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { MdCheckCircle, MdCancel, MdPending, MdAccessTime, MdTimer, MdDoneAll, MdPlayArrow, MdLocationOn, MdDelete } from 'react-icons/md'
+import { MdCheckCircle, MdCancel, MdPending, MdAccessTime, MdTimer, MdDoneAll, MdPlayArrow, MdLocationOn, MdDelete, MdEdit } from 'react-icons/md'
 import { FaSearch, FaCalendarAlt, FaBuilding } from 'react-icons/fa'
 import Image from 'next/image'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { usePermission } from '@/hooks/use-permission'
 
 interface Overtime {
     id: string
@@ -29,12 +30,21 @@ interface Overtime {
 }
 
 export function ClientComponent() {
+    const { hasPermission } = usePermission()
+    const canVerify = hasPermission('lembur:verify')
+    const canUpdate = hasPermission('lembur:update')
+    const canDelete = hasPermission('lembur:delete')
+
     const [requests, setRequests] = useState<Overtime[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [processingId, setProcessingId] = useState<string | null>(null)
     const [rejectId, setRejectId] = useState<string | null>(null)
     const [rejectReason, setRejectReason] = useState('')
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null)
+
+    // Edit State
+    const [editId, setEditId] = useState<string | null>(null)
+    const [editForm, setEditForm] = useState({ reason: '', startTime: '', endTime: '' })
 
     // Pagination & Stats
     const [page, setPage] = useState(1)
@@ -109,9 +119,7 @@ export function ClientComponent() {
         try {
             const res = await fetch(`/api/admin/lembur/${id}`, {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action, reason })
             })
 
@@ -122,10 +130,57 @@ export function ClientComponent() {
                     setRejectReason('')
                 }
             } else {
-                alert('Gagal memproses permintaan')
+                const data = await res.json()
+                alert(data.error || 'Gagal memproses permintaan')
             }
         } catch (error) {
             console.error('Action failed:', error)
+        } finally {
+            setProcessingId(null)
+        }
+    }
+
+    const openEditModal = (item: Overtime) => {
+        setEditId(item.id)
+        // Format dates for datetime-local input (YYYY-MM-DDTHH:mm)
+        const formatForInput = (dateStr?: string) => {
+            if (!dateStr) return ''
+            const d = new Date(dateStr)
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset()) // Adjust to local
+            return d.toISOString().slice(0, 16)
+        }
+
+        setEditForm({
+            reason: item.reason,
+            startTime: formatForInput(item.startTime),
+            endTime: formatForInput(item.endTime)
+        })
+    }
+
+    const handleEditSubmit = async () => {
+        if (!editId) return
+        setProcessingId(editId)
+        try {
+            // Convert back to ISO strings or nulls
+            const payload: any = { reason: editForm.reason }
+            if (editForm.startTime) payload.startTime = new Date(editForm.startTime).toISOString()
+            if (editForm.endTime) payload.endTime = new Date(editForm.endTime).toISOString()
+
+            const res = await fetch(`/api/admin/lembur/${editId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+
+            if (res.ok) {
+                await fetchRequests()
+                setEditId(null)
+            } else {
+                const data = await res.json()
+                alert(data.error || 'Gagal mengupdate data')
+            }
+        } catch (error) {
+            console.error('Update failed:', error)
         } finally {
             setProcessingId(null)
         }
@@ -337,13 +392,13 @@ export function ClientComponent() {
     // Render actions for each row
     const renderActions = (item: Overtime) => (
         <>
-            {item.status === 'PENDING' && (
+            {item.status === 'PENDING' && canVerify && (
                 <>
                     <button
                         onClick={() => handleAction(item.id, 'approve')}
                         disabled={processingId === item.id}
                         className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
-                        title="Setujui"
+                        title="Setujui (Verify)"
                     >
                         <MdCheckCircle className="text-lg" />
                     </button>
@@ -351,20 +406,32 @@ export function ClientComponent() {
                         onClick={() => setRejectId(item.id)}
                         disabled={processingId === item.id}
                         className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                        title="Tolak"
+                        title="Tolak (Verify)"
                     >
                         <MdCancel className="text-lg" />
                     </button>
                 </>
             )}
-            <button
-                onClick={() => handleDelete(item.id)}
-                disabled={processingId === item.id}
-                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                title="Hapus"
-            >
-                <MdDelete className="text-lg" />
-            </button>
+            {canUpdate && (
+                <button
+                    onClick={() => openEditModal(item)}
+                    disabled={processingId === item.id}
+                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                    title="Edit Data"
+                >
+                    <MdEdit className="text-lg" />
+                </button>
+            )}
+            {canDelete && (
+                <button
+                    onClick={() => handleDelete(item.id)}
+                    disabled={processingId === item.id}
+                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                    title="Hapus"
+                >
+                    <MdDelete className="text-lg" />
+                </button>
+            )}
         </>
     )
 
@@ -508,6 +575,64 @@ export function ClientComponent() {
                                 className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                             >
                                 Tolak
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Modal */}
+            {editId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-[#1c2936] w-full max-w-md rounded-xl p-6 shadow-xl">
+                        <h3 className="font-bold text-lg mb-4 dark:text-white">Edit Data Lembur</h3>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Alasan Lembur</label>
+                                <textarea
+                                    className="w-full p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                                    rows={3}
+                                    value={editForm.reason}
+                                    onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
+                                />
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Jam Mulai</label>
+                                    <input
+                                        type="datetime-local"
+                                        className="w-full p-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                                        value={editForm.startTime}
+                                        onChange={(e) => setEditForm({ ...editForm, startTime: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Jam Selesai</label>
+                                    <input
+                                        type="datetime-local"
+                                        className="w-full p-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                                        value={editForm.endTime}
+                                        onChange={(e) => setEditForm({ ...editForm, endTime: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button
+                                onClick={() => setEditId(null)}
+                                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={handleEditSubmit}
+                                disabled={processingId === editId}
+                                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                Simpan Perubahan
                             </button>
                         </div>
                     </div>

@@ -14,9 +14,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         const session = await getServerSession(authOptions)
         if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-        // Permission check
-        if (!await hasPermission('izin:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        // Permission check - using VERIFY for status updates (Approval/Rejection)
+        if (!await hasPermission('izin:verify')) {
+            return NextResponse.json({ error: 'Forbidden: You need verify permission' }, { status: 403 })
         }
 
         const body = await request.json()

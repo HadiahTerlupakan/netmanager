@@ -69,11 +69,11 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         description: 'Data kehadiran karyawan'
     },
     izin: {
-        actions: ['read', 'create', 'update', 'delete', 'site_only', 'department_only'],
+        actions: ['read', 'create', 'update', 'delete', 'verify', 'site_only', 'department_only'],
         description: 'Pengajuan izin/cuti'
     },
     lembur: {
-        actions: ['read', 'create', 'update', 'delete', 'site_only', 'department_only'],
+        actions: ['read', 'create', 'update', 'delete', 'verify', 'site_only', 'department_only'],
         description: 'Data lembur karyawan'
     },
     holiday: {

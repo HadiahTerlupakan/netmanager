@@ -14,16 +14,11 @@ export async function PATCH(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // Permission check
-        if (!await hasPermission('lembur:update')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
-
         const { id } = await params
         const body = await request.json()
-        const { action, reason } = body // action: 'approve' | 'reject'
+        const { action, reason, ...updateData } = body 
 
-        // NEW: Ownership Check
+        // Check ownership & site/dept restrictions first
         const existing = await import('@/lib/prisma').then(m => m.prisma.overtime.findUnique({
             where: { id },
             include: { user: true }
@@ -44,15 +39,44 @@ export async function PATCH(
 
         const service = new OvertimeService()
 
-        if (action === 'approve') {
-            const result = await service.approveRequest(id, session.user.id || 'system')
-            return NextResponse.json(result)
-        } else if (action === 'reject') {
-            if (!reason) return NextResponse.json({ error: 'Reason required for rejection' }, { status: 400 })
-            const result = await service.rejectRequest(id, reason)
-            return NextResponse.json(result)
+        // Distinguish between APPROVE/REJECT (Verify) vs EDIT (Update)
+        if (action === 'approve' || action === 'reject') {
+            // VERIFICATION ACTIONS
+            if (!await hasPermission('lembur:verify')) {
+                return NextResponse.json({ error: 'Forbidden: You need verify permission' }, { status: 403 })
+            }
+
+            if (action === 'approve') {
+                const result = await service.approveRequest(id, session.user.id || 'system')
+                return NextResponse.json(result)
+            } else {
+                if (!reason) return NextResponse.json({ error: 'Reason required for rejection' }, { status: 400 })
+                const result = await service.rejectRequest(id, reason)
+                return NextResponse.json(result)
+            }
         } else {
-            return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+            // EDIT DATA ACTIONS (reason, startTime, endTime, etc.)
+            if (!await hasPermission('lembur:update')) {
+                return NextResponse.json({ error: 'Forbidden: You need update permission' }, { status: 403 })
+            }
+
+            // Implement simple update logic via Prisma directly or add updateRequest to Service
+            // For now assuming service has update method or we do direct prisma update
+            // Since OvertimeService update isn't confirmed, let's look at updating reason/times
+            const prisma = await import('@/lib/prisma').then(m => m.prisma)
+            
+            // Clean up update data
+            const cleanData: any = {}
+            if (updateData.reason) cleanData.reason = updateData.reason
+            if (updateData.startTime) cleanData.startTime = new Date(updateData.startTime)
+            if (updateData.endTime) cleanData.endTime = new Date(updateData.endTime)
+            
+            const result = await prisma.overtime.update({
+                where: { id },
+                data: cleanData
+            })
+
+            return NextResponse.json({ success: true, data: result })
         }
 
     } catch (error: any) {
