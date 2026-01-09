@@ -205,6 +205,12 @@ services:
 
       # Service
       - "traefik.http.services.netmanager-service.loadbalancer.server.port=3000"
+      # Timeout configuration for large file uploads (APK, etc)
+      - "traefik.http.services.netmanager-service.loadbalancer.responseforwarding.flushinterval=100ms"
+      # Middleware for large uploads - increase body size and timeout
+      - "traefik.http.middlewares.large-upload.buffering.maxRequestBodyBytes=209715200"
+      - "traefik.http.middlewares.large-upload.buffering.memRequestBodyBytes=2097152"
+      - "traefik.http.routers.netmanager-admin.middlewares=large-upload"
       # Force Traefik to use web network
       - "traefik.docker.network=netmanager_web"
     networks:
@@ -244,6 +250,9 @@ services:
       - "--log.level=WARN"
       - "--accesslog=true"
       - "--accesslog.filepath=/var/log/traefik/access.log"
+
+      # Timeouts for large file uploads
+      - "--serversTransport.responseHeaderTimeout=300s"
     ports:
       - "80:80"
       - "443:443"
