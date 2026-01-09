@@ -93,6 +93,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         assignedToId: restData.assignedToId || null,
                         contactName: restData.contactName,
                         contactPhone: restData.contactPhone,
+                        locationAddress: restData.locationAddress,
                         scheduledDate: restData.scheduledDate,
                         scheduledTimeStart: restData.scheduledTimeStart,
                         scheduledTimeEnd: restData.scheduledTimeEnd,
