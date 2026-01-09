@@ -263,13 +263,49 @@ export class AppVersionService {
     /**
      * Soft delete version
      */
-    async deleteVersion(id: string): Promise<AppVersion> {
+    async deleteVersion(id: string): Promise<void> {
         const existing = await this.repository.findById(id)
         if (!existing) {
             throw new Error('Versi tidak ditemukan')
         }
 
-        return this.repository.softDelete(id)
+        // 1. Delete Physical File
+        if (existing.apkUrl) {
+            try {
+                // Cek apakah file lokal
+                if (existing.apkUrl.startsWith('/apk/')) {
+                    const localPath = path.join(process.cwd(), 'public', existing.apkUrl)
+                    try {
+                        await fs.unlink(localPath)
+                        console.log(`Deleted local APK: ${localPath}`)
+                    } catch (err: any) {
+                        console.warn(`Failed to delete local APK: ${err.message}`)
+                    }
+                } 
+                // Cek apakah file R2 (mengandung uploads/apk/)
+                else if (existing.apkUrl.includes('uploads/apk/')) {
+                    // Extract key from URL
+                    // Key format: uploads/apk/timestamp-filename.apk
+                    // URL format: https://domain.com/uploads/apk/timestamp-filename.apk
+                    const keyIndex = existing.apkUrl.indexOf('uploads/apk/')
+                    if (keyIndex !== -1) {
+                        const key = existing.apkUrl.substring(keyIndex)
+                        const deleted = await deleteFromR2(key)
+                        if (deleted) {
+                            console.log(`Deleted R2 object: ${key}`)
+                        } else {
+                            console.warn(`Failed to delete R2 object: ${key}`)
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error deleting physical APK file:', error)
+                // Continue to delete DB record even if file deletion fails
+            }
+        }
+
+        // 2. Hard Delete DB Record
+        await this.repository.delete(id)
     }
 
     /**

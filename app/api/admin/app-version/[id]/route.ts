@@ -81,7 +81,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 }
 
-// DELETE /api/admin/app-version/[id] - Soft delete version
+// DELETE /api/admin/app-version/[id] - Hard delete version and file
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
         const user = await verifyAuth(request)
@@ -112,7 +112,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
         return NextResponse.json({
             success: true,
-            message: 'Versi berhasil dinonaktifkan'
+            message: 'Versi dan file berhasil dihapus permanen'
         })
     } catch (error: any) {
         console.error('Error deleting app version:', error)
