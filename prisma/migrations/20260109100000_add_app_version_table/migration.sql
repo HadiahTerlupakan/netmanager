@@ -35,4 +35,4 @@ CREATE INDEX "app_versions_platform_idx" ON "app_versions"("platform");
 CREATE INDEX "app_versions_versionCode_idx" ON "app_versions"("versionCode");
 
 -- AddForeignKey
-ALTER TABLE "app_versions" ADD CONSTRAINT "app_versions_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "user"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "app_versions" ADD CONSTRAINT "app_versions_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
