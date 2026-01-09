@@ -42,19 +42,17 @@ app.prepare().then(() => {
             const path = await import('path')
             
             // Parse multipart form with higher file size limit (200MB)
+            // Use system temp directory for uploads to avoid permission issues in Docker
+            const os = await import('os')
+            const tmpDir = os.tmpdir()
+            
             const form = formidable.formidable({
                 maxFileSize: 200 * 1024 * 1024, // 200MB per file
                 maxTotalFileSize: 200 * 1024 * 1024, // 200MB total
-                uploadDir: path.join(process.cwd(), 'tmp'),
+                uploadDir: tmpDir,
                 keepExtensions: true,
                 multiples: false
             })
-            
-            // Ensure tmp directory exists
-            const tmpDir = path.join(process.cwd(), 'tmp')
-            if (!fs.existsSync(tmpDir)) {
-                fs.mkdirSync(tmpDir, { recursive: true })
-            }
 
             try {
                 const [fields, files] = await form.parse(req)
