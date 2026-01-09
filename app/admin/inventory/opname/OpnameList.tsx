@@ -12,8 +12,8 @@ import { usePermission } from '@/hooks/use-permission'
 
 export default function StockOpnamePage() {
   const { hasPermission } = usePermission()
-  const canCreate = hasPermission('stockopname:create')
-  const canUpdate = hasPermission('stockopname:update')
+  const canCreate = hasPermission('opname:create')
+  const canUpdate = hasPermission('opname:update')
 
   const [activeTab, setActiveTab] = useState<'report' | 'input' | 'history'>('report')
   const [showForm, setShowForm] = useState(false)

@@ -24,7 +24,12 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isCustomSatuan, setIsCustomSatuan] = useState(false)
   const router = useRouter()
+
+  const satuanOptions = [
+    'pcs', 'meter', 'box', 'roll', 'pack', 'karton', 'liter', 'kg', 'set', 'buah', 'unit'
+  ]
 
   useEffect(() => {
     if (initialData) {
@@ -33,6 +38,10 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
         satuan: initialData.satuan || '',
         isWorkOrderMaterial: initialData.isWorkOrderMaterial || false
       })
+      // Check if initial satuan is custom
+      if (initialData.satuan && !satuanOptions.includes(initialData.satuan)) {
+        setIsCustomSatuan(true)
+      }
     }
   }, [initialData])
 
@@ -94,20 +103,6 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
     }
   }
 
-  const satuanOptions = [
-    'pcs',
-    'meter',
-    'box',
-    'roll',
-    'pack',
-    'karton',
-    'liter',
-    'kg',
-    'set',
-    'buah',
-    'unit'
-  ]
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
@@ -138,7 +133,7 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
       {!initialData?.id && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
           <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
-            <FiInfo className="w-4 h-4 flex-shrink-0" /> Kode barang akan di-generate otomatis
+            <FiInfo className="w-4 h-4 shrink-0" /> Kode barang akan di-generate otomatis
           </p>
         </div>
       )}
@@ -167,8 +162,17 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
         </label>
         <select
           id="satuan"
-          value={formData.satuan}
-          onChange={(e) => setFormData({ ...formData, satuan: e.target.value })}
+          value={isCustomSatuan ? 'custom' : formData.satuan}
+          onChange={(e) => {
+            const val = e.target.value
+            if (val === 'custom') {
+              setIsCustomSatuan(true)
+              setFormData({ ...formData, satuan: '' })
+            } else {
+              setIsCustomSatuan(false)
+              setFormData({ ...formData, satuan: val })
+            }
+          }}
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           disabled={loading}
         >
@@ -178,18 +182,25 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
               {satuan}
             </option>
           ))}
+          <option value="custom">Satuan Kustom (Lainnya)</option>
         </select>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Atau ketik satuan kustom
-        </p>
-        <input
-          type="text"
-          value={!satuanOptions.includes(formData.satuan) ? formData.satuan : ''}
-          onChange={(e) => setFormData({ ...formData, satuan: e.target.value })}
-          className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          placeholder="Satuan kustom..."
-          disabled={loading}
-        />
+        
+        {isCustomSatuan && (
+          <div className="mt-2">
+            <input
+              type="text"
+              value={formData.satuan}
+              onChange={(e) => setFormData({ ...formData, satuan: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              placeholder="Masukkan nama satuan kustom..."
+              disabled={loading}
+              autoFocus
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Ketik satuan yang tidak tersedia di pilihan (contoh: lusin, lembar)
+            </p>
+          </div>
+        )}
       </div>
 
       <div>
