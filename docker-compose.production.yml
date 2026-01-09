@@ -379,7 +379,10 @@ services:
   # CRON - Scheduled Tasks (Attendance Alerts, etc.)
   # ==========================================================================
   cron:
-    image: alpine:latest
+    build:
+      context: ./cron
+      dockerfile: Dockerfile
+    image: netmanager-cron:latest
     container_name: netmanager-cron
     restart: always
     depends_on:
@@ -388,14 +391,6 @@ services:
       TZ: Asia/Jakarta
       CRON_SECRET: ${CRON_SECRET:?CRON_SECRET wajib diisi untuk keamanan cron}
       APP_URL: http://app:3000
-    command: >
-      sh -c "
-        apk add --no-cache curl tzdata &&
-        echo '*/15 * * * * curl -s -H \"Authorization: Bearer '$$CRON_SECRET'\" \"$$APP_URL/api/cron/attendance-alert?type=auto\" >> /var/log/cron.log 2>&1' > /etc/crontabs/root &&
-        echo '0 22 * * * curl -s -H \"Authorization: Bearer '$$CRON_SECRET'\" \"$$APP_URL/api/cron/attendance-alert?type=process\" >> /var/log/cron.log 2>&1' >> /etc/crontabs/root &&
-        touch /var/log/cron.log &&
-        crond -f -l 2
-      "
     security_opt:
       - no-new-privileges:true
     deploy:
