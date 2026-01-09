@@ -33,65 +33,106 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         const endOfDay = new Date(now);
         endOfDay.setHours(23, 59, 59, 999);
 
-        const count = await this.prisma.workOrders.count({
+        // Get the highest sequence number for today instead of just count
+        // This handles deleted records and race conditions better
+        const lastWo = await this.prisma.workOrders.findFirst({
             where: {
-                createdAt: {
-                    gte: startOfDay,
-                    lte: endOfDay,
+                workOrderNumber: {
+                    startsWith: `WO-${dateStr}-`,
                 },
+            },
+            orderBy: {
+                workOrderNumber: 'desc',
+            },
+            select: {
+                workOrderNumber: true,
             },
         });
 
-        const sequence = (count + 1).toString().padStart(4, '0');
+        let nextSequence = 1;
+        if (lastWo?.workOrderNumber) {
+            // Extract the sequence part: WO-YYYYMMDD-XXXX -> XXXX
+            const parts = lastWo.workOrderNumber.split('-');
+            if (parts.length >= 3) {
+                const lastSequence = parseInt(parts[2], 10);
+                if (!isNaN(lastSequence)) {
+                    nextSequence = lastSequence + 1;
+                }
+            }
+        }
+
+        const sequence = nextSequence.toString().padStart(4, '0');
         return `WO-${dateStr}-${sequence}`;
     }
 
     async create(data: CreateWorkOrderData): Promise<WorkOrders> {
-        const workOrderNumber = await this.generateWorkOrderNumber();
+        const MAX_RETRIES = 3;
+        let lastError: Error | null = null;
 
-        // Destructure pelangganId to handle it separately
-        const { pelangganId, ...restData } = data;
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                const workOrderNumber = await this.generateWorkOrderNumber();
 
-        const result = await this.prisma.workOrders.create({
-            data: {
-                id: randomUUID(),
-                updatedAt: new Date(),
-                workOrderNumber,
-                type: restData.type,
-                title: restData.title,
-                description: restData.description,
-                status: 'PENDING',
-                priority: data.priority || 'NORMAL',
-                createdById: data.createdById,
-                pelangganId: pelangganId || null,
-                siteId: restData.siteId || null,
-                departmentId: restData.departmentId || null,
-                assignedToId: restData.assignedToId || null,
-                contactName: restData.contactName,
-                contactPhone: restData.contactPhone,
-                scheduledDate: restData.scheduledDate,
-                scheduledTimeStart: restData.scheduledTimeStart,
-                scheduledTimeEnd: restData.scheduledTimeEnd,
-                estimatedHours: restData.estimatedHours,
-                estimatedCost: restData.estimatedCost,
-                requiredMaterials: restData.requiredMaterials ?? undefined,
-                internalNotes: restData.internalNotes,
-            },
-        });
+                // Destructure pelangganId to handle it separately
+                const { pelangganId, ...restData } = data;
 
-        // Notify Creation
-        await notifyNewWorkOrder({
-            workOrderId: result.id,
-            workOrderNumber: result.workOrderNumber,
-            title: result.title,
-            type: result.type,
-            priority: result.priority,
-            departmentId: result.departmentId || undefined,
-            siteId: result.siteId || undefined,
-            assignedToId: result.assignedToId || undefined
-        }).catch(err => console.error('Failed to notify new WO:', err));
+                const result = await this.prisma.workOrders.create({
+                    data: {
+                        id: randomUUID(),
+                        updatedAt: new Date(),
+                        workOrderNumber,
+                        type: restData.type,
+                        title: restData.title,
+                        description: restData.description,
+                        status: 'PENDING',
+                        priority: data.priority || 'NORMAL',
+                        createdById: data.createdById,
+                        pelangganId: pelangganId || null,
+                        siteId: restData.siteId || null,
+                        departmentId: restData.departmentId || null,
+                        assignedToId: restData.assignedToId || null,
+                        contactName: restData.contactName,
+                        contactPhone: restData.contactPhone,
+                        scheduledDate: restData.scheduledDate,
+                        scheduledTimeStart: restData.scheduledTimeStart,
+                        scheduledTimeEnd: restData.scheduledTimeEnd,
+                        estimatedHours: restData.estimatedHours,
+                        estimatedCost: restData.estimatedCost,
+                        requiredMaterials: restData.requiredMaterials ?? undefined,
+                        internalNotes: restData.internalNotes,
+                    },
+                });
 
-        return result;
+                // Notify Creation
+                await notifyNewWorkOrder({
+                    workOrderId: result.id,
+                    workOrderNumber: result.workOrderNumber,
+                    title: result.title,
+                    type: result.type,
+                    priority: result.priority,
+                    departmentId: result.departmentId || undefined,
+                    siteId: result.siteId || undefined,
+                    assignedToId: result.assignedToId || undefined
+                }).catch(err => console.error('Failed to notify new WO:', err));
+
+                return result;
+            } catch (error: any) {
+                // Check if this is a unique constraint violation on workOrderNumber
+                if (error?.code === 'P2002' && error?.meta?.target?.includes('workOrderNumber')) {
+                    console.warn(`[WorkOrderRepo] Unique constraint violation on workOrderNumber, retry attempt ${attempt + 1}/${MAX_RETRIES}`);
+                    lastError = error;
+                    // Wait a bit before retrying with exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, 50 * Math.pow(2, attempt)));
+                    continue;
+                }
+                // For other errors, throw immediately
+                throw error;
+            }
+        }
+
+        // If all retries failed, throw the last error
+        console.error('[WorkOrderRepo] Failed to create work order after all retries');
+        throw lastError || new Error('Failed to create work order after max retries');
     }
 
     async findById(id: string): Promise<WorkOrderWithRelations | null> {
