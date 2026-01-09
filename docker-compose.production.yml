@@ -251,8 +251,6 @@ services:
       - "--accesslog=true"
       - "--accesslog.filepath=/var/log/traefik/access.log"
 
-      # Timeouts for large file uploads
-      - "--serversTransport.responseHeaderTimeout=300s"
     ports:
       - "80:80"
       - "443:443"
