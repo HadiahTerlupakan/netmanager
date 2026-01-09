@@ -45,6 +45,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
             id?: string
             role?: string
             departmentId?: string
+            accessAdminPanel?: boolean
         }
 
         if (!user.id) {
@@ -58,6 +59,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
                 userId: user.id,
                 userRole: user.role || 'USER',
                 departmentId: user.departmentId,
+                accessAdminPanel: user.accessAdminPanel,
             },
             // Reconnection settings
             reconnection: true,

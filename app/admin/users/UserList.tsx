@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { HiOutlinePlus, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye, HiOutlineTrash, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineFunnel, HiOutlineArrowRightOnRectangle } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
-import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { toast } from 'react-hot-toast'
+import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { useSocket } from '@/hooks/useSocket'
+import { SOCKET_EVENTS } from '@/lib/websocket/types'
 
 interface User {
     id: string
@@ -29,6 +31,7 @@ interface User {
 }
 
 export default function UserList() {
+    const { socket } = useSocket()
     const [users, setUsers] = useState<User[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
@@ -37,6 +40,7 @@ export default function UserList() {
     const [deleting, setDeleting] = useState(false)
     const [forceLogoutUserId, setForceLogoutUserId] = useState<string | null>(null)
     const [forcingLogout, setForcingLogout] = useState(false)
+    const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set())
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1)
@@ -45,6 +49,45 @@ export default function UserList() {
     useEffect(() => {
         fetchUsers()
     }, [])
+
+    useEffect(() => {
+        if (!socket) return
+
+        // Fetch initial online users list
+        const fetchOnlineList = () => {
+            socket.emit('user:get_online_users')
+        }
+        
+        fetchOnlineList()
+
+        // Listen for list response
+        const handleOnlineList = (ids: string[]) => {
+            setOnlineUsers(new Set(ids))
+        }
+
+        // Listen for individual status changes
+        const handleStatusChange = (data: { userId: string, isOnline: boolean }) => {
+            setOnlineUsers(prev => {
+                const newSet = new Set(prev)
+                if (data.isOnline) {
+                    newSet.add(data.userId)
+                } else {
+                    newSet.delete(data.userId)
+                }
+                return newSet
+            })
+        }
+
+        socket.on('connect', fetchOnlineList)
+        socket.on('user:online_users_list', handleOnlineList)
+        socket.on(SOCKET_EVENTS.USER_STATUS_CHANGE, handleStatusChange)
+
+        return () => {
+            socket.off('connect', fetchOnlineList)
+            socket.off('user:online_users_list', handleOnlineList)
+            socket.off(SOCKET_EVENTS.USER_STATUS_CHANGE, handleStatusChange)
+        }
+    }, [socket])
 
     const fetchUsers = async () => {
         try {
@@ -137,12 +180,21 @@ export default function UserList() {
             priority: 'primary',
             render: (user) => (
                 <div className="flex items-center gap-3">
-                    <div className="shrink-0 h-10 w-10 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                    <div className="relative shrink-0 h-10 w-10 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
                         <HiOutlineUserCircle className="w-5 h-5 text-white" />
+                        {/* Online Indicator */}
+                        <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
+                            onlineUsers.has(user.id) ? 'bg-green-500' : 'bg-gray-400'
+                        }`} title={onlineUsers.has(user.id) ? 'Online' : 'Offline'} />
                     </div>
                     <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
                             {user.name || user.email.split('@')[0]}
+                            {onlineUsers.has(user.id) && (
+                                <span className="inline-block px-1.5 py-0.5 text-[10px] leading-none bg-green-100 text-green-700 rounded-full font-medium">
+                                    Online
+                                </span>
+                            )}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
                     </div>

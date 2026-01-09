@@ -32,6 +32,9 @@ export const SOCKET_EVENTS = {
     // Connection management
     JOIN_ROOM: 'join:room',
     LEAVE_ROOM: 'leave:room',
+
+    // User Status
+    USER_STATUS_CHANGE: 'user:status',
 } as const
 
 // Notification payload
@@ -134,6 +137,7 @@ export interface SocketAuthData {
     userId: string
     userRole?: string
     departmentId?: string
+    accessAdminPanel?: boolean
 }
 
 // Socket data attached to socket instance
@@ -141,4 +145,5 @@ export interface SocketData {
     userId: string
     userRole: string
     departmentId?: string
+    accessAdminPanel?: boolean
 }

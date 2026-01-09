@@ -22,6 +22,7 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
             const userId = auth?.userId as string
             const userRole = auth?.userRole as string
             const departmentId = auth?.departmentId as string | undefined
+            const accessAdminPanel = auth?.accessAdminPanel as boolean | undefined
 
             if (!userId) {
                 console.error('[WS] Auth failed: No userId provided')
@@ -33,6 +34,7 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
                 userId,
                 userRole: userRole || 'USER',
                 departmentId,
+                accessAdminPanel,
             } as SocketData
 
             next()
@@ -43,13 +45,27 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
     })
 
     // Connection handler
-    globalThis.socketIOServer.on('connection', (socket: Socket) => {
-        const { userId, userRole, departmentId } = socket.data as SocketData
+    globalThis.socketIOServer.on('connection', async (socket: Socket) => {
+        const { userId, userRole, departmentId, accessAdminPanel } = socket.data as SocketData
 
-        console.log(`[WS] User connected: ${userId} (${userRole})`)
+        console.log(`[WS] User connected: ${userId} (${userRole}) [Admin: ${!!accessAdminPanel}]`)
 
         // Join user-specific room
         socket.join(`user:${userId}`)
+
+        // CHECK ONLINE STATUS:
+        // Get number of sockets in this user's room
+        const sockets = await globalThis.socketIOServer?.in(`user:${userId}`).fetchSockets()
+        const connectionCount = sockets?.length || 0
+
+        // If this is the first/only connection, notify admins that user is ONLINE
+        // Mobile App + Web Portal both connect here, so this covers both.
+        if (connectionCount === 1) {
+            globalThis.socketIOServer?.to('admin:notifications').emit(SOCKET_EVENTS.USER_STATUS_CHANGE, {
+                userId,
+                isOnline: true
+            })
+        }
 
         // Join department room if available
         if (departmentId) {
@@ -57,12 +73,37 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
         }
 
         // Join role-based rooms
-        if (userRole === 'ADMIN') {
+        // Join role-based rooms
+        // STRICT RBAC: Only users with accessAdminPanel = true are considered Admins
+        // This includes 'Super Admin', 'THD', etc. as long as the flag is set in their role.
+        if (accessAdminPanel) {
             socket.join('admin:notifications')
             socket.join('admin:tickets')
             socket.join('admin:workorders')
             socket.join('admin:inventory')
         }
+
+        // Handle request for online users (sent by Admin UI on load)
+        socket.on('user:get_online_users', async () => {
+             // Only admins (RBAC verified) need this list
+             if (accessAdminPanel) {
+                 // We can find all rooms starting with "user:"
+                 const rooms = globalThis.socketIOServer?.sockets.adapter.rooms
+                 const onlineUserIds: string[] = []
+                 
+                 if (rooms) {
+                     for (const [roomName, _] of rooms) {
+                         if (roomName.startsWith('user:')) {
+                             const id = roomName.split(':')[1]
+                             if (id) onlineUserIds.push(id)
+                         }
+                     }
+                 }
+                 
+                 // Send back to the specific requesting admin socket
+                 socket.emit('user:online_users_list', onlineUserIds)
+             }
+        })
 
         // Handle dynamic room joining
         socket.on(SOCKET_EVENTS.JOIN_ROOM, (data: { room: string } | string) => {
@@ -86,8 +127,21 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
         })
 
         // Handle disconnect
-        socket.on('disconnect', (reason) => {
+        socket.on('disconnect', async (reason) => {
             console.log(`[WS] User disconnected: ${userId} (${reason})`)
+            
+            // Allow a small delay to handle page refreshes (optional, but good for UX)
+            // But for distinct "Online" usage, immediate check is usually fine.
+            
+            // Check if any connections remain for this user
+            const sockets = await globalThis.socketIOServer?.in(`user:${userId}`).fetchSockets()
+            if (!sockets || sockets.length === 0) {
+                // User is fully offline
+                globalThis.socketIOServer?.to('admin:notifications').emit(SOCKET_EVENTS.USER_STATUS_CHANGE, {
+                    userId,
+                    isOnline: false
+                })
+            }
         })
 
         // Handle errors
