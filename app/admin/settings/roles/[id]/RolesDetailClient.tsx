@@ -25,6 +25,7 @@ export function ClientComponent() {
         accessAdminPanel: false,
         accessEmployeePanel: false,
         isRestricted: false,
+        isTechnical: false, // New field
         permissions: [] as string[] // Store permission IDs (resource:action)
     })
     const [loading, setLoading] = useState(true)
@@ -46,6 +47,7 @@ export function ClientComponent() {
                             accessAdminPanel: roleData.accessAdminPanel || false,
                             accessEmployeePanel: roleData.accessEmployeePanel || false,
                             isRestricted: roleData.isRestricted || false,
+                            isTechnical: roleData.isTechnical || false,
                             // Convert backend permissions (objects) to string format resource:action
                             permissions: roleData.permissions.map((p: any) => `${p.resource}:${p.action}`)
                         })
@@ -197,6 +199,22 @@ export function ClientComponent() {
                             <span className="text-sm text-gray-500 dark:text-gray-400">
                                 Jika aktif, role ini <strong>tidak akan muncul</strong> pada dropdown "Peran Pengguna" di menu Tambah/Edit Pengguna,
                                 KECUALI user yang sedang login juga memiliki role ini.
+                            </span>
+                        </div>
+                    </label>
+
+                    <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors mt-4">
+                        <input
+                            type="checkbox"
+                            checked={formData.isTechnical}
+                            onChange={e => setFormData({ ...formData, isTechnical: e.target.checked })}
+                            className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 mt-0.5"
+                        />
+                        <div>
+                            <span className="block font-medium text-gray-800 dark:text-white">Role Teknis (Technical)</span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                                Jika aktif, user dengan role ini akan <strong>dihitung</strong> dalam statistik respon (mis: Helpdesk/Teknisi) 
+                                dan mendapat indikator khusus di sistem.
                             </span>
                         </div>
                     </label>

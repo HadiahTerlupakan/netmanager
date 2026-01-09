@@ -11,7 +11,8 @@ const roleUpdateSchema = z.object({
     permissions: z.array(z.string()), // Array of permission IDs
     accessAdminPanel: z.boolean().optional(),
     accessEmployeePanel: z.boolean().optional(),
-    isRestricted: z.boolean().optional()
+    isRestricted: z.boolean().optional(),
+    isTechnical: z.boolean().optional()
 })
 
 // Fix for Next.js App Router params type
@@ -64,7 +65,8 @@ export async function PUT(req: Request, { params }: Params) {
             permissions: validated.permissions,
             accessAdminPanel: validated.accessAdminPanel,
             accessEmployeePanel: validated.accessEmployeePanel,
-            isRestricted: validated.isRestricted
+            isRestricted: validated.isRestricted,
+            isTechnical: validated.isTechnical
         })
 
         return NextResponse.json(updatedRole)

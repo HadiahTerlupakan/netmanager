@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { HiClipboardDocumentList, HiClock, HiCheckCircle, HiWrenchScrewdriver, HiChevronRight, HiExclamationCircle, HiUserGroup, HiChartBar, HiBuildingOffice2, HiArchiveBoxArrowDown } from 'react-icons/hi2'
+import { HiClipboardDocumentList, HiClock, HiCheckCircle, HiWrenchScrewdriver, HiChevronRight, HiExclamationCircle, HiUserGroup, HiChartBar, HiBuildingOffice2, HiArchiveBoxArrowDown, HiChatBubbleLeftRight } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { useSocketEvent } from '@/hooks/useSocket'
 
@@ -16,6 +16,7 @@ type IssueStatistic = { issue: string; count: number }
 type SiteStatistic = { siteName: string; count: number; mostCommonIssue: string }
 
 type DisconnectionStatistic = { reason: string; count: number }
+type ResponseStatistic = { userName: string; totalResponses: number; avgResponseTimeMinutes: number }
 
 const STATUS_COLORS: Record<string, string> = { PENDING: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200', ASSIGNED: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200', IN_PROGRESS: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200', COMPLETED: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200', VERIFIED: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' }
 const PRIORITY_COLORS: Record<string, string> = { LOW: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400', NORMAL: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400', HIGH: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400', URGENT: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400', CRITICAL: 'bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-200' }
@@ -32,6 +33,7 @@ export function ClientComponent() {
     const [issueStats, setIssueStats] = useState<IssueStatistic[]>([])
     const [siteStats, setSiteStats] = useState<SiteStatistic[]>([])
     const [disconnectionStats, setDisconnectionStats] = useState<DisconnectionStatistic[]>([])
+    const [responseStats, setResponseStats] = useState<ResponseStatistic[]>([])
     const [performancePeriod, setPerformancePeriod] = useState<string>('all_time')
 
     useEffect(() => { if (status === 'unauthenticated') { router.push('/login'); return } if (session?.user && status === 'authenticated') fetchDashboardData() }, [session, status, router])
@@ -73,9 +75,10 @@ export function ClientComponent() {
 
     const fetchDetailedStats = async () => {
         try {
-            const [performersRes, analyticsRes] = await Promise.all([
+            const [performersRes, analyticsRes, responseRes] = await Promise.all([
                 fetch(`/api/admin/workorders/top-performers?period=${performancePeriod}`),
-                fetch(`/api/admin/workorders/analytics?period=${performancePeriod}`)
+                fetch(`/api/admin/workorders/analytics?period=${performancePeriod}`),
+                fetch(`/api/admin/workorders/response-stats?period=${performancePeriod}`)
             ])
 
             if (performersRes.ok) {
@@ -88,6 +91,10 @@ export function ClientComponent() {
                 setIssueStats(result.data.issues)
                 setSiteStats(result.data.sites)
                 setDisconnectionStats(result.data.disconnections || [])
+            }
+            if (responseRes.ok) {
+                const result = await responseRes.json()
+                setResponseStats(result.data || [])
             }
         } catch (error) {
             console.error('Error fetching detailed stats:', error)
@@ -307,6 +314,37 @@ export function ClientComponent() {
                                     </div>
                                 ) : (
                                     <p className="text-sm text-gray-500 dark:text-gray-400 text-center">No assist data available</p>
+                                )}
+                            </div>
+
+                            {/* Response Stats */}
+                            <div className="p-6 border-b border-gray-100">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <HiChatBubbleLeftRight className="w-5 h-5 text-teal-400" />
+                                    <h3 className="text-md font-medium text-gray-900 dark:text-white">Response Speed</h3>
+                                </div>
+                                {responseStats.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {responseStats.map((stat, index) => (
+                                            <div key={index} className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-sm font-bold text-teal-600 dark:text-teal-400 shrink-0">
+                                                        {index + 1}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{stat.userName}</p>
+                                                        <p className="text-xs text-gray-600 dark:text-gray-400">{stat.totalResponses} actions</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-bold text-teal-600 dark:text-teal-400">{stat.avgResponseTimeMinutes}m</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">avg time</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">No response data available</p>
                                 )}
                             </div>
 

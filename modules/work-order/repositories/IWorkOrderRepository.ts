@@ -222,6 +222,7 @@ export interface IWorkOrderRepository {
     getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<Array<{ reason: string; count: number }>>;
     getUserWorkOrderStats(dateFrom: Date, dateTo: Date): Promise<Array<{ userId: string; count: number }>>;
     getSiteStatsByType(types: WorkOrderType[], limit: number, dateFrom: Date, dateTo: Date): Promise<Array<{ siteId: string; siteName: string; count: number }>>;
+    getAdminResponseStats(dateFrom: Date, dateTo: Date, departmentId?: string): Promise<Array<{ userName: string; totalResponses: number; avgResponseTimeMinutes: number }>>;
 
     // Comments
     addComment(workOrderId: string, message: string, userId: string): Promise<any>;

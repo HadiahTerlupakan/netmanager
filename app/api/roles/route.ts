@@ -12,7 +12,8 @@ const roleSchema = z.object({
     permissions: z.array(z.string()), // Array of permission IDs
     accessAdminPanel: z.boolean().optional().default(false),
     accessEmployeePanel: z.boolean().optional().default(false),
-    isRestricted: z.boolean().optional().default(false)
+    isRestricted: z.boolean().optional().default(false),
+    isTechnical: z.boolean().optional().default(false)
 })
 
 export async function GET(req: Request) {
@@ -86,7 +87,8 @@ export async function POST(req: Request) {
             permissions: validated.permissions,
             accessAdminPanel: validated.accessAdminPanel,
             accessEmployeePanel: validated.accessEmployeePanel,
-            isRestricted: validated.isRestricted
+            isRestricted: validated.isRestricted,
+            isTechnical: validated.isTechnical
         })
 
         return NextResponse.json(newRole)

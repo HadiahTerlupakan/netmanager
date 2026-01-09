@@ -923,6 +923,7 @@ model Role {
   accessAdminPanel    Boolean      @default(false)
   accessEmployeePanel Boolean      @default(false)
   isRestricted        Boolean      @default(false)
+  isTechnical         Boolean      @default(false) // Whether this role is considered "Technical" for metrics
   user                User[]
   permission          Permission[]
 

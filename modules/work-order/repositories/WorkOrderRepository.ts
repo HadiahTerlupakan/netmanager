@@ -1497,4 +1497,76 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             },
         });
     }
+
+    /**
+     * Get admin response statistics
+     * Calculates average time from WO Start/Assign to First Action
+     */
+    async getAdminResponseStats(dateFrom: Date, dateTo: Date, departmentId?: string): Promise<Array<{ userName: string; totalResponses: number; avgResponseTimeMinutes: number }>> {
+        const where: any = {
+            createdAt: { gte: dateFrom, lte: dateTo },
+            // actions by admins (status change, comment)
+            createdById: { not: null }
+        };
+
+        // Filter updates by admins in department if needed (complex join, skipped for MVP)
+        // MVP: Fetch relevant updates
+        
+        // 1. Get all updates in range
+        const updates = await this.prisma.workOrderUpdates.findMany({
+            where,
+            include: {
+                workOrders: {
+                    select: { id: true, createdAt: true, departmentId: true }
+                },
+                user: {
+                    select: { 
+                        id: true, 
+                        name: true,
+                        role: {
+                            select: {
+                                name: true,
+                                isTechnical: true // Filter by technical role
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // Loop through updates to calculate response time
+        const userStats: Record<string, { totalTime: number; count: number; name: string }> = {};
+        const processedPairs = new Set<string>();
+
+        updates.forEach(update => {
+            // Only count actions from users marked as "Technical" (Helpdesk, Technicians, Admin Ops)
+            if (!update.user?.role?.isTechnical) return;
+
+            if (!update.user || !update.createdById) return;
+
+            if (departmentId && update.workOrders.departmentId !== departmentId) return;
+
+            const key = `${update.workOrderId}-${update.createdById}`;
+            if (processedPairs.has(key)) return; // Only count first interaction per WO per user
+
+            const responseTimeMinutes = (new Date(update.createdAt).getTime() - new Date(update.workOrders.createdAt).getTime()) / (1000 * 60);
+            
+            if (responseTimeMinutes < 0) return; // Should not happen
+
+            if (!userStats[update.createdById]) {
+                userStats[update.createdById] = { totalTime: 0, count: 0, name: update.user.name || 'Unknown' };
+            }
+
+            userStats[update.createdById].totalTime += responseTimeMinutes;
+            userStats[update.createdById].count += 1;
+            processedPairs.add(key);
+        });
+
+        return Object.values(userStats).map(stat => ({
+            userName: stat.name,
+            totalResponses: stat.count,
+            avgResponseTimeMinutes: Math.round(stat.totalTime / stat.count)
+        })).sort((a, b) => a.avgResponseTimeMinutes - b.avgResponseTimeMinutes);
+    }
 }
