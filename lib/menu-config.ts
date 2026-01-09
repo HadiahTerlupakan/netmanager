@@ -177,6 +177,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'PENGATURAN.PAYMENT_GATEWAY', name: 'Payment Gateway', path: '/admin/pengaturan/payment-gateway', icon: 'HiOutlineCreditCard' },
             { code: 'PENGATURAN.API', name: 'API', path: '/admin/pengaturan/api', icon: 'HiOutlineCodeBracket' },
             { code: 'PENGATURAN.NADA_DERING', name: 'Nada Dering', path: '/admin/pengaturan/nada-dering', icon: 'HiOutlineSpeakerWave' },
+            { code: 'PENGATURAN.APP_VERSION', name: 'Versi Aplikasi', path: '/admin/pengaturan/app-version', icon: 'HiOutlineDevicePhoneMobile' },
         ],
     },
     {

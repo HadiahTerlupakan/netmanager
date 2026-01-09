@@ -35,6 +35,142 @@ app.prepare().then(() => {
     const server = createServer(async (req, res) => {
         const parsedUrl = parse(req.url!, true)
 
+        // Custom handler for large APK uploads - bypass Next.js body limit
+        if (req.method === 'POST' && parsedUrl.pathname === '/api/admin/app-version') {
+            const formidable = await import('formidable')
+            const fs = await import('fs')
+            const path = await import('path')
+            
+            // Parse multipart form with higher file size limit (200MB)
+            const form = formidable.formidable({
+                maxFileSize: 200 * 1024 * 1024, // 200MB per file
+                maxTotalFileSize: 200 * 1024 * 1024, // 200MB total
+                uploadDir: path.join(process.cwd(), 'tmp'),
+                keepExtensions: true,
+                multiples: false
+            })
+            
+            // Ensure tmp directory exists
+            const tmpDir = path.join(process.cwd(), 'tmp')
+            if (!fs.existsSync(tmpDir)) {
+                fs.mkdirSync(tmpDir, { recursive: true })
+            }
+
+            try {
+                const [fields, files] = await form.parse(req)
+                
+                // Forward to the actual API handler with parsed data
+                const { NextRequest } = await import('next/server')
+                const { verifyAuth } = await import('./lib/auth')
+                const { getAppVersionService } = await import('./modules/app-version')
+                
+                // Get auth from cookies
+                const cookieHeader = req.headers.cookie || ''
+                const reqHeaders = new Headers()
+                reqHeaders.set('cookie', cookieHeader)
+                
+                // Create a mock request for auth
+                const mockReq = new Request(`http://localhost:${port}${req.url}`, {
+                    method: 'GET',
+                    headers: reqHeaders
+                })
+                const nextReq = new NextRequest(mockReq)
+                
+                const user = await verifyAuth(nextReq)
+                if (!user) {
+                    res.writeHead(401, { 'Content-Type': 'application/json' })
+                    res.end(JSON.stringify({ error: 'Unauthorized' }))
+                    return
+                }
+                
+                // Check permission manually (SUPER_ADMIN bypass atau cek permissions array)
+                const hasCreatePermission = user.role === 'SUPER_ADMIN' || 
+                    (user.permissions && user.permissions.includes('app_version:create'))
+                
+                if (!hasCreatePermission) {
+                    res.writeHead(403, { 'Content-Type': 'application/json' })
+                    res.end(JSON.stringify({ error: 'Forbidden' }))
+                    return
+                }
+                
+                // Extract form fields
+                const version = fields.version?.[0] || undefined
+                const buildNumberStr = fields.buildNumber?.[0]
+                const versionCodeStr = fields.versionCode?.[0]
+                const platform = fields.platform?.[0] || 'android'
+                const releaseNotes = fields.releaseNotes?.[0] || undefined
+                const isForceUpdate = fields.isForceUpdate?.[0] === 'true'
+                const minVersion = fields.minVersion?.[0] || undefined
+                
+                const buildNumber = buildNumberStr ? parseInt(buildNumberStr) : undefined
+                const versionCode = versionCodeStr ? parseInt(versionCodeStr) : undefined
+                
+                // Get APK file
+                let apkBuffer: Buffer | undefined
+                let apkFilename: string | undefined
+                let apkSize: number | undefined
+                
+                const apkFile = files.apk?.[0]
+                if (apkFile) {
+                    apkBuffer = fs.readFileSync(apkFile.filepath)
+                    apkFilename = apkFile.originalFilename || 'app.apk'
+                    apkSize = apkFile.size
+                    // Cleanup temp file
+                    fs.unlinkSync(apkFile.filepath)
+                }
+                
+                // Validation
+                if (!apkFile && (!version || !buildNumber || !versionCode)) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' })
+                    res.end(JSON.stringify({ 
+                        error: 'Upload APK untuk auto-detect versi, atau isi manual version, buildNumber, dan versionCode' 
+                    }))
+                    return
+                }
+                
+                const service = getAppVersionService()
+                const appVersion = await service.uploadVersion({
+                    version,
+                    buildNumber,
+                    versionCode,
+                    platform,
+                    releaseNotes,
+                    isForceUpdate,
+                    minVersion,
+                    apkBuffer,
+                    apkFilename,
+                    apkSize,
+                    createdBy: user.id
+                })
+                
+                // Log activity
+                try {
+                    const { logger } = await import('./lib/logger')
+                    await logger.logActivity({
+                        action: 'CREATE',
+                        subject: 'AppVersion',
+                        userId: user.id,
+                        details: { id: appVersion.id, version: appVersion.version }
+                    })
+                } catch (e) {
+                    console.error('Logging failed', e)
+                }
+                
+                res.writeHead(201, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({
+                    success: true,
+                    data: appVersion,
+                    message: 'Versi aplikasi berhasil diupload'
+                }))
+                return
+            } catch (error: any) {
+                console.error('Error uploading app version:', error)
+                res.writeHead(500, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({ error: error.message || 'Failed to upload app version' }))
+                return
+            }
+        }
+
         // Internal endpoint for emitting WebSocket events from API routes
         // This bypasses the globalThis issue in development mode
         if (req.method === 'POST' && parsedUrl.pathname === '/_internal/emit') {

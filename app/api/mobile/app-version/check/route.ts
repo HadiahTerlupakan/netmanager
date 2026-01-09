@@ -1,0 +1,29 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getAppVersionService } from '@/modules/app-version'
+
+// GET /api/mobile/app-version/check - Check for updates (Public endpoint)
+export async function GET(request: NextRequest) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const currentVersionCode = parseInt(searchParams.get('versionCode') || '0')
+        const platform = searchParams.get('platform') || 'android'
+
+        if (!currentVersionCode) {
+            return NextResponse.json(
+                { error: 'versionCode is required' },
+                { status: 400 }
+            )
+        }
+
+        const service = getAppVersionService()
+        const result = await service.checkForUpdate(currentVersionCode, platform)
+
+        return NextResponse.json({
+            success: true,
+            ...result
+        })
+    } catch (error: any) {
+        console.error('Error checking app version:', error)
+        return NextResponse.json({ error: error.message || 'Failed to check version' }, { status: 500 })
+    }
+}

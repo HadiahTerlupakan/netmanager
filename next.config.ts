@@ -30,7 +30,13 @@ const nextConfig: NextConfig = {
   // Enable gzip compression for API responses
   compress: true,
   reactStrictMode: false, // Temporarily disabled to suppress React warnings from swagger-ui-react
-  // Next.js 16: serverActions configuration is now handled differently
+  
+  // Increase body size limit for APK uploads (default 1MB -> 100MB)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
+  },
 
   // Webpack configuration to suppress React warnings and remove console.log in production
   webpack: (config, { isServer, dev }) => {

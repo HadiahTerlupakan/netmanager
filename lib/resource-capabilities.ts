@@ -228,6 +228,12 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['create'],
         description: 'Kirim broadcast ke semua users'
     },
+
+    // ====== APP VERSION ======
+    app_version: {
+        actions: ['read', 'create', 'update', 'delete'],
+        description: 'Manajemen versi aplikasi mobile'
+    },
 }
 
 /**

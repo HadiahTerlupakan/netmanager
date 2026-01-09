@@ -1040,6 +1040,7 @@ model User {
   conversation_participants                  ConversationParticipant[]
   messages                                   Message[]
   employeeLocations                          EmployeeLocation[]
+  appVersions                                AppVersion[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -2347,4 +2348,32 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@index([senderId])
+}
+
+// ============================================
+// APP VERSION MANAGEMENT
+// ============================================
+
+model AppVersion {
+  id            String    @id @default(uuid())
+  version       String    @unique // e.g., "1.0.54"
+  buildNumber   Int // e.g., 47
+  versionCode   Int       @unique // Android versionCode for comparison
+  platform      String    @default("android") // android, ios, all
+  apkUrl        String? // URL to APK file (R2 or local) - Android only
+  apkSize       BigInt? // File size in bytes
+  releaseNotes  String? // Changelog/description
+  isForceUpdate Boolean   @default(false)
+  minVersion    String? // Minimum version yang harus upgrade
+  isActive      Boolean   @default(true)
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String?
+  user          User?     @relation(fields: [createdBy], references: [id])
+
+  @@index([isActive])
+  @@index([platform])
+  @@index([versionCode])
+  @@map("app_versions")
 }
