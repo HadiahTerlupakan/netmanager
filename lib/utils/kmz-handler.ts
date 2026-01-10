@@ -1,6 +1,7 @@
 import AdmZip from 'adm-zip'
 import { promises as fs } from 'fs'
 import path from 'path'
+import { isR2Enabled, uploadToR2, deleteFromR2 } from './r2-client'
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'kmz')
@@ -40,6 +41,67 @@ export async function extractAndSaveKmz(
   kmzId: string,
   originalFilename: string
 ): Promise<{ filePath: string; kmlPath: string; fileSize: number }> {
+  // Check if R2 is enabled
+  const r2Enabled = await isR2Enabled()
+  const timestamp = Date.now()
+
+  // Prepare R2 keys if enabled
+  const r2BasePath = `uploads/kmz/${kmzId}`
+  
+  if (r2Enabled) {
+    console.log('R2 is enabled, processing KMZ for R2 upload...')
+    
+    // 1. Upload original KMZ to R2
+    const kmzKey = `${r2BasePath}/original.kmz`
+    await uploadToR2(fileBuffer, kmzKey, 'application/vnd.google-earth.kmz')
+    
+    // 2. Extract KMZ
+    const zip = new AdmZip(fileBuffer)
+    const zipEntries = zip.getEntries()
+    
+    // Find KML file in the zip
+    let kmlEntry = zipEntries.find((entry) => entry.entryName.toLowerCase().endsWith('.kml'))
+    
+    if (!kmlEntry) {
+      kmlEntry = zipEntries.find((entry) =>
+        entry.entryName.toLowerCase() === 'doc.kml' ||
+        entry.entryName.toLowerCase().endsWith('/doc.kml')
+      )
+    }
+    
+    if (!kmlEntry) {
+      throw new Error('File KML tidak ditemukan dalam file KMZ')
+    }
+    
+    // Extract KML content
+    let kmlContent = zip.readAsText(kmlEntry)
+    
+    // Process KML content (clean up)
+    kmlContent = kmlContent.replace(/<href>https?:\/\/[^<]*<\/href>/gi, '<href></href>')
+    kmlContent = kmlContent.replace(/<href><!\[CDATA\[https?:\/\/[^\]]*\]\]><\/href>/gi, '<href></href>')
+    kmlContent = kmlContent.replace(/https?:\/\/earth\.google\.com\/earth\/document\/icon[^\s<]*<!\[CDATA\[&\]\][^\s<]*/gi, '')
+    kmlContent = kmlContent.replace(/<IconStyle>[\s\S]*?<href>https?:\/\/[^<]*<\/href>[\s\S]*?<\/IconStyle>/gi, '<IconStyle></IconStyle>')
+    kmlContent = kmlContent.replace(/<IconStyle>[\s\S]*?<href><!\[CDATA\[https?:\/\/[^\]]*\]\]><\/href>[\s\S]*?<\/IconStyle>/gi, '<IconStyle></IconStyle>')
+    kmlContent = kmlContent.replace(/<IconStyle>[\s\S]*?https?:\/\/[\s\S]*?<\/IconStyle>/gi, '<IconStyle></IconStyle>')
+    kmlContent = kmlContent.replace(/<styleUrl>#[^<]*<\/styleUrl>/gi, '<styleUrl></styleUrl>')
+    kmlContent = kmlContent.replace(/<icon>https?:\/\/[^<]*<\/icon>/gi, '<icon></icon>')
+    
+    // 3. Upload extracted KML to R2
+    const kmlKey = `${r2BasePath}/doc.kml`
+    const kmlBuffer = Buffer.from(kmlContent, 'utf-8')
+    await uploadToR2(kmlBuffer, kmlKey, 'application/vnd.google-earth.kml+xml')
+    
+    // Return keys/paths (consistent with what GET route expects)
+    // We return relative paths so the GET route logic can prepend proper Base URL
+    return {
+      filePath: `/${kmzKey}`, // /uploads/kmz/...
+      kmlPath: `/${kmlKey}`,   // /uploads/kmz/...
+      fileSize: fileBuffer.length,
+    }
+  }
+
+  // Fallback to Local Storage
+  console.log('R2 disabled, saving locally...')
   await ensureUploadDir()
 
   const kmzDir = path.join(UPLOAD_DIR, kmzId)
@@ -111,9 +173,16 @@ export async function extractAndSaveKmz(
 
 // Delete KMZ files and directory
 export async function deleteKmzFiles(kmzId: string): Promise<void> {
-  const kmzDir = path.join(UPLOAD_DIR, kmzId)
-
   try {
+    // 1. Delete from R2 if enabled
+    if (await isR2Enabled()) {
+      console.log(`R2 is enabled, deleting KMZ files from R2 for ${kmzId}...`)
+      await deleteFromR2(`uploads/kmz/${kmzId}/original.kmz`)
+      await deleteFromR2(`uploads/kmz/${kmzId}/doc.kml`)
+    }
+
+    // 2. Delete from local storage
+    const kmzDir = path.join(UPLOAD_DIR, kmzId)
     await fs.rm(kmzDir, { recursive: true, force: true })
   } catch (error) {
     console.error(`Error deleting KMZ files for ${kmzId}:`, error)

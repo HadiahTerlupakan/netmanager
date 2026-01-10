@@ -1,6 +1,8 @@
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getR2Settings } from '@/lib/utils/r2-client'
 
 export async function GET(request: Request) {
   // Verify mobile authentication
@@ -165,6 +167,38 @@ export async function GET(request: Request) {
         lineColor: true,
         isActive: true,
       },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    // Get R2 Settings to resolve URLs
+    const r2Settings = await getR2Settings()
+
+    const processedKmzFiles = activeKmzFiles.map(file => {
+      // If path is already a full URL, return as is
+      if (file.kmlPath.startsWith('http')) {
+        return file
+      }
+
+      // If R2 is enabled, construct R2 URL
+      if (r2Settings?.enabled) {
+        // Remove leading slash if present
+        const cleanPath = file.kmlPath.startsWith('/') ? file.kmlPath.substring(1) : file.kmlPath
+        
+        // Use configured public URL or default R2 dev URL
+        const baseUrl = r2Settings.publicUrl 
+          ? r2Settings.publicUrl.replace(/\/$/, '') 
+          : `https://${r2Settings.bucketName}.${r2Settings.accountId}.r2.cloudflarestorage.com`
+          
+        return {
+          ...file,
+          kmlPath: `${baseUrl}/${cleanPath}`
+        }
+      }
+
+      // If local (R2 disabled), return relative path (frontend handles base URL)
+      return file
     })
 
     return NextResponse.json({
@@ -174,7 +208,7 @@ export async function GET(request: Request) {
       joinboxes,
       poles,
       pelanggans,
-      kmzFiles: activeKmzFiles,
+      kmzFiles: processedKmzFiles,
     })
   } catch (error: any) {
     console.error('Error fetching topology data:', error)
