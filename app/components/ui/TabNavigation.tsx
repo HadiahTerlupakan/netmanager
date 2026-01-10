@@ -65,14 +65,14 @@ export function TabNavigation({
     const variantClasses = {
       default: `
         ${isActive 
-          ? 'text-white bg-gradient-to-r from-indigo-500 to-purple-600 shadow-md' 
+          ? 'text-white bg-linear-to-r from-indigo-500 to-purple-600 shadow-md' 
           : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
         }
         ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `,
       pills: `
         ${isActive 
-          ? 'text-white bg-gradient-to-r from-indigo-500 to-purple-600 shadow-md rounded-full' 
+          ? 'text-white bg-linear-to-r from-indigo-500 to-purple-600 shadow-md rounded-full' 
           : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-full'
         }
         ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -119,7 +119,7 @@ export function TabNavigation({
             role="tab"
           >
             {tab.icon && (
-              <span className="mr-2 flex-shrink-0">
+              <span className="mr-2 shrink-0">
                 {tab.icon}
               </span>
             )}
@@ -148,7 +148,7 @@ export function TabNavigation({
       
       {/* Mobile scroll indicator for underline variant */}
       {variant === 'underline' && (
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-gray-800 to-transparent pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-8 bg-linear-to-l from-white dark:from-gray-800 to-transparent pointer-events-none" />
       )}
     </div>
   )

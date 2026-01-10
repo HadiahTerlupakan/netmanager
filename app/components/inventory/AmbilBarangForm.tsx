@@ -244,7 +244,7 @@ export default function AmbilBarangForm() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+      <div className="bg-linear-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center gap-3 mb-2">
           <HiOutlineCube className="w-8 h-8" />
           <h1 className="text-2xl font-bold">Ambil Barang</h1>
@@ -275,14 +275,14 @@ export default function AmbilBarangForm() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center gap-3">
-              <HiOutlineXMark className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+              <HiOutlineXMark className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" />
               <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
             </div>
           )}
 
           {success && (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center gap-3">
-              <HiOutlineCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+              <HiOutlineCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
               <p className="text-sm text-green-800 dark:text-green-200">{success}</p>
             </div>
           )}
@@ -454,7 +454,7 @@ export default function AmbilBarangForm() {
           {/* Photo Upload Section */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <HiOutlineCamera className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              <HiOutlineCamera className="w-5 h-5 text-gray-600 dark:text-gray-400 shrink-0" />
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Foto Barang (Opsional)
               </label>
@@ -466,7 +466,7 @@ export default function AmbilBarangForm() {
             {/* Photo Upload Info */}
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
               <div className="flex items-start gap-2">
-                <HiOutlinePhoto className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <HiOutlinePhoto className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
                 <div className="text-xs text-blue-800 dark:text-blue-200">
                   <p className="font-medium mb-1">Mengapa perlu foto?</p>
                   <ul className="space-y-0.5 ml-4">
@@ -494,7 +494,7 @@ export default function AmbilBarangForm() {
           <button
             type="submit"
             disabled={loading || !formData.barangId || !formData.gudangId || !formData.jumlah || !formData.purpose}
-            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95 text-lg"
+            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-linear-to-r from-indigo-500 to-purple-600 text-white font-medium rounded-xl hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95 text-lg"
           >
             {loading ? (
               <>

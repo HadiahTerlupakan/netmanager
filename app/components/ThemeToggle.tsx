@@ -16,8 +16,8 @@ export default function ThemeToggle() {
       <div 
         className={`absolute inset-1 rounded-full transition-all duration-300 ${
           theme === 'dark' 
-            ? 'bg-gradient-to-r from-[rgb(var(--color-primary))] to-[rgb(var(--color-primary-variant))]' 
-            : 'bg-gradient-to-r from-amber-300 to-orange-400'
+            ? 'bg-linear-to-r from-[rgb(var(--color-primary))] to-[rgb(var(--color-primary-variant))]' 
+            : 'bg-linear-to-r from-amber-300 to-orange-400'
         }`}
       />
       

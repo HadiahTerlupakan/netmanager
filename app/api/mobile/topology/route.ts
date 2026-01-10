@@ -19,161 +19,173 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Ambil semua OTB dengan koordinat
-    const otbs = await prisma.otb.findMany({
-      where: {
-        latitude: { not: null },
-        longitude: { not: null },
-      },
-      select: {
-        id: true,
-        name: true,
-        location: true,
-        latitude: true,
-        longitude: true,
-        notes: true,
-      },
-    })
+    // Execute all database queries in parallel for better performance
+    const [
+      otbs,
+      odcs,
+      odps,
+      joinboxes,
+      poles,
+      pelanggans,
+      activeKmzFiles,
+      r2Settings
+    ] = await Promise.all([
+      // Ambil semua OTB dengan koordinat
+      prisma.otb.findMany({
+        where: {
+          latitude: { not: null },
+          longitude: { not: null },
+        },
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          latitude: true,
+          longitude: true,
+          notes: true,
+        },
+      }),
 
-    // Ambil semua ODC dengan relasi ke OTB
-    const odcs = await prisma.odc.findMany({
-      where: {
-        latitude: { not: null },
-        longitude: { not: null },
-      },
-      select: {
-        id: true,
-        name: true,
-        location: true,
-        latitude: true,
-        longitude: true,
-        notes: true,
-        otbCore: {
-          select: {
-            coreColor: true,
-            tubeColor: true,
-            otb: {
-              select: {
-                id: true,
-                name: true,
-                latitude: true,
-                longitude: true,
+      // Ambil semua ODC dengan relasi ke OTB
+      prisma.odc.findMany({
+        where: {
+          latitude: { not: null },
+          longitude: { not: null },
+        },
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          latitude: true,
+          longitude: true,
+          notes: true,
+          otbCore: {
+            select: {
+              coreColor: true,
+              tubeColor: true,
+              otb: {
+                select: {
+                  id: true,
+                  name: true,
+                  latitude: true,
+                  longitude: true,
+                },
               },
             },
           },
         },
-      },
-    })
+      }),
 
-    // Ambil semua ODP dengan relasi ke ODC
-    const odps = await prisma.odp.findMany({
-      where: {
-        latitude: { not: null },
-        longitude: { not: null },
-      },
-      select: {
-        id: true,
-        name: true,
-        location: true,
-        latitude: true,
-        longitude: true,
-        notes: true,
-        odcOutput: {
-          select: {
-            coreColor: true,
-            tubeColor: true,
-            odc: {
-              select: {
-                id: true,
-                name: true,
-                latitude: true,
-                longitude: true,
+      // Ambil semua ODP dengan relasi ke ODC
+      prisma.odp.findMany({
+        where: {
+          latitude: { not: null },
+          longitude: { not: null },
+        },
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          latitude: true,
+          longitude: true,
+          notes: true,
+          odcOutput: {
+            select: {
+              coreColor: true,
+              tubeColor: true,
+              odc: {
+                select: {
+                  id: true,
+                  name: true,
+                  latitude: true,
+                  longitude: true,
+                },
               },
             },
           },
         },
-      },
-    })
+      }),
 
-    // Ambil semua Joinbox dengan koordinat
-    const joinboxes = await prisma.joinbox.findMany({
-      where: {
-        latitude: { not: null },
-        longitude: { not: null },
-      },
-      select: {
-        id: true,
-        name: true,
-        location: true,
-        latitude: true,
-        longitude: true,
-        notes: true,
-      },
-    })
+      // Ambil semua Joinbox dengan koordinat
+      prisma.joinbox.findMany({
+        where: {
+          latitude: { not: null },
+          longitude: { not: null },
+        },
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          latitude: true,
+          longitude: true,
+          notes: true,
+        },
+      }),
 
-    // Ambil semua Pole dengan koordinat
-    const poles = await prisma.pole.findMany({
-      where: {
-        latitude: { not: null },
-        longitude: { not: null },
-      },
-      select: {
-        id: true,
-        name: true,
-        location: true,
-        latitude: true,
-        longitude: true,
-        notes: true,
-        cableSlack: true,
-      },
-    })
+      // Ambil semua Pole dengan koordinat
+      prisma.pole.findMany({
+        where: {
+          latitude: { not: null },
+          longitude: { not: null },
+        },
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          latitude: true,
+          longitude: true,
+          notes: true,
+          cableSlack: true,
+        },
+      }),
 
-    // Ambil semua Pelanggan yang memiliki koordinat dan ODP
-    const pelanggans = await prisma.pelanggan.findMany({
-      where: {
-        latitude: { not: null },
-        longitude: { not: null },
-        odpId: { not: null },
-      },
-      select: {
-        id: true,
-        idPelanggan: true,
-        nama: true,
-        latitude: true,
-        longitude: true,
-        alamat: true,
-        status: true,
-        odpId: true,
-        odp: {
-          select: {
-            id: true,
-            name: true,
-            latitude: true,
-            longitude: true,
+      // Ambil semua Pelanggan yang memiliki koordinat dan ODP
+      prisma.pelanggan.findMany({
+        where: {
+          latitude: { not: null },
+          longitude: { not: null },
+          odpId: { not: null },
+        },
+        select: {
+          id: true,
+          idPelanggan: true,
+          nama: true,
+          latitude: true,
+          longitude: true,
+          alamat: true,
+          status: true,
+          odpId: true,
+          odp: {
+            select: {
+              id: true,
+              name: true,
+              latitude: true,
+              longitude: true,
+            },
           },
         },
-      },
-    })
+      }),
 
-    // Ambil semua KMZ files yang aktif
-    const activeKmzFiles = await prisma.kmzFile.findMany({
-      where: {
-        isActive: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        kmlPath: true,
-        lineColor: true,
-        isActive: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+      // Ambil semua KMZ files yang aktif
+      prisma.kmzFile.findMany({
+        where: {
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          kmlPath: true,
+          lineColor: true,
+          isActive: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
 
-    // Get R2 Settings to resolve URLs
-    const r2Settings = await getR2Settings()
+      // Get R2 Settings to resolve URLs
+      getR2Settings()
+    ])
 
     const processedKmzFiles = activeKmzFiles.map(file => {
       // If path is already a full URL, return as is
@@ -209,6 +221,11 @@ export async function GET(request: Request) {
       poles,
       pelanggans,
       kmzFiles: processedKmzFiles,
+    }, {
+      headers: {
+        // Cache for 60 seconds, serve stale for up to 300 seconds while revalidating
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
     })
   } catch (error: any) {
     console.error('Error fetching topology data:', error)

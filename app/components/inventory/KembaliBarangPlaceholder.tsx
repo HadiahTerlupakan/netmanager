@@ -6,7 +6,7 @@ export default function KembaliBarangPlaceholder() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-green-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
+      <div className="bg-linear-to-r from-green-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center gap-3 mb-2">
           <HiOutlineArrowPath className="w-8 h-8" />
           <h1 className="text-2xl font-bold">Kembali Barang</h1>
@@ -38,7 +38,7 @@ export default function KembaliBarangPlaceholder() {
           {/* Info Box */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-left">
             <div className="flex items-start gap-3">
-              <HiOutlineInformationCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <HiOutlineInformationCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <div className="text-sm text-blue-800 dark:text-blue-200">
                 <p className="font-medium mb-2">Yang akan hadir:</p>
                 <ul className="space-y-1 text-blue-700 dark:text-blue-300">
@@ -56,7 +56,7 @@ export default function KembaliBarangPlaceholder() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               disabled
-              className="px-6 py-3 bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 rounded-lg font-medium cursor-not-allowed"
+              className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg font-medium cursor-not-allowed"
             >
               Kembali Barang (Coming Soon)
             </button>

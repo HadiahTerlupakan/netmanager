@@ -108,7 +108,7 @@ export default function CustomerConnectionPage() {
                                     className="absolute inset-0 bg-center bg-no-repeat bg-cover opacity-80 mix-blend-multiply"
                                     style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuA1zbuSiG_aFEYgjz6Y0qNcZ1fjc5ifvzXP2wN8p00uNF473dWDnN3D1bYEh-4jQHMdvxIWmb_MPiFa38IN_spQkTJinOjapZ1gi-6IqfAqsl535Oa_eGE11LEYdWT4A-3y1x_4l9HB2ZUI029DZS3TG1TK7I08v7AtQN58V9_tiJX0RE-VDgAh0GyatJehVkwmMQekhkvaQkc2rDYgI3UfdFMYs5dmCeKf1AgnJR__VXXtejC4hzA3e0FPTv1Nf3G6CrbySo2cLhw")' }}
                                 ></div>
-                                <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-[#1c2b3e] to-transparent"></div>
+                                <div className="absolute inset-0 bg-linear-to-t from-white dark:from-[#1c2b3e] to-transparent"></div>
                                 <div className="absolute bottom-4 left-4 flex items-center gap-2">
                                     <div className={`size-3 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)] ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
                                     <span className="text-[#111418] dark:text-white text-sm font-semibold bg-white/80 dark:bg-black/50 px-2 py-0.5 rounded-full backdrop-blur-sm">
@@ -202,7 +202,7 @@ export default function CustomerConnectionPage() {
 
                     {/* Diagnosis Panel */}
                     <div className="@container">
-                        <div className="flex flex-col items-start justify-between gap-4 rounded-xl border border-[#dbe0e6] dark:border-gray-700 bg-gradient-to-br from-white to-gray-50 dark:from-[#1c2b3e] dark:to-[#15202e] p-5 shadow-sm">
+                        <div className="flex flex-col items-start justify-between gap-4 rounded-xl border border-[#dbe0e6] dark:border-gray-700 bg-linear-to-br from-white to-gray-50 dark:from-[#1c2b3e] dark:to-[#15202e] p-5 shadow-sm">
                             <div className="flex gap-4 items-start">
                                 <div className="rounded-full bg-teal-100 p-2 text-[#0d9488] dark:bg-teal-900/30 dark:text-teal-400 shrink-0">
                                     <MdBuild className="text-2xl" />

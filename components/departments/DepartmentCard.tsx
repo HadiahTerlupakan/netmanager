@@ -33,10 +33,10 @@ export default function DepartmentCard({
     return (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-lg transition-all duration-200 overflow-hidden">
             {/* Header with Gradient */}
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 p-5">
+            <div className="bg-linear-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 p-5">
                 <div className="flex items-start gap-4">
                     {/* Department Icon */}
-                    <div className="flex-shrink-0 w-12 h-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                    <div className="shrink-0 w-12 h-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm flex items-center justify-center border border-gray-200 dark:border-gray-600">
                         <HiOutlineBuildingOffice className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                     </div>
 

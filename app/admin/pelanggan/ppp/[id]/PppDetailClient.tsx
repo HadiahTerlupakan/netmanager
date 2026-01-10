@@ -100,7 +100,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
         <div className="bg-white dark:bg-gray-900 shadow-xl shadow-gray-200/50 dark:shadow-black/20 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800">
 
           {/* Form Header / Letterhead style */}
-          <div className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-8 border-b border-gray-200 dark:border-gray-800">
+          <div className="bg-linear-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-8 border-b border-gray-200 dark:border-gray-800">
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">

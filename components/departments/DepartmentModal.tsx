@@ -127,7 +127,7 @@ export default function DepartmentModal({
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50"
+                            className="px-6 py-2.5 bg-linear-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50"
                         >
                             {loading ? 'Menyimpan...' : 'Simpan'}
                         </button>

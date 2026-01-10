@@ -68,10 +68,10 @@ export default function LandingPage() {
             <main className="relative flex h-full w-full max-w-md mx-auto flex-col min-h-screen bg-white dark:bg-[#101922] shadow-2xl overflow-hidden">
 
                 {/* Hero Section */}
-                <header className="relative bg-gradient-to-b from-teal-50 to-white text-slate-900 pb-20 pt-8 px-6 curved-bottom overflow-hidden shadow-sm z-10 border-b border-slate-100">
+                <header className="relative bg-linear-to-b from-teal-50 to-white text-slate-900 pb-20 pt-8 px-6 curved-bottom overflow-hidden shadow-sm z-10 border-b border-slate-100">
                     {/* CSS gradient background instead of external image for better performance */}
-                    <div className="absolute inset-0 z-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-teal-200 via-transparent to-transparent"></div>
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/60 to-white/95 z-0"></div>
+                    <div className="absolute inset-0 z-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-teal-200 via-transparent to-transparent"></div>
+                    <div className="absolute inset-0 bg-linear-to-b from-white/60 to-white/95 z-0"></div>
                     <div className="relative z-10">
                         <div className="flex items-center justify-between mb-8">
                             <div className="flex items-center gap-2">
@@ -225,7 +225,7 @@ export default function LandingPage() {
 
                 {/* Contact Us */}
                 <section className="px-6 pb-6">
-                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-6 relative overflow-hidden shadow-lg">
+                    <div className="bg-linear-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-6 relative overflow-hidden shadow-lg">
                         <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/5 rounded-full blur-xl"></div>
                         <div className="absolute -left-4 -bottom-4 w-32 h-32 bg-[#0f62fe]/20 rounded-full blur-xl"></div>
                         <div className="relative z-10">
