@@ -153,6 +153,20 @@ export async function GET(request: Request) {
       },
     })
 
+    // Ambil semua KMZ files yang aktif
+    const activeKmzFiles = await prisma.kmzFile.findMany({
+      where: {
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        kmlPath: true,
+        lineColor: true,
+        isActive: true,
+      },
+    })
+
     return NextResponse.json({
       otbs,
       odcs,
@@ -160,6 +174,7 @@ export async function GET(request: Request) {
       joinboxes,
       poles,
       pelanggans,
+      kmzFiles: activeKmzFiles,
     })
   } catch (error: any) {
     console.error('Error fetching topology data:', error)
