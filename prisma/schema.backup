@@ -64,7 +64,7 @@ model AnnouncementRead {
   announcementId String
   userId         String?
   pelangganId    String?
-  portal         String
+  portal         String // 'admin', 'employee', 'customer'
   readAt         DateTime     @default(now())
   announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
 
@@ -85,15 +85,16 @@ model Attendance {
   status                   String     @default("PRESENT")
   notes                    String?
   location                 String?
-  checkOutLocation         String?
   createdAt                DateTime   @default(now())
   updatedAt                DateTime
-  geofenceStatus           String?
-  geofenceDistance         Float?
-  geofenceSiteName         String?
+  checkOutLocation         String?
+  // Geofence fields
+  geofenceStatus           String? // INSIDE, OUTSIDE, UNKNOWN
+  geofenceDistance         Float? // Jarak ke zona terdekat (meter)
+  geofenceSiteName         String? // Nama site terdekat
   checkOutGeofenceStatus   String?
   checkOutGeofenceDistance Float?
-  geofenceMeta             Json?
+  geofenceMeta             Json? // Stores offline metadata
   user                     User       @relation(fields: [userId], references: [id])
   overtime                 Overtime[]
 
@@ -102,20 +103,22 @@ model Attendance {
   @@index([userId])
 }
 
+// Live Location Tracking - stores employee location history during work hours
 model EmployeeLocation {
   id           String   @id @default(uuid())
   userId       String
   latitude     Float
   longitude    Float
-  accuracy     Float?
+  accuracy     Float? // GPS accuracy in meters
   altitude     Float?
-  speed        Float?
-  heading      Float?
-  batteryLevel Float?
+  speed        Float? // m/s
+  heading      Float? // degrees
+  batteryLevel Float? // 0-1
   isMoving     Boolean  @default(false)
   recordedAt   DateTime @default(now())
   createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([recordedAt])
@@ -210,8 +213,8 @@ model Expense {
   createdAt   DateTime @default(now())
   updatedAt   DateTime
   siteId      String?
-  site        Sites?   @relation(fields: [siteId], references: [id])
   user        User?    @relation(fields: [userId], references: [id])
+  site        Sites?   @relation(fields: [siteId], references: [id])
 
   @@index([category])
   @@index([date])
@@ -368,12 +371,12 @@ model LeaveRequest {
   endDate         DateTime
   reason          String
   attachmentUrl   String?
-  attachments     String[]    @default([])
   status          LeaveStatus @default(PENDING)
   approvedBy      String?
   rejectionReason String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime
+  attachments     String[]    @default([])
   replacementDate DateTime?
   user            User        @relation(fields: [userId], references: [id])
 
@@ -403,8 +406,10 @@ model MikroTikRouter {
   ipAddress              String                  @unique
   timezone               String                  @default("+07:00 Asia/Jakarta")
   apiPort                Int                     @default(8728)
-  apiUsername            String
-  apiPassword            String
+  apiUsername            String // Master user (untuk provisioning/hapus)
+  apiPassword            String // Master password
+  apiUsernameGenerated   String? // Generated API user (untuk koneksi rutin)
+  apiPasswordGenerated   String? // Generated API password
   authPort               Int                     @default(7265)
   accountingPort         Int                     @default(7266)
   secretRadius           String
@@ -415,8 +420,6 @@ model MikroTikRouter {
   lastStatusCheck        DateTime?
   createdAt              DateTime                @default(now())
   updatedAt              DateTime
-  apiPasswordGenerated   String?
-  apiUsernameGenerated   String?
   siteId                 String?
   site                   Sites?                  @relation(fields: [siteId], references: [id])
   profilePPP             ProfilePPP[]
@@ -440,10 +443,10 @@ model Odc {
   updatedAt                   DateTime
   otbCoreId                   String      @unique
   keteranganJumlahKabelFeeder String?
-  siteId                      String?
   otbCore                     OtbCore     @relation(fields: [otbCoreId], references: [id])
-  site                        Sites?      @relation(fields: [siteId], references: [id])
+  siteId                      String?
   odcOutput                   OdcOutput[]
+  site                        Sites?      @relation(fields: [siteId], references: [id])
 
   @@index([siteId])
 }
@@ -474,11 +477,11 @@ model Odp {
   updatedAt                   DateTime
   odcOutputId                 String      @unique
   keteranganJumlahKabelFeeder String?
-  siteId                      String?
   odcOutput                   OdcOutput   @relation(fields: [odcOutputId], references: [id])
-  site                        Sites?      @relation(fields: [siteId], references: [id])
+  siteId                      String?
   odpOutput                   OdpOutput[]
   pelanggan                   Pelanggan[]
+  site                        Sites?      @relation(fields: [siteId], references: [id])
 
   @@index([siteId])
 }
@@ -520,14 +523,14 @@ model Olt {
   onuSyncEnabled         Boolean                 @default(true)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime
-  siteId                 String?
-  site                   Sites?                  @relation(fields: [siteId], references: [id])
   onu                    Onu[]
   onuType                OnuType[]
   speedProfile           SpeedProfile[]
   configuration_restores ConfigurationRestores[]
   network_alerts         NetworkAlerts[]
   network_performance    NetworkPerformance[]
+  siteId                 String?
+  site                   Sites?                  @relation(fields: [siteId], references: [id])
 
   @@index([siteId])
 }
@@ -656,8 +659,8 @@ model Otb {
   updatedAt                   DateTime
   keteranganJumlahKabelFeeder String?
   siteId                      String?
-  site                        Sites?    @relation(fields: [siteId], references: [id])
   otbCore                     OtbCore[]
+  site                        Sites?    @relation(fields: [siteId], references: [id])
 
   @@index([siteId])
 }
@@ -679,19 +682,19 @@ model Overtime {
   id              String         @id
   userId          String
   attendanceId    String?
-  reason          String
-  startTime       DateTime?
-  endTime         DateTime?
-  startPhoto      String?
-  startLocation   String?
-  endPhoto        String?
-  endLocation     String?
   duration        Int?
+  reason          String
   status          OvertimeStatus @default(PENDING)
   rejectionReason String?
   approvedBy      String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime
+  endLocation     String?
+  endPhoto        String?
+  endTime         DateTime?
+  startLocation   String?
+  startPhoto      String?
+  startTime       DateTime?
   attendance      Attendance?    @relation(fields: [attendanceId], references: [id])
   user            User           @relation(fields: [userId], references: [id])
 
@@ -702,17 +705,17 @@ model Overtime {
 
 model Payment {
   id            String        @id
-  invoiceId     String?
   pelangganId   String
   amount        BigInt
   paymentDate   DateTime
-  paymentMethod PaymentMethod
   reference     String?
   notes         String?
   verifiedBy    String?
   verifiedAt    DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime
+  invoiceId     String?
+  paymentMethod PaymentMethod
   invoice       Invoice?      @relation(fields: [invoiceId], references: [id])
 
   @@index([invoiceId])
@@ -780,9 +783,6 @@ model Pelanggan {
   useDiscount                   Boolean             @default(false)
   usePPN                        Boolean             @default(true)
   useProrate                    Boolean             @default(false)
-  is2FAEnabled                  Boolean             @default(false)
-  isBillNotifEnabled            Boolean             @default(true)
-  isPromoEnabled                Boolean             @default(false)
   jenisDokumen                  String?
   noDokumen                     String?
   fileBAST                      String?
@@ -798,14 +798,17 @@ model Pelanggan {
   passwordHash                  String?
   tokenVersion                  Int                 @default(1)
   userId                        String?
+  is2FAEnabled                  Boolean             @default(false)
+  isBillNotifEnabled            Boolean             @default(true)
+  isPromoEnabled                Boolean             @default(false)
   autoIsolir                    Boolean             @default(true)
-  siteId                        String?
   couponUsage                   CouponUsage[]
   invoice                       Invoice[]
   hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])
   odp                           Odp?                @relation(fields: [odpId], references: [id])
-  site                          Sites?              @relation(fields: [siteId], references: [id])
   user                          User?               @relation(fields: [userId], references: [id])
+  siteId                        String?
+  site                          Sites?              @relation(fields: [siteId], references: [id])
   customer_usage                CustomerUsage[]
   service_suspension            ServiceSuspension[]
   support_tickets               SupportTickets[]
@@ -829,7 +832,7 @@ model Permission {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime
-  role        Role[]   @relation("PermissionToRole")
+  role        Role[]
 
   @@unique([resource, action])
 }
@@ -920,9 +923,9 @@ model Role {
   accessAdminPanel    Boolean      @default(false)
   accessEmployeePanel Boolean      @default(false)
   isRestricted        Boolean      @default(false)
-  isTechnical         Boolean      @default(false)
+  isTechnical         Boolean      @default(false) // Whether this role is considered "Technical" for metrics
   user                User[]
-  permission          Permission[] @relation("PermissionToRole")
+  permission          Permission[]
 
   @@map("roles")
 }
@@ -993,27 +996,25 @@ model User {
   updatedAt                                  DateTime
   emailVerified                              DateTime?
   image                                      String?
-  phone                                      String?
   departmentId                               String?
+  isActive                                   Boolean                   @default(true)
+  phone                                      String?
   siteId                                     String?
   roleId                                     String?
-  isActive                                   Boolean                   @default(true)
-  workingHourMode                            WorkingHourMode           @default(FIXED)
-  startWorkTime                              String?
   endWorkTime                                String?
-  workDays                                   String?
-  shiftId                                    String?
   flexibleTargetHour                         Int?
+  shiftId                                    String?
+  startWorkTime                              String?
+  workDays                                   String?
+  workingHourMode                            WorkingHourMode           @default(FIXED)
   pushToken                                  String?
   pushTokenUpdatedAt                         DateTime?
   tokenVersion                               Int                       @default(0)
   account                                    Account[]
   announcement                               Announcement[]
   attendance                                 Attendance[]
-  conversation_participants                  ConversationParticipant[]
   expense                                    Expense[]
   leaveRequest                               LeaveRequest[]
-  messages                                   Message[]
   overtime                                   Overtime[]
   pelanggan                                  Pelanggan[]
   session                                    Session[]
@@ -1021,10 +1022,8 @@ model User {
   departments                                Departments?              @relation(fields: [departmentId], references: [id])
   role                                       Role?                     @relation(fields: [roleId], references: [id])
   sites                                      Sites?                    @relation(fields: [siteId], references: [id])
-  appVersions                                AppVersion[]
   barang_keluar                              BarangKeluar[]
   barang_masuk                               BarangMasuk[]
-  employeeLocations                          EmployeeLocation[]
   notifications                              Notifications[]
   push_subscriptions                         PushSubscriptions[]
   sla                                        Sla[]
@@ -1038,6 +1037,11 @@ model User {
   work_order_updates                         WorkOrderUpdates[]
   work_orders_work_orders_assignedToIdToUser WorkOrders[]              @relation("work_orders_assignedToIdToUser")
   work_orders_work_orders_createdByIdToUser  WorkOrders[]              @relation("work_orders_createdByIdToUser")
+  // Chat relations
+  conversation_participants                  ConversationParticipant[]
+  messages                                   Message[]
+  employeeLocations                          EmployeeLocation[]
+  appVersions                                AppVersion[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -1078,11 +1082,11 @@ model BarangGudang {
   barangId  String
   gudangId  String
   stok      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
   stokBaru  Int      @default(0)
   stokBekas Int      @default(0)
   stokRusak Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime
   barang    Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
   gudang    Gudang   @relation(fields: [gudangId], references: [id], onDelete: Cascade)
 
@@ -1107,11 +1111,11 @@ model BarangKeluar {
   nomorBatch          String?
   customer            String?
   isHilang            Boolean              @default(false)
-  userId              String?
   purpose             String?
   createdAt           DateTime             @default(now())
   fotoBukti           String[]
   fotoMetadata        Json?
+  userId              String?
   barang              Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
   gudang              Gudang               @relation(fields: [gudangId], references: [id], onDelete: Cascade)
   transferAntarGudang TransferAntarGudang? @relation(fields: [transferId], references: [id])
@@ -1184,11 +1188,9 @@ model ConfigurationRestores {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime
   mikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_mikrotik_fkey")
+  olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_olt_fkey")
+  onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "configuration_restore_onu_fkey")
   device_backups  DeviceBackups  @relation(fields: [backupId], references: [id], onDelete: Cascade)
-  olt             Olt?           @relation(fields: [oltId], references: [id])
-  oltId           String?
-  onu             Onu?           @relation(fields: [onuId], references: [id])
-  onuId           String?
 
   @@index([backupId])
   @@index([createdAt])
@@ -1335,10 +1337,8 @@ model NetworkAlerts {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime
   mikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_mikrotik_fkey")
-  olt             Olt?           @relation(fields: [oltId], references: [id])
-  oltId           String?
-  onu             Onu?           @relation(fields: [onuId], references: [id])
-  onuId           String?
+  olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_olt_fkey")
+  onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_alert_onu_fkey")
 
   @@index([alertType])
   @@index([createdAt])
@@ -1375,10 +1375,8 @@ model NetworkPerformance {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime
   mikroTikRouter  MikroTikRouter @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_mikrotik_fkey")
-  olt             Olt?           @relation(fields: [oltId], references: [id])
-  oltId           String?
-  onu             Onu?           @relation(fields: [onuId], references: [id])
-  onuId           String?
+  olt             Olt            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_olt_fkey")
+  onu             Onu            @relation(fields: [deviceId], references: [id], onDelete: Cascade, map: "network_performance_onu_fkey")
 
   @@index([deviceId, deviceType])
   @@index([deviceId, timestamp])
@@ -1395,13 +1393,13 @@ model Notifications {
   message      String
   link         String?
   isRead       Boolean      @default(false)
-  userId       String?
+  siteId       String?
   departmentId String?
   sourceType   String?
   sourceId     String?
   createdAt    DateTime     @default(now())
   readAt       DateTime?
-  siteId       String?
+  userId       String?
   departments  Departments? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   sites        Sites?       @relation(fields: [siteId], references: [id], onDelete: Cascade)
   user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1458,7 +1456,6 @@ model Positions {
 
 model PushSubscriptions {
   id         String    @id
-  userId     String
   endpoint   String    @unique
   p256dh     String
   auth       String
@@ -1467,6 +1464,7 @@ model PushSubscriptions {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime
   lastUsedAt DateTime?
+  userId     String
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
@@ -1619,17 +1617,17 @@ model Registrations {
   phone           String
   address         String
   packageName     String?
-  location        String?
   latitude        Float?
   longitude       Float?
-  ipAddress       String?
   status          RegistrationStatus @default(PENDING)
   notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime
+  location        String?
+  ipAddress       String?
   rejectionReason String?
   verifiedAt      DateTime?
   verifiedBy      String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime
 
   @@map("registrations")
 }
@@ -1715,23 +1713,23 @@ model Sites {
   address          String?
   latitude         Float?
   longitude        Float?
-  attendanceRadius Int              @default(100)
   isActive         Boolean          @default(true)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime
-  expenses         Expense[]
-  invoices         Invoice[]
-  mikrotikRouter   MikroTikRouter[]
-  odcs             Odc[]
-  odps             Odp[]
-  olts             Olt[]
-  otbs             Otb[]
-  pelanggan        Pelanggan[]
-  poles            Pole[]
+  attendanceRadius Int              @default(100)
   user             User[]
-  notifications    Notifications[]
   work_orders      WorkOrders[]
   gudang           Gudang[]         @relation("GudangToSite")
+  pelanggan        Pelanggan[]
+  mikrotikRouter   MikroTikRouter[]
+  expenses         Expense[]
+  invoices         Invoice[]
+  olts             Olt[]
+  otbs             Otb[]
+  poles            Pole[]
+  odcs             Odc[]
+  odps             Odp[]
+  notifications    Notifications[]
 
   @@index([isActive])
   @@map("sites")
@@ -1891,12 +1889,12 @@ model UsageAnalytics {
 model WorkOrderAssignments {
   id           String     @id
   workOrderId  String
-  userId       String
   role         String?
-  status       String     @default("PENDING")
   assignedAt   DateTime   @default(now())
-  respondedAt  DateTime?
   assignedById String?
+  userId       String
+  respondedAt  DateTime?
+  status       String     @default("PENDING")
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   workOrders   WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
@@ -2020,7 +2018,6 @@ model WorkOrders {
   id                  String                 @id
   workOrderNumber     String                 @unique
   pelangganId         String?
-  siteId              String?
   type                WorkOrderType
   title               String
   description         String
@@ -2050,12 +2047,13 @@ model WorkOrders {
   resolutionNotes     String?
   customerFeedback    String?
   rating              Int?
-  disconnectionReason String?
-  templateId          String?
-  slaId               String?
-  createdById         String?
   createdAt           DateTime               @default(now())
   updatedAt           DateTime
+  createdById         String?
+  disconnectionReason String?
+  siteId              String?
+  slaId               String?
+  templateId          String?
   ticketId            String?
   assignments         WorkOrderAssignments[]
   attachments         WorkOrderAttachments[]
@@ -2083,71 +2081,6 @@ model WorkOrders {
   @@index([type])
   @@index([workOrderNumber])
   @@map("work_orders")
-}
-
-model Conversation {
-  id           String                    @id @default(cuid())
-  name         String?
-  isGlobal     Boolean                   @default(false)
-  createdAt    DateTime                  @default(now())
-  updatedAt    DateTime                  @updatedAt
-  participants ConversationParticipant[]
-  messages     Message[]
-
-  @@index([isGlobal])
-  @@index([updatedAt])
-}
-
-model ConversationParticipant {
-  id             String       @id @default(cuid())
-  conversationId String
-  userId         String
-  joinedAt       DateTime     @default(now())
-  lastReadAt     DateTime?
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([conversationId, userId])
-  @@index([userId])
-  @@index([conversationId])
-}
-
-model Message {
-  id             String       @id @default(cuid())
-  conversationId String
-  senderId       String
-  content        String?
-  imageUrl       String?
-  createdAt      DateTime     @default(now())
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
-
-  @@index([conversationId, createdAt])
-  @@index([senderId])
-}
-
-model AppVersion {
-  id            String    @id @default(uuid())
-  version       String    @unique
-  buildNumber   Int
-  versionCode   Int       @unique
-  platform      String    @default("android")
-  apkUrl        String?
-  apkSize       BigInt?
-  releaseNotes  String?
-  isForceUpdate Boolean   @default(false)
-  minVersion    String?
-  isActive      Boolean   @default(true)
-  publishedAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  createdBy     String?
-  user          User?     @relation(fields: [createdBy], references: [id])
-
-  @@index([isActive])
-  @@index([platform])
-  @@index([versionCode])
-  @@map("app_versions")
 }
 
 enum AlertSeverity {
@@ -2243,9 +2176,9 @@ enum LogType {
 enum OvertimeStatus {
   PENDING
   APPROVED
+  REJECTED
   IN_PROGRESS
   COMPLETED
-  REJECTED
 }
 
 enum PaymentMethod {
@@ -2267,10 +2200,10 @@ enum PeriodType {
 enum RegistrationStatus {
   PENDING
   VERIFIED
-  REJECTED
   SURVEYED
   INSTALLED
   CANCELLED
+  REJECTED
 }
 
 enum RestoreStatus {
@@ -2371,4 +2304,77 @@ enum WorkingHourMode {
   FIXED
   SHIFT
   FLEXIBLE
+}
+
+// ============================================
+// CHAT MODELS
+// ============================================
+
+model Conversation {
+  id           String                    @id @default(cuid())
+  name         String? // Nama untuk group/global chat
+  isGlobal     Boolean                   @default(false)
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  messages     Message[]
+  participants ConversationParticipant[]
+
+  @@index([isGlobal])
+  @@index([updatedAt])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String?
+  imageUrl       String?
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+// ============================================
+// APP VERSION MANAGEMENT
+// ============================================
+
+model AppVersion {
+  id            String    @id @default(uuid())
+  version       String    @unique // e.g., "1.0.54"
+  buildNumber   Int // e.g., 47
+  versionCode   Int       @unique // Android versionCode for comparison
+  platform      String    @default("android") // android, ios, all
+  apkUrl        String? // URL to APK file (R2 or local) - Android only
+  apkSize       BigInt? // File size in bytes
+  releaseNotes  String? // Changelog/description
+  isForceUpdate Boolean   @default(false)
+  minVersion    String? // Minimum version yang harus upgrade
+  isActive      Boolean   @default(true)
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String?
+  user          User?     @relation(fields: [createdBy], references: [id])
+
+  @@index([isActive])
+  @@index([platform])
+  @@index([versionCode])
+  @@map("app_versions")
 }

@@ -18,6 +18,7 @@ import {
     HiXMark,
     HiCheckCircle,
     HiChatBubbleLeft,
+    HiChatBubbleLeftRight,
     HiPaperAirplane,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
@@ -158,7 +159,9 @@ export function ClientComponent() {
     const [cancelReason, setCancelReason] = useState('')
     const [processingApproval, setProcessingApproval] = useState(false)
     // TAB STATE MUST BE HERE (Before any return statements)
-    const [activeTab, setActiveTab] = useState<'timeline' | 'discussion'>('timeline')
+    const [activeTab, setActiveTab] = useState<'activity' | 'discussion'>(() => {
+        return ['COMPLETED', 'CANCELLED', 'VERIFIED'].includes(workOrder?.status || '') ? 'activity' : 'discussion';
+    });
     
     // File Upload State
     const [isUploading, setIsUploading] = useState(false)
@@ -751,32 +754,31 @@ export function ClientComponent() {
 
                     {/* Activity & Discussion Tabs */}
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                        <div className="flex border-b border-gray-200 dark:border-gray-700">
-                            <button
-                                onClick={() => setActiveTab('timeline')}
-                                className={`flex-1 px-4 py-3 text-sm font-medium text-center transition-colors ${activeTab === 'timeline'
-                                    ? 'text-sky-600 border-b-2 border-sky-600 bg-sky-50/50 dark:bg-sky-900/10 dark:text-sky-400'
-                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                            {/* Tab Headers */}
+                            <div className="flex border-b border-gray-200 dark:border-gray-700 mb-0">
+                                <button
+                                    onClick={() => setActiveTab('activity')}
+                                    className={`flex-1 py-4 text-sm font-medium text-center border-b-2 transition-colors duration-200 flex items-center justify-center gap-2 ${
+                                        activeTab === 'activity'
+                                            ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
                                     }`}
-                            >
-                                <div className="flex items-center justify-center gap-2">
+                                >
                                     <HiClock className="w-4 h-4" />
                                     Activity Timeline
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('discussion')}
-                                className={`flex-1 px-4 py-3 text-sm font-medium text-center transition-colors ${activeTab === 'discussion'
-                                    ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/10 dark:text-indigo-400'
-                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('discussion')}
+                                    className={`flex-1 py-4 text-sm font-medium text-center border-b-2 transition-colors duration-200 flex items-center justify-center gap-2 ${
+                                        activeTab === 'discussion'
+                                            ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
                                     }`}
-                            >
-                                <div className="flex items-center justify-center gap-2">
-                                    <HiChatBubbleLeft className="w-4 h-4" />
+                                >
+                                    <HiChatBubbleLeftRight className="w-4 h-4" />
                                     Diskusi
-                                </div>
-                            </button>
-                        </div>
+                                </button>
+                            </div>
 
                         {/* Hidden File Input */}
                         <input
@@ -788,8 +790,8 @@ export function ClientComponent() {
                         />
 
                         <div className="p-6">
-                            {/* Tab Content: TIMELINE */}
-                            {activeTab === 'timeline' && (
+                            {/* Tab Content: ACTIVITY TIMELINE */}
+                            {activeTab === 'activity' && (
                                 <div className="space-y-6">
                                     {/* Timeline Items (Log System) */}
                                     <div className="space-y-4">
@@ -951,48 +953,56 @@ export function ClientComponent() {
                                         <div ref={messagesEndRef} />
                                     </div>
 
-                                    {/* Chat Input Bar (Sticky Bottom) */}
-                                    <div className="bg-gray-50 dark:bg-gray-800 p-3 border-t border-gray-200 dark:border-gray-700">
-                                        <div className="flex items-end gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => fileInputRef.current?.click()}
-                                                disabled={isUploading}
-                                                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors shrink-0"
-                                                title="Upload Foto"
-                                            >
-                                                <HiPhoto className="w-6 h-6" />
-                                            </button>
-                                            <div className="flex-1 bg-white dark:bg-gray-900 rounded-2xl border border-gray-300 dark:border-gray-600 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 overflow-hidden shadow-sm">
-                                                <textarea
-                                                    value={newComment}
-                                                    onChange={(e) => setNewComment(e.target.value)}
-                                                    placeholder="Ketik pesan..."
-                                                    className="w-full px-4 py-3 border-none focus:ring-0 bg-transparent text-sm min-h-[44px] max-h-[120px] resize-y"
-                                                    style={{ height: 'auto' }}
-                                                    onInput={(e) => {
-                                                        const target = e.target as HTMLTextAreaElement;
-                                                        target.style.height = 'auto';
-                                                        target.style.height = `${target.scrollHeight}px`;
-                                                    }}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                                            e.preventDefault();
-                                                            handleAddComment();
-                                                        }
-                                                    }}
-                                                />
-                                            </div>
-                                            <button
-                                                onClick={handleAddComment}
-                                                disabled={addingComment || !newComment.trim()}
-                                                className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 shadow-sm transition-all shrink-0"
-                                                title="Kirim Pesan"
-                                            >
-                                                <HiPaperAirplane className="w-5 h-5 -rotate-90 translate-x-0.5" />
-                                            </button>
+                                    {/* Chat Input Bar (Sticky Bottom) or Closed Message */}
+                                    {['COMPLETED', 'CANCELLED', 'VERIFIED'].includes(workOrder.status) ? (
+                                        <div className="bg-gray-50 dark:bg-gray-800 p-4 border-t border-gray-200 dark:border-gray-700 text-center">
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                                                Diskusi ditutup karena Work Order telah selesai/dibatalkan/diverifikasi.
+                                            </p>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="bg-gray-50 dark:bg-gray-800 p-3 border-t border-gray-200 dark:border-gray-700">
+                                            <div className="flex items-end gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    disabled={isUploading}
+                                                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors shrink-0"
+                                                    title="Upload Foto"
+                                                >
+                                                    <HiPhoto className="w-6 h-6" />
+                                                </button>
+                                                <div className="flex-1 bg-white dark:bg-gray-900 rounded-2xl border border-gray-300 dark:border-gray-600 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 overflow-hidden shadow-sm">
+                                                    <textarea
+                                                        value={newComment}
+                                                        onChange={(e) => setNewComment(e.target.value)}
+                                                        placeholder="Ketik pesan..."
+                                                        className="w-full px-4 py-3 border-none focus:ring-0 bg-transparent text-sm min-h-[44px] max-h-[120px] resize-y"
+                                                        style={{ height: 'auto' }}
+                                                        onInput={(e) => {
+                                                            const target = e.target as HTMLTextAreaElement;
+                                                            target.style.height = 'auto';
+                                                            target.style.height = `${target.scrollHeight}px`;
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                                e.preventDefault();
+                                                                handleAddComment();
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={handleAddComment}
+                                                    disabled={addingComment || !newComment.trim()}
+                                                    className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 shadow-sm transition-all shrink-0"
+                                                    title="Kirim Pesan"
+                                                >
+                                                    <HiPaperAirplane className="w-5 h-5 -rotate-90 translate-x-0.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
