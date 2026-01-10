@@ -187,21 +187,29 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     include: {
                         user: {
                             select: {
+                                id: true,
                                 name: true,
+                                email: true,
                             },
                         },
                     },
-                    orderBy: { createdAt: 'desc' },
+                    orderBy: {
+                        createdAt: 'desc',
+                    },
                 },
                 attachments: {
                     include: {
                         user: {
                             select: {
+                                id: true,
                                 name: true,
+                                email: true,
                             },
                         },
                     },
-                    orderBy: { uploadedAt: 'desc' },
+                    orderBy: {
+                        uploadedAt: 'desc',
+                    },
                 },
             },
         });

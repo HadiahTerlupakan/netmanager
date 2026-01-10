@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -18,6 +18,7 @@ import {
     HiXMark,
     HiCheckCircle,
     HiChatBubbleLeft,
+    HiPaperAirplane,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
@@ -29,9 +30,10 @@ interface WorkOrderUpdateType {
     updateType: string
     message: string
     createdAt: string
-    createdBy?: {
-        firstName: string
-        lastName: string
+    user?: {
+        id: string
+        name?: string | null
+        email?: string | null
     } | null
 }
 
@@ -40,10 +42,13 @@ interface WorkOrderAttachment {
     fileName: string
     filePath: string
     fileType: string
+    fileSize: number
     caption: string | null
     uploadedAt: string
-    uploadedBy?: {
-        name: string
+    user?: {
+        id: string
+        name?: string | null
+        email?: string | null
     } | null
 }
 
@@ -152,6 +157,67 @@ export function ClientComponent() {
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [cancelReason, setCancelReason] = useState('')
     const [processingApproval, setProcessingApproval] = useState(false)
+    // TAB STATE MUST BE HERE (Before any return statements)
+    const [activeTab, setActiveTab] = useState<'timeline' | 'discussion'>('timeline')
+    
+    // File Upload State
+    const [isUploading, setIsUploading] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
+    const messagesEndRef = useRef<HTMLDivElement>(null)
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file')
+            return
+        }
+
+        setIsUploading(true)
+        try {
+            // 1. Upload to server
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('type', 'work-order-updates')
+            formData.append('workOrderId', workOrderId)
+
+            const uploadRes = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            })
+
+            if (!uploadRes.ok) throw new Error('Failed to upload image')
+            const { url, fileName } = await uploadRes.json()
+
+            // 2. Attach to Work Order
+            const attachRes = await fetch(`/api/admin/workorders/${workOrderId}/attachments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fileName: fileName || file.name,
+                    filePath: url,
+                    fileType: file.type,
+                    fileSize: file.size,
+                    caption: '' 
+                }),
+            })
+
+            if (!attachRes.ok) throw new Error('Failed to attach image to work order')
+            
+            // Refresh
+            fetchWorkOrder()
+            
+        } catch (error) {
+            console.error('Upload failed:', error)
+            alert('Failed to upload image')
+        } finally {
+            setIsUploading(false)
+            if (fileInputRef.current) {
+                fileInputRef.current.value = ''
+            }
+        }
+    }
 
     // WebSocket for real-time Activity Timeline
     const { socket, isConnected } = useSocket()
@@ -459,6 +525,19 @@ export function ClientComponent() {
     // Filter completion photos
     const completionAttachments = workOrder.attachments?.filter(a => a.caption?.startsWith('[COMPLETION]')) || []
 
+    // 1. TIMELINE LOGS: Status changes, Assignments, Notes, AND Photos (except comments)
+    const timelineLogItems = timelineItems.filter(item => {
+        if (item.type === 'comment') return false // Exclude comments
+        return true
+    })
+
+    // 2. DISCUSSION: Comments AND Photos
+    const discussionItems = timelineItems.filter(item => {
+        if (item.type === 'comment') return true
+        if (item.type === 'attachment') return true // Photos appear in both
+        return false
+    })
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -670,93 +749,251 @@ export function ClientComponent() {
                         </div>
                     </div>
 
-                    {/* Timeline */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Activity Timeline</h3>
-
-                        {/* New Comment Input */}
-                        <div className="mb-6 flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 shrink-0">
-                                <HiUserCircle className="w-6 h-6" />
-                            </div>
-                            <div className="flex-1">
-                                <textarea
-                                    value={newComment}
-                                    onChange={(e) => setNewComment(e.target.value)}
-                                    placeholder="Write a comment or ask a question..."
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-sky-500 focus:border-sky-500 min-h-[80px] dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
-                                />
-                                <div className="flex justify-end mt-2">
-                                    <button
-                                        onClick={handleAddComment}
-                                        disabled={addingComment || !newComment.trim()}
-                                        className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700 disabled:opacity-50"
-                                    >
-                                        {addingComment ? 'Posting...' : 'Post Comment'}
-                                    </button>
+                    {/* Activity & Discussion Tabs */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                        <div className="flex border-b border-gray-200 dark:border-gray-700">
+                            <button
+                                onClick={() => setActiveTab('timeline')}
+                                className={`flex-1 px-4 py-3 text-sm font-medium text-center transition-colors ${activeTab === 'timeline'
+                                    ? 'text-sky-600 border-b-2 border-sky-600 bg-sky-50/50 dark:bg-sky-900/10 dark:text-sky-400'
+                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                                    }`}
+                            >
+                                <div className="flex items-center justify-center gap-2">
+                                    <HiClock className="w-4 h-4" />
+                                    Activity Timeline
                                 </div>
-                            </div>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('discussion')}
+                                className={`flex-1 px-4 py-3 text-sm font-medium text-center transition-colors ${activeTab === 'discussion'
+                                    ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/10 dark:text-indigo-400'
+                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                                    }`}
+                            >
+                                <div className="flex items-center justify-center gap-2">
+                                    <HiChatBubbleLeft className="w-4 h-4" />
+                                    Diskusi
+                                </div>
+                            </button>
                         </div>
 
-                        <div className="space-y-4">
-                            {timelineItems.length > 0 ? (
-                                timelineItems.map((item) => (
-                                    <div key={item.id} className="flex gap-3">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${item.type === 'comment' ? 'bg-indigo-100 dark:bg-indigo-900/30' :
-                                            item.type === 'update' ? 'bg-sky-100 dark:bg-sky-900/30' : 'bg-orange-100 dark:bg-orange-900/30'
-                                            }`}>
-                                            {item.type === 'comment' ? (
-                                                <HiChatBubbleLeft className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                            ) : item.type === 'update' ? (
-                                                <HiClock className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                                            ) : (
-                                                <HiPhoto className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                            )}
-                                        </div>
-                                        <div className="flex-1">
-                                            {item.type === 'update' || item.type === 'comment' ? (
-                                                <div className={`${(item.data as any).updateType === 'COMMENT' ? 'bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700' : ''}`}>
-                                                    <p className="text-sm text-gray-900 dark:text-gray-200 whitespace-pre-wrap">{(item.data as any).message}</p>
-                                                </div>
-                                            ) : (
-                                                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600 mb-1 inline-block">
-                                                    <a
-                                                        href={item.data.filePath}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="block"
-                                                    >
-                                                        <img
-                                                            src={item.data.filePath}
-                                                            alt={item.data.caption || 'Attachment'}
-                                                            className="h-40 rounded-lg object-cover mb-2"
-                                                        />
-                                                    </a>
-                                                    {item.data.caption && (
-                                                        <p className="text-xs text-gray-600 dark:text-gray-400 italic">
-                                                            {item.data.caption.replace(/^\[(HOLD|NOTE)\]\s*/, '')}
+                        {/* Hidden File Input */}
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                        />
+
+                        <div className="p-6">
+                            {/* Tab Content: TIMELINE */}
+                            {activeTab === 'timeline' && (
+                                <div className="space-y-6">
+                                    {/* Timeline Items (Log System) */}
+                                    <div className="space-y-4">
+                                        {timelineLogItems.length > 0 ? (
+                                            timelineLogItems.map((item) => {
+                                                const attData = item.data as WorkOrderAttachment;
+                                                const updateData = item.data as WorkOrderUpdateType;
+                                                const isUpdate = item.type === 'update';
+                                                const isAttachment = item.type === 'attachment';
+
+                                                // Display Name Logic
+                                                const user = isUpdate ? updateData.user : attData.user;
+                                                const userName = user?.name || user?.email || 'Unknown User';
+
+                                                return (
+                                                <div key={item.id} className="flex gap-4">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                                                        item.type === 'update' ? 'bg-sky-100 dark:bg-sky-900/30' : 'bg-orange-100 dark:bg-orange-900/30'
+                                                        }`}>
+                                                        {item.type === 'update' ? (
+                                                            <HiClock className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                                                        ) : (
+                                                            <HiPhoto className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        {item.type === 'update' ? (
+                                                            <div className="">
+                                                                <p className="text-sm text-gray-900 dark:text-gray-200 whitespace-pre-wrap">{updateData.message}</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600 mb-1 inline-block">
+                                                                <a
+                                                                    href={attData.filePath}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="block"
+                                                                >
+                                                                    <img
+                                                                        src={attData.filePath}
+                                                                        alt={attData.caption || 'Attachment'}
+                                                                        className="h-40 rounded-lg object-cover mb-2"
+                                                                    />
+                                                                </a>
+                                                                {attData.caption && (
+                                                                    <p className="text-xs text-gray-600 dark:text-gray-400 italic">
+                                                                        {attData.caption.replace(/^\[(HOLD|NOTE)\]\s*/, '')}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                            {item.type === 'update' ? (
+                                                                <>
+                                                                    {userName} · {format(item.date, 'dd MMM yyyy HH:mm', { locale: localeId })}
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    {userName} · {format(item.date, 'dd MMM yyyy HH:mm', { locale: localeId })}
+                                                                </>
+                                                            )}
                                                         </p>
-                                                    )}
+                                                    </div>
                                                 </div>
-                                            )}
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                {item.type === 'update' || item.type === 'comment' ? (
-                                                    <>
-                                                        {(item.data as any).createdBy && `${(item.data as any).createdBy.firstName} ${(item.data as any).createdBy.lastName} · `}
-                                                        {format(item.date, 'dd MMM yyyy HH:mm', { locale: localeId })}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        {item.data.uploadedBy && `${item.data.uploadedBy.name} · `}
-                                                        {format(item.date, 'dd MMM yyyy HH:mm', { locale: localeId })}
-                                                    </>
-                                                )}
-                                            </p>
+                                            )})
+                                        ) : (
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Belum ada aktivitas sistem.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Tab Content: DISCUSSION */}
+                            {/* Tab Content: DISCUSSION */}
+                            {activeTab === 'discussion' && (
+                                <div className="flex flex-col max-h-[600px] bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                                    {/* Discussion Items (Chat Stream) */}
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-gray-50/50 dark:bg-gray-900/50">
+                                        {discussionItems.length > 0 ? (
+                                            discussionItems
+                                                .sort((a,b) => a.date.getTime() - b.date.getTime())
+                                                .map((item) => {
+                                                const attData = item.data as WorkOrderAttachment;
+                                                const updateData = item.data as WorkOrderUpdateType;
+                                                
+                                                // Determine sender
+                                                const isComment = item.type === 'comment';
+                                                
+                                                // Try to identify if "Me"
+                                                const creatorId = isComment ? updateData.user?.id : attData.user?.id; 
+                                                const currentUserId = (session?.user as any)?.id;
+                                                const isMe = creatorId && currentUserId ? creatorId === currentUserId : false;
+
+                                                // Name display
+                                                const user = isComment ? updateData.user : attData.user;
+                                                const creatorName = user?.name || user?.email || 'Unknown User';
+                                                
+                                                return (
+                                                    <div key={item.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                                        <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${isMe ? 'items-end' : 'items-start'}`}>
+                                                            {/* Sender Name */}
+                                                            <span className={`text-[11px] text-gray-500 dark:text-gray-400 mb-1 font-medium ${isMe ? 'mr-2' : 'ml-2'}`}>
+                                                                {creatorName}
+                                                            </span>
+                                                            
+                                                            {/* Bubble */}
+                                                            <div className={`relative px-4 py-2 shadow-sm rounded-2xl ${
+                                                                isMe 
+                                                                    ? 'bg-indigo-600 text-white rounded-tr-none' 
+                                                                    : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-tl-none'
+                                                            }`}>
+                                                                {isComment ? (
+                                                                    <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                                                                        {updateData.message}
+                                                                    </p>
+                                                                ) : (
+                                                                    <div className="-mx-2 -mt-2">
+                                                                         <a
+                                                                            href={attData.filePath}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="block"
+                                                                        >
+                                                                            <img
+                                                                                src={attData.filePath}
+                                                                                alt={attData.caption || 'Attachment'}
+                                                                                className={`rounded-lg object-cover max-h-60 min-w-[200px] w-full ${isMe ? 'bg-indigo-500' : 'bg-gray-100'}`}
+                                                                            />
+                                                                        </a>
+                                                                        {attData.caption && (
+                                                                            <p className="text-sm mt-2 px-2 pb-1">
+                                                                                {attData.caption}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Timestamp */}
+                                                                <div className={`text-[10px] mt-1 text-right w-full flex justify-end gap-1 ${
+                                                                    isMe ? 'text-indigo-100' : 'text-gray-400'
+                                                                }`}>
+                                                                    {format(item.date, 'HH:mm')}
+                                                                    {isMe && <HiCheckCircle className="w-3 h-3" />}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-48 text-center">
+                                                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
+                                                    <HiChatBubbleLeft className="w-6 h-6 text-gray-400" />
+                                                </div>
+                                                <p className="text-gray-500 dark:text-gray-400 text-sm">Belum ada diskusi.</p>
+                                                <p className="text-xs text-gray-400 mt-1">Mulai percakapan dengan tim Anda.</p>
+                                            </div>
+                                        )}
+                                        <div ref={messagesEndRef} />
+                                    </div>
+
+                                    {/* Chat Input Bar (Sticky Bottom) */}
+                                    <div className="bg-gray-50 dark:bg-gray-800 p-3 border-t border-gray-200 dark:border-gray-700">
+                                        <div className="flex items-end gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isUploading}
+                                                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors shrink-0"
+                                                title="Upload Foto"
+                                            >
+                                                <HiPhoto className="w-6 h-6" />
+                                            </button>
+                                            <div className="flex-1 bg-white dark:bg-gray-900 rounded-2xl border border-gray-300 dark:border-gray-600 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 overflow-hidden shadow-sm">
+                                                <textarea
+                                                    value={newComment}
+                                                    onChange={(e) => setNewComment(e.target.value)}
+                                                    placeholder="Ketik pesan..."
+                                                    className="w-full px-4 py-3 border-none focus:ring-0 bg-transparent text-sm min-h-[44px] max-h-[120px] resize-y"
+                                                    style={{ height: 'auto' }}
+                                                    onInput={(e) => {
+                                                        const target = e.target as HTMLTextAreaElement;
+                                                        target.style.height = 'auto';
+                                                        target.style.height = `${target.scrollHeight}px`;
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                                            e.preventDefault();
+                                                            handleAddComment();
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={handleAddComment}
+                                                disabled={addingComment || !newComment.trim()}
+                                                className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 shadow-sm transition-all shrink-0"
+                                                title="Kirim Pesan"
+                                            >
+                                                <HiPaperAirplane className="w-5 h-5 -rotate-90 translate-x-0.5" />
+                                            </button>
                                         </div>
                                     </div>
-                                ))
-                            ) : (
-                                <p className="text-sm text-gray-500 dark:text-gray-400">No activity yet</p>
+                                </div>
                             )}
                         </div>
                     </div>
