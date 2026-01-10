@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiOutlineCloudArrowUp, HiOutlineDevicePhoneMobile } from 'react-icons/hi2'
+import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiOutlineCloudArrowUp, HiOutlineDevicePhoneMobile, HiOutlineExclamationTriangle, HiOutlineQuestionMarkCircle } from 'react-icons/hi2'
 import { usePermission } from '@/hooks/use-permission'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 
@@ -42,9 +42,26 @@ export function AppVersionClient() {
     const [showUploadModal, setShowUploadModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
     const [selectedVersion, setSelectedVersion] = useState<AppVersion | null>(null)
+    const [stats, setStats] = useState<{updatedCount: number, outdatedCount: number, unknownCount: number, latestVersion: any} | null>(null)
+
+    // Fetch stats
+    const fetchStats = async () => {
+        try {
+            const res = await fetch('/api/admin/app-version/stats')
+            const data = await res.json()
+            if (data && !data.error) {
+                setStats(data)
+            }
+        } catch (error) {
+            console.error('Failed to fetch stats:', error)
+        }
+    }
 
     // Fetch versions
     const fetchVersions = useCallback(async () => {
+        // Fetch stats as well
+        fetchStats()
+
         setLoading(true)
         try {
             const res = await fetch(`/api/admin/app-version?page=${pagination.page}&limit=${pagination.limit}`)
@@ -198,7 +215,7 @@ export function AppVersionClient() {
     )
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
@@ -216,7 +233,51 @@ export function AppVersionClient() {
                 )}
             </div>
 
-            {/* Table */}
+            {/* Stats Cards */}
+            {stats && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg text-green-600 dark:text-green-400">
+                                <HiOutlineDevicePhoneMobile className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Sudah Update</p>
+                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.updatedCount}</p>
+                                <p className="text-xs text-gray-400 mt-1">{stats.latestVersion ? `Versi ${stats.latestVersion.version} (${stats.latestVersion.versionCode})` : '-'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg text-red-600 dark:text-red-400">
+                                <HiOutlineExclamationTriangle className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Belum Update</p>
+                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.outdatedCount}</p>
+                                <p className="text-xs text-gray-400 mt-1">Perlu update segera</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-400">
+                                <HiOutlineQuestionMarkCircle className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Tidak Diketahui</p>
+                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.unknownCount}</p>
+                                <p className="text-xs text-gray-400 mt-1">Belum login sejak update</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* List Versions */}           {/* Table */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                 <ResponsiveTable
                     data={versions}

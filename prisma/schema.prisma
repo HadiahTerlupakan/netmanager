@@ -985,26 +985,31 @@ model SystemLog {
 }
 
 model User {
-  id                                         String                    @id
-  name                                       String?
-  email                                      String                    @unique
-  passwordHash                               String?
-  createdAt                                  DateTime                  @default(now())
-  updatedAt                                  DateTime
-  emailVerified                              DateTime?
-  image                                      String?
-  phone                                      String?
-  departmentId                               String?
-  siteId                                     String?
-  roleId                                     String?
-  isActive                                   Boolean                   @default(true)
-  workingHourMode                            WorkingHourMode           @default(FIXED)
-  startWorkTime                              String?
-  endWorkTime                                String?
-  workDays                                   String?
-  shiftId                                    String?
-  flexibleTargetHour                         Int?
-  pushToken                                  String?
+  id                 String          @id
+  name               String?
+  email              String          @unique
+  passwordHash       String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime
+  emailVerified      DateTime?
+  image              String?
+  phone              String?
+  departmentId       String?
+  siteId             String?
+  roleId             String?
+  isActive           Boolean         @default(true)
+  workingHourMode    WorkingHourMode @default(FIXED)
+  startWorkTime      String?
+  endWorkTime        String?
+  workDays           String?
+  shiftId            String?
+  flexibleTargetHour Int?
+  pushToken          String?
+
+  // App Version Tracking
+  lastVersionCode                            Int?
+  lastVersionName                            String?
+  lastVersionUpdate                          DateTime?
   pushTokenUpdatedAt                         DateTime?
   tokenVersion                               Int                       @default(0)
   account                                    Account[]

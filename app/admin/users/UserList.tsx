@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlinePlus, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye, HiOutlineTrash, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineFunnel, HiOutlineArrowRightOnRectangle } from 'react-icons/hi2'
+import { HiOutlinePlus, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye, HiOutlineTrash, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineFunnel, HiOutlineArrowRightOnRectangle, HiOutlineDevicePhoneMobile } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { toast } from 'react-hot-toast'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
@@ -28,6 +28,9 @@ interface User {
         id: string
         name: string
     }
+    lastVersionCode?: number
+    lastVersionName?: string
+    lastVersionUpdate?: string
 }
 
 export default function UserList() {
@@ -233,6 +236,30 @@ export default function UserList() {
             render: (user) => (
                 <div className="text-sm text-gray-900 dark:text-gray-100 font-medium">
                     {user.role?.name || '-'}
+                </div>
+            )
+        },
+        {
+            key: 'lastVersionCode',
+            header: 'App Version',
+            priority: 'secondary',
+            render: (user) => (
+                <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5 text-sm text-gray-900 dark:text-gray-100">
+                        <HiOutlineDevicePhoneMobile className="w-4 h-4 text-gray-400" />
+                        <span>
+                            {user.lastVersionName 
+                                ? `v${user.lastVersionName} (Build ${user.lastVersionCode})` 
+                                : user.lastVersionCode 
+                                    ? `Build ${user.lastVersionCode}` 
+                                    : '-'}
+                        </span>
+                    </div>
+                    {user.lastVersionUpdate && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(user.lastVersionUpdate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                        </span>
+                    )}
                 </div>
             )
         },

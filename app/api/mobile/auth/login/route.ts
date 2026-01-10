@@ -6,7 +6,7 @@ import { signMobileToken } from '@/lib/mobile-auth'
 export async function POST(req: Request) {
     try {
         const body = await req.json()
-        const { email, password } = body
+        const { email, password, versionCode } = body
 
         if (!email || !password) {
             return NextResponse.json({ 
@@ -35,6 +35,18 @@ export async function POST(req: Request) {
                 success: false,
                 error: 'Password yang Anda masukkan salah' 
             }, { status: 401 })
+        }
+
+        // Update version info if provided
+        if (versionCode) {
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    lastVersionCode: parseInt(versionCode),
+                    lastVersionName: body.versionName,
+                    lastVersionUpdate: new Date()
+                }
+            })
         }
 
         // 3. Generate Token
