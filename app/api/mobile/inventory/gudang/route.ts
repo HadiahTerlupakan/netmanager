@@ -33,9 +33,10 @@ export async function GET(req: NextRequest) {
         }
 
         // Check for Site-Based Restriction Policy
-        // Mobile users are restricted to their site by default unless SUPER_ADMIN
+        // Mobile users are restricted to their site by default unless SUPER_ADMIN or "Super Admin"
         // This fixes the issue where users see Gudang outside their site
-        const isSuperAdmin = user.role?.name === 'SUPER_ADMIN';
+        const roleName = (user.role?.name || '').trim().toUpperCase().replace(/\s+/g, '_');
+        const isSuperAdmin = roleName === 'SUPER_ADMIN';
         
         // Strict default: Restricted unless Super Admin
         const isSiteRestricted = !isSuperAdmin; 
@@ -58,9 +59,14 @@ export async function GET(req: NextRequest) {
             }
 
             if (allowedSiteIds.length === 0) {
+                console.log(`[Mobile Gudang] Access Denied: User ${user.email} (Role: ${user.role?.name}) has no site assigned.`);
                 return NextResponse.json({ 
-                    error: 'Anda belum memiliki site yang ditentukan. Silakan hubungi admin untuk assign site ke akun Anda.',
-                    code: 'NO_SITE_ASSIGNED'
+                    error: `Halo ${user.name}, akun Anda belum memiliki Site yang ditentukan. Silakan hubungi admin untuk assign Site ke akun Anda agar dapat melihat daftar Gudang.`,
+                    code: 'NO_SITE_ASSIGNED',
+                    debug: {
+                        userId: user.id,
+                        role: user.role?.name
+                    }
                 }, { status: 403 })
             }
 

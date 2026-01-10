@@ -105,7 +105,7 @@ export async function POST(request: Request) {
                 where: {
                     isActive: true, // Only notify active admins
                     OR: [
-                        { role: { name: 'SUPER_ADMIN' } },
+                        { role: { name: { in: ['SUPER_ADMIN', 'Super Admin'] } } },
                         {
                             role: {
                                 permission: {

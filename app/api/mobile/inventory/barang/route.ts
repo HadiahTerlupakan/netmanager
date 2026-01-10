@@ -47,7 +47,8 @@ export async function GET(req: NextRequest) {
 
         // Check for Site-Based Restriction Policy
         const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || []
-        const isSuperAdmin = user.role?.name === 'SUPER_ADMIN'
+        const roleName = (user.role?.name || '').trim().toUpperCase().replace(/\s+/g, '_');
+        const isSuperAdmin = roleName === 'SUPER_ADMIN';
         const isSiteRestricted = !isSuperAdmin && userPermissions.includes('k_barang:site_only')
 
         // MODE: MASUK - Return ALL master barang (for receiving new stock)
