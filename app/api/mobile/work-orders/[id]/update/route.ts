@@ -320,6 +320,79 @@ export async function POST(
 
             return NextResponse.json({ success: true, message: 'Work Order Paused' });
 
+        } else if (action === 'COMMENT') {
+            if (!notes && !photo && !photoUrl) {
+                return NextResponse.json({ error: 'Comment text or photo required' }, { status: 400 });
+            }
+
+            // Handle photo from JSON URL
+            if (photoUrl) {
+                await repository.addAttachment(
+                    workOrderId,
+                    'photo_comment.jpg',
+                    photoUrl,
+                    0,
+                    'image/jpeg',
+                    notes || 'Photo Comment',
+                    userId
+                );
+            }
+            // Handle photo from FormData
+            else if (photo instanceof File) {
+                const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+                const watermarkLines = [
+                    format(new Date(), 'dd MMM yyyy HH:mm'),
+                    `#${ticketNumber}`,
+                    `Tech: ${user?.name || 'Unknown'}`,
+                    locationStr
+                ];
+
+                const dateStr = new Date().toISOString().split('T')[0];
+                const attachmentPath = await convertAndSaveImage(
+                    photo,
+                    `public/uploads/workorders/${dateStr}`,
+                    `${workOrderId}_comment_${Date.now()}`,
+                    'workorder-completion',
+                    workOrderId,
+                    watermarkLines
+                );
+
+                await repository.addAttachment(
+                    workOrderId,
+                    photo.name,
+                    attachmentPath,
+                    photo.size,
+                    photo.type,
+                    notes || 'Photo Comment',
+                    userId
+                );
+            }
+
+            // Only create text update if no photo was attached (avoid duplication)
+            if (!photoUrl && !(photo instanceof File)) {
+                await repository.addUpdate({
+                    workOrderId,
+                    updateType: 'COMMENT',
+                    message: notes || '',
+                    createdById: userId
+                });
+            }
+
+            // Notify Admins
+            await notifyAdminsAboutMobileAction({
+                workOrderId,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                actionType: 'COMMENT',
+                actionMessage: `Komentar Baru: ${notes || 'Photo comment'}`,
+                triggeredByUserId: userId,
+                triggeredByName: (user?.name as string) || (payload.name as string),
+                departmentId: workOrder.departmentId || undefined,
+                siteId: workOrder.siteId || undefined,
+            });
+
+            return NextResponse.json({ success: true, message: 'Comment added' });
+
         } else if (action === 'NOTE') {
             if (!notes && !photo && !photoUrl) {
                 return NextResponse.json({ error: 'Notes or photo required' }, { status: 400 });

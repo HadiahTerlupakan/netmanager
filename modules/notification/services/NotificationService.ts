@@ -1,7 +1,5 @@
-import { sendPushNotifications, type PushPayload } from './PushNotificationService';
 import { sendPushNotification as sendExpoPush, sendPushToDepartment as sendExpoPushToDepartment } from './ExpoPushService';
 import { prisma } from '@/lib/prisma';
-import type { PushSubscriptions } from '@prisma/client';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { randomUUID } from 'crypto';
 
@@ -95,71 +93,6 @@ export async function createNotification(data: CreateNotificationData) {
     return notification;
 }
 
-
-/**
- * Send push notification to a user
- */
-async function sendPushToUser(userId: string, payload: PushPayload) {
-    const subscriptions = await prisma.pushSubscriptions.findMany({
-        where: {
-            userId,
-            isActive: true,
-        },
-    });
-
-    if (subscriptions.length === 0) return [];
-
-    const results = await sendPushNotifications(
-        subscriptions.map((sub: PushSubscriptions) => ({
-            endpoint: sub.endpoint,
-            keys: {
-                p256dh: sub.p256dh,
-                auth: sub.auth,
-            },
-        })),
-        payload
-    );
-
-    // Deactivate expired subscriptions
-    const expiredEndpoints = results
-        .filter((r) => !r.success && r.error?.includes('expired'))
-        .map((r) => r.endpoint);
-
-    if (expiredEndpoints.length > 0) {
-        await prisma.pushSubscriptions.updateMany({
-            where: {
-                endpoint: { in: expiredEndpoints },
-            },
-            data: {
-                isActive: false,
-                updatedAt: new Date(),
-            },
-        });
-    }
-
-    return results;
-}
-
-/**
- * Send push notification to all users in a department
- */
-async function sendPushToDepartment(departmentId: string, payload: PushPayload) {
-    const users = await prisma.user.findMany({
-        where: {
-            departmentId,
-            isActive: true,
-        },
-        select: {
-            id: true,
-        },
-    });
-
-    const results = await Promise.all(
-        users.map((user) => sendPushToUser(user.id, payload))
-    );
-
-    return results.flat();
-}
 
 /**
  * Create notification for new Work Order (notify users by Department AND Site)
@@ -318,15 +251,7 @@ export async function notifyWorkOrderAssigned(data: WorkOrderNotificationData & 
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
-
-        // Push to Assignee (Explicit Push with interaction)
-        await sendPushToUser(data.assignedToId, {
-            title: '📋 Work Order Di-assign ke Anda',
-            body: `${data.workOrderNumber}: ${data.title}`,
-            data: { url: `/admin/workorders/${data.workOrderId}`, type: 'WORK_ORDER', sourceId: data.workOrderId },
-            tag: `wo-assigned-${data.workOrderId}`,
-            requireInteraction: true,
-        });
+        // createNotification already sends Expo Push, no need for duplicate sendPushToUser
     }
 
     // Also notify Admins/Department (excluding assignee)
@@ -357,9 +282,8 @@ export async function notifyWorkOrderStatusChange(
         triggeredByUserId?: string;
     }
 ) {
-    const statusLabel = getStatusLabel(data.newStatus);
     const statusEmoji = getStatusEmoji(data.newStatus);
-    
+
     // Find recipients (exclude the person who triggered the action)
     const recipients = await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId);
     
@@ -378,16 +302,7 @@ export async function notifyWorkOrderStatusChange(
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
-
-        // Push only to assignee (if they are not the triggerer)
-        if (isAssignee && data.assignedToId !== data.triggeredByUserId) {
-            await sendPushToUser(user.id, {
-                title: `${statusEmoji} Status WO Berubah: ${statusLabel}`,
-                body: `${data.workOrderNumber}: ${data.title}`,
-                data: { url: `/admin/workorders/${data.workOrderId}`, type: 'WORK_ORDER', sourceId: data.workOrderId },
-                tag: `wo-status-${data.workOrderId}`,
-            });
-        }
+        // createNotification already sends Expo Push, removed duplicate sendPushToUser
     }));
 }
 
@@ -416,15 +331,7 @@ export async function notifyWorkOrderUpdate(
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
-
-        if (user.id === data.assignedToId && data.assignedToId !== data.triggeredByUserId) {
-             await sendPushToUser(data.assignedToId, {
-                title: `💬 Update pada ${data.workOrderNumber}`,
-                body: data.updateMessage,
-                data: { url: `/admin/workorders/${data.workOrderId}`, type: 'WORK_ORDER', sourceId: data.workOrderId },
-                tag: `wo-update-${data.workOrderId}`,
-            });
-        }
+        // createNotification already sends Expo Push, removed duplicate sendPushToUser
     }));
 }
 
@@ -437,7 +344,7 @@ export async function notifyAdminsAboutMobileAction(data: {
     workOrderId: string;
     workOrderNumber: string;
     title: string;
-    actionType: 'CLAIM' | 'START' | 'COMPLETE' | 'PAUSE' | 'NOTE' | 'MATERIAL_PICKUP' | 'PARTNER_INVITE' | 'PARTNER_RESPONSE';
+    actionType: 'CLAIM' | 'START' | 'COMPLETE' | 'PAUSE' | 'NOTE' | 'MATERIAL_PICKUP' | 'PARTNER_INVITE' | 'PARTNER_RESPONSE' | 'COMMENT';
     actionMessage: string;
     triggeredByUserId: string;
     triggeredByName?: string;
@@ -452,7 +359,8 @@ export async function notifyAdminsAboutMobileAction(data: {
         NOTE: '📝',
         MATERIAL_PICKUP: '📦',
         PARTNER_INVITE: '🤝',
-        PARTNER_RESPONSE: '📨'
+        PARTNER_RESPONSE: '📨',
+        COMMENT: '💬'
     };
     
     const emoji = actionEmojis[data.actionType] || '📋';
@@ -705,20 +613,6 @@ function getWorkOrderTypeLabel(type: string): string {
         RELOCATION: 'Relokasi',
     };
     return labels[type] || type;
-}
-
-function getStatusLabel(status: string): string {
-    const labels: Record<string, string> = {
-        PENDING: 'Menunggu',
-        ASSIGNED: 'Ditugaskan',
-        IN_PROGRESS: 'Dikerjakan',
-        COMPLETED: 'Selesai',
-        VERIFIED: 'Terverifikasi',
-        CLOSED: 'Ditutup',
-        CANCELLED: 'Dibatalkan',
-        ON_HOLD: 'Ditunda',
-    };
-    return labels[status] || status;
 }
 
 function getStatusEmoji(status: string): string {

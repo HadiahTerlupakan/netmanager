@@ -158,6 +158,9 @@ export default function AttendanceCard() {
             setNotes('')
             await fetchStatus()
 
+            // Delay agar user dapat melihat pesan sukses
+            await new Promise(resolve => setTimeout(resolve, 500))
+
         } catch (error: any) {
             toast.error(error.message)
         } finally {

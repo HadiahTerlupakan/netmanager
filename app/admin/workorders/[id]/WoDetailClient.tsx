@@ -1182,42 +1182,7 @@ export function ClientComponent() {
                         </div>
                     )}
 
-                    {/* Completion Photos */}
-                    {completionAttachments.length > 0 && (
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                <HiPhoto className="w-5 h-5" />
-                                Bukti Penyelesaian ({completionAttachments.length} foto)
-                            </h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                {completionAttachments.map((attachment) => (
-                                    <a
-                                        key={attachment.id}
-                                        href={attachment.filePath}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="block relative group"
-                                    >
-                                        <img
-                                            src={attachment.filePath}
-                                            alt={attachment.caption || 'Bukti Penyelesaian'}
-                                            className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-700 group-hover:opacity-90 transition-opacity"
-                                        />
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-lg transition-colors flex items-center justify-center">
-                                            <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-medium transition-opacity">
-                                                Lihat
-                                            </span>
-                                        </div>
-                                        {attachment.caption && (
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center truncate">
-                                                {attachment.caption.replace(/^\[COMPLETION\]\s*/, '')}
-                                            </p>
-                                        )}
-                                    </a>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+
                 </div>
             </div>
 

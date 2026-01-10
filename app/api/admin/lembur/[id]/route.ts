@@ -97,6 +97,8 @@ export async function DELETE(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        const { id } = await params
+
         // Permission check
         if (!await hasPermission('lembur:delete')) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -121,7 +123,6 @@ export async function DELETE(
             }
         }
 
-        const { id } = await params
         const service = new OvertimeService()
         await service.deleteOvertime(id)
 

@@ -97,12 +97,24 @@ export function useRealtimeNotifications(
 
             console.log('[Notifications] New notification received:', payload.title)
 
-            // Play notification sound
+            // Play notification sound based on settings
             try {
-                const audio = new Audio('/sounds/notification.mp3');
-                audio.play().catch((err) => console.log('Audio play failed:', err));
+                const soundEnabled = localStorage.getItem('chat_sound_enabled') !== 'false';
+                
+                if (soundEnabled) {
+                    const soundType = localStorage.getItem('chat_sound_type');
+                    const customData = localStorage.getItem('chat_custom_sound_data');
+                    
+                    let audioSrc = '/sounds/notification.mp3';
+                    if (soundType === 'custom' && customData) {
+                        audioSrc = customData;
+                    }
+
+                    const audio = new Audio(audioSrc);
+                    audio.play().catch((err) => console.log('Audio play failed:', err));
+                }
             } catch (error) {
-                // Ignore audio errors (e.g. storage or format issues)
+                // Ignore audio errors
             }
 
             // Add to beginning of list

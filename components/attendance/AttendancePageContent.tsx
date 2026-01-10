@@ -428,7 +428,10 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
             toast.dismiss(toastId)
             toast.success(status === 'idle' ? 'Check-in Berhasil!' : 'Check-out Berhasil!')
             setPhoto(null)
-            fetchStatus()
+            await fetchStatus()
+
+            // Delay agar user dapat melihat pesan sukses
+            await new Promise(resolve => setTimeout(resolve, 500))
         } catch (error: any) {
             toast.dismiss(toastId)
             console.error('[ABSENSI] Error in handleAttendance:', error)

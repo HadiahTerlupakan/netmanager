@@ -42,7 +42,7 @@ export class OvertimeService {
         })
 
         if (existing) {
-            throw new Error('Anda sudah memiliki pengajuan lembur aktif untuk hari ini.')
+            throw new Error('Anda sudah memiliki pengajuan lembur aktif (Pending/Approved/Berjalan) untuk hari ini.')
         }
 
         // Buat request tanpa attendance link (akan di-link saat start)
@@ -137,7 +137,7 @@ export class OvertimeService {
         // VALIDASI:
         // Jika BUKAN hari libur, dan TIDAK ADA attendance yg checkout -> error
         if (!isHoliday && !attendance) {
-            throw new Error('Anda harus melakukan Checkout absen reguler terlebih dahulu sebelum memulai lembur.')
+            throw new Error('Wajib Checkout Absen Reguler terlebih dahulu sebelum memulai lembur (kecuali hari libur).')
         }
 
         // Check whether it is a holiday or not
@@ -151,7 +151,7 @@ export class OvertimeService {
 
             if (durationHours < targetHours) {
                 const shortfall = (targetHours - durationHours).toFixed(1)
-                throw new Error(`Total jam kerja Anda (${durationHours.toFixed(1)} jam) belum memenuhi target harian (${targetHours} jam). Kurang: ${shortfall} jam. Tidak dapat memulai lembur.`)
+                throw new Error(`Target Belum Terpenuhi: Kerja baru ${durationHours.toFixed(1)} jam dari target ${targetHours} jam (Kurang ${shortfall} jam). Selesaikan shift reguler sebelum lembur.`)
             }
         }
 

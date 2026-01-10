@@ -20,6 +20,7 @@ import {
     notifyWorkOrderUpdate 
 } from '../../notification/services/NotificationService';
 import { randomUUID } from 'crypto';
+import { socketEmitter } from '@/lib/websocket/emitter';
 
 export class WorkOrderRepository implements IWorkOrderRepository {
     constructor(private prisma: PrismaClient) { }
@@ -703,6 +704,33 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             }).catch(err => console.error('Failed to notify WO update:', err));
         }
 
+        // Fetch creator for socket payload
+        let createdByUser = null;
+        if (data.createdById) {
+            createdByUser = await this.prisma.user.findUnique({
+                where: { id: data.createdById },
+                select: { id: true, name: true }
+            });
+        }
+
+        // Socket Emit for Realtime Updates
+        // Map updateType to valid activity type
+        let activityType: 'comment' | 'update' | 'attachment' = 'update';
+        if (data.updateType === 'COMMENT') activityType = 'comment';
+        if (data.updateType === 'PHOTO') activityType = 'attachment';
+
+        socketEmitter.workOrderActivity(data.workOrderId, {
+            id: update.id,
+            type: activityType,
+            message: data.message,
+            updateType: data.updateType,
+            createdAt: update.createdAt.toISOString(),
+            createdBy: createdByUser ? {
+                id: createdByUser.id,
+                name: createdByUser.name || undefined
+            } : null
+        });
+
         return update;
     }
 
@@ -739,7 +767,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         await this.addUpdate({
             workOrderId,
             updateType: 'PHOTO',
-            message: `Photo uploaded: ${fileName}`,
+            message: caption || `Photo uploaded: ${fileName}`,
             createdById: uploadedById,
         });
 

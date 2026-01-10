@@ -112,7 +112,7 @@ export interface UpdateTaskData {
 
 export interface AddUpdateData {
     workOrderId: string;
-    updateType: 'STATUS_CHANGE' | 'PROGRESS_UPDATE' | 'NOTE' | 'PHOTO';
+    updateType: 'STATUS_CHANGE' | 'PROGRESS_UPDATE' | 'NOTE' | 'PHOTO' | 'COMMENT';
     message: string;
     oldStatus?: WorkOrderStatus;
     newStatus?: WorkOrderStatus;
