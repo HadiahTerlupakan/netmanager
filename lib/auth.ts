@@ -179,7 +179,7 @@ export const authConfig: NextAuthOptions = {
             const role = userWithRole?.role
 
             // Super Admin bypass
-            if (role?.name === 'SUPER_ADMIN') {
+            if (role?.name === 'SUPER_ADMIN' || role?.name === 'Super Admin') {
               console.log('[AUTH] SUPER_ADMIN access granted')
             } else {
               if (portal === 'admin' && !role?.accessAdminPanel) {
@@ -243,7 +243,7 @@ export const authConfig: NextAuthOptions = {
           token.departmentName = dbUser?.departments?.name
 
           // Handle SUPER_ADMIN special case - they should have access to everything
-          if (token.role === 'SUPER_ADMIN') {
+          if (token.role === 'SUPER_ADMIN' || token.role === 'Super Admin') {
             token.accessAdminPanel = true
             token.accessEmployeePanel = true
           }
@@ -299,7 +299,7 @@ export const authConfig: NextAuthOptions = {
           token.accessAdminPanel = dbUser.role?.accessAdminPanel ?? false
           token.accessEmployeePanel = dbUser.role?.accessEmployeePanel ?? false
 
-          if (token.role === 'SUPER_ADMIN') {
+          if (token.role === 'SUPER_ADMIN' || token.role === 'Super Admin') {
             token.accessAdminPanel = true
             token.accessEmployeePanel = true
           }
@@ -379,6 +379,8 @@ export const handler = NextAuth(authConfig)
 import { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
+import { verifyMobileToken } from '@/lib/mobile-auth'
+
 export interface UserSession {
   id: string
   email: string
@@ -391,12 +393,43 @@ export interface UserSession {
 
 export async function verifyAuth(request: NextRequest): Promise<UserSession | null> {
   try {
+    // 1. Check for Bearer token (Mobile)
+    const authHeader = request.headers.get('Authorization')
+    console.log('[AUTH_VERIFY] Authorization header:', authHeader ? (authHeader.substring(0, 15) + '...') : 'Missing')
+    
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1]
+      if (token === 'null' || !token) {
+        console.warn('[AUTH_VERIFY] Bearer token is literal "null" or empty')
+        return null
+      }
+      
+      const mobilePayload = await verifyMobileToken(token)
+      
+      if (mobilePayload) {
+        console.log('[AUTH_VERIFY] Mobile token verified for:', mobilePayload.email)
+        return {
+          id: mobilePayload.userId,
+          email: mobilePayload.email as string,
+          name: mobilePayload.name as string | null,
+          role: mobilePayload.role as string | undefined,
+          departmentId: (mobilePayload as any).departmentId as string | undefined,
+          siteId: (mobilePayload as any).siteId as string | undefined,
+          permissions: (mobilePayload as any).permissions as string[] | undefined,
+        }
+      } else {
+        console.warn('[AUTH_VERIFY] Mobile token verification failed')
+      }
+    }
+
+    // 2. Check for NextAuth token (Web)
     const token = await getToken({
       req: request as any,
       secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
     })
 
     if (!token) {
+      console.log('[AUTH_VERIFY] No valid session or Bearer token found')
       return null
     }
 
@@ -404,13 +437,13 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
       id: token.id as string,
       email: token.email as string,
       name: token.name as string | null,
-      role: token.role as string | undefined, // Added role
-      departmentId: token.departmentId as string | undefined, // Added departmentId
-      siteId: token.siteId as string | undefined, // Added siteId
-      permissions: token.permissions as string[] | undefined, // Added permissions
+      role: token.role as string | undefined,
+      departmentId: token.departmentId as string | undefined,
+      siteId: token.siteId as string | undefined,
+      permissions: token.permissions as string[] | undefined,
     }
   } catch (error) {
-    console.error('Error verifying auth:', error)
+    console.error('[AUTH_VERIFY] Error verifying auth:', error)
     return null
   }
 }

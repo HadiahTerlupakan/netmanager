@@ -234,6 +234,19 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete'],
         description: 'Manajemen versi aplikasi mobile'
     },
+    // ====== MARKETING MODULE ======
+    marketing: {
+        actions: ['read', 'create', 'update', 'delete', 'site_only'],
+        description: 'Menu marketing (parent)'
+    },
+    coupon: {
+        actions: ['read', 'create', 'update', 'delete', 'site_only'],
+        description: 'Manajemen kupon diskon'
+    },
+    canvasing: {
+        actions: ['read', 'create', 'update', 'delete', 'site_only'], // 'update' covers approval/rejection
+        description: 'Request canvasing dari sales'
+    },
 }
 
 /**

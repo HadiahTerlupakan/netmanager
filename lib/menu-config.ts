@@ -155,6 +155,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineMegaphone',
         children: [
             { code: 'MARKETING.COUPON', name: 'Manajemen Kupon', path: '/admin/marketing/coupons', icon: 'HiOutlineTicket' },
+            { code: 'MARKETING.CANVASING', name: 'Canvasing', path: '/admin/marketing/canvasing', icon: 'HiOutlineClipboardDocumentList' },
         ]
     },
     {

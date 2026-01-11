@@ -40,18 +40,29 @@ export interface MobileTokenPayload {
 
 export async function verifyMobileToken(token: string): Promise<MobileTokenPayload | null> {
     try {
+        console.log('[MOBILE_AUTH] Verifying token...')
         const { payload } = await jwtVerify(token, secret)
         // Support both 'sub' and 'id' for backwards compatibility
         const userId = payload.sub || (payload as any).id
         
+        console.log('[MOBILE_AUTH] Token payload verified for user:', userId)
+
         // Validate tokenVersion against database
         const dbUser = await prisma.user.findUnique({
             where: { id: userId as string },
-            select: { tokenVersion: true, isActive: true }
+            select: { 
+                tokenVersion: true, 
+                isActive: true,
+                role: {
+                    include: {
+                        permission: true
+                    }
+                }
+            }
         })
 
         if (!dbUser) {
-            console.log('[MOBILE_AUTH] User not found:', userId)
+            console.log('[MOBILE_AUTH] User not found in DB:', userId)
             return null
         }
 
@@ -67,8 +78,18 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
             return null
         }
 
-        return { ...payload, sub: userId, userId } as any
+        const permissions = dbUser.role?.permission.map(p => `${p.resource}:${p.action}`) || []
+        console.log(`[MOBILE_AUTH] Permissions for ${userId}:`, permissions.length)
+
+        return { 
+            ...payload, 
+            sub: userId, 
+            userId,
+            role: dbUser.role?.name,
+            permissions
+        } as any
     } catch (error) {
+        console.error('[MOBILE_AUTH] Token verification failed:', error)
         return null
     }
 }

@@ -1043,6 +1043,8 @@ model User {
   work_order_updates                         WorkOrderUpdates[]
   work_orders_work_orders_assignedToIdToUser WorkOrders[]              @relation("work_orders_assignedToIdToUser")
   work_orders_work_orders_createdByIdToUser  WorkOrders[]              @relation("work_orders_createdByIdToUser")
+  salesCanvasing                             Canvasing[]               @relation("SalesCanvasing")
+  approverCanvasing                          Canvasing[]               @relation("ApproverCanvasing")
 
   @@index([departmentId])
   @@index([isActive])
@@ -2074,6 +2076,7 @@ model WorkOrders {
   sla                 Sla?                   @relation(fields: [slaId], references: [id])
   template            WorkOrderTemplates?    @relation(fields: [templateId], references: [id])
   ticket              SupportTickets?        @relation(fields: [ticketId], references: [id])
+  canvasing           Canvasing[]
 
   @@index([assignedToId])
   @@index([departmentId])
@@ -2376,4 +2379,41 @@ enum WorkingHourMode {
   FIXED
   SHIFT
   FLEXIBLE
+}
+
+model Canvasing {
+  id          String          @id @default(uuid())
+  nama        String
+  noKtp       String
+  noTelpon    String
+  email       String?
+  alamat      String
+  kabel       Int
+  odp         String?
+  paket       String
+  sn          String?
+  latitude    Float?
+  longitude   Float?
+  foto        String?
+  fotoKtp     String?
+  status      CanvasingStatus @default(PENDING)
+  salesId     String
+  sales       User            @relation("SalesCanvasing", fields: [salesId], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  approvedBy  String?
+  approvedAt  DateTime?
+  approver    User?           @relation("ApproverCanvasing", fields: [approvedBy], references: [id])
+  workOrderId String?
+  workOrder   WorkOrders?     @relation(fields: [workOrderId], references: [id])
+
+  @@index([salesId])
+  @@index([status])
+  @@map("canvasing")
+}
+
+enum CanvasingStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

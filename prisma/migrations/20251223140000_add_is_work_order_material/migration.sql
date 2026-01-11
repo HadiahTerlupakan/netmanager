@@ -32,16 +32,14 @@ CREATE TYPE "ItemType" AS ENUM ('SERVICE', 'PRODUCT', 'SETUP_FEE', 'MONTHLY_FEE'
 CREATE TYPE "KondisiBarang" AS ENUM ('BARU', 'BEKAS', 'RUSAK');
 
 -- CreateEnum
-CREATE TYPE "LeaveStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
 
 -- CreateEnum
-CREATE TYPE "LeaveType" AS ENUM ('SAKIT', 'CUTI', 'IZIN', 'LAINNYA', 'TUKAR_LIBUR');
 
 -- CreateEnum
 CREATE TYPE "LogType" AS ENUM ('AUTH', 'ACTIVITY', 'SYSTEM');
 
 -- CreateEnum
-CREATE TYPE "OvertimeStatus" AS ENUM ('PENDING', 'APPROVED', 'IN_PROGRESS', 'COMPLETED', 'REJECTED');
+CREATE TYPE "OvertimeStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'IN_PROGRESS', 'COMPLETED');
 
 -- CreateEnum
 CREATE TYPE "PaymentMethod" AS ENUM ('CASH', 'BANK_TRANSFER', 'E_WALLET', 'CREDIT_CARD', 'DEBIT_CARD', 'CHECK', 'OTHER');
@@ -50,7 +48,7 @@ CREATE TYPE "PaymentMethod" AS ENUM ('CASH', 'BANK_TRANSFER', 'E_WALLET', 'CREDI
 CREATE TYPE "PeriodType" AS ENUM ('DAILY', 'WEEKLY', 'MONTHLY');
 
 -- CreateEnum
-CREATE TYPE "RegistrationStatus" AS ENUM ('PENDING', 'VERIFIED', 'REJECTED', 'SURVEYED', 'INSTALLED', 'CANCELLED');
+CREATE TYPE "RegistrationStatus" AS ENUM ('PENDING', 'VERIFIED', 'SURVEYED', 'INSTALLED', 'CANCELLED', 'REJECTED');
 
 -- CreateEnum
 CREATE TYPE "RestoreStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'CANCELLED', 'ROLLED_BACK');
@@ -164,36 +162,14 @@ CREATE TABLE "Attendance" (
     "status" TEXT NOT NULL DEFAULT 'PRESENT',
     "notes" TEXT,
     "location" TEXT,
-    "checkOutLocation" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "geofenceStatus" TEXT,
-    "geofenceDistance" DOUBLE PRECISION,
-    "geofenceSiteName" TEXT,
-    "checkOutGeofenceStatus" TEXT,
-    "checkOutGeofenceDistance" DOUBLE PRECISION,
-    "geofenceMeta" JSONB,
+    "checkOutLocation" TEXT,
 
     CONSTRAINT "Attendance_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "employee_locations" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "latitude" DOUBLE PRECISION NOT NULL,
-    "longitude" DOUBLE PRECISION NOT NULL,
-    "accuracy" DOUBLE PRECISION,
-    "altitude" DOUBLE PRECISION,
-    "speed" DOUBLE PRECISION,
-    "heading" DOUBLE PRECISION,
-    "batteryLevel" DOUBLE PRECISION,
-    "isMoving" BOOLEAN NOT NULL DEFAULT false,
-    "recordedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "employee_locations_pkey" PRIMARY KEY ("id")
-);
 
 -- CreateTable
 CREATE TABLE "Bandwidth" (
@@ -284,7 +260,6 @@ CREATE TABLE "Expense" (
     "userId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "siteId" TEXT,
 
     CONSTRAINT "Expense_pkey" PRIMARY KEY ("id")
 );
@@ -315,16 +290,6 @@ CREATE TABLE "HargaPaket" (
 );
 
 -- CreateTable
-CREATE TABLE "Holiday" (
-    "id" TEXT NOT NULL,
-    "date" TIMESTAMP(3) NOT NULL,
-    "description" TEXT NOT NULL,
-    "isNational" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Holiday_pkey" PRIMARY KEY ("id")
-);
 
 -- CreateTable
 CREATE TABLE "Invoice" (
@@ -346,7 +311,6 @@ CREATE TABLE "Invoice" (
     "createdBy" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "siteId" TEXT,
 
     CONSTRAINT "Invoice_pkey" PRIMARY KEY ("id")
 );
@@ -425,24 +389,6 @@ CREATE TABLE "KmzFile" (
 );
 
 -- CreateTable
-CREATE TABLE "LeaveRequest" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "type" "LeaveType" NOT NULL,
-    "startDate" TIMESTAMP(3) NOT NULL,
-    "endDate" TIMESTAMP(3) NOT NULL,
-    "reason" TEXT NOT NULL,
-    "attachmentUrl" TEXT,
-    "attachments" TEXT[] DEFAULT ARRAY[]::TEXT[],
-    "status" "LeaveStatus" NOT NULL DEFAULT 'PENDING',
-    "approvedBy" TEXT,
-    "rejectionReason" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "replacementDate" TIMESTAMP(3),
-
-    CONSTRAINT "LeaveRequest_pkey" PRIMARY KEY ("id")
-);
 
 -- CreateTable
 CREATE TABLE "MRRMovement" (
@@ -467,6 +413,8 @@ CREATE TABLE "MikroTikRouter" (
     "apiPort" INTEGER NOT NULL DEFAULT 8728,
     "apiUsername" TEXT NOT NULL,
     "apiPassword" TEXT NOT NULL,
+    "apiUsernameGenerated" TEXT,
+    "apiPasswordGenerated" TEXT,
     "authPort" INTEGER NOT NULL DEFAULT 7265,
     "accountingPort" INTEGER NOT NULL DEFAULT 7266,
     "secretRadius" TEXT NOT NULL,
@@ -477,9 +425,6 @@ CREATE TABLE "MikroTikRouter" (
     "lastStatusCheck" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "apiPasswordGenerated" TEXT,
-    "apiUsernameGenerated" TEXT,
-    "siteId" TEXT,
 
     CONSTRAINT "MikroTikRouter_pkey" PRIMARY KEY ("id")
 );
@@ -497,7 +442,6 @@ CREATE TABLE "Odc" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "otbCoreId" TEXT NOT NULL,
     "keteranganJumlahKabelFeeder" TEXT,
-    "siteId" TEXT,
 
     CONSTRAINT "Odc_pkey" PRIMARY KEY ("id")
 );
@@ -528,7 +472,6 @@ CREATE TABLE "Odp" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "odcOutputId" TEXT NOT NULL,
     "keteranganJumlahKabelFeeder" TEXT,
-    "siteId" TEXT,
 
     CONSTRAINT "Odp_pkey" PRIMARY KEY ("id")
 );
@@ -571,7 +514,6 @@ CREATE TABLE "Olt" (
     "onuSyncEnabled" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "siteId" TEXT,
 
     CONSTRAINT "Olt_pkey" PRIMARY KEY ("id")
 );
@@ -685,7 +627,6 @@ CREATE TABLE "Otb" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "keteranganJumlahKabelFeeder" TEXT,
-    "siteId" TEXT,
 
     CONSTRAINT "Otb_pkey" PRIMARY KEY ("id")
 );
@@ -707,19 +648,19 @@ CREATE TABLE "Overtime" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "attendanceId" TEXT,
-    "reason" TEXT NOT NULL,
-    "startTime" TIMESTAMP(3),
-    "endTime" TIMESTAMP(3),
-    "startPhoto" TEXT,
-    "startLocation" TEXT,
-    "endPhoto" TEXT,
-    "endLocation" TEXT,
     "duration" INTEGER,
+    "reason" TEXT NOT NULL,
     "status" "OvertimeStatus" NOT NULL DEFAULT 'PENDING',
     "rejectionReason" TEXT,
     "approvedBy" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "endLocation" TEXT,
+    "endPhoto" TEXT,
+    "endTime" TIMESTAMP(3),
+    "startLocation" TEXT,
+    "startPhoto" TEXT,
+    "startTime" TIMESTAMP(3),
 
     CONSTRAINT "Overtime_pkey" PRIMARY KEY ("id")
 );
@@ -727,17 +668,17 @@ CREATE TABLE "Overtime" (
 -- CreateTable
 CREATE TABLE "Payment" (
     "id" TEXT NOT NULL,
-    "invoiceId" TEXT,
     "pelangganId" TEXT NOT NULL,
     "amount" BIGINT NOT NULL,
     "paymentDate" TIMESTAMP(3) NOT NULL,
-    "paymentMethod" "PaymentMethod" NOT NULL,
     "reference" TEXT,
     "notes" TEXT,
     "verifiedBy" TEXT,
     "verifiedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "invoiceId" TEXT,
+    "paymentMethod" "PaymentMethod" NOT NULL,
 
     CONSTRAINT "Payment_pkey" PRIMARY KEY ("id")
 );
@@ -802,9 +743,6 @@ CREATE TABLE "Pelanggan" (
     "useDiscount" BOOLEAN NOT NULL DEFAULT false,
     "usePPN" BOOLEAN NOT NULL DEFAULT true,
     "useProrate" BOOLEAN NOT NULL DEFAULT false,
-    "is2FAEnabled" BOOLEAN NOT NULL DEFAULT false,
-    "isBillNotifEnabled" BOOLEAN NOT NULL DEFAULT true,
-    "isPromoEnabled" BOOLEAN NOT NULL DEFAULT false,
     "jenisDokumen" TEXT,
     "noDokumen" TEXT,
     "fileBAST" TEXT,
@@ -820,8 +758,10 @@ CREATE TABLE "Pelanggan" (
     "passwordHash" TEXT,
     "tokenVersion" INTEGER NOT NULL DEFAULT 1,
     "userId" TEXT,
+    "is2FAEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "isBillNotifEnabled" BOOLEAN NOT NULL DEFAULT true,
+    "isPromoEnabled" BOOLEAN NOT NULL DEFAULT false,
     "autoIsolir" BOOLEAN NOT NULL DEFAULT true,
-    "siteId" TEXT,
 
     CONSTRAINT "Pelanggan_pkey" PRIMARY KEY ("id")
 );
@@ -851,7 +791,6 @@ CREATE TABLE "Pole" (
     "status" "Status" NOT NULL DEFAULT 'AKTIF',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "siteId" TEXT,
 
     CONSTRAINT "Pole_pkey" PRIMARY KEY ("id")
 );
@@ -923,20 +862,11 @@ CREATE TABLE "roles" (
     "accessAdminPanel" BOOLEAN NOT NULL DEFAULT false,
     "accessEmployeePanel" BOOLEAN NOT NULL DEFAULT false,
     "isRestricted" BOOLEAN NOT NULL DEFAULT false,
-    "isTechnical" BOOLEAN NOT NULL DEFAULT false,
 
-    CONSTRAINT "roles_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Role_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "Session" (
-    "id" TEXT NOT NULL,
-    "sessionToken" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "expires" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
-);
 
 -- CreateTable
 CREATE TABLE "Settings" (
@@ -985,41 +915,8 @@ CREATE TABLE "SystemLog" (
 );
 
 -- CreateTable
-CREATE TABLE "User" (
-    "id" TEXT NOT NULL,
-    "name" TEXT,
-    "email" TEXT NOT NULL,
-    "passwordHash" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "emailVerified" TIMESTAMP(3),
-    "image" TEXT,
-    "phone" TEXT,
-    "departmentId" TEXT,
-    "siteId" TEXT,
-    "roleId" TEXT,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "workingHourMode" "WorkingHourMode" NOT NULL DEFAULT 'FIXED',
-    "startWorkTime" TEXT,
-    "endWorkTime" TEXT,
-    "workDays" TEXT,
-    "shiftId" TEXT,
-    "flexibleTargetHour" INTEGER,
-    "pushToken" TEXT,
-    "pushTokenUpdatedAt" TIMESTAMP(3),
-    "tokenVersion" INTEGER NOT NULL DEFAULT 0,
-
-    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
-);
 
 -- CreateTable
-CREATE TABLE "VerificationToken" (
-    "identifier" TEXT NOT NULL,
-    "token" TEXT NOT NULL,
-    "expires" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "VerificationToken_pkey" PRIMARY KEY ("identifier","token")
-);
 
 -- CreateTable
 CREATE TABLE "barang" (
@@ -1040,11 +937,11 @@ CREATE TABLE "barang_gudang" (
     "barangId" TEXT NOT NULL,
     "gudangId" TEXT NOT NULL,
     "stok" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     "stokBaru" INTEGER NOT NULL DEFAULT 0,
     "stokBekas" INTEGER NOT NULL DEFAULT 0,
     "stokRusak" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "barang_gudang_pkey" PRIMARY KEY ("id")
 );
@@ -1067,11 +964,11 @@ CREATE TABLE "barang_keluar" (
     "nomorBatch" TEXT,
     "customer" TEXT,
     "isHilang" BOOLEAN NOT NULL DEFAULT false,
-    "userId" TEXT,
     "purpose" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "fotoBukti" TEXT[],
     "fotoMetadata" JSONB,
+    "userId" TEXT,
 
     CONSTRAINT "barang_keluar_pkey" PRIMARY KEY ("id")
 );
@@ -1126,8 +1023,6 @@ CREATE TABLE "configuration_restores" (
     "verifiedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "oltId" TEXT,
-    "onuId" TEXT,
 
     CONSTRAINT "configuration_restores_pkey" PRIMARY KEY ("id")
 );
@@ -1246,8 +1141,6 @@ CREATE TABLE "network_alerts" (
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "oltId" TEXT,
-    "onuId" TEXT,
 
     CONSTRAINT "network_alerts_pkey" PRIMARY KEY ("id")
 );
@@ -1278,8 +1171,6 @@ CREATE TABLE "network_performance" (
     "customMetrics" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "oltId" TEXT,
-    "onuId" TEXT,
 
     CONSTRAINT "network_performance_pkey" PRIMARY KEY ("id")
 );
@@ -1293,13 +1184,12 @@ CREATE TABLE "notifications" (
     "message" TEXT NOT NULL,
     "link" TEXT,
     "isRead" BOOLEAN NOT NULL DEFAULT false,
-    "userId" TEXT,
     "departmentId" TEXT,
     "sourceType" TEXT,
     "sourceId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "readAt" TIMESTAMP(3),
-    "siteId" TEXT,
+    "userId" TEXT,
 
     CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
 );
@@ -1345,7 +1235,6 @@ CREATE TABLE "positions" (
 -- CreateTable
 CREATE TABLE "push_subscriptions" (
     "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
     "endpoint" TEXT NOT NULL,
     "p256dh" TEXT NOT NULL,
     "auth" TEXT NOT NULL,
@@ -1354,6 +1243,7 @@ CREATE TABLE "push_subscriptions" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "lastUsedAt" TIMESTAMP(3),
+    "userId" TEXT NOT NULL,
 
     CONSTRAINT "push_subscriptions_pkey" PRIMARY KEY ("id")
 );
@@ -1490,17 +1380,17 @@ CREATE TABLE "registrations" (
     "phone" TEXT NOT NULL,
     "address" TEXT NOT NULL,
     "packageName" TEXT,
-    "location" TEXT,
     "latitude" DOUBLE PRECISION,
     "longitude" DOUBLE PRECISION,
-    "ipAddress" TEXT,
     "status" "RegistrationStatus" NOT NULL DEFAULT 'PENDING',
     "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "location" TEXT,
+    "ipAddress" TEXT,
     "rejectionReason" TEXT,
     "verifiedAt" TIMESTAMP(3),
     "verifiedBy" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "registrations_pkey" PRIMARY KEY ("id")
 );
@@ -1571,10 +1461,10 @@ CREATE TABLE "sites" (
     "address" TEXT,
     "latitude" DOUBLE PRECISION,
     "longitude" DOUBLE PRECISION,
-    "attendanceRadius" INTEGER NOT NULL DEFAULT 100,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "attendanceRadius" INTEGER NOT NULL DEFAULT 100,
 
     CONSTRAINT "sites_pkey" PRIMARY KEY ("id")
 );
@@ -1696,12 +1586,12 @@ CREATE TABLE "usage_analytics" (
 CREATE TABLE "work_order_assignments" (
     "id" TEXT NOT NULL,
     "workOrderId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
     "role" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
     "assignedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "respondedAt" TIMESTAMP(3),
     "assignedById" TEXT,
+    "userId" TEXT NOT NULL,
+    "respondedAt" TIMESTAMP(3),
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
 
     CONSTRAINT "work_order_assignments_pkey" PRIMARY KEY ("id")
 );
@@ -1800,7 +1690,6 @@ CREATE TABLE "work_orders" (
     "id" TEXT NOT NULL,
     "workOrderNumber" TEXT NOT NULL,
     "pelangganId" TEXT,
-    "siteId" TEXT,
     "type" "WorkOrderType" NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT NOT NULL,
@@ -1830,12 +1719,13 @@ CREATE TABLE "work_orders" (
     "resolutionNotes" TEXT,
     "customerFeedback" TEXT,
     "rating" INTEGER,
-    "disconnectionReason" TEXT,
-    "templateId" TEXT,
-    "slaId" TEXT,
-    "createdById" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdById" TEXT,
+    "disconnectionReason" TEXT,
+    "siteId" TEXT,
+    "slaId" TEXT,
+    "templateId" TEXT,
     "ticketId" TEXT,
 
     CONSTRAINT "work_orders_pkey" PRIMARY KEY ("id")
@@ -1873,27 +1763,6 @@ CREATE TABLE "Message" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Message_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "app_versions" (
-    "id" TEXT NOT NULL,
-    "version" TEXT NOT NULL,
-    "buildNumber" INTEGER NOT NULL,
-    "versionCode" INTEGER NOT NULL,
-    "platform" TEXT NOT NULL DEFAULT 'android',
-    "apkUrl" TEXT,
-    "apkSize" BIGINT,
-    "releaseNotes" TEXT,
-    "isForceUpdate" BOOLEAN NOT NULL DEFAULT false,
-    "minVersion" TEXT,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "publishedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "createdBy" TEXT,
-
-    CONSTRAINT "app_versions_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1952,15 +1821,6 @@ CREATE INDEX "Attendance_status_idx" ON "Attendance"("status");
 CREATE INDEX "Attendance_userId_idx" ON "Attendance"("userId");
 
 -- CreateIndex
-CREATE INDEX "employee_locations_userId_idx" ON "employee_locations"("userId");
-
--- CreateIndex
-CREATE INDEX "employee_locations_recordedAt_idx" ON "employee_locations"("recordedAt");
-
--- CreateIndex
-CREATE INDEX "employee_locations_userId_recordedAt_idx" ON "employee_locations"("userId", "recordedAt");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Bandwidth_name_key" ON "Bandwidth"("name");
 
 -- CreateIndex
@@ -1988,9 +1848,6 @@ CREATE INDEX "Expense_date_idx" ON "Expense"("date");
 CREATE INDEX "Expense_userId_idx" ON "Expense"("userId");
 
 -- CreateIndex
-CREATE INDEX "Expense_siteId_idx" ON "Expense"("siteId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "HargaPaket_name_key" ON "HargaPaket"("name");
 
 -- CreateIndex
@@ -2004,9 +1861,6 @@ CREATE INDEX "HargaPaket_profilePPPId_idx" ON "HargaPaket"("profilePPPId");
 
 -- CreateIndex
 CREATE INDEX "HargaPaket_status_idx" ON "HargaPaket"("status");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Holiday_date_key" ON "Holiday"("date");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Invoice_invoiceNumber_key" ON "Invoice"("invoiceNumber");
@@ -2027,9 +1881,6 @@ CREATE INDEX "Invoice_pelangganId_idx" ON "Invoice"("pelangganId");
 CREATE INDEX "Invoice_status_idx" ON "Invoice"("status");
 
 -- CreateIndex
-CREATE INDEX "Invoice_siteId_idx" ON "Invoice"("siteId");
-
--- CreateIndex
 CREATE INDEX "InvoiceItem_invoiceId_idx" ON "InvoiceItem"("invoiceId");
 
 -- CreateIndex
@@ -2037,15 +1888,6 @@ CREATE UNIQUE INDEX "JoinboxInput_joinboxId_idx_key" ON "JoinboxInput"("joinboxI
 
 -- CreateIndex
 CREATE UNIQUE INDEX "JoinboxOutput_joinboxId_idx_key" ON "JoinboxOutput"("joinboxId", "idx");
-
--- CreateIndex
-CREATE INDEX "LeaveRequest_startDate_idx" ON "LeaveRequest"("startDate");
-
--- CreateIndex
-CREATE INDEX "LeaveRequest_status_idx" ON "LeaveRequest"("status");
-
--- CreateIndex
-CREATE INDEX "LeaveRequest_userId_idx" ON "LeaveRequest"("userId");
 
 -- CreateIndex
 CREATE INDEX "MRRMovement_movementType_idx" ON "MRRMovement"("movementType");
@@ -2063,13 +1905,7 @@ CREATE UNIQUE INDEX "MikroTikRouter_ipAddress_key" ON "MikroTikRouter"("ipAddres
 CREATE INDEX "MikroTikRouter_pingStatus_idx" ON "MikroTikRouter"("pingStatus");
 
 -- CreateIndex
-CREATE INDEX "MikroTikRouter_siteId_idx" ON "MikroTikRouter"("siteId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Odc_otbCoreId_key" ON "Odc"("otbCoreId");
-
--- CreateIndex
-CREATE INDEX "Odc_siteId_idx" ON "Odc"("siteId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "OdcOutput_odcId_idx_key" ON "OdcOutput"("odcId", "idx");
@@ -2078,16 +1914,10 @@ CREATE UNIQUE INDEX "OdcOutput_odcId_idx_key" ON "OdcOutput"("odcId", "idx");
 CREATE UNIQUE INDEX "Odp_odcOutputId_key" ON "Odp"("odcOutputId");
 
 -- CreateIndex
-CREATE INDEX "Odp_siteId_idx" ON "Odp"("siteId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "OdpOutput_odpId_idx_key" ON "OdpOutput"("odpId", "idx");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Olt_ipAddress_key" ON "Olt"("ipAddress");
-
--- CreateIndex
-CREATE INDEX "Olt_siteId_idx" ON "Olt"("siteId");
 
 -- CreateIndex
 CREATE INDEX "Onu_lastSeen_idx" ON "Onu"("lastSeen");
@@ -2132,9 +1962,6 @@ CREATE INDEX "OnuType_oltId_idx" ON "OnuType"("oltId");
 CREATE UNIQUE INDEX "OnuType_oltId_name_key" ON "OnuType"("oltId", "name");
 
 -- CreateIndex
-CREATE INDEX "Otb_siteId_idx" ON "Otb"("siteId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "OtbCore_otbId_idx_key" ON "OtbCore"("otbId", "idx");
 
 -- CreateIndex
@@ -2174,9 +2001,6 @@ CREATE UNIQUE INDEX "Pelanggan_idPelanggan_key" ON "Pelanggan"("idPelanggan");
 CREATE INDEX "Pelanggan_email_idx" ON "Pelanggan"("email");
 
 -- CreateIndex
-CREATE INDEX "Pelanggan_siteId_idx" ON "Pelanggan"("siteId");
-
--- CreateIndex
 CREATE INDEX "Pelanggan_hargaPaketId_idx" ON "Pelanggan"("hargaPaketId");
 
 -- CreateIndex
@@ -2196,9 +2020,6 @@ CREATE INDEX "Pelanggan_tipe_idx" ON "Pelanggan"("tipe");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Permission_resource_action_key" ON "Permission"("resource", "action");
-
--- CreateIndex
-CREATE INDEX "Pole_siteId_idx" ON "Pole"("siteId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ProfilePPP_name_key" ON "ProfilePPP"("name");
@@ -2225,10 +2046,7 @@ CREATE INDEX "RevenueSnapshot_snapshotType_idx" ON "RevenueSnapshot"("snapshotTy
 CREATE UNIQUE INDEX "RevenueSnapshot_snapshotDate_snapshotType_key" ON "RevenueSnapshot"("snapshotDate", "snapshotType");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "roles_name_key" ON "roles"("name");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Session_sessionToken_key" ON "Session"("sessionToken");
+CREATE UNIQUE INDEX "Role_name_key" ON "roles"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Settings_key_key" ON "Settings"("key");
@@ -2253,24 +2071,6 @@ CREATE INDEX "SystemLog_type_idx" ON "SystemLog"("type");
 
 -- CreateIndex
 CREATE INDEX "SystemLog_userId_idx" ON "SystemLog"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
-
--- CreateIndex
-CREATE INDEX "User_departmentId_idx" ON "User"("departmentId");
-
--- CreateIndex
-CREATE INDEX "User_isActive_idx" ON "User"("isActive");
-
--- CreateIndex
-CREATE INDEX "User_roleId_idx" ON "User"("roleId");
-
--- CreateIndex
-CREATE INDEX "User_siteId_idx" ON "User"("siteId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "VerificationToken_token_key" ON "VerificationToken"("token");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "barang_kode_key" ON "barang"("kode");
@@ -2750,21 +2550,6 @@ CREATE INDEX "Message_conversationId_createdAt_idx" ON "Message"("conversationId
 CREATE INDEX "Message_senderId_idx" ON "Message"("senderId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "app_versions_version_key" ON "app_versions"("version");
-
--- CreateIndex
-CREATE UNIQUE INDEX "app_versions_versionCode_key" ON "app_versions"("versionCode");
-
--- CreateIndex
-CREATE INDEX "app_versions_isActive_idx" ON "app_versions"("isActive");
-
--- CreateIndex
-CREATE INDEX "app_versions_platform_idx" ON "app_versions"("platform");
-
--- CreateIndex
-CREATE INDEX "app_versions_versionCode_idx" ON "app_versions"("versionCode");
-
--- CreateIndex
 CREATE INDEX "_PermissionToRole_B_index" ON "_PermissionToRole"("B");
 
 -- CreateIndex
@@ -2783,16 +2568,10 @@ ALTER TABLE "AnnouncementRead" ADD CONSTRAINT "AnnouncementRead_announcementId_f
 ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employee_locations" ADD CONSTRAINT "employee_locations_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "CouponUsage" ADD CONSTRAINT "CouponUsage_couponId_fkey" FOREIGN KEY ("couponId") REFERENCES "Coupon"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "CouponUsage" ADD CONSTRAINT "CouponUsage_pelangganId_fkey" FOREIGN KEY ("pelangganId") REFERENCES "Pelanggan"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Expense" ADD CONSTRAINT "Expense_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Expense" ADD CONSTRAINT "Expense_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -2807,9 +2586,6 @@ ALTER TABLE "HargaPaket" ADD CONSTRAINT "HargaPaket_profilePPPId_fkey" FOREIGN K
 ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_pelangganId_fkey" FOREIGN KEY ("pelangganId") REFERENCES "Pelanggan"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "InvoiceItem" ADD CONSTRAINT "InvoiceItem_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "Invoice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -2819,16 +2595,7 @@ ALTER TABLE "JoinboxInput" ADD CONSTRAINT "JoinboxInput_joinboxId_fkey" FOREIGN 
 ALTER TABLE "JoinboxOutput" ADD CONSTRAINT "JoinboxOutput_joinboxId_fkey" FOREIGN KEY ("joinboxId") REFERENCES "Joinbox"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "LeaveRequest" ADD CONSTRAINT "LeaveRequest_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "MikroTikRouter" ADD CONSTRAINT "MikroTikRouter_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "Odc" ADD CONSTRAINT "Odc_otbCoreId_fkey" FOREIGN KEY ("otbCoreId") REFERENCES "OtbCore"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Odc" ADD CONSTRAINT "Odc_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "OdcOutput" ADD CONSTRAINT "OdcOutput_odcId_fkey" FOREIGN KEY ("odcId") REFERENCES "Odc"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -2837,22 +2604,13 @@ ALTER TABLE "OdcOutput" ADD CONSTRAINT "OdcOutput_odcId_fkey" FOREIGN KEY ("odcI
 ALTER TABLE "Odp" ADD CONSTRAINT "Odp_odcOutputId_fkey" FOREIGN KEY ("odcOutputId") REFERENCES "OdcOutput"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Odp" ADD CONSTRAINT "Odp_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "OdpOutput" ADD CONSTRAINT "OdpOutput_odpId_fkey" FOREIGN KEY ("odpId") REFERENCES "Odp"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Olt" ADD CONSTRAINT "Olt_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Onu" ADD CONSTRAINT "Onu_oltId_fkey" FOREIGN KEY ("oltId") REFERENCES "Olt"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "OnuType" ADD CONSTRAINT "OnuType_oltId_fkey" FOREIGN KEY ("oltId") REFERENCES "Olt"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Otb" ADD CONSTRAINT "Otb_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "OtbCore" ADD CONSTRAINT "OtbCore_otbId_fkey" FOREIGN KEY ("otbId") REFERENCES "Otb"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -2873,34 +2631,16 @@ ALTER TABLE "Pelanggan" ADD CONSTRAINT "Pelanggan_hargaPaketId_fkey" FOREIGN KEY
 ALTER TABLE "Pelanggan" ADD CONSTRAINT "Pelanggan_odpId_fkey" FOREIGN KEY ("odpId") REFERENCES "Odp"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Pelanggan" ADD CONSTRAINT "Pelanggan_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "Pelanggan" ADD CONSTRAINT "Pelanggan_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Pole" ADD CONSTRAINT "Pole_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "ProfilePPP" ADD CONSTRAINT "ProfilePPP_mikroTikRouterId_fkey" FOREIGN KEY ("mikroTikRouterId") REFERENCES "MikroTikRouter"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SpeedProfile" ADD CONSTRAINT "SpeedProfile_oltId_fkey" FOREIGN KEY ("oltId") REFERENCES "Olt"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SystemLog" ADD CONSTRAINT "SystemLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "departments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "barang_gudang" ADD CONSTRAINT "barang_gudang_barangId_fkey" FOREIGN KEY ("barangId") REFERENCES "barang"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -2936,13 +2676,13 @@ ALTER TABLE "barang_masuk" ADD CONSTRAINT "barang_masuk_userId_fkey" FOREIGN KEY
 ALTER TABLE "configuration_restores" ADD CONSTRAINT "configuration_restore_mikrotik_fkey" FOREIGN KEY ("deviceId") REFERENCES "MikroTikRouter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "configuration_restores" ADD CONSTRAINT "configuration_restore_olt_fkey" FOREIGN KEY ("deviceId") REFERENCES "Olt"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "configuration_restores" ADD CONSTRAINT "configuration_restore_onu_fkey" FOREIGN KEY ("deviceId") REFERENCES "Onu"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "configuration_restores" ADD CONSTRAINT "configuration_restores_backupId_fkey" FOREIGN KEY ("backupId") REFERENCES "device_backups"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "configuration_restores" ADD CONSTRAINT "configuration_restores_oltId_fkey" FOREIGN KEY ("oltId") REFERENCES "Olt"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "configuration_restores" ADD CONSTRAINT "configuration_restores_onuId_fkey" FOREIGN KEY ("onuId") REFERENCES "Onu"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "customer_usage" ADD CONSTRAINT "customer_usage_pelangganId_fkey" FOREIGN KEY ("pelangganId") REFERENCES "Pelanggan"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -2951,25 +2691,22 @@ ALTER TABLE "customer_usage" ADD CONSTRAINT "customer_usage_pelangganId_fkey" FO
 ALTER TABLE "network_alerts" ADD CONSTRAINT "network_alert_mikrotik_fkey" FOREIGN KEY ("deviceId") REFERENCES "MikroTikRouter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "network_alerts" ADD CONSTRAINT "network_alerts_oltId_fkey" FOREIGN KEY ("oltId") REFERENCES "Olt"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "network_alerts" ADD CONSTRAINT "network_alert_olt_fkey" FOREIGN KEY ("deviceId") REFERENCES "Olt"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "network_alerts" ADD CONSTRAINT "network_alerts_onuId_fkey" FOREIGN KEY ("onuId") REFERENCES "Onu"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "network_alerts" ADD CONSTRAINT "network_alert_onu_fkey" FOREIGN KEY ("deviceId") REFERENCES "Onu"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "network_performance" ADD CONSTRAINT "network_performance_mikrotik_fkey" FOREIGN KEY ("deviceId") REFERENCES "MikroTikRouter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "network_performance" ADD CONSTRAINT "network_performance_oltId_fkey" FOREIGN KEY ("oltId") REFERENCES "Olt"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "network_performance" ADD CONSTRAINT "network_performance_olt_fkey" FOREIGN KEY ("deviceId") REFERENCES "Olt"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "network_performance" ADD CONSTRAINT "network_performance_onuId_fkey" FOREIGN KEY ("onuId") REFERENCES "Onu"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "network_performance" ADD CONSTRAINT "network_performance_onu_fkey" FOREIGN KEY ("deviceId") REFERENCES "Onu"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "departments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "notifications" ADD CONSTRAINT "notifications_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -3108,9 +2845,6 @@ ALTER TABLE "Message" ADD CONSTRAINT "Message_conversationId_fkey" FOREIGN KEY (
 
 -- AddForeignKey
 ALTER TABLE "Message" ADD CONSTRAINT "Message_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "app_versions" ADD CONSTRAINT "app_versions_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_PermissionToRole" ADD CONSTRAINT "_PermissionToRole_A_fkey" FOREIGN KEY ("A") REFERENCES "Permission"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -9,7 +9,7 @@ export async function hasPermission(requiredPermission: string): Promise<boolean
     }
 
     // Super Admin bypass
-    if (session.user.role === 'SUPER_ADMIN') {
+    if (session.user.role === 'SUPER_ADMIN' || session.user.role === 'Super Admin') {
         return true
     }
 
@@ -20,7 +20,7 @@ export async function hasPermission(requiredPermission: string): Promise<boolean
 export async function hasAnyPermission(requiredPermissions: string[]): Promise<boolean> {
     const session = await getServerSession(authConfig)
     if (!session?.user) return false
-    if (session.user.role === 'SUPER_ADMIN') return true
+    if (session.user.role === 'SUPER_ADMIN' || session.user.role === 'Super Admin') return true
 
     const permissions = session.user.permissions || []
     return requiredPermissions.some(p => permissions.includes(p))

@@ -1,9 +1,9 @@
 type StatusBadgeProps = {
-  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE'
+  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE' | 'PENDING' | 'APPROVED' | 'REJECTED'
   size?: 'sm' | 'md' | 'lg'
 }
 
-const statusConfig: Record<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE', { label: string; bgColor: string; textColor: string; borderColor: string }> = {
+const statusConfig: Record<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DISMANTLE' | 'PENDING' | 'APPROVED' | 'REJECTED', { label: string; bgColor: string; textColor: string; borderColor: string }> = {
   AKTIF: {
     label: 'Aktif',
     bgColor: 'bg-green-50 dark:bg-green-900/20',
@@ -30,6 +30,24 @@ const statusConfig: Record<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DI
   },
   DISMANTLE: {
     label: 'Dismantle',
+    bgColor: 'bg-red-50 dark:bg-red-900/20',
+    textColor: 'text-red-700 dark:text-red-400',
+    borderColor: 'border-red-200 dark:border-red-800',
+  },
+  PENDING: {
+    label: 'Pending',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+    textColor: 'text-yellow-700 dark:text-yellow-400',
+    borderColor: 'border-yellow-200 dark:border-yellow-800',
+  },
+  APPROVED: {
+    label: 'Approved',
+    bgColor: 'bg-green-50 dark:bg-green-900/20',
+    textColor: 'text-green-700 dark:text-green-400',
+    borderColor: 'border-green-200 dark:border-green-800',
+  },
+  REJECTED: {
+    label: 'Rejected',
     bgColor: 'bg-red-50 dark:bg-red-900/20',
     textColor: 'text-red-700 dark:text-red-400',
     borderColor: 'border-red-200 dark:border-red-800',

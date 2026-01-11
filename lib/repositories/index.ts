@@ -30,6 +30,9 @@ import type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateDa
 import { PengeluaranRepository, PemasukanRepository } from '@/modules/finance/repositories'
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
 import type { IWorkOrderRepository } from '@/modules/work-order/repositories/IWorkOrderRepository'
+import { CanvasingRepository } from '@/modules/marketing/repositories/CanvasingRepository'
+import type { ICanvasingRepository } from '@/modules/marketing/repositories/ICanvasingRepository'
+import { CanvasingService } from '@/modules/marketing/services/CanvasingService'
 import { AttendanceRepository } from '@/modules/attendance/repositories/AttendanceRepository'
 import { prisma } from '@/lib/prisma'
 
@@ -189,6 +192,9 @@ export { InventoryRepository } from '@/modules/inventory'
 export type { IInventoryRepository, CreateBarangInput, UpdateBarangInput, CreateBarangMasukInput, CreateBarangKeluarInput, BarangWithStock } from '@/modules/inventory'
 export { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
 export type { IWorkOrderRepository, WorkOrderWithRelations, CreateWorkOrderData, UpdateWorkOrderData } from '@/modules/work-order/repositories/IWorkOrderRepository'
+export { CanvasingRepository } from '@/modules/marketing/repositories/CanvasingRepository'
+export type { ICanvasingRepository } from '@/modules/marketing/repositories/ICanvasingRepository'
+export { CanvasingService } from '@/modules/marketing/services/CanvasingService'
 
 let inventoryRepositoryInstance: IInventoryRepository | null = null
 
@@ -215,4 +221,24 @@ export function getAttendanceRepository(): AttendanceRepository {
     attendanceRepositoryInstance = new AttendanceRepository()
   }
   return attendanceRepositoryInstance
+}
+
+let canvasingRepositoryInstance: ICanvasingRepository | null = null
+let canvasingServiceInstance: CanvasingService | null = null
+
+export function getCanvasingRepository(): ICanvasingRepository {
+  if (!canvasingRepositoryInstance) {
+    canvasingRepositoryInstance = new CanvasingRepository(prisma)
+  }
+  return canvasingRepositoryInstance
+}
+
+export function getCanvasingService(): CanvasingService {
+  if (!canvasingServiceInstance) {
+    canvasingServiceInstance = new CanvasingService(
+      getCanvasingRepository(),
+      getWorkOrderRepository()
+    )
+  }
+  return canvasingServiceInstance
 }

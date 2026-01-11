@@ -12,7 +12,7 @@ export function usePermission() {
         if (!session?.user) return false
 
         // Super Admin bypass
-        if (session.user.role === 'SUPER_ADMIN') return true
+        if (session.user.role === 'SUPER_ADMIN' || session.user.role === 'Super Admin') return true
 
         const permissions = session.user.permissions || []
         return permissions.includes(requiredPermission)
@@ -20,7 +20,7 @@ export function usePermission() {
 
     const hasAnyPermission = useCallback((requiredPermissions: string[]) => {
         if (!session?.user) return false
-        if (session.user.role === 'SUPER_ADMIN') return true
+        if (session.user.role === 'SUPER_ADMIN' || session.user.role === 'Super Admin') return true
 
         const permissions = session.user.permissions || []
         return requiredPermissions.some(p => permissions.includes(p))
