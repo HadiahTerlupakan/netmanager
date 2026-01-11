@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlineEye, HiOutlineMagnifyingGlass, HiOutlinePencilSquare, HiOutlinePlus, HiOutlineTrash } from 'react-icons/hi2'
+import { HiOutlineEye, HiOutlineLockClosed, HiOutlineMagnifyingGlass, HiOutlinePencilSquare, HiOutlinePlus, HiOutlineTrash } from 'react-icons/hi2'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
 import { format } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
 import { toast } from 'react-hot-toast'
+import { usePermission } from '@/hooks/use-permission'
 
 interface CanvasingItem {
     id: string
@@ -24,6 +25,13 @@ export default function CanvasingList() {
     const [items, setItems] = useState<CanvasingItem[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
+
+    // Permission checks
+    const { hasPermission, isLoading: permLoading } = usePermission()
+    const canRead = hasPermission('canvasing:read')
+    const canCreate = hasPermission('canvasing:create')
+    const canUpdate = hasPermission('canvasing:update')
+    const canDelete = hasPermission('canvasing:delete')
 
     useEffect(() => {
         fetchData()
@@ -67,7 +75,22 @@ export default function CanvasingList() {
         item.alamat.toLowerCase().includes(search.toLowerCase())
     )
 
-    if (loading) return <PageLoader />
+    if (loading || permLoading) return <PageLoader />
+
+    // Access denied view
+    if (!canRead) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-full mb-4">
+                    <HiOutlineLockClosed className="w-12 h-12 text-red-500" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Akses Terbatas</h2>
+                <p className="text-gray-500 dark:text-gray-400 max-w-md">
+                    Anda tidak memiliki izin untuk mengakses halaman Canvasing. Hubungi administrator untuk mendapatkan akses.
+                </p>
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-6">
@@ -78,13 +101,15 @@ export default function CanvasingList() {
                 </div>
 
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    <Link 
-                        href="/admin/marketing/canvasing/new"
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-all shadow-sm"
-                    >
-                        <HiOutlinePlus className="w-5 h-5" />
-                        Tambah Canvasing
-                    </Link>
+                    {canCreate && (
+                        <Link 
+                            href="/admin/marketing/canvasing/new"
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-all shadow-sm"
+                        >
+                            <HiOutlinePlus className="w-5 h-5" />
+                            Tambah Canvasing
+                        </Link>
+                    )}
                     
                     <div className="relative w-full md:w-64">
                         <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -156,24 +181,24 @@ export default function CanvasingList() {
                                 <HiOutlineEye className="w-5 h-5" />
                             </Link>
 
-                            {item.status === 'PENDING' && (
-                                <>
-                                    <Link 
-                                        href={`/admin/marketing/canvasing/${item.id}/edit`}
-                                        className="text-amber-600 hover:text-amber-800 p-2 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors inline-block"
-                                        title="Edit"
-                                    >
-                                        <HiOutlinePencilSquare className="w-5 h-5" />
-                                    </Link>
+                            {item.status === 'PENDING' && canUpdate && (
+                                <Link 
+                                    href={`/admin/marketing/canvasing/${item.id}/edit`}
+                                    className="text-amber-600 hover:text-amber-800 p-2 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors inline-block"
+                                    title="Edit"
+                                >
+                                    <HiOutlinePencilSquare className="w-5 h-5" />
+                                </Link>
+                            )}
 
-                                    <button 
-                                        onClick={() => handleDelete(item.id, item.nama)}
-                                        className="text-red-600 hover:text-red-800 p-2 bg-red-50 hover:bg-red-100 rounded-lg transition-colors inline-block"
-                                        title="Hapus"
-                                    >
-                                        <HiOutlineTrash className="w-5 h-5" />
-                                    </button>
-                                </>
+                            {item.status === 'PENDING' && canDelete && (
+                                <button 
+                                    onClick={() => handleDelete(item.id, item.nama)}
+                                    className="text-red-600 hover:text-red-800 p-2 bg-red-50 hover:bg-red-100 rounded-lg transition-colors inline-block"
+                                    title="Hapus"
+                                >
+                                    <HiOutlineTrash className="w-5 h-5" />
+                                </button>
                             )}
                         </div>
                     )}

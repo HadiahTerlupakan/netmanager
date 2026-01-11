@@ -29,6 +29,12 @@ async function main() {
     { resource: 'canvasing', action: 'delete', description: 'Delete Canvasing request' },
     { resource: 'canvasing', action: 'site_only', description: 'Canvasing site restriction' },
 
+    { resource: 'sales', action: 'read', description: 'View Sales Coverage data' },
+    { resource: 'sales', action: 'create', description: 'Create Sales Coverage entry' },
+    { resource: 'sales', action: 'update', description: 'Update Sales Coverage data' },
+    { resource: 'sales', action: 'delete', description: 'Delete Sales Coverage data' },
+    { resource: 'sales', action: 'site_only', description: 'Sales site restriction' },
+
     { resource: 'coupon', action: 'read', description: 'View Coupons' },
     { resource: 'coupon', action: 'create', description: 'Create Coupons' },
     { resource: 'coupon', action: 'update', description: 'Update Coupons' },
@@ -71,7 +77,7 @@ async function main() {
 
   const allPerms = await prisma.permission.findMany({
       where: {
-          resource: { in: ['marketing', 'canvasing', 'coupon'] }
+          resource: { in: ['marketing', 'canvasing', 'coupon', 'sales'] }
       }
   })
 

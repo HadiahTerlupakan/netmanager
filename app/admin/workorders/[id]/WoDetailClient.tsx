@@ -20,6 +20,7 @@ import {
     HiChatBubbleLeft,
     HiChatBubbleLeftRight,
     HiPaperAirplane,
+    HiLockClosed,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
@@ -142,6 +143,10 @@ export function ClientComponent() {
 
     const [loading, setLoading] = useState(true)
     const [workOrder, setWorkOrder] = useState<WorkOrderDetail | null>(null)
+    
+    // ReadOnly logic based on admin approval/final state
+    const isReadOnly = ['VERIFIED', 'CLOSED', 'CANCELLED'].includes(workOrder?.status || '')
+
     const [editMode, setEditMode] = useState<string | null>(null)
     const [editValues, setEditValues] = useState({
         status: '',
@@ -628,15 +633,19 @@ export function ClientComponent() {
                                         </button>
                                     </div>
                                 ) : (
-                                    <button
-                                        onClick={() => setEditMode('status')}
-                                        className="flex items-center gap-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded px-2 py-1"
-                                    >
+                                    <div className="flex items-center gap-1">
                                         <span className={`px-3 py-1 text-sm font-medium rounded-full ${statusColors[workOrder.status]}`}>
                                             {workOrder.status.replace('_', ' ')}
                                         </span>
-                                        <HiPencil className="w-3 h-3 text-gray-400" />
-                                    </button>
+                                        {!isReadOnly && canUpdate && (
+                                            <button
+                                                onClick={() => setEditMode('status')}
+                                                className="p-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded text-gray-400"
+                                            >
+                                                <HiPencil className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
 
                                 {editMode === 'priority' ? (
@@ -660,15 +669,19 @@ export function ClientComponent() {
                                         </button>
                                     </div>
                                 ) : (
-                                    <button
-                                        onClick={() => setEditMode('priority')}
-                                        className="flex items-center gap-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded px-2 py-1"
-                                    >
+                                    <div className="flex items-center gap-1">
                                         <span className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
                                             {workOrder.priority}
                                         </span>
-                                        <HiPencil className="w-3 h-3 text-gray-400" />
-                                    </button>
+                                        {!isReadOnly && canUpdate && (
+                                            <button
+                                                onClick={() => setEditMode('priority')}
+                                                className="p-1 hover:bg-gray-50 dark:hover:bg-gray-700 rounded text-gray-400"
+                                            >
+                                                <HiPencil className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -732,52 +745,56 @@ export function ClientComponent() {
                             ))}
                         </div>
 
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={newTask}
-                                onChange={(e) => setNewTask(e.target.value)}
-                                onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
-                                placeholder="Add new task..."
-                                className="flex-1 px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                                disabled={addingTask}
-                            />
-                            <button
-                                onClick={handleAddTask}
-                                disabled={addingTask || !newTask.trim()}
-                                className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700 disabled:opacity-50"
-                            >
-                                Add
-                            </button>
-                        </div>
+                        {!isReadOnly && (
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newTask}
+                                    onChange={(e) => setNewTask(e.target.value)}
+                                    onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
+                                    placeholder="Add new task..."
+                                    className="flex-1 px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                                    disabled={addingTask}
+                                />
+                                <button
+                                    onClick={handleAddTask}
+                                    disabled={addingTask || !newTask.trim()}
+                                    className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm hover:bg-sky-700 disabled:opacity-50"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Activity & Discussion Tabs */}
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
                             {/* Tab Headers */}
-                            <div className="flex border-b border-gray-200 dark:border-gray-700 mb-0">
-                                <button
-                                    onClick={() => setActiveTab('activity')}
-                                    className={`flex-1 py-4 text-sm font-medium text-center border-b-2 transition-colors duration-200 flex items-center justify-center gap-2 ${
-                                        activeTab === 'activity'
-                                            ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                                    }`}
-                                >
-                                    <HiClock className="w-4 h-4" />
-                                    Activity Timeline
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('discussion')}
-                                    className={`flex-1 py-4 text-sm font-medium text-center border-b-2 transition-colors duration-200 flex items-center justify-center gap-2 ${
-                                        activeTab === 'discussion'
-                                            ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                                    }`}
-                                >
-                                    <HiChatBubbleLeftRight className="w-4 h-4" />
-                                    Diskusi
-                                </button>
+                            <div className="p-4 pb-0">
+                                <div className="flex p-1 space-x-1 bg-gray-100 dark:bg-gray-700 rounded-xl">
+                                    <button
+                                        onClick={() => setActiveTab('activity')}
+                                        className={`w-full py-2.5 text-sm font-medium leading-5 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ${
+                                            activeTab === 'activity'
+                                                ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                        }`}
+                                    >
+                                        <HiClock className="w-5 h-5" />
+                                        Activity Timeline
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('discussion')}
+                                        className={`w-full py-2.5 text-sm font-medium leading-5 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ${
+                                            activeTab === 'discussion'
+                                                ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                        }`}
+                                    >
+                                        <HiChatBubbleLeftRight className="w-5 h-5" />
+                                        Diskusi
+                                    </button>
+                                </div>
                             </div>
 
                         {/* Hidden File Input */}
@@ -867,17 +884,15 @@ export function ClientComponent() {
                             {/* Tab Content: DISCUSSION */}
                             {/* Tab Content: DISCUSSION */}
                             {activeTab === 'discussion' && (
-                                <div className="flex flex-col max-h-[600px] bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                                <div className="flex flex-col h-[600px] bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                                     {/* Discussion Items (Chat Stream) */}
-                                    <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-gray-50/50 dark:bg-gray-900/50">
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-gray-50/50 dark:bg-gray-900/50">
                                         {discussionItems.length > 0 ? (
                                             discussionItems
                                                 .sort((a,b) => a.date.getTime() - b.date.getTime())
-                                                .map((item) => {
+                                                .map((item, index) => {
                                                 const attData = item.data as WorkOrderAttachment;
                                                 const updateData = item.data as WorkOrderUpdateType;
-                                                
-                                                // Determine sender
                                                 const isComment = item.type === 'comment';
                                                 
                                                 // Try to identify if "Me"
@@ -887,21 +902,39 @@ export function ClientComponent() {
 
                                                 // Name display
                                                 const user = isComment ? updateData.user : attData.user;
-                                                const creatorName = user?.name || user?.email || 'Unknown User';
+                                                const creatorName = user?.name || user?.email || 'Unknown';
                                                 
+                                                // Check if previous message was from same user (to group avatars)
+                                                const prevItem = index > 0 ? discussionItems[index - 1] : null;
+                                                const prevCreatorId = prevItem 
+                                                    ? (prevItem.type === 'comment' ? (prevItem.data as any).user?.id : (prevItem.data as any).user?.id) 
+                                                    : null;
+                                                const isSequence = prevCreatorId === creatorId;
+
                                                 return (
-                                                    <div key={item.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                                        <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${isMe ? 'items-end' : 'items-start'}`}>
-                                                            {/* Sender Name */}
-                                                            <span className={`text-[11px] text-gray-500 dark:text-gray-400 mb-1 font-medium ${isMe ? 'mr-2' : 'ml-2'}`}>
-                                                                {creatorName}
-                                                            </span>
+                                                    <div key={item.id} className={`flex w-full gap-3 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                                        {/* Avatar for Others (only if not sequence or always show for clarity) */}
+                                                        {!isMe && (
+                                                            <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${
+                                                                isSequence ? 'invisible' : 'bg-linear-to-br from-indigo-500 to-purple-500'
+                                                            }`}>
+                                                                {creatorName.charAt(0).toUpperCase()}
+                                                            </div>
+                                                        )}
+
+                                                        <div className={`flex flex-col max-w-[75%] ${isMe ? 'items-end' : 'items-start'}`}>
+                                                            {/* Sender Name (only if not sequence) */}
+                                                            {!isMe && !isSequence && (
+                                                                <span className="text-[11px] text-gray-500 dark:text-gray-400 mb-1 ml-1 font-medium">
+                                                                    {creatorName}
+                                                                </span>
+                                                            )}
                                                             
                                                             {/* Bubble */}
-                                                            <div className={`relative px-4 py-2 shadow-sm rounded-2xl ${
+                                                            <div className={`relative px-4 py-2.5 shadow-sm ${
                                                                 isMe 
-                                                                    ? 'bg-indigo-600 text-white rounded-tr-none' 
-                                                                    : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-tl-none'
+                                                                    ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm' 
+                                                                    : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-2xl rounded-tl-sm'
                                                             }`}>
                                                                 {isComment ? (
                                                                     <p className="text-sm whitespace-pre-wrap leading-relaxed">
@@ -922,7 +955,7 @@ export function ClientComponent() {
                                                                             />
                                                                         </a>
                                                                         {attData.caption && (
-                                                                            <p className="text-sm mt-2 px-2 pb-1">
+                                                                            <p className="text-sm mt-2 px-2 pb-1 opacity-90">
                                                                                 {attData.caption}
                                                                             </p>
                                                                         )}
@@ -930,8 +963,8 @@ export function ClientComponent() {
                                                                 )}
 
                                                                 {/* Timestamp */}
-                                                                <div className={`text-[10px] mt-1 text-right w-full flex justify-end gap-1 ${
-                                                                    isMe ? 'text-indigo-100' : 'text-gray-400'
+                                                                <div className={`text-[10px] mt-1 text-right flex justify-end gap-1 ${
+                                                                    isMe ? 'text-indigo-100/80' : 'text-gray-400'
                                                                 }`}>
                                                                     {format(item.date, 'HH:mm')}
                                                                     {isMe && <HiCheckCircle className="w-3 h-3" />}
@@ -942,42 +975,44 @@ export function ClientComponent() {
                                                 )
                                             })
                                         ) : (
-                                            <div className="flex flex-col items-center justify-center h-48 text-center">
-                                                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
-                                                    <HiChatBubbleLeft className="w-6 h-6 text-gray-400" />
+                                            <div className="flex flex-col items-center justify-center h-full text-center opacity-60">
+                                                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 mb-4">
+                                                    <HiChatBubbleLeft className="w-8 h-8 text-indigo-400" />
                                                 </div>
-                                                <p className="text-gray-500 dark:text-gray-400 text-sm">Belum ada diskusi.</p>
-                                                <p className="text-xs text-gray-400 mt-1">Mulai percakapan dengan tim Anda.</p>
+                                                <p className="text-gray-500 dark:text-gray-400 font-medium">Belum ada diskusi</p>
+                                                <p className="text-sm text-gray-400 mt-1">Mulai percakapan dengan tim Anda disini</p>
                                             </div>
                                         )}
                                         <div ref={messagesEndRef} />
                                     </div>
 
-                                    {/* Chat Input Bar (Sticky Bottom) or Closed Message */}
+                                    {/* Chat Input Bar */}
                                     {['COMPLETED', 'CANCELLED', 'VERIFIED'].includes(workOrder.status) ? (
                                         <div className="bg-gray-50 dark:bg-gray-800 p-4 border-t border-gray-200 dark:border-gray-700 text-center">
-                                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                                                Diskusi ditutup karena Work Order telah selesai/dibatalkan/diverifikasi.
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium flex items-center justify-center gap-2">
+                                                <HiLockClosed className="w-4 h-4" />
+                                                Diskusi ditutup (Status: {workOrder.status})
                                             </p>
                                         </div>
                                     ) : (
-                                        <div className="bg-gray-50 dark:bg-gray-800 p-3 border-t border-gray-200 dark:border-gray-700">
-                                            <div className="flex items-end gap-2">
+                                        <div className="bg-white dark:bg-gray-800 p-4 border-t border-gray-200 dark:border-gray-700">
+                                            <div className="flex items-end gap-3 max-w-4xl mx-auto">
                                                 <button
                                                     type="button"
                                                     onClick={() => fileInputRef.current?.click()}
                                                     disabled={isUploading}
-                                                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors shrink-0"
+                                                    className="w-12 h-12 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-all shrink-0"
                                                     title="Upload Foto"
                                                 >
-                                                    <HiPhoto className="w-6 h-6" />
+                                                    <HiPhoto className="w-7 h-7" />
                                                 </button>
-                                                <div className="flex-1 bg-white dark:bg-gray-900 rounded-2xl border border-gray-300 dark:border-gray-600 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 overflow-hidden shadow-sm">
+                                                
+                                                <div className="flex-1 bg-white dark:bg-gray-800 rounded-3xl border border-gray-300 dark:border-gray-600 focus-within:border-gray-400 dark:focus-within:border-gray-500 focus-within:shadow-sm overflow-hidden transition-all duration-200">
                                                     <textarea
                                                         value={newComment}
                                                         onChange={(e) => setNewComment(e.target.value)}
                                                         placeholder="Ketik pesan..."
-                                                        className="w-full px-4 py-3 border-none focus:ring-0 bg-transparent text-sm min-h-[44px] max-h-[120px] resize-y"
+                                                        className="w-full px-5 py-3 border-none! ring-0! outline-none! bg-transparent text-sm min-h-[48px] max-h-[140px] resize-none text-gray-700 dark:text-gray-200 leading-normal"
                                                         style={{ height: 'auto' }}
                                                         onInput={(e) => {
                                                             const target = e.target as HTMLTextAreaElement;
@@ -992,13 +1027,18 @@ export function ClientComponent() {
                                                         }}
                                                     />
                                                 </div>
+
                                                 <button
                                                     onClick={handleAddComment}
                                                     disabled={addingComment || !newComment.trim()}
-                                                    className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 shadow-sm transition-all shrink-0"
+                                                    className={`w-12 h-12 flex items-center justify-center rounded-full transition-all shrink-0 shadow-sm ${
+                                                        !newComment.trim() 
+                                                        ? 'bg-gray-100 text-gray-300 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500' 
+                                                        : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105 active:scale-95 shadow-indigo-200 dark:shadow-none'
+                                                    }`}
                                                     title="Kirim Pesan"
                                                 >
-                                                    <HiPaperAirplane className="w-5 h-5 -rotate-90 translate-x-0.5" />
+                                                    <HiPaperAirplane className={`w-6 h-6 -rotate-90 ${newComment.trim() ? 'translate-x-0.5' : ''}`} />
                                                 </button>
                                             </div>
                                         </div>

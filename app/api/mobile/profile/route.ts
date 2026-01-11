@@ -36,7 +36,16 @@ export async function GET(request: Request) {
                     select: { id: true, name: true }
                 },
                 role: {
-                    select: { id: true, name: true }
+                    select: { 
+                        id: true, 
+                        name: true,
+                        permission: {
+                            select: {
+                                resource: true,
+                                action: true
+                            }
+                        }
+                    }
                 }
             }
         })
@@ -45,7 +54,16 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
 
-        return NextResponse.json({ success: true, data: profile })
+        // Extract unique feature/resource names for easy client-side access control
+        const features = [...new Set(profile.role?.permission?.map(p => p.resource) || [])]
+
+        return NextResponse.json({ 
+            success: true, 
+            data: {
+                ...profile,
+                features // Array of feature names the user has access to
+            }
+        })
     } catch (error: any) {
         console.error('Profile fetch error:', error)
         return NextResponse.json({ error: error.message }, { status: 500 })
