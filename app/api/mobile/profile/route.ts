@@ -28,6 +28,7 @@ export async function GET(request: Request) {
                 startWorkTime: true,
                 endWorkTime: true,
                 workDays: true,
+                canvasingTarget: true,
                 departments: {
                     select: { id: true, name: true }
                 },

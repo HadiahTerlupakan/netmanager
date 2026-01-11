@@ -244,8 +244,12 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         description: 'Manajemen kupon diskon'
     },
     canvasing: {
-        actions: ['read', 'create', 'update', 'delete', 'site_only'], // 'update' covers approval/rejection
-        description: 'Request canvasing dari sales'
+        actions: ['read', 'create', 'update', 'delete', 'verify', 'site_only'], // 'verify' for approval/rejection
+        description: 'Request canvasing dari sales coverage'
+    },
+    sales: {
+        actions: ['read', 'create', 'update', 'delete', 'site_only'],
+        description: 'Manajemen user sales dan target'
     },
 }
 

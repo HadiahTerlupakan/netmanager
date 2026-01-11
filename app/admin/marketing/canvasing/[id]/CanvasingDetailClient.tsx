@@ -191,16 +191,26 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                             <HiOutlineMapPin className="w-8 h-8 text-indigo-600" />
                         </div>
                         <h3 className="font-bold text-gray-900 mb-2">Lokasi Pemasangan</h3>
-                        <p className="text-sm text-gray-500 mb-6">{item.alamat}</p>
-                        <a 
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.alamat)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 text-indigo-600 font-bold hover:underline"
-                        >
-                            Buka di Google Maps
-                            <HiOutlineChevronLeft className="w-4 h-4 rotate-180" />
-                        </a>
+                        <p className="text-sm text-gray-500 mb-2">{item.alamat}</p>
+                        {item.latitude && item.longitude && (
+                            <p className="text-xs font-mono text-gray-400 mb-4 bg-gray-100 p-2 rounded-lg inline-block">
+                                {item.latitude}, {item.longitude}
+                            </p>
+                        )}
+                        <div className="mt-2">
+                            <a 
+                                href={item.latitude && item.longitude 
+                                    ? `https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}`
+                                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.alamat)}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-indigo-600 font-bold hover:underline"
+                            >
+                                Buka di Google Maps
+                                <HiOutlineChevronLeft className="w-4 h-4 rotate-180" />
+                            </a>
+                        </div>
                     </div>
                 </div>
 

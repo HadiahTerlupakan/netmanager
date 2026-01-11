@@ -8,20 +8,19 @@ export async function GET(req: NextRequest) {
     const session = await verifyAuth(req)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // RBAC Check
+    // RBAC Check & Filtering
     const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
     const permissions = session.permissions || []
-    
-    console.log(`[API_CANVASING] User: ${session.email}, Role: ${session.role}, IsSuperAdmin: ${isSuperAdmin}, Permissions: ${permissions.length}`)
-
-    if (!isSuperAdmin && !permissions.includes('canvasing:read')) {
-      console.warn(`[API_CANVASING] Forbidden for user ${session.email}`)
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const canReadAll = isSuperAdmin || permissions.includes('canvasing:read')
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') as any
-    const salesId = searchParams.get('salesId') || undefined
+    let salesId = searchParams.get('salesId') || undefined
+
+    // If user cannot read all, force filter to their own ID
+    if (!canReadAll) {
+      salesId = session.id
+    }
 
     const service = getCanvasingService()
     const requests = await service.getAllRequests({ status, salesId })
@@ -40,11 +39,25 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const service = getCanvasingService()
 
-    const request = await service.createRequest({
-      ...body,
+    // Explicitly map and sanitize fields
+    const payload = {
+      nama: body.nama,
+      noKtp: body.noKtp,
+      noTelpon: body.noTelpon,
+      email: body.email || null,
+      alamat: body.alamat,
+      kabel: body.kabel ? Number(body.kabel) : 0,
+      odp: body.odp || null,
+      paket: body.paket || null,
+      sn: body.sn || null,
+      latitude: body.latitude ? Number(body.latitude) : null,
+      longitude: body.longitude ? Number(body.longitude) : null,
+      foto: body.foto || null,
+      fotoKtp: body.fotoKtp || null,
       salesId: session.id,
-      kabel: Number(body.kabel) || 0
-    })
+    }
+
+    const request = await service.createRequest(payload)
 
     return NextResponse.json(request, { status: 201 })
   } catch (error: any) {

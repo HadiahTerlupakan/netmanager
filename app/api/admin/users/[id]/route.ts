@@ -121,6 +121,8 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   if (body.workDays !== undefined) data.workDays = body.workDays
   if (body.flexibleTargetHour !== undefined) data.flexibleTargetHour = body.flexibleTargetHour
   if (body.shiftId !== undefined) data.shiftId = body.shiftId
+  if (body.canvasingTarget !== undefined) data.canvasingTarget = parseInt(body.canvasingTarget) || 50
+  if (body.isSales !== undefined) data.isSales = body.isSales
 
   console.log('[USER-UPDATE] Data to update:', data)
 
@@ -328,6 +330,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         endWorkTime: true,
         workDays: true,
         flexibleTargetHour: true,
+        canvasingTarget: true,
+        isSales: true,
         shiftId: true,
         departments: {
           select: { id: true, name: true },

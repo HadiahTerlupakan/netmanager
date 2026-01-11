@@ -1004,6 +1004,8 @@ model User {
   workDays           String?
   shiftId            String?
   flexibleTargetHour Int?
+  canvasingTarget    Int             @default(50)
+  isSales            Boolean         @default(false)
   pushToken          String?
 
   // App Version Tracking

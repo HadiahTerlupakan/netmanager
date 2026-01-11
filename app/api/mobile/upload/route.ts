@@ -77,6 +77,9 @@ export async function POST(request: NextRequest) {
             case 'workorder-completion':
                 uploadDir = path.join(process.cwd(), 'public', 'uploads', 'workorder', 'completion');
                 break;
+            case 'marketing':
+                uploadDir = path.join(process.cwd(), 'public', 'uploads', 'marketing', 'canvasing');
+                break;
             default:
                 uploadDir = path.join(process.cwd(), 'public', 'uploads', 'mobile', 'general');
         }

@@ -53,6 +53,7 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
             select: { 
                 tokenVersion: true, 
                 isActive: true,
+                isSales: true,
                 role: {
                     include: {
                         permission: true
@@ -86,7 +87,8 @@ export async function verifyMobileToken(token: string): Promise<MobileTokenPaylo
             sub: userId, 
             userId,
             role: dbUser.role?.name,
-            permissions
+            permissions,
+            isSales: dbUser.isSales
         } as any
     } catch (error) {
         console.error('[MOBILE_AUTH] Token verification failed:', error)

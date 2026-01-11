@@ -2,6 +2,7 @@
 import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { toast } from 'react-hot-toast'
 import { useSession } from 'next-auth/react'
 import {
   HiOutlineArrowLeft,
@@ -61,6 +62,8 @@ interface UserData {
   workDays?: string | null
   flexibleTargetHour?: number | null
   shiftId?: string | null
+  canvasingTarget?: number
+  isSales?: boolean
 }
 
 export function ClientComponent({ params, searchParams }: { params: Promise<{ id: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -94,7 +97,8 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
     endWorkTime: '',
     workDays: '',
     flexibleTargetHour: 8,
-    shiftId: ''
+    shiftId: '',
+    isSales: false
   })
 
   useEffect(() => {
@@ -167,11 +171,14 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           endWorkTime: usr.endWorkTime || '',
           workDays: usr.workDays || '',
           flexibleTargetHour: usr.flexibleTargetHour || 8,
-          shiftId: usr.shiftId || ''
+          shiftId: usr.shiftId || '',
+          isSales: usr.isSales || false
         })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching user:', error)
+      toast.error('Gagal memuat data user: ' + (error.message || 'Unknown error'))
+      setErrors({ fetch: error.message || 'Gagal memuat data' })
     }
   }
 
@@ -250,6 +257,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         workDays: formData.workDays || null,
         flexibleTargetHour: formData.flexibleTargetHour || null,
         shiftId: formData.shiftId || null,
+        isSales: formData.isSales,
       }
 
       if (formData.password) {
@@ -418,6 +426,20 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
                 : user?.sites ? `${user.sites.code} - ${user.sites.name}` : user?.site ? `${user.site.code} - ${user.site.name}` : '-'}
             </p>
           </div>
+        </div>
+
+        {/* Status Indicators */}
+        <div className="flex flex-wrap gap-4">
+          <div className={`px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 ${formData.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'}`}>
+            <HiOutlineShieldCheck className="w-4 h-4" />
+            {formData.isActive ? 'Akun Aktif' : 'Akun Nonaktif'}
+          </div>
+          {formData.isSales && (
+            <div className="px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
+              <HiOutlineIdentification className="w-4 h-4" />
+              Fitur Sales Aktif
+            </div>
+          )}
         </div>
 
         {/* User Performance Stats (New Metric Section) */}
@@ -659,7 +681,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           </div>
         </div>
 
-        {/* Status Section */}
+        {/* Status & Sales Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 bg-linear-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
@@ -667,13 +689,13 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
                 <HiOutlineShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Status Akun</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Pengaturan status aktif pengguna</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Akses & Privilese</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Pengaturan status dan fitur khusus pengguna</p>
               </div>
             </div>
           </div>
-
-          <div className="p-6">
+ 
+          <div className="p-6 space-y-4">
             <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               <div>
                 <h3 className="font-medium text-gray-900 dark:text-white">Akun Aktif</h3>
@@ -684,6 +706,23 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
                   type="checkbox"
                   name="isActive"
                   checked={formData.isActive}
+                  onChange={handleChange}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+ 
+            <div className="flex items-center justify-between p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
+              <div>
+                <h3 className="font-medium text-indigo-900 dark:text-indigo-300">Fitur Sales</h3>
+                <p className="text-sm text-indigo-600/70 dark:text-indigo-400/60">Aktifkan untuk menampilkan user ini di Manajemen Sales dan mengaktifkan fitur canvasing</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="isSales"
+                  checked={formData.isSales}
                   onChange={handleChange}
                   className="sr-only peer"
                 />

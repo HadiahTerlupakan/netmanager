@@ -233,7 +233,7 @@ export async function deleteFromR2(key: string): Promise<boolean> {
  * Generate upload key for different upload types
  */
 export function generateR2Key(
-    type: 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer' | 'employee-attendance' | 'employee-leave' | 'workorder-completion' | 'work-order-updates' | 'tickets' | 'user-profile' | 'app-version',
+    type: 'pelanggan' | 'payment-proofs' | 'logos' | 'kmz' | 'inventory-masuk' | 'inventory-keluar' | 'inventory-transfer' | 'employee-attendance' | 'employee-leave' | 'workorder-completion' | 'work-order-updates' | 'tickets' | 'user-profile' | 'app-version' | 'marketing',
     filename: string,
     subFolder?: string
 ): string {
@@ -299,6 +299,11 @@ export function generateR2Key(
             return `uploads/user-profile/${timestamp}-${sanitizedFilename}`
         case 'app-version':
             return `uploads/apk/${timestamp}-${sanitizedFilename}`
+        case 'marketing':
+            if (subFolder) {
+                 return `uploads/marketing/${subFolder}/${timestamp}-${sanitizedFilename}`
+            }
+            return `uploads/marketing/${timestamp}-${sanitizedFilename}`
         default:
             return `uploads/${timestamp}-${sanitizedFilename}`
     }

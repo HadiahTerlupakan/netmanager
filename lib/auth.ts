@@ -241,6 +241,7 @@ export const authConfig: NextAuthOptions = {
           
           // Store department detail
           token.departmentName = dbUser?.departments?.name
+          token.isSales = dbUser?.isSales ?? false
 
           // Handle SUPER_ADMIN special case - they should have access to everything
           if (token.role === 'SUPER_ADMIN' || token.role === 'Super Admin') {
@@ -294,6 +295,7 @@ export const authConfig: NextAuthOptions = {
           token.departmentName = dbUser.departments?.name
           token.siteId = dbUser.siteId
           token.tokenVersion = dbUser.tokenVersion ?? 0
+          token.isSales = dbUser.isSales ?? false
 
           token.role = dbUser.role?.name || 'USER'
           token.accessAdminPanel = dbUser.role?.accessAdminPanel ?? false
@@ -344,6 +346,7 @@ export const authConfig: NextAuthOptions = {
         (session.user as any).departmentId = token.departmentId;
         (session.user as any).departmentName = token.departmentName;
         (session.user as any).siteId = token.siteId;
+        (session.user as any).isSales = token.isSales;
       }
       return session
     },
