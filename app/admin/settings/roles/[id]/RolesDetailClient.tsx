@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
 import { FiArrowLeft, FiSave } from 'react-icons/fi'
-import { PERMISSION_GROUPS, PERMISSION_GROUPS_KARYAWAN, ACTIONS } from '@/lib/permission-config'
+import { PERMISSION_GROUPS, PERMISSION_GROUPS_MOBILE, ACTIONS } from '@/lib/permission-config'
 import { getResourceCapabilities } from '@/lib/resource-capabilities'
 import type { ResourceAction } from '@/lib/resource-capabilities'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
@@ -177,8 +177,8 @@ export function ClientComponent() {
                                 className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 mt-0.5"
                             />
                             <div>
-                                <span className="block font-medium text-gray-800 dark:text-white">Portal Karyawan</span>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Izinkan akses ke area kerja karyawan ({`/karyawan`}).</span>
+                                <span className="block font-medium text-gray-800 dark:text-white">Akses Mobile App</span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">Izinkan user login ke Mobile App karyawan.</span>
                             </div>
                         </label>
                     </div>
@@ -243,13 +243,13 @@ export function ClientComponent() {
                                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                                     }`}
                             >
-                                Portal Karyawan
+                                Mobile App
                             </button>
                         </div>
                     </div>
 
                     <div className="space-y-8">
-                        {(Object.entries(activeTab === 'admin' ? PERMISSION_GROUPS : PERMISSION_GROUPS_KARYAWAN) as unknown as [string, string[]][]).map(([groupName, resources]) => {
+                        {(Object.entries(activeTab === 'admin' ? PERMISSION_GROUPS : PERMISSION_GROUPS_MOBILE) as unknown as [string, string[]][]).map(([groupName, resources]) => {
                             const groupActions = resources.flatMap(resource =>
                                 ACTIONS.map(action => `${resource}:${action}`)
                             )

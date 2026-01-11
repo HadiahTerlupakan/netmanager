@@ -18,7 +18,13 @@ export async function POST(req: Request) {
         // 1. Find User
         const user = await prisma.user.findUnique({
             where: { email },
-            include: { role: true }
+            include: { 
+                role: {
+                    include: {
+                        permission: true
+                    }
+                } 
+            }
         })
 
         if (!user || !user.passwordHash) {
@@ -35,6 +41,17 @@ export async function POST(req: Request) {
                 success: false,
                 error: 'Password yang Anda masukkan salah' 
             }, { status: 401 })
+        }
+
+        // 3. Verify Mobile App Access
+        // Check "Akses Mobile App" (stored as accessEmployeePanel)
+        const hasMobileAccess = user.role?.accessEmployeePanel || user.role?.name === 'SUPER_ADMIN'
+        
+        if (!hasMobileAccess) {
+            return NextResponse.json({ 
+                success: false,
+                error: 'Akun Anda tidak memiliki akses ke aplikasi mobile. Hubungi administrator.' 
+            }, { status: 403 })
         }
 
         // Update version info if provided
@@ -58,6 +75,9 @@ export async function POST(req: Request) {
         }
         const token = await signMobileToken(tokenPayload)
 
+        // Extract features
+        const features = [...new Set(user.role?.permission?.map(p => p.resource) || [])]
+
         // 4. Return Data
         return NextResponse.json({
             success: true,
@@ -66,7 +86,8 @@ export async function POST(req: Request) {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                role: user.role?.name
+                role: user.role?.name,
+                features // Include features in login response
             }
         })
 

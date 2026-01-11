@@ -18,14 +18,24 @@ export const PERMISSION_GROUPS = {
 
 } as const
 
-export const PERMISSION_GROUPS_KARYAWAN = {
-    DASHBOARD: ['k_dashboard'],
-    WORK_ORDER: ['k_work_order'],
-    INVENTORY: ['k_barang'],
-    ATTENDANCE: ['k_absensi'],
-    PROFILE: ['k_profil'],
-    NOTIFICATION: ['k_notification']
+/**
+ * Mobile App Permission Groups
+ * 
+ * Mengontrol akses fitur di Mobile App karyawan.
+ * Prefix 'm_' digunakan untuk membedakan resource mobile dari resource admin.
+ */
+export const PERMISSION_GROUPS_MOBILE = {
+    BERANDA: ['m_dashboard', 'm_work_order'],
+    INVENTORY: ['m_barang', 'm_barang_masuk', 'm_barang_keluar'],
+    KEHADIRAN: ['m_absensi', 'm_lembur', 'm_izin', 'm_holidays'],
+    PETA: ['m_topology_map'],
+    MARKETING: ['m_canvasing'],
+    KOMUNIKASI: ['m_chat']
 } as const
+
+// Backward compatibility alias (used by existing seed scripts)
+export const PERMISSION_GROUPS_KARYAWAN = PERMISSION_GROUPS_MOBILE
+
 
 export type PermissionGroup = keyof typeof PERMISSION_GROUPS
 

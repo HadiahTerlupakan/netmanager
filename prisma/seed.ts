@@ -2,12 +2,12 @@ import { prisma } from '../lib/prisma'
 import { hash } from 'bcryptjs'
 import { randomUUID } from 'crypto'
 
-import { PERMISSION_GROUPS, PERMISSION_GROUPS_KARYAWAN, ACTIONS } from '../lib/permission-config'
+import { PERMISSION_GROUPS, PERMISSION_GROUPS_MOBILE, ACTIONS } from '../lib/permission-config'
 
-// Flatten resources from both admin and karyawan groups
+// Flatten resources from both admin and mobile groups
 const ADMIN_RESOURCES = Object.values(PERMISSION_GROUPS).flat()
-const KARYAWAN_RESOURCES = Object.values(PERMISSION_GROUPS_KARYAWAN).flat()
-const ALL_RESOURCES = [...new Set([...ADMIN_RESOURCES, ...KARYAWAN_RESOURCES])]
+const MOBILE_RESOURCES = Object.values(PERMISSION_GROUPS_MOBILE).flat()
+const ALL_RESOURCES = [...new Set([...ADMIN_RESOURCES, ...MOBILE_RESOURCES])]
 
 async function main() {
   console.log('🌱 Seeding database...\n')
@@ -39,8 +39,8 @@ async function main() {
       })
       permissions.push(permission)
 
-      // Track karyawan permissions separately
-      if ((KARYAWAN_RESOURCES as readonly string[]).includes(resource)) {
+      // Track mobile permissions separately
+      if ((MOBILE_RESOURCES as readonly string[]).includes(resource)) {
         karyawanPermissions.push(permission)
       }
     }

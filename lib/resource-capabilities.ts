@@ -251,6 +251,56 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
         description: 'Manajemen user sales dan target'
     },
+
+    // ====== MOBILE APP RESOURCES (m_*) ======
+    m_dashboard: {
+        actions: ['read'],
+        description: 'Akses menu Beranda di mobile app'
+    },
+    m_work_order: {
+        actions: ['read', 'create', 'update'],
+        description: 'Akses menu Work Order (lihat & update WO)'
+    },
+    m_barang_masuk: {
+        actions: ['read', 'create'],
+        description: 'Akses menu Barang Masuk (input stok)'
+    },
+    m_barang: {
+        actions: ['read'],
+        description: 'Akses menu Barang (Menu utama inventory)'
+    },
+    m_barang_keluar: {
+        actions: ['read', 'create'],
+        description: 'Akses menu Barang Keluar (ambil stok/pasang)'
+    },
+    m_absensi: {
+        actions: ['read', 'create'],
+        description: 'Akses menu Absensi (Check In/Out)'
+    },
+    m_lembur: {
+        actions: ['read', 'create'],
+        description: 'Akses menu Lembur (Pengajuan)'
+    },
+    m_izin: {
+        actions: ['read', 'create'],
+        description: 'Akses menu Izin & Cuti (Pengajuan)'
+    },
+    m_holidays: {
+        actions: ['read'],
+        description: 'Akses menu Kalender Libur'
+    },
+    m_topology_map: {
+        actions: ['read'],
+        description: 'Akses menu Topology Map (Peta Jaringan)'
+    },
+    m_canvasing: {
+        actions: ['read', 'create'],
+        description: 'Akses menu Canvasing (Marketing Sales)'
+    },
+    m_chat: {
+        actions: ['read', 'create'],
+        description: 'Akses menu Chat (Komunikasi)'
+    },
 }
 
 /**

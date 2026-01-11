@@ -1,13 +1,11 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 import { randomUUID } from 'crypto'
-import { PERMISSION_GROUPS, PERMISSION_GROUPS_KARYAWAN, ACTIONS } from '../lib/permission-config'
-
-const prisma = new PrismaClient()
+import { PERMISSION_GROUPS, PERMISSION_GROUPS_MOBILE, ACTIONS } from '../lib/permission-config'
 
 // Flatten resources
 const ADMIN_RESOURCES = Object.values(PERMISSION_GROUPS).flat()
-const KARYAWAN_RESOURCES = Object.values(PERMISSION_GROUPS_KARYAWAN).flat()
-const ALL_RESOURCES = [...new Set([...ADMIN_RESOURCES, ...KARYAWAN_RESOURCES])]
+const MOBILE_RESOURCES = Object.values(PERMISSION_GROUPS_MOBILE).flat()
+const ALL_RESOURCES = [...new Set([...ADMIN_RESOURCES, ...MOBILE_RESOURCES])]
 
 async function main() {
     console.log('🔒 Seeding Permissions ONLY...\n')
@@ -39,7 +37,7 @@ async function main() {
             })
             permissions.push(permission)
 
-            if ((KARYAWAN_RESOURCES as readonly string[]).includes(resource)) {
+            if ((MOBILE_RESOURCES as readonly string[]).includes(resource)) {
                 karyawanPermissions.push(permission)
             }
         }
@@ -47,10 +45,10 @@ async function main() {
 
     console.log(`   ✅ Synced ${permissions.length} permissions defined in code.`)
 
-    console.log('👥 Updating SUPER_ADMIN Role permissions...')
-    // Only update permissions for SUPER_ADMIN, do not touch other fields
+    console.log('👥 Updating Super Admin Role permissions...')
+    // Only update permissions for Super Admin, do not touch other fields
     await prisma.role.update({
-        where: { name: 'SUPER_ADMIN' },
+        where: { name: 'Super Admin' },
         data: {
             permission: {
                 set: [], // Disconnect all
@@ -58,14 +56,14 @@ async function main() {
             },
         },
     })
-    console.log('   ✅ Role: SUPER_ADMIN updated with new permissions')
+    console.log('   ✅ Role: Super Admin updated with new permissions')
 
-    // Only update permissions for teknisi if it exists
-    const teknisiRole = await prisma.role.findUnique({ where: { name: 'teknisi' } })
+    // Only update permissions for Teknisi if it exists
+    const teknisiRole = await prisma.role.findUnique({ where: { name: 'Teknisi' } })
     if (teknisiRole) {
-        console.log('👥 Updating teknisi Role permissions...')
+        console.log('👥 Updating Teknisi Role permissions...')
         await prisma.role.update({
-            where: { name: 'teknisi' },
+            where: { name: 'Teknisi' },
             data: {
                 permission: {
                     set: [],
@@ -73,7 +71,7 @@ async function main() {
                 },
             },
         })
-        console.log('   ✅ Role: teknisi updated with new permissions')
+        console.log('   ✅ Role: Teknisi updated with new permissions')
     }
 
     console.log('\n✅ Permission sync completed! User data was NOT touched.')
