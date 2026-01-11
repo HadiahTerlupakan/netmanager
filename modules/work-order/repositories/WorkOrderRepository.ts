@@ -471,6 +471,182 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         };
     }
 
+    /**
+     * Optimized query for list views - only fetches essential fields
+     * Reduces data transfer by ~90% compared to findAll()
+     * Does NOT fetch: tasks, assignments, updates, attachments
+     */
+    async findAllForList(
+        filters?: WorkOrderFilters,
+        page: number = 1,
+        limit: number = 20
+    ): Promise<{
+        workOrders: import('./IWorkOrderRepository').WorkOrderListItem[];
+        total: number;
+        page: number;
+        totalPages: number;
+    }> {
+        const where: any = {};
+
+        if (filters?.status) {
+            where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
+        }
+
+        if (filters?.priority) {
+            where.priority = Array.isArray(filters.priority) ? { in: filters.priority } : filters.priority;
+        }
+
+        if (filters?.type) {
+            where.type = Array.isArray(filters.type) ? { in: filters.type } : filters.type;
+        }
+
+        if (filters?.departmentId) {
+            where.departmentId = filters.departmentId;
+        }
+
+        if (filters?.unassignedOnly) {
+            where.assignedToId = null;
+        }
+
+        if (filters?.involvedUserId) {
+            const userFilter = {
+                OR: [
+                    { assignedToId: filters.involvedUserId },
+                    {
+                        assignments: {
+                            some: {
+                                userId: filters.involvedUserId,
+                                status: { not: 'REJECTED' }
+                            }
+                        }
+                    }
+                ]
+            };
+
+            if (where.OR) {
+                where.AND = [
+                    ...(where.AND || []),
+                    { OR: where.OR },
+                    userFilter
+                ];
+                delete where.OR;
+            } else {
+                where.OR = [
+                    { assignedToId: filters.involvedUserId },
+                    {
+                        assignments: {
+                            some: {
+                                userId: filters.involvedUserId,
+                                status: { not: 'REJECTED' }
+                            }
+                        }
+                    }
+                ];
+            }
+        } else if (filters?.assignedToId !== undefined) {
+            where.assignedToId = filters.assignedToId;
+        }
+
+        if (filters?.pelangganId) {
+            where.pelangganId = filters.pelangganId;
+        }
+
+        if (filters?.siteId) {
+            where.siteId = filters.siteId;
+        }
+
+        if (filters?.search) {
+            const searchFilter = {
+                OR: [
+                    { workOrderNumber: { contains: filters.search, mode: 'insensitive' } },
+                    { title: { contains: filters.search, mode: 'insensitive' } },
+                    { description: { contains: filters.search, mode: 'insensitive' } },
+                ]
+            };
+
+            if (where.OR) {
+                where.AND = [
+                    { OR: where.OR },
+                    searchFilter
+                ];
+                delete where.OR;
+            } else {
+                where.OR = searchFilter.OR;
+            }
+        }
+
+        if (filters?.dateFrom || filters?.dateTo) {
+            where.createdAt = {};
+            if (filters.dateFrom) where.createdAt.gte = filters.dateFrom;
+            if (filters.dateTo) where.createdAt.lte = filters.dateTo;
+        }
+
+        if (filters?.scheduledDateFrom || filters?.scheduledDateTo) {
+            where.scheduledDate = {};
+            if (filters.scheduledDateFrom) where.scheduledDate.gte = filters.scheduledDateFrom;
+            if (filters.scheduledDateTo) where.scheduledDate.lte = filters.scheduledDateTo;
+        }
+
+        // OPTIMIZED: Use select instead of include - only fetch fields needed for list view
+        const [workOrders, total] = await Promise.all([
+            this.prisma.workOrders.findMany({
+                where,
+                select: {
+                    id: true,
+                    workOrderNumber: true,
+                    title: true,
+                    type: true,
+                    status: true,
+                    priority: true,
+                    scheduledDate: true,
+                    contactName: true,
+                    createdAt: true,
+                    pelanggan: {
+                        select: {
+                            id: true,
+                            idPelanggan: true,
+                            nama: true,
+                        },
+                    },
+                    site: {
+                        select: {
+                            id: true,
+                            name: true,
+                            code: true,
+                        },
+                    },
+                    department: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                    assignedTo: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                    // NOTE: Deliberately NOT fetching tasks, assignments, updates, attachments
+                    // These are not shown in list view and add significant overhead
+                },
+                orderBy: {
+                    createdAt: 'desc',
+                },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            this.prisma.workOrders.count({ where }),
+        ]);
+
+        return {
+            workOrders: workOrders as import('./IWorkOrderRepository').WorkOrderListItem[],
+            total,
+            page,
+            totalPages: Math.ceil(total / limit),
+        };
+    }
+
     async update(id: string, data: UpdateWorkOrderData): Promise<WorkOrders> {
         return this.prisma.workOrders.update({
             where: { id },

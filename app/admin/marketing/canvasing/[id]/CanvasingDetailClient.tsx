@@ -9,11 +9,11 @@ import {
     HiOutlineMapPin,
     HiOutlinePhone,
     HiOutlineEnvelope,
-    HiOutlineIdentification,
-    HiOutlineCalendar,
-    HiOutlineUser,
-    HiOutlineArchiveBox,
-    HiOutlineQueueList
+    HiOutlineClock,
+    HiOutlineSignal,
+    HiOutlineWifi,
+    HiOutlineSquare3Stack3D,
+    HiOutlineQrCode
 } from 'react-icons/hi2';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
@@ -74,9 +74,8 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
         setIsProcessing(true);
         try {
             await axios.post(`/api/marketing/canvasing/${id}/approve`);
-            toast.success('Request disetujui and Work Order telah dibuat');
+            toast.success('Request disetujui dan Work Order telah dibuat');
             router.refresh();
-            // Refetch data
             const res = await axios.get(`/api/marketing/canvasing/${id}`);
             setItem(res.data);
         } catch (error: any) {
@@ -94,7 +93,6 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
             await axios.put(`/api/marketing/canvasing/${id}`, { status: 'REJECTED' });
             toast.success('Request ditolak');
             router.refresh();
-            // Refetch data
             const res = await axios.get(`/api/marketing/canvasing/${id}`);
             setItem(res.data);
         } catch (error) {
@@ -104,221 +102,281 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
         }
     };
 
-    if (isLoading) return <div className="p-8 text-center text-gray-500">Memuat detail...</div>;
-    if (!item) return <div className="p-8 text-center text-red-500 font-bold">Data tidak ditemukan</div>;
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
+    
+    if (!item) {
+        return (
+            <div className="text-center py-20">
+                <p className="text-red-500 font-semibold">Data tidak ditemukan</p>
+                <button onClick={() => router.back()} className="mt-4 text-indigo-600 hover:underline">
+                    ← Kembali
+                </button>
+            </div>
+        );
+    }
 
     return (
-        <div className="p-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div className="flex items-center gap-4">
-                    <button 
-                        onClick={() => router.back()}
-                        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                        <HiOutlineChevronLeft className="w-6 h-6" />
-                    </button>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">{item.nama}</h1>
-                        <p className="text-gray-500">Request Canvasing / {item.paket}</p>
-                    </div>
-                </div>
+        <div className="space-y-6">
+            {/* Back Button */}
+            <button 
+                onClick={() => router.back()}
+                className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white transition-colors"
+            >
+                <HiOutlineChevronLeft className="w-5 h-5" />
+                <span>Kembali ke Daftar</span>
+            </button>
 
-                {item.status === 'PENDING' && (
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={handleReject}
-                            disabled={isProcessing}
-                            className="px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg font-semibold flex items-center gap-2 transition-all disabled:opacity-50"
-                        >
-                            <HiOutlineXMark className="w-5 h-5" />
-                            Tolak
-                        </button>
-                        <button
-                            onClick={handleApprove}
-                            disabled={isProcessing}
-                            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold flex items-center gap-2 shadow-sm transition-all disabled:opacity-50"
-                        >
-                            <HiOutlineCheck className="w-5 h-5" />
-                            Setujui
-                        </button>
-                    </div>
-                )}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Left Column: Photos & Location */}
-                <div className="lg:col-span-1 space-y-8">
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-4 border-b border-gray-50 bg-gray-50/50">
-                            <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                                <HiOutlineArchiveBox className="w-5 h-5 text-indigo-500" />
-                                Foto Dokumentasi
-                            </h2>
-                        </div>
-                        <div className="p-4 space-y-4">
-                            <div>
-                                <p className="text-xs font-bold text-gray-400 uppercase mb-2">Foto Lokasi</p>
-                                <div 
-                                    className="aspect-video bg-gray-100 rounded-xl overflow-hidden cursor-zoom-in"
-                                    onClick={() => setZoomImage(item.foto!)}
-                                >
-                                    {item.foto ? (
-                                        <img src={item.foto} alt="Lokasi" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-gray-400 italic text-sm">Tidak ada foto</div>
-                                    )}
+            {/* Main Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Left Column - Profile Card */}
+                <div className="lg:col-span-1 space-y-6">
+                    {/* Profile Card */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        {/* Cover */}
+                        <div className="h-24 bg-indigo-600 dark:bg-indigo-700"></div>
+                        
+                        {/* Avatar & Name */}
+                        <div className="px-6 pb-6">
+                            <div className="-mt-12 mb-4">
+                                <div className="w-24 h-24 rounded-2xl bg-white dark:bg-gray-700 border-4 border-white dark:border-gray-800 shadow-lg flex items-center justify-center text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                                    {item.nama.charAt(0).toUpperCase()}
                                 </div>
                             </div>
-                            <div>
-                                <p className="text-xs font-bold text-gray-400 uppercase mb-2">Foto KTP</p>
-                                <div 
-                                    className="aspect-video bg-gray-100 rounded-xl overflow-hidden cursor-zoom-in"
-                                    onClick={() => setZoomImage(item.fotoKtp!)}
-                                >
-                                    {item.fotoKtp ? (
-                                        <img src={item.fotoKtp} alt="KTP" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-gray-400 italic text-sm">Tidak ada foto KTP</div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
-                        <div className="inline-flex p-3 bg-indigo-50 rounded-full mb-4">
-                            <HiOutlineMapPin className="w-8 h-8 text-indigo-600" />
-                        </div>
-                        <h3 className="font-bold text-gray-900 mb-2">Lokasi Pemasangan</h3>
-                        <p className="text-sm text-gray-500 mb-2">{item.alamat}</p>
-                        {item.latitude && item.longitude && (
-                            <p className="text-xs font-mono text-gray-400 mb-4 bg-gray-100 p-2 rounded-lg inline-block">
-                                {item.latitude}, {item.longitude}
-                            </p>
-                        )}
-                        <div className="mt-2">
-                            <a 
-                                href={item.latitude && item.longitude 
-                                    ? `https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}`
-                                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.alamat)}`
-                                }
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-indigo-600 font-bold hover:underline"
-                            >
-                                Buka di Google Maps
-                                <HiOutlineChevronLeft className="w-4 h-4 rotate-180" />
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right Column: Information */}
-                <div className="lg:col-span-2 space-y-8">
-                    {/* Status Info */}
-                    <div className={`p-6 rounded-2xl border flex items-center justify-between ${
-                        item.status === 'APPROVED' ? 'bg-green-50 border-green-100 text-green-700' :
-                        item.status === 'REJECTED' ? 'bg-red-50 border-red-100 text-red-700' :
-                        'bg-yellow-50 border-yellow-100 text-yellow-700'
-                    }`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-xl ${
-                                item.status === 'APPROVED' ? 'bg-green-600' :
-                                item.status === 'REJECTED' ? 'bg-red-600' :
-                                'bg-yellow-600'
+                            
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{item.nama}</h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Calon Pelanggan</p>
+                            
+                            {/* Status Badge */}
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold ${
+                                item.status === 'APPROVED' 
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                                    : item.status === 'REJECTED'
+                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                    : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
                             }`}>
-                                <HiOutlineCheck className="w-6 h-6 text-white" />
+                                {item.status === 'APPROVED' && <HiOutlineCheck className="w-4 h-4" />}
+                                {item.status === 'REJECTED' && <HiOutlineXMark className="w-4 h-4" />}
+                                {item.status === 'PENDING' && <HiOutlineClock className="w-4 h-4" />}
+                                {item.status}
+                            </div>
+                        </div>
+                        
+                        {/* Contact Info */}
+                        <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-4 space-y-3">
+                            <div className="flex items-center gap-3 text-sm">
+                                <HiOutlinePhone className="w-5 h-5 text-gray-400" />
+                                <a href={`https://wa.me/${item.noTelpon}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                                    {item.noTelpon}
+                                </a>
+                            </div>
+                            {item.email && (
+                                <div className="flex items-center gap-3 text-sm">
+                                    <HiOutlineEnvelope className="w-5 h-5 text-gray-400" />
+                                    <span className="text-gray-600 dark:text-gray-300">{item.email}</span>
+                                </div>
+                            )}
+                            <div className="flex items-start gap-3 text-sm">
+                                <HiOutlineMapPin className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+                                <span className="text-gray-600 dark:text-gray-300">{item.alamat}</span>
+                            </div>
+                        </div>
+                        
+                        {/* NIK */}
+                        <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-4">
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">NIK KTP</p>
+                            <p className="font-mono text-sm text-gray-800 dark:text-gray-200">{item.noKtp}</p>
+                        </div>
+                    </div>
+
+                    {/* Sales Info Card */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Sales</h3>
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold">
+                                {item.sales.name.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                                <p className="text-sm uppercase font-bold opacity-75">Status Saat Ini</p>
-                                <h3 className="text-xl font-bold">{item.status}</h3>
+                                <p className="font-medium text-gray-900 dark:text-white">{item.sales.name}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{item.sales.email}</p>
                             </div>
                         </div>
-                        {item.workOrder && (
-                            <div className="text-right">
-                                <p className="text-sm opacity-75 italic">Link Work Order</p>
-                                <p className="font-bold font-mono">{item.workOrder.workOrderNumber}</p>
-                            </div>
-                        )}
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
+                            Diajukan {format(new Date(item.createdAt), 'dd MMMM yyyy, HH:mm', { locale: idLocale })}
+                        </p>
                     </div>
 
-                    {/* Basic Info Grid */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-4 border-b border-gray-50 bg-gray-50/50">
-                            <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                                <HiOutlineIdentification className="w-5 h-5 text-indigo-500" />
-                                Informasi Pelanggan
-                            </h2>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-gray-100">
-                            <InfoBox label="Nama Sesuai KTP" value={item.nama} icon={<HiOutlineUser />} />
-                            <InfoBox label="NIK KTP" value={item.noKtp} icon={<HiOutlineIdentification />} />
-                            <InfoBox label="No. Telepon" value={item.noTelpon} icon={<HiOutlinePhone />} />
-                            <InfoBox label="Email" value={item.email || '-'} icon={<HiOutlineEnvelope />} />
+                    {/* Map Link */}
+                    {item.latitude && item.longitude && (
+                        <a 
+                            href={`https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors group"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Lokasi GPS</h3>
+                                    <p className="font-mono text-sm text-gray-800 dark:text-gray-200">{item.latitude}, {item.longitude}</p>
+                                </div>
+                                <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                                    <HiOutlineMapPin className="w-5 h-5" />
+                                </div>
+                            </div>
+                        </a>
+                    )}
+                </div>
+
+                {/* Right Column - Details */}
+                <div className="lg:col-span-2 space-y-6">
+                    
+                    {/* Technical Specs */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Spesifikasi Layanan</h3>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800">
+                                <HiOutlineWifi className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mb-2" />
+                                <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-1">Paket</p>
+                                <p className="text-lg font-bold text-gray-900 dark:text-white">{item.paket}</p>
+                            </div>
+                            
+                            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800">
+                                <HiOutlineSquare3Stack3D className="w-6 h-6 text-purple-600 dark:text-purple-400 mb-2" />
+                                <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">Kabel</p>
+                                <p className="text-lg font-bold text-gray-900 dark:text-white">{item.kabel}m</p>
+                            </div>
+                            
+                            <div className="bg-pink-50 dark:bg-pink-900/20 rounded-xl p-4 border border-pink-100 dark:border-pink-800">
+                                <HiOutlineSignal className="w-6 h-6 text-pink-600 dark:text-pink-400 mb-2" />
+                                <p className="text-xs text-pink-600 dark:text-pink-400 font-medium mb-1">ODP</p>
+                                <p className="text-lg font-bold text-gray-900 dark:text-white truncate">{item.odp || '-'}</p>
+                            </div>
+                            
+                            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-100 dark:border-amber-800">
+                                <HiOutlineQrCode className="w-6 h-6 text-amber-600 dark:text-amber-400 mb-2" />
+                                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-1">SN</p>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white font-mono truncate">{item.sn || '-'}</p>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-4 border-b border-gray-50 bg-gray-50/50">
-                            <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                                <HiOutlineQueueList className="w-5 h-5 text-indigo-500" />
-                                Informasi Paket & Teknis
-                            </h2>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-gray-100">
-                            <InfoBox label="Paket Dipilih" value={item.paket} icon={<HiOutlineArchiveBox />} />
-                            <InfoBox label="Estimasi Kabel" value={`${item.kabel} Meter`} icon={<HiOutlineMapPin />} />
-                            <InfoBox label="ODP Terdekat" value={item.odp || '-'} icon={<HiOutlineMapPin />} />
-                            <InfoBox label="Serial Number" value={item.sn || '-'} icon={<HiOutlineIdentification />} />
+                    {/* Documentation */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Dokumentasi</h3>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* KTP */}
+                            <div 
+                                className={`aspect-video rounded-xl overflow-hidden border-2 ${
+                                    item.fotoKtp 
+                                        ? 'cursor-zoom-in hover:border-indigo-400 dark:hover:border-indigo-500' 
+                                        : 'border-dashed'
+                                } border-gray-200 dark:border-gray-700 transition-colors`}
+                                onClick={() => item.fotoKtp && setZoomImage(item.fotoKtp)}
+                            >
+                                {item.fotoKtp ? (
+                                    <div className="relative w-full h-full group">
+                                        <img src={item.fotoKtp} alt="KTP" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                        <div className="absolute inset-x-0 bottom-0 h-12 bg-black/50" />
+                                        <span className="absolute bottom-3 left-3 text-white text-sm font-medium">Foto KTP</span>
+                                    </div>
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+                                        <span className="text-sm">Foto KTP</span>
+                                        <span className="text-xs mt-1">Tidak tersedia</span>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Location */}
+                            <div 
+                                className={`aspect-video rounded-xl overflow-hidden border-2 ${
+                                    item.foto 
+                                        ? 'cursor-zoom-in hover:border-indigo-400 dark:hover:border-indigo-500' 
+                                        : 'border-dashed'
+                                } border-gray-200 dark:border-gray-700 transition-colors`}
+                                onClick={() => item.foto && setZoomImage(item.foto)}
+                            >
+                                {item.foto ? (
+                                    <div className="relative w-full h-full group">
+                                        <img src={item.foto} alt="Lokasi" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                        <div className="absolute inset-x-0 bottom-0 h-12 bg-black/50" />
+                                        <span className="absolute bottom-3 left-3 text-white text-sm font-medium">Foto Lokasi</span>
+                                    </div>
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+                                        <span className="text-sm">Foto Lokasi</span>
+                                        <span className="text-xs mt-1">Tidak tersedia</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                                <HiOutlineUser className="w-6 h-6 text-gray-500" />
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-gray-400 capitalize">Diajukan Oleh (Sales)</p>
-                                <p className="font-bold text-gray-900">{item.sales.name}</p>
-                                <p className="text-xs text-gray-500">{item.sales.email}</p>
+                    {/* Work Order Badge */}
+                    {item.workOrder && (
+                        <div className="bg-green-600 dark:bg-green-700 rounded-2xl p-6 text-white">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-green-100 text-sm mb-1">Work Order Dibuat</p>
+                                    <p className="text-2xl font-bold font-mono">{item.workOrder.workOrderNumber}</p>
+                                </div>
+                                <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
+                                    <HiOutlineCheck className="w-8 h-8" />
+                                </div>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <p className="text-xs font-bold text-gray-400 uppercase">Waktu Input</p>
-                            <p className="text-sm font-medium text-gray-700">
-                                {format(new Date(item.createdAt), 'dd MMMM yyyy HH:mm', { locale: idLocale })}
+                    )}
+
+                    {/* Action Buttons */}
+                    {item.status === 'PENDING' && (
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Tindakan</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                                Dengan menyetujui, sistem akan otomatis membuat Work Order instalasi.
                             </p>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <button
+                                    onClick={handleApprove}
+                                    disabled={isProcessing}
+                                    className="flex-1 py-3 px-6 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
+                                >
+                                    <HiOutlineCheck className="w-5 h-5" />
+                                    Setujui
+                                </button>
+                                <button
+                                    onClick={handleReject}
+                                    disabled={isProcessing}
+                                    className="py-3 px-6 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
+                                >
+                                    <HiOutlineXMark className="w-5 h-5" />
+                                    Tolak
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
             {/* Zoom Modal */}
             {zoomImage && (
                 <div 
-                    className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+                    className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out backdrop-blur-sm"
                     onClick={() => setZoomImage(null)}
                 >
-                    <img src={zoomImage} alt="Zoomed" className="max-w-full max-h-full rounded-lg shadow-2xl" />
-                    <button className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
+                    <img src={zoomImage} alt="Zoomed" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
+                    <button className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
                         <HiOutlineXMark className="w-8 h-8" />
                     </button>
                 </div>
             )}
-        </div>
-    );
-}
-
-function InfoBox({ label, value, icon }: { label: string, value: string, icon: React.ReactNode }) {
-    return (
-        <div className="bg-white p-6 flex flex-col gap-1">
-            <div className="flex items-center gap-2 text-indigo-600 mb-1">
-                {icon}
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-400">{label}</span>
-            </div>
-            <p className="text-lg font-bold text-gray-900 truncate">{value}</p>
         </div>
     );
 }

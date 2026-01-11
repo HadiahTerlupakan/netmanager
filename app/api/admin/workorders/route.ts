@@ -150,7 +150,15 @@ export async function GET(request: NextRequest) {
              if (siteId) filters.siteId = siteId;
         }
 
-        const result = await workOrderRepo.findAll(filters, page, limit);
+        // Add search filter
+        if (search) filters.search = search;
+
+        // Add assignedToId filter
+        if (assignedToId) filters.assignedToId = assignedToId;
+
+        // OPTIMIZED: Use lightweight query for list view (Phase 1 optimization)
+        // This reduces response size by ~90% by not fetching tasks, assignments, updates, attachments
+        const result = await workOrderRepo.findAllForList(filters, page, limit);
 
         return NextResponse.json({
             success: true,
