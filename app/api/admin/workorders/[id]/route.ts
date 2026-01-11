@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { requireAuth } from '@/lib/auth-helpers';
 import { hasPermission } from '@/lib/rbac';
+import { workOrderCacheService } from '@/modules/work-order/services/WorkOrderCacheService';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -326,6 +327,9 @@ export async function PATCH(
             console.error('Logging failed', e)
         }
 
+        // PHASE 4: Invalidate caches after update
+        await workOrderCacheService.invalidateAllCaches();
+
         return NextResponse.json({
             success: true,
             data: workOrder,
@@ -450,6 +454,9 @@ export async function DELETE(
                 console.error('Logging failed', e)
             }
 
+            // PHASE 4: Invalidate caches after deletion
+            await workOrderCacheService.invalidateAllCaches();
+
             return NextResponse.json({
                 success: true,
                 message: 'Work order permanently deleted',
@@ -470,6 +477,9 @@ export async function DELETE(
         } catch (e) {
             console.error('Logging failed', e)
         }
+
+        // PHASE 4: Invalidate caches after cancellation
+        await workOrderCacheService.invalidateAllCaches();
 
         return NextResponse.json({
             success: true,

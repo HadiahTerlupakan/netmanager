@@ -2092,6 +2092,12 @@ model WorkOrders {
   @@index([ticketId])
   @@index([type])
   @@index([workOrderNumber])
+  // OPTIMIZATION: Composite indexes for common query patterns
+  @@index([status, priority]) // Dashboard urgent attention query
+  @@index([status, createdAt]) // List view with date sorting
+  @@index([status, departmentId]) // Department workload queries
+  @@index([type, status]) // Analytics by type queries
+  @@index([createdAt]) // Recent work orders sort
   @@map("work_orders")
 }
 

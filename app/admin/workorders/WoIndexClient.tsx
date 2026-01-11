@@ -57,47 +57,52 @@ export function ClientComponent() {
     useSocketEvent('workorder:assigned', handleUpdate)
 
     const fetchDashboardData = async () => {
-
         try {
-            const [statsRes, recentRes, workloadRes] = await Promise.all([
-                fetch('/api/admin/workorders/stats'),
-                fetch('/api/admin/workorders/recent'),
-                fetch('/api/admin/workorders/department-workload')
-            ])
-            if (statsRes.ok) { const result = await statsRes.json(); setStats(result.data) }
-            if (recentRes.ok) { const result = await recentRes.json(); setRecentWorkOrders(result.data) }
-            if (workloadRes.ok) { const result = await workloadRes.json(); setDepartmentWorkload(result.data) }
-            // Initial fetch handled by effect
-            fetchDetailedStats()
-        } catch (error) { console.error('Error fetching dashboard data:', error) }
-        finally { setLoading(false) }
+            // OPTIMIZED: Single consolidated API call instead of 6 separate calls (Phase 2 optimization)
+            const response = await fetch(`/api/admin/workorders/dashboard?period=${performancePeriod}`);
+            
+            if (response.ok) {
+                const result = await response.json();
+                const data = result.data;
+                
+                // Set all dashboard state from single response
+                setStats(data.stats);
+                setRecentWorkOrders(data.recentWorkOrders);
+                setDepartmentWorkload(data.departmentWorkload);
+                setTopPerformers(data.topPerformers);
+                setTopAssists(data.topAssists);
+                setIssueStats(data.issueStats);
+                setSiteStats(data.siteStats);
+                setDisconnectionStats(data.disconnectionStats);
+                setResponseStats(data.responseStats);
+            }
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+        } finally {
+            setLoading(false);
+        }
     }
 
     const fetchDetailedStats = async () => {
+        // OPTIMIZED: Reuse consolidated endpoint with period parameter
+        // Only fetches period-sensitive data (performers, analytics, response stats)
         try {
-            const [performersRes, analyticsRes, responseRes] = await Promise.all([
-                fetch(`/api/admin/workorders/top-performers?period=${performancePeriod}`),
-                fetch(`/api/admin/workorders/analytics?period=${performancePeriod}`),
-                fetch(`/api/admin/workorders/response-stats?period=${performancePeriod}`)
-            ])
-
-            if (performersRes.ok) {
-                const result = await performersRes.json()
-                setTopPerformers(result.data)
-                setTopAssists(result.topAssists || [])
-            }
-            if (analyticsRes.ok) {
-                const result = await analyticsRes.json()
-                setIssueStats(result.data.issues)
-                setSiteStats(result.data.sites)
-                setDisconnectionStats(result.data.disconnections || [])
-            }
-            if (responseRes.ok) {
-                const result = await responseRes.json()
-                setResponseStats(result.data || [])
+            const response = await fetch(`/api/admin/workorders/dashboard?period=${performancePeriod}`);
+            
+            if (response.ok) {
+                const result = await response.json();
+                const data = result.data;
+                
+                // Update only period-sensitive data
+                setTopPerformers(data.topPerformers);
+                setTopAssists(data.topAssists);
+                setIssueStats(data.issueStats);
+                setSiteStats(data.siteStats);
+                setDisconnectionStats(data.disconnectionStats);
+                setResponseStats(data.responseStats);
             }
         } catch (error) {
-            console.error('Error fetching detailed stats:', error)
+            console.error('Error fetching detailed stats:', error);
         }
     }
 

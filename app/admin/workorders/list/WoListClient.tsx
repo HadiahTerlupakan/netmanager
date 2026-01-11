@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -100,11 +100,29 @@ export function ClientComponent() {
 
     // Filters
     const [search, setSearch] = useState('')
+    const [debouncedSearch, setDebouncedSearch] = useState('') // PHASE 5: Debounced search value
     const [filterStatus, setFilterStatus] = useState('')
     const [filterPriority, setFilterPriority] = useState('')
     const [filterType, setFilterType] = useState('')
     const [filterSite, setFilterSite] = useState('')
     const [unassignedOnly, setUnassignedOnly] = useState(false)
+    const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+    // PHASE 5: Debounce search input (300ms delay)
+    useEffect(() => {
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current)
+        }
+        debounceTimerRef.current = setTimeout(() => {
+            setDebouncedSearch(search)
+        }, 300)
+        
+        return () => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current)
+            }
+        }
+    }, [search])
 
     // Approval states
     const [showRejectModal, setShowRejectModal] = useState(false)
@@ -125,7 +143,8 @@ export function ClientComponent() {
             fetchWorkOrders()
             fetchSites()
         }
-    }, [session, status, router, page, search, filterStatus, filterPriority, filterType, filterSite, unassignedOnly])
+    // PHASE 5: Use debouncedSearch instead of search for API calls
+    }, [session, status, router, page, debouncedSearch, filterStatus, filterPriority, filterType, filterSite, unassignedOnly])
 
     const fetchSites = async () => {
         try {
@@ -147,7 +166,7 @@ export function ClientComponent() {
                 limit: '20',
             })
 
-            if (search) params.append('search', search)
+            if (debouncedSearch) params.append('search', debouncedSearch) // Use debounced value
             if (filterStatus) params.append('status', filterStatus)
             if (filterPriority) params.append('priority', filterPriority)
             if (filterType) params.append('type', filterType)
@@ -630,24 +649,27 @@ export function ClientComponent() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                        Page {page} of {totalPages}
-                    </div>
-                    <div className="flex gap-2">
+                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Menampilkan {(page - 1) * 20 + 1} - {Math.min(page * 20, total)} dari {total} work orders
+                    </p>
+                    <div className="flex items-center gap-2">
                         <button
                             onClick={() => setPage(page - 1)}
                             disabled={page === 1}
-                            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 dark:text-gray-300"
+                            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300"
                         >
-                            Previous
+                            Sebelumnya
                         </button>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                            Hal {page} / {totalPages}
+                        </span>
                         <button
                             onClick={() => setPage(page + 1)}
                             disabled={page === totalPages}
-                            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 dark:text-gray-300"
+                            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300"
                         >
-                            Next
+                            Selanjutnya
                         </button>
                     </div>
                 </div>

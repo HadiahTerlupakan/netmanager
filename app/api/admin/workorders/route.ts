@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { hasPermission } from '@/lib/rbac';
 import { getSiteFilter } from '@/modules/roles';
+import { workOrderCacheService } from '@/modules/work-order/services/WorkOrderCacheService';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -356,6 +357,9 @@ export async function POST(request: NextRequest) {
         } catch (e) {
             console.error('Logging failed', e)
         }
+
+        // PHASE 4: Invalidate caches after creating work order
+        await workOrderCacheService.invalidateAllCaches();
 
         return NextResponse.json({
             success: true,
