@@ -10,7 +10,9 @@ import {
     notifyWorkOrderAssigned,
     notifyWorkOrderStatusChange,
     notifyWorkOrderUpdate,
+    createNotification,
 } from '@/modules/notification';
+import { prisma } from '@/lib/prisma';
 
 interface WorkOrderData {
     id: string;
@@ -75,6 +77,7 @@ export async function onWorkOrderAssigned(
 /**
  * Trigger notification when Work Order status changes
  * - Notifies the assigned employee and relevant Admins
+ * - Also notifies canvasing sales if WO is from canvasing
  */
 export async function onWorkOrderStatusChanged(
     workOrder: WorkOrderData,
@@ -97,8 +100,59 @@ export async function onWorkOrderStatusChanged(
             triggeredByUserId
         });
         console.log(`[Notification] Status change notification processed: ${oldStatus} -> ${newStatus}`);
+
+        // Notify canvasing sales if this WO is from canvasing
+        await notifyCanvasingSalesOnWOStatusChange(workOrder.id, newStatus);
     } catch (error) {
         console.error('[Notification] Error sending status change notification:', error);
+    }
+}
+
+/**
+ * Notify canvasing sales when their WO status changes
+ */
+async function notifyCanvasingSalesOnWOStatusChange(workOrderId: string, newStatus: string) {
+    try {
+        // Check if this WO is linked to a canvasing
+        const canvasing = await prisma.canvasing.findFirst({
+            where: { workOrderId },
+            select: {
+                id: true,
+                nama: true,
+                salesId: true,
+            }
+        });
+
+        if (!canvasing || !canvasing.salesId) return;
+
+        // Notify sales based on status
+        if (newStatus === 'IN_PROGRESS') {
+            await createNotification({
+                type: 'ANNOUNCEMENT',
+                priority: 'NORMAL',
+                title: '🔧 Instalasi Sedang Dikerjakan',
+                message: `Teknisi sedang mengerjakan instalasi untuk ${canvasing.nama}`,
+                link: `/marketing/canvasing/${canvasing.id}`,
+                userId: canvasing.salesId,
+                sourceType: 'CANVASING',
+                sourceId: canvasing.id,
+            });
+            console.log(`[Notification] Canvasing IN_PROGRESS notif sent to sales: ${canvasing.salesId}`);
+        } else if (['COMPLETED', 'VERIFIED', 'CLOSED'].includes(newStatus)) {
+            await createNotification({
+                type: 'ANNOUNCEMENT',
+                priority: 'NORMAL',
+                title: '✅ Instalasi Selesai',
+                message: `Instalasi untuk ${canvasing.nama} selesai. Anda bisa claim poin sekarang!`,
+                link: `/marketing/canvasing/${canvasing.id}`,
+                userId: canvasing.salesId,
+                sourceType: 'CANVASING',
+                sourceId: canvasing.id,
+            });
+            console.log(`[Notification] Canvasing COMPLETED notif sent to sales: ${canvasing.salesId}`);
+        }
+    } catch (error) {
+        console.error('[Notification] Error notifying canvasing sales:', error);
     }
 }
 

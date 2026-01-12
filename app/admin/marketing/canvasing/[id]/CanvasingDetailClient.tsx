@@ -13,12 +13,24 @@ import {
     HiOutlineSignal,
     HiOutlineWifi,
     HiOutlineSquare3Stack3D,
-    HiOutlineQrCode
+    HiOutlineQrCode,
+    HiOutlineGift,
+    HiOutlineStar
 } from 'react-icons/hi2';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+
+interface PointClaim {
+    id: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    buktiUrls: string[];
+    keterangan?: string;
+    pointValue: number;
+    reviewNotes?: string;
+    createdAt: string;
+}
 
 interface CanvasingDetail {
     id: string;
@@ -43,7 +55,9 @@ interface CanvasingDetail {
     createdAt: string;
     workOrder?: {
         workOrderNumber: string;
+        status: string;
     };
+    pointClaims?: PointClaim[];
 }
 
 export default function CanvasingDetailClient({ id }: { id: string }) {
@@ -97,6 +111,45 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
             setItem(res.data);
         } catch (error) {
             toast.error('Gagal menolak request');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleApproveClaim = async (claimId: string) => {
+        setIsProcessing(true);
+        try {
+            await axios.put(`/api/marketing/point-claims/${claimId}`, { 
+                action: 'approve'
+            });
+            toast.success('Claim poin berhasil disetujui');
+            const res = await axios.get(`/api/marketing/canvasing/${id}`);
+            setItem(res.data);
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Gagal menyetujui claim');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleRejectClaim = async (claimId: string) => {
+        const notes = prompt('Alasan penolakan:');
+        if (!notes) {
+            toast.error('Alasan penolakan harus diisi');
+            return;
+        }
+        
+        setIsProcessing(true);
+        try {
+            await axios.put(`/api/marketing/point-claims/${claimId}`, { 
+                action: 'reject', 
+                notes 
+            });
+            toast.success('Claim poin ditolak');
+            const res = await axios.get(`/api/marketing/canvasing/${id}`);
+            setItem(res.data);
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Gagal menolak claim');
         } finally {
             setIsProcessing(false);
         }
@@ -327,11 +380,113 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                                 <div>
                                     <p className="text-green-100 text-sm mb-1">Work Order Dibuat</p>
                                     <p className="text-2xl font-bold font-mono">{item.workOrder.workOrderNumber}</p>
+                                    {item.workOrder.status && (
+                                        <p className="text-green-200 text-xs mt-1">Status: {item.workOrder.status}</p>
+                                    )}
                                 </div>
                                 <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
                                     <HiOutlineCheck className="w-8 h-8" />
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Point Claims Section */}
+                    {item.pointClaims && item.pointClaims.length > 0 && (
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                                    <HiOutlineGift className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Claim Poin</h3>
+                            </div>
+                            
+                            {item.pointClaims.map((claim) => (
+                                <div key={claim.id} className={`border rounded-xl p-4 mb-4 last:mb-0 ${
+                                    claim.status === 'APPROVED' 
+                                        ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20' 
+                                        : claim.status === 'REJECTED'
+                                        ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
+                                        : 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20'
+                                }`}>
+                                    {/* Claim Header */}
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <HiOutlineStar className={`w-5 h-5 ${
+                                                claim.status === 'APPROVED' ? 'text-green-600' 
+                                                : claim.status === 'REJECTED' ? 'text-red-600' 
+                                                : 'text-amber-600'
+                                            }`} />
+                                            <span className={`text-sm font-bold ${
+                                                claim.status === 'APPROVED' ? 'text-green-700 dark:text-green-400' 
+                                                : claim.status === 'REJECTED' ? 'text-red-700 dark:text-red-400' 
+                                                : 'text-amber-700 dark:text-amber-400'
+                                            }`}>
+                                                +{claim.pointValue} Poin - {claim.status}
+                                            </span>
+                                        </div>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                                            {format(new Date(claim.createdAt), 'dd MMM yyyy, HH:mm', { locale: idLocale })}
+                                        </span>
+                                    </div>
+
+                                    {/* Bukti Photos */}
+                                    {claim.buktiUrls && claim.buktiUrls.length > 0 && (
+                                        <div className="mb-4">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Bukti Foto:</p>
+                                            <div className="flex gap-2 flex-wrap">
+                                                {claim.buktiUrls.map((url, idx) => (
+                                                    <img 
+                                                        key={idx} 
+                                                        src={url} 
+                                                        alt={`Bukti ${idx + 1}`}
+                                                        className="w-20 h-20 rounded-lg object-cover cursor-zoom-in border border-gray-200 dark:border-gray-600"
+                                                        onClick={() => setZoomImage(url)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Keterangan */}
+                                    {claim.keterangan && (
+                                        <div className="mb-4">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Keterangan:</p>
+                                            <p className="text-sm text-gray-700 dark:text-gray-300">{claim.keterangan}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Review Notes */}
+                                    {claim.reviewNotes && (
+                                        <div className="mb-4 p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Catatan Review:</p>
+                                            <p className="text-sm text-gray-700 dark:text-gray-300">{claim.reviewNotes}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Action Buttons for PENDING */}
+                                    {claim.status === 'PENDING' && (
+                                        <div className="flex gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                            <button
+                                                onClick={() => handleApproveClaim(claim.id)}
+                                                disabled={isProcessing}
+                                                className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+                                            >
+                                                <HiOutlineCheck className="w-4 h-4" />
+                                                Setujui Claim
+                                            </button>
+                                            <button
+                                                onClick={() => handleRejectClaim(claim.id)}
+                                                disabled={isProcessing}
+                                                className="py-2 px-4 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+                                            >
+                                                <HiOutlineXMark className="w-4 h-4" />
+                                                Tolak
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     )}
 

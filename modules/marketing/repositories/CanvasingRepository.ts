@@ -1,6 +1,6 @@
 import { PrismaClient, CanvasingStatus } from '@prisma/client'
 import type { Canvasing } from '@prisma/client'
-import type { ICanvasingRepository, CreateCanvasingInput, UpdateCanvasingInput } from './ICanvasingRepository'
+import type { ICanvasingRepository, CreateCanvasingInput, UpdateCanvasingInput, CanvasingWithSalesSite } from './ICanvasingRepository'
 
 export class CanvasingRepository implements ICanvasingRepository {
   constructor(private readonly db: PrismaClient) {}
@@ -57,6 +57,28 @@ export class CanvasingRepository implements ICanvasingRepository {
     })
   }
 
+  async findByIdWithSales(id: string): Promise<CanvasingWithSalesSite | null> {
+    return this.db.canvasing.findUnique({
+      where: { id },
+      include: {
+        sales: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            siteId: true,
+            sites: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
+      }
+    }) as Promise<CanvasingWithSalesSite | null>
+  }
+
   async findAll(filters?: { status?: CanvasingStatus; salesId?: string }): Promise<Canvasing[]> {
     return this.db.canvasing.findMany({
       where: {
@@ -71,6 +93,24 @@ export class CanvasingRepository implements ICanvasingRepository {
                   name: true,
                   email: true
               }
+          },
+          workOrder: {
+              select: {
+                  status: true
+              }
+          },
+          pointClaims: {
+              select: {
+                  id: true,
+                  status: true,
+                  buktiUrls: true,
+                  keterangan: true,
+                  pointValue: true,
+                  reviewNotes: true,
+                  createdAt: true
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 1
           }
       },
       orderBy: { createdAt: 'desc' },

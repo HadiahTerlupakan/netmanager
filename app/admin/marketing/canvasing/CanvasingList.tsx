@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlineEye, HiOutlineLockClosed, HiOutlineMagnifyingGlass, HiOutlinePencilSquare, HiOutlinePlus, HiOutlineTrash } from 'react-icons/hi2'
+import { HiOutlineEye, HiOutlineLockClosed, HiOutlineMagnifyingGlass, HiOutlinePencilSquare, HiOutlinePlus, HiOutlineTrash, HiOutlineArrowUturnLeft, HiOutlineGift, HiOutlineCheck, HiOutlineXMark } from 'react-icons/hi2'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
@@ -10,6 +10,17 @@ import { format } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
 import { toast } from 'react-hot-toast'
 import { usePermission } from '@/hooks/use-permission'
+import axios from 'axios'
+
+interface PointClaim {
+    id: string
+    status: 'PENDING' | 'APPROVED' | 'REJECTED'
+    buktiUrls: string[]
+    keterangan?: string
+    pointValue: number
+    reviewNotes?: string
+    createdAt: string
+}
 
 interface CanvasingItem {
     id: string
@@ -19,19 +30,27 @@ interface CanvasingItem {
     status: 'PENDING' | 'APPROVED' | 'REJECTED'
     sales: { name: string }
     createdAt: string
+    pointClaims?: PointClaim[]
 }
 
 export default function CanvasingList() {
     const [items, setItems] = useState<CanvasingItem[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
+    const [claimModal, setClaimModal] = useState<{ open: boolean; item: CanvasingItem | null; processing: boolean }>({
+        open: false,
+        item: null,
+        processing: false
+    })
+    const [zoomImage, setZoomImage] = useState<string | null>(null)
 
     // Permission checks
-    const { hasPermission, isLoading: permLoading } = usePermission()
-    const canRead = hasPermission('canvasing:read')
-    const canCreate = hasPermission('canvasing:create')
-    const canUpdate = hasPermission('canvasing:update')
-    const canDelete = hasPermission('canvasing:delete')
+    const { hasPermission, isLoading: permLoading, role } = usePermission()
+    const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'Super Admin'
+    const canRead = isSuperAdmin || hasPermission('canvasing:read')
+    const canCreate = isSuperAdmin || hasPermission('canvasing:create')
+    const canUpdate = isSuperAdmin || hasPermission('canvasing:update')
+    const canDelete = isSuperAdmin || hasPermission('canvasing:delete')
 
     useEffect(() => {
         fetchData()
@@ -50,6 +69,51 @@ export default function CanvasingList() {
             setLoading(false)
         }
     }
+
+    const handleApproveClaim = async (claimId: string) => {
+        setClaimModal(prev => ({ ...prev, processing: true }))
+        try {
+            await axios.put(`/api/marketing/point-claims/${claimId}`, { 
+                action: 'approve'
+            })
+            toast.success('Claim poin berhasil disetujui')
+            setClaimModal({ open: false, item: null, processing: false })
+            fetchData()
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Gagal menyetujui claim')
+            setClaimModal(prev => ({ ...prev, processing: false })) 
+        }
+    }
+
+    const handleRejectClaim = async (claimId: string) => {
+        const notes = prompt('Alasan penolakan:')
+        if (!notes) {
+            toast.error('Alasan penolakan harus diisi')
+            return
+        }
+        
+        setClaimModal(prev => ({ ...prev, processing: true }))
+        try {
+            await axios.put(`/api/marketing/point-claims/${claimId}`, { 
+                action: 'reject', 
+                notes 
+            })
+            toast.success('Claim poin ditolak')
+            setClaimModal({ open: false, item: null, processing: false })
+            fetchData()
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Gagal menolak claim')
+            setClaimModal(prev => ({ ...prev, processing: false }))
+        }
+    }
+
+    const getPendingClaim = (item: CanvasingItem) => {
+        return item.pointClaims?.find(c => c.status === 'PENDING')
+    }
+
+    const getApprovedClaim = (item: CanvasingItem) => {
+        return item.pointClaims?.find(c => c.status === 'APPROVED')
+    }
     const handleDelete = async (id: string, name: string) => {
         if (!confirm(`Hapus request canvasing atas nama ${name}?`)) return
         
@@ -67,6 +131,28 @@ export default function CanvasingList() {
         } catch (error) {
             console.error('Delete error:', error)
             toast.error('Terjadi kesalahan saat menghapus data')
+        }
+    }
+
+    const handleCancelApproval = async (id: string, name: string) => {
+        if (!confirm(`Batalkan approval untuk ${name}? Status akan kembali ke PENDING dan WO terkait akan di-unlink.`)) return
+        
+        try {
+            const res = await fetch(`/api/marketing/canvasing/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'cancel_approval' })
+            })
+            if (res.ok) {
+                toast.success('Approval dibatalkan, status kembali ke PENDING')
+                fetchData()
+            } else {
+                const data = await res.json()
+                toast.error(data.error || 'Gagal membatalkan approval')
+            }
+        } catch (error) {
+            console.error('Cancel approval error:', error)
+            toast.error('Terjadi kesalahan saat membatalkan approval')
         }
     }
 
@@ -191,7 +277,7 @@ export default function CanvasingList() {
                                 </Link>
                             )}
 
-                            {item.status === 'PENDING' && canDelete && (
+                            {canDelete && (
                                 <button 
                                     onClick={() => handleDelete(item.id, item.nama)}
                                     className="text-red-600 hover:text-red-800 p-2 bg-red-50 hover:bg-red-100 rounded-lg transition-colors inline-block"
@@ -200,10 +286,149 @@ export default function CanvasingList() {
                                     <HiOutlineTrash className="w-5 h-5" />
                                 </button>
                             )}
+
+                            {item.status === 'APPROVED' && canUpdate && (
+                                <button 
+                                    onClick={() => handleCancelApproval(item.id, item.nama)}
+                                    className="text-orange-600 hover:text-orange-800 p-2 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors inline-block"
+                                    title="Batal Approval"
+                                >
+                                    <HiOutlineArrowUturnLeft className="w-5 h-5" />
+                                </button>
+                            )}
+
+                            {/* Tombol Claim Poin */}
+                            {getPendingClaim(item) && canUpdate && (
+                                <button 
+                                    onClick={() => setClaimModal({ open: true, item, processing: false })}
+                                    className="text-purple-600 hover:text-purple-800 p-2 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors inline-flex items-center gap-1"
+                                    title="Review Claim Poin"
+                                >
+                                    <HiOutlineGift className="w-5 h-5" />
+                                    <span className="text-xs font-semibold hidden sm:inline">Claim</span>
+                                </button>
+                            )}
+
+                            {/* Badge Claimed */}
+                            {getApprovedClaim(item) && (
+                                <span className="text-xs font-semibold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-lg flex items-center gap-1">
+                                    ⭐ Diklaim
+                                </span>
+                            )}
                         </div>
                     )}
                 />
             </div>
+
+            {/* Claim Modal */}
+            {claimModal.open && claimModal.item && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+                        {/* Modal Header */}
+                        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                                    <HiOutlineGift className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white">Review Claim Poin</h3>
+                                    <p className="text-xs text-gray-500">{claimModal.item.nama}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setClaimModal({ open: false, item: null, processing: false })}
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                            >
+                                <HiOutlineXMark className="w-5 h-5 text-gray-500" />
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-4 overflow-y-auto max-h-[60vh]">
+                            {(() => {
+                                const claim = getPendingClaim(claimModal.item!)
+                                if (!claim) return <p className="text-gray-500">Tidak ada claim pending</p>
+
+                                return (
+                                    <div className="space-y-4">
+                                        {/* Claim Info */}
+                                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4">
+                                            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                                                <span className="text-lg">⭐</span>
+                                                <span className="font-bold">+{claim.pointValue} Poin</span>
+                                                <span className="text-xs text-amber-600 dark:text-amber-500 ml-auto">
+                                                    {format(new Date(claim.createdAt), 'dd MMM yyyy, HH:mm', { locale: idLocale })}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Bukti Foto */}
+                                        {claim.buktiUrls && claim.buktiUrls.length > 0 && (
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Bukti Foto:</p>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {claim.buktiUrls.map((url, idx) => (
+                                                        <img 
+                                                            key={idx} 
+                                                            src={url} 
+                                                            alt={`Bukti ${idx + 1}`}
+                                                            className="w-full aspect-square rounded-lg object-cover cursor-zoom-in border border-gray-200 dark:border-gray-600 hover:opacity-80 transition-opacity"
+                                                            onClick={() => setZoomImage(url)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Keterangan */}
+                                        {claim.keterangan && (
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Keterangan:</p>
+                                                <p className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                                                    {claim.keterangan}
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                            <button
+                                                onClick={() => handleApproveClaim(claim.id)}
+                                                disabled={claimModal.processing}
+                                                className="flex-1 py-3 px-4 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
+                                            >
+                                                <HiOutlineCheck className="w-5 h-5" />
+                                                Setujui
+                                            </button>
+                                            <button
+                                                onClick={() => handleRejectClaim(claim.id)}
+                                                disabled={claimModal.processing}
+                                                className="py-3 px-4 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
+                                            >
+                                                <HiOutlineXMark className="w-5 h-5" />
+                                                Tolak
+                                            </button>
+                                        </div>
+                                    </div>
+                                )
+                            })()}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Zoom Image Modal */}
+            {zoomImage && (
+                <div 
+                    className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out backdrop-blur-sm"
+                    onClick={() => setZoomImage(null)}
+                >
+                    <img src={zoomImage} alt="Zoomed" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
+                    <button className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
+                        <HiOutlineXMark className="w-8 h-8" />
+                    </button>
+                </div>
+            )}
         </div>
     )
 }

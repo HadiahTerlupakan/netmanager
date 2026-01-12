@@ -439,6 +439,17 @@ export async function DELETE(
         }
 
         if (isPermanent) {
+            // Reset any Canvasing records linked to this WO back to PENDING
+            await prisma.canvasing.updateMany({
+                where: { workOrderId: id },
+                data: {
+                    status: 'PENDING',
+                    workOrderId: null,
+                    approvedBy: null,
+                    approvedAt: null
+                }
+            });
+
             await workOrderRepo.delete(id);
 
             // System Log for Deletion

@@ -33,9 +33,23 @@ export interface UpdateCanvasingInput {
   fotoKtp?: string | null
 }
 
+export interface CanvasingWithSalesSite extends Canvasing {
+  sales: {
+    id: string
+    name: string | null
+    email: string | null
+    siteId: string | null
+    sites: {
+      id: string
+      name: string
+    } | null
+  }
+}
+
 export interface ICanvasingRepository {
   create(data: CreateCanvasingInput): Promise<Canvasing>
   findById(id: string): Promise<Canvasing | null>
+  findByIdWithSales(id: string): Promise<CanvasingWithSalesSite | null>
   findAll(filters?: { status?: CanvasingStatus; salesId?: string }): Promise<Canvasing[]>
   update(id: string, data: UpdateCanvasingInput): Promise<Canvasing>
   delete(id: string): Promise<void>

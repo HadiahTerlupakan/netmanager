@@ -6,6 +6,7 @@ import type {
   PointClaimWithRelations,
   PointSummary
 } from '../repositories/IPointClaimRepository'
+import { createNotification } from '../../notification/services/NotificationService'
 
 export class PointClaimService {
   constructor(
@@ -25,6 +26,7 @@ export class PointClaimService {
       include: {
         workOrder: true,
         pointClaims: true,
+        sales: { select: { name: true } },
       },
     })
 
@@ -62,6 +64,18 @@ export class PointClaimService {
       data: { isLocked: true },
     })
 
+    // 4. Notify admins about new claim
+    const salesName = canvasing.sales?.name || 'Sales'
+    createNotification({
+      type: 'ANNOUNCEMENT',
+      priority: 'NORMAL',
+      title: '🎁 Claim Poin Baru',
+      message: `${salesName} mengajukan claim +${claim.pointValue} poin untuk canvasing ${canvasing.nama}`,
+      link: `/admin/marketing/canvasing/${canvasing.id}`,
+      sourceType: 'POINT_CLAIM',
+      sourceId: claim.id,
+    }).catch(err => console.error('[PointClaim Notif] Error:', err))
+
     return claim
   }
 
@@ -97,12 +111,26 @@ export class PointClaimService {
       throw new Error('Hanya claim dengan status PENDING yang bisa disetujui')
     }
 
-    return this.repository.update(id, {
+    const approved = await this.repository.update(id, {
       status: 'APPROVED',
       reviewedById: reviewerId,
       reviewedAt: new Date(),
       reviewNotes: notes,
     })
+
+    // Notify sales that claim was approved
+    createNotification({
+      type: 'ANNOUNCEMENT',
+      priority: 'NORMAL',
+      title: '⭐ Claim Poin Disetujui',
+      message: `Claim poin +${claim.pointValue} poin berhasil disetujui!`,
+      link: `/marketing/canvasing/${claim.canvasingId}`,
+      userId: claim.salesId,
+      sourceType: 'POINT_CLAIM',
+      sourceId: id,
+    }).catch(err => console.error('[PointClaim Notif] Error:', err))
+
+    return approved
   }
 
   /**
@@ -127,6 +155,18 @@ export class PointClaimService {
       where: { id: claim.canvasingId },
       data: { isLocked: false },
     })
+
+    // Notify sales that claim was rejected
+    createNotification({
+      type: 'ANNOUNCEMENT',
+      priority: 'NORMAL',
+      title: '❌ Claim Poin Ditolak',
+      message: `Claim poin ditolak. Alasan: ${notes}`,
+      link: `/marketing/canvasing/${claim.canvasingId}`,
+      userId: claim.salesId,
+      sourceType: 'POINT_CLAIM',
+      sourceId: id,
+    }).catch(err => console.error('[PointClaim Notif] Error:', err))
 
     // Delete the rejected claim so sales can create new one
     await this.repository.delete(id)
