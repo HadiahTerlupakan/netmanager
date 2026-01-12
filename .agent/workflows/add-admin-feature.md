@@ -19,6 +19,26 @@ description: Standard workflow for adding a new Admin Feature with Menu and RBAC
 
 ---
 
+## ⚠️ CRITICAL: Permission Architecture
+
+> **Session NextAuth TIDAK menyimpan permissions** (untuk mengurangi ukuran cookie).
+> Permissions di-load dari database saat runtime!
+
+| Layer                     | File                      | Cara Load Permission                             |
+| ------------------------- | ------------------------- | ------------------------------------------------ |
+| **Server (Page)**         | `lib/rbac.ts`             | `hasPermission()` → `getUserPermissions(userId)` |
+| **Server (API)**          | `lib/rbac.ts`             | `hasPermission()` → `getUserPermissions(userId)` |
+| **Client (Sidebar/Hook)** | `hooks/use-permission.ts` | Fetch dari `/api/user/permissions`               |
+
+**Files yang terlibat:**
+
+- `lib/auth.ts` → `getUserPermissions(userId)` - Load dari database
+- `lib/rbac.ts` → `hasPermission()`, `ensurePermission()` - Server-side check
+- `hooks/use-permission.ts` → Client-side hook, fetch dari API
+- `app/api/user/permissions/route.ts` → API endpoint untuk client
+
+---
+
 ## Step 1: Define Resource Capabilities
 
 **File**: `lib/resource-capabilities.ts`
@@ -199,3 +219,29 @@ const IconMap: Record<string, React.ElementType> = {
 3. ❌ Menu code tidak match dengan resource name
 4. ❌ Lupa protect API route dengan `hasPermission()`
 5. ❌ Typo di nama permission (case-sensitive, use snake_case)
+6. ❌ **Menggunakan `session.user.permissions`** → Session TIDAK menyimpan permissions!
+7. ❌ Lupa gunakan `await getUserPermissions(userId)` di server-side code
+
+---
+
+## Troubleshooting
+
+### Menu Tampil tapi Halaman Tidak Bisa Dibuka
+
+**Penyebab**: `lib/rbac.ts` menggunakan `session.user.permissions` yang selalu kosong.
+
+**Solusi**: Pastikan `lib/rbac.ts` menggunakan `getUserPermissions(userId)` dari `@/lib/auth`:
+
+```typescript
+import { authConfig, getUserPermissions } from "@/lib/auth";
+
+export async function hasPermission(requiredPermission: string) {
+  const session = await getServerSession(authConfig);
+  if (!session?.user) return false;
+  if (session.user.role === "SUPER_ADMIN") return true;
+
+  // WAJIB: Load dari database!
+  const permissions = await getUserPermissions(session.user.id);
+  return permissions.includes(requiredPermission);
+}
+```

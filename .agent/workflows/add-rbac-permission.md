@@ -16,6 +16,44 @@ RBAC di NetManager terdiri dari 3 layer:
 
 ---
 
+## ⚠️ CRITICAL: Permission Architecture
+
+> **Session NextAuth TIDAK menyimpan permissions** (untuk mengurangi ukuran cookie).
+> Permissions HARUS di-load dari database saat runtime!
+
+### Server-Side (lib/rbac.ts)
+
+```typescript
+// ✅ BENAR: Load dari database
+import { authConfig, getUserPermissions } from "@/lib/auth";
+
+export async function hasPermission(requiredPermission: string) {
+  const session = await getServerSession(authConfig);
+  if (!session?.user) return false;
+  if (session.user.role === "SUPER_ADMIN") return true;
+
+  const permissions = await getUserPermissions(session.user.id);
+  return permissions.includes(requiredPermission);
+}
+
+// ❌ SALAH: Session tidak punya permissions!
+// const permissions = session.user.permissions || []  // SELALU KOSONG!
+```
+
+### Client-Side (hooks/use-permission.ts)
+
+```typescript
+// Hook fetch permissions dari API /api/user/permissions
+const { hasPermission, isLoading } = usePermission();
+const canCreate = hasPermission("feature:create");
+```
+
+### API Endpoint
+
+`app/api/user/permissions/route.ts` - Endpoint untuk client-side permission loading
+
+---
+
 ## Step 1: Define Resource Capabilities
 
 Edit file `lib/resource-capabilities.ts` dan tambahkan resource baru:
@@ -323,6 +361,33 @@ Actions: read, create, update, delete, site_only, department_only
 4. ❌ Lupa pass `undefined` ke child components
 5. ❌ Tidak test dengan non-admin user
 6. ❌ Lupa user harus re-login setelah permission berubah
+7. ❌ **Menggunakan `session.user.permissions`** → Session TIDAK menyimpan permissions!
+8. ❌ **Lupa import `getUserPermissions` dari `@/lib/auth`**
+
+---
+
+## Troubleshooting
+
+### Sidebar Menu Kosong / Halaman Tidak Bisa Dibuka
+
+**Penyebab**: Permission diambil dari session yang kosong.
+
+**Solusi**:
+
+1. Pastikan `lib/rbac.ts` menggunakan `getUserPermissions(userId)` dari `@/lib/auth`
+2. Pastikan `hooks/use-permission.ts` fetch dari `/api/user/permissions`
+3. Pastikan endpoint `/api/user/permissions/route.ts` ada dan bekerja
+
+### Super Admin Tidak Bypass Permission
+
+**Penyebab**: Role check tidak mencakup variasi nama.
+
+**Solusi**: Check kedua format role:
+
+```typescript
+if (session.user.role === "SUPER_ADMIN" || session.user.role === "Super Admin")
+  return true;
+```
 
 ---
 
