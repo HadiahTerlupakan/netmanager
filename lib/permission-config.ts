@@ -12,7 +12,7 @@ export const PERMISSION_GROUPS = {
     SYSTEM_LOG: ['system_log', 'login', 'activity'],
     SUPPORT: ['support'],
     ANNOUNCEMENT: ['announcement'],
-    MARKETING: ['marketing', 'coupon', 'sales', 'canvasing'],
+    MARKETING: ['marketing', 'coupon', 'sales_dashboard', 'sales', 'canvasing'],
     CHAT: ['chat', 'broadcast'],
     USERS: ['users'],
 

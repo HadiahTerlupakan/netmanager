@@ -23,6 +23,7 @@ import {
 } from 'react-icons/hi2'
 import WorkingHoursSettings from './WorkingHoursSettings'
 import UserPerformanceStats from './UserPerformanceStats'
+import SalesPerformanceStats from './SalesPerformanceStats'
 
 interface Department {
   id: string
@@ -444,6 +445,11 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
 
         {/* User Performance Stats (New Metric Section) */}
         <UserPerformanceStats userId={id as string} />
+
+        {/* Sales Performance Stats - Only for Sales users */}
+        {formData.isSales && (
+          <SalesPerformanceStats userId={id as string} />
+        )}
 
       </div>
     )

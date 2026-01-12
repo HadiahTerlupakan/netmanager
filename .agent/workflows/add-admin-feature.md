@@ -2,74 +2,200 @@
 description: Standard workflow for adding a new Admin Feature with Menu and RBAC
 ---
 
-1. **Define Permissions**
+# Add Admin Feature Workflow
 
-   - Open `lib/permission-config.ts`
-   - Add new group or append to existing group in `PERMISSION_GROUPS`.
-   - Format: `GROUP_NAME: ['resource1', 'resource2']`
-   - **Effect**: This defines `resource:create`, `resource:read`, `resource:update`, `resource:delete` permissions.
+## Checklist
 
-2. **Define Menu Item**
+```
+[ ] 1. Define Resource Capabilities (resource-capabilities.ts)
+[ ] 2. Define Permission Group (permission-config.ts)
+[ ] 3. Define Menu Item (menu-config.ts)
+[ ] 4. Create Page with ensurePermission
+[ ] 5. Create API with hasPermission
+[ ] 6. Verify Icon in Sidebar
+[ ] 7. Register Permission via Role Settings UI
+[ ] 8. Test Access Control
+```
 
-   - Open `lib/menu-config.ts`
-   - Add entry to `ADMIN_MENU_CONFIG`
-   - **Critical**: `code` must match the resource name for permission mapping.
-     - Parent Code: `GROUP_NAME` (maps to `group_name:read`)
-     - Child Code: `GROUP_NAME.RESOURCE` (maps to `resource:read`)
+---
 
-3. **Register Permission (Automatic)**
+## Step 1: Define Resource Capabilities
 
-   - No need to run scripts or database seeds.
-   - Go to Admin Portal > Settings > Roles.
-   - Edit a Role (e.g. Administrator).
-   - Check the new permissions you defined in Step 1.
-   - **Click Save**: The system will automatically create the missing permissions in the database.
+**File**: `lib/resource-capabilities.ts`
 
-4. **Implement Server-Side Protection**
+Tambahkan resource baru dengan actions yang tersedia:
 
-   - **File**: `app/admin/path/to/page.tsx`
-   - **Requirement**: Use `ensurePermission` from `@/lib/rbac`.
-   - **Code Snippet**:
+```typescript
+// Tambahkan di RESOURCE_CAPABILITIES object
+your_resource: {
+    actions: ['read', 'create', 'update', 'delete', 'site_only'],
+    description: 'Deskripsi fitur Anda'
+},
+```
 
-     ```tsx
-     import { ensurePermission } from "@/lib/rbac";
+**Actions tersedia**:
 
-     export default async function Page() {
-       await ensurePermission("resource:read"); // Match the resource defined in Step 1
-       return <ClientComponent />;
-     }
-     ```
+- `read` - Melihat data
+- `create` - Membuat data baru
+- `update` - Mengubah data
+- `delete` - Menghapus data
+- `site_only` - Restricsi per site
+- `department_only` - Restricsi per department
+- `verify` - Untuk approval/rejection
 
-5. **Implement API Route Protection**
+---
 
-   - **File**: `app/api/your-feature/route.ts`
-   - **Requirement**: Use `hasPermission` from `@/lib/rbac`.
-   - **Code Snippet**:
+## Step 2: Define Permission Group
 
-     ```typescript
-     import { hasPermission } from "@/lib/rbac";
+**File**: `lib/permission-config.ts`
 
-     export async function GET(req: NextRequest) {
-       if (!(await hasPermission("resource:read"))) {
-         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-       }
-       // ...
-     }
+> ⚠️ **CRITICAL**: Resource HARUS ditambahkan di sini agar muncul di Role Matrix UI!
 
-     export async function POST(req: NextRequest) {
-       if (!(await hasPermission("resource:create"))) {
-         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-       }
-       // ...
-     }
-     ```
+Tambahkan resource ke group yang sesuai di `PERMISSION_GROUPS`:
 
-6. **Verify Sidebar & Icon**
+```typescript
+// Append ke existing group ATAU buat group baru
+GROUP_NAME: ['existing_resource', 'your_resource'],
+```
 
-   - Check `components/layout/Sidebar.tsx`.
-   - Ensure the icon string used in `menu-config.ts` is imported from `react-icons/hi2` and added to `IconMap`.
+**Contoh**: Menambah `sales_dashboard` ke group MARKETING:
 
-7. **Verify Access**
-   - Login as Super Admin: Should see menu.
-   - Login as Restricted User: Should NOT see menu (unless permission granted).
-   - Direct URL Access: Should be blocked by `ensurePermission`.
+```typescript
+MARKETING: ['marketing', 'coupon', 'sales_dashboard', 'sales', 'canvasing'],
+```
+
+---
+
+## Step 3: Define Menu Item
+
+**File**: `lib/menu-config.ts`
+
+Tambahkan entry ke `ADMIN_MENU_CONFIG`:
+
+```typescript
+{
+    code: 'GROUP_NAME.YOUR_RESOURCE',  // Maps to your_resource:read
+    name: 'Nama Menu',
+    path: '/admin/path/to/page',
+    icon: 'HiOutlineIconName'          // Dari react-icons/hi2
+}
+```
+
+**Naming Convention**:
+
+- Parent Code: `GROUP_NAME` → maps to `group_name:read`
+- Child Code: `GROUP_NAME.RESOURCE` → maps to `resource:read`
+- Use snake_case for resource name in code
+
+---
+
+## Step 4: Create Page with Server-Side Protection
+
+**File**: `app/admin/path/to/page.tsx`
+
+```tsx
+import { ensurePermission } from "@/lib/rbac";
+import YourClientComponent from "./YourClientComponent";
+
+export default async function YourPage() {
+  await ensurePermission("your_resource:read");
+  return <YourClientComponent />;
+}
+```
+
+---
+
+## Step 5: Create API with Permission Check
+
+**File**: `app/api/path/to/route.ts`
+
+```typescript
+import { NextResponse, type NextRequest } from "next/server";
+import { requireAdmin } from "@/lib/auth-helpers";
+import { hasPermission } from "@/lib/rbac";
+
+export async function GET(request: NextRequest) {
+  const session = await requireAdmin(request);
+  if (session instanceof NextResponse) return session;
+
+  // Permission check
+  if (!(await hasPermission("your_resource:read"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // ... your logic
+}
+
+export async function POST(request: NextRequest) {
+  const session = await requireAdmin(request);
+  if (session instanceof NextResponse) return session;
+
+  if (!(await hasPermission("your_resource:create"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // ... your logic
+}
+```
+
+---
+
+## Step 6: Verify Sidebar Icon
+
+**File**: `components/layout/Sidebar.tsx`
+
+Pastikan icon yang digunakan di `menu-config.ts` sudah ada di `IconMap`:
+
+```typescript
+import { HiOutlineYourIcon } from "react-icons/hi2";
+
+const IconMap: Record<string, React.ElementType> = {
+  // ... existing icons
+  HiOutlineYourIcon,
+};
+```
+
+---
+
+## Step 7: Register Permission via UI
+
+1. Buka **Admin Portal > Settings > Roles**
+2. Edit role yang diinginkan (misal: Administrator)
+3. Permission baru akan muncul di bagian group yang sesuai
+4. Centang permission yang diperlukan
+5. Klik **Simpan** → Permission otomatis dibuat di database
+
+> ℹ️ Tidak perlu menjalankan script migration atau seed database.
+
+---
+
+## Step 8: Test Access Control
+
+| Test Case                           | Expected Result                          |
+| ----------------------------------- | ---------------------------------------- |
+| Login sebagai Super Admin           | Menu muncul, bisa akses                  |
+| Login sebagai user TANPA permission | Menu TIDAK muncul                        |
+| Akses langsung URL tanpa permission | Redirect/blocked oleh `ensurePermission` |
+| API call tanpa permission           | Return 403 Forbidden                     |
+
+---
+
+## Quick Reference
+
+| File                            | Purpose                                    |
+| ------------------------------- | ------------------------------------------ |
+| `lib/resource-capabilities.ts`  | Define available actions per resource      |
+| `lib/permission-config.ts`      | Group resources untuk Role Matrix UI       |
+| `lib/menu-config.ts`            | Define menu structure                      |
+| `lib/rbac.ts`                   | `ensurePermission()` dan `hasPermission()` |
+| `components/layout/Sidebar.tsx` | Icon mapping                               |
+
+---
+
+## Common Mistakes
+
+1. ❌ Lupa tambah resource di `resource-capabilities.ts`
+2. ❌ **Lupa tambah resource di `permission-config.ts`** → Resource tidak muncul di Role Matrix!
+3. ❌ Menu code tidak match dengan resource name
+4. ❌ Lupa protect API route dengan `hasPermission()`
+5. ❌ Typo di nama permission (case-sensitive, use snake_case)
