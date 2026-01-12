@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { authConfig, getUserPermissions } from '@/lib/auth'
 import { ADMIN_MENU_CONFIG } from '@/lib/menu-config'
 import { getUserRepository, getMikroTikRouterRepository } from '@/lib/repositories'
 import { HiOutlineUsers } from 'react-icons/hi2'
@@ -23,8 +23,9 @@ export async function ClientComponent() {
   }
 
   const user = session.user
-  const permissions = user.permissions || []
-  const isSuperAdmin = user.role === 'SUPER_ADMIN'
+  // Load permissions from database since session doesn't store them (to reduce cookie size)
+  const permissions = await getUserPermissions(user.id as string)
+  const isSuperAdmin = user.role === 'SUPER_ADMIN' || user.role === 'Super Admin'
 
   // Check if user has dashboard access
   const hasDashboardAccess = isSuperAdmin || permissions.includes('dashboard:read')
