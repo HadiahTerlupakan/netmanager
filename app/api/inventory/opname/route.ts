@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { authConfig, getUserPermissions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { hasPermission } from '@/lib/rbac'
@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
       if (gudangId) where.gudangId = gudangId
 
       // NEW: Enforce Site Restriction Logic
-      const permissions = session.user.permissions || []
+      // const permissions = session.user.permissions || []
+      const permissions = await getUserPermissions(session.user.id);
       const isSuperAdmin = session.user.role === 'SUPER_ADMIN'
       const userSiteId = session.user.siteId
 

@@ -6,6 +6,7 @@ import {
     type NotificationType,
 } from '@/modules/notification';
 import { requireAuth } from '@/lib/auth-helpers';
+import { getUserPermissions } from '@/lib/auth';
 
 /**
  * @swagger
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
         const excludeTypes = searchParams.get('excludeTypes')?.split(',') as NotificationType[] | undefined;
 
         // Enforce Site Restriction
-        const permissions = (session.user as any).permissions || []
+        const permissions = await getUserPermissions(session.user.id);
         const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
         const siteId = (!isSuperAdmin && permissions.includes('site_only'))
             ? (session.user as any).siteId
@@ -159,7 +160,7 @@ export async function PATCH(request: NextRequest) {
         const type = body.type as NotificationType | undefined;
 
         // Enforce Site Restriction
-        const permissions = (session.user as any).permissions || []
+        const permissions = await getUserPermissions(session.user.id);
         const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
         const siteId = (!isSuperAdmin && permissions.includes('site_only'))
             ? (session.user as any).siteId

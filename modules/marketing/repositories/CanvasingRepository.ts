@@ -38,7 +38,19 @@ export class CanvasingRepository implements ICanvasingRepository {
           },
           workOrder: {
               select: {
-                  workOrderNumber: true
+                  workOrderNumber: true,
+                  status: true
+              }
+          },
+          pointClaims: {
+              select: {
+                  id: true,
+                  status: true,
+                  buktiUrls: true,
+                  keterangan: true,
+                  pointValue: true,
+                  reviewNotes: true,
+                  createdAt: true
               }
           }
       }

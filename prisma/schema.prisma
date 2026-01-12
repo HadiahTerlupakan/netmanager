@@ -1047,6 +1047,8 @@ model User {
   work_orders_work_orders_createdByIdToUser  WorkOrders[]              @relation("work_orders_createdByIdToUser")
   salesCanvasing                             Canvasing[]               @relation("SalesCanvasing")
   approverCanvasing                          Canvasing[]               @relation("ApproverCanvasing")
+  pointClaimsSales                           PointClaim[]              @relation("SalesPointClaim")
+  pointClaimsReviewed                        PointClaim[]              @relation("ReviewerPointClaim")
 
   @@index([departmentId])
   @@index([isActive])
@@ -2414,6 +2416,9 @@ model Canvasing {
   approver    User?           @relation("ApproverCanvasing", fields: [approvedBy], references: [id])
   workOrderId String?
   workOrder   WorkOrders?     @relation(fields: [workOrderId], references: [id])
+  // Point Claim System
+  isLocked    Boolean         @default(false) // Readonly setelah claim disubmit
+  pointClaims PointClaim[]
 
   @@index([salesId])
   @@index([status])
@@ -2421,6 +2426,46 @@ model Canvasing {
 }
 
 enum CanvasingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Point Claim untuk Canvasing
+// Poin bertingkat: WO In Progress=5, WO Completed=+3, Claim Approved=+2 (Total Max=10)
+model PointClaim {
+  id          String    @id @default(uuid())
+  canvasingId String
+  canvasing   Canvasing @relation(fields: [canvasingId], references: [id], onDelete: Cascade)
+  salesId     String
+  sales       User      @relation("SalesPointClaim", fields: [salesId], references: [id])
+
+  // Bukti Upload
+  buktiUrls     String[] // Multiple foto bukti
+  buktiMetadata Json? // Metadata foto (size, type, etc)
+  keterangan    String? // Catatan dari sales
+
+  // Poin
+  pointValue Int @default(2) // Poin claim = 2 (total jadi 10)
+
+  // Status & Approval
+  status       PointClaimStatus @default(PENDING)
+  reviewedById String?
+  reviewedBy   User?            @relation("ReviewerPointClaim", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  reviewNotes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([canvasingId]) // Satu canvasing hanya bisa punya satu claim
+  @@index([canvasingId])
+  @@index([salesId])
+  @@index([status])
+  @@map("point_claims")
+}
+
+enum PointClaimStatus {
   PENDING
   APPROVED
   REJECTED

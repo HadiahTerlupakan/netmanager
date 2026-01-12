@@ -29,6 +29,7 @@ export async function GET(request: Request) {
                 endWorkTime: true,
                 workDays: true,
                 canvasingTarget: true,
+                isSales: true, // Add isSales flag
                 departments: {
                     select: { id: true, name: true }
                 },
@@ -56,6 +57,13 @@ export async function GET(request: Request) {
 
         // Extract unique feature/resource names for easy client-side access control
         const features = [...new Set(profile.role?.permission?.map(p => p.resource) || [])]
+        
+        // Add canvasing/sales feature if user is marked as sales
+        if (profile.isSales) {
+            if (!features.includes('m_canvasing')) features.push('m_canvasing')
+            if (!features.includes('canvasing')) features.push('canvasing')
+            if (!features.includes('sales')) features.push('sales')
+        }
 
         return NextResponse.json({ 
             success: true, 

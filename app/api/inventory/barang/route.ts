@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, getCurrentSession } from '@/lib/auth-helpers'
-import { verifyAuth } from '@/lib/auth'
+import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
@@ -168,7 +168,8 @@ export async function GET(req: NextRequest) {
       const inventoryRepository = getInventoryRepository()
 
       // Enforce Site Restriction
-      const permissions = session.permissions || []
+      // const permissions = session.permissions || []
+      const permissions = await getUserPermissions(session.id);
       const isSuperAdmin = session.role === 'SUPER_ADMIN'
       
       // Check restriction: barang:site_only (specific) OR k_barang:site_only (mobile) OR gudang:site_only (inherited)

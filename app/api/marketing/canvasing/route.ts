@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
+import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getCanvasingService } from '@/lib/repositories'
 
@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
 
     // RBAC Check & Filtering
     const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
-    const permissions = session.permissions || []
+    // const permissions = session.permissions || []
+    const permissions = await getUserPermissions(session.id)
     const canReadAll = isSuperAdmin || permissions.includes('canvasing:read')
 
     const { searchParams } = new URL(req.url)

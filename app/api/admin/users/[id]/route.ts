@@ -1,6 +1,7 @@
 // Cleaned up file content
 import { NextResponse, type NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
+import { getUserPermissions } from '@/lib/auth'
 import { getUserRepository } from '@/lib/repositories'
 import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
@@ -128,7 +129,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
 
   try {
     // Check permissions
-    const permissions = (session.user as any).permissions || []
+    const permissions = await getUserPermissions(session.user.id)
     const isSelfUpdate = session.user.id === id
     
     if (!permissions.includes('users:update') && !isSelfUpdate) {
@@ -348,7 +349,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
     // Check permissions
-    const permissions = (session.user as any).permissions || []
+    const permissions = await getUserPermissions(session.user.id)
     const isSelfView = session.user.id === id
 
     if (!permissions.includes('users:read') && !isSelfView) {
@@ -433,7 +434,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const userRepository = getUserRepository()
 
     // Check permissions
-    const permissions = (session.user as any).permissions || []
+    const permissions = await getUserPermissions(session.user.id)
     if (!permissions.includes('users:delete')) {
       return NextResponse.json({ error: 'Unauthorized: You do not have permission to delete users.' }, { status: 403 })
     }

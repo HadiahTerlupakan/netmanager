@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
+import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 
@@ -12,7 +12,8 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const permissions = session.permissions || []
+        // const permissions = session.permissions || []
+        const permissions = await getUserPermissions(session.id);
         const isSuperAdmin = session.role === 'SUPER_ADMIN'
         
         // Site filter logic - inherit from gudang/barang restrictions

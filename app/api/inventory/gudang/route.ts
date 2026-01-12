@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authOptions, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
@@ -67,7 +67,8 @@ export async function GET(req: NextRequest) {
     const viewAll = searchParams.get('view') === 'all'
 
     // Check for site restriction
-    const permissions = (session.user as any).permissions || []
+    // const permissions = (session.user as any).permissions || []
+    const permissions = await getUserPermissions(session.user.id!);
     const siteId = (session.user as any).siteId
     const role = (session.user as any).role
 
@@ -212,7 +213,8 @@ export async function POST(req: NextRequest) {
       const kode = await generateGudangCode()
 
       // NEW: Enforce Site Restriction on Creation
-      const permissions = (session.user as any).permissions || []
+      // const permissions = (session.user as any).permissions || []
+      const permissions = await getUserPermissions(session.user.id!);
       const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
       const userSiteId = (session.user as any).siteId
 

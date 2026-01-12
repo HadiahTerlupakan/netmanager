@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { authConfig, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
     const offset = (page - 1) * limit
 
     // SITE RESTRICTION
-    const permissions = (session.user as any).permissions || []
+    // const permissions = (session.user as any).permissions || []
+    const permissions = await getUserPermissions(session.user.id);
     const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
     
     if (!isSuperAdmin && (permissions.includes('transfer:site_only') || permissions.includes('k_barang:site_only'))) {

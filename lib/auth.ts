@@ -237,7 +237,10 @@ export const authConfig: NextAuthOptions = {
           token.role = dbUser?.role?.name || 'USER'
           token.accessAdminPanel = dbUser?.role?.accessAdminPanel ?? false
           token.accessEmployeePanel = dbUser?.role?.accessEmployeePanel ?? false
-          token.permissions = dbUser?.role?.permission.map(p => `${p.resource}:${p.action}`) || []
+          // IMPORTANT: Don't store permissions in token to reduce cookie size
+          // Permissions will be loaded at runtime when needed
+          // token.permissions = dbUser?.role?.permission.map(p => `${p.resource}:${p.action}`) || []
+          token.permissionsCount = dbUser?.role?.permission.length || 0
           
           // Store department detail
           token.departmentName = dbUser?.departments?.name
@@ -262,14 +265,14 @@ export const authConfig: NextAuthOptions = {
             department: token.departmentName,
             accessAdmin: token.accessAdminPanel,
             accessEmployee: token.accessEmployeePanel,
-            permissionsCount: token.permissions?.length
+            permissionsCount: token.permissionsCount
           })
         } catch (error) {
           console.error('[AUTH JWT] Error fetching user role:', error)
           token.role = 'USER'
           token.accessAdminPanel = false
           token.accessEmployeePanel = false
-          token.permissions = []
+          token.permissionsCount = 0
         }
       }
 
@@ -306,7 +309,8 @@ export const authConfig: NextAuthOptions = {
             token.accessEmployeePanel = true
           }
 
-          token.permissions = dbUser.role?.permission.map(p => `${p.resource}:${p.action}`) || []
+          // Don't store permissions in token to reduce cookie size
+          token.permissionsCount = dbUser.role?.permission.length || 0
         }
       }
 
@@ -342,7 +346,8 @@ export const authConfig: NextAuthOptions = {
         (session.user as any).role = token.role;
         (session.user as any).accessAdminPanel = token.accessAdminPanel;
         (session.user as any).accessEmployeePanel = token.accessEmployeePanel;
-        (session.user as any).permissions = token.permissions;
+        // Don't include permissions in session - they will be loaded at runtime
+        (session.user as any).permissionsCount = token.permissionsCount;
         (session.user as any).departmentId = token.departmentId;
         (session.user as any).departmentName = token.departmentName;
         (session.user as any).siteId = token.siteId;
@@ -449,4 +454,37 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
     console.error('[AUTH_VERIFY] Error verifying auth:', error)
     return null
   }
+}
+
+// Helper function to load permissions from database at runtime
+// This is used instead of storing permissions in JWT to reduce cookie size
+export async function getUserPermissions(userId: string): Promise<string[]> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: {
+          include: {
+            permission: true
+          }
+        }
+      }
+    })
+
+    if (!user?.role?.permission) {
+      return []
+    }
+
+    return user.role.permission.map(p => `${p.resource}:${p.action}`)
+  } catch (error) {
+    console.error('[AUTH] Error loading permissions:', error)
+    return []
+  }
+}
+
+// Check if user has specific permission
+export async function hasPermission(userId: string, resource: string, action: string): Promise<boolean> {
+  const permissions = await getUserPermissions(userId)
+  const permissionKey = `${resource}:${action}`
+  return permissions.includes(permissionKey)
 }

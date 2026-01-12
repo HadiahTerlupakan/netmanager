@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authConfig } from '@/lib/auth';
+import { authConfig, getUserPermissions } from '@/lib/auth';
 import { getUnreadCount, type NotificationType } from '@/modules/notification';
 
 // GET /api/notifications/unread-count - Get unread notification count
@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
         const excludeTypes = searchParams.get('excludeTypes')?.split(',') as NotificationType[] | undefined;
 
         // Enforce Site Restriction
-        const permissions = (session.user as any).permissions || []
+        // const permissions = (session.user as any).permissions || []
+        const permissions = await getUserPermissions(session.user.id);
         const isSuperAdmin = (session.user as any).role === 'SUPER_ADMIN'
         const siteId = (!isSuperAdmin && permissions.includes('site_only'))
             ? (session.user as any).siteId

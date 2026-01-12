@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
+import { getUserPermissions } from '@/lib/auth'
 import { getUserService } from '@/modules/users'
 import { userCreateSchema } from '@/lib/validations/user'
 import { logger } from '@/lib/logger'
@@ -47,7 +48,8 @@ export async function GET(req: NextRequest) {
     const session = await requireAdmin(req)
 
     try {
-      const permissions = (session.user as any).permissions || []
+      // const permissions = (session.user as any).permissions || []
+      const permissions = await getUserPermissions(session.user.id)
 
       if (!permissions.includes('users:read')) {
         return NextResponse.json({ error: 'Unauthorized: You do not have permission to view users.' }, { status: 403 })
@@ -195,7 +197,8 @@ export async function POST(req: NextRequest) {
       phone, departmentId, siteId, isActive, roleId
     } = formData
 
-    const permissions = (session.user as any).permissions || []
+    // const permissions = (session.user as any).permissions || []
+    const permissions = await getUserPermissions(session.user.id)
 
     if (!permissions.includes('users:create')) {
       return NextResponse.json({ error: 'Unauthorized: You do not have permission to create users.' }, { status: 403 })

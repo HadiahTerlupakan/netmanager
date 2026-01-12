@@ -33,6 +33,9 @@ import type { IWorkOrderRepository } from '@/modules/work-order/repositories/IWo
 import { CanvasingRepository } from '@/modules/marketing/repositories/CanvasingRepository'
 import type { ICanvasingRepository } from '@/modules/marketing/repositories/ICanvasingRepository'
 import { CanvasingService } from '@/modules/marketing/services/CanvasingService'
+import { PointClaimRepository } from '@/modules/marketing/repositories/PointClaimRepository'
+import type { IPointClaimRepository } from '@/modules/marketing/repositories/IPointClaimRepository'
+import { PointClaimService } from '@/modules/marketing/services/PointClaimService'
 import { AttendanceRepository } from '@/modules/attendance/repositories/AttendanceRepository'
 import { prisma } from '@/lib/prisma'
 
@@ -195,6 +198,9 @@ export type { IWorkOrderRepository, WorkOrderWithRelations, CreateWorkOrderData,
 export { CanvasingRepository } from '@/modules/marketing/repositories/CanvasingRepository'
 export type { ICanvasingRepository } from '@/modules/marketing/repositories/ICanvasingRepository'
 export { CanvasingService } from '@/modules/marketing/services/CanvasingService'
+export { PointClaimRepository } from '@/modules/marketing/repositories/PointClaimRepository'
+export type { IPointClaimRepository } from '@/modules/marketing/repositories/IPointClaimRepository'
+export { PointClaimService } from '@/modules/marketing/services/PointClaimService'
 
 let inventoryRepositoryInstance: IInventoryRepository | null = null
 
@@ -242,3 +248,24 @@ export function getCanvasingService(): CanvasingService {
   }
   return canvasingServiceInstance
 }
+
+let pointClaimRepositoryInstance: IPointClaimRepository | null = null
+let pointClaimServiceInstance: PointClaimService | null = null
+
+export function getPointClaimRepository(): IPointClaimRepository {
+  if (!pointClaimRepositoryInstance) {
+    pointClaimRepositoryInstance = new PointClaimRepository(prisma)
+  }
+  return pointClaimRepositoryInstance
+}
+
+export function getPointClaimService(): PointClaimService {
+  if (!pointClaimServiceInstance) {
+    pointClaimServiceInstance = new PointClaimService(
+      getPointClaimRepository(),
+      prisma
+    )
+  }
+  return pointClaimServiceInstance
+}
+

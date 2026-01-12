@@ -1,4 +1,4 @@
 -- AlterTable
-ALTER TABLE "User" ADD COLUMN     "lastVersionCode" INTEGER,
-ADD COLUMN     "lastVersionName" TEXT,
-ADD COLUMN     "lastVersionUpdate" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "lastVersionCode" INTEGER;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "lastVersionName" TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "lastVersionUpdate" TIMESTAMP(3);
