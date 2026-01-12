@@ -1,4 +1,4 @@
-import { authConfig } from '@/lib/auth'
+import { authConfig, getUserPermissions } from '@/lib/auth'
 import { getServerSession } from 'next-auth'
 
 export async function hasPermission(requiredPermission: string): Promise<boolean> {
@@ -13,7 +13,13 @@ export async function hasPermission(requiredPermission: string): Promise<boolean
         return true
     }
 
-    const permissions = session.user.permissions || []
+    // Load permissions from database since session doesn't store them
+    const userId = (session.user as { id?: string }).id
+    if (!userId) {
+        return false
+    }
+    
+    const permissions = await getUserPermissions(userId)
     return permissions.includes(requiredPermission)
 }
 
@@ -22,7 +28,13 @@ export async function hasAnyPermission(requiredPermissions: string[]): Promise<b
     if (!session?.user) return false
     if (session.user.role === 'SUPER_ADMIN' || session.user.role === 'Super Admin') return true
 
-    const permissions = session.user.permissions || []
+    // Load permissions from database since session doesn't store them
+    const userId = (session.user as { id?: string }).id
+    if (!userId) {
+        return false
+    }
+    
+    const permissions = await getUserPermissions(userId)
     return requiredPermissions.some(p => permissions.includes(p))
 }
 
@@ -50,3 +62,4 @@ export async function ensureAnyPermission(requiredPermissions: string[], redirec
         redirect(redirectTo)
     }
 }
+
