@@ -252,7 +252,8 @@ export class AppVersionService {
             return uploadToR2(uploadBuffer, key, 'application/vnd.android.package-archive')
         } else {
             // Save to local storage
-            const uploadDir = path.join(process.cwd(), 'public', 'apk')
+            // Use 'public/uploads/apk' to ensure persistence (mounted volume)
+            const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'apk')
             await fs.mkdir(uploadDir, { recursive: true })
             
             const destPath = path.join(uploadDir, sanitizedFilename)
@@ -264,7 +265,7 @@ export class AppVersionService {
                 await fs.writeFile(destPath, buffer)
             }
             
-            return `/apk/${sanitizedFilename}`
+            return `/uploads/apk/${sanitizedFilename}`
         }
     }
 
