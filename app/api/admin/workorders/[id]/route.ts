@@ -252,14 +252,14 @@ export async function PATCH(
                 workOrderId: id,
                 updateType: 'NOTE',
                 message: `[REJECTED] ${body.rejectionReason}`,
-                createdById: user.id,
+                createdById: user.user.id,
             });
             delete body.rejectionReason;
         }
 
         // Handle status change separately if provided
         if (body.status) {
-            await workOrderRepo.updateStatus(id, body.status, user.id);
+            await workOrderRepo.updateStatus(id, body.status, user.user.id);
 
             // Notification Logic for Status Change
             try {
@@ -320,7 +320,7 @@ export async function PATCH(
             await logger.logActivity({
                 action: 'UPDATE',
                 subject: 'Work Order',
-                userId: user.id,
+                userId: user.user.id,
                 details: { id, updates: body }
             })
         } catch (e) {
@@ -458,7 +458,7 @@ export async function DELETE(
                 await logger.logActivity({
                     action: 'DELETE',
                     subject: 'Work Order',
-                    userId: user.id,
+                    userId: user.user.id,
                     details: { id, type: 'PERMANENT' }
                 })
             } catch (e) {
@@ -474,7 +474,7 @@ export async function DELETE(
             });
         }
 
-        await workOrderRepo.cancel(id, reason, user.id);
+        await workOrderRepo.cancel(id, reason, user.user.id);
 
         // System Log for Cancellation
         try {
@@ -482,7 +482,7 @@ export async function DELETE(
             await logger.logActivity({
                 action: 'DELETE',
                 subject: 'Work Order',
-                userId: user.id,
+                userId: user.user.id,
                 details: { id, reason, type: 'CANCEL' }
             })
         } catch (e) {

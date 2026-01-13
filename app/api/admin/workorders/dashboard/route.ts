@@ -80,7 +80,8 @@ export async function GET(request: NextRequest) {
             issueStats,
             siteStats,
             disconnectionStats,
-            responseStats
+            responseStats,
+            adminKPI
         ] = await Promise.all([
             // Stats
             workOrderRepo.getStatistics({
@@ -107,6 +108,8 @@ export async function GET(request: NextRequest) {
                 dateTo || new Date(),
                 departmentId
             ),
+            // Admin KPI stats
+            workOrderRepo.getAdminKPIStats(departmentId, siteId),
         ]);
 
         const dashboardData = {
@@ -119,6 +122,7 @@ export async function GET(request: NextRequest) {
             siteStats,
             disconnectionStats,
             responseStats,
+            adminKPI,
         };
 
         // PHASE 4: Cache the result
@@ -242,5 +246,12 @@ function getEmptyDashboardData() {
         siteStats: [],
         disconnectionStats: [],
         responseStats: [],
+        adminKPI: {
+            pendingVerification: 0,
+            avgVerificationTimeMinutes: 0,
+            avgOnHoldResponseMinutes: 0,
+            verifiedToday: 0,
+            verifiedThisWeek: 0,
+        },
     };
 }

@@ -16,7 +16,28 @@ type IssueStatistic = { issue: string; count: number }
 type SiteStatistic = { siteName: string; count: number; mostCommonIssue: string }
 
 type DisconnectionStatistic = { reason: string; count: number }
-type ResponseStatistic = { userName: string; totalResponses: number; avgResponseTimeMinutes: number }
+type ResponseStatistic = { 
+    userId: string; 
+    userName: string; 
+    role: string;
+    totalScore: number;
+    totalResponses: number; 
+    avgResponseTimeMinutes: number; 
+    verifiedCount: number;
+    avgVerifyTimeMinutes: number;
+    completedCount: number;
+    canvasingCount: number;
+    avgCanvasingTimeMinutes: number;
+    isTechnical?: boolean;
+}
+type AdminKPI = { 
+    pendingVerification: number; 
+    avgVerificationTimeMinutes: number; 
+
+    avgCanvasingTimeMinutes: number;
+    canvasingApprovedToday: number;
+    canvasingApprovedThisWeek: number;
+}
 
 const STATUS_COLORS: Record<string, string> = { PENDING: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200', ASSIGNED: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200', IN_PROGRESS: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200', COMPLETED: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200', VERIFIED: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' }
 const PRIORITY_COLORS: Record<string, string> = { LOW: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400', NORMAL: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400', HIGH: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400', URGENT: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400', CRITICAL: 'bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-200' }
@@ -34,7 +55,9 @@ export function ClientComponent() {
     const [siteStats, setSiteStats] = useState<SiteStatistic[]>([])
     const [disconnectionStats, setDisconnectionStats] = useState<DisconnectionStatistic[]>([])
     const [responseStats, setResponseStats] = useState<ResponseStatistic[]>([])
+    const [adminKPI, setAdminKPI] = useState<AdminKPI | null>(null)
     const [performancePeriod, setPerformancePeriod] = useState<string>('all_time')
+
 
     useEffect(() => { if (status === 'unauthenticated') { router.push('/login'); return } if (session?.user && status === 'authenticated') fetchDashboardData() }, [session, status, router])
 
@@ -75,6 +98,7 @@ export function ClientComponent() {
                 setSiteStats(data.siteStats);
                 setDisconnectionStats(data.disconnectionStats);
                 setResponseStats(data.responseStats);
+                setAdminKPI(data.adminKPI);
             }
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -152,6 +176,60 @@ export function ClientComponent() {
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Successfully closed</p>
                     </Link>
                 </div>
+
+                {/* Admin KPI Section */}
+                {adminKPI && (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Admin KPI Performance</h2>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Real-time metrics</span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {/* Pending Verification */}
+                            <Link 
+                                href="/admin/workorders/list?status=COMPLETED" 
+                                className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                            >
+                                <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">Pending Verification</p>
+                                <p className="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">{adminKPI.pendingVerification}</p>
+                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">WO butuh verifikasi</p>
+                            </Link>
+                            
+                            {/* Avg Verification Time */}
+                            <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-4">
+                                <p className="text-sm text-teal-600 dark:text-teal-400 font-medium">Avg Verify Time</p>
+                                <p className="text-2xl font-bold text-teal-700 dark:text-teal-300 mt-1">
+                                    {adminKPI.avgVerificationTimeMinutes < 60 
+                                        ? `${adminKPI.avgVerificationTimeMinutes}m`
+                                        : adminKPI.avgVerificationTimeMinutes < 1440
+                                            ? `${(adminKPI.avgVerificationTimeMinutes / 60).toFixed(1)}h`
+                                            : `${(adminKPI.avgVerificationTimeMinutes / 1440).toFixed(1)}d`}
+                                </p>
+                                <p className="text-xs text-teal-600 dark:text-teal-400 mt-1">COMPLETED → VERIFIED</p>
+                            </div>
+
+                            {/* Canvasing KPI (Sales) */}
+                            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+                                <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Canvasing Approval</p>
+                                <p className="text-2xl font-bold text-purple-700 dark:text-purple-300 mt-1">{adminKPI.canvasingApprovedToday}</p>
+                                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                    Avg Time: {adminKPI.avgCanvasingTimeMinutes < 60 
+                                        ? `${adminKPI.avgCanvasingTimeMinutes}m` 
+                                        : `${(adminKPI.avgCanvasingTimeMinutes / 60).toFixed(1)}h`}
+                                </p>
+                            </div>
+                            
+
+                            
+                            {/* Sales Approved This Week */}
+                            <div className="bg-pink-50 dark:bg-pink-900/20 rounded-lg p-4">
+                                <p className="text-sm text-pink-600 dark:text-pink-400 font-medium">Sales Approved (Week)</p>
+                                <p className="text-2xl font-bold text-pink-700 dark:text-pink-300 mt-1">{adminKPI.canvasingApprovedThisWeek}</p>
+                                <p className="text-xs text-pink-600 dark:text-pink-400 mt-1">Today: {adminKPI.canvasingApprovedToday}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Recent Work Orders */}
@@ -322,34 +400,87 @@ export function ClientComponent() {
                                 )}
                             </div>
 
-                            {/* Response Stats */}
+                            {/* Response Stats - KPI Per User */}
                             <div className="p-6 border-b border-gray-100">
                                 <div className="flex items-center gap-2 mb-4">
                                     <HiChatBubbleLeftRight className="w-5 h-5 text-teal-400" />
-                                    <h3 className="text-md font-medium text-gray-900 dark:text-white">Response Speed</h3>
+                                    <h3 className="text-md font-medium text-gray-900 dark:text-white">User KPI Performance</h3>
                                 </div>
                                 {responseStats.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {responseStats.map((stat, index) => (
-                                            <div key={index} className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-sm font-bold text-teal-600 dark:text-teal-400 shrink-0">
-                                                        {index + 1}
+                                    <div className="space-y-3">
+                                        {/* Show ONLY Technical Users as requested */}
+                                        {responseStats.filter(s => s.isTechnical).slice(0, 10).map((stat, index) => (
+                                            <div key={stat.userId || index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-xs font-bold text-teal-600 dark:text-teal-400 shrink-0">
+                                                            {index + 1}
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="text-sm font-medium text-gray-900 dark:text-white">{stat.userName}</p>
+                                                                {stat.isTechnical && (
+                                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                                                                        THD
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">{stat.role}</p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{stat.userName}</p>
-                                                        <p className="text-xs text-gray-600 dark:text-gray-400">{stat.totalResponses} actions</p>
+                                                    <div className="text-right">
+                                                        <p className="text-lg font-bold text-yellow-600 dark:text-yellow-400">{stat.totalScore}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">pts</p>
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm font-bold text-teal-600 dark:text-teal-400">{stat.avgResponseTimeMinutes}m</p>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">avg time</p>
+                                                
+                                                {/* KPI Metrics Grid */}
+                                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                                    {stat.completedCount > 0 && (
+                                                        <div className="bg-green-50 dark:bg-green-900/20 rounded p-2">
+                                                            <p className="text-xs text-green-600 dark:text-green-400">Completed</p>
+                                                            <p className="text-sm font-bold text-green-700 dark:text-green-300">{stat.completedCount} WO</p>
+                                                        </div>
+                                                    )}
+                                                    {stat.verifiedCount > 0 && (
+                                                        <div className="bg-teal-50 dark:bg-teal-900/20 rounded p-2">
+                                                            <p className="text-xs text-teal-600 dark:text-teal-400">Verified</p>
+                                                            <p className="text-sm font-bold text-teal-700 dark:text-teal-300">{stat.verifiedCount} WO</p>
+                                                            <p className="text-xs text-teal-500 dark:text-teal-400">
+                                                                avg: {stat.avgVerifyTimeMinutes < 60 
+                                                                    ? `${stat.avgVerifyTimeMinutes}m` 
+                                                                    : `${(stat.avgVerifyTimeMinutes / 60).toFixed(1)}h`}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                    {stat.totalResponses > 0 && (
+                                                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-2">
+                                                            <p className="text-xs text-blue-600 dark:text-blue-400">First Response</p>
+                                                            <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{stat.totalResponses} WO</p>
+                                                            <p className="text-xs text-blue-500 dark:text-blue-400">
+                                                                avg: {stat.avgResponseTimeMinutes < 60 
+                                                                    ? `${stat.avgResponseTimeMinutes}m` 
+                                                                    : `${(stat.avgResponseTimeMinutes / 60).toFixed(1)}h`}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                    {stat.canvasingCount > 0 && (
+                                                        <div className="bg-purple-50 dark:bg-purple-900/20 rounded p-2">
+                                                            <p className="text-xs text-purple-600 dark:text-purple-400">Canvasing Appr</p>
+                                                            <p className="text-sm font-bold text-purple-700 dark:text-purple-300">{stat.canvasingCount} Sales</p>
+                                                            <p className="text-xs text-purple-500 dark:text-purple-400">
+                                                                avg: {stat.avgCanvasingTimeMinutes < 60 
+                                                                    ? `${stat.avgCanvasingTimeMinutes}m` 
+                                                                    : `${(stat.avgCanvasingTimeMinutes / 60).toFixed(1)}h`}
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">No response data available</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">No KPI data available</p>
                                 )}
                             </div>
 

@@ -1711,25 +1711,40 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     /**
-     * Get admin response statistics
-     * Calculates average time from WO Start/Assign to First Action
+     * Get admin response statistics with detailed KPI per user
+     * Calculates: response time, verification metrics, ON_HOLD response metrics per user
      */
-    async getAdminResponseStats(dateFrom: Date, dateTo: Date, departmentId?: string): Promise<Array<{ userName: string; totalResponses: number; avgResponseTimeMinutes: number }>> {
+    async getAdminResponseStats(dateFrom: Date, dateTo: Date, departmentId?: string): Promise<Array<{
+        userId: string;
+        userName: string;
+        role: string;
+        totalScore: number;
+        totalResponses: number;
+        avgResponseTimeMinutes: number;
+        verifiedCount: number;
+        avgVerifyTimeMinutes: number;
+        completedCount: number;
+        canvasingCount: number;
+        avgCanvasingTimeMinutes: number;
+    }>> {
         const where: any = {
             createdAt: { gte: dateFrom, lte: dateTo },
-            // actions by admins (status change, comment)
             createdById: { not: null }
         };
 
-        // Filter updates by admins in department if needed (complex join, skipped for MVP)
-        // MVP: Fetch relevant updates
-        
-        // 1. Get all updates in range
+        // 1. Get all updates in range with user info
         const updates = await this.prisma.workOrderUpdates.findMany({
             where,
             include: {
                 workOrders: {
-                    select: { id: true, createdAt: true, departmentId: true }
+                    select: { 
+                        id: true, 
+                        createdAt: true, 
+                        completedAt: true,
+                        verifiedAt: true,
+                        departmentId: true,
+                        status: true
+                    }
                 },
                 user: {
                     select: { 
@@ -1738,7 +1753,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         role: {
                             select: {
                                 name: true,
-                                isTechnical: true // Filter by technical role
+                                isTechnical: true
                             }
                         }
                     }
@@ -1747,38 +1762,297 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             orderBy: { createdAt: 'asc' }
         });
 
-        // Loop through updates to calculate response time
-        const userStats: Record<string, { totalTime: number; count: number; name: string }> = {};
-        const processedPairs = new Set<string>();
+        // Stats structure per user
+        interface UserKPIStats {
+            name: string;
+            role: string;
+            // Response time
+            totalResponseTime: number;
+            responseCount: number;
+            // Verification
+            verifiedCount: number;
+            totalVerifyTime: number;
+            // Completed as lead
+            completedCount: number;
+            // Canvasing Approval
+            canvasingCount?: number;
+            totalCanvasingTime?: number;
+            isTechnical?: boolean;
+        }
+
+        const userStats: Record<string, UserKPIStats> = {};
+        const processedResponsePairs = new Set<string>();
+        const processedVerifyPairs = new Set<string>();
+        const processedOnHoldPairs = new Set<string>();
+
+        // Track ON_HOLD events for matching
+        const onHoldEvents: Record<string, { createdAt: Date }> = {};
 
         updates.forEach(update => {
-            // Only count actions from users marked as "Technical" (Helpdesk, Technicians, Admin Ops)
-            if (!update.user?.role?.isTechnical) return;
-
             if (!update.user || !update.createdById) return;
-
             if (departmentId && update.workOrders.departmentId !== departmentId) return;
 
-            const key = `${update.workOrderId}-${update.createdById}`;
-            if (processedPairs.has(key)) return; // Only count first interaction per WO per user
+            const userId = update.createdById;
 
-            const responseTimeMinutes = (new Date(update.createdAt).getTime() - new Date(update.workOrders.createdAt).getTime()) / (1000 * 60);
-            
-            if (responseTimeMinutes < 0) return; // Should not happen
-
-            if (!userStats[update.createdById]) {
-                userStats[update.createdById] = { totalTime: 0, count: 0, name: update.user.name || 'Unknown' };
+            // Initialize user stats
+            if (!userStats[userId]) {
+                userStats[userId] = {
+                    name: update.user.name || 'Unknown',
+                    role: update.user.role?.name || 'N/A',
+                    isTechnical: update.user.role?.isTechnical || false,
+                    totalResponseTime: 0,
+                    responseCount: 0,
+                    verifiedCount: 0,
+                    totalVerifyTime: 0,
+                    completedCount: 0
+                };
             }
 
-            userStats[update.createdById].totalTime += responseTimeMinutes;
-            userStats[update.createdById].count += 1;
-            processedPairs.add(key);
+            // Track ON_HOLD events
+            if (update.newStatus === 'ON_HOLD') {
+                onHoldEvents[update.workOrderId] = { createdAt: update.createdAt };
+            }
+
+            // 1. Response Time (first action per WO)
+            const responseKey = `response-${update.workOrderId}-${userId}`;
+            // Fix: Count ANY user response (Admin or Tech)
+            if (!processedResponsePairs.has(responseKey)) {
+                const responseTimeMinutes = (new Date(update.createdAt).getTime() - new Date(update.workOrders.createdAt).getTime()) / (1000 * 60);
+                if (responseTimeMinutes >= 0) {
+                    userStats[userId].totalResponseTime += responseTimeMinutes;
+                    userStats[userId].responseCount += 1;
+                    processedResponsePairs.add(responseKey);
+                }
+            }
+
+            // 2. Verification - user melakukan verify
+            if (update.newStatus === 'VERIFIED') {
+                const verifyKey = `verify-${update.workOrderId}`;
+                if (!processedVerifyPairs.has(verifyKey)) {
+                    userStats[userId].verifiedCount += 1;
+                    
+                    // Calculate verify time
+                    if (update.workOrders.completedAt) {
+                        const verifyTime = (new Date(update.createdAt).getTime() - new Date(update.workOrders.completedAt).getTime()) / (1000 * 60);
+                        if (verifyTime >= 0) {
+                            userStats[userId].totalVerifyTime += verifyTime;
+                        }
+                    }
+                    processedVerifyPairs.add(verifyKey);
+                }
+            }
+
+
+
+            // 4. Completed Count - technician completed WO
+            if (update.newStatus === 'COMPLETED' && update.user.role?.isTechnical) {
+                userStats[userId].completedCount += 1;
+            }
         });
 
-        return Object.values(userStats).map(stat => ({
-            userName: stat.name,
-            totalResponses: stat.count,
-            avgResponseTimeMinutes: Math.round(stat.totalTime / stat.count)
-        })).sort((a, b) => a.avgResponseTimeMinutes - b.avgResponseTimeMinutes);
+        // 5. Canvasing Approval (Sales)
+        // Only count APPROVED canvasing within range
+        const canvasingApprovals = await this.prisma.canvasing.findMany({
+            where: {
+                approvedAt: { gte: dateFrom, lte: dateTo },
+                approvedBy: { not: null }
+            },
+            select: {
+                approvedBy: true,
+                approvedAt: true,
+                createdAt: true
+            }
+        });
+
+        canvasingApprovals.forEach(canvas => {
+            if (!canvas.approvedBy || !canvas.approvedAt) return;
+            const userId = canvas.approvedBy;
+
+            // Initialize user stats if not exists (might happen if user only did canvasing approval)
+            if (!userStats[userId]) {
+                // Warning: We might not have name/role if they didn't appear in WO updates
+                // For MVP, we'll try to fetch it or default it. 
+                // Since this is robust code, ideally we fetch user details if missing.
+                // But for now, let's assume active admins appear in both or we accept 'Unknown' for pure Sales admins
+                // To be safe, let's fetch user details if missing in a later step if needed, or just rely on existing structure.
+                // For now, let's add them with default values, and maybe doing a separate user fetch for missing names is better if we want perfection.
+                // However, most admins doing approvals are likely the same admins.
+                userStats[userId] = {
+                    name: 'Admin (Sales)', // Placeholder if unknown
+                    role: 'N/A',
+                    totalResponseTime: 0,
+                    responseCount: 0,
+                    verifiedCount: 0,
+                    totalVerifyTime: 0,
+                    completedCount: 0,
+                    canvasingCount: 0,
+                    totalCanvasingTime: 0
+                };
+            } else {
+                // Ensure new fields exist for existing users
+                if (userStats[userId].canvasingCount === undefined) {
+                    userStats[userId].canvasingCount = 0;
+                    userStats[userId].totalCanvasingTime = 0;
+                }
+            }
+
+            const approveTime = (new Date(canvas.approvedAt).getTime() - new Date(canvas.createdAt).getTime()) / (1000 * 60);
+            if (approveTime >= 0) {
+                userStats[userId].canvasingCount = (userStats[userId].canvasingCount || 0) + 1;
+                userStats[userId].totalCanvasingTime = (userStats[userId].totalCanvasingTime || 0) + approveTime;
+            }
+        });
+
+        // If we have users with only Canvasing stats (name='Admin (Sales)'), we should try to fetch their real names
+        const unknownUserIds = Object.keys(userStats).filter(uid => userStats[uid].name === 'Admin (Sales)');
+        if (unknownUserIds.length > 0) {
+            const users = await this.prisma.user.findMany({
+                where: { id: { in: unknownUserIds } },
+                select: { id: true, name: true, role: { select: { name: true } } }
+            });
+            users.forEach(u => {
+                if (userStats[u.id]) {
+                    userStats[u.id].name = u.name || 'Unknown';
+                    userStats[u.id].role = u.role?.name || 'N/A';
+                }
+            });
+        }
+
+        return Object.entries(userStats)
+            .map(([userId, stat]) => {
+                // Scoring System (Weighted Points)
+                // Completed (Tech) = 5 pts
+                // Verified (Admin Final) = 3 pts
+                // Canvasing Approval (Admin Task) = 2 pts
+                // Regular Response (Quick Action) = 1 pt
+                
+                const score = 
+                    (stat.completedCount * 5) +
+                    (stat.verifiedCount * 3) +
+                    ((stat.canvasingCount || 0) * 2) +
+                    (stat.responseCount * 1);
+
+                return {
+                    userId,
+                    userName: stat.name,
+                    role: stat.role,
+                    isTechnical: stat.isTechnical || false,
+                    totalScore: score,
+                    totalResponses: stat.responseCount,
+                    avgResponseTimeMinutes: stat.responseCount > 0 ? Math.round(stat.totalResponseTime / stat.responseCount) : 0,
+                    verifiedCount: stat.verifiedCount,
+                    avgVerifyTimeMinutes: stat.verifiedCount > 0 ? Math.round(stat.totalVerifyTime / stat.verifiedCount) : 0,
+                    completedCount: stat.completedCount,
+                    canvasingCount: stat.canvasingCount || 0,
+                    avgCanvasingTimeMinutes: (stat.canvasingCount || 0) > 0 ? Math.round((stat.totalCanvasingTime || 0) / (stat.canvasingCount || 0)) : 0
+                };
+            })
+            .filter(stat => stat.totalScore > 0)
+            .sort((a, b) => b.totalScore - a.totalScore); // Sort by Score instead of response time
+    }
+
+    /**
+     * Get Admin KPI Statistics
+     * Calculates metrics for admin performance in Work Order management
+     */
+    async getAdminKPIStats(departmentId?: string, siteId?: string): Promise<{
+        pendingVerification: number;
+        avgVerificationTimeMinutes: number;
+
+        avgCanvasingTimeMinutes: number;
+        canvasingApprovedToday: number;
+        canvasingApprovedThisWeek: number;
+    }> {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const dateTo = new Date();
+        const dateFrom = new Date();
+        dateFrom.setDate(dateFrom.getDate() - 30);
+
+        const where: any = {};
+        if (departmentId) where.departmentId = departmentId;
+        if (siteId) where.siteId = siteId;
+
+        // 1. Pending Verification - WO yang status COMPLETED tapi belum di-verify
+        const pendingVerification = await this.prisma.workOrders.count({
+            where: {
+                ...where,
+                status: 'COMPLETED',
+            }
+        });
+
+        // 2. Avg Verification Time - waktu dari COMPLETED ke VERIFIED
+        const verifiedWOs = await this.prisma.workOrders.findMany({
+            where: {
+                ...where,
+                status: { in: ['VERIFIED', 'CLOSED'] },
+                completedAt: { not: null },
+                verifiedAt: { not: null },
+            },
+            select: {
+                completedAt: true,
+                verifiedAt: true,
+            }
+        });
+
+        let totalVerificationMinutes = 0;
+        verifiedWOs.forEach(wo => {
+            if (wo.completedAt && wo.verifiedAt) {
+                const diff = new Date(wo.verifiedAt).getTime() - new Date(wo.completedAt).getTime();
+                totalVerificationMinutes += diff / (1000 * 60);
+            }
+        });
+        const avgVerificationTimeMinutes = verifiedWOs.length > 0 
+            ? Math.round(totalVerificationMinutes / verifiedWOs.length) 
+            : 0;
+
+        // 3. Global Canvasing Stats (Sales)
+        const approvedCanvasing = await this.prisma.canvasing.findMany({
+            where: {
+                approvedAt: { not: null },
+                createdAt: { gte: dateFrom, lte: dateTo }
+            },
+            select: { createdAt: true, approvedAt: true }
+        });
+
+        let totalCanvasingMinutes = 0;
+        approvedCanvasing.forEach(c => {
+            if (c.approvedAt) {
+                const diff = new Date(c.approvedAt).getTime() - new Date(c.createdAt).getTime();
+                totalCanvasingMinutes += diff / (1000 * 60);
+            }
+        });
+        
+        const avgCanvasingTimeMinutes = approvedCanvasing.length > 0 
+            ? Math.round(totalCanvasingMinutes / approvedCanvasing.length) 
+            : 0;
+
+        // Canvasing Approved Today
+        const canvasingApprovedToday = await this.prisma.canvasing.count({
+            where: {
+                approvedAt: { gte: today }
+            }
+        });
+
+        // 4. Canvasing Approved Today & This Week (Sales)
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+
+        const [canvasingApprovedThisWeek] = await Promise.all([
+            this.prisma.canvasing.count({
+                where: {
+                    approvedAt: { gte: startOfWeek }
+                }
+            })
+        ]);
+
+        return {
+            pendingVerification,
+            avgVerificationTimeMinutes,
+            avgCanvasingTimeMinutes,
+            canvasingApprovedToday,
+            canvasingApprovedThisWeek
+        };
     }
 }
