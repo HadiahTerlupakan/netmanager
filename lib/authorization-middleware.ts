@@ -349,10 +349,11 @@ async function logAuthAttempt({
   try {
     await prisma.systemLog.create({
       data: {
+        id: crypto.randomUUID(),
         type: 'AUTH',
         action,
         subject: url.substring(0, 500), // Limit URL length
-        userId: userId || undefined,
+        userId: userId ?? undefined,
         details: JSON.stringify({ granted, ...details })
       }
     })
