@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
 import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
 
 export async function POST(request: NextRequest) {
@@ -10,11 +10,10 @@ export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session || !session.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 })
         }
 
         const userId = session.user.id
-
         if (!userId) {
             return NextResponse.json({
                 error: 'Unauthorized',
@@ -22,39 +21,15 @@ export async function POST(request: NextRequest) {
             }, { status: 401 })
         }
 
-        // Cari attendance aktif (sudah check-in, belum check-out)
-        // Kita mundur 24 jam untuk mengakomodasi perbedaan timezone atau edit jam manual
-        const searchStart = new Date()
-        searchStart.setHours(searchStart.getHours() - 24)
-
-        const attendance = await prisma.attendance.findFirst({
-            where: {
-                userId,
-                checkIn: { gte: searchStart },
-                checkOut: null
-            },
-            orderBy: {
-                checkIn: 'desc'
-            }
-        })
-
-        if (!attendance) {
-            return NextResponse.json({
-                error: 'Anda belum melakukan check-in atau sudah check-out hari ini',
-                code: 'NO_ACTIVE_SESSION'
-            }, { status: 400 })
-        }
-
         const formData: any = await request.formData()
         const photo = formData.get('photo') as File | null
-        const notes = formData.get('notes') as string // Optional checkout notes
-        const location = formData.get('location') as string // Fetch location from form data
+        const notes = formData.get('notes') as string
+        const location = formData.get('location') as string
 
         // Process photo using centralized service
-        const photoService = new AttendancePhotoService()
         let photoUrl: string | null = null
-        
         if (photo) {
+            const photoService = new AttendancePhotoService()
             try {
                 photoUrl = await photoService.processPhoto(photo, userId, 'checkout')
             } catch (error: any) {
@@ -65,23 +40,35 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Update attendance
-        const updatedAttendance = await prisma.attendance.update({
-            where: { id: attendance.id },
-            data: {
-                checkOut: new Date(),
-                checkOutPhoto: photoUrl,
-                checkOutLocation: location || undefined,
-                notes: notes ? (attendance.notes ? `${attendance.notes}; Checkout Note: ${notes}` : notes) : undefined
+        // Use centralized service
+        const attendanceService = new AttendanceService()
+        try {
+            const result = await attendanceService.checkOut({
+                userId,
+                photoUrl,
+                location,
+                notes
+            })
+
+            logger.apiRequest('POST', '/api/attendance/check-out', 200, Date.now() - startTime, {
+                userId,
+                attendanceId: result.attendance.id
+            })
+
+            return NextResponse.json({ 
+                success: true, 
+                data: result.attendance,
+                ...(result.warning && { warning: result.warning })
+            })
+        } catch (error: any) {
+            if (error.message === 'NO_ACTIVE_SESSION') {
+                return NextResponse.json({
+                    error: 'Anda belum melakukan check-in atau sudah check-out hari ini',
+                    code: 'NO_ACTIVE_SESSION'
+                }, { status: 400 })
             }
-        })
-
-        logger.apiRequest('POST', '/api/attendance/check-out', 200, Date.now() - startTime, {
-            userId,
-            attendanceId: updatedAttendance.id
-        })
-
-        return NextResponse.json({ success: true, data: updatedAttendance })
+            throw error
+        }
 
     } catch (error: any) {
         logger.error('Error in check-out', error)
@@ -91,3 +78,4 @@ export async function POST(request: NextRequest) {
         }, { status: 500 })
     }
 }
+

@@ -24,14 +24,8 @@ export async function GET(request: NextRequest) {
             }
         })
 
-        console.log('Attendance Config Fetch:', {
-            userId: session.user.id,
-            hasSite: !!user?.sites,
-            siteName: user?.sites?.name,
-            lat: user?.sites?.latitude,
-            lng: user?.sites?.longitude,
-            radius: user?.sites?.attendanceRadius
-        })
+        // Site config retrieved - log only in development
+        // console.log('[attendance:config] fetched for user', session.user.id)
 
         if (!user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 })

@@ -386,7 +386,7 @@ export function ClientComponent() {
                 {/* On Time Card */}
                 <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500 dark:bg-gray-800">
                     <div className="text-sm text-gray-500 dark:text-gray-400">Tepat Waktu</div>
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{summary['ON_TIME'] || summary['PRESENT'] || 0}</div>
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{summary['ON_TIME'] || 0}</div>
                 </div>
 
                 {/* Late Card */}
@@ -549,10 +549,10 @@ export function ClientComponent() {
                                 >
                                     <option value="ON_TIME">Tepat Waktu (ON_TIME)</option>
                                     <option value="LATE">Terlambat (LATE)</option>
-                                    <option value="PRESENT">Hadir (PRESENT)</option>
                                     <option value="SICK">Sakit (SICK)</option>
                                     <option value="PERMIT">Izin (PERMIT)</option>
                                     <option value="ABSENT">Alpha (ABSENT)</option>
+                                    <option value="DAY_OFF">Libur (DAY_OFF)</option>
                                 </select>
                             </div>
                         </div>

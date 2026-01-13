@@ -87,21 +87,23 @@ export class AttendanceTimezoneService {
   ): Promise<'ON_TIME' | 'LATE'> {
     const tz = timezone || await this.getTimezone()
     const toleranceMinutes = await this.getTolerance()
-    const { now, startOfDay } = this.getEffectiveDate(tz)
+    
+    // Convert checkInTime to the target timezone
+    const checkInInTz = new Date(checkInTime.toLocaleString('en-US', { timeZone: tz }))
     
     // Parse schedule time (e.g., '08:30' -> hours: 8, minutes: 30)
     const [schedHour, schedMinute] = scheduleTime.split(':').map(Number)
     
-    // Create schedule date in the user's timezone
-    const scheduleDate = new Date(startOfDay)
+    // Create schedule date on the SAME DAY as checkInTime
+    const scheduleDate = new Date(checkInInTz)
     scheduleDate.setHours(schedHour, schedMinute, 0, 0)
     
     // Calculate late threshold (schedule + tolerance)
     const toleranceMs = toleranceMinutes * 60 * 1000
     const lateThreshold = new Date(scheduleDate.getTime() + toleranceMs)
     
-    // Determine status
-    return now > lateThreshold ? 'LATE' : 'ON_TIME'
+    // Compare checkInTime vs lateThreshold (not now vs threshold)
+    return checkInInTz > lateThreshold ? 'LATE' : 'ON_TIME'
   }
   
   /**

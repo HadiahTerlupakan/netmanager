@@ -81,7 +81,16 @@ export async function PATCH(
         const { checkIn, checkOut, status, notes } = body
 
         if (!id) {
-            return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+            return NextResponse.json({ error: 'ID is required', code: 'MISSING_ID' }, { status: 400 })
+        }
+
+        // Validate status if provided
+        const VALID_STATUSES = ['ON_TIME', 'LATE', 'ABSENT', 'SICK', 'PERMIT', 'DAY_OFF'] as const
+        if (status && !VALID_STATUSES.includes(status)) {
+            return NextResponse.json({
+                error: `Status tidak valid. Pilihan: ${VALID_STATUSES.join(', ')}`,
+                code: 'INVALID_STATUS'
+            }, { status: 400 })
         }
 
         // Prepare update data

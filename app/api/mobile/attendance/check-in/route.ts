@@ -151,38 +151,59 @@ export async function POST(request: NextRequest) {
             }
         } else if (contentType.includes('application/json')) {
             const body = await request.json()
-            photoUrl = body.photoUrl
             location = body.location
             notes = body.notes
             
-            // Validate coordinates if provided
+            // Validate coordinates using centralized utility
             if (body.latitude !== undefined && body.longitude !== undefined) {
-                const lat = parseFloat(body.latitude)
-                const lng = parseFloat(body.longitude)
-
-                if (isNaN(lat) || isNaN(lng)) {
+                const { validateCoordinates } = await import('@/lib/validation-utils')
+                const coordValidation = validateCoordinates(body.latitude, body.longitude)
+                
+                if (!coordValidation.valid) {
                     return NextResponse.json({
-                        error: 'Koordinat tidak valid',
-                        code: 'VALIDATION_ERROR'
+                        error: coordValidation.error,
+                        code: coordValidation.code
                     }, { status: 400 })
                 }
 
-                if (lat < -90 || lat > 90) {
+                latitude = coordValidation.latitude!
+                longitude = coordValidation.longitude!
+            }
+            
+            // Handle photoUrl - validate it's from trusted source
+            if (body.photoUrl) {
+                // SECURITY: Only accept photoUrl from our trusted CDN domains
+                const trustedDomains = [
+                    'cdn.radpro.id',
+                    'localhost:3000',
+                    '0.0.0.0:3000',
+                    // Add other trusted domains as needed
+                ]
+                
+                try {
+                    const url = new URL(body.photoUrl)
+                    const isTrusted = trustedDomains.some(domain => 
+                        url.host === domain || url.host.endsWith('.' + domain)
+                    )
+                    
+                    if (isTrusted) {
+                        // PhotoUrl from our CDN is trusted (already uploaded via /api/mobile/upload)
+                        photoUrl = body.photoUrl
+                    } else {
+                        // External URL not trusted - log warning but don't expose URL in log
+                        logger.warn(`[SECURITY] Untrusted photoUrl rejected for user ${userId}`)
+                        return NextResponse.json({
+                            error: 'Photo URL tidak valid. Upload foto melalui endpoint yang benar.',
+                            code: 'UNTRUSTED_PHOTO_URL'
+                        }, { status: 400 })
+                    }
+                } catch {
+                    // Invalid URL format
                     return NextResponse.json({
-                        error: 'Latitude harus antara -90 dan 90',
-                        code: 'VALIDATION_ERROR'
+                        error: 'Format Photo URL tidak valid',
+                        code: 'INVALID_PHOTO_URL'
                     }, { status: 400 })
                 }
-
-                if (lng < -180 || lng > 180) {
-                    return NextResponse.json({
-                        error: 'Longitude harus antara -180 dan 180',
-                        code: 'VALIDATION_ERROR'
-                    }, { status: 400 })
-                }
-
-                latitude = lat
-                longitude = lng
             }
             
             // Check for offline meta
@@ -217,6 +238,7 @@ export async function POST(request: NextRequest) {
                  if (!isNaN(dt.getTime())) offlineCapturedAt = dt
             }
         }
+
 
         // --- Use Centralized Service ---
         const attendanceService = new AttendanceService()

@@ -66,6 +66,11 @@ export async function GET(request: NextRequest) {
             }
         }
 
+        // Apply status filter if provided
+        if (status) {
+            where.status = status
+        }
+
         // Check for export flag
         const isExport = searchParams.get('export') === 'true'
 

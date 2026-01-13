@@ -186,15 +186,45 @@ export class LocationTrackingService {
             }
         })
 
-        // Untuk setiap user aktif, ambil lokasi terakhir
-        const results = await Promise.all(
-            activeAttendances.map(async (attendance) => {
-                const latestLocation = await prisma.employeeLocation.findFirst({
-                    where: { userId: attendance.userId },
-                    orderBy: { recordedAt: 'desc' }
-                })
+        // Early return if no active attendances
+        if (activeAttendances.length === 0) {
+            return []
+        }
 
-                if (!latestLocation) return null
+        // OPTIMIZED: Batch fetch latest locations in SINGLE query
+        // This eliminates N+1 query problem (was: 1 query per user)
+        const userIds = activeAttendances.map(a => a.userId)
+        
+        // Use raw query for DISTINCT ON (PostgreSQL specific - most efficient)
+        const latestLocations = await prisma.$queryRaw<Array<{
+            userId: string
+            latitude: number
+            longitude: number
+            accuracy: number | null
+            speed: number | null
+            heading: number | null
+            isMoving: boolean
+            batteryLevel: number | null
+            recordedAt: Date
+        }>>`
+            SELECT DISTINCT ON ("userId") 
+                "userId", latitude, longitude, accuracy, speed, 
+                heading, "isMoving", "batteryLevel", "recordedAt"
+            FROM "EmployeeLocation"
+            WHERE "userId" = ANY(${userIds})
+            ORDER BY "userId", "recordedAt" DESC
+        `
+
+        // Create lookup map for O(1) access
+        const locationMap = new Map(
+            latestLocations.map(loc => [loc.userId, loc])
+        )
+
+        // Map results with location data
+        const results = activeAttendances
+            .map(attendance => {
+                const location = locationMap.get(attendance.userId)
+                if (!location) return null
 
                 return {
                     userId: attendance.userId,
@@ -202,20 +232,20 @@ export class LocationTrackingService {
                     userImage: attendance.user.image,
                     siteName: attendance.user.sites?.name || null,
                     departmentName: attendance.user.departments?.name || null,
-                    latitude: latestLocation.latitude,
-                    longitude: latestLocation.longitude,
-                    accuracy: latestLocation.accuracy,
-                    speed: latestLocation.speed,
-                    heading: latestLocation.heading,
-                    isMoving: latestLocation.isMoving,
-                    batteryLevel: latestLocation.batteryLevel,
-                    recordedAt: latestLocation.recordedAt,
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                    accuracy: location.accuracy,
+                    speed: location.speed,
+                    heading: location.heading,
+                    isMoving: location.isMoving,
+                    batteryLevel: location.batteryLevel,
+                    recordedAt: location.recordedAt,
                     checkInTime: attendance.checkIn
                 }
             })
-        )
+            .filter((r): r is NonNullable<typeof r> => r !== null)
 
-        return results.filter((r): r is NonNullable<typeof r> => r !== null)
+        return results
     }
 
     /**

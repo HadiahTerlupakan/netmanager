@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/auth-helpers'
-import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
+import { validateDaysRange } from '@/lib/validation-utils'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,15 +13,12 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id as string
     
-    // Get date range from query params (default: last 30 days)
+    // Get date range from query params (default: last 30 days, max 365)
     const searchParams = request.nextUrl.searchParams
-    const days = parseInt(searchParams.get('days') || '30')
+    const days = validateDaysRange(searchParams.get('days'), 365, 30)
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - days)
     const endDate = new Date()
-    
-    const attendanceService = new AttendanceService()
-    const attendanceData = await attendanceService.getReportData(startDate, endDate)
     
     // Calculate individual stats
     const userAttendances = await prisma.attendance.findMany({

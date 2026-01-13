@@ -178,9 +178,110 @@ export class AttendanceService {
 
             await prisma.attendance.update({
                 where: { id: session.id },
-                data: { checkOut: autoCheckOut, notes: newNotes }
+                data: { 
+                    checkOut: autoCheckOut, 
+                    notes: newNotes,
+                    status: 'ABSENT' // Consistent with AutoCheckoutService
+                }
             })
         }))
+    }
+
+    /**
+     * Centralized Check-Out Logic
+     * Used by both web and mobile routes for consistency
+     */
+    async checkOut(params: {
+        userId: string
+        photoUrl: string | null
+        location: string | null
+        notes?: string
+        latitude?: number
+        longitude?: number
+        offlineTime?: Date
+    }): Promise<{
+        attendance: any
+        warning?: string
+    }> {
+        const { userId, photoUrl, location, notes, latitude, longitude, offlineTime } = params
+
+        // 1. Find active attendance (last 24 hours)
+        const searchStart = new Date()
+        searchStart.setHours(searchStart.getHours() - 24)
+
+        const attendance = await prisma.attendance.findFirst({
+            where: {
+                userId,
+                checkIn: { gte: searchStart },
+                checkOut: null
+            },
+            orderBy: { checkIn: 'desc' },
+            include: {
+                user: {
+                    select: {
+                        workingHourMode: true,
+                        flexibleTargetHour: true,
+                        name: true
+                    }
+                }
+            }
+        })
+
+        if (!attendance) {
+            throw new Error('NO_ACTIVE_SESSION')
+        }
+
+        // 2. Calculate warning for FLEXIBLE users
+        let warning: string | undefined
+        if (attendance.user.workingHourMode === 'FLEXIBLE') {
+            const checkInTime = new Date(attendance.checkIn).getTime()
+            const now = Date.now()
+            const durationHours = (now - checkInTime) / (1000 * 60 * 60)
+            const targetHours = attendance.user.flexibleTargetHour || 8
+
+            if (durationHours < targetHours) {
+                const workedHours = Math.floor(durationHours)
+                const workedMinutes = Math.round((durationHours % 1) * 60)
+                const remainingHours = targetHours - durationHours
+                const remainingHoursInt = Math.floor(remainingHours)
+                const remainingMinutes = Math.round((remainingHours % 1) * 60)
+
+                warning = `Jam kerja Anda baru ${workedHours} jam ${workedMinutes} menit. Target kerja: ${targetHours} jam. Kurang ${remainingHoursInt} jam ${remainingMinutes} menit.`
+            }
+        }
+
+        // 3. Geofence validation
+        let checkOutGeofenceStatus = 'UNKNOWN'
+        let checkOutGeofenceDistance: number | null = null
+
+        if (latitude !== undefined && longitude !== undefined) {
+            const geoCheck = await this.geofenceService.validateGeofence(userId, latitude, longitude)
+            checkOutGeofenceStatus = geoCheck.isInside ? 'INSIDE' : 'OUTSIDE'
+            checkOutGeofenceDistance = geoCheck.nearestDistance
+        }
+
+        // 4. Prepare notes
+        const finalNotes = notes
+            ? (attendance.notes ? `${attendance.notes}; Checkout Note: ${notes}` : notes)
+            : attendance.notes
+
+        // 5. Update record
+        const checkOutTime = offlineTime || new Date()
+        
+        const updatedAttendance = await prisma.attendance.update({
+            where: { id: attendance.id },
+            data: {
+                checkOut: checkOutTime,
+                checkOutPhoto: photoUrl,
+                checkOutLocation: location || undefined,
+                checkOutGeofenceStatus,
+                checkOutGeofenceDistance,
+                notes: finalNotes,
+                updatedAt: new Date()
+            }
+        })
+
+        return { attendance: updatedAttendance, warning }
     }
 
     async getReportData(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
