@@ -59,8 +59,8 @@ export async function GET(req: NextRequest) {
   const { session } = auth
   
   try {
-    // Get site filter - if user has site restriction, filter by their site
-    const siteIdFilter = session.user.siteId || undefined
+    // Get site filter - use intelligent check (only filter if user has 'site_only' permission)
+    const siteIdFilter = getSiteFilter(session as any, 'users')
 
     const userService = getUserService()
     const users = await userService.getAllUsers(siteIdFilter)
