@@ -6,6 +6,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getDistance } from 'geolib'
 import { randomUUID } from 'crypto'
+import { GeofenceService } from '@/modules/attendance/services/GeofenceService'
+import { AttendanceValidationService } from '@/modules/attendance/services/AttendanceValidationService'
+import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now()
@@ -17,118 +20,7 @@ export async function POST(request: NextRequest) {
 
         const userId = session.user.id as string
 
-        // Fetch User and Settings first to determine Timezone
-        const [userDetails, toleranceSetting, timezoneSetting] = await Promise.all([
-            prisma.user.findUnique({
-                where: { id: userId },
-                select: {
-                    startWorkTime: true,
-                    endWorkTime: true,
-                    workingHourMode: true
-                }
-            }),
-            prisma.settings.findFirst({
-                where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
-            }),
-            prisma.settings.findFirst({
-                where: { key: 'GENERAL_TIMEZONE' }
-            })
-        ])
-
-        const timezone = timezoneSetting?.value || 'Asia/Jakarta'
-        const toleranceMinutes = toleranceSetting?.value ? parseInt(toleranceSetting.value) : 0
-
-        // Timezone Logic:
-        // 1. Get current "Wall Clock" time in the target timezone
-        const now = new Date()
-        const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
-
-        // 2. Calculate offset (WallClock - RealUTC) to shift queries back to UTC if needed
-        // Note: This offset includes the day difference if any.
-        const tzOffsetMs = nowInTz.getTime() - now.getTime()
-
-        // 3. Define "Today" (Start of Day) in the Target Timezone
-        // We use nowInTz to get the correct Year/Month/Day
-        const startOfDayInTz = new Date(nowInTz)
-        startOfDayInTz.setHours(0, 0, 0, 0)
-
-        // 4. effectiveToday is the UTC timestamp representing 00:00 of the target timezone
-        const effectiveToday = new Date(startOfDayInTz.getTime() - tzOffsetMs)
-
-
-        // 1. Auto-Checkout logic for stale sessions (yesterday or older)
-        // SKIP for FLEXIBLE users - they don't have fixed schedules
-        let staleSessions: Awaited<ReturnType<typeof prisma.attendance.findMany>> = []
-        
-        if (userDetails?.workingHourMode !== 'FLEXIBLE') {
-            staleSessions = await prisma.attendance.findMany({
-                where: {
-                    userId,
-                    checkOut: null,
-                    checkIn: {
-                        lt: effectiveToday
-                    }
-                }
-            })
-        }
-
-        if (staleSessions.length > 0) {
-            await Promise.all(staleSessions.map(async (session) => {
-                let autoCheckOut = new Date(session.checkIn)
-
-                if (userDetails?.workingHourMode === 'FLEXIBLE') {
-                    // Flexible: CheckIn + 9 hours (standard working hours)
-                    autoCheckOut.setHours(autoCheckOut.getHours() + 9)
-                } else {
-                    // Fixed: Use endWorkTime or default 17:00
-                    if (userDetails?.endWorkTime) {
-                        const [endHour, endMinute] = userDetails.endWorkTime.split(':').map(Number)
-                        autoCheckOut.setHours(endHour, endMinute, 0, 0)
-                    } else {
-                        autoCheckOut.setHours(17, 0, 0, 0)
-                    }
-                }
-
-                // Safety check: If calculated checkout is before checkin (e.g. bad config), force it to be after
-                if (autoCheckOut <= session.checkIn) {
-                    autoCheckOut = new Date(session.checkIn.getTime() + 9 * 60 * 60 * 1000)
-                }
-
-                // If checkIn was very late (e.g. 20:00) and fixed end is 17:00, it would be in the past.
-                // In that case, we probably should set it to 23:59 of that day to close the loop?
-                // Or just trust the calculation? 
-                // Let's stick to the user's initial rule: "23:59 jika masuknya malam" (implied by "checkIn > autoCheckOut")
-                if (session.checkIn > autoCheckOut) {
-                    autoCheckOut.setHours(23, 59, 59, 999)
-                }
-
-                const autoNote = '(Auto-Checkout: Lupa Absen Pulang)'
-                const newNotes = session.notes ? `${session.notes} ${autoNote}` : autoNote
-
-                await prisma.attendance.update({
-                    where: { id: session.id },
-                    data: {
-                        checkOut: autoCheckOut,
-                        notes: newNotes
-                    }
-                })
-            }))
-        }
-
-        // 2. Check for today's check-in
-        const existingAttendance = await prisma.attendance.findFirst({
-            where: {
-                userId,
-                checkIn: {
-                    gte: effectiveToday
-                }
-            }
-        })
-
-        if (existingAttendance) {
-            return NextResponse.json({ error: 'Anda sudah melakukan check-in hari ini' }, { status: 400 })
-        }
-
+        // Parse basic data needed for image upload (logic kept in controller for now)
         const formData: any = await request.formData()
         const photo = formData.get('photo') as File | null
         const location = formData.get('location') as string
@@ -161,58 +53,55 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        let status = 'ON_TIME'
-
-        // Logika Status: Jika punya jadwal masuk, cek keterlambatan
-        if (userDetails?.workingHourMode !== 'FLEXIBLE' && userDetails?.startWorkTime) {
-            const [schedHour, schedMinute] = userDetails.startWorkTime.split(':').map(Number)
-
-            // Buat objek Date untuk jadwal hari ini (menggunakan konteks Timezone)
-            const scheduleTime = new Date(startOfDayInTz)
-            scheduleTime.setHours(schedHour, schedMinute, 0, 0)
-
-            // Tambahkan batas toleransi
-            const toleranceMs = toleranceMinutes * 60 * 1000
-            const lateThreshold = new Date(scheduleTime.getTime() + toleranceMs)
-
-            // Bandingkan Wall Clock Time user (nowInTz) dengan Jadwal (scheduleTime)
-            // nowInTz dan scheduleTime keduanya ada dalam "Timezone Context" (UTC-shifted values)
-            if (nowInTz > lateThreshold) {
-                status = 'LATE'
-            }
-        }
-
-        // Log lokasi untuk audit (tetap dipertahankan)
+        // --- Use Centralized Service ---
+        const attendanceService = new AttendanceService()
+        
+        // Parse coordinates
         const latStr = formData.get('latitude') as string
         const lngStr = formData.get('longitude') as string
+        let latitude: number | undefined
+        let longitude: number | undefined
+        
         if (latStr && lngStr) {
-            console.log('Attendance Check-In Location:', { userId, lat: latStr, lng: lngStr, status })
+            latitude = parseFloat(latStr)
+            longitude = parseFloat(lngStr)
         }
 
-        // Buat data attendance
-        const attendance = await prisma.attendance.create({
-            data: {
-                id: randomUUID(),
-                updatedAt: new Date(),
-                userId,
-                checkIn: new Date(),
-                checkInPhoto: photoUrl,
-                location,
-                notes,
-                status: status
-            }
+        const attendance = await attendanceService.checkIn({
+            userId,
+            photoUrl,
+            location,
+            notes,
+            latitude,
+            longitude,
+            // Web always uses server time and configured timezone, but we can pass explicit TZ if needed
+            // AttendanceService fetches User&Settings internally, so we don't strictly need to pass TZ here
+            // unless we want to override it. Service defaults to 'Asia/Jakarta' or fetches from DB setting.
         })
-
+        
         logger.apiRequest('POST', '/api/attendance/check-in', 201, Date.now() - startTime, {
             userId,
             attendanceId: attendance.id,
-            status
+            status: attendance.status
         })
 
         return NextResponse.json({ success: true, data: attendance })
 
     } catch (error: any) {
         logger.error('Error in check-in', error)
+        
+        // Handle Custom Service Errors
+        if (error.message === 'DUPLICATE_ENTRY') {
+            return NextResponse.json({ error: 'Anda sudah melakukan check-in hari ini' }, { status: 400 })
+        }
+        if (error.message.startsWith('CHECKIN_REJECTED:')) {
+            const reason = error.message.split(':')[1]
+            return NextResponse.json({ 
+                error: `Check-in ditolak: ${reason}`,
+                code: 'VALIDATION_ERROR' 
+            }, { status: 400 })
+        }
+        
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

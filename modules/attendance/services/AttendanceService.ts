@@ -1,112 +1,202 @@
-import { AttendanceRepository } from '../repositories/AttendanceRepository'
-import { OvertimeRepository } from '../../overtime/repositories/OvertimeRepository'
 import { prisma } from '@/lib/prisma'
+import { GeofenceService } from './GeofenceService'
+import { AttendanceValidationService } from './AttendanceValidationService'
+import { AttendanceStatus } from '@prisma/client'
+import { randomUUID } from 'crypto'
+
+interface CheckInParams {
+    userId: string
+    photoUrl: string | null
+    location: string
+    notes: string
+    latitude?: number
+    longitude?: number
+    offlineTime?: Date // For mobile offline sync
+    timezone?: string
+}
 
 export class AttendanceService {
-    private repository: AttendanceRepository
-    private overtimeRepository: OvertimeRepository
+    private geofenceService: GeofenceService
+    private validationService: AttendanceValidationService
 
     constructor() {
-        this.repository = new AttendanceRepository()
-        this.overtimeRepository = new OvertimeRepository()
+        this.geofenceService = new GeofenceService()
+        this.validationService = new AttendanceValidationService()
+    }
+
+    async checkIn(params: CheckInParams) {
+        const { userId, photoUrl, location, notes, latitude, longitude, offlineTime, timezone = 'Asia/Jakarta' } = params
+
+        // 1. Timezone & Date Context
+        // Use offlineTime if provided (trusted for sync), else server time
+        const checkInTime = offlineTime || new Date()
+        
+        // Convert to Target Timezone to determine "Today" logic
+        const nowInTz = new Date(checkInTime.toLocaleString('en-US', { timeZone: timezone }))
+        const tzOffsetMs = nowInTz.getTime() - checkInTime.getTime()
+        
+        const startOfDayInTz = new Date(nowInTz)
+        startOfDayInTz.setHours(0, 0, 0, 0)
+        
+        // Effective UTC time for 00:00 in user's timezone
+        const effectiveToday = new Date(startOfDayInTz.getTime() - tzOffsetMs)
+
+        // 2. Cross-Module Validation (Leave & Holiday)
+        // Check using the User's Timezone Date
+        const eligibility = await this.validationService.validateCheckInEligibility(userId, nowInTz)
+        if (!eligibility.isValid) {
+            throw new Error(`CHECKIN_REJECTED:${eligibility.reason}`) // Format error for controller to parse
+        }
+
+        // 3. User Settings & Schedule
+        const [userDetails, toleranceSetting] = await Promise.all([
+            prisma.user.findUnique({ 
+                where: { id: userId },
+                select: { startWorkTime: true, endWorkTime: true, workingHourMode: true } 
+            }),
+            prisma.settings.findFirst({ where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' } })
+        ])
+
+        // 4. Auto-Checkout Stale Sessions
+        await this.processAutoCheckout(userId, userDetails, effectiveToday)
+
+        // 5. Duplicate Check
+        const existingAttendance = await prisma.attendance.findFirst({
+            where: {
+                userId,
+                checkIn: { gte: effectiveToday }
+            }
+        })
+        if (existingAttendance) {
+            throw new Error('DUPLICATE_ENTRY')
+        }
+
+        // 6. Geofence Validation
+        let geofenceResult = {
+            status: 'UNKNOWN',
+            distance: null as number | null,
+            siteName: null as string | null
+        }
+        
+        if (latitude !== undefined && longitude !== undefined) {
+            const geoCheck = await this.geofenceService.validateGeofence(userId, latitude, longitude)
+            geofenceResult = {
+                status: geoCheck.isInside ? 'INSIDE' : 'OUTSIDE',
+                distance: geoCheck.nearestDistance,
+                siteName: geoCheck.nearestSiteName
+            }
+        }
+
+        // 7. Status Calculation (LATE vs ON_TIME)
+        let status: AttendanceStatus = 'ON_TIME'
+        if (userDetails?.startWorkTime && userDetails?.workingHourMode !== 'FLEXIBLE') {
+            const [schedHour, schedMinute] = userDetails.startWorkTime.split(':').map(Number)
+            const scheduleTime = new Date(startOfDayInTz)
+            scheduleTime.setHours(schedHour, schedMinute, 0, 0)
+            
+            const toleranceMinutes = toleranceSetting?.value ? parseInt(toleranceSetting.value) : 0
+            const lateThreshold = new Date(scheduleTime.getTime() + (toleranceMinutes * 60000))
+
+            if (nowInTz > lateThreshold) {
+                status = 'LATE'
+            }
+        }
+
+        // 8. Create Record
+        return await prisma.attendance.create({
+            data: {
+                id: randomUUID(),
+                userId,
+                checkIn: checkInTime,
+                checkInPhoto: photoUrl,
+                location,
+                notes,
+                status,
+                geofenceStatus: geofenceResult.status,
+                geofenceDistance: geofenceResult.distance,
+                geofenceSiteName: geofenceResult.siteName,
+                geofenceMeta: offlineTime ? { offline: true, capturedAt: offlineTime.toISOString() } : undefined,
+                updatedAt: new Date()
+            }
+        })
+    }
+
+    private async processAutoCheckout(userId: string, userDetails: any, effectiveToday: Date) {
+        // Skip for flexible users
+        if (userDetails?.workingHourMode === 'FLEXIBLE') return
+
+        const staleSessions = await prisma.attendance.findMany({
+            where: {
+                userId,
+                checkOut: null,
+                checkIn: { lt: effectiveToday }
+            }
+        })
+
+        if (staleSessions.length === 0) return
+
+        await Promise.all(staleSessions.map(async (session) => {
+            let autoCheckOut = new Date(session.checkIn)
+            
+            // Logic Auto Checkout - same as legacy
+            if (userDetails?.endWorkTime) {
+                const [endHour, endMinute] = userDetails.endWorkTime.split(':').map(Number)
+                autoCheckOut.setHours(endHour, endMinute, 0, 0)
+            } else {
+                autoCheckOut.setHours(17, 0, 0, 0)
+            }
+
+            // Adjust date if previous day logic needed? 
+            // The legacy code used simple Hours setting on the CheckIn Date.
+            // If checkIn was yesterday 08:00, autoCheckout becomes yesterday 17:00. Correct.
+            
+            // Safety: if config error makes checkout < checkin
+            if (autoCheckOut <= session.checkIn) {
+                // Fallback: CheckIn + 9 hours
+                autoCheckOut = new Date(session.checkIn.getTime() + 9 * 3600000)
+            }
+            
+            // Logic "Malam" -> 23:59
+            if (session.checkIn > autoCheckOut) {
+                autoCheckOut.setHours(23, 59, 59, 999)
+            }
+
+            const autoNote = '(Auto-Checkout: Lupa Absen Pulang)'
+            const newNotes = session.notes ? `${session.notes} ${autoNote}` : autoNote
+
+            await prisma.attendance.update({
+                where: { id: session.id },
+                data: { checkOut: autoCheckOut, notes: newNotes }
+            })
+        }))
     }
 
     async getReportData(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const [stats, dailyStats, groupedBySite, groupedByDept, topEmployees] = await Promise.all([
-            this.repository.getStatsByDateRange(startDate, endDate, siteId, departmentId),
-            this.repository.getDailyStats(startDate, endDate, siteId, departmentId),
-            this.repository.getGroupedStats(startDate, endDate, 'site'),
-            this.repository.getGroupedStats(startDate, endDate, 'department'),
-            this.repository.getTopEmployees(startDate, endDate, 5, siteId, departmentId)
-        ])
-
-        return {
-            summary: {
-                totalAttendance: stats.total,
-                onTimeCount: (stats.statusCounts['ON_TIME'] || 0),
-                lateCount: (stats.statusCounts['LATE'] || 0),
-                sickCount: (stats.statusCounts['SICK'] || 0),
-                attendanceRate: stats.total > 0 ? 100 : 0,
-                lateRate: stats.total > 0 ? ((stats.statusCounts['LATE'] || 0) / stats.total) * 100 : 0,
-                avgDurationMinutes: stats.avgDurationMinutes
-            },
-            trends: dailyStats,
-            bySite: groupedBySite,
-            byDepartment: groupedByDept,
-            topEmployees,
-            combinedTopEmployees: await this.getCombinedTopEmployees(startDate, endDate, 5, siteId, departmentId)
-        }
-    }
-
-    async getCombinedTopEmployees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
-        // Fetch raw aggregates
-        const [attendanceRecords, overtimeStats] = await Promise.all([
-            this.repository.getUserAttendanceRecords(startDate, endDate, siteId, departmentId),
-            this.overtimeRepository.getUserOvertimeStats(startDate, endDate, siteId, departmentId)
-        ])
-
-        // Merge Map
-        const userScores = new Map<string, { days: number, otMinutes: number, score: number }>()
-
-        // Process Attendance with Penalty Logic
-        attendanceRecords.forEach(record => {
-            if (!userScores.has(record.userId)) {
-                userScores.set(record.userId, { days: 0, otMinutes: 0, score: 0 })
-            }
-            const entry = userScores.get(record.userId)!
-            
-            entry.days += 1
-            
-            // PENALTY LOGIC: Check for Auto-Checkout flag in notes
-            const isAutoCheckout = record.notes && record.notes.includes('Auto-Checkout')
-            
-            if (isAutoCheckout) {
-                entry.score += 5 // Penalty: Only 5 points if forgot to checkout
-            } else if (record.status === 'LATE') {
-                entry.score += 9 // Penalty: -1 point (10 - 1) if Late
-            } else {
-                entry.score += 10 // Normal: 10 points
-            }
-        })
-
-        // Process Overtime (1 Hour = 1 Point => 60 Mins = 1 Point => 1 Min = 1/60 Point)
-        overtimeStats.forEach(stat => {
-            if (!userScores.has(stat.userId)) {
-                // Only consider overtime if user exists in attendance? No, maybe OT only user? 
-                // Usually logic implies active employee. We'll include all.
-                userScores.set(stat.userId, { days: 0, otMinutes: 0, score: 0 })
-            }
-            const entry = userScores.get(stat.userId)!
-            const minutes = stat._sum.duration || 0
-            entry.otMinutes = minutes
-            entry.score += (minutes / 60) * 1 // 1 Point per hour
-        })
-
-        // Sort by Score Desc
-        const sorted = Array.from(userScores.entries()).sort((a, b) => b[1].score - a[1].score)
-        const top = sorted.slice(0, limit)
-
-        if (top.length === 0) return []
-
-        // Fetch User Details
-        const users = await prisma.user.findMany({
-            where: { id: { in: top.map(t => t[0]) } },
-            select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
-        })
-
-        return top.map(t => {
-            const userId = t[0]
-            const stats = t[1]
-            const user = users.find(u => u.id === userId)
-            if (!user) return null
-            return {
-                user,
-                score: Math.round(stats.score), // Round score for display
-                details: {
-                    days: stats.days,
-                    otHours: (stats.otMinutes / 60).toFixed(1)
+        const attendanceData = await prisma.attendance.findMany({
+            where: {
+                checkIn: {
+                    gte: startDate,
+                    lte: endDate
+                },
+                user: {
+                    siteId: siteId,
+                    departmentId: departmentId
                 }
+            },
+            include: {
+                user: {
+                    select: {
+                        name: true,
+                        role: true,
+                        departments: { select: { name: true } },
+                        sites: { select: { name: true } }
+                    }
+                }
+            },
+            orderBy: {
+                checkIn: 'asc'
             }
-        }).filter(item => item !== null)
+        })
+        return attendanceData
     }
 }

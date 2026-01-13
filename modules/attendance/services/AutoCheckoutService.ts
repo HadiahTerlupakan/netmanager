@@ -69,7 +69,7 @@ export class AutoCheckoutService {
                     data: {
                         checkOut: checkOutTime,
                         notes: attendance.notes ? `${attendance.notes}; Auto checkout by system (Mangkir)` : 'Auto checkout by system (Mangkir)',
-                        status: 'MANGKIR'
+                        status: 'ABSENT'
                     }
                 })
 

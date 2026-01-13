@@ -75,18 +75,27 @@ model AnnouncementRead {
   @@index([pelangganId])
 }
 
+enum AttendanceStatus {
+  ON_TIME
+  LATE
+  ABSENT
+  SICK
+  PERMIT
+  DAY_OFF
+}
+
 model Attendance {
-  id                       String     @id
+  id                       String           @id
   userId                   String
-  checkIn                  DateTime   @default(now())
+  checkIn                  DateTime         @default(now())
   checkOut                 DateTime?
   checkInPhoto             String?
   checkOutPhoto            String?
-  status                   String     @default("PRESENT")
+  status                   AttendanceStatus @default(ON_TIME)
   notes                    String?
   location                 String?
   checkOutLocation         String?
-  createdAt                DateTime   @default(now())
+  createdAt                DateTime         @default(now())
   updatedAt                DateTime
   geofenceStatus           String?
   geofenceDistance         Float?
@@ -94,12 +103,13 @@ model Attendance {
   checkOutGeofenceStatus   String?
   checkOutGeofenceDistance Float?
   geofenceMeta             Json?
-  user                     User       @relation(fields: [userId], references: [id])
+  user                     User             @relation(fields: [userId], references: [id])
   overtime                 Overtime[]
 
   @@index([checkIn])
   @@index([status])
   @@index([userId])
+  @@index([userId, checkIn])
 }
 
 model EmployeeLocation {

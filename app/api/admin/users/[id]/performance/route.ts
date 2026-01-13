@@ -58,10 +58,11 @@ export async function GET(
     }
 
     attendanceStats.forEach(stat => {
-      const status = stat.status.toUpperCase() // Ensure case consistency
-      if (status === 'PRESENT' || status === 'ON_TIME') attendance.present += stat._count._all
-      else if (status === 'LATE' || status === 'TERLAMBAT') attendance.late += stat._count._all
-      else if (status === 'ABSENT' || status === 'ALPHA') attendance.absent += stat._count._all 
+      // Prisma automatically returns Enum values
+      const status = stat.status
+      if (status === 'ON_TIME') attendance.present += stat._count._all
+      else if (status === 'LATE') attendance.late += stat._count._all
+      else if (status === 'ABSENT' || status === 'DAY_OFF') attendance.absent += stat._count._all 
     })
     attendance.total = attendance.present + attendance.late + attendance.absent
 

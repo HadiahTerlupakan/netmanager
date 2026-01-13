@@ -164,7 +164,7 @@ export class AttendanceRepository {
 
             // Assuming 'ON_TIME', 'LATE', and 'PRESENT' are valid statuses for present
             if (rec.status === 'LATE') stats.late++
-            if (rec.status === 'ON_TIME' || rec.status === 'LATE' || rec.status === 'PRESENT') stats.present++
+            if (rec.status === 'ON_TIME' || rec.status === 'LATE') stats.present++
         })
 
         // Process Leaves
@@ -246,7 +246,7 @@ export class AttendanceRepository {
             const stats = groups.get(groupKey)!
             stats.total++
             if (att.status === 'LATE') stats.late++
-            if (['ON_TIME', 'LATE', 'PRESENT'].includes(att.status)) stats.present++
+            if (['ON_TIME', 'LATE'].includes(att.status)) stats.present++
         })
 
         return Array.from(groups.values())
@@ -255,7 +255,7 @@ export class AttendanceRepository {
     async getTopEmployees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
         const where: Prisma.AttendanceWhereInput = {
             checkIn: { gte: startDate, lte: endDate },
-            status: { in: ['ON_TIME', 'LATE', 'PRESENT'] } // Count present days
+            status: { in: ['ON_TIME', 'LATE'] } // Count present days
         }
 
         if (siteId || departmentId) {
@@ -303,7 +303,7 @@ export class AttendanceRepository {
     async getUserAttendanceStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
         const where: Prisma.AttendanceWhereInput = {
             checkIn: { gte: startDate, lte: endDate },
-            status: { in: ['ON_TIME', 'LATE', 'PRESENT'] }
+            status: { in: ['ON_TIME', 'LATE'] }
         }
 
         if (siteId || departmentId) {
@@ -323,7 +323,7 @@ export class AttendanceRepository {
     async getUserAttendanceRecords(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
         const where: Prisma.AttendanceWhereInput = {
             checkIn: { gte: startDate, lte: endDate },
-            status: { in: ['ON_TIME', 'LATE', 'PRESENT'] }
+            status: { in: ['ON_TIME', 'LATE'] }
         }
 
         if (siteId || departmentId) {
