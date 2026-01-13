@@ -45,6 +45,8 @@ export async function sendPushNotification(
             data: data || {},
             sound: 'default'
         }])
+
+
     } catch (error) {
         console.error('[Push] Error sending notification:', error)
         return false
@@ -105,6 +107,7 @@ async function sendExpoPush(messages: ExpoPushMessage[]): Promise<boolean> {
 
     try {
         for (const chunk of chunks) {
+
             const response = await fetch('https://exp.host/--/api/v2/push/send', {
                 method: 'POST',
                 headers: {

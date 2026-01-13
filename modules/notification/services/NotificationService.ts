@@ -109,6 +109,7 @@ export async function createNotification(data: CreateNotificationData) {
 async function findEligibleRecipients(departmentId?: string, siteId?: string, excludeUserId?: string) {
     // First, find all users with workorders:read permission
     console.log(`[NotificationDebug] Finding recipients for Dept: ${departmentId}, Site: ${siteId}`);
+
     
     const usersWithPermission = await prisma.user.findMany({
         where: {
@@ -139,6 +140,7 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
                     }
                 }
             }
+
         },
         select: { 
             id: true,
@@ -159,8 +161,10 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
             }
         }
     });
+    // console.log(`[NotificationDebug] Found ${usersWithPermission.length} potential users with 'workorders:read' or 'm_work_order:read'`);
 
-    console.log(`[NotificationDebug] Found ${usersWithPermission.length} potential users with 'workorders:read'`);
+
+
 
     // Filter based on site_only permission and Explicitly Exclude ID (Safety Net)
     const eligibleUsers = usersWithPermission.filter(user => {

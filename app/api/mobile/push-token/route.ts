@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json()
         const { pushToken } = body
 
+
         if (!pushToken) {
             return NextResponse.json({ error: 'Push token required' }, { status: 400 })
         }
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
         })
 
         return NextResponse.json({ success: true, message: 'Push token registered' })
+
     } catch (error: any) {
         console.error('Push token registration error:', error)
         return NextResponse.json({ error: error.message }, { status: 500 })
