@@ -57,6 +57,7 @@ import {
   HiOutlineTicket,
   HiOutlineMapPin,
   HiOutlineSpeakerWave,
+  HiOutlineArrowPath,
 } from 'react-icons/hi2'
 import { useSettings } from '@/hooks/useSettings'
 import { usePermission } from '@/hooks/use-permission'
@@ -130,6 +131,7 @@ const IconMap: Record<string, React.ElementType> = {
   HiOutlineTicket,
   HiOutlineMapPin,
   HiOutlineSpeakerWave,
+  HiOutlineArrowPath,
 }
 
 const getIcon = (name: string | undefined, className: string) => {

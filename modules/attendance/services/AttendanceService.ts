@@ -53,15 +53,21 @@ export class AttendanceService {
 
         // 3. User Settings & Schedule (with caching)
         const cacheKey = `user:schedule:${userId}`
-        const cachedSchedule = cache.get<{ startWorkTime: string | null, endWorkTime: string | null, workingHourMode: string | null }>(cacheKey)
+        const cachedSchedule = cache.get<{ startWorkTime: string | null, endWorkTime: string | null, workingHourMode: string | null, shiftId: string | null, shift: { startTime: string, endTime: string } | null }>(cacheKey)
         
-        let userDetails: { startWorkTime: string | null, endWorkTime: string | null, workingHourMode: string | null } | null
+        let userDetails: { startWorkTime: string | null, endWorkTime: string | null, workingHourMode: string | null, shiftId: string | null, shift: { startTime: string, endTime: string } | null } | null
         if (cachedSchedule) {
             userDetails = cachedSchedule
         } else {
             userDetails = await prisma.user.findUnique({
                 where: { id: userId },
-                select: { startWorkTime: true, endWorkTime: true, workingHourMode: true }
+                select: { 
+                    startWorkTime: true, 
+                    endWorkTime: true, 
+                    workingHourMode: true, 
+                    shiftId: true,
+                    shift: { select: { startTime: true, endTime: true } }
+                }
             })
             // Cache for 1 hour
             if (userDetails) {
@@ -101,12 +107,20 @@ export class AttendanceService {
 
         // 7. Status Calculation (LATE vs ON_TIME)
         let status: AttendanceStatus = 'ON_TIME'
-        if (userDetails?.startWorkTime && userDetails?.workingHourMode !== 'FLEXIBLE') {
-            status = await this.timezoneService.calculateStatus(
-                checkInTime,
-                userDetails.startWorkTime,
-                tz
-            )
+        if (userDetails?.workingHourMode !== 'FLEXIBLE') {
+            // Determine schedule time: for SHIFT mode, use shift schedule; otherwise use user's startWorkTime
+            let scheduleTime = userDetails?.startWorkTime
+            if (userDetails?.workingHourMode === 'SHIFT' && userDetails?.shift) {
+                scheduleTime = userDetails.shift.startTime
+            }
+            
+            if (scheduleTime) {
+                status = await this.timezoneService.calculateStatus(
+                    checkInTime,
+                    scheduleTime,
+                    tz
+                )
+            }
         }
 
         // 8. Create Record

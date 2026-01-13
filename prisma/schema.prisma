@@ -1064,11 +1064,13 @@ model User {
   approverCanvasing                          Canvasing[]               @relation("ApproverCanvasing")
   pointClaimsSales                           PointClaim[]              @relation("SalesPointClaim")
   pointClaimsReviewed                        PointClaim[]              @relation("ReviewerPointClaim")
+  shift                                      Shift?                    @relation(fields: [shiftId], references: [id])
 
   @@index([departmentId])
   @@index([isActive])
   @@index([roleId])
   @@index([siteId])
+  @@index([shiftId])
 }
 
 model VerificationToken {
@@ -2404,6 +2406,22 @@ enum WorkingHourMode {
   FIXED
   SHIFT
   FLEXIBLE
+}
+
+model Shift {
+  id          String   @id @default(uuid())
+  name        String // "Pagi", "Siang", "Malam"
+  code        String?  @unique // "S1", "S2", "S3"
+  startTime   String // "06:00"
+  endTime     String // "14:00"
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+
+  @@index([isActive])
 }
 
 model Canvasing {

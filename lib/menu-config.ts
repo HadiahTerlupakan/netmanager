@@ -133,6 +133,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'KEHADIRAN.HOLIDAY', name: 'Hari Libur', path: '/admin/kehadiran/holidays', icon: 'HiOutlineCalendar' },
             { code: 'KEHADIRAN.LEMBUR', name: 'Manajemen Lembur', path: '/admin/lembur', icon: 'HiOutlineClock' },
             { code: 'KEHADIRAN.IZIN', name: 'Izin & Cuti', path: '/admin/kehadiran/izin', icon: 'HiOutlineClipboardDocumentCheck' },
+            { code: 'KEHADIRAN.SHIFT', name: 'Manajemen Shift', path: '/admin/kehadiran/shift', icon: 'HiOutlineArrowPath' },
         ],
     },
     {

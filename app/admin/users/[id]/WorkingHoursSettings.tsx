@@ -9,6 +9,14 @@ enum WorkingHourMode {
     FLEXIBLE = 'FLEXIBLE'
 }
 
+interface Shift {
+    id: string
+    name: string
+    code: string | null
+    startTime: string
+    endTime: string
+}
+
 interface WorkingHoursSettingsProps {
     initialData: {
         workingHourMode: string
@@ -27,6 +35,9 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
     const [endTime, setEndTime] = useState(initialData.endWorkTime || "17:00")
     const [selectedDays, setSelectedDays] = useState<string[]>(initialData.workDays ? initialData.workDays.split(',') : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'])
     const [targetHours, setTargetHours] = useState(initialData.flexibleTargetHour || 8)
+    const [selectedShiftId, setSelectedShiftId] = useState(initialData.shiftId || '')
+    const [shifts, setShifts] = useState<Shift[]>([])
+    const [loadingShifts, setLoadingShifts] = useState(false)
 
     const days = [
         { id: 'Mon', label: 'Senin' },
@@ -38,6 +49,18 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
         { id: 'Sun', label: 'Minggu' },
     ]
 
+    // Fetch shifts when mode is SHIFT
+    useEffect(() => {
+        if (mode === WorkingHourMode.SHIFT && shifts.length === 0) {
+            setLoadingShifts(true)
+            fetch('/api/admin/shifts')
+                .then(res => res.json())
+                .then(data => setShifts(data))
+                .catch(err => console.error('Error fetching shifts:', err))
+                .finally(() => setLoadingShifts(false))
+        }
+    }, [mode, shifts.length])
+
     useEffect(() => {
         // Notify parent of changes
         const data: any = { workingHourMode: mode }
@@ -46,12 +69,17 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
             data.startWorkTime = startTime
             data.endWorkTime = endTime
             data.workDays = selectedDays.join(',')
+            data.shiftId = null
         } else if (mode === WorkingHourMode.FLEXIBLE) {
             data.flexibleTargetHour = targetHours
+            data.shiftId = null
+        } else if (mode === WorkingHourMode.SHIFT) {
+            data.shiftId = selectedShiftId || null
+            data.workDays = selectedDays.join(',')
         }
 
         onChange(data)
-    }, [mode, startTime, endTime, selectedDays, targetHours])
+    }, [mode, startTime, endTime, selectedDays, targetHours, selectedShiftId])
 
     const toggleDay = (dayId: string) => {
         if (selectedDays.includes(dayId)) {
@@ -148,34 +176,43 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Hari Kerja</label>
-                            <div className="flex flex-wrap gap-2">
-                                {days.map(day => (
-                                    <button
-                                        key={day.id}
-                                        type="button"
-                                        onClick={() => toggleDay(day.id)}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedDays.includes(day.id)
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                            }`}
-                                    >
-                                        {day.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
                     </div>
                 )}
 
                 {mode === WorkingHourMode.SHIFT && (
-                    <div className="p-4 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-100 dark:border-purple-900 text-center animate-fadeIn">
-                        <p className="text-purple-700 dark:text-purple-300 font-medium">Pengaturan Shift</p>
-                        <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
-                            Pengguna ini akan mengikuti jadwal shift yang ditentukan di menu Manajemen Shift.
-                            (Fitur Shift akan dikonfigurasi pada menu terpisah).
-                        </p>
+                    <div className="space-y-4 animate-fadeIn">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Pilih Shift
+                            </label>
+                            {loadingShifts ? (
+                                <div className="text-sm text-gray-500">Memuat data shift...</div>
+                            ) : shifts.length === 0 ? (
+                                <div className="p-4 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-100 dark:border-yellow-900">
+                                    <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                                        Belum ada shift yang tersedia. Silakan buat shift di menu Kehadiran → Manajemen Shift.
+                                    </p>
+                                </div>
+                            ) : (
+                                <select
+                                    value={selectedShiftId}
+                                    onChange={(e) => setSelectedShiftId(e.target.value)}
+                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                                >
+                                    <option value="">-- Pilih Shift --</option>
+                                    {shifts.map(shift => (
+                                        <option key={shift.id} value={shift.id}>
+                                            {shift.name} ({shift.startTime} - {shift.endTime})
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                            {selectedShiftId && shifts.find(s => s.id === selectedShiftId) && (
+                                <p className="text-sm text-purple-600 dark:text-purple-400 mt-2">
+                                    Jadwal: {shifts.find(s => s.id === selectedShiftId)?.startTime} - {shifts.find(s => s.id === selectedShiftId)?.endTime}
+                                </p>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -198,6 +235,32 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
                             </div>
                             <p className="text-sm text-gray-500 mt-2">
                                 Pengguna bebas melakukan check-in kapan saja, namun diharapkan memenuhi target jam kerja harian.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {(mode === WorkingHourMode.FIXED || mode === WorkingHourMode.SHIFT) && (
+                    <div className="space-y-4 animate-fadeIn border-t border-gray-100 dark:border-gray-700 pt-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Hari Kerja</label>
+                            <div className="flex flex-wrap gap-2">
+                                {days.map(day => (
+                                    <button
+                                        key={day.id}
+                                        type="button"
+                                        onClick={() => toggleDay(day.id)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedDays.includes(day.id)
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                            }`}
+                                    >
+                                        {day.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                                Pilih hari di mana pengguna ini diharapkan masuk kerja. Hari yang tidak dipilih akan dianggap sebagai hari libur (Off).
                             </p>
                         </div>
                     </div>

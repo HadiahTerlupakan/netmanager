@@ -80,6 +80,10 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
         description: 'Hari libur nasional/perusahaan'
     },
+    shift: {
+        actions: ['read', 'create', 'update', 'delete'],
+        description: 'Manajemen jadwal shift kerja'
+    },
     
     // ====== INVENTORY MODULE ======
     barang: {
