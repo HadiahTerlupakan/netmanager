@@ -16,6 +16,7 @@ import cron from 'node-cron'
 import type { ScheduledTask } from 'node-cron'
 import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
 import { stopOnuMonitoring } from './modules/network/services/OnuMonitor'
+import { prisma } from './lib/prisma'
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = process.env.HOSTNAME || '0.0.0.0'
@@ -81,13 +82,33 @@ app.prepare().then(() => {
                     return
                 }
                 
-                // Check permission manually (SUPER_ADMIN bypass atau cek permissions array)
-                const hasCreatePermission = user.role === 'SUPER_ADMIN' || 
-                    (user.permissions && user.permissions.includes('app_version:create'))
+                // Fetch FRESH user data from database to ensure permissions are up to date
+                // const prisma = getPrisma() // Removed: using imported prisma instance directly
+                const dbUser = await prisma.user.findUnique({
+                    where: { id: user.id },
+                    include: { 
+                        role: { include: { permission: true } },
+                    }
+                })
+
+                if (!dbUser) {
+                    res.writeHead(401, { 'Content-Type': 'application/json' })
+                    res.end(JSON.stringify({ error: 'User not found' }))
+                    return
+                }
+
+                // Check permission: SUPER_ADMIN bypass OR 'app_version:create' permission
+                const userRole = dbUser.role?.name || ''
+                // 'permission' is singular in Prisma schema but holds an array
+                const userPermissions = dbUser.role?.permission?.map((p: any) => p.action) || []
+                
+                const hasCreatePermission = userRole === 'SUPER_ADMIN' || 
+                    userPermissions.includes('app_version:create')
                 
                 if (!hasCreatePermission) {
+                    console.log(`[Upload] Forbidden access by ${dbUser.email}. Role: ${userRole}`)
                     res.writeHead(403, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify({ error: 'Forbidden' }))
+                    res.end(JSON.stringify({ error: 'Forbidden: Missing app_version:create permission' }))
                     return
                 }
                 
