@@ -8,12 +8,8 @@ export async function hasPermission(requiredPermission: string): Promise<boolean
         return false
     }
 
-    // Super Admin bypass
-    if (session.user.role === 'SUPER_ADMIN' || session.user.role === 'Super Admin') {
-        return true
-    }
-
     // Load permissions from database since session doesn't store them
+    // Note: SUPER_ADMIN has all permissions from seed, so no bypass needed
     const userId = (session.user as { id?: string }).id
     if (!userId) {
         return false
@@ -26,9 +22,9 @@ export async function hasPermission(requiredPermission: string): Promise<boolean
 export async function hasAnyPermission(requiredPermissions: string[]): Promise<boolean> {
     const session = await getServerSession(authConfig)
     if (!session?.user) return false
-    if (session.user.role === 'SUPER_ADMIN' || session.user.role === 'Super Admin') return true
 
     // Load permissions from database since session doesn't store them
+    // Note: SUPER_ADMIN has all permissions from seed, so no bypass needed
     const userId = (session.user as { id?: string }).id
     if (!userId) {
         return false

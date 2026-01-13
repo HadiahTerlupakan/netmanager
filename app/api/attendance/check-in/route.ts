@@ -57,15 +57,20 @@ export async function POST(request: NextRequest) {
 
 
         // 1. Auto-Checkout logic for stale sessions (yesterday or older)
-        const staleSessions = await prisma.attendance.findMany({
-            where: {
-                userId,
-                checkOut: null,
-                checkIn: {
-                    lt: effectiveToday
+        // SKIP for FLEXIBLE users - they don't have fixed schedules
+        let staleSessions: Awaited<ReturnType<typeof prisma.attendance.findMany>> = []
+        
+        if (userDetails?.workingHourMode !== 'FLEXIBLE') {
+            staleSessions = await prisma.attendance.findMany({
+                where: {
+                    userId,
+                    checkOut: null,
+                    checkIn: {
+                        lt: effectiveToday
+                    }
                 }
-            }
-        })
+            })
+        }
 
         if (staleSessions.length > 0) {
             await Promise.all(staleSessions.map(async (session) => {

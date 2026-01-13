@@ -6,9 +6,11 @@ vi.mock('next-auth', () => ({
   getServerSession: () => mockGetServerSession()
 }))
 
-// Mock auth config
+// Mock auth config and getUserPermissions
+const mockGetUserPermissions = vi.fn()
 vi.mock('@/lib/auth', () => ({
-  authConfig: {}
+  authConfig: {},
+  getUserPermissions: (userId: string) => mockGetUserPermissions(userId)
 }))
 
 // Mock next/navigation
@@ -42,28 +44,32 @@ describe('RBAC Functions', () => {
       expect(result).toBe(false)
     })
 
-    it('should return true for SUPER_ADMIN regardless of permission', async () => {
+    it('should return true for SUPER_ADMIN when has all permissions from seed', async () => {
+      // SUPER_ADMIN now goes through normal permission check
+      // but has all permissions assigned from seed
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'admin-1',
-          role: 'SUPER_ADMIN',
-          permissions: [] // Empty permissions but should bypass
+          role: 'SUPER_ADMIN'
         }
       })
+      // Mock that SUPER_ADMIN has all permissions (from seed)
+      mockGetUserPermissions.mockResolvedValueOnce(['any:permission', 'users:read', 'users:create'])
       
       const result = await hasPermission('any:permission')
       
       expect(result).toBe(true)
+      expect(mockGetUserPermissions).toHaveBeenCalledWith('admin-1')
     })
 
     it('should return true when user has the required permission', async () => {
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'user-1',
-          role: 'ADMIN',
-          permissions: ['users:read', 'users:create']
+          role: 'ADMIN'
         }
       })
+      mockGetUserPermissions.mockResolvedValueOnce(['users:read', 'users:create'])
       
       const result = await hasPermission('users:read')
       
@@ -74,24 +80,24 @@ describe('RBAC Functions', () => {
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'user-1',
-          role: 'ADMIN',
-          permissions: ['users:read']
+          role: 'ADMIN'
         }
       })
+      mockGetUserPermissions.mockResolvedValueOnce(['users:read'])
       
       const result = await hasPermission('users:delete')
       
       expect(result).toBe(false)
     })
 
-    it('should handle undefined permissions array', async () => {
+    it('should handle empty permissions array', async () => {
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'user-1',
           role: 'ADMIN'
-          // No permissions property
         }
       })
+      mockGetUserPermissions.mockResolvedValueOnce([])
       
       const result = await hasPermission('users:read')
       
@@ -108,14 +114,14 @@ describe('RBAC Functions', () => {
       expect(result).toBe(false)
     })
 
-    it('should return true for SUPER_ADMIN', async () => {
+    it('should return true for SUPER_ADMIN when has permissions from seed', async () => {
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'admin-1',
-          role: 'SUPER_ADMIN',
-          permissions: []
+          role: 'SUPER_ADMIN'
         }
       })
+      mockGetUserPermissions.mockResolvedValueOnce(['any:permission', 'users:read'])
       
       const result = await hasAnyPermission(['any:permission'])
       
@@ -126,10 +132,10 @@ describe('RBAC Functions', () => {
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'user-1',
-          role: 'ADMIN',
-          permissions: ['users:read'] // Has one of the required
+          role: 'ADMIN'
         }
       })
+      mockGetUserPermissions.mockResolvedValueOnce(['users:read'])
       
       const result = await hasAnyPermission(['users:read', 'roles:read', 'dashboard:read'])
       
@@ -140,10 +146,10 @@ describe('RBAC Functions', () => {
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'user-1',
-          role: 'ADMIN',
-          permissions: ['inventory:read']
+          role: 'ADMIN'
         }
       })
+      mockGetUserPermissions.mockResolvedValueOnce(['inventory:read'])
       
       const result = await hasAnyPermission(['users:read', 'roles:read'])
       
@@ -180,10 +186,10 @@ describe('RBAC Functions', () => {
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'user-1',
-          role: 'ADMIN',
-          permissions: ['users:read']
+          role: 'ADMIN'
         }
       })
+      mockGetUserPermissions.mockResolvedValueOnce(['users:read'])
       
       await ensurePermission('users:read')
       
@@ -194,10 +200,10 @@ describe('RBAC Functions', () => {
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'user-1',
-          role: 'ADMIN',
-          permissions: []
+          role: 'ADMIN'
         }
       })
+      mockGetUserPermissions.mockResolvedValueOnce([])
       
       await ensurePermission('users:read')
       
@@ -208,10 +214,10 @@ describe('RBAC Functions', () => {
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'user-1',
-          role: 'ADMIN',
-          permissions: []
+          role: 'ADMIN'
         }
       })
+      mockGetUserPermissions.mockResolvedValueOnce([])
       
       await ensurePermission('users:read', '/403')
       
@@ -224,10 +230,10 @@ describe('RBAC Functions', () => {
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'user-1',
-          role: 'ADMIN',
-          permissions: ['users:read']
+          role: 'ADMIN'
         }
       })
+      mockGetUserPermissions.mockResolvedValueOnce(['users:read'])
       
       await ensureAnyPermission(['users:read', 'roles:read'])
       
@@ -238,10 +244,10 @@ describe('RBAC Functions', () => {
       mockGetServerSession.mockResolvedValueOnce({
         user: {
           id: 'user-1',
-          role: 'ADMIN',
-          permissions: ['inventory:read']
+          role: 'ADMIN'
         }
       })
+      mockGetUserPermissions.mockResolvedValueOnce(['inventory:read'])
       
       await ensureAnyPermission(['users:read', 'roles:read'])
       
@@ -272,8 +278,9 @@ describe('Permission Config', () => {
   it('should have karyawan permission groups', async () => {
     const { PERMISSION_GROUPS_KARYAWAN } = await import('@/lib/permission-config')
     
-    expect(PERMISSION_GROUPS_KARYAWAN.DASHBOARD).toBeDefined()
-    expect(PERMISSION_GROUPS_KARYAWAN.WORK_ORDER).toBeDefined()
-    expect(PERMISSION_GROUPS_KARYAWAN.ATTENDANCE).toBeDefined()
+    // Updated to match actual property names
+    expect(PERMISSION_GROUPS_KARYAWAN.BERANDA).toBeDefined()
+    expect(PERMISSION_GROUPS_KARYAWAN.KEHADIRAN).toBeDefined()
+    expect(PERMISSION_GROUPS_KARYAWAN.INVENTORY).toBeDefined()
   })
 })

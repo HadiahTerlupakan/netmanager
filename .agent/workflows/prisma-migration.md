@@ -94,7 +94,58 @@ Ini akan secara otomatis:
 
 ## ⚠️ Peringatan
 
-- **JANGAN** gunakan `prisma db push` untuk perubahan schema
+- **JANGAN** gunakan `prisma db push` untuk perubahan schema di production
 - **JANGAN** edit migration file yang sudah di-commit
 - **SELALU** test migration di lokal sebelum deploy ke production
 - **SELALU** backup database sebelum migration di production (sudah otomatis di deploy.sh)
+
+---
+
+## 🔧 Troubleshooting: Database Drift
+
+### Apa itu Drift?
+
+Drift terjadi ketika database schema tidak sinkron dengan migration history. Penyebab:
+
+- Migration dijalankan manual di database
+- Migration file dimodifikasi setelah di-apply
+- Sync antar environment berbeda
+
+### Cara Handle Drift
+
+**1. Development Environment:**
+
+```bash
+# Langsung sync schema ke database (tanpa migration file)
+npx prisma db push
+```
+
+**2. Production Environment:**
+
+```bash
+# Cek status migration
+npx prisma migrate status
+
+# Jika ada migration yang sudah ada di DB tapi belum di-mark applied:
+npx prisma migrate resolve --applied <migration_name>
+
+# Contoh:
+npx prisma migrate resolve --applied 20260112014810_sync_schema_drift
+
+# Kemudian deploy migration baru
+npx prisma migrate deploy
+```
+
+**3. Reset Drift (Development Only):**
+
+```bash
+# Baseline seluruh state database saat ini
+npx prisma migrate resolve --rolled-back <migration_name>
+npx prisma migrate dev --name sync_drift
+```
+
+### ❌ JANGAN LAKUKAN
+
+- Jangan gunakan `db push` di production
+- Jangan resolve migration yang belum selesai di-apply
+- Jangan hapus migration folder di production

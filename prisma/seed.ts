@@ -3,7 +3,7 @@ import { hash } from 'bcryptjs'
 import { randomUUID } from 'crypto'
 
 
-import { PERMISSION_GROUPS, PERMISSION_GROUPS_MOBILE, ACTIONS } from '../lib/permission-config'
+import { PERMISSION_GROUPS, PERMISSION_GROUPS_MOBILE, ACTIONS, getAllGranularPermissions } from '../lib/permission-config'
 
 // Flatten resources from both admin and mobile groups
 const ADMIN_RESOURCES = Object.values(PERMISSION_GROUPS).flat()
@@ -20,6 +20,7 @@ async function main() {
   const permissions = []
   const karyawanPermissions = []
 
+  // 1.1 Standard Permissions (resource:action combinations)
   for (const resource of ALL_RESOURCES) {
     for (const action of ACTIONS) {
       const permission = await prisma.permission.upsert({
@@ -48,9 +49,39 @@ async function main() {
     }
   }
 
-  console.log(`   ✅ Created ${permissions.length} permissions`)
-  console.log(`      - Admin permissions: ${permissions.length - karyawanPermissions.length}`)
-  console.log(`      - Mobile permissions: ${karyawanPermissions.length}`)
+  console.log(`   ✅ Created ${permissions.length} standard permissions`)
+
+  // 1.2 Granular Permissions (resource:action:subaction format)
+  const granularPermissionValues = getAllGranularPermissions()
+  
+  for (const permValue of granularPermissionValues) {
+    // Parse format: 'users:update:role' -> resource='users', action='update:role'
+    const parts = permValue.split(':')
+    const resource = parts[0]
+    const action = parts.slice(1).join(':') // 'update:role' or 'assign_super_admin'
+    
+    const permission = await prisma.permission.upsert({
+      where: {
+        resource_action: {
+          resource,
+          action,
+        },
+      },
+      update: {},
+      create: {
+        id: randomUUID(),
+        updatedAt: new Date(),
+        name: `${action.split(':').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} ${resource.charAt(0).toUpperCase() + resource.slice(1)}`,
+        resource,
+        action,
+        description: `Granular permission: ${permValue}`,
+      },
+    })
+    permissions.push(permission)
+  }
+
+  console.log(`   ✅ Created ${granularPermissionValues.length} granular permissions`)
+  console.log(`      - Total: ${permissions.length} permissions`)
 
   // ========================================================================
   // STEP 2: ROLES (WAJIB untuk Autentikasi)

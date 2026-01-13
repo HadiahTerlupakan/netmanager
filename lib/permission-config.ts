@@ -55,3 +55,48 @@ export type PermissionGroup = keyof typeof PERMISSION_GROUPS
  * - Role "Admin" dengan `users:read` (tanpa site_only) = lihat semua users
  * */
 export const ACTIONS = ['read', 'create', 'update', 'delete', 'site_only', 'department_only', 'cancel', 'verify'] as const
+
+/**
+ * Granular Permissions untuk operasi sensitif
+ * 
+ * Format: `resource:action:subaction`
+ * 
+ * Permissions ini digunakan untuk kontrol lebih detail pada operasi
+ * yang memerlukan hak akses khusus (privilege escalation prevention).
+ * 
+ * @example
+ * ```typescript
+ * // Check if user can update someone's role
+ * const canUpdateRole = permissions.includes('users:update:role')
+ * ```
+ */
+export const GRANULAR_PERMISSIONS = {
+  // User sensitive operations
+  USERS_UPDATE_ROLE: 'users:update:role',           // Update user role assignment
+  USERS_UPDATE_SITE: 'users:update:site',           // Update user site assignment
+  USERS_UPDATE_DEPARTMENT: 'users:update:department', // Update user department assignment
+  USERS_UPDATE_STATUS: 'users:update:status',       // Update user active status (enable/disable)
+  USERS_ASSIGN_SUPER_ADMIN: 'users:assign_super_admin', // Assign SUPER_ADMIN role to users
+  
+  // Work order sensitive operations
+  WORKORDERS_REASSIGN: 'workorders:update:assign',  // Reassign work order to different technician
+  WORKORDERS_CLOSE: 'workorders:update:close',      // Close/complete work order
+  
+  // Inventory sensitive operations
+  INVENTORY_ADJUST: 'inventory:update:adjust',      // Adjust inventory quantity (stock opname)
+  INVENTORY_TRANSFER: 'inventory:update:transfer',  // Transfer inventory between gudang
+  
+  // Finance sensitive operations
+  FINANCE_VOID: 'finance:update:void',              // Void/cancel financial transactions
+  FINANCE_APPROVE: 'finance:update:approve',        // Approve expense/income entries
+} as const
+
+export type GranularPermission = typeof GRANULAR_PERMISSIONS[keyof typeof GRANULAR_PERMISSIONS]
+
+/**
+ * Get list of all granular permission values for seeding
+ */
+export function getAllGranularPermissions(): string[] {
+  return Object.values(GRANULAR_PERMISSIONS)
+}
+

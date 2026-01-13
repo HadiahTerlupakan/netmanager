@@ -832,6 +832,8 @@ model Permission {
   role        Role[]   @relation("PermissionToRole")
 
   @@unique([resource, action])
+  @@index([resource]) // For filtering by resource type
+  @@index([action]) // For filtering by action type
 }
 
 model Pole {
@@ -924,6 +926,9 @@ model Role {
   user                User[]
   permission          Permission[] @relation("PermissionToRole")
 
+  @@index([accessAdminPanel]) // For filtering admin panel roles
+  @@index([accessEmployeePanel]) // For filtering employee panel roles
+  @@index([isRestricted]) // For filtering site-restricted roles
   @@map("roles")
 }
 

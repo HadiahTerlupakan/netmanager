@@ -5,6 +5,7 @@ import { getUserService } from '@/modules/users'
 import { userCreateSchema } from '@/lib/validations/user'
 import { logger } from '@/lib/logger'
 import { getSiteFilter, checkSiteRestriction } from '@/lib/site-restriction'
+import { authorize, isAuthError } from '@/lib/authorization-middleware'
 
 /**
  * @swagger
@@ -43,47 +44,42 @@ import { getSiteFilter, checkSiteRestriction } from '@/lib/site-restriction'
  */
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
+  
+  // Use centralized authorization middleware
+  const auth = await authorize(req, {
+    permissions: ['users:read'],
+    siteRestricted: true
+  })
+  
+  // Check authorization result
+  if (isAuthError(auth)) {
+    return auth.error
+  }
+  
+  const { session } = auth
+  
   try {
-    // Cek autentikasi admin menggunakan fungsi terpusat
-    const session = await requireAdmin(req)
+    // Get site filter - if user has site restriction, filter by their site
+    const siteIdFilter = session.user.siteId || undefined
 
-    try {
-      // const permissions = (session.user as any).permissions || []
-      const permissions = await getUserPermissions(session.user.id)
+    const userService = getUserService()
+    const users = await userService.getAllUsers(siteIdFilter)
 
-      if (!permissions.includes('users:read')) {
-        return NextResponse.json({ error: 'Unauthorized: You do not have permission to view users.' }, { status: 403 })
-      }
+    logger.apiRequest('GET', '/api/admin/users', 200, Date.now() - startTime, {
+      userId: session.user.id,
+      count: users.length,
+    })
 
-      // Site restriction check using centralized helper
-      const siteIdFilter = getSiteFilter(session, 'users')
-
-      const userService = getUserService()
-      const users = await userService.getAllUsers(siteIdFilter)
-
-      logger.apiRequest('GET', '/api/admin/users', 200, Date.now() - startTime, {
-        userId: session.user.id,
-        count: users.length,
-      })
-
-      return NextResponse.json({ users })
-    } catch (error: any) {
-      logger.error('Error fetching users', error, {
-        path: '/api/admin/users',
-        method: 'GET',
-      })
-      return NextResponse.json(
-        { error: 'Gagal mengambil daftar pengguna' },
-        { status: 500 }
-      )
-    }
+    return NextResponse.json({ users })
   } catch (error: any) {
-    logger.warn('Unauthorized access to /api/admin/users', {
-      error: error.message,
+    logger.error('Error fetching users', error, {
       path: '/api/admin/users',
       method: 'GET',
     })
-    return NextResponse.json({ error: error.message }, { status: error.status || 500 })
+    return NextResponse.json(
+      { error: 'Gagal mengambil daftar pengguna' },
+      { status: 500 }
+    )
   }
 }
 

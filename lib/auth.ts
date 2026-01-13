@@ -339,7 +339,9 @@ export const authConfig: NextAuthOptions = {
           }
         } catch (error) {
           console.error('[AUTH SESSION] Error validating tokenVersion:', error);
-          // On error, allow session to continue (fail-open for auth)
+          // SECURITY: Fail-closed - invalidate session on validation error
+          console.warn('[AUTH SESSION] SECURITY: Invalidating session due to validation error');
+          return { ...session, user: undefined, expires: new Date(0).toISOString() };
         }
 
         (session.user as any).id = token.id;
@@ -456,9 +458,31 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
   }
 }
 
+// ============================================================================
+// Permission Caching Configuration
+// ============================================================================
+const PERMISSION_CACHE_TTL = 300 // 5 minutes cache TTL
+const PERMISSION_CACHE_PREFIX = 'permissions:'
+
 // Helper function to load permissions from database at runtime
 // This is used instead of storing permissions in JWT to reduce cookie size
+// Includes Redis caching for performance optimization
 export async function getUserPermissions(userId: string): Promise<string[]> {
+  const cacheKey = `${PERMISSION_CACHE_PREFIX}${userId}`
+  
+  // Try cache first
+  try {
+    const cached = await redis.get(cacheKey)
+    if (cached) {
+      console.debug('[AUTH] Permissions loaded from cache', { userId })
+      return JSON.parse(cached)
+    }
+  } catch (e) {
+    // Cache read failed - continue to database (fail-open for performance)
+    console.warn('[AUTH] Redis cache read error, falling back to DB:', e)
+  }
+
+  // Load from database
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -475,10 +499,61 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
       return []
     }
 
-    return user.role.permission.map(p => `${p.resource}:${p.action}`)
+    const permissions = user.role.permission.map(p => `${p.resource}:${p.action}`)
+    
+    // Cache permissions (non-blocking)
+    try {
+      await redis.setex(cacheKey, PERMISSION_CACHE_TTL, JSON.stringify(permissions))
+      console.debug('[AUTH] Permissions cached', { userId, count: permissions.length })
+    } catch (e) {
+      // Cache write failed - continue without caching
+      console.warn('[AUTH] Redis cache write error:', e)
+    }
+
+    return permissions
   } catch (error) {
     console.error('[AUTH] Error loading permissions:', error)
     return []
+  }
+}
+
+/**
+ * Invalidate permission cache for a user
+ * Should be called when:
+ * - User's role is changed
+ * - Role permissions are updated
+ * - User is deactivated
+ */
+export async function invalidatePermissionCache(userId: string): Promise<void> {
+  const cacheKey = `${PERMISSION_CACHE_PREFIX}${userId}`
+  try {
+    await redis.del(cacheKey)
+    console.debug('[AUTH] Permission cache invalidated', { userId })
+  } catch (e) {
+    console.warn('[AUTH] Failed to invalidate permission cache:', e)
+  }
+}
+
+/**
+ * Invalidate permission cache for all users with a specific role
+ * Should be called when role permissions are updated
+ */
+export async function invalidateRolePermissionCache(roleId: string): Promise<void> {
+  try {
+    // Find all users with this role and invalidate their cache
+    const users = await prisma.user.findMany({
+      where: { roleId },
+      select: { id: true }
+    })
+    
+    const invalidationPromises = users.map(user => 
+      invalidatePermissionCache(user.id)
+    )
+    
+    await Promise.all(invalidationPromises)
+    console.debug('[AUTH] Role permission cache invalidated', { roleId, userCount: users.length })
+  } catch (e) {
+    console.warn('[AUTH] Failed to invalidate role permission cache:', e)
   }
 }
 

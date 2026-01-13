@@ -136,6 +136,47 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'Unauthorized: You do not have permission to update users.' }, { status: 403 })
     }
 
+    // IDOR Protection: Prevent self-update of sensitive fields
+    if (isSelfUpdate) {
+      if (body.roleId !== undefined) {
+        console.warn('[USER-UPDATE] SECURITY: Self role change attempt blocked', { userId: id })
+        return NextResponse.json({ error: 'Unauthorized: Cannot change your own role' }, { status: 403 })
+      }
+      if (body.siteId !== undefined) {
+        console.warn('[USER-UPDATE] SECURITY: Self site change attempt blocked', { userId: id })
+        return NextResponse.json({ error: 'Unauthorized: Cannot change your own site assignment' }, { status: 403 })
+      }
+      if (body.departmentId !== undefined) {
+        console.warn('[USER-UPDATE] SECURITY: Self department change attempt blocked', { userId: id })
+        return NextResponse.json({ error: 'Unauthorized: Cannot change your own department' }, { status: 403 })
+      }
+      if (body.isActive !== undefined) {
+        console.warn('[USER-UPDATE] SECURITY: Self status change attempt blocked', { userId: id })
+        return NextResponse.json({ error: 'Unauthorized: Cannot change your own active status' }, { status: 403 })
+      }
+    }
+
+    // Granular Permission Checks for sensitive operations
+    // Check specific permissions for updating role, site, department, status
+    if (!isSelfUpdate) {
+      if (body.roleId !== undefined && !permissions.includes('users:update:role')) {
+        console.warn('[USER-UPDATE] Missing granular permission: users:update:role', { userId: session.user.id })
+        return NextResponse.json({ error: 'Unauthorized: You do not have permission to change user roles' }, { status: 403 })
+      }
+      if (body.siteId !== undefined && !permissions.includes('users:update:site')) {
+        console.warn('[USER-UPDATE] Missing granular permission: users:update:site', { userId: session.user.id })
+        return NextResponse.json({ error: 'Unauthorized: You do not have permission to change user site assignments' }, { status: 403 })
+      }
+      if (body.departmentId !== undefined && !permissions.includes('users:update:department')) {
+        console.warn('[USER-UPDATE] Missing granular permission: users:update:department', { userId: session.user.id })
+        return NextResponse.json({ error: 'Unauthorized: You do not have permission to change user departments' }, { status: 403 })
+      }
+      if (body.isActive !== undefined && !permissions.includes('users:update:status')) {
+        console.warn('[USER-UPDATE] Missing granular permission: users:update:status', { userId: session.user.id })
+        return NextResponse.json({ error: 'Unauthorized: You do not have permission to enable/disable users' }, { status: 403 })
+      }
+    }
+
     // Site restriction check using centralized helper
     const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session, 'users')
 
@@ -165,6 +206,13 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
       where: { id },
       data,
     })
+
+    // Invalidate permission cache if role changed
+    if (body.roleId !== undefined) {
+      const { invalidatePermissionCache } = await import('@/lib/auth')
+      await invalidatePermissionCache(id)
+      console.debug('[USER-UPDATE] Permission cache invalidated due to role change', { userId: id })
+    }
 
     console.log('[USER-UPDATE] User updated successfully:', {
       id: updatedUser.id,
