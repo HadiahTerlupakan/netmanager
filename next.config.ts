@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
   // Increase body size limit for APK uploads (default 1MB -> 100MB)
   experimental: {
     serverActions: {
-      bodySizeLimit: '100mb',
+      bodySizeLimit: '1gb',
     },
   },
 

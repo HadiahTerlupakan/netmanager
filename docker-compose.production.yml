@@ -208,7 +208,7 @@ services:
       # Timeout configuration for large file uploads (APK, etc)
       - "traefik.http.services.netmanager-service.loadbalancer.responseforwarding.flushinterval=100ms"
       # Middleware for large uploads - increase body size and timeout
-      - "traefik.http.middlewares.large-upload.buffering.maxRequestBodyBytes=209715200"
+      - "traefik.http.middlewares.large-upload.buffering.maxRequestBodyBytes=1073741824"
       - "traefik.http.middlewares.large-upload.buffering.memRequestBodyBytes=2097152"
       - "traefik.http.routers.netmanager-admin.middlewares=large-upload"
       # Force Traefik to use web network
