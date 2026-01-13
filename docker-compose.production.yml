@@ -139,6 +139,7 @@ services:
       TZ: Asia/Jakarta
 
       NODE_ENV: production
+      TMPDIR: /app/tmp
       DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-netmanager}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
 

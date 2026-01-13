@@ -47,8 +47,8 @@ app.prepare().then(() => {
             const tmpDir = os.tmpdir()
             
             const form = formidable.formidable({
-                maxFileSize: 200 * 1024 * 1024, // 200MB per file
-                maxTotalFileSize: 200 * 1024 * 1024, // 200MB total
+                maxFileSize: 1024 * 1024 * 1024, // 1GB per file
+                maxTotalFileSize: 1024 * 1024 * 1024, // 1GB total
                 uploadDir: tmpDir,
                 keepExtensions: true,
                 multiples: false
@@ -104,21 +104,20 @@ app.prepare().then(() => {
                 const versionCode = versionCodeStr ? parseInt(versionCodeStr) : undefined
                 
                 // Get APK file
-                let apkBuffer: Buffer | undefined
+                let apkPath: string | undefined
                 let apkFilename: string | undefined
                 let apkSize: number | undefined
                 
                 const apkFile = files.apk?.[0]
                 if (apkFile) {
-                    apkBuffer = fs.readFileSync(apkFile.filepath)
+                    apkPath = apkFile.filepath
                     apkFilename = apkFile.originalFilename || 'app.apk'
                     apkSize = apkFile.size
-                    // Cleanup temp file
-                    fs.unlinkSync(apkFile.filepath)
                 }
                 
                 // Validation
                 if (!apkFile && (!version || !buildNumber || !versionCode)) {
+
                     res.writeHead(400, { 'Content-Type': 'application/json' })
                     res.end(JSON.stringify({ 
                         error: 'Upload APK untuk auto-detect versi, atau isi manual version, buildNumber, dan versionCode' 
@@ -135,11 +134,20 @@ app.prepare().then(() => {
                     releaseNotes,
                     isForceUpdate,
                     minVersion,
-                    apkBuffer,
+                    apkPath, // Pass path instead of buffer
                     apkFilename,
                     apkSize,
                     createdBy: user.id
                 })
+                
+                // Cleanup temp file after successful upload/copy
+                if (apkFile) {
+                    try {
+                        fs.unlinkSync(apkFile.filepath)
+                    } catch (e) {
+                         // Ignore if file already moved or deleted
+                    }
+                }
                 
                 // Log activity
                 try {

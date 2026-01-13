@@ -28,6 +28,7 @@ export interface UploadVersionInput {
     isForceUpdate?: boolean
     minVersion?: string
     apkBuffer?: Buffer
+    apkPath?: string
     apkFilename?: string
     apkSize?: number
     createdBy?: string
@@ -68,7 +69,10 @@ export class AppVersionService {
     /**
      * Parse APK file to extract version info
      */
-    async parseApkInfo(apkBuffer: Buffer): Promise<ParsedApkInfo | null> {
+    /**
+     * Parse APK file to extract version info
+     */
+    async parseApkInfo(input: { buffer?: Buffer, path?: string }): Promise<ParsedApkInfo | null> {
         let tempFilePath: string | null = null
         
         try {
@@ -76,9 +80,15 @@ export class AppVersionService {
             const apkReaderModule = await import('adbkit-apkreader')
             const ApkReader = apkReaderModule.default || apkReaderModule
             
-            // Write buffer to temp file (apkreader needs file path)
-            tempFilePath = path.join(os.tmpdir(), `apk_${Date.now()}.apk`)
-            await fs.writeFile(tempFilePath, apkBuffer)
+            // Use provided path or write buffer to temp file
+            if (input.path) {
+                tempFilePath = input.path
+            } else if (input.buffer) {
+                tempFilePath = path.join(os.tmpdir(), `apk_${Date.now()}.apk`)
+                await fs.writeFile(tempFilePath, input.buffer)
+            } else {
+                return null
+            }
             
             // Open and read APK
             const reader = await ApkReader.open(tempFilePath)
@@ -102,8 +112,8 @@ export class AppVersionService {
             console.error('Error parsing APK:', error)
             return null
         } finally {
-            // Cleanup temp file
-            if (tempFilePath) {
+            // Only cleanup if we created the temp file from buffer
+            if (tempFilePath && !input.path) {
                 try {
                     await fs.unlink(tempFilePath)
                 } catch (e) {
@@ -150,8 +160,9 @@ export class AppVersionService {
         let versionCode = input.versionCode
 
         // Auto-parse APK jika ada APK dan version info tidak lengkap
-        if (input.apkBuffer && (!version || !buildNumber || !versionCode)) {
-            const apkInfo = await this.parseApkInfo(input.apkBuffer)
+        // Auto-parse APK jika ada APK dan version info tidak lengkap
+        if ((input.apkBuffer || input.apkPath) && (!version || !buildNumber || !versionCode)) {
+            const apkInfo = await this.parseApkInfo({ buffer: input.apkBuffer, path: input.apkPath })
             if (apkInfo) {
                 version = version || apkInfo.versionName
                 buildNumber = buildNumber || apkInfo.buildNumber
@@ -177,12 +188,14 @@ export class AppVersionService {
         let apkUrl: string | undefined
 
         // Upload APK if provided
-        if (input.apkBuffer && input.apkFilename) {
-            apkUrl = await this.uploadApkFile(
-                input.apkBuffer, 
-                input.apkFilename,
+        // Upload APK if provided
+        if ((input.apkBuffer || input.apkPath) && input.apkFilename) {
+            apkUrl = await this.uploadApkFile({
+                buffer: input.apkBuffer, 
+                path: input.apkPath,
+                filename: input.apkFilename,
                 version
-            )
+            })
         }
 
         // Create version record
@@ -207,11 +220,16 @@ export class AppVersionService {
     /**
      * Upload APK file to storage (R2 or local)
      */
-    private async uploadApkFile(
-        buffer: Buffer, 
+    /**
+     * Upload APK file to storage (R2 or local)
+     */
+    private async uploadApkFile(input: {
+        buffer?: Buffer, 
+        path?: string,
         filename: string,
         version: string
-    ): Promise<string> {
+    }): Promise<string> {
+        const { buffer, path: filePath, filename, version } = input
         const sanitizedFilename = `netmanager_v${version}.apk`
         
         // Check if R2 is enabled
@@ -220,14 +238,31 @@ export class AppVersionService {
         if (r2Enabled) {
             // Upload to R2
             const key = generateR2Key('app-version' as any, sanitizedFilename)
-            return uploadToR2(buffer, key, 'application/vnd.android.package-archive')
+            // Note: uploadToR2 currently expects buffer, assuming it can handle it or we might need to update it too.
+            // For now, if we have path, read it to buffer (R2 Might limit this, but let's assume R2 client handles small chunks or we optimize later)
+            // Ideally R2 client should support stream.
+            let uploadBuffer = buffer
+            if (!uploadBuffer && filePath) {
+                // Warning: Reading full file for R2 upload if R2 client doesn't support stream
+                uploadBuffer = await fs.readFile(filePath)
+            }
+            
+            if (!uploadBuffer) throw new Error('No APK content provided')
+
+            return uploadToR2(uploadBuffer, key, 'application/vnd.android.package-archive')
         } else {
             // Save to local storage
             const uploadDir = path.join(process.cwd(), 'public', 'apk')
             await fs.mkdir(uploadDir, { recursive: true })
             
-            const filePath = path.join(uploadDir, sanitizedFilename)
-            await fs.writeFile(filePath, buffer)
+            const destPath = path.join(uploadDir, sanitizedFilename)
+            
+            if (filePath) {
+                // Efficient copy/move
+                await fs.copyFile(filePath, destPath)
+            } else if (buffer) {
+                await fs.writeFile(destPath, buffer)
+            }
             
             return `/apk/${sanitizedFilename}`
         }
