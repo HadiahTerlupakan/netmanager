@@ -97,20 +97,29 @@ app.prepare().then(() => {
                     return
                 }
 
-                // Check permission: SUPER_ADMIN bypass OR 'app_version:create' permission
+                // Check permission: SUPER_ADMIN bypass OR 'app_version:create' permission OR accessAdminPanel
                 const userRole = dbUser.role?.name || ''
+                const hasAdminPanelAccess = dbUser.role?.accessAdminPanel === true
                 // 'permission' is singular in Prisma schema but holds an array
-                const userPermissions = dbUser.role?.permission?.map((p: any) => p.action) || []
+                const userPermissions = dbUser.role?.permission?.map((p: any) => `${p.resource}:${p.action}`) || []
                 
-                const hasCreatePermission = userRole === 'SUPER_ADMIN' || 
-                    userPermissions.includes('app_version:create')
+                // Allow if:
+                // 1. Role is SUPER_ADMIN (case-insensitive)
+                // 2. Has explicit 'app_version:create' permission
+                // 3. Has admin panel access (for custom admin roles)
+                const hasCreatePermission = 
+                    userRole.toUpperCase() === 'SUPER_ADMIN' || 
+                    userPermissions.includes('app_version:create') ||
+                    hasAdminPanelAccess
                 
                 if (!hasCreatePermission) {
-                    console.log(`[Upload] Forbidden access by ${dbUser.email}. Role: ${userRole}`)
+                    console.log(`[Upload] Forbidden access by ${dbUser.email}. Role: ${userRole}, AdminPanelAccess: ${hasAdminPanelAccess}, Permissions count: ${userPermissions.length}`)
                     res.writeHead(403, { 'Content-Type': 'application/json' })
                     res.end(JSON.stringify({ error: 'Forbidden: Missing app_version:create permission' }))
                     return
                 }
+                
+                console.log(`[Upload] Access granted for ${dbUser.email}. Role: ${userRole}, AdminPanelAccess: ${hasAdminPanelAccess}`)
                 
                 // Extract form fields
                 const version = fields.version?.[0] || undefined
