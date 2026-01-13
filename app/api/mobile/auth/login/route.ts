@@ -87,6 +87,7 @@ export async function POST(req: Request) {
                 name: user.name,
                 email: user.email,
                 role: user.role?.name,
+                isSales: user.isSales,
                 features // Include features in login response
             }
         })
