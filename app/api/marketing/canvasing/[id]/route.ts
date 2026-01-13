@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { getCanvasingService } from '@/lib/repositories'
 
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!request) return NextResponse.json({ error: 'Request tidak ditemukan' }, { status: 404 })
 
     // RBAC Check - Allow owner to view their own request
-    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
     const isOwner = request.salesId === session.id
     
@@ -56,7 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json()
     
     // RBAC Check
-    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
     
     if (!isSuperAdmin && !permissions.includes('canvasing:update')) {
@@ -94,7 +95,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // RBAC Check
-    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = session.permissions || []
 
     if (!isSuperAdmin && !permissions.includes('canvasing:delete')) {

@@ -10,12 +10,10 @@ export async function GET(request: NextRequest) {
     const session = await requireAdmin(request)
     if (session instanceof NextResponse) return session
 
-    // Permission check
-    // Fix: permission key is "holiday" (singular) based on permission-config.ts
+    // Permission check - sesuai standar OWASP, gunakan permission-only check
+    // Role yang memerlukan akses harus diberikan permission holiday:read
     const hasAccess = await hasPermission('holiday:read')
-    const isAdmin = session.user.role === 'ADMIN'
-
-    if (!hasAccess && !isAdmin) {
+    if (!hasAccess) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -30,17 +28,17 @@ export async function GET(request: NextRequest) {
     }
 }
 
+
 export async function POST(request: NextRequest) {
     const session = await requireAdmin(request)
     if (session instanceof NextResponse) return session
 
-    // Permission check
+    // Permission check - sesuai standar OWASP, gunakan permission-only check
     const hasAccess = await hasPermission('holiday:create')
-    const isAdmin = session.user.role === 'ADMIN'
-
-    if (!hasAccess && !isAdmin) {
+    if (!hasAccess) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+
 
     try {
         const body = await request.json()

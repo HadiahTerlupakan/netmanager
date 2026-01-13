@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
 import { getCanvasingService } from '@/lib/repositories'
 
@@ -10,7 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // RBAC Check
-    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    const isSuperAdmin = isSuperAdminRole(session.role)
     // const permissions = session.permissions || []
     const permissions = await getUserPermissions(session.id)
     

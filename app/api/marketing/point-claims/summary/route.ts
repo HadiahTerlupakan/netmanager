@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
+import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getPointClaimService } from '@/lib/repositories'
 
 // GET - Get point summary for current user or specific sales
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
     let salesId = searchParams.get('salesId') || session.id
 
     // Regular users can only see their own summary
-    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    const isSuperAdmin = isSuperAdminRole(session.role)
     if (!isSuperAdmin && salesId !== session.id) {
       salesId = session.id
     }

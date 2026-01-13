@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getPointClaimService } from '@/lib/repositories'
 
 // GET - Get detail claim
@@ -20,7 +21,7 @@ export async function GET(
     }
 
     // Check access - only owner or admin can view
-    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
     const isAdmin = isSuperAdmin || permissions.includes('point_claims:read')
     const isOwner = claim.salesId === session.id
@@ -45,7 +46,7 @@ export async function PUT(
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // Check admin permissions
-    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
     const canManage = isSuperAdmin || permissions.includes('point_claims:write') || permissions.includes('canvasing:write')
 
@@ -91,7 +92,7 @@ export async function DELETE(
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // Check admin permissions
-    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
     const canManage = isSuperAdmin || permissions.includes('point_claims:delete')
 

@@ -168,3 +168,13 @@ export async function isAdmin(request: NextRequest): Promise<boolean> {
 
 // Note: isEmployee function is removed since we only have ADMIN role now.
 // Use isAdmin instead.
+
+/**
+ * Helper function untuk standarisasi pengecekan SUPER_ADMIN role
+ * Mengatasi inkonsistensi antara 'SUPER_ADMIN' dan 'Super Admin'
+ * @param roleName nama role dari session
+ * @returns true jika SUPER_ADMIN, false jika tidak
+ */
+export function isSuperAdminRole(roleName: string | undefined | null): boolean {
+  return roleName === 'SUPER_ADMIN' || roleName === 'Super Admin'
+}

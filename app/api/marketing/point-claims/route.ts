@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getPointClaimService } from '@/lib/repositories'
 
 // GET - List all claims (admin) atau claims by sales (mobile)
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // RBAC Check
-    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
     const canReadAll = isSuperAdmin || permissions.includes('canvasing:read') || permissions.includes('point_claims:read')
 

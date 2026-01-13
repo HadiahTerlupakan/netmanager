@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig, getUserPermissions } from '@/lib/auth'
+import { isSuperAdminRole } from '@/lib/auth-helpers'
 
 /**
  * GET /api/user/permissions
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
         const user = session.user as { id: string; role?: string }
         
         // Super Admin has all permissions - return special indicator
-        if (user.role === 'SUPER_ADMIN' || user.role === 'Super Admin') {
+        if (isSuperAdminRole(user.role)) {
             return NextResponse.json({ 
                 permissions: ['*'], // Special marker for super admin
                 isSuperAdmin: true 
