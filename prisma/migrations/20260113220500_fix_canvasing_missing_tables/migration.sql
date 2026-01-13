@@ -52,13 +52,13 @@ END $$;
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'point_claims_salesId_fkey') THEN
-        ALTER TABLE "point_claims" ADD CONSTRAINT "point_claims_salesId_fkey" FOREIGN KEY ("salesId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+        ALTER TABLE "point_claims" ADD CONSTRAINT "point_claims_salesId_fkey" FOREIGN KEY ("salesId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
 END $$;
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'point_claims_reviewedById_fkey') THEN
-        ALTER TABLE "point_claims" ADD CONSTRAINT "point_claims_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+        ALTER TABLE "point_claims" ADD CONSTRAINT "point_claims_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 END $$;
 
