@@ -15,7 +15,7 @@ import {
 } from 'chart.js'
 import { Bar, Line, Doughnut } from 'react-chartjs-2'
 import { FaCalendarAlt, FaSearch } from 'react-icons/fa'
-import { MdTrendingUp, MdTrendingDown, MdAccessTime, MdPeople } from 'react-icons/md'
+import { MdTrendingUp, MdTrendingDown, MdAccessTime, MdPeople, MdPersonOff } from 'react-icons/md'
 import toast from 'react-hot-toast'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
 
@@ -129,7 +129,7 @@ export function ClientComponent() {
             {data && (
                 <>
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border-l-4 border-blue-500">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -171,6 +171,19 @@ export function ClientComponent() {
                             </div>
                         </div>
 
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border-l-4 border-red-500">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-gray-500 text-sm">Bolos (Alpha)</p>
+                                    <p className="text-2xl font-bold text-gray-800 dark:text-white">{data.attendance.summary.alphaCount}</p>
+                                </div>
+                                <MdPersonOff className="text-3xl text-red-200" />
+                            </div>
+                            <div className="mt-2 text-xs text-red-600 font-medium">
+                                {data.attendance.summary.alphaRate.toFixed(1)}% dari total
+                            </div>
+                        </div>
+
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border-l-4 border-purple-500">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -199,7 +212,7 @@ export function ClientComponent() {
                     </div>
 
                     {/* Top Employees */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {/* Most Diligent */}
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
                             <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200 flex items-center gap-2">
@@ -298,12 +311,54 @@ export function ClientComponent() {
                                                 <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{item.user.name}</p>
                                                 <div className="flex gap-2 text-[10px] text-gray-500">
                                                     <span>📅 {item.details.days}</span>
-                                                    <span>⚡ {item.details.otHours}j</span>
+                                                    <div className="flex flex-col">
+                                                        <span>⚡ {item.details.otHours}j Jam Tambahan</span>
+                                                        <span className="text-[9px] text-gray-400">({item.details.officialOtHours}j Resmi + {item.details.excessHours}j Extra)</span>
+                                                    </div>
+                                                    <span className="text-blue-500">⏱️ {item.details.totalHours}j Kerja</span>
                                                 </div>
                                             </div>
                                             <div className="text-right">
                                                 <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{item.score}</div>
                                                 <div className="text-[10px] text-gray-400">Poin</div>
+                                                <div className="text-[9px] text-gray-400 mt-1 whitespace-nowrap">
+                                                    ({item.details.days * 10}H {item.details.alphaCount > 0 ? `- ${item.details.alphaCount * 20}A ` : ''}+ {Math.floor(item.details.officialOtHours * 2)}R + {Math.floor(item.details.excessHours * 4)}E)
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Top Absentees (Tukang Bolos) */}
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border-2 border-red-500/20">
+                            <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                                <span className="text-2xl">👻</span> Tukang Bolos
+                                <span className="text-xs font-normal text-gray-500">(Total Alpha)</span>
+                            </h3>
+                            <div className="space-y-3">
+                                {(!data.topAbsentees || data.topAbsentees.length === 0) ? (
+                                    <p className="text-gray-400 text-sm italic">Nihil. Semua rajin!</p>
+                                ) : (
+                                    data.topAbsentees.map((item: any, idx: number) => (
+                                        <div key={item.user.id} className="flex items-center gap-3 p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50">
+                                            <div className="font-bold text-gray-400 w-4">#{idx + 1}</div>
+                                            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center overflow-hidden shrink-0">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={item.user.image || `https://ui-avatars.com/api/?name=${item.user.name}&background=random`}
+                                                    alt=""
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{item.user.name}</p>
+                                                <p className="text-xs text-gray-500 truncate">{item.user.department?.name || '-'}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-lg font-bold text-red-600 dark:text-red-400">{item.count}</div>
+                                                <div className="text-[10px] text-gray-400">Kali</div>
                                             </div>
                                         </div>
                                     ))
@@ -370,7 +425,7 @@ export function ClientComponent() {
                             <ResponsiveTable<any>
                                 data={data.attendance.byDepartment}
                                 loading={loading}
-                                keyField="name"
+                                keyField="id"
                                 columns={[
                                     {
                                         key: 'name',
@@ -410,7 +465,7 @@ export function ClientComponent() {
                             <ResponsiveTable<any>
                                 data={data.attendance.bySite}
                                 loading={loading}
-                                keyField="name"
+                                keyField="id"
                                 columns={[
                                     {
                                         key: 'name',

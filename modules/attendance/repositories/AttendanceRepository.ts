@@ -213,7 +213,7 @@ export class AttendanceRepository {
             }
         })
 
-        const groups = new Map<string, { name: string, present: number, late: number, total: number }>()
+        const groups = new Map<string, { id: string, name: string, present: number, late: number, total: number }>()
 
         attendances.forEach(att => {
             const user = att.user
@@ -240,7 +240,7 @@ export class AttendanceRepository {
             }
 
             if (!groups.has(groupKey)) {
-                groups.set(groupKey, { name: groupName, present: 0, late: 0, total: 0 })
+                groups.set(groupKey, { id: groupKey, name: groupName, present: 0, late: 0, total: 0 })
             }
 
             const stats = groups.get(groupKey)!
@@ -300,10 +300,67 @@ export class AttendanceRepository {
         }).filter(item => item.user != null)
     }
 
+    async getTopAbsentees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate },
+            status: 'ALPHA'
+        }
+
+        if (siteId || departmentId) {
+            where.user = {
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            }
+        }
+
+        const groups = await prisma.attendance.groupBy({
+            by: ['userId'],
+            where,
+            _count: { _all: true }
+        })
+
+        // Sort by count desc
+        groups.sort((a, b) => b._count._all - a._count._all)
+        const topIds = groups.slice(0, limit)
+
+        const users = await prisma.user.findMany({
+            where: { id: { in: topIds.map(g => g.userId) } },
+            select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
+        })
+
+        return topIds.map(g => {
+            const user = users.find(u => u.id === g.userId)
+            return {
+                user,
+                count: g._count._all
+            }
+        }).filter(item => item.user != null)
+    }
+
     async getUserAttendanceStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
         const where: Prisma.AttendanceWhereInput = {
             checkIn: { gte: startDate, lte: endDate },
             status: { in: ['ON_TIME', 'LATE'] }
+        }
+
+        if (siteId || departmentId) {
+            where.user = {
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            }
+        }
+
+        return prisma.attendance.groupBy({
+            by: ['userId'],
+            where,
+            _count: { _all: true }
+        })
+    }
+
+    async getUserAbsenceStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate },
+            status: 'ALPHA'
         }
 
         if (siteId || departmentId) {
@@ -341,5 +398,42 @@ export class AttendanceRepository {
                 status: true
             }
         })
+    }
+
+    async getUserTotalDuration(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate },
+            checkOut: { not: null }
+        }
+
+        if (siteId || departmentId) {
+            where.user = {
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            }
+        }
+
+        const records = await prisma.attendance.findMany({
+            where,
+            select: {
+                userId: true,
+                checkIn: true,
+                checkOut: true
+            }
+        })
+
+        const userDurationMap = new Map<string, number>()
+
+        records.forEach(rec => {
+            if (rec.checkOut && rec.checkIn) {
+                const duration = (new Date(rec.checkOut).getTime() - new Date(rec.checkIn).getTime()) / (1000 * 60) // minutes
+                if (duration > 0) {
+                    const current = userDurationMap.get(rec.userId) || 0
+                    userDurationMap.set(rec.userId, current + duration)
+                }
+            }
+        })
+
+        return userDurationMap
     }
 }

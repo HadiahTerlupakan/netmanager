@@ -258,7 +258,7 @@ export class OvertimeRepository implements IOvertimeRepository {
     async getTopEmployees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
         const where: Prisma.OvertimeWhereInput = {
             createdAt: { gte: startDate, lte: endDate },
-            status: 'COMPLETED'
+            status: { in: ['APPROVED', 'COMPLETED'] }
         }
 
         if (siteId || departmentId) {
@@ -295,7 +295,7 @@ export class OvertimeRepository implements IOvertimeRepository {
     async getUserOvertimeStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
         const where: Prisma.OvertimeWhereInput = {
             createdAt: { gte: startDate, lte: endDate },
-            status: 'COMPLETED'
+            status: { in: ['APPROVED', 'COMPLETED'] }
         }
 
         if (siteId || departmentId) {

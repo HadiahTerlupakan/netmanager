@@ -82,6 +82,7 @@ enum AttendanceStatus {
   SICK
   PERMIT
   DAY_OFF
+  ALPHA
 }
 
 model Attendance {

@@ -302,42 +302,85 @@ export class AttendanceService {
         const repository = new AttendanceRepository()
         const overtimeRepository = new OvertimeRepository()
 
-        const [stats, dailyStats, groupedBySite, groupedByDept, topEmployees, userAttStats, userOtStats] = await Promise.all([
+        const [stats, dailyStats, groupedBySite, groupedByDept, topEmployees, userAttStats, userOtStats, topAbsentees, userTotalDuration, userAbsenceStats] = await Promise.all([
             repository.getStatsByDateRange(startDate, endDate, siteId, departmentId),
             repository.getDailyStats(startDate, endDate, siteId, departmentId),
             repository.getGroupedStats(startDate, endDate, 'site'),
             repository.getGroupedStats(startDate, endDate, 'department'),
             repository.getTopEmployees(startDate, endDate, 5, siteId, departmentId),
             repository.getUserAttendanceStats(startDate, endDate, siteId, departmentId),
-            overtimeRepository.getUserOvertimeStats(startDate, endDate, siteId, departmentId)
+            overtimeRepository.getUserOvertimeStats(startDate, endDate, siteId, departmentId),
+            repository.getTopAbsentees(startDate, endDate, 5, siteId, departmentId),
+            repository.getUserTotalDuration(startDate, endDate, siteId, departmentId),
+            repository.getUserAbsenceStats(startDate, endDate, siteId, departmentId)
         ])
 
         // Calculate Combined Top Employees (Star Employees)
-        const userMap = new Map<string, { days: number, otMinutes: number }>()
+        const userMap = new Map<string, { days: number, officialOtMinutes: number, excessMinutes: number, totalMinutes: number, alphaCount: number }>()
 
+        // 1. Base Attendance Days
         userAttStats.forEach(item => {
-            if (!userMap.has(item.userId)) userMap.set(item.userId, { days: 0, otMinutes: 0 })
+            if (!userMap.has(item.userId)) userMap.set(item.userId, { days: 0, officialOtMinutes: 0, excessMinutes: 0, totalMinutes: 0, alphaCount: 0 })
             const current = userMap.get(item.userId)!
             current.days = item._count._all
         })
 
+        // 2. Formal Overtime (Approved/Completed)
         userOtStats.forEach(item => {
-             if (!userMap.has(item.userId)) userMap.set(item.userId, { days: 0, otMinutes: 0 })
+             if (!userMap.has(item.userId)) userMap.set(item.userId, { days: 0, officialOtMinutes: 0, excessMinutes: 0, totalMinutes: 0, alphaCount: 0 })
              const current = userMap.get(item.userId)!
-             current.otMinutes = item._sum.duration || 0
+             current.officialOtMinutes += (item._sum.duration || 0)
+        })
+
+        // 3. Absence Stats (Penalties)
+        userAbsenceStats.forEach(item => {
+            if (!userMap.has(item.userId)) userMap.set(item.userId, { days: 0, officialOtMinutes: 0, excessMinutes: 0, totalMinutes: 0, alphaCount: 0 })
+            const current = userMap.get(item.userId)!
+            current.alphaCount = item._count._all
+        })
+
+        // 4. Implicit Overtime & Total Duration
+        userTotalDuration.forEach((totalMinutes, userId) => {
+             if (!userMap.has(userId)) userMap.set(userId, { days: 0, officialOtMinutes: 0, excessMinutes: 0, totalMinutes: 0, alphaCount: 0 })
+             const current = userMap.get(userId)!
+             
+             // Set absolute total working minutes
+             current.totalMinutes = totalMinutes
+
+             // Standard Work Minutes = Days Present * 8 hours * 60 minutes
+             const standardMinutes = current.days * 480
+             
+             if (totalMinutes > standardMinutes) {
+                 const excess = totalMinutes - standardMinutes
+                 // Add excess minutes to record
+                 current.excessMinutes += excess
+             }
         })
 
         const scoredUsers = Array.from(userMap.entries()).map(([userId, stats]) => {
             // Scoring System:
             // 1 Day Present = 10 pts
-            // 30 Mins Overtime = 1 pt (2 pts/hour)
-            const score = (stats.days * 10) + Math.floor(stats.otMinutes / 30)
+            // 1 Day Alpha = -50 pts (Penalty)
+            // Official Overtime = 2 pts/hour (1 pt per 30 mins)
+            // Extra/Excess Overtime = 4 pts/hour (1 pt per 15 mins)
+            
+            const officialScore = Math.floor(stats.officialOtMinutes / 30)
+            const excessScore = Math.floor(stats.excessMinutes / 15)
+            const alphaPenalty = stats.alphaCount * 20
+            
+            const totalOtMinutes = stats.officialOtMinutes + stats.excessMinutes
+            const score = (stats.days * 10) + officialScore + excessScore - alphaPenalty
+            
             return { 
                 userId, 
                 score, 
                 details: { 
                     days: stats.days, 
-                    otHours: parseFloat((stats.otMinutes / 60).toFixed(1)) 
+                    alphaCount: stats.alphaCount,
+                    otHours: parseFloat((totalOtMinutes / 60).toFixed(1)), // Total OT
+                    officialOtHours: parseFloat((stats.officialOtMinutes / 60).toFixed(1)), // Resmi
+                    excessHours: parseFloat((stats.excessMinutes / 60).toFixed(1)), // Ekstra
+                    totalHours: parseFloat((stats.totalMinutes / 60).toFixed(1)) // Total Jam Kerja
                 } 
             }
         })
@@ -375,6 +418,15 @@ export class AttendanceService {
         // Calculate derived stats
         const lateCount = stats.statusCounts['LATE'] || 0
         const lateRate = stats.total > 0 ? (lateCount / stats.total) * 100 : 0
+
+        const alphaCount = stats.statusCounts['ALPHA'] || 0
+        // Alpha rate relative to active users? OR relative to total attendance records?
+        // Usually relative to total expected days, but for simple report, maybe just count.
+        // Or % of total records (which includes presences).
+        // If 10 presence, 1 alpha. Total 11. Alpha rate 1/11.
+        // Wait, stats.total is count of ALL records (including ALPHA).
+        // Since ALPHA is a record now.
+        const alphaRate = stats.total > 0 ? (alphaCount / stats.total) * 100 : 0
         
         return {
             summary: {
@@ -382,13 +434,16 @@ export class AttendanceService {
                 attendanceRate: 0, // Placeholder
                 avgDurationMinutes: stats.avgDurationMinutes,
                 lateCount,
-                lateRate
+                lateRate,
+                alphaCount,
+                alphaRate
             },
             trends: dailyStats,
             bySite: groupedBySite,
             byDepartment: groupedByDept,
             topEmployees,
-            combinedTopEmployees 
+            combinedTopEmployees,
+            topAbsentees
         }
     }
 }
