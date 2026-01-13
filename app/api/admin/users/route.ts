@@ -59,8 +59,21 @@ export async function GET(req: NextRequest) {
   const { session } = auth
   
   try {
+    // Get real-time permissions to ensure site restriction is applied correctly
+    // Session permissions might be empty or stale
+    const permissions = await getUserPermissions(session.user.id)
+    
+    // Create augmented session with real permissions
+    const sessionWithPermissions = {
+        ...session,
+        user: {
+            ...session.user,
+            permissions
+        }
+    }
+
     // Get site filter - use intelligent check (only filter if user has 'site_only' permission)
-    const siteIdFilter = getSiteFilter(session as any, 'users')
+    const siteIdFilter = getSiteFilter(sessionWithPermissions as any, 'users')
 
     const userService = getUserService()
     const users = await userService.getAllUsers(siteIdFilter)
