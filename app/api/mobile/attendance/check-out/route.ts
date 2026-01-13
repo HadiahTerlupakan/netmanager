@@ -1,25 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-import { convertAndSaveImage } from '@/lib/utils/image-upload'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { GeofenceService } from '@/modules/attendance/services/GeofenceService'
+import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
+import { verifySignature } from '@/lib/crypto'
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now()
     try {
         const authHeader = request.headers.get('Authorization')
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Missing or invalid token' }, { status: 401 })
+            return NextResponse.json({
+                error: 'Missing or invalid token',
+                code: 'UNAUTHORIZED'
+            }, { status: 401 })
         }
 
         const token = authHeader.split(' ')[1]
         const payload = await verifyMobileToken(token)
         if (!payload) {
-            return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+            return NextResponse.json({
+                error: 'Invalid or expired token',
+                code: 'UNAUTHORIZED'
+            }, { status: 401 })
         }
 
-        const userId = payload.id as string
+        // Standarisasi userId extraction - konsisten dengan check-in route
+        const userId = (payload.userId || payload.id) as string
+        if (!userId) {
+            return NextResponse.json({
+                error: 'Invalid token structure',
+                code: 'UNAUTHORIZED'
+            }, { status: 401 })
+        }
 
         // Search for active attendance (last 24 hours)
         const searchStart = new Date()
@@ -46,7 +60,10 @@ export async function POST(request: NextRequest) {
         })
 
         if (!attendance) {
-            return NextResponse.json({ error: 'Anda belum melakukan check-in atau sudah check-out hari ini' }, { status: 400 })
+            return NextResponse.json({
+                error: 'Anda belum melakukan check-in atau sudah check-out hari ini',
+                code: 'NO_ACTIVE_SESSION'
+            }, { status: 400 })
         }
 
         // Calculate working duration for FLEXIBLE users
@@ -81,43 +98,109 @@ export async function POST(request: NextRequest) {
             photoUrl = body.photoUrl
             notes = body.notes
             location = body.location
-            latitude = body.latitude
-            longitude = body.longitude
+            
+            // Validate coordinates if provided
+            if (body.latitude !== undefined && body.longitude !== undefined) {
+                const lat = parseFloat(body.latitude)
+                const lng = parseFloat(body.longitude)
+
+                if (isNaN(lat) || isNaN(lng)) {
+                    return NextResponse.json({
+                        error: 'Koordinat tidak valid',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                if (lat < -90 || lat > 90) {
+                    return NextResponse.json({
+                        error: 'Latitude harus antara -90 dan 90',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                if (lng < -180 || lng > 180) {
+                    return NextResponse.json({
+                        error: 'Longitude harus antara -180 dan 180',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                latitude = lat
+                longitude = lng
+            }
+
+            // Signature verification untuk offline data (konsisten dengan check-in)
+            if (body._offline_meta?.capturedAt) {
+                if (!body._offline_meta.signature) {
+                    return NextResponse.json({
+                        error: 'Offline data must be signed',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+                
+                const dataToVerify = {
+                    userId,
+                    timestamp: body._offline_meta.capturedAt,
+                    latitude,
+                    longitude
+                }
+                if (!verifySignature(dataToVerify, body._offline_meta.signature)) {
+                    return NextResponse.json({
+                        error: 'Invalid offline data signature',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+            }
         } else {
             const formData: any = await request.formData()
-            const photo = formData.get('photo') as File
+            const photo = formData.get('photo') as File | null
             notes = formData.get('notes') as string
             location = formData.get('location') as string
             
             if (photo) {
-                if (!photo.type.startsWith('image/')) {
-                    return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 })
+                // Process photo using centralized service
+                const photoService = new AttendancePhotoService()
+                try {
+                    photoUrl = await photoService.processPhoto(photo, userId, 'checkout')
+                } catch (error: any) {
+                    return NextResponse.json({
+                        error: error.message,
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
                 }
-    
-                const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-                if (photo.size > MAX_SIZE) {
-                    return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 })
-                }
-    
-                const dateStr = new Date().toISOString().split('T')[0]
-                const uploadDir = `public/uploads/attendance/${dateStr}`
-                const fileName = `${userId}_checkout_${Date.now()}`
-    
-                photoUrl = await convertAndSaveImage(
-                    photo,
-                    uploadDir,
-                    fileName,
-                    'employee-attendance',
-                    userId
-                )
             }
 
             // Parse latitude/longitude from formData
             const latStr = formData.get('latitude') as string
             const lngStr = formData.get('longitude') as string
             if (latStr && lngStr) {
-                latitude = parseFloat(latStr)
-                longitude = parseFloat(lngStr)
+                const lat = parseFloat(latStr)
+                const lng = parseFloat(lngStr)
+
+                // Validate coordinates
+                if (isNaN(lat) || isNaN(lng)) {
+                    return NextResponse.json({
+                        error: 'Koordinat tidak valid',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                if (lat < -90 || lat > 90) {
+                    return NextResponse.json({
+                        error: 'Latitude harus antara -90 dan 90',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                if (lng < -180 || lng > 180) {
+                    return NextResponse.json({
+                        error: 'Longitude harus antara -180 dan 180',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                latitude = lat
+                longitude = lng
             }
         }
 
@@ -158,6 +241,9 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         logger.error('Error in mobile check-out', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return NextResponse.json({
+            error: 'Internal server error',
+            code: 'INTERNAL_ERROR'
+        }, { status: 500 })
     }
 }

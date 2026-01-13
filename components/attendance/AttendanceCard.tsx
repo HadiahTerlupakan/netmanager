@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { FaCamera, FaCheck, FaSignOutAlt, FaMapMarkerAlt, FaSpinner } from 'react-icons/fa'
+import { AttendanceStatusIndicator } from './AttendanceStatusIndicator'
+import { GeofenceStatusBadge } from './GeofenceStatusBadge'
 
 export default function AttendanceCard() {
     const router = useRouter()
@@ -14,11 +16,18 @@ export default function AttendanceCard() {
     const [attendanceId, setAttendanceId] = useState<string | null>(null)
     const [checkInTime, setCheckInTime] = useState<string | null>(null)
     const [checkOutTime, setCheckOutTime] = useState<string | null>(null)
+    const [checkInDate, setCheckInDate] = useState<Date | null>(null)
+    const [checkOutDate, setCheckOutDate] = useState<Date | null>(null)
+    const [attendanceStatus, setAttendanceStatus] = useState<'ON_TIME' | 'LATE'>('ON_TIME')
+    const [workingHourMode, setWorkingHourMode] = useState<'FIXED' | 'FLEXIBLE'>('FIXED')
+    const [targetHours, setTargetHours] = useState(8)
 
     const [showCamera, setShowCamera] = useState(false)
     const [photo, setPhoto] = useState<string | null>(null)
     const [location, setLocation] = useState<string | null>(null)
     const [notes, setNotes] = useState('')
+    const [geofenceStatus, setGeofenceStatus] = useState<'INSIDE' | 'OUTSIDE' | 'UNKNOWN'>('UNKNOWN')
+    const [geofenceDistance, setGeofenceDistance] = useState<number | null>(null)
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -36,10 +45,19 @@ export default function AttendanceCard() {
                 if (today === attendanceDate) {
                     setAttendanceId(lastAttendance.id)
                     setCheckInTime(new Date(lastAttendance.checkIn).toLocaleTimeString())
+                    setCheckInDate(new Date(lastAttendance.checkIn))
+                    setAttendanceStatus(lastAttendance.status || 'ON_TIME')
+                    
+                    // Set working hour mode and target hours from user data if available
+                    if (lastAttendance.user) {
+                        setWorkingHourMode(lastAttendance.user.workingHourMode || 'FIXED')
+                        setTargetHours(lastAttendance.user.flexibleTargetHour || 8)
+                    }
 
                     if (lastAttendance.checkOut) {
                         setStatus('checked-out')
                         setCheckOutTime(new Date(lastAttendance.checkOut).toLocaleTimeString())
+                        setCheckOutDate(new Date(lastAttendance.checkOut))
                     } else {
                         setStatus('checked-in')
                     }
@@ -184,16 +202,35 @@ export default function AttendanceCard() {
 
             <div className="flex flex-col gap-4">
                 {/* Status Display */}
-                <div className="grid grid-cols-2 gap-4 text-center">
-                    <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Jam Masuk</p>
-                        <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{checkInTime || '-'}</p>
+                {checkInDate && (
+                    <AttendanceStatusIndicator
+                        checkInTime={checkInDate}
+                        checkOutTime={checkOutDate || undefined}
+                        targetHours={targetHours}
+                        workingHourMode={workingHourMode}
+                        status={attendanceStatus}
+                    />
+                )}
+                
+                {!checkInDate && (
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                        <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Jam Masuk</p>
+                            <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{checkInTime || '-'}</p>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Jam Keluar</p>
+                            <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{checkOutTime || '-'}</p>
+                        </div>
                     </div>
-                    <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Jam Keluar</p>
-                        <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{checkOutTime || '-'}</p>
-                    </div>
-                </div>
+                )}
+
+                {/* Geofence Status */}
+                <GeofenceStatusBadge
+                    status={geofenceStatus}
+                    distance={geofenceDistance}
+                    siteName={null}
+                />
 
                 {/* Action Area */}
                 {status !== 'checked-out' && (

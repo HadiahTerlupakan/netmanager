@@ -1,22 +1,32 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import { cache } from '@/lib/cache'
 
 export class HolidayRepository {
     async create(data: Prisma.HolidayCreateInput) {
-        return prisma.holiday.create({ data })
+        const holiday = await prisma.holiday.create({ data })
+        // Invalidate holiday cache after creating new holiday
+        this.invalidateCache()
+        return holiday
     }
 
     async update(id: string, data: Prisma.HolidayUpdateInput) {
-        return prisma.holiday.update({
+        const holiday = await prisma.holiday.update({
             where: { id },
             data
         })
+        // Invalidate holiday cache after updating
+        this.invalidateCache()
+        return holiday
     }
 
     async delete(id: string) {
-        return prisma.holiday.delete({
+        const holiday = await prisma.holiday.delete({
             where: { id }
         })
+        // Invalidate holiday cache after deleting
+        this.invalidateCache()
+        return holiday
     }
 
     async findMany(params?: {
@@ -27,6 +37,12 @@ export class HolidayRepository {
     }
 
     async isHoliday(date: Date): Promise<{ isHoliday: boolean, holiday?: any }> {
+        // Check cache first (24h TTL)
+        const cacheKey = `holiday:${date.toISOString().split('T')[0]}`
+        const cached = cache.get<{ isHoliday: boolean, holiday?: any }>(cacheKey)
+        
+        if (cached) return cached
+        
         // Normalize date to YYYY-MM-DD for comparison
         const startOfDay = new Date(date)
         startOfDay.setHours(0, 0, 0, 0)
@@ -43,17 +59,28 @@ export class HolidayRepository {
             }
         })
 
-        return {
+        const result = {
             isHoliday: !!holiday,
             holiday
         }
+        
+        // Cache result for 24 hours
+        cache.set(cacheKey, result, 86400)
+        
+        return result
     }
 
     async getHolidaysByYear(year: number) {
+        // Check cache first (24h TTL)
+        const cacheKey = `holidays:year:${year}`
+        const cached = cache.get<any[]>(cacheKey)
+        
+        if (cached) return cached
+        
         const startDate = new Date(year, 0, 1) // Jan 1st
         const endDate = new Date(year, 11, 31, 23, 59, 59) // Dec 31st
 
-        return prisma.holiday.findMany({
+        const holidays = await prisma.holiday.findMany({
             where: {
                 date: {
                     gte: startDate,
@@ -64,5 +91,19 @@ export class HolidayRepository {
                 date: 'asc'
             }
         })
+        
+        // Cache result for 24 hours
+        cache.set(cacheKey, holidays, 86400)
+        
+        return holidays
+    }
+    
+    /**
+     * Invalidate all holiday-related cache entries
+     * Call this after creating, updating, or deleting holidays
+     */
+    invalidateCache(): void {
+        cache.invalidate('holiday:')
+        cache.invalidate('holidays:')
     }
 }

@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-import { convertAndSaveImage } from '@/lib/utils/image-upload'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getDistance } from 'geolib'
-import { randomUUID } from 'crypto'
-import { GeofenceService } from '@/modules/attendance/services/GeofenceService'
-import { AttendanceValidationService } from '@/modules/attendance/services/AttendanceValidationService'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
+import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now()
@@ -20,40 +16,26 @@ export async function POST(request: NextRequest) {
 
         const userId = session.user.id as string
 
-        // Parse basic data needed for image upload (logic kept in controller for now)
+        // Parse form data
         const formData: any = await request.formData()
         const photo = formData.get('photo') as File | null
         const location = formData.get('location') as string
         const notes = formData.get('notes') as string
 
-        let photoUrl = null
-
-        if (photo) {
-            // Validasi foto
-            if (!photo.type.startsWith('image/')) {
-                return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 })
-            }
-
-            const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-            if (photo.size > MAX_SIZE) {
-                return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 })
-            }
-
-            // Upload foto
-            const dateStr = new Date().toISOString().split('T')[0] // YYYY-MM-DD
-            const uploadDir = `public/uploads/attendance/${dateStr}`
-            const fileName = `${userId}_checkin_${Date.now()}`
-
-            photoUrl = await convertAndSaveImage(
-                photo,
-                uploadDir,
-                fileName,
-                'employee-attendance',
-                userId
-            )
+        // Process photo using centralized service
+        const photoService = new AttendancePhotoService()
+        let photoUrl: string | null = null
+        
+        try {
+            photoUrl = await photoService.processPhoto(photo, userId, 'checkin')
+        } catch (error: any) {
+            return NextResponse.json({
+                error: error.message,
+                code: 'VALIDATION_ERROR'
+            }, { status: 400 })
         }
 
-        // --- Use Centralized Service ---
+        // Use centralized attendance service
         const attendanceService = new AttendanceService()
         
         // Parse coordinates
@@ -63,8 +45,33 @@ export async function POST(request: NextRequest) {
         let longitude: number | undefined
         
         if (latStr && lngStr) {
-            latitude = parseFloat(latStr)
-            longitude = parseFloat(lngStr)
+            const lat = parseFloat(latStr)
+            const lng = parseFloat(lngStr)
+
+            // Validate coordinates
+            if (isNaN(lat) || isNaN(lng)) {
+                return NextResponse.json({
+                    error: 'Koordinat tidak valid',
+                    code: 'VALIDATION_ERROR'
+                }, { status: 400 })
+            }
+
+            if (lat < -90 || lat > 90) {
+                return NextResponse.json({
+                    error: 'Latitude harus antara -90 dan 90',
+                    code: 'VALIDATION_ERROR'
+                }, { status: 400 })
+            }
+
+            if (lng < -180 || lng > 180) {
+                return NextResponse.json({
+                    error: 'Longitude harus antara -180 dan 180',
+                    code: 'VALIDATION_ERROR'
+                }, { status: 400 })
+            }
+
+            latitude = lat
+            longitude = lng
         }
 
         const attendance = await attendanceService.checkIn({
@@ -92,16 +99,23 @@ export async function POST(request: NextRequest) {
         
         // Handle Custom Service Errors
         if (error.message === 'DUPLICATE_ENTRY') {
-            return NextResponse.json({ error: 'Anda sudah melakukan check-in hari ini' }, { status: 400 })
+            return NextResponse.json({
+                error: 'Anda sudah melakukan check-in hari ini',
+                code: 'DUPLICATE_ENTRY'
+            }, { status: 400 })
         }
         if (error.message.startsWith('CHECKIN_REJECTED:')) {
             const reason = error.message.split(':')[1]
-            return NextResponse.json({ 
+            return NextResponse.json({
                 error: `Check-in ditolak: ${reason}`,
-                code: 'VALIDATION_ERROR' 
+                code: 'VALIDATION_ERROR',
+                details: { reason }
             }, { status: 400 })
         }
         
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return NextResponse.json({
+            error: 'Internal server error',
+            code: 'INTERNAL_ERROR'
+        }, { status: 500 })
     }
 }

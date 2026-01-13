@@ -3,29 +3,16 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
+import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
 import { verifySignature } from '@/lib/crypto'
-// DEBUG LOGGER (Console version to avoid build/fs issues)
-const log = (msg: string, data?: any) => {
-    const prefix = '[DEBUG_ATTENDANCE]';
-    if (data) {
-        console.log(prefix + ' ' + msg);
-        console.log(JSON.stringify(data, null, 2));
-    } else {
-        console.log(prefix + ' ' + msg);
-    }
-};
-// HolidayRepository no longer needed directly as Service handles validation
-// import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
+import { ATTENDANCE_CONSTANTS } from '@/lib/attendance-constants'
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now()
     try {
-        log('Request received');
         const authHeader = request.headers.get('authorization')
-        log('Auth Header present:', !!authHeader);
 
         if (!authHeader?.startsWith('Bearer ')) {
-            log('Invalid auth header');
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
@@ -33,12 +20,10 @@ export async function POST(request: NextRequest) {
         const decoded = await verifyMobileToken(token)
 
         if (!decoded) {
-            log('Token verification failed');
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
         }
 
         const userId = decoded.userId as string
-        log('User ID:', userId);
 
         // Fetch User and Settings first to determine Timezone
         const [userDetails, toleranceSetting, timezoneSetting] = await Promise.all([
@@ -75,11 +60,9 @@ export async function POST(request: NextRequest) {
         let offlineCapturedAt: Date | undefined
         
         const contentType = request.headers.get('content-type') || ''
-        log('Content-Type:', contentType);
         
         if (contentType.includes('multipart/form-data')) {
             const formData: any = await request.formData()
-            log('Processing FormData');
 
             const photo = formData.get('photo') as File
             location = formData.get('location') as string
@@ -88,8 +71,33 @@ export async function POST(request: NextRequest) {
             const lngStr = formData.get('longitude') as string
 
             if (latStr && lngStr) {
-                latitude = parseFloat(latStr)
-                longitude = parseFloat(lngStr)
+                const lat = parseFloat(latStr)
+                const lng = parseFloat(lngStr)
+
+                // Validate coordinates
+                if (isNaN(lat) || isNaN(lng)) {
+                    return NextResponse.json({
+                        error: 'Koordinat tidak valid',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                if (lat < -90 || lat > 90) {
+                    return NextResponse.json({
+                        error: 'Latitude harus antara -90 dan 90',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                if (lng < -180 || lng > 180) {
+                    return NextResponse.json({
+                        error: 'Longitude harus antara -180 dan 180',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                latitude = lat
+                longitude = lng
             }
             
             // Check for offline meta in FormData (JSON string usually)
@@ -110,49 +118,72 @@ export async function POST(request: NextRequest) {
                                       latitude,
                                       longitude
                                   }
-                                  log('Verifying Offline Signature (FormData)', dataToVerify);
                                   if (!verifySignature(dataToVerify, meta.signature)) {
-                                      log('Signature Invalid (FormData)');
-                                      return NextResponse.json({ error: 'Invalid offline data signature' }, { status: 400 })
+                                      return NextResponse.json({
+                                          error: 'Invalid offline data signature',
+                                          code: 'VALIDATION_ERROR'
+                                      }, { status: 400 })
                                   }
-                                  log('Signature Valid (FormData)');
                              } else {
-                                  return NextResponse.json({ error: 'Offline data must be signed' }, { status: 400 })
+                                 return NextResponse.json({
+                                     error: 'Offline data must be signed',
+                                     code: 'VALIDATION_ERROR'
+                                 }, { status: 400 })
                              }
                         }
                     }
-                } catch (e) { 
-                    log('Error parse offline meta', e);
+                } catch (e) {
+                    // Error parsing offline meta, will continue without it
                 }
             }
             
             if (photo) {
-                if (!photo.type.startsWith('image/')) {
-                    return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 });
+                // Process photo using centralized service
+                const photoService = new AttendancePhotoService()
+                try {
+                    photoUrl = await photoService.processPhoto(photo, userId, 'checkin')
+                } catch (error: any) {
+                    return NextResponse.json({
+                        error: error.message,
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
                 }
-
-                const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-                if (photo.size > MAX_SIZE) {
-                    return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 });
-                }
-
-                const dateStr = new Date().toISOString().split('T')[0];
-                const uploadDir = 'public/uploads/attendance/' + dateStr;
-                const fileName = userId + '_checkin_' + Date.now();
-
-                // NOTE: image conversion logic removed/commented out
-                // photoUrl = await convertAndSaveImage(...)
-                
-                photoUrl = (formData.get('photoUrl') as string) || null;
             }
         } else if (contentType.includes('application/json')) {
             const body = await request.json()
-            log('Processing JSON Body', body);
             photoUrl = body.photoUrl
             location = body.location
             notes = body.notes
-            latitude = body.latitude
-            longitude = body.longitude
+            
+            // Validate coordinates if provided
+            if (body.latitude !== undefined && body.longitude !== undefined) {
+                const lat = parseFloat(body.latitude)
+                const lng = parseFloat(body.longitude)
+
+                if (isNaN(lat) || isNaN(lng)) {
+                    return NextResponse.json({
+                        error: 'Koordinat tidak valid',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                if (lat < -90 || lat > 90) {
+                    return NextResponse.json({
+                        error: 'Latitude harus antara -90 dan 90',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                if (lng < -180 || lng > 180) {
+                    return NextResponse.json({
+                        error: 'Longitude harus antara -180 dan 180',
+                        code: 'VALIDATION_ERROR'
+                    }, { status: 400 })
+                }
+
+                latitude = lat
+                longitude = lng
+            }
             
             // Check for offline meta
             if (body._offline_meta && body._offline_meta.capturedAt) {
@@ -160,25 +191,25 @@ export async function POST(request: NextRequest) {
                 if (!isNaN(dt.getTime())) {
                     offlineCapturedAt = dt
                     
-                    // Verify Signature
-                    if (body._offline_meta.signature) {
-                        const dataToVerify = {
-                            userId,
-                            timestamp: body._offline_meta.capturedAt,
-                            latitude: latitude,
-                            longitude: longitude
-                        }
-                        log('Verifying Offline Signature (JSON)', dataToVerify);
-                        if (!verifySignature(dataToVerify, body._offline_meta.signature)) {
-                             log('Signature Invalid (JSON)');
-                             return NextResponse.json({ error: 'Invalid offline data signature' }, { status: 400 })
-                        }
-                        log('Signature Valid (JSON)');
-                    } else {
-                        // Optional: Reject unsigned offline data?
-                        // For legacy compatibility, maybe log warning or allow if config says so.
-                        // For now we enforce if _offline_meta is present.
-                         return NextResponse.json({ error: 'Offline data must be signed' }, { status: 400 })
+                    // Verify Signature - Enforce for all offline data
+                    if (!body._offline_meta.signature) {
+                        return NextResponse.json({
+                            error: 'Offline data must be signed',
+                            code: 'VALIDATION_ERROR'
+                        }, { status: 400 })
+                    }
+                    
+                    const dataToVerify = {
+                        userId,
+                        timestamp: body._offline_meta.capturedAt,
+                        latitude: latitude,
+                        longitude: longitude
+                    }
+                    if (!verifySignature(dataToVerify, body._offline_meta.signature)) {
+                         return NextResponse.json({
+                             error: 'Invalid offline data signature',
+                             code: 'VALIDATION_ERROR'
+                         }, { status: 400 })
                     }
                 }
             } else if (body.capturedAt) {
@@ -189,7 +220,6 @@ export async function POST(request: NextRequest) {
 
         // --- Use Centralized Service ---
         const attendanceService = new AttendanceService()
-        log('Calling service checkIn...');
         const attendance = await attendanceService.checkIn({
             userId,
             photoUrl,
@@ -200,7 +230,6 @@ export async function POST(request: NextRequest) {
             offlineTime: offlineCapturedAt,
             timezone // Use fetched user timezone preference
         })
-        log('Service checkIn success', attendance);
         
         logger.apiRequest('POST', '/api/mobile/attendance/check-in', 201, Date.now() - startTime, {
             userId,
@@ -211,20 +240,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, data: attendance })
 
     } catch (error: any) {
-        log('Error in checkIn route', error.message);
-        console.error('Check-in error:', error)
         if (error.message === 'DUPLICATE_ENTRY') {
-            return NextResponse.json({ error: 'Anda sudah melakukan check-in hari ini' }, { status: 400 })
+            return NextResponse.json({
+                error: 'Anda sudah melakukan check-in hari ini',
+                code: 'DUPLICATE_ENTRY'
+            }, { status: 400 })
         }
         if (error.message.startsWith('CHECKIN_REJECTED:')) {
             const reason = error.message.split(':')[1]
-            return NextResponse.json({ 
+            return NextResponse.json({
                 error: `Check-in ditolak: ${reason}`,
-                code: 'VALIDATION_ERROR' 
+                code: 'VALIDATION_ERROR',
+                details: { reason }
             }, { status: 400 })
         }
 
         logger.error('Error in mobile check-in', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return NextResponse.json({
+            error: 'Internal server error',
+            code: 'INTERNAL_ERROR'
+        }, { status: 500 })
     }
 }

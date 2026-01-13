@@ -1,8 +1,13 @@
 import { prisma } from '@/lib/prisma'
 import { GeofenceService } from './GeofenceService'
 import { AttendanceValidationService } from './AttendanceValidationService'
+import { AttendanceTimezoneService } from './AttendanceTimezoneService'
 import { AttendanceStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
+import { ATTENDANCE_CONSTANTS } from '@/lib/attendance-constants'
+import { cache } from '@/lib/cache'
+import { AttendanceRepository } from '../repositories/AttendanceRepository'
+import { OvertimeRepository } from '../../overtime/repositories/OvertimeRepository'
 
 interface CheckInParams {
     userId: string
@@ -18,28 +23,26 @@ interface CheckInParams {
 export class AttendanceService {
     private geofenceService: GeofenceService
     private validationService: AttendanceValidationService
+    private timezoneService: AttendanceTimezoneService
 
     constructor() {
         this.geofenceService = new GeofenceService()
         this.validationService = new AttendanceValidationService()
+        this.timezoneService = new AttendanceTimezoneService()
     }
 
     async checkIn(params: CheckInParams) {
-        const { userId, photoUrl, location, notes, latitude, longitude, offlineTime, timezone = 'Asia/Jakarta' } = params
+        const { userId, photoUrl, location, notes, latitude, longitude, offlineTime, timezone } = params
 
         // 1. Timezone & Date Context
         // Use offlineTime if provided (trusted for sync), else server time
         const checkInTime = offlineTime || new Date()
         
-        // Convert to Target Timezone to determine "Today" logic
-        const nowInTz = new Date(checkInTime.toLocaleString('en-US', { timeZone: timezone }))
-        const tzOffsetMs = nowInTz.getTime() - checkInTime.getTime()
+        // Get timezone from service if not provided
+        const tz = timezone || await this.timezoneService.getTimezone()
         
-        const startOfDayInTz = new Date(nowInTz)
-        startOfDayInTz.setHours(0, 0, 0, 0)
-        
-        // Effective UTC time for 00:00 in user's timezone
-        const effectiveToday = new Date(startOfDayInTz.getTime() - tzOffsetMs)
+        // Use timezone service to get effective date
+        const { now: nowInTz, startOfDay: effectiveToday } = this.timezoneService.getEffectiveDate(tz)
 
         // 2. Cross-Module Validation (Leave & Holiday)
         // Check using the User's Timezone Date
@@ -48,14 +51,23 @@ export class AttendanceService {
             throw new Error(`CHECKIN_REJECTED:${eligibility.reason}`) // Format error for controller to parse
         }
 
-        // 3. User Settings & Schedule
-        const [userDetails, toleranceSetting] = await Promise.all([
-            prisma.user.findUnique({ 
+        // 3. User Settings & Schedule (with caching)
+        const cacheKey = `user:schedule:${userId}`
+        const cachedSchedule = cache.get<{ startWorkTime: string | null, endWorkTime: string | null, workingHourMode: string | null }>(cacheKey)
+        
+        let userDetails: { startWorkTime: string | null, endWorkTime: string | null, workingHourMode: string | null } | null
+        if (cachedSchedule) {
+            userDetails = cachedSchedule
+        } else {
+            userDetails = await prisma.user.findUnique({
                 where: { id: userId },
-                select: { startWorkTime: true, endWorkTime: true, workingHourMode: true } 
-            }),
-            prisma.settings.findFirst({ where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' } })
-        ])
+                select: { startWorkTime: true, endWorkTime: true, workingHourMode: true }
+            })
+            // Cache for 1 hour
+            if (userDetails) {
+                cache.set(cacheKey, userDetails, 3600)
+            }
+        }
 
         // 4. Auto-Checkout Stale Sessions
         await this.processAutoCheckout(userId, userDetails, effectiveToday)
@@ -90,16 +102,11 @@ export class AttendanceService {
         // 7. Status Calculation (LATE vs ON_TIME)
         let status: AttendanceStatus = 'ON_TIME'
         if (userDetails?.startWorkTime && userDetails?.workingHourMode !== 'FLEXIBLE') {
-            const [schedHour, schedMinute] = userDetails.startWorkTime.split(':').map(Number)
-            const scheduleTime = new Date(startOfDayInTz)
-            scheduleTime.setHours(schedHour, schedMinute, 0, 0)
-            
-            const toleranceMinutes = toleranceSetting?.value ? parseInt(toleranceSetting.value) : 0
-            const lateThreshold = new Date(scheduleTime.getTime() + (toleranceMinutes * 60000))
-
-            if (nowInTz > lateThreshold) {
-                status = 'LATE'
-            }
+            status = await this.timezoneService.calculateStatus(
+                checkInTime,
+                userDetails.startWorkTime,
+                tz
+            )
         }
 
         // 8. Create Record
@@ -152,16 +159,21 @@ export class AttendanceService {
             
             // Safety: if config error makes checkout < checkin
             if (autoCheckOut <= session.checkIn) {
-                // Fallback: CheckIn + 9 hours
-                autoCheckOut = new Date(session.checkIn.getTime() + 9 * 3600000)
+                // Fallback: CheckIn + default work hours
+                autoCheckOut = new Date(session.checkIn.getTime() + ATTENDANCE_CONSTANTS.DEFAULT_WORK_HOURS * 3600000)
             }
             
-            // Logic "Malam" -> 23:59
+            // Logic "Malam" -> end of day
             if (session.checkIn > autoCheckOut) {
-                autoCheckOut.setHours(23, 59, 59, 999)
+                autoCheckOut.setHours(
+                    ATTENDANCE_CONSTANTS.END_OF_DAY_HOUR,
+                    ATTENDANCE_CONSTANTS.END_OF_DAY_MINUTE,
+                    ATTENDANCE_CONSTANTS.END_OF_DAY_SECOND,
+                    ATTENDANCE_CONSTANTS.END_OF_DAY_MILLISECOND
+                )
             }
 
-            const autoNote = '(Auto-Checkout: Lupa Absen Pulang)'
+            const autoNote = ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_NOTE
             const newNotes = session.notes ? `${session.notes} ${autoNote}` : autoNote
 
             await prisma.attendance.update({
@@ -172,31 +184,96 @@ export class AttendanceService {
     }
 
     async getReportData(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const attendanceData = await prisma.attendance.findMany({
-            where: {
-                checkIn: {
-                    gte: startDate,
-                    lte: endDate
-                },
-                user: {
-                    siteId: siteId,
-                    departmentId: departmentId
-                }
-            },
-            include: {
-                user: {
-                    select: {
-                        name: true,
-                        role: true,
-                        departments: { select: { name: true } },
-                        sites: { select: { name: true } }
-                    }
-                }
-            },
-            orderBy: {
-                checkIn: 'asc'
+        const repository = new AttendanceRepository()
+        const overtimeRepository = new OvertimeRepository()
+
+        const [stats, dailyStats, groupedBySite, groupedByDept, topEmployees, userAttStats, userOtStats] = await Promise.all([
+            repository.getStatsByDateRange(startDate, endDate, siteId, departmentId),
+            repository.getDailyStats(startDate, endDate, siteId, departmentId),
+            repository.getGroupedStats(startDate, endDate, 'site'),
+            repository.getGroupedStats(startDate, endDate, 'department'),
+            repository.getTopEmployees(startDate, endDate, 5, siteId, departmentId),
+            repository.getUserAttendanceStats(startDate, endDate, siteId, departmentId),
+            overtimeRepository.getUserOvertimeStats(startDate, endDate, siteId, departmentId)
+        ])
+
+        // Calculate Combined Top Employees (Star Employees)
+        const userMap = new Map<string, { days: number, otMinutes: number }>()
+
+        userAttStats.forEach(item => {
+            if (!userMap.has(item.userId)) userMap.set(item.userId, { days: 0, otMinutes: 0 })
+            const current = userMap.get(item.userId)!
+            current.days = item._count._all
+        })
+
+        userOtStats.forEach(item => {
+             if (!userMap.has(item.userId)) userMap.set(item.userId, { days: 0, otMinutes: 0 })
+             const current = userMap.get(item.userId)!
+             current.otMinutes = item._sum.duration || 0
+        })
+
+        const scoredUsers = Array.from(userMap.entries()).map(([userId, stats]) => {
+            // Scoring System:
+            // 1 Day Present = 10 pts
+            // 30 Mins Overtime = 1 pt (2 pts/hour)
+            const score = (stats.days * 10) + Math.floor(stats.otMinutes / 30)
+            return { 
+                userId, 
+                score, 
+                details: { 
+                    days: stats.days, 
+                    otHours: parseFloat((stats.otMinutes / 60).toFixed(1)) 
+                } 
             }
         })
-        return attendanceData
+
+        // Sort by Score DESC
+        scoredUsers.sort((a, b) => b.score - a.score)
+        
+        // Take Top 5
+        const topScorers = scoredUsers.slice(0, 5)
+
+        // Fetch User Details
+        let combinedTopEmployees: any[] = []
+        if (topScorers.length > 0) {
+            const topScorerDetails = await prisma.user.findMany({
+                where: { id: { in: topScorers.map(u => u.userId) } },
+                select: { 
+                    id: true, 
+                    name: true, 
+                    image: true, 
+                    sites: { select: { name: true } }, 
+                    departments: { select: { name: true } } 
+                }
+            })
+
+            combinedTopEmployees = topScorers.map(scorer => {
+                const user = topScorerDetails.find(u => u.id === scorer.userId)
+                return {
+                    user,
+                    score: scorer.score,
+                    details: scorer.details
+                }
+            }).filter(u => u.user)
+        }
+
+        // Calculate derived stats
+        const lateCount = stats.statusCounts['LATE'] || 0
+        const lateRate = stats.total > 0 ? (lateCount / stats.total) * 100 : 0
+        
+        return {
+            summary: {
+                totalAttendance: stats.total,
+                attendanceRate: 0, // Placeholder
+                avgDurationMinutes: stats.avgDurationMinutes,
+                lateCount,
+                lateRate
+            },
+            trends: dailyStats,
+            bySite: groupedBySite,
+            byDepartment: groupedByDept,
+            topEmployees,
+            combinedTopEmployees 
+        }
     }
 }

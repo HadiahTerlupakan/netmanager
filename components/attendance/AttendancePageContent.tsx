@@ -15,13 +15,17 @@ import {
     MdRefresh,
     MdClose,
     MdCameraAlt,
-    MdImage
+    MdImage,
+    MdAnalytics
 } from 'react-icons/md'
 import { KaryawanNotificationBell } from '@/components/karyawan/KaryawanNotificationBell'
 import { useKaryawanAuth } from '@/components/karyawan/KaryawanAuthProvider'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { getDistance } from 'geolib'
+import { AttendanceStatusIndicator } from './AttendanceStatusIndicator'
+import { GeofenceStatusBadge } from './GeofenceStatusBadge'
+import { AttendanceAnalytics } from './AttendanceAnalytics'
 
 interface AttendancePageContentProps {
     holidayInfo?: {
@@ -40,8 +44,16 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
     const [status, setStatus] = useState<'idle' | 'checked-in' | 'checked-out'>('idle')
     const [checkInTime, setCheckInTime] = useState<string | null>(null)
     const [checkOutTime, setCheckOutTime] = useState<string | null>(null)
+    const [checkInDate, setCheckInDate] = useState<Date | null>(null)
+    const [checkOutDate, setCheckOutDate] = useState<Date | null>(null)
     const [workDuration, setWorkDuration] = useState('00:00')
     const [history, setHistory] = useState<any[]>([])
+    const [attendanceStatus, setAttendanceStatus] = useState<'ON_TIME' | 'LATE'>('ON_TIME')
+    const [workingHourMode, setWorkingHourMode] = useState<'FIXED' | 'FLEXIBLE'>('FIXED')
+    const [targetHours, setTargetHours] = useState(8)
+    const [showAnalytics, setShowAnalytics] = useState(false)
+    const [geofenceStatus, setGeofenceStatus] = useState<'INSIDE' | 'OUTSIDE' | 'UNKNOWN'>('UNKNOWN')
+    const [geofenceDistance, setGeofenceDistance] = useState<number | null>(null)
 
     // Camera & Location States
     const [showCamera, setShowCamera] = useState(false)
@@ -76,10 +88,19 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
 
                     if (today === attendanceDate) {
                         setCheckInTime(format(new Date(lastAttendance.checkIn), 'HH:mm'))
+                        setCheckInDate(new Date(lastAttendance.checkIn))
+                        setAttendanceStatus(lastAttendance.status || 'ON_TIME')
+                        
+                        // Set working hour mode and target hours from user data if available
+                        if (lastAttendance.user) {
+                            setWorkingHourMode(lastAttendance.user.workingHourMode || 'FIXED')
+                            setTargetHours(lastAttendance.user.flexibleTargetHour || 8)
+                        }
 
                         if (lastAttendance.checkOut) {
                             setStatus('checked-out')
                             setCheckOutTime(format(new Date(lastAttendance.checkOut), 'HH:mm'))
+                            setCheckOutDate(new Date(lastAttendance.checkOut))
                             // Calculate final duration
                             const diff = new Date(lastAttendance.checkOut).getTime() - new Date(lastAttendance.checkIn).getTime()
                             const hours = Math.floor(diff / 3600000)
@@ -97,6 +118,8 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                         setStatus('idle')
                         setCheckInTime(null)
                         setCheckOutTime(null)
+                        setCheckInDate(null)
+                        setCheckOutDate(null)
                         setWorkDuration('00:00')
                     }
                 } else {
@@ -620,24 +643,39 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                             </div>
                         </div>
 
+                        {/* Geofence Status */}
+                        <GeofenceStatusBadge
+                            status={geofenceStatus}
+                            distance={geofenceDistance}
+                            siteName={null}
+                        />
+
                         {/* Status Info */}
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 mb-5 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="size-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-sm">
-                                    <MdWorkHistory className="text-xl" />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wide mb-0.5">Status: {status === 'checked-in' ? 'Bekerja' : status === 'checked-out' ? 'Selesai' : 'Belum Absen'}</p>
-                                    <p className="text-xs font-medium text-slate-600 dark:text-gray-300">
-                                        {status === 'checked-in' ? 'Sudah Absen Masuk' : status === 'checked-out' ? 'Sudah Absen Keluar' : 'Silakan Check-in'}
-                                    </p>
+                        {checkInDate && (
+                            <AttendanceStatusIndicator
+                                checkInTime={checkInDate}
+                                checkOutTime={checkOutDate || undefined}
+                                targetHours={targetHours}
+                                workingHourMode={workingHourMode}
+                                status={attendanceStatus}
+                            />
+                        )}
+                        
+                        {!checkInDate && (
+                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 mb-5 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="size-10 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-sm">
+                                        <MdWorkHistory className="text-xl" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wide mb-0.5">Status: Belum Absen</p>
+                                        <p className="text-xs font-medium text-slate-600 dark:text-gray-300">
+                                            Silakan Check-in
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="text-right">
-                                <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Durasi Kerja</p>
-                                <p className="text-lg font-bold text-[#111418] dark:text-white font-mono leading-none">{workDuration}</p>
-                            </div>
-                        </div>
+                        )}
 
                         {/* Stats Grid */}
                         <div className="grid grid-cols-2 gap-4 mb-6">
@@ -698,14 +736,28 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                 {/* History Section */}
                 <div className="mt-8 px-4 w-full max-w-full">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-bold text-[#111418] dark:text-white tracking-tight">Riwayat Absensi</h3>
-                        <div className="flex p-1 bg-slate-100 dark:bg-[#1c2936] rounded-lg border border-slate-200 dark:border-gray-800">
-                            <button className="px-3 py-1 text-[10px] font-bold rounded-md bg-white dark:bg-[#101922] text-[#111418] dark:text-white shadow-sm transition-all border border-slate-200 dark:border-gray-700">Mingguan</button>
-                            <button className="px-3 py-1 text-[10px] font-medium rounded-md text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all">Bulanan</button>
+                        <h3 className="text-lg font-bold text-[#111418] dark:text-white tracking-tight">
+                            {showAnalytics ? 'Analisis Kehadiran' : 'Riwayat Absensi'}
+                        </h3>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowAnalytics(!showAnalytics)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+                                    showAnalytics
+                                        ? 'bg-blue-600 text-white border-blue-600'
+                                        : 'bg-slate-100 dark:bg-[#1c2936] text-slate-600 dark:text-gray-400 border-slate-200 dark:border-gray-800'
+                                }`}
+                            >
+                                <MdAnalytics className="text-sm" />
+                                <span className="text-xs font-bold">{showAnalytics ? 'Riwayat' : 'Analisis'}</span>
+                            </button>
                         </div>
                     </div>
 
-                    <div className="space-y-3 pb-6">
+                    {showAnalytics ? (
+                        <AttendanceAnalytics userId={user?.id} />
+                    ) : (
+                        <div className="space-y-3 pb-6">
                         {history.map((record) => {
                             const recDate = new Date(record.checkIn)
                             const recCheckIn = format(recDate, 'HH:mm')
@@ -754,7 +806,8 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
                         {history.length === 0 && (
                             <p className="text-center text-sm text-gray-400 py-4">Belum ada riwayat absensi</p>
                         )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

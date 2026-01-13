@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-import { convertAndSaveImage } from '@/lib/utils/image-upload'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now()
@@ -14,6 +14,13 @@ export async function POST(request: NextRequest) {
         }
 
         const userId = session.user.id
+
+        if (!userId) {
+            return NextResponse.json({
+                error: 'Unauthorized',
+                code: 'UNAUTHORIZED'
+            }, { status: 401 })
+        }
 
         // Cari attendance aktif (sudah check-in, belum check-out)
         // Kita mundur 24 jam untuk mengakomodasi perbedaan timezone atau edit jam manual
@@ -32,39 +39,30 @@ export async function POST(request: NextRequest) {
         })
 
         if (!attendance) {
-            return NextResponse.json({ error: 'Anda belum melakukan check-in atau sudah check-out hari ini' }, { status: 400 })
+            return NextResponse.json({
+                error: 'Anda belum melakukan check-in atau sudah check-out hari ini',
+                code: 'NO_ACTIVE_SESSION'
+            }, { status: 400 })
         }
 
         const formData: any = await request.formData()
-        const photo = formData.get('photo') as File
+        const photo = formData.get('photo') as File | null
         const notes = formData.get('notes') as string // Optional checkout notes
         const location = formData.get('location') as string // Fetch location from form data
 
-        let photoUrl = null
-
+        // Process photo using centralized service
+        const photoService = new AttendancePhotoService()
+        let photoUrl: string | null = null
+        
         if (photo) {
-            // Validasi foto
-            if (!photo.type.startsWith('image/')) {
-                return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 })
+            try {
+                photoUrl = await photoService.processPhoto(photo, userId, 'checkout')
+            } catch (error: any) {
+                return NextResponse.json({
+                    error: error.message,
+                    code: 'VALIDATION_ERROR'
+                }, { status: 400 })
             }
-
-            const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-            if (photo.size > MAX_SIZE) {
-                return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 })
-            }
-
-            // Upload foto
-            const dateStr = new Date().toISOString().split('T')[0]
-            const uploadDir = `public/uploads/attendance/${dateStr}`
-            const fileName = `${userId}_checkout_${Date.now()}`
-
-            photoUrl = await convertAndSaveImage(
-                photo,
-                uploadDir,
-                fileName,
-                'employee-attendance',
-                userId
-            )
         }
 
         // Update attendance
@@ -87,6 +85,9 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         logger.error('Error in check-out', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return NextResponse.json({
+            error: 'Internal server error',
+            code: 'INTERNAL_ERROR'
+        }, { status: 500 })
     }
 }

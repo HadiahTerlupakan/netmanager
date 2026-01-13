@@ -106,7 +106,7 @@ export class OvertimeService {
         const today = new Date()
         const { isHoliday } = await this.holidayRepository.isHoliday(today)
 
-        // Cari attendance hari ini yang sudah checkout
+        // Cari attendance hari ini (tidak wajib checkout)
         const startOfDay = new Date()
         startOfDay.setHours(0, 0, 0, 0)
         const endOfDay = new Date()
@@ -119,7 +119,6 @@ export class OvertimeService {
                     gte: startOfDay,
                     lte: endOfDay,
                 },
-                checkOut: { not: null } // Wajib sudah checkout
             },
             orderBy: {
                 checkIn: 'desc'
@@ -134,16 +133,17 @@ export class OvertimeService {
             }
         })
 
-        // VALIDASI:
-        // Jika BUKAN hari libur, dan TIDAK ADA attendance yg checkout -> error
+        // NEW: More flexible validation - warning instead of error
         if (!isHoliday && !attendance) {
-            throw new Error('Wajib Checkout Absen Reguler terlebih dahulu sebelum memulai lembur (kecuali hari libur).')
+            // Warning instead of error
+            console.warn(`[Overtime] User ${userId} starting overtime without regular attendance`)
+            // Still allow, but log it
         }
 
-        // Check whether it is a holiday or not
-        if (attendance && attendance.user.workingHourMode === 'FLEXIBLE' && !isHoliday) {
+        // NEW: Remove flexible target requirement - only log warning
+        if (attendance && attendance.user.workingHourMode === 'FLEXIBLE' && !isHoliday && attendance.checkOut) {
             const checkInTime = new Date(attendance.checkIn).getTime()
-            const checkOutTime = new Date(attendance.checkOut!).getTime() // Pasti ada krn query filter
+            const checkOutTime = new Date(attendance.checkOut).getTime()
             const durationHours = (checkOutTime - checkInTime) / (1000 * 60 * 60)
             
             // Default target 8 jam jika null
@@ -151,7 +151,8 @@ export class OvertimeService {
 
             if (durationHours < targetHours) {
                 const shortfall = (targetHours - durationHours).toFixed(1)
-                throw new Error(`Target Belum Terpenuhi: Kerja baru ${durationHours.toFixed(1)} jam dari target ${targetHours} jam (Kurang ${shortfall} jam). Selesaikan shift reguler sebelum lembur.`)
+                console.warn(`[Overtime] User ${userId} starting overtime with incomplete regular shift: ${durationHours.toFixed(1)}h worked vs ${targetHours}h target (shortfall: ${shortfall}h)`)
+                // Still allow, but log it
             }
         }
 
