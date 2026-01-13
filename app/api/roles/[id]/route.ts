@@ -69,6 +69,11 @@ export async function PUT(req: Request, { params }: Params) {
             isTechnical: validated.isTechnical
         })
 
+        // Invalidate permission cache for all users with this role
+        // This ensures the changes take effect immediately without re-login
+        const { invalidateRolePermissionCache } = await import('@/lib/auth')
+        await invalidateRolePermissionCache(id)
+
         return NextResponse.json(updatedRole)
     } catch (error) {
         console.error('Error updating role:', error)
