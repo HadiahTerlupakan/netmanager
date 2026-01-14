@@ -10,6 +10,30 @@ const withPWA = withPWAInit({
   customWorkerSrc: 'worker',
   customWorkerDest: 'public',
   customWorkerPrefix: 'worker',
+  // Exclude uploads folder from precaching (files are stored in CDN/R2)
+  // This prevents 404 errors when files are moved/deleted
+  workboxOptions: {
+    runtimeCaching: [
+      {
+        // Cache images from uploads on-demand (not precached)
+        urlPattern: /\/uploads\/.*/i,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'uploads-cache',
+          expiration: {
+            maxEntries: 100,
+            maxAgeSeconds: 24 * 60 * 60, // 24 hours
+          },
+          networkTimeoutSeconds: 10,
+        },
+      },
+    ],
+    // Exclude these patterns from precaching
+    exclude: [
+      /\/uploads\/.*/,
+      /\.map$/,
+    ],
+  },
 })
 
 const nextConfig: NextConfig = {
