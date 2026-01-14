@@ -19,11 +19,18 @@ import {
   HiOutlineShieldCheck,
   HiOutlineExclamationTriangle,
   HiArrowPath,
-  HiOutlineIdentification
+  HiOutlineIdentification,
+  HiOutlineStar
 } from 'react-icons/hi2'
 import WorkingHoursSettings from './WorkingHoursSettings'
 import UserPerformanceStats from './UserPerformanceStats'
 import SalesPerformanceStats from './SalesPerformanceStats'
+import MultiSiteSelect from '../components/MultiSiteSelect'
+
+interface SelectedSite {
+  siteId: string
+  isPrimary: boolean
+}
 
 interface Department {
   id: string
@@ -56,7 +63,14 @@ interface UserData {
   site?: { code: string; name: string } | null
   sites?: { code: string; name: string } | null
   role?: { name: string } | null
-  // New fields
+  // Multi-site support
+  userSites?: Array<{
+    id: string
+    siteId: string
+    isPrimary: boolean
+    site: { id: string; code: string; name: string }
+  }>
+  // Working hours
   workingHourMode?: string
   startWorkTime?: string | null
   endWorkTime?: string | null
@@ -83,6 +97,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
   const [user, setUser] = useState<UserData | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showPassword, setShowPassword] = useState(false)
+  const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([])
 
   const [formData, setFormData] = useState({
     name: '',
@@ -175,6 +190,16 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           shiftId: usr.shiftId || '',
           isSales: usr.isSales || false
         })
+        // Multi-site: Load userSites
+        if (usr.userSites && usr.userSites.length > 0) {
+          setSelectedSites(usr.userSites.map((us: any) => ({
+            siteId: us.siteId,
+            isPrimary: us.isPrimary
+          })))
+        } else if (usr.siteId) {
+          // Fallback: convert legacy siteId to multi-site format
+          setSelectedSites([{ siteId: usr.siteId, isPrimary: true }])
+        }
       }
     } catch (error: any) {
       console.error('Error fetching user:', error)
@@ -248,7 +273,6 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         name: formData.name,
         phone: formData.phone || null,
         departmentId: formData.departmentId || null,
-        siteId: formData.siteId || null,
         roleId: formData.roleId,
         isActive: formData.isActive,
         // Working Hours
@@ -259,6 +283,8 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         flexibleTargetHour: formData.flexibleTargetHour || null,
         shiftId: formData.shiftId || null,
         isSales: formData.isSales,
+        // Multi-site support
+        userSites: selectedSites,
       }
 
       if (formData.password) {
@@ -415,17 +441,35 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
             </p>
           </div>
 
-          {/* Site Card */}
+          {/* Site Card - Multi-site */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <HiOutlineMap className="w-5 h-5 text-green-500" />
               Site / Area Kerja
             </h3>
-            <p className="text-xl font-medium text-gray-900 dark:text-white">
-              {sites.find(s => s.id === formData.siteId)
-                ? `${sites.find(s => s.id === formData.siteId)?.code} - ${sites.find(s => s.id === formData.siteId)?.name}`
-                : user?.sites ? `${user.sites.code} - ${user.sites.name}` : user?.site ? `${user.site.code} - ${user.site.name}` : '-'}
-            </p>
+            {user?.userSites && user.userSites.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {user.userSites.map((us) => (
+                  <span
+                    key={us.id}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
+                      us.isPrimary
+                        ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    {us.isPrimary && <HiOutlineStar className="w-3.5 h-3.5" />}
+                    {us.site.code} - {us.site.name}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xl font-medium text-gray-900 dark:text-white">
+                {user?.sites ? `${user.sites.code} - ${user.sites.name}` 
+                  : user?.site ? `${user.site.code} - ${user.site.name}` 
+                  : '-'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -661,27 +705,13 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
                 </div>
               </div>
 
-              {/* Site */}
+              {/* Site - Multi-site Select */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Site / Area Kerja
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlineMap className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <select
-                    name="siteId"
-                    value={formData.siteId}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  >
-                    <option value="">Pilih Site</option>
-                    {sites.map(site => (
-                      <option key={site.id} value={site.id}>{site.code} - {site.name}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSiteSelect
+                  sites={sites}
+                  selectedSites={selectedSites}
+                  onChange={setSelectedSites}
+                />
               </div>
             </div>
           </div>

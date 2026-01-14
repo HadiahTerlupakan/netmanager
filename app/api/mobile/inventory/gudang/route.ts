@@ -19,12 +19,15 @@ export async function GET(req: NextRequest) {
 
         const userId = decoded.id as string
 
-        // Fetch user to check permissions and siteId
+        // Fetch user to check permissions and site access (Multi-site support)
         const user = await prisma.user.findUnique({
             where: { id: userId },
             include: { 
                 role: { include: { permission: true } },
-                sites: true
+                sites: true,
+                userSites: {
+                    include: { site: true }
+                }
             }
         })
 
@@ -47,15 +50,26 @@ export async function GET(req: NextRequest) {
             const { searchParams } = new URL(req.url)
             const workOrderId = searchParams.get('workOrderId')
 
-            const allowedSiteIds = []
-            if (user.sites?.id) allowedSiteIds.push(user.sites.id)
+            // Collect user's site IDs (multi-site + legacy)
+            const allowedSiteIds: string[] = []
+            
+            // Multi-site: from userSites relation
+            if (user.userSites && user.userSites.length > 0) {
+                allowedSiteIds.push(...user.userSites.map(us => us.siteId));
+            }
+            // Legacy: from sites relation
+            else if (user.sites?.id) {
+                allowedSiteIds.push(user.sites.id)
+            }
 
             if (workOrderId) {
                 const wo = await prisma.workOrders.findUnique({
                     where: { id: workOrderId },
                     select: { siteId: true }
                 })
-                if (wo?.siteId) allowedSiteIds.push(wo.siteId)
+                if (wo?.siteId && !allowedSiteIds.includes(wo.siteId)) {
+                    allowedSiteIds.push(wo.siteId)
+                }
             }
 
             if (allowedSiteIds.length === 0) {
@@ -70,7 +84,7 @@ export async function GET(req: NextRequest) {
                 }, { status: 403 })
             }
 
-            // Filter by Site (User's site OR WorkOrder's site) using many-to-many relation
+            // Filter by Site (User's sites OR WorkOrder's site) using many-to-many relation
             whereClause.sites = {
                 some: {
                     id: { in: allowedSiteIds }

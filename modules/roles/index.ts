@@ -14,8 +14,12 @@ export { RoleService, getRoleService } from './services/RoleService'
 export {
     checkSiteRestriction,
     getSiteFilter,
+    getSiteFilters,           // Multi-site: get array of siteIds
+    buildMultiSiteWhereClause, // Multi-site: Prisma where clause
     canAccessSite,
     validateSiteAccess,
-    buildSiteWhereClause
+    buildSiteWhereClause,
+    getPrimarySiteId,         // Multi-site: get primary site
+    getUserSiteIds            // Multi-site: get all user sites
 } from './services/SiteRestrictionService'
 export type { SiteRestrictionResult } from './services/SiteRestrictionService'

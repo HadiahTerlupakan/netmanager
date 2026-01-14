@@ -1044,6 +1044,7 @@ model User {
   departments                                Departments?              @relation(fields: [departmentId], references: [id])
   role                                       Role?                     @relation(fields: [roleId], references: [id])
   sites                                      Sites?                    @relation(fields: [siteId], references: [id])
+  userSites                                  UserSite[] // Multi-site support (Many-to-Many)
   appVersions                                AppVersion[]
   barang_keluar                              BarangKeluar[]
   barang_masuk                               BarangMasuk[]
@@ -1072,6 +1073,24 @@ model User {
   @@index([roleId])
   @@index([siteId])
   @@index([shiftId])
+}
+
+// Junction table for User-Site Many-to-Many relationship
+// Allows a user to be assigned to multiple sites
+model UserSite {
+  id        String   @id @default(cuid())
+  userId    String
+  siteId    String
+  isPrimary Boolean  @default(false) // Primary site for default behavior
+  createdAt DateTime @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site Sites @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, siteId])
+  @@index([userId])
+  @@index([siteId])
+  @@map("user_sites")
 }
 
 model VerificationToken {
@@ -1758,6 +1777,7 @@ model Sites {
   pelanggan        Pelanggan[]
   poles            Pole[]
   user             User[]
+  userSites        UserSite[] // Multi-site support (Many-to-Many)
   notifications    Notifications[]
   work_orders      WorkOrders[]
   gudang           Gudang[]         @relation("GudangToSite")

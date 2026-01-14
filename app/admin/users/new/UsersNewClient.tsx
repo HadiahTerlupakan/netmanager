@@ -13,12 +13,17 @@ import {
   HiOutlinePhone,
   HiOutlineUser,
   HiOutlineEnvelope,
-  HiOutlineMap,
   HiOutlineExclamationTriangle,
   HiOutlineCheckCircle,
   HiOutlineShieldCheck,
   HiOutlineIdentification
 } from 'react-icons/hi2'
+import MultiSiteSelect from '../components/MultiSiteSelect'
+
+interface SelectedSite {
+  siteId: string
+  isPrimary: boolean
+}
 
 interface Department {
   id: string
@@ -55,12 +60,12 @@ export function ClientComponent() {
     phone: '',
     // Organization
     departmentId: '',
-    siteId: '',
     // Role
     roleId: '',
     // Status
     isActive: true,
   })
+  const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([])
 
   useEffect(() => {
     fetchDepartments()
@@ -173,10 +178,14 @@ export function ClientComponent() {
     setLoading(true)
 
     try {
+      const submitData = {
+        ...formData,
+        userSites: selectedSites,
+      }
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       })
 
       const data = await res.json()
@@ -423,27 +432,13 @@ export function ClientComponent() {
                 </div>
               </div>
 
-              {/* Site */}
+              {/* Site - Multi-site Select */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Site / Area Kerja
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <HiOutlineMap className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <select
-                    name="siteId"
-                    value={formData.siteId}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  >
-                    <option value="">Pilih Site</option>
-                    {sites.map(site => (
-                      <option key={site.id} value={site.id}>{site.code} - {site.name}</option>
-                    ))}
-                  </select>
-                </div>
+                <MultiSiteSelect
+                  sites={sites}
+                  selectedSites={selectedSites}
+                  onChange={setSelectedSites}
+                />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Site diperlukan untuk melihat work order di area tersebut</p>
               </div>
             </div>

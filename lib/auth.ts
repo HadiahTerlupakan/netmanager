@@ -230,7 +230,11 @@ export const authConfig: NextAuthOptions = {
                   permission: true
                 }
               },
-              departments: true // Include department details
+              departments: true, // Include department details
+              userSites: {       // Multi-site support
+                include: { site: true },
+                orderBy: { isPrimary: 'desc' } // Primary site first
+              }
             }
           })
 
@@ -252,9 +256,14 @@ export const authConfig: NextAuthOptions = {
             token.accessEmployeePanel = true
           }
 
-          // Legacy support (optional)
+          // Multi-site support
+          const userSites = dbUser?.userSites || []
+          token.siteIds = userSites.map(us => us.siteId)
+          token.primarySiteId = userSites.find(us => us.isPrimary)?.siteId || userSites[0]?.siteId || null
+          
+          // Legacy support - keep siteId for backward compatibility
           token.departmentId = dbUser?.departmentId
-          token.siteId = dbUser?.siteId
+          token.siteId = token.primarySiteId || dbUser?.siteId // Prefer primary site
           
           // Token version for force logout feature
           token.tokenVersion = dbUser?.tokenVersion ?? 0
@@ -265,7 +274,9 @@ export const authConfig: NextAuthOptions = {
             department: token.departmentName,
             accessAdmin: token.accessAdminPanel,
             accessEmployee: token.accessEmployeePanel,
-            permissionsCount: token.permissionsCount
+            permissionsCount: token.permissionsCount,
+            siteCount: (token.siteIds as string[] | undefined)?.length || 0,
+            primarySiteId: token.primarySiteId
           })
         } catch (error) {
           console.error('[AUTH JWT] Error fetching user role:', error)
@@ -286,7 +297,11 @@ export const authConfig: NextAuthOptions = {
                 permission: true
               }
             },
-            departments: true
+            departments: true,
+            userSites: {  // Multi-site support
+              include: { site: true },
+              orderBy: { isPrimary: 'desc' }
+            }
           }
         })
 
@@ -296,9 +311,14 @@ export const authConfig: NextAuthOptions = {
           token.picture = dbUser.image
           token.departmentId = dbUser.departmentId
           token.departmentName = dbUser.departments?.name
-          token.siteId = dbUser.siteId
           token.tokenVersion = dbUser.tokenVersion ?? 0
           token.isSales = dbUser.isSales ?? false
+
+          // Multi-site support
+          const userSites = dbUser.userSites || []
+          token.siteIds = userSites.map(us => us.siteId)
+          token.primarySiteId = userSites.find(us => us.isPrimary)?.siteId || userSites[0]?.siteId || null
+          token.siteId = token.primarySiteId || dbUser.siteId // Legacy: prefer primary site
 
           token.role = dbUser.role?.name || 'USER'
           token.accessAdminPanel = dbUser.role?.accessAdminPanel ?? false
@@ -352,7 +372,9 @@ export const authConfig: NextAuthOptions = {
         (session.user as any).permissionsCount = token.permissionsCount;
         (session.user as any).departmentId = token.departmentId;
         (session.user as any).departmentName = token.departmentName;
-        (session.user as any).siteId = token.siteId;
+        (session.user as any).siteId = token.siteId; // Legacy: primary site
+        (session.user as any).siteIds = token.siteIds; // Multi-site: all site IDs
+        (session.user as any).primarySiteId = token.primarySiteId; // Multi-site: primary
         (session.user as any).isSales = token.isSales;
       }
       return session
@@ -397,7 +419,12 @@ export interface UserSession {
   name: string | null
   role: string | undefined
   departmentId: string | undefined
+  /** @deprecated Use siteIds for multi-site */
   siteId: string | undefined
+  /** Multi-site: Array of site IDs */
+  siteIds: string[]
+  /** Multi-site: Primary site ID */
+  primarySiteId: string | undefined
   permissions: string[] | undefined
 }
 
@@ -418,14 +445,17 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
       
       if (mobilePayload) {
         console.log('[AUTH_VERIFY] Mobile token verified for:', mobilePayload.email)
+        const mp = mobilePayload as any
         return {
           id: mobilePayload.userId,
           email: mobilePayload.email as string,
           name: mobilePayload.name as string | null,
           role: mobilePayload.role as string | undefined,
-          departmentId: (mobilePayload as any).departmentId as string | undefined,
-          siteId: (mobilePayload as any).siteId as string | undefined,
-          permissions: (mobilePayload as any).permissions as string[] | undefined,
+          departmentId: mp.departmentId as string | undefined,
+          siteId: mp.primarySiteId || mp.siteId as string | undefined,
+          siteIds: mp.siteIds || (mp.siteId ? [mp.siteId] : []),
+          primarySiteId: mp.primarySiteId as string | undefined,
+          permissions: mp.permissions as string[] | undefined,
         }
       } else {
         console.warn('[AUTH_VERIFY] Mobile token verification failed')
@@ -450,6 +480,8 @@ export async function verifyAuth(request: NextRequest): Promise<UserSession | nu
       role: token.role as string | undefined,
       departmentId: token.departmentId as string | undefined,
       siteId: token.siteId as string | undefined,
+      siteIds: (token.siteIds as string[]) || (token.siteId ? [token.siteId as string] : []),
+      primarySiteId: token.primarySiteId as string | undefined,
       permissions: token.permissions as string[] | undefined,
     }
   } catch (error) {

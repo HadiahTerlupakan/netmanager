@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { HiOutlinePlus, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye, HiOutlineTrash, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineFunnel, HiOutlineArrowRightOnRectangle, HiOutlineDevicePhoneMobile } from 'react-icons/hi2'
+import { HiOutlinePlus, HiOutlineUserCircle, HiMagnifyingGlass, HiOutlineUsers, HiOutlineBuildingOffice, HiOutlineEye, HiOutlineTrash, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineFunnel, HiOutlineArrowRightOnRectangle, HiOutlineDevicePhoneMobile, HiOutlineMap, HiOutlineStar } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { toast } from 'react-hot-toast'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
@@ -24,6 +24,13 @@ interface User {
         code: string
         name: string
     }
+    // Multi-site support
+    userSites?: Array<{
+        id: string
+        siteId: string
+        isPrimary: boolean
+        site: { id: string; code: string; name: string }
+    }>
     role?: {
         id: string
         name: string
@@ -228,6 +235,47 @@ export default function UserList() {
                     <span className="text-sm text-gray-400">-</span>
                 )
             )
+        },
+        {
+            key: 'sites',
+            header: 'Site',
+            priority: 'secondary',
+            render: (user) => {
+                // Multi-site: show all sites with primary indicator
+                if (user.userSites && user.userSites.length > 0) {
+                    return (
+                        <div className="flex flex-wrap gap-1">
+                            {user.userSites.slice(0, 2).map((us) => (
+                                <span
+                                    key={us.id}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                                        us.isPrimary
+                                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                                    }`}
+                                >
+                                    {us.isPrimary && <HiOutlineStar className="w-3 h-3" />}
+                                    {us.site.code}
+                                </span>
+                            ))}
+                            {user.userSites.length > 2 && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                                    +{user.userSites.length - 2}
+                                </span>
+                            )}
+                        </div>
+                    )
+                }
+                // Fallback: legacy single site
+                return user.sites?.code ? (
+                    <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+                        <HiOutlineMap className="w-3.5 h-3.5 text-gray-400" />
+                        {user.sites.code}
+                    </span>
+                ) : (
+                    <span className="text-sm text-gray-400">-</span>
+                )
+            }
         },
         {
             key: 'role',

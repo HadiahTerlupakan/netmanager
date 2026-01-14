@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 /**
  * GeofenceService - Validasi lokasi absensi terhadap zona geofence Sites
  * Menggunakan Formula Haversine untuk menghitung jarak antara 2 koordinat
+ * 
+ * Multi-site Support: User bisa punya banyak sites via userSites relation
  */
 export class GeofenceService {
     private readonly EARTH_RADIUS_METERS = 6371000 // Radius bumi dalam meter
@@ -36,9 +38,9 @@ export class GeofenceService {
     }
 
     /**
-     * Validasi koordinat terhadap site yang dimiliki user
-     * Note: User hanya memiliki 1 site (relasi singular)
-     * @returns Object dengan status validasi dan info zona
+     * Validasi koordinat terhadap sites yang dimiliki user
+     * Multi-site: Cek semua sites dari userSites, fallback ke legacy sites
+     * @returns Object dengan status validasi dan info zona terdekat
      */
     async validateGeofence(userId: string, latitude: number, longitude: number): Promise<{
         isInside: boolean
@@ -46,10 +48,26 @@ export class GeofenceService {
         nearestSiteName: string | null
         nearestSiteId: string | null
     }> {
-        // Ambil site yang dimiliki user
+        // Ambil sites yang dimiliki user (multi-site + legacy fallback)
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: {
+                // Multi-site: userSites relation
+                userSites: {
+                    select: {
+                        site: {
+                            select: {
+                                id: true,
+                                name: true,
+                                latitude: true,
+                                longitude: true,
+                                attendanceRadius: true,
+                                isActive: true
+                            }
+                        }
+                    }
+                },
+                // Legacy: single site
                 sites: {
                     select: {
                         id: true,
@@ -63,35 +81,93 @@ export class GeofenceService {
             }
         })
 
-        // Jika user tidak ada atau tidak punya site dengan koordinat
-        if (!user || !user.sites || !user.sites.isActive || 
-            user.sites.latitude === null || user.sites.longitude === null) {
+        if (!user) {
             return {
-                isInside: true, // Jika tidak ada site, anggap valid
+                isInside: true,
                 nearestDistance: null,
                 nearestSiteName: null,
                 nearestSiteId: null
             }
         }
 
-        const site = user.sites
-        const distance = this.calculateDistance(
-            latitude, longitude,
-            site.latitude!, site.longitude!
-        )
+        // Collect all valid sites (multi-site first, then legacy fallback)
+        const validSites: Array<{
+            id: string
+            name: string
+            latitude: number
+            longitude: number
+            attendanceRadius: number
+        }> = []
 
-        const isInside = distance <= site.attendanceRadius
+        // Multi-site: get sites from userSites
+        if (user.userSites && user.userSites.length > 0) {
+            for (const us of user.userSites) {
+                const site = us.site
+                if (site.isActive && site.latitude !== null && site.longitude !== null) {
+                    validSites.push({
+                        id: site.id,
+                        name: site.name,
+                        latitude: site.latitude,
+                        longitude: site.longitude,
+                        attendanceRadius: site.attendanceRadius
+                    })
+                }
+            }
+        }
+
+        // Legacy fallback: use single site if no userSites
+        if (validSites.length === 0 && user.sites && user.sites.isActive &&
+            user.sites.latitude !== null && user.sites.longitude !== null) {
+            validSites.push({
+                id: user.sites.id,
+                name: user.sites.name,
+                latitude: user.sites.latitude,
+                longitude: user.sites.longitude,
+                attendanceRadius: user.sites.attendanceRadius
+            })
+        }
+
+        // If no valid sites, allow attendance anywhere
+        if (validSites.length === 0) {
+            return {
+                isInside: true,
+                nearestDistance: null,
+                nearestSiteName: null,
+                nearestSiteId: null
+            }
+        }
+
+        // Check against all sites, find nearest
+        let nearestDistance = Infinity
+        let nearestSiteName: string | null = null
+        let nearestSiteId: string | null = null
+        let isInside = false
+
+        for (const site of validSites) {
+            const distance = this.calculateDistance(latitude, longitude, site.latitude, site.longitude)
+            
+            if (distance < nearestDistance) {
+                nearestDistance = distance
+                nearestSiteName = site.name
+                nearestSiteId = site.id
+            }
+            
+            if (distance <= site.attendanceRadius) {
+                isInside = true
+            }
+        }
 
         return {
             isInside,
-            nearestDistance: Math.round(distance),
-            nearestSiteName: site.name,
-            nearestSiteId: site.id
+            nearestDistance: Math.round(nearestDistance),
+            nearestSiteName,
+            nearestSiteId
         }
     }
 
     /**
-     * Ambil geofence zone untuk user tertentu
+     * Ambil geofence zones untuk user tertentu
+     * Multi-site: Return semua sites dari userSites + legacy fallback
      */
     async getZonesForUser(userId: string): Promise<Array<{
         siteId: string
@@ -103,6 +179,22 @@ export class GeofenceService {
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: {
+                // Multi-site
+                userSites: {
+                    select: {
+                        site: {
+                            select: {
+                                id: true,
+                                name: true,
+                                latitude: true,
+                                longitude: true,
+                                attendanceRadius: true,
+                                isActive: true
+                            }
+                        }
+                    }
+                },
+                // Legacy
                 sites: {
                     select: {
                         id: true,
@@ -116,19 +208,45 @@ export class GeofenceService {
             }
         })
 
-        if (!user || !user.sites || !user.sites.isActive ||
-            user.sites.latitude === null || user.sites.longitude === null) {
-            return []
+        if (!user) return []
+
+        const zones: Array<{
+            siteId: string
+            siteName: string
+            latitude: number
+            longitude: number
+            radius: number
+        }> = []
+
+        // Multi-site: get zones from userSites
+        if (user.userSites && user.userSites.length > 0) {
+            for (const us of user.userSites) {
+                const site = us.site
+                if (site.isActive && site.latitude !== null && site.longitude !== null) {
+                    zones.push({
+                        siteId: site.id,
+                        siteName: site.name,
+                        latitude: site.latitude,
+                        longitude: site.longitude,
+                        radius: site.attendanceRadius
+                    })
+                }
+            }
         }
 
-        const site = user.sites
-        return [{
-            siteId: site.id,
-            siteName: site.name,
-            latitude: site.latitude!,
-            longitude: site.longitude!,
-            radius: site.attendanceRadius
-        }]
+        // Legacy fallback: use single site if no userSites
+        if (zones.length === 0 && user.sites && user.sites.isActive &&
+            user.sites.latitude !== null && user.sites.longitude !== null) {
+            zones.push({
+                siteId: user.sites.id,
+                siteName: user.sites.name,
+                latitude: user.sites.latitude,
+                longitude: user.sites.longitude,
+                radius: user.sites.attendanceRadius
+            })
+        }
+
+        return zones
     }
 }
 

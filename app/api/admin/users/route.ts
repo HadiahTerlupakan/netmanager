@@ -6,6 +6,7 @@ import { userCreateSchema } from '@/lib/validations/user'
 import { logger } from '@/lib/logger'
 import { getSiteFilter, checkSiteRestriction } from '@/lib/site-restriction'
 import { authorize, isAuthError } from '@/lib/authorization-middleware'
+import { prisma } from '@/lib/prisma'
 
 /**
  * @swagger
@@ -203,7 +204,8 @@ export async function POST(req: NextRequest) {
 
     const {
       email, name, password,
-      phone, departmentId, siteId, isActive, roleId
+      phone, departmentId, siteId, isActive, roleId,
+      userSites  // Multi-site support
     } = formData
 
     // const permissions = (session.user as any).permissions || []
@@ -251,6 +253,28 @@ export async function POST(req: NextRequest) {
         roleId,
         isActive,
       })
+
+      // Handle multi-site: create userSites records
+      if (userSites && Array.isArray(userSites) && userSites.length > 0) {
+        await prisma.userSite.createMany({
+          data: userSites.map((us: { siteId: string; isPrimary: boolean }) => ({
+            userId: user.id,
+            siteId: us.siteId,
+            isPrimary: us.isPrimary || false
+          }))
+        })
+
+        // Update legacy siteId to primary site for backward compatibility
+        const primarySite = userSites.find((us: { isPrimary: boolean }) => us.isPrimary)
+        if (primarySite) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { siteId: primarySite.siteId }
+          })
+        }
+
+        logger.info('UserSites created for new user', { userId: user.id, count: userSites.length })
+      }
 
       logger.apiRequest('POST', '/api/admin/users', 200, Date.now() - startTime, {
         userId: session.user.id,

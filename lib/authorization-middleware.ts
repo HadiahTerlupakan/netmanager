@@ -50,7 +50,12 @@ export interface AuthorizedSession {
     email: string
     name: string | null
     role: string
+    /** @deprecated Use siteIds for multi-site */
     siteId?: string | null
+    /** Multi-site: Array of site IDs */
+    siteIds?: string[]
+    /** Multi-site: Primary site ID */
+    primarySiteId?: string | null
     departmentId?: string | null
     isSales?: boolean
   }
@@ -141,6 +146,8 @@ export async function authorize(
   const userId = session.user.id
   const userRole = session.user.role || ''
   const userSiteId = session.user.siteId
+  const userSiteIds = session.user.siteIds || (userSiteId ? [userSiteId] : [])
+  const primarySiteId = session.user.primarySiteId || userSiteId
 
   // -------------------------------------------------------------------------
   // Step 2: Load User Permissions (always from database)
@@ -174,7 +181,9 @@ export async function authorize(
           email: session.user.email || '',
           name: session.user.name || null,
           role: userRole,
-          siteId: userSiteId,
+          siteId: primarySiteId,
+          siteIds: userSiteIds,
+          primarySiteId,
           departmentId: session.user.departmentId,
           isSales: session.user.isSales
         },
@@ -255,7 +264,9 @@ export async function authorize(
         email: session.user.email || '',
         name: session.user.name || null,
         role: userRole,
-        siteId: userSiteId,
+        siteId: primarySiteId,
+        siteIds: userSiteIds,
+        primarySiteId,
         departmentId: session.user.departmentId,
         isSales: session.user.isSales
       },

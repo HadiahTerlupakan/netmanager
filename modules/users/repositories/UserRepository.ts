@@ -18,6 +18,12 @@ export interface UserWithRelations extends User {
     department?: { id: string; name: string } | null
     site?: { id: string; code: string; name: string } | null
     role?: { id: string; name: string } | null
+    userSites?: Array<{
+        id: string
+        siteId: string
+        isPrimary: boolean
+        site: { id: string; code: string; name: string }
+    }>
 }
 
 export class UserRepository {
@@ -30,6 +36,15 @@ export class UserRepository {
                 departments: { select: { id: true, name: true } },
                 sites: { select: { id: true, code: true, name: true } },
                 role: { select: { id: true, name: true } },
+                userSites: {
+                    select: {
+                        id: true,
+                        siteId: true,
+                        isPrimary: true,
+                        site: { select: { id: true, code: true, name: true } }
+                    },
+                    orderBy: { isPrimary: 'desc' }
+                },
             },
         })
 
@@ -37,7 +52,8 @@ export class UserRepository {
             ...user,
             department: user.departments,
             site: user.sites,
-            role: user.role
+            role: user.role,
+            userSites: user.userSites
         }))
     }
 

@@ -20,25 +20,36 @@ export async function GET(request: NextRequest) {
 
         const userId = payload.id as string;
 
-        // Fetch user to get department, site and name
+        // Fetch user to get department, site(s) and name
+        // Multi-site: Include userSites
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { departmentId: true, siteId: true, name: true }
+            select: { 
+                departmentId: true, 
+                siteId: true, 
+                name: true,
+                userSites: {
+                    select: { siteId: true }
+                }
+            }
         });
+
+        // Collect user's site IDs (multi-site + legacy)
+        const userSiteIds: string[] = [];
+        if (user?.userSites && user.userSites.length > 0) {
+            userSiteIds.push(...user.userSites.map(us => us.siteId));
+        } else if (user?.siteId) {
+            userSiteIds.push(user.siteId);
+        }
 
         // Strict Filtering Logic:
         // 1. If WO has Dept, User must be in that Dept (or User is Dept-less? No, usually Users must be in Dept)
         //    Easier: WO Dept is NULL OR WO Dept == User Dept
-        // 2. If WO has Site, User must be in that Site (or WO Site is NULL)
+        // 2. If WO has Site, User must have access to that Site (via userSites or legacy siteId)
         
         const departmentFilter: any = { departmentId: null };
         if (user?.departmentId) {
             departmentFilter.departmentId = { in: [null, user.departmentId] }; // Allow null or match
-        }
-
-        const siteFilter: any = { siteId: null };
-        if (user?.siteId) {
-            siteFilter.siteId = { in: [null, user.siteId] }; // Allow null or match
         }
 
         const workOrders = await prisma.workOrders.findMany({
@@ -51,10 +62,10 @@ export async function GET(request: NextRequest) {
                         ? { OR: [{ departmentId: null }, { departmentId: user.departmentId }] }
                         : { departmentId: null }, // If user has no dept, can only see global
 
-                    // Handle Site Match
-                    user?.siteId 
-                        ? { OR: [{ siteId: null }, { siteId: user.siteId }] }
-                        : { siteId: null } // If user has no site, can only see global location
+                    // Handle Site Match (Multi-site support)
+                    userSiteIds.length > 0
+                        ? { OR: [{ siteId: null }, { siteId: { in: userSiteIds } }] }
+                        : { siteId: null } // If user has no sites, can only see global location
                 ]
             },
             select: {
@@ -132,11 +143,26 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'workOrderId is required' }, { status: 400 });
         }
 
-        // Fetch User to check permissions
+        // Fetch User to check permissions (Multi-site support)
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { departmentId: true, siteId: true, name: true }
+            select: { 
+                departmentId: true, 
+                siteId: true, 
+                name: true,
+                userSites: {
+                    select: { siteId: true }
+                }
+            }
         });
+
+        // Collect user's site IDs (multi-site + legacy)
+        const userSiteIds: string[] = [];
+        if (user?.userSites && user.userSites.length > 0) {
+            userSiteIds.push(...user.userSites.map(us => us.siteId));
+        } else if (user?.siteId) {
+            userSiteIds.push(user.siteId);
+        }
 
         // Check if work order exists and is available
         const workOrder = await prisma.workOrders.findUnique({
@@ -159,8 +185,8 @@ export async function POST(request: NextRequest) {
         // 1. Check Department
         const isDeptValid = !workOrder.departmentId || (user?.departmentId && workOrder.departmentId === user.departmentId);
         
-        // 2. Check Site
-        const isSiteValid = !workOrder.siteId || (user?.siteId && workOrder.siteId === user.siteId);
+        // 2. Check Site (Multi-site: check against userSiteIds array)
+        const isSiteValid = !workOrder.siteId || userSiteIds.includes(workOrder.siteId);
 
         if (!isDeptValid || !isSiteValid) {
             let errorMsg = 'Anda tidak memiliki akses ke Work Order ini (';

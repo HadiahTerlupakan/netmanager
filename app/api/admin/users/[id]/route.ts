@@ -125,6 +125,9 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
   if (body.canvasingTarget !== undefined) data.canvasingTarget = parseInt(body.canvasingTarget) || 50
   if (body.isSales !== undefined) data.isSales = body.isSales
 
+  // Extract userSites for separate handling
+  const userSites: Array<{ siteId: string; isPrimary: boolean }> | undefined = body.userSites
+
   console.log('[USER-UPDATE] Data to update:', data)
 
   try {
@@ -168,26 +171,9 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
         }
     }
 
-    // Granular Permission Checks for sensitive operations
-    // Only require granular permissions if the value is ACTUALLY changing
-    if (!isSelfUpdate) {
-      if (body.roleId !== undefined && (!currentData || body.roleId !== currentData.roleId) && !permissions.includes('users:update:role')) {
-        console.warn('[USER-UPDATE] Missing granular permission: users:update:role', { userId: session.user.id })
-        return NextResponse.json({ error: 'Unauthorized: You do not have permission to change user roles' }, { status: 403 })
-      }
-      if (body.siteId !== undefined && (!currentData || body.siteId !== currentData.siteId) && !permissions.includes('users:update:site')) {
-        console.warn('[USER-UPDATE] Missing granular permission: users:update:site', { userId: session.user.id })
-        return NextResponse.json({ error: 'Unauthorized: You do not have permission to change user site assignments' }, { status: 403 })
-      }
-      if (body.departmentId !== undefined && (!currentData || body.departmentId !== currentData.departmentId) && !permissions.includes('users:update:department')) {
-        console.warn('[USER-UPDATE] Missing granular permission: users:update:department', { userId: session.user.id })
-        return NextResponse.json({ error: 'Unauthorized: You do not have permission to change user departments' }, { status: 403 })
-      }
-      if (body.isActive !== undefined && (!currentData || body.isActive !== currentData.isActive) && !permissions.includes('users:update:status')) {
-        console.warn('[USER-UPDATE] Missing granular permission: users:update:status', { userId: session.user.id })
-        return NextResponse.json({ error: 'Unauthorized: You do not have permission to enable/disable users' }, { status: 403 })
-      }
-    }
+    // NOTE: Granular permissions (users:update:role, users:update:site, etc) have been REMOVED
+    // If user has 'users:update' permission, they can update ALL fields 
+    // Only IDOR protection above prevents self-modification of sensitive fields
 
     // Site restriction check using centralized helper
     const { isRestricted, siteId: userSiteId } = checkSiteRestriction(session, 'users')
@@ -218,6 +204,42 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
       where: { id },
       data,
     })
+
+    // Handle multi-site update if userSites provided
+    if (userSites !== undefined && Array.isArray(userSites)) {
+      // Delete existing userSites
+      await prisma.userSite.deleteMany({
+        where: { userId: id }
+      })
+
+      // Insert new userSites
+      if (userSites.length > 0) {
+        await prisma.userSite.createMany({
+          data: userSites.map(us => ({
+            userId: id,
+            siteId: us.siteId,
+            isPrimary: us.isPrimary || false
+          }))
+        })
+
+        // Update legacy siteId to primary site for backward compatibility
+        const primarySite = userSites.find(us => us.isPrimary)
+        if (primarySite) {
+          await prisma.user.update({
+            where: { id },
+            data: { siteId: primarySite.siteId }
+          })
+        }
+      } else {
+        // Clear legacy siteId if no sites assigned
+        await prisma.user.update({
+          where: { id },
+          data: { siteId: null }
+        })
+      }
+
+      console.log('[USER-UPDATE] UserSites updated:', { userId: id, count: userSites.length })
+    }
 
     // Invalidate permission cache if role changed
     if (body.roleId !== undefined) {
@@ -402,6 +424,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         },
         role: {
           select: { id: true, name: true },
+        },
+        userSites: {
+          select: {
+            id: true,
+            siteId: true,
+            isPrimary: true,
+            site: {
+              select: { id: true, code: true, name: true }
+            }
+          },
+          orderBy: { isPrimary: 'desc' }
         },
       },
     })

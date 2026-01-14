@@ -24,6 +24,8 @@ npx prisma migrate dev --name deskripsi_perubahan
 
 - Selalu gunakan nama yang deskriptif, contoh: `add_geofence_meta`, `add_employee_location`
 - JANGAN gunakan `npx prisma db push` karena tidak membuat migration file
+- JANGAN buat folder dengan nama generic seperti `manual` di `prisma/migrations/` - akan dianggap sebagai migration!
+- Format nama migration: `YYYYMMDDHHMMSS_deskripsi_perubahan`
 
 ### 3. Generate Prisma Client
 

@@ -147,6 +147,10 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
             name: true,
             departmentId: true,
             siteId: true,
+            // Multi-site: Include userSites
+            userSites: {
+                select: { siteId: true }
+            },
             role: {
                 select: {
                     name: true,
@@ -187,9 +191,15 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
             return true;
         }
         
-        const match = user.siteId === siteId || user.siteId === null; // Allow site-restricted users to see if they are assigned to that site
+        // Multi-site: Check if user has access to this site via userSites OR legacy siteId
+        const userSiteIds = user.userSites?.map(us => us.siteId) || [];
+        const hasAccessViaSites = userSiteIds.includes(siteId);
+        const hasAccessViaLegacy = user.siteId === siteId || user.siteId === null;
+        
+        const match = hasAccessViaSites || hasAccessViaLegacy;
+        
         if (!match) {
-             console.log(`[NotificationDebug] User ${user.name} rejected (Site Mismatch: UserSite=${user.siteId} vs WOSite=${siteId})`);
+             console.log(`[NotificationDebug] User ${user.name} rejected (Site Mismatch: UserSites=[${userSiteIds.join(',')}], LegacySite=${user.siteId} vs WOSite=${siteId})`);
         }
         return match;
     });
