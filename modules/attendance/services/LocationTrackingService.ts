@@ -210,7 +210,7 @@ export class LocationTrackingService {
             SELECT DISTINCT ON ("userId") 
                 "userId", latitude, longitude, accuracy, speed, 
                 heading, "isMoving", "batteryLevel", "recordedAt"
-            FROM "EmployeeLocation"
+            FROM "employee_locations"
             WHERE "userId" = ANY(${userIds})
             ORDER BY "userId", "recordedAt" DESC
         `
