@@ -15,7 +15,7 @@ export interface OdcCreateData {
   latitude?: number | null
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
-  otbCoreId: string
+  otbCoreId: string | null
   outputs?: OdcOutputData[]
   siteId?: string | null
 }
@@ -29,7 +29,7 @@ export interface OdcUpdateData {
   latitude?: number | null
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
-  otbCoreId?: string
+  otbCoreId?: string | null
   outputs?: OdcOutputData[]
   siteId?: string | null
 }
@@ -46,7 +46,7 @@ export interface OdcPublic {
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: Date
   updatedAt: Date
-  otbCoreId: string
+  otbCoreId: string | null
   siteId: string | null
 }
 

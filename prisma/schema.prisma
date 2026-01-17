@@ -444,10 +444,10 @@ model Odc {
   status                      Status      @default(AKTIF)
   createdAt                   DateTime    @default(now())
   updatedAt                   DateTime
-  otbCoreId                   String      @unique
+  otbCoreId                   String?     @unique
   keteranganJumlahKabelFeeder String?
   siteId                      String?
-  otbCore                     OtbCore     @relation(fields: [otbCoreId], references: [id])
+  otbCore                     OtbCore?    @relation(fields: [otbCoreId], references: [id])
   site                        Sites?      @relation(fields: [siteId], references: [id])
   odcOutput                   OdcOutput[]
 

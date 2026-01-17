@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { getHybridUser } from '@/lib/hybrid-auth'
 import { getJoinboxRepository } from '@/lib/repositories'
 import { joinboxCreateSchema } from '@/lib/validations/joinbox'
 
@@ -88,23 +87,15 @@ import { joinboxCreateSchema } from '@/lib/validations/joinbox'
  *         $ref: '#/components/responses/Error'
  */
 
-async function requireAdmin() {
-  const session: any = await getServerSession(authConfig as any)
-  if (!session || false) {
-    return null
-  }
-  return session
-}
-
-export async function GET() {
+export async function GET(req: Request) {
   const repo = getJoinboxRepository()
   const items = await repo.findAll()
   return NextResponse.json({ items })
 }
 
 export async function POST(req: Request) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await getHybridUser(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const json = await req.json()
   const parsed = joinboxCreateSchema.safeParse(json)
   if (!parsed.success) {
@@ -116,12 +107,14 @@ export async function POST(req: Request) {
   // System Log
   try {
     const { logger } = await import('@/lib/logger')
-    await logger.logActivity({
-      action: 'CREATE',
-      subject: 'Joinbox',
-      userId: session.user.id,
-      details: { id: created.id, name: parsed.data.name }
-    })
+    if (user.id) {
+        await logger.logActivity({
+        action: 'CREATE',
+        subject: 'Joinbox',
+        userId: user.id as string,
+        details: { id: created.id, name: parsed.data.name }
+        })
+    }
   } catch (e) {
     console.error('Logging failed', e)
   }

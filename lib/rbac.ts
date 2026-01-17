@@ -1,16 +1,20 @@
 import { authConfig, getUserPermissions } from '@/lib/auth'
 import { getServerSession } from 'next-auth'
 
-export async function hasPermission(requiredPermission: string): Promise<boolean> {
-    const session = await getServerSession(authConfig)
+export async function hasPermission(requiredPermission: string, user?: any): Promise<boolean> {
+    let currentUser = user;
+    if (!currentUser) {
+        const session = await getServerSession(authConfig)
+        currentUser = session?.user
+    }
 
-    if (!session?.user) {
+    if (!currentUser) {
         return false
     }
 
     // Load permissions from database since session doesn't store them
     // Note: SUPER_ADMIN has all permissions from seed, so no bypass needed
-    const userId = (session.user as { id?: string }).id
+    const userId = (currentUser as { id?: string }).id
     if (!userId) {
         return false
     }
@@ -19,13 +23,18 @@ export async function hasPermission(requiredPermission: string): Promise<boolean
     return permissions.includes(requiredPermission)
 }
 
-export async function hasAnyPermission(requiredPermissions: string[]): Promise<boolean> {
-    const session = await getServerSession(authConfig)
-    if (!session?.user) return false
+export async function hasAnyPermission(requiredPermissions: string[], user?: any): Promise<boolean> {
+    let currentUser = user;
+    if (!currentUser) {
+        const session = await getServerSession(authConfig)
+        currentUser = session?.user
+    }
+
+    if (!currentUser) return false
 
     // Load permissions from database since session doesn't store them
     // Note: SUPER_ADMIN has all permissions from seed, so no bypass needed
-    const userId = (session.user as { id?: string }).id
+    const userId = (currentUser as { id?: string }).id
     if (!userId) {
         return false
     }

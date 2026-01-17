@@ -1,20 +1,19 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getHybridUser } from '@/lib/hybrid-auth'
 import { hasPermission } from '@/lib/rbac'
 import { getOdcRepository } from '@/lib/repositories'
 import { odcCreateSchema } from '@/lib/validations/odc'
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session || !session.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function GET(req: Request) {
+  const user = await getHybridUser(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  if (!(await hasPermission("odc:read"))) {
+  if (!(await hasPermission("odc:read", user))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const isSiteRestricted = (await hasPermission("odc:site_only")) && session.user.role !== 'SUPER_ADMIN';
-  const userSiteId = (session.user as any).siteId;
+  const isSiteRestricted = (await hasPermission("odc:site_only", user)) && (user as any).role !== 'SUPER_ADMIN';
+  const userSiteId = (user as any).siteId;
 
   let filterSiteId: string | undefined;
 
@@ -32,10 +31,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session || !session.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await getHybridUser(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  if (!(await hasPermission("odc:create"))) {
+  if (!(await hasPermission("odc:create", user))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const json = await req.json()
@@ -46,8 +45,8 @@ export async function POST(req: Request) {
   const data = parsed.data
 
   // RBAC: Check site restrictions
-  const isSiteRestricted = (await hasPermission("odc:site_only")) && session.user.role !== 'SUPER_ADMIN';
-  const userSiteId = (session.user as any).siteId;
+  const isSiteRestricted = (await hasPermission("odc:site_only", user)) && (user as any).role !== 'SUPER_ADMIN';
+  const userSiteId = (user as any).siteId;
 
   if (isSiteRestricted) {
       if (!userSiteId) {
@@ -59,12 +58,13 @@ export async function POST(req: Request) {
   const repo = getOdcRepository()
   const created = await repo.create({
     name: data.name,
+    images: data.images ?? [],
     location: data.location ?? null,
     notes: data.notes ?? null,
     keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder ?? null,
     latitude: data.latitude ?? null,
     longitude: data.longitude ?? null,
-    otbCoreId: data.otbCoreId,
+    otbCoreId: data.otbCoreId ?? null,
     siteId: data.siteId,
     outputs: data.outputs?.map((o, idx) => ({
       idx: o.idx ?? idx,
@@ -77,12 +77,14 @@ export async function POST(req: Request) {
   // System Log
   try {
     const { logger } = await import('@/lib/logger')
-    await logger.logActivity({
-      action: 'CREATE',
-      subject: 'ODC',
-      userId: session.user.id as string,
-      details: { id: created.id, name: data.name }
-    })
+    if (user?.id) {
+        await logger.logActivity({
+        action: 'CREATE',
+        subject: 'ODC',
+        userId: user.id as string,
+        details: { id: created.id, name: data.name }
+        })
+    }
   } catch (e) {
     console.error('Logging failed', e)
   }
