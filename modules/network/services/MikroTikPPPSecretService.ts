@@ -276,22 +276,22 @@ export class MikroTikPPPSecretService {
       });
 
       try {
-        // Disconnect dulu jika masih aktif
-        const activeSessions = await conn.write('/ppp/active/print', [
-          `?name=${username}`
-        ]) as any[];
-        
-        for (const session of activeSessions || []) {
-          await conn.write('/ppp/active/remove', [`=.id=${session['.id']}`]);
-        }
-
-        // Hapus secret
+        // 1. Hapus secret DULU (agar tidak bisa auto-reconnect)
         const secrets = await conn.write('/ppp/secret/print', [
           `?name=${username}`
         ]) as any[];
 
         for (const secret of secrets || []) {
           await conn.write('/ppp/secret/remove', [`=.id=${secret['.id']}`]);
+        }
+
+        // 2. Baru disconnect session (kick user)
+        const activeSessions = await conn.write('/ppp/active/print', [
+          `?name=${username}`
+        ]) as any[];
+        
+        for (const session of activeSessions || []) {
+          await conn.write('/ppp/active/remove', [`=.id=${session['.id']}`]);
         }
 
         conn.close();
@@ -335,9 +335,16 @@ export class MikroTikPPPSecretService {
       );
       
       if (!profileResult.success) {
-        return { success: false, logs, error: profileResult.error };
+        // Jika error karena secret tidak ditemukan (misal user RADIUS), 
+        // kita tetap lanjut disconnect session agar user ter-kick.
+        if (profileResult.error === 'PPP Secret tidak ditemukan') {
+           logs.push('Warning: PPP Secret tidak ditemukan, melanjutkan disconnect session...');
+        } else {
+           return { success: false, logs, error: profileResult.error };
+        }
+      } else {
+        logs.push(`Profile diubah ke "${EXPIRED_PROFILE}"`);
       }
-      logs.push(`Profile diubah ke "${EXPIRED_PROFILE}"`);
 
       // 2. Disconnect session
       const disconnectResult = await this.disconnectSession(

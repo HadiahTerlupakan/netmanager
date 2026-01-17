@@ -235,7 +235,11 @@ export async function POST(req: NextRequest) {
     }
 
     const hargaPaket = await prisma.hargaPaket.create({
-      data: createData,
+      data: {
+        id: crypto.randomUUID(),
+        updatedAt: new Date(),
+        ...createData,
+      },
       include: {
         bandwidth: true,
         profilePPP: {

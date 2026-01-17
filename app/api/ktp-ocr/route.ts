@@ -84,8 +84,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Panggil Google Gemini API - mengikuti implementasi yang berhasil
-    // Coba gemini-2.0-flash dulu, jika gagal akan fallback ke gemini-1.5-flash
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash']
+    // Gunakan model yang dikonfirmasi tersedia untuk Key ini
+    const models = ['gemini-2.5-flash', 'gemini-2.0-flash-001', 'gemini-flash-latest']
     let lastError: any = null
     
     // Tentukan mimeType - mengikuti implementasi yang berhasil

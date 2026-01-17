@@ -195,15 +195,7 @@ export function ClientComponent() {
     loadData()
   }, [params.id])
 
-  useEffect(() => {
-    // Auto print saat halaman dimuat
-    if (!loading && tagihan) {
-      // Delay sedikit untuk memastikan semua data ter-render
-      setTimeout(() => {
-        window.print()
-      }, 500)
-    }
-  }, [loading, tagihan])
+  // Removed auto-print to allow previewing first. User can click "Print Invoice" manually.
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -242,17 +234,89 @@ export function ClientComponent() {
     return `${durasi} ${unitMap[durasiUnit] || durasiUnit}`
   }
 
+  // Calculate totals using a clean hook logic (derived from state)
+  const invoiceCalculations = (() => {
+    if (!pelanggan || !tagihan) return null
+
+    // 1. Base Package Price
+    const hargaPaket = pelanggan.hargaPaket?.harga || 0
+    let subtotalPaket = hargaPaket
+
+    // 2. Calculate Discount
+    let diskon = 0
+    // Logic diskon existing
+    if (pelanggan.useDiscount) {
+        if (pelanggan.discountType === 'FIXED' && pelanggan.discountValue) {
+            diskon = pelanggan.discountValue
+        } else if (pelanggan.discountType === 'PERCENT' && pelanggan.discountValue) {
+            diskon = (hargaPaket * pelanggan.discountValue) / 100
+        }
+    } else if (pelanggan.hargaPaket?.useDiscount) {
+         if (pelanggan.hargaPaket.discountType === 'FIXED' && pelanggan.hargaPaket.discountValue) {
+            diskon = pelanggan.hargaPaket.discountValue
+         } else if (pelanggan.hargaPaket.discountType === 'PERCENT' && pelanggan.hargaPaket.discountValue) {
+            diskon = (hargaPaket * pelanggan.hargaPaket.discountValue) / 100
+         }
+    }
+    
+    // Apply discount
+    subtotalPaket = Math.max(0, subtotalPaket - diskon)
+
+    // 3. Additional Fees
+    let biayaInstalasi = 0
+    if (pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0) {
+        const disc = pelanggan.biayaInstalasiDiskon || 0
+        biayaInstalasi = pelanggan.biayaInstalasi - (pelanggan.biayaInstalasi * disc / 100)
+    }
+
+    let biayaSewa = 0
+    if (pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0) {
+        const disc = pelanggan.biayaSewaPerangkatDiskon || 0
+        biayaSewa = pelanggan.biayaSewaPerangkat - (pelanggan.biayaSewaPerangkat * disc / 100)
+    }
+
+    let biayaLainnya = 0
+    if (pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0) {
+         const disc = pelanggan.biayaLainnyaDiskon || 0
+         biayaLainnya = pelanggan.biayaLainnya - (pelanggan.biayaLainnya * disc / 100)
+    }
+
+    // 4. Final Subtotal
+    const subtotal = subtotalPaket + biayaInstalasi + biayaSewa + biayaLainnya
+
+    // 5. PPN
+    let ppn = 0
+    if (pelanggan.usePPN && pelanggan.hargaPaket?.usePPN && pelanggan.hargaPaket?.ppnPercentage) {
+        ppn = (subtotal * pelanggan.hargaPaket.ppnPercentage) / 100
+    }
+
+    // 6. Total
+    const total = subtotal + ppn
+
+    return {
+        hargaPaket,
+        diskon,
+        biayaInstalasi,
+        biayaSewa,
+        biayaLainnya,
+        subtotal,
+        ppn,
+        total
+    }
+  })()
+
+  // Helper strings
   const getAlamatLengkap = () => {
     if (!pelanggan) return ''
-    const parts = [
+    return [
       pelanggan.alamat,
       pelanggan.kelurahanDesa,
       pelanggan.kecamatan,
       pelanggan.kabupatenKota,
       pelanggan.provinsi,
-    ].filter(Boolean)
-    return parts.join(', ')
+    ].filter(Boolean).join(', ')
   }
+
 
   if (loading) {
     return <PageLoader />
@@ -292,612 +356,284 @@ export function ClientComponent() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header untuk print - tombol kontrol */}
-      <div className="print:hidden fixed top-4 right-4 z-50 flex items-center gap-2 bg-white border border-gray-300 rounded-lg shadow-lg p-2">
-        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer px-2">
-          <input
-            type="checkbox"
-            checked={showPPPAccount}
-            onChange={(e) => setShowPPPAccount(e.target.checked)}
-            className="w-4 h-4"
-          />
-          <span>Show PPP Account on Print Result [A4 Only]</span>
-        </label>
-        <button
-          onClick={() => window.print()}
-          className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors text-sm"
-        >
-          <HiPrinter className="w-4 h-4" />
-          Print
-        </button>
-        <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors text-sm"
-        >
-          <HiXMark className="w-4 h-4" />
-          Close
-        </button>
-      </div>
-
-      {/* Invoice Content */}
-      <div className="max-w-4xl mx-auto p-8 print:p-0">
-        {/* Header Invoice */}
-        <div className="flex justify-between items-start mb-8 border-b-2 border-gray-300 pb-6">
-          {/* Logo & Company Info */}
-          <div className="h-16 flex items-center shrink-0" style={{ width: '100%', maxWidth: '500px' }}>
-            {logoSettings?.logoInvoice ? (
-              <img
-                key={`logo-${logoSettings.logoInvoice}`}
-                src={logoSettings.logoInvoice}
-                alt="Logo Perusahaan"
-                className="h-full w-full object-contain object-left"
-                style={{ display: 'block' }}
-                crossOrigin="anonymous"
-                onError={(e) => {
-                  // Logo tidak ditemukan, akan menggunakan fallback SVG
-                  // Tidak perlu log sebagai error karena ini adalah expected behavior
-                  const target = e.target as HTMLImageElement
-                  const parent = target.parentElement
-                  if (parent) {
-                    parent.innerHTML = `
-                      <div class="h-16 bg-green-100 rounded flex items-center justify-center shrink-0" style="width: 100%; max-width: 500px;">
-                        <svg class="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-                        </svg>
-                      </div>
-                    `
-                  }
-                }}
-                onLoad={() => {
-                  console.log('Logo loaded successfully:', logoSettings.logoInvoice)
-                }}
-              />
-            ) : (
-              <div className="h-16 bg-green-100 rounded flex items-center justify-center shrink-0" style={{ width: '100%', maxWidth: '500px' }}>
-                <svg
-                  className="w-12 h-12 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
-                  />
-                </svg>
-              </div>
-            )}
-          </div>
-
-          {/* Invoice Title & Status */}
-          <div className="text-right">
-            <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-4xl font-bold text-gray-900">INVOICE</h2>
-              <div className="w-px h-12 bg-gray-300"></div>
-              <div>
-                <p
-                  className={`text-2xl font-bold ${tagihan.status === 'LUNAS' ? 'text-green-600' : 'text-red-600'
-                    }`}
-                >
-                  {tagihan.status === 'LUNAS' ? 'LUNAS' : 'BELUM BAYAR'}
-                </p>
-              </div>
-            </div>
-            <p className="text-sm text-gray-600 mt-2">Number : #{invoiceNumber}</p>
-          </div>
-        </div>
-
-        {/* Billing Information */}
-        <div className="grid grid-cols-2 gap-8 mb-8">
-          {/* Ditagihkan ke */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Ditagihkan ke</h3>
-            <div className="text-sm text-gray-900 space-y-1">
-              <p className="font-semibold">
-                {pelanggan.nama} | {pelanggan.idPelanggan}
-              </p>
-              <p>{getAlamatLengkap() || pelanggan.alamat || '-'}</p>
-              {pelanggan.noTelp && <p>{pelanggan.noTelp}</p>}
-              {showPPPAccount && (
-                <div className="mt-2 pt-2 border-t border-gray-200">
-                  <p className="text-xs text-gray-500">Username PPPoE:</p>
-                  <p className="font-mono text-xs">{pelanggan.username}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Dibayarkan ke */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Dibayarkan ke</h3>
-            <div className="text-sm text-gray-900 space-y-1">
-              <p className="font-semibold">{generalSettings?.perusahaan || '-'}</p>
-              <p>{generalSettings?.alamat || '-'}</p>
-              <p>{generalSettings?.nomorHp || '-'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Ringkasan Layanan Table */}
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Ringkasan Layanan</h3>
-          <div className="border border-gray-300 rounded overflow-hidden">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-300">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Paket Langganan
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Jatuh Tempo
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Periode Aktif
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Jumlah
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-300">
-                {/* Harga Paket */}
-                {pelanggan.hargaPaket && (
-                  <tr>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {pelanggan.hargaPaket.name}
-                      {generalSettings?.deskripsiInvoice && (
-                        <span className="text-gray-500"> ({generalSettings.deskripsiInvoice})</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {formatDate(tagihan.jatuhTempo)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {getPeriodeAktif()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                      {formatRupiah(pelanggan.hargaPaket.harga)}
-                    </td>
-                  </tr>
-                )}
-
-                {/* Diskon */}
-                {(() => {
-                  const hargaPaket = pelanggan.hargaPaket?.harga || 0
-                  let diskon = 0
-                  let diskonInfo: any = null
-
-                  if (pelanggan.useDiscount) {
-                    // Use custom discount if set
-                    if (
-                      pelanggan.discountType &&
-                      pelanggan.discountValue !== null &&
-                      pelanggan.discountValue !== undefined &&
-                      pelanggan.discountDuration &&
-                      pelanggan.discountDurationUnit
-                    ) {
-                      if (pelanggan.discountType === 'FIXED') {
-                        diskon = pelanggan.discountValue
-                      } else if (pelanggan.discountType === 'PERCENT') {
-                        diskon = (hargaPaket * pelanggan.discountValue) / 100
-                      }
-                      diskonInfo = {
-                        type: pelanggan.discountType,
-                        value: pelanggan.discountValue,
-                        duration: pelanggan.discountDuration,
-                        durationUnit: pelanggan.discountDurationUnit,
-                        isCustom: true,
-                      }
-                    } else if (
-                      pelanggan.hargaPaket?.useDiscount &&
-                      pelanggan.hargaPaket?.discountType &&
-                      pelanggan.hargaPaket?.discountValue &&
-                      pelanggan.hargaPaket?.discountDuration &&
-                      pelanggan.hargaPaket?.discountDurationUnit
-                    ) {
-                      if (pelanggan.hargaPaket.discountType === 'FIXED') {
-                        diskon = pelanggan.hargaPaket.discountValue
-                      } else if (pelanggan.hargaPaket.discountType === 'PERCENT') {
-                        diskon = (hargaPaket * pelanggan.hargaPaket.discountValue) / 100
-                      }
-                      diskonInfo = {
-                        type: pelanggan.hargaPaket.discountType,
-                        value: pelanggan.hargaPaket.discountValue,
-                        duration: pelanggan.hargaPaket.discountDuration,
-                        durationUnit: pelanggan.hargaPaket.discountDurationUnit,
-                        isCustom: false,
-                      }
-                    }
-                  }
-
-                  if (diskon > 0 && diskonInfo) {
-                    return (
-                      <tr>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          Diskon {diskonInfo.isCustom ? '(Custom)' : '(Paket)'}
-                          {diskonInfo.duration && diskonInfo.durationUnit && (
-                            <span className="text-xs text-gray-500 ml-1">
-                              - Durasi: {diskonInfo.duration}{' '}
-                              {diskonInfo.durationUnit === 'JAM'
-                                ? 'jam'
-                                : diskonInfo.durationUnit === 'HARI'
-                                  ? 'hari'
-                                  : diskonInfo.durationUnit === 'BULAN'
-                                    ? 'bulan'
-                                    : 'tahun'}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-400">—</td>
-                        <td className="px-4 py-3 text-sm text-gray-400">—</td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-green-600">
-                          - {formatRupiah(Math.round(diskon))}
-                        </td>
-                      </tr>
-                    )
-                  }
-                  return null
-                })()}
-
-
-                {/* Biaya Instalasi */}
-                {pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0 && (
-                  <tr>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      <div>
-                        <div>
-                          Biaya Instalasi {pelanggan.biayaInstalasiIsRecurring ? '(Berulang)' : '(1x)'}
-                          {pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0 && (
-                            <span className="text-xs text-gray-500 ml-1">
-                              - Diskon {pelanggan.biayaInstalasiDiskon}%
-                            </span>
-                          )}
-                        </div>
-                        {pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0 && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            (Sebelum diskon: {formatRupiah(pelanggan.biayaInstalasi)})
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">—</td>
-                    <td className="px-4 py-3 text-sm text-gray-400">—</td>
-                    <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                      +{' '}
-                      {formatRupiah(
-                        pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0
-                          ? pelanggan.biayaInstalasi -
-                          (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon) / 100
-                          : pelanggan.biayaInstalasi,
-                      )}
-                    </td>
-                  </tr>
-                )}
-
-                {/* Biaya Sewa Perangkat */}
-                {pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0 && (
-                  <tr>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      <div>
-                        <div>
-                          Biaya Sewa Perangkat (Berulang)
-                          {pelanggan.biayaSewaPerangkatDiskon &&
-                            pelanggan.biayaSewaPerangkatDiskon > 0 && (
-                              <span className="text-xs text-gray-500 ml-1">
-                                - Diskon {pelanggan.biayaSewaPerangkatDiskon}%
-                              </span>
-                            )}
-                        </div>
-                        {pelanggan.biayaSewaPerangkatDiskon &&
-                          pelanggan.biayaSewaPerangkatDiskon > 0 && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              (Sebelum diskon: {formatRupiah(pelanggan.biayaSewaPerangkat)})
-                            </div>
-                          )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">—</td>
-                    <td className="px-4 py-3 text-sm text-gray-400">—</td>
-                    <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                      +{' '}
-                      {formatRupiah(
-                        pelanggan.biayaSewaPerangkatDiskon &&
-                          pelanggan.biayaSewaPerangkatDiskon > 0
-                          ? pelanggan.biayaSewaPerangkat -
-                          (pelanggan.biayaSewaPerangkat *
-                            pelanggan.biayaSewaPerangkatDiskon) /
-                          100
-                          : pelanggan.biayaSewaPerangkat,
-                      )}
-                    </td>
-                  </tr>
-                )}
-
-                {/* Biaya Lainnya */}
-                {pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0 && (
-                  <tr>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      <div>
-                        <div>
-                          Biaya Lainnya {pelanggan.biayaLainnyaIsRecurring ? '(Berulang)' : '(1x)'}
-                          {pelanggan.keteranganBiayaLainnya && (
-                            <span className="text-xs text-gray-500 ml-1">
-                              ({pelanggan.keteranganBiayaLainnya})
-                            </span>
-                          )}
-                          {pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0 && (
-                            <span className="text-xs text-gray-500 ml-1">
-                              - Diskon {pelanggan.biayaLainnyaDiskon}%
-                            </span>
-                          )}
-                        </div>
-                        {pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0 && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            (Sebelum diskon: {formatRupiah(pelanggan.biayaLainnya)})
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">—</td>
-                    <td className="px-4 py-3 text-sm text-gray-400">—</td>
-                    <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
-                      +{' '}
-                      {formatRupiah(
-                        pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0
-                          ? pelanggan.biayaLainnya -
-                          (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon) / 100
-                          : pelanggan.biayaLainnya,
-                      )}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Summary */}
-        <div className="mb-8">
-          <div className="flex justify-end">
-            <div className="w-80 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-700">Sub Total</span>
-                <span className="font-medium text-gray-900">
-                  {(() => {
-                    // Hitung subtotal = harga paket setelah diskon + semua biaya tambahan
-                    const hargaPaket = pelanggan.hargaPaket?.harga || 0
-                    let subtotalPaket = hargaPaket
-
-                    // Kurangi diskon paket
-                    if (pelanggan.useDiscount) {
-                      if (pelanggan.discountType && pelanggan.discountValue !== null && pelanggan.discountValue !== undefined) {
-                        if (pelanggan.discountType === 'FIXED') {
-                          subtotalPaket -= pelanggan.discountValue
-                        } else if (pelanggan.discountType === 'PERCENT') {
-                          subtotalPaket -= (subtotalPaket * pelanggan.discountValue / 100)
-                        }
-                      } else if (pelanggan.hargaPaket?.useDiscount && pelanggan.hargaPaket?.discountType && pelanggan.hargaPaket?.discountValue) {
-                        if (pelanggan.hargaPaket.discountType === 'FIXED') {
-                          subtotalPaket -= pelanggan.hargaPaket.discountValue
-                        } else if (pelanggan.hargaPaket.discountType === 'PERCENT') {
-                          subtotalPaket -= (subtotalPaket * pelanggan.hargaPaket.discountValue / 100)
-                        }
-                      }
-                    }
-                    subtotalPaket = Math.max(0, subtotalPaket)
-
-                    // Tambahkan semua biaya tambahan
-                    let biayaInstalasi = 0
-                    if (pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0) {
-                      biayaInstalasi = pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0
-                        ? pelanggan.biayaInstalasi - (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon / 100)
-                        : pelanggan.biayaInstalasi
-                    }
-
-                    let biayaSewa = 0
-                    if (pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0) {
-                      biayaSewa = pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0
-                        ? pelanggan.biayaSewaPerangkat - (pelanggan.biayaSewaPerangkat * pelanggan.biayaSewaPerangkatDiskon / 100)
-                        : pelanggan.biayaSewaPerangkat
-                    }
-
-                    let biayaLainnya = 0
-                    if (pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0) {
-                      biayaLainnya = pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0
-                        ? pelanggan.biayaLainnya - (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon / 100)
-                        : pelanggan.biayaLainnya
-                    }
-
-                    // Subtotal = paket setelah diskon + semua biaya tambahan
-                    const subtotal = subtotalPaket + biayaInstalasi + biayaSewa + biayaLainnya
-                    return formatRupiah(Math.round(subtotal))
-                  })()}
-                </span>
-              </div>
-              {(() => {
-                // Hitung PPN dari subtotal keseluruhan (paket + biaya tambahan)
-                const hargaPaket = pelanggan.hargaPaket?.harga || 0
-                let subtotalPaket = hargaPaket
-
-                if (pelanggan.useDiscount) {
-                  if (pelanggan.discountType && pelanggan.discountValue !== null && pelanggan.discountValue !== undefined) {
-                    if (pelanggan.discountType === 'FIXED') {
-                      subtotalPaket -= pelanggan.discountValue
-                    } else if (pelanggan.discountType === 'PERCENT') {
-                      subtotalPaket -= (subtotalPaket * pelanggan.discountValue / 100)
-                    }
-                  } else if (pelanggan.hargaPaket?.useDiscount && pelanggan.hargaPaket?.discountType && pelanggan.hargaPaket?.discountValue) {
-                    if (pelanggan.hargaPaket.discountType === 'FIXED') {
-                      subtotalPaket -= pelanggan.hargaPaket.discountValue
-                    } else if (pelanggan.hargaPaket.discountType === 'PERCENT') {
-                      subtotalPaket -= (subtotalPaket * pelanggan.hargaPaket.discountValue / 100)
-                    }
-                  }
-                }
-                subtotalPaket = Math.max(0, subtotalPaket)
-
-                // Tambahkan semua biaya tambahan
-                let biayaInstalasi = 0
-                if (pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0) {
-                  biayaInstalasi = pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0
-                    ? pelanggan.biayaInstalasi - (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon / 100)
-                    : pelanggan.biayaInstalasi
-                }
-
-                let biayaSewa = 0
-                if (pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0) {
-                  biayaSewa = pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0
-                    ? pelanggan.biayaSewaPerangkat - (pelanggan.biayaSewaPerangkat * pelanggan.biayaSewaPerangkatDiskon / 100)
-                    : pelanggan.biayaSewaPerangkat
-                }
-
-                let biayaLainnya = 0
-                if (pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0) {
-                  biayaLainnya = pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0
-                    ? pelanggan.biayaLainnya - (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon / 100)
-                    : pelanggan.biayaLainnya
-                }
-
-                // Subtotal keseluruhan = paket setelah diskon + semua biaya tambahan
-                const subtotalKeseluruhan = subtotalPaket + biayaInstalasi + biayaSewa + biayaLainnya
-
-                // PPN dihitung dari subtotal keseluruhan
-                let ppn = 0
-                if (pelanggan.usePPN && pelanggan.hargaPaket?.usePPN && pelanggan.hargaPaket?.ppnPercentage) {
-                  ppn = (subtotalKeseluruhan * pelanggan.hargaPaket.ppnPercentage) / 100
-                }
-
-                if (ppn > 0) {
-                  return (
-                    <div className="flex justify-between text-sm">
-                      <div>
-                        <span className="text-gray-700">PPN (VAT)</span>
-                        <p className="text-xs text-gray-500">
-                          based on company & country regulation
-                        </p>
-                      </div>
-                      <span className="font-medium text-gray-900">{formatRupiah(Math.round(ppn))}</span>
-                    </div>
-                  )
-                }
-                return null
-              })()}
-              <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-gray-300">
-                <span className="text-gray-900">Total</span>
-                <span className="text-xl font-bold text-purple-600">
-                  {(() => {
-                    // Hitung total = subtotal keseluruhan + PPN
-                    const hargaPaket = pelanggan.hargaPaket?.harga || 0
-                    let subtotalPaket = hargaPaket
-
-                    if (pelanggan.useDiscount) {
-                      if (pelanggan.discountType && pelanggan.discountValue !== null && pelanggan.discountValue !== undefined) {
-                        if (pelanggan.discountType === 'FIXED') {
-                          subtotalPaket -= pelanggan.discountValue
-                        } else if (pelanggan.discountType === 'PERCENT') {
-                          subtotalPaket -= (subtotalPaket * pelanggan.discountValue / 100)
-                        }
-                      } else if (pelanggan.hargaPaket?.useDiscount && pelanggan.hargaPaket?.discountType && pelanggan.hargaPaket?.discountValue) {
-                        if (pelanggan.hargaPaket.discountType === 'FIXED') {
-                          subtotalPaket -= pelanggan.hargaPaket.discountValue
-                        } else if (pelanggan.hargaPaket.discountType === 'PERCENT') {
-                          subtotalPaket -= (subtotalPaket * pelanggan.hargaPaket.discountValue / 100)
-                        }
-                      }
-                    }
-                    subtotalPaket = Math.max(0, subtotalPaket)
-
-                    // Tambahkan semua biaya tambahan
-                    let biayaInstalasi = 0
-                    if (pelanggan.biayaInstalasi && pelanggan.biayaInstalasi > 0) {
-                      biayaInstalasi = pelanggan.biayaInstalasiDiskon && pelanggan.biayaInstalasiDiskon > 0
-                        ? pelanggan.biayaInstalasi - (pelanggan.biayaInstalasi * pelanggan.biayaInstalasiDiskon / 100)
-                        : pelanggan.biayaInstalasi
-                    }
-
-                    let biayaSewa = 0
-                    if (pelanggan.biayaSewaPerangkat && pelanggan.biayaSewaPerangkat > 0) {
-                      biayaSewa = pelanggan.biayaSewaPerangkatDiskon && pelanggan.biayaSewaPerangkatDiskon > 0
-                        ? pelanggan.biayaSewaPerangkat - (pelanggan.biayaSewaPerangkat * pelanggan.biayaSewaPerangkatDiskon / 100)
-                        : pelanggan.biayaSewaPerangkat
-                    }
-
-                    let biayaLainnya = 0
-                    if (pelanggan.biayaLainnya && pelanggan.biayaLainnya > 0) {
-                      biayaLainnya = pelanggan.biayaLainnyaDiskon && pelanggan.biayaLainnyaDiskon > 0
-                        ? pelanggan.biayaLainnya - (pelanggan.biayaLainnya * pelanggan.biayaLainnyaDiskon / 100)
-                        : pelanggan.biayaLainnya
-                    }
-
-                    // Subtotal keseluruhan = paket setelah diskon + semua biaya tambahan
-                    const subtotalKeseluruhan = subtotalPaket + biayaInstalasi + biayaSewa + biayaLainnya
-
-                    // PPN dihitung dari subtotal keseluruhan
-                    let ppn = 0
-                    if (pelanggan.usePPN && pelanggan.hargaPaket?.usePPN && pelanggan.hargaPaket?.ppnPercentage) {
-                      ppn = (subtotalKeseluruhan * pelanggan.hargaPaket.ppnPercentage) / 100
-                    }
-
-                    // Total = subtotal keseluruhan + PPN
-                    const total = subtotalKeseluruhan + ppn
-                    return formatRupiah(Math.round(total))
-                  })()}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Payment Instructions */}
-        <div className="mb-8 space-y-4">
-          <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">Transfer Manual</h4>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>
-                <span className="text-blue-600 underline">Tidak Terima</span>{' '}
-                <span className="text-green-600 underline">Tranfer Manual</span>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">Pembayaran Tunai</h4>
-            <div className="text-sm text-gray-900 space-y-1">
-              <p className="font-semibold">{generalSettings?.perusahaan || '-'}</p>
-              <p>{generalSettings?.alamat || '-'}</p>
-              <p>{generalSettings?.nomorHp || '-'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer Note */}
-        <div className="mt-12 pt-6 border-t border-gray-300">
-          <p className="text-xs text-gray-600">
-            <span className="font-bold">NOTE:</span> This is computer generated receipt and does not
-            require physical signature.
-          </p>
-        </div>
-      </div>
-
-      {/* CSS untuk Print */}
+    <div className="min-h-screen bg-gray-50 print:h-auto print:min-h-0 print:bg-white print:overflow-visible">
       <style jsx global>{`
         @media print {
           body {
-            background: white;
-            margin: 0;
-            padding: 0;
+            visibility: hidden;
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          nav, aside, header, footer, .sidebar, .navbar, .no-print {
+            display: none !important;
+          }
+          .print-content-wrapper {
+            visibility: visible !important;
+            display: block !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            z-index: 9999 !important;
+            background: white !important;
+            overflow: visible !important;
+          }
+          .print-content-wrapper * {
+            visibility: visible;
           }
           .print\\:hidden {
             display: none !important;
           }
           @page {
             size: A4;
-            margin: 20mm;
+            margin: 0;
+          }
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
           }
         }
       `}</style>
+      
+      {/* Wrapper */}
+      <div className="print-content-wrapper bg-gray-50 dark:bg-gray-950 min-h-screen print:min-h-0 text-gray-900 font-sans print:bg-white"> 
+
+      {/* Control Bar */}
+      <div className="print:hidden fixed top-0 right-0 left-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 px-6 py-4 flex justify-between items-center shadow-sm">
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Preview Invoice</h1>
+        <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-white transition-colors">
+            <input
+                type="checkbox"
+                checked={showPPPAccount}
+                onChange={(e) => setShowPPPAccount(e.target.checked)}
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>Show PPP Info</span>
+            </label>
+            <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 mx-2"></div>
+            <button
+            onClick={() => router.back()}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 border-input shadow-sm"
+            >
+            Cancel
+            </button>
+            <button
+            onClick={() => window.print()}
+            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm flex items-center gap-2"
+            >
+            <HiPrinter className="w-4 h-4" />
+            Print Invoice
+            </button>
+        </div>
+      </div>
+
+      {/* Invoice Container */}
+      <div className="max-w-[210mm] mx-auto bg-white p-[20mm] pt-[30mm] shadow-2xl print:shadow-none print:p-[15mm]">
+        
+        {/* Header */}
+        <div className="flex justify-between items-start border-b border-gray-100 pb-8 mb-8">
+            <div className="w-[60%]">
+                {logoSettings?.logoInvoice ? (
+                <img
+                    src={logoSettings.logoInvoice}
+                    alt="Company Logo"
+                    className="h-12 object-contain object-left mb-6"
+                    crossOrigin="anonymous"
+                />
+                ) : (
+                <div className="h-12 w-12 bg-indigo-50 rounded flex items-center justify-center mb-6 text-indigo-600 font-bold text-xl">
+                   {generalSettings?.perusahaan?.charAt(0) || 'C'}
+                </div>
+                )}
+                <div className="text-sm text-gray-500 space-y-1">
+                    <p className="font-semibold text-gray-900 text-lg mb-1">{generalSettings?.perusahaan}</p>
+                    <p>{generalSettings?.alamat}</p>
+                    <p>{generalSettings?.nomorHp}</p>
+                </div>
+            </div>
+
+            <div className="text-right w-[40%]">
+                <h2 className="text-3xl font-light text-gray-900 tracking-tight mb-3">INVOICE</h2>
+                
+                <div className="flex justify-end mb-6">
+                    <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
+                        tagihan.status === 'LUNAS' 
+                        ? 'bg-green-50 text-green-700 ring-green-600/20' 
+                        : 'bg-red-50 text-red-700 ring-red-600/10'
+                    }`}>
+                        {tagihan.status === 'LUNAS' ? 'PAID' : 'UNPAID'}
+                    </span>
+                </div>
+                
+                <dl className="space-y-1.5 text-sm">
+                    <div className="flex justify-end gap-8">
+                        <dt className="text-gray-500 min-w-[80px]">Invoice #</dt>
+                        <dd className="font-mono font-medium text-gray-900">{invoiceNumber}</dd>
+                    </div>
+                    <div className="flex justify-end gap-8">
+                        <dt className="text-gray-500 min-w-[80px]">Issued</dt>
+                        <dd className="font-medium text-gray-900">{formatDateShort(tagihan.createdAt)}</dd>
+                    </div>
+                    <div className="flex justify-end gap-8">
+                        <dt className="text-gray-500 min-w-[80px]">Due Date</dt>
+                        <dd className="font-medium text-gray-900">{formatDateShort(tagihan.jatuhTempo)}</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        {/* Bill To */}
+        <div className="mb-12">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Bill To</h3>
+            <div className="bg-gray-50 rounded-lg p-6 border border-gray-100/50">
+                <div className="grid grid-cols-2 gap-8">
+                    <div>
+                        <p className="text-base font-bold text-gray-900 mb-0.5">{pelanggan.nama}</p>
+                        <p className="text-xs text-gray-400 mb-3">ID: {pelanggan.idPelanggan}</p>
+                        <div className="text-sm text-gray-600 leading-relaxed">
+                            {getAlamatLengkap() || <p className="text-gray-400 italic">No address provided</p>}
+                        </div>
+                    </div>
+                    <div className="space-y-4 text-right">
+                         {(pelanggan.noTelp || pelanggan.email) && (
+                             <div className="space-y-1">
+                                {pelanggan.noTelp && <p className="text-sm text-gray-900">{pelanggan.noTelp}</p>}
+                                {pelanggan.email && <p className="text-sm text-gray-600">{pelanggan.email}</p>}
+                             </div>
+                         )}
+                         {showPPPAccount && (
+                             <div className="inline-block text-left bg-white px-3 py-2 rounded border border-gray-200 shadow-sm">
+                                 <p className="text-[10px] text-gray-400 uppercase font-medium mb-0.5">PPP Account</p>
+                                 <p className="text-sm font-mono text-gray-700">{pelanggan.username}</p>
+                             </div>
+                         )}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* Services Table */}
+        <div className="mb-10">
+            <table className="min-w-full divide-y divide-gray-200 border-t border-gray-200">
+                <thead>
+                    <tr className="bg-gray-50/50">
+                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-xs font-semibold text-gray-900 sm:pl-0">Description</th>
+                        <th scope="col" className="px-3 py-3.5 text-center text-xs font-semibold text-gray-900">Period</th>
+                        <th scope="col" className="px-3 py-3.5 text-right text-xs font-semibold text-gray-900">Amount</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                    {/* Main Package */}
+                    {pelanggan.hargaPaket && (
+                        <tr>
+                            <td className="py-4 pl-4 pr-3 text-sm sm:pl-0">
+                                <div className="font-medium text-gray-900">{pelanggan.hargaPaket.name}</div>
+                                <div className="text-gray-500 mt-0.5 text-xs">{generalSettings?.deskripsiInvoice || 'Internet Service Subscription'}</div>
+                            </td>
+                            <td className="px-3 py-4 text-sm text-gray-500 text-center">
+                                {getPeriodeAktif()}
+                            </td>
+                            <td className="px-3 py-4 text-sm text-right text-gray-900 tabular-nums font-medium">
+                                {formatRupiah(pelanggan.hargaPaket.harga)}
+                            </td>
+                        </tr>
+                    )}
+
+                    {/* Fees & Discounts */}
+                    {invoiceCalculations?.biayaInstalasi ? (
+                        <tr>
+                            <td className="py-4 pl-4 pr-3 text-sm sm:pl-0">
+                                <div className="font-medium text-gray-900">Installation Fee</div>
+                            </td>
+                            <td className="px-3 py-4 text-sm text-gray-500 text-center">-</td>
+                            <td className="px-3 py-4 text-sm text-right text-gray-900 tabular-nums">
+                                {formatRupiah(invoiceCalculations.biayaInstalasi)}
+                            </td>
+                        </tr>
+                    ) : null}
+
+                    {invoiceCalculations?.biayaSewa ? (
+                        <tr>
+                            <td className="py-4 pl-4 pr-3 text-sm sm:pl-0">
+                                <div className="font-medium text-gray-900">Device Rental</div>
+                            </td>
+                            <td className="px-3 py-4 text-sm text-gray-500 text-center">-</td>
+                            <td className="px-3 py-4 text-sm text-right text-gray-900 tabular-nums">
+                                {formatRupiah(invoiceCalculations.biayaSewa)}
+                            </td>
+                        </tr>
+                    ) : null}
+
+                     {invoiceCalculations && invoiceCalculations.diskon > 0 ? (
+                        <tr className="bg-green-50/20">
+                            <td className="py-4 pl-4 pr-3 text-sm sm:pl-0">
+                                <div className="font-medium text-green-700">Discount Applied</div>
+                            </td>
+                            <td className="px-3 py-4 text-sm text-gray-500 text-center">-</td>
+                            <td className="px-3 py-4 text-sm text-right text-green-700 tabular-nums font-medium">
+                                - {formatRupiah(invoiceCalculations.diskon)}
+                            </td>
+                        </tr>
+                    ) : null}
+                </tbody>
+            </table>
+        </div>
+
+        {/* Totals Box */}
+        {invoiceCalculations && (
+        <div className="flex justify-end mb-12">
+            <div className="w-1/2 sm:w-[40%] space-y-3">
+                <div className="flex justify-between text-sm text-gray-600">
+                    <span>Subtotal</span>
+                    <span className="font-medium text-gray-900">{formatRupiah(invoiceCalculations.subtotal)}</span>
+                </div>
+                {invoiceCalculations.ppn > 0 && (
+                    <div className="flex justify-between text-sm text-gray-600">
+                        <span>VAT (11%)</span>
+                        <span className="font-medium text-gray-900">{formatRupiah(invoiceCalculations.ppn)}</span>
+                    </div>
+                )}
+                <div className="border-t border-gray-200 pt-3 flex justify-between items-baseline">
+                    <span className="font-bold text-gray-900">Total</span>
+                    <span className="text-2xl font-bold text-indigo-600">{formatRupiah(invoiceCalculations.total)}</span>
+                </div>
+            </div>
+        </div>
+        )}
+
+        {/* Footer Areas */}
+        <div className="grid grid-cols-2 gap-12 pt-8 border-t border-gray-100">
+            <div>
+                <h4 className="font-semibold text-gray-900 text-sm mb-2">Payment Info</h4>
+                <div className="text-xs text-gray-500 leading-relaxed">
+                    <p>Make all checks payable to <span className="font-medium text-gray-900">{generalSettings?.perusahaan || 'Perusahaan'}</span></p>
+                    <p className="mt-1">For bank transfer, please use the Invoice Number as reference.</p>
+                </div>
+            </div>
+            <div className="text-right">
+                 <h4 className="font-semibold text-gray-900 text-sm mb-2">Terms & Conditions</h4>
+                 <p className="text-xs text-gray-500 leading-relaxed">
+                     Service will be checked automatically upon payment.
+                     Please contact support for billing discrepancies.
+                 </p>
+            </div>
+        </div>
+
+        <div className="mt-16 text-center">
+            <p className="text-xs text-gray-400">Thank you for your business!</p>
+        </div>
+
+      </div>
+      </div>
     </div>
   )
 }

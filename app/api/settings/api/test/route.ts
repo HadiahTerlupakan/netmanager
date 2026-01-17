@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Test API dengan request sederhana
-    const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`
+    // Test API dengan request sederhana (gunakan gemini-2.5-flash yang tersedia)
+    const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`
 
     const testPayload = {
       contents: [
@@ -52,15 +52,41 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const errorBody = await response.json()
+      let errorMessage = errorBody.error?.message || 'API Key tidak valid'
+
+      // Jika error 404 (Model not found), coba list models untuk diagnosis helper
+      if (response.status === 404) {
+        try {
+            const listModelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`
+            const listResponse = await fetch(listModelsUrl)
+            if (listResponse.ok) {
+                const listData = await listResponse.json()
+                const availableModels = listData.models
+                    ?.filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+                    .map((m: any) => m.name.replace('models/', ''))
+                    .join(', ')
+                
+                if (availableModels) {
+                    errorMessage += `\n\nModel yang tersedia untuk Key ini: ${availableModels}`
+                } else {
+                    errorMessage += `\n\nTidak ada model yang tersedia untuk key ini (Mungkin perlu aktifkan Generative Language API).`
+                }
+            }
+        } catch (e) {
+            console.error('Failed to list models:', e)
+        }
+      }
+
       return NextResponse.json(
         {
-          error: errorBody.error?.message || 'API Key tidak valid',
+          error: errorMessage,
           valid: false,
         },
         { status: 400 }
       )
     }
 
+    // Jika berhasil connect, tetap cek list models untuk memastikan quota/permission
     return NextResponse.json({
       success: true,
       valid: true,

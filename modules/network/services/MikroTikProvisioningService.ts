@@ -202,16 +202,37 @@ export class MikroTikProvisioningService {
                 logs.push('Added Firewall Filter: Drop Expired UDP');
             }
 
-            // --- 4. PPP Profile (Expired Users) ---
+            // --- 4. IP Pool (Expired Users) ---
+            const expiredPool = await conn.write('/ip/pool/print', ['?name=expired-pool']) as any[];
+            if (expiredPool.length === 0) {
+                await conn.write('/ip/pool/add', [
+                    '=name=expired-pool',
+                    '=ranges=10.127.0.2-10.127.63.254',
+                    '=comment=added by netmanager - expired users'
+                ]);
+                logs.push('Added IP Pool: expired-pool (10.127.0.2-10.127.63.254)');
+            }
+
+            // --- 5. PPP Profile (Expired Users) ---
             const expiredProfile = await conn.write('/ppp/profile/print', ['?name=expired users']) as any[];
             if (expiredProfile.length === 0) {
                 await conn.write('/ppp/profile/add', [
                     '=name=expired users',
                     '=local-address=10.127.0.1',
+                    '=remote-address=expired-pool', // Assign remote address from pool
                     '=dns-server=8.8.8.8,1.1.1.1',
-                    '=comment=added by netmanager' // consistency
+                    '=comment=added by netmanager'
                 ]);
                 logs.push('Added PPP Profile: expired users');
+            } else {
+                // Update existing profile to ensure remote-address is set
+                await conn.write('/ppp/profile/set', [
+                    '=.id=' + expiredProfile[0]['.id'],
+                    '=local-address=10.127.0.1',
+                    '=remote-address=expired-pool',
+                    '=dns-server=8.8.8.8,1.1.1.1'
+                ]);
+                logs.push('Updated PPP Profile: expired users');
             }
 
             // --- 5. Web Proxy (Isolir Redirection) ---

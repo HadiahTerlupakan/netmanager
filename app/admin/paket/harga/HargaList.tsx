@@ -108,6 +108,16 @@ export default function HargaPaketPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Validate form data
+    if (formData.durasi < 1) {
+      alert('Durasi minimal 1')
+      return
+    }
+    if (formData.harga < 0) {
+      alert('Harga tidak boleh negatif')
+      return
+    }
+
     try {
       const url = editingPaket
         ? `/api/hargapakets/${editingPaket.id}`
@@ -427,7 +437,7 @@ export default function HargaPaketPage() {
                 required
                 min="0"
                 value={formData.harga}
-                onChange={(e) => setFormData({ ...formData, harga: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, harga: e.target.value ? parseInt(e.target.value) : 0 })}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
                 placeholder="300000"
               />
@@ -443,7 +453,10 @@ export default function HargaPaketPage() {
                   required
                   min="1"
                   value={formData.durasi}
-                  onChange={(e) => setFormData({ ...formData, durasi: parseInt(e.target.value) })}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value)
+                    setFormData({ ...formData, durasi: isNaN(val) ? 0 : val })
+                  }}
                   className="flex-1 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
                   placeholder="30"
                 />

@@ -2,9 +2,11 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { HiOutlineChartBar, HiPencil, HiTrash, HiArrowPath } from 'react-icons/hi2'
+import { HiOutlineChartBar, HiPencil, HiTrash, HiArrowPath, HiCog6Tooth } from 'react-icons/hi2'
+import ReconfigureModal from '@/components/mikrotik/ReconfigureModal'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import TestConnectionModal from '@/components/mikrotik/TestConnectionModal'
 import { useSocketEvent } from '@/hooks/useSocket'
 import { useDebounce } from '@/hooks/useDebounce'
 import { toast } from 'react-hot-toast'
@@ -49,6 +51,12 @@ export default function MikroTikRouterList() {
   // Pagination State
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
+
+  // Test Connection State
+  const [showTestModal, setShowTestModal] = useState(false)
+  const [showReconfigureModal, setShowReconfigureModal] = useState(false)
+  const [isTesting, setIsTesting] = useState(false)
+  const [testResult, setTestResult] = useState<any>(null)
 
   // Fetch Data Function
   const fetchRouters = useCallback(async () => {
@@ -102,23 +110,6 @@ export default function MikroTikRouterList() {
   })
 
   // Handlers
-  const handleCheckStatus = async () => {
-    try {
-      const res = await fetch('/api/mikrotik-routers/check-status', {
-        method: 'POST',
-      })
-      if (res.ok) {
-        const result = await res.json()
-        toast.success(`Status check completed. Updated ${result.count} routers.`)
-        fetchRouters()
-      } else {
-        const error = await res.json()
-        toast.error(error.error || 'Gagal check status')
-      }
-    } catch (error: any) {
-      toast.error('Terjadi kesalahan saat check status')
-    }
-  }
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus router "${name}"?`)) return
@@ -141,6 +132,36 @@ export default function MikroTikRouterList() {
     }
   }
 
+  const handleTestConnection = async (id: string) => {
+    setIsTesting(true)
+    setShowTestModal(true)
+    setTestResult(null)
+
+    try {
+      const res = await fetch('/api/mikrotik-routers/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ routerId: id }),
+      })
+
+      const result = await res.json()
+      setTestResult(result)
+
+      if (res.ok && result.success) {
+        fetchRouters() // Refresh status in table
+      }
+    } catch (error: any) {
+      console.error('Test connection error:', error)
+      setTestResult({
+        success: false,
+        api: { success: false, message: 'Error: ' + (error.message || 'Unknown error') },
+        message: 'Terjadi kesalahan saat test koneksi',
+      })
+    } finally {
+      setIsTesting(false)
+    }
+  }
+
   const formatDateTime = (date: Date | null) => {
     if (!date) return 'N/A'
     return new Date(date).toLocaleString('id-ID', {
@@ -160,11 +181,11 @@ export default function MikroTikRouterList() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Router [NAS]</h1>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <button
-            onClick={handleCheckStatus}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+            onClick={() => setShowReconfigureModal(true)}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
           >
-            <HiArrowPath className="w-4 h-4" />
-            Cek Status
+            <HiCog6Tooth className="w-4 h-4" />
+            Reconfigurasi Mikrotik
           </button>
           <Link
             href="/admin/network/mikrotik/new"
@@ -289,6 +310,7 @@ export default function MikroTikRouterList() {
           renderActions={(router) => (
             <div className="flex items-center justify-end gap-2">
               <button
+                onClick={() => handleTestConnection(router.id)}
                 className="p-2 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                 title="Test API Connection"
               >
@@ -339,6 +361,20 @@ export default function MikroTikRouterList() {
           </div>
         </div>
       </div>
+      <TestConnectionModal
+        open={showTestModal}
+        onClose={() => setShowTestModal(false)}
+        result={testResult}
+        isLoading={isTesting}
+      />
+      <ReconfigureModal 
+        open={showReconfigureModal}
+        onClose={() => setShowReconfigureModal(false)}
+        onSuccess={() => {
+             setShowReconfigureModal(false)
+             fetchRouters()
+        }}
+      />
     </div>
   )
 }
