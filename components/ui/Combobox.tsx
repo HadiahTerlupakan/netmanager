@@ -84,7 +84,7 @@ export function Combobox({
         <div className={`relative ${className}`} ref={containerRef}>
             <div
                 className={`
-                    w-full px-4 py-3 rounded-xl bg-white dark:bg-[#1c2936] border 
+                    w-full px-3 py-2 rounded-lg bg-white dark:bg-[#1c2936] border 
                     border-gray-200 dark:border-gray-700 flex items-center justify-between cursor-pointer
                     ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-500 transition-colors'}
                 `}

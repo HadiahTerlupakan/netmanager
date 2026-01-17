@@ -45,6 +45,10 @@ export default function RestockPage() {
   const [gudangs, setGudangs] = useState<any[]>([])
   const [filterUrgency, setFilterUrgency] = useState<string>('')
   const [showSettingsForm, setShowSettingsForm] = useState(false)
+  
+  // Reorder State
+  const [orderingItem, setOrderingItem] = useState<PredictionData | null>(null)
+  const [processingOrder, setProcessingOrder] = useState(false)
 
   useEffect(() => {
     fetchInitialData()
@@ -101,6 +105,44 @@ export default function RestockPage() {
       setError(error instanceof Error ? error.message : 'Terjadi kesalahan')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleReorder = async () => {
+    if (!orderingItem) return
+
+    try {
+      setProcessingOrder(true)
+      const response = await fetch('/api/inventory/procurement/purchase-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          gudangId: orderingItem.gudangId,
+          items: [{
+            barangId: orderingItem.barangId,
+            quantity: orderingItem.recommendedOrderQty
+          }],
+          keterangan: `Restock Order: ${orderingItem.barangNama}`
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Gagal membuat Purchase Request')
+      }
+
+      // Success
+      alert(`Purchase Request berhasil dibuat! Nomor: ${data.nomorRequest}`)
+      setOrderingItem(null)
+      fetchPredictions() // Refresh data
+    } catch (error) {
+      console.error('Reorder error:', error)
+      alert(error instanceof Error ? error.message : 'Gagal memproses order')
+    } finally {
+      setProcessingOrder(false)
     }
   }
 
@@ -258,10 +300,20 @@ export default function RestockPage() {
       render: (prediction) => (
         <div className="flex flex-col space-y-2">
           {prediction.recommendedOrderQty > 0 ? (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
-              <div className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                Order: {prediction.recommendedOrderQty} {prediction.satuan}
+            <div className="flex flex-col gap-2">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
+                <div className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                  Order: {prediction.recommendedOrderQty} {prediction.satuan}
+                </div>
               </div>
+              {canUpdate && (
+                <button
+                  onClick={() => setOrderingItem(prediction)}
+                  className="inline-flex justify-center items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                   Buat PR
+                </button>
+              )}
             </div>
           ) : (
             <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -457,6 +509,53 @@ export default function RestockPage() {
             fetchPredictions()
           }}
         />
+      </Modal>
+
+      {/* Confirmation Modal */}
+      <Modal
+        isOpen={!!orderingItem}
+        onClose={() => !processingOrder && setOrderingItem(null)}
+        title="Konfirmasi Restock Order"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600 dark:text-gray-400">
+            Apakah Anda yakin ingin membuat <strong>Purchase Request</strong> untuk items berikut?
+          </p>
+          
+          {orderingItem && (
+             <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="font-medium">{orderingItem.barangNama}</div>
+                <div className="text-sm text-gray-500">Gudang: {orderingItem.gudangNama}</div>
+                <div className="mt-2 text-indigo-600 font-bold">
+                    Qty: {orderingItem.recommendedOrderQty} {orderingItem.satuan}
+                </div>
+             </div>
+          )}
+
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              onClick={() => setOrderingItem(null)}
+              disabled={processingOrder}
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              onClick={handleReorder}
+              disabled={processingOrder}
+              className={`px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none flex items-center ${processingOrder ? 'opacity-75 cursor-not-allowed' : ''}`}
+            >
+              {processingOrder && (
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              {processingOrder ? 'Memproses...' : 'Ya, Buat PR'}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   )

@@ -16,6 +16,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
     barangId: '',
     gudangId: '',
     jumlah: '',
+    hargaBeliSatuan: '', // Added field
     kondisi: 'BARU' as 'BARU' | 'BEKAS' | 'RUSAK',
     keterangan: '',
     tanggal: new Date().toISOString().split('T')[0]
@@ -70,6 +71,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             barangId: initialData.barangId || '',
             gudangId: initialData.gudangId || '',
             jumlah: initialData.jumlah?.toString() || '',
+            hargaBeliSatuan: initialData.hargaBeliSatuan?.toString() || '',
             kondisi: initialData.kondisi || 'BARU',
             keterangan: initialData.keterangan || '',
             tanggal: initialData.tanggal ? new Date(initialData.tanggal).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
@@ -123,6 +125,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
         barangId: '',
         gudangId: '',
         jumlah: '',
+        hargaBeliSatuan: '',
         kondisi: 'BARU',
         keterangan: '',
         tanggal: new Date().toISOString().split('T')[0]
@@ -236,6 +239,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             barangId: String(formData.barangId),
             gudangId: String(formData.gudangId),
             jumlah: Number(jumlah),
+            hargaBeliSatuan: Number(formData.hargaBeliSatuan || 0),
             kondisi: String(formData.kondisi),
             keterangan: String(formData.keterangan || ''),
             tanggal: String(formData.tanggal),
@@ -456,6 +460,8 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             </p>
           )}
         </div>
+
+
 
         <div>
           <label htmlFor="kondisi" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

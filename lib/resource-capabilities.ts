@@ -118,6 +118,16 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete', 'site_only', 'department_only'],
         description: 'Menu inventory (parent)'
     },
+
+    // ====== PROCUREMENT MODULE ======
+    procurement: {
+        actions: ['read', 'create', 'update', 'delete', 'verify', 'site_only'], // Approve = verify
+        description: 'Manajemen pengadaan barang (PO)'
+    },
+    supplier: {
+        actions: ['read', 'create', 'update', 'delete'],
+        description: 'Master data supplier'
+    },
     
     // ====== WORK ORDER MODULE ======
     workorders: {

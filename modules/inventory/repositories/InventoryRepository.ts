@@ -1,5 +1,16 @@
+
+import { AssetRepository } from './AssetRepository'
 import { PrismaClient, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import type {
+    KondisiBarang,
+    BarangMasuk,
+    BarangKeluar,
+    BarangGudang,
+    StockOpname,
+    JenisBarang,
+    KategoriAset
+} from '@prisma/client'
 import type {
     IInventoryRepository,
     CreateBarangInput,
@@ -105,7 +116,9 @@ export class InventoryRepository implements IInventoryRepository {
                 id: crypto.randomUUID(),
                 ...data,
                 updatedAt: new Date(),
-                isWorkOrderMaterial: data.isWorkOrderMaterial || false
+                isWorkOrderMaterial: data.isWorkOrderMaterial || false,
+                jenis: data.jenis, // Optional: defaults to HABIS_PAKAI in DB if undefined, or explicit
+                kategoriAset: data.kategoriAset
             } as any
         })
     }
@@ -190,7 +203,8 @@ export class InventoryRepository implements IInventoryRepository {
                     barangId: data.barangId,
                     gudangId: data.gudangId,
                     jumlah: data.jumlah,
-                    kondisi: data.kondisi,
+                    hargaBeliSatuan: data.hargaBeliSatuan || 0,
+                    kondisi: data.kondisi || 'BARU',
                     keterangan: data.keterangan,
                     userId: data.userId,
                     tanggal: data.tanggal,
@@ -204,7 +218,47 @@ export class InventoryRepository implements IInventoryRepository {
                         select: { id: true, name: true }
                     }
                 }
-            })
+            }) as any // Cast to allow relation access since TS inference might lag
+
+            // 1.5. If Item is Fixed Asset, Auto-generate Asset Records
+            // Using logic validation since Typescript might complain about relations on 'masuk' if not inferred correctly
+            if (masuk.barang && masuk.barang.jenis === 'ASET') {
+                const assetRepo = new AssetRepository()
+                
+                let usefulLife = 48
+                // Map category to useful life
+                if (masuk.barang.kategoriAset === 'KENDARAAN') usefulLife = 96
+                if (masuk.barang.kategoriAset === 'BANGUNAN') usefulLife = 240
+                if (masuk.barang.kategoriAset === 'FURNITURE') usefulLife = 96
+                
+                const assetsToCreate = []
+                const prefix = `AST-${masuk.barang.kode}`
+                const dateCode = new Date().toISOString().slice(2,7).replace('-','') // YYMM
+
+                for (let i = 0; i < data.jumlah; i++) {
+                    assetsToCreate.push({
+                        barangId: data.barangId,
+                        kodeAsset: `${prefix}-${dateCode}-${Math.floor(1000 + Math.random() * 9000)}`, 
+                        purchaseDate: data.tanggal || new Date(),
+                        purchasePrice: data.hargaBeliSatuan || 0,
+                        currentValue: data.hargaBeliSatuan || 0, // Set initial value = purchase price
+                        usefulLife: usefulLife,
+                        residualValue: 0,
+                        status: 'ACTIVE' as const, 
+                        location: masuk.gudang?.nama || 'Gudang Utama',
+                        assignedTo: undefined
+                    })
+                }
+
+                if (assetsToCreate.length > 0) {
+                     await tx.asset.createMany({
+                        data: assetsToCreate.map(a => ({
+                            id: crypto.randomUUID(),
+                            ...a
+                        }))
+                     })
+                }
+            }
 
             // 2. Update or Create Stock in BarangGudang
             const existingStock = await tx.barangGudang.findUnique({
@@ -319,6 +373,44 @@ export class InventoryRepository implements IInventoryRepository {
                     }
                 }
             })
+
+            // 2.5. FIFO Asset Allocation (If Item is ASET)
+            if (keluar.barang.jenis === 'ASET' && !data.isHilang) {
+                // Find Oldest Assets (FIFO)
+                // We pick assets that are ACTIVE in this Warehouse
+                // Ordered by purchaseDate ASC, createdAt ASC
+                const assetsToAllocate = await tx.asset.findMany({
+                    where: {
+                        barangId: data.barangId,
+                        status: 'ACTIVE', 
+                        location: keluar.gudang.nama // Assuming location matches Warehouse Name logic from addStock
+                        // Note: Ideally location should be linked to gudangId relation, but current schema uses string 'location'.
+                        // We rely on string matching or we upgrade schema later. 
+                        // For now, let's assume assets created in this warehouse have this location string.
+                    },
+                    orderBy: [
+                        { purchaseDate: 'asc' },
+                        { createdAt: 'asc' }
+                    ],
+                    take: data.jumlah
+                })
+
+                // Only allocate if we found enough (or as many as possible)
+                if (assetsToAllocate.length > 0) {
+                    const assetIds = assetsToAllocate.map(a => a.id)
+                    
+                    // Update Status to INSTALLED (or 'ISSUED' if we had that status, but user context implies deployment)
+                    // If just taking out of warehouse for WO, usually becomes INSTALLED.
+                    await tx.asset.updateMany({
+                        where: { id: { in: assetIds } },
+                        data: {
+                            status: 'INSTALLED',
+                            location: `Deployed (Ref: ${keluar.keterangan || 'Barang Keluar'})`, // Update location context
+                            assignedTo: data.userId || undefined
+                        }
+                    })
+                }
+            }
 
             return keluar
         })

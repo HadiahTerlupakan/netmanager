@@ -43,6 +43,7 @@ describe('CouponService', () => {
         startDate: new Date(),
         endDate: new Date(),
         minTransaction: 0,
+        quota: 100,
         isActive: true
       }))
         .rejects.toThrow('Coupon code already exists')
@@ -62,6 +63,7 @@ describe('CouponService', () => {
         startDate: new Date(),
         endDate: new Date(),
         minTransaction: 0,
+        quota: 100,
         isActive: true
       })
 

@@ -160,7 +160,8 @@ export class PointClaimRepository implements IPointClaimRepository {
       }
 
       // Poin Claim (+2 poin jika approved)
-      for (const claim of canvasing.pointClaims) {
+      const claim = canvasing.pointClaims as any
+      if (claim) {
         if (claim.status === 'APPROVED') {
           claimPoints += claim.pointValue
           approvedClaims++

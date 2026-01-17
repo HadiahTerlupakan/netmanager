@@ -58,9 +58,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!transactionType || !['inventory-masuk', 'inventory-keluar', 'inventory-transfer'].includes(transactionType)) {
+    if (!transactionType || !['inventory-masuk', 'inventory-keluar', 'inventory-transfer', 'finance-transaction'].includes(transactionType)) {
       return NextResponse.json(
-        { error: 'Transaction type must be "inventory-masuk", "inventory-keluar", or "inventory-transfer"' },
+        { error: 'Transaction type must be "inventory-masuk", "inventory-keluar", "inventory-transfer", or "finance-transaction"' },
         { status: 400 }
       )
     }

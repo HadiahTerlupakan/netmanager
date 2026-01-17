@@ -101,6 +101,19 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'INVENTORY.RESTOCK', name: 'Restock Management', path: '/admin/inventory/restock', icon: 'HiOutlineArrowTrendingUp' },
             { code: 'INVENTORY.OPNAME', name: 'Stock Opname', path: '/admin/inventory/opname', icon: 'HiOutlineClipboard' },
             { code: 'INVENTORY.GUDANG', name: 'Gudang', path: '/admin/inventory/gudang', icon: 'HiOutlineHome' },
+            { code: 'INVENTORY.ASSETS', name: 'Aset Tetap', path: '/admin/inventory/assets', icon: 'HiOutlineComputerDesktop' },
+        ],
+    },
+    {
+        code: 'PROCUREMENT',
+        name: 'Procurement',
+        path: '/admin/procurement',
+        icon: 'HiOutlineShoppingBag',
+        children: [
+            { code: 'PROCUREMENT.PROCUREMENT', name: 'Dashboard', path: '/admin/procurement', icon: 'HiOutlineChartBar', exact: true },
+
+            { code: 'PROCUREMENT.PURCHASE_ORDER', name: 'Purchase Order', path: '/admin/procurement/purchase-orders', icon: 'HiOutlineDocumentText' },
+            { code: 'PROCUREMENT.MARKET_PRICE', name: 'Analisa Harga Pasar', path: '/admin/procurement/market-price', icon: 'HiOutlinePresentationChartBar' },
         ],
     },
     {
@@ -190,10 +203,11 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: '/admin/finance',
         icon: 'HiOutlineCurrencyDollar',
         children: [
-            { code: 'FINANCE.DAILY_INCOME', name: 'Pendapatan Harian', path: '/admin/finance/pendapatan-harian', icon: 'HiOutlineDocumentText' },
-            { code: 'FINANCE.PERIOD_INCOME', name: 'Pendapatan Periode', path: '/admin/finance/pendapatan-periode', icon: 'HiOutlineCalendar' },
-            { code: 'FINANCE.EXPENSE', name: 'Pengeluaran', path: '/admin/finance/pengeluaran', icon: 'HiOutlineCreditCard' },
-            { code: 'FINANCE.PROFIT_LOSS', name: 'Laba Rugi', path: '/admin/finance/laba-rugi', icon: 'HiOutlineChartBar' },
+            { code: 'FINANCE.DEBTS_RECEIVABLES', name: 'Hutang & Piutang', path: '/admin/finance/debts-receivables', icon: 'HiOutlineClipboardDocumentList' },
+            { code: 'FINANCE.TREASURY', name: 'Kas & Bank', path: '/admin/finance/accounts', icon: 'HiOutlineBuildingLibrary' },
+            { code: 'FINANCE.TRANSACTIONS', name: 'Daftar Transaksi', path: '/admin/finance/transactions', icon: 'HiOutlineQueueList' },
+            { code: 'FINANCE.CATEGORIES', name: 'Kategori Transaksi', path: '/admin/finance/categories', icon: 'HiOutlineTag' },
+            { code: 'FINANCE.REPORTS', name: 'Laporan & Analisis', path: '/admin/finance/reports', icon: 'HiOutlineChartPie' }
         ],
     },
     {

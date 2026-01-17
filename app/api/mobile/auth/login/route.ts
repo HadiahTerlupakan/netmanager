@@ -87,6 +87,8 @@ export async function POST(req: Request) {
                 name: user.name,
                 email: user.email,
                 role: user.role?.name,
+                workDays: user.workDays,
+                workingHourMode: user.workingHourMode,
                 isSales: user.isSales,
                 features // Include features in login response
             }

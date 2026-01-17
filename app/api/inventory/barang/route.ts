@@ -321,7 +321,9 @@ export async function POST(req: NextRequest) {
         kode,
         nama,
         satuan,
-        isWorkOrderMaterial
+        isWorkOrderMaterial,
+        jenis: body.jenis,
+        kategoriAset: body.kategoriAset
       })
 
       logger.dbOperation('create', 'Barang', Date.now() - dbStart)

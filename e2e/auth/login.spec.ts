@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 // Reusable login function
 export async function loginAsAdmin(page: Page, email: string, password: string) {

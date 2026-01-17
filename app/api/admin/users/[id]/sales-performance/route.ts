@@ -137,8 +137,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                     select: {
                         status: true,
                         pointValue: true
-                    },
-                    take: 1
+                    }
                 }
             }
         })
@@ -149,7 +148,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             status: activity.status,
             createdAt: activity.createdAt,
             address: activity.alamat,
-            pointClaim: activity.pointClaims[0] || null
+            pointClaim: activity.pointClaims || null
         }))
 
         // 4. Total All Time

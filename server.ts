@@ -355,8 +355,32 @@ app.prepare().then(() => {
             console.log('[Cron] Running daily auto-checkout')
             AutoCheckoutService.runAutoCheckout()
         })
-        console.log('[Server] Auto checkout cron scheduled (23:59)')
+            console.log('[Server] Auto checkout cron scheduled (23:59)')
     }).catch(err => console.error('[Server] Failed to start Auto Checkout Service:', err))
+
+    // Start Monthly Asset Depreciation Service (Monthly on 1st at 02:00 AM)
+    import('./modules/inventory/services/AssetService').then(({ AssetService }) => {
+        cron.schedule('0 2 1 * *', async () => {
+             console.log('[Cron] Running monthly asset depreciation')
+             try {
+                // Fetch System Admin for context
+                let systemUser = await prisma.user.findFirst({
+                    where: { role: { name: 'SUPER_ADMIN' } }
+                }) || await prisma.user.findFirst()
+
+                if (systemUser) {
+                    const assetService = new AssetService()
+                    const results = await assetService.runMonthlyDepreciationCycle(systemUser.id)
+                    console.log(`[Cron] Depreciation complete. Processed ${results.length} assets.`)
+                } else {
+                    console.error('[Cron] Failed to run depreciation: No system user found')
+                }
+             } catch (err) {
+                 console.error('[Cron] Depreciation cycle failed:', err)
+             }
+        })
+        console.log('[Server] Asset depreciation cron scheduled (Monthly 1st 02:00)')
+    }).catch(err => console.error('[Server] Failed to start Asset Service:', err))
 
 
     // Log connections count periodically in development

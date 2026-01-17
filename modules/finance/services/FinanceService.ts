@@ -1,0 +1,309 @@
+import { prisma } from '@/lib/prisma'
+import { TransactionRepository } from '../repositories/TransactionRepository'
+import type { ITransactionRepository } from '../repositories/ITransactionRepository'
+import { TransactionCategoryRepository } from '../repositories/TransactionCategoryRepository'
+import type { ITransactionCategoryRepository } from '../repositories/ITransactionCategoryRepository'
+import { type Prisma, type Transaction, type PaymentStatus } from '@prisma/client'
+
+export class FinanceService {
+  private transactionRepo: ITransactionRepository
+  private categoryRepo: ITransactionCategoryRepository
+
+  constructor() {
+    this.transactionRepo = new TransactionRepository()
+    this.categoryRepo = new TransactionCategoryRepository()
+  }
+
+  async getAllCategories() {
+    return this.categoryRepo.findAll()
+  }
+
+  async createCategory(data: Prisma.TransactionCategoryCreateInput) {
+    return this.categoryRepo.create(data)
+  }
+
+  async getTransactions(filters?: { startDate?: string, endDate?: string, categoryId?: string, accountId?: string }) {
+    return this.transactionRepo.findAll({
+      startDate: filters?.startDate ? new Date(filters.startDate) : undefined,
+      endDate: filters?.endDate ? new Date(filters.endDate) : undefined,
+      categoryId: filters?.categoryId,
+      accountId: filters?.accountId
+    })
+  }
+
+  async createTransaction(data: {
+    type: 'INCOME' | 'EXPENSE'
+    amount: number
+    date: Date | string
+    description?: string
+    categoryId: string
+    createdById: string
+    referenceId?: string
+    accountId?: string
+    attachments?: string[]
+  }) {
+    return prisma.$transaction(async (tx) => {
+        // 1. Update Account Balance if provided
+        if (data.accountId) {
+            const modification = data.type === 'INCOME' ? data.amount : -data.amount
+            await tx.financialAccount.update({
+                where: { id: data.accountId },
+                data: { balance: { increment: modification } }
+            })
+        }
+
+        // 2. Create Transaction
+        return tx.transaction.create({
+            data: {
+                type: data.type,
+                amount: data.amount,
+                date: new Date(data.date),
+                description: data.description,
+                categoryId: data.categoryId,
+                createdById: data.createdById,
+                referenceId: data.referenceId,
+                accountId: data.accountId,
+                attachments: data.attachments || []
+            },
+            include: { category: true } 
+        })
+    })
+  }
+
+  /**
+   * Process payment for a Purchase Order
+   * Wraps transaction creation and PO status update in a database transaction
+   */
+  async payPurchaseOrder(input: {
+    poId: string
+    amount: number
+    date: Date | string
+    categoryId: string
+    notes?: string
+    createdById: string
+    paidFromAccountId?: string
+  }) {
+    // 1. Verify PO existence
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: input.poId }
+    })
+
+    if (!po) throw new Error('Purchase Order not found')
+    if (po.paymentStatus === 'PAID') throw new Error('Tagihan PO ini sudah lunas')
+
+    // 2. Wrap in transaction
+    return prisma.$transaction(async (tx) => {
+      // 2a. Update Account Balance if provided (Decrease for payment)
+      if (input.paidFromAccountId) {
+          await tx.financialAccount.update({
+              where: { id: input.paidFromAccountId },
+              data: { balance: { decrement: input.amount } }
+          })
+      }
+
+      // Create Financial Transaction record
+      const transaction = await tx.transaction.create({
+        data: {
+          type: 'EXPENSE',
+          amount: input.amount,
+          date: new Date(input.date),
+          description: input.notes || `Pembayaran PO #${po.poNumber}`,
+          categoryId: input.categoryId,
+          referenceId: po.poNumber,
+          purchaseOrderId: po.id,
+          createdById: input.createdById,
+          accountId: input.paidFromAccountId
+        }
+      })
+
+      // Calculate new Payment Status
+      // Fetch all transactions for this PO (including the one just created? No, we need to sum manually or query again)
+      // Since we are inside a tx, let's query.
+      const existingTx = await tx.transaction.findMany({
+        where: { purchaseOrderId: input.poId }
+      })
+
+      const totalPaid = existingTx.reduce((sum, t) => sum + t.amount, 0)
+      
+      let newStatus: PaymentStatus = 'PARTIAL'
+      
+      // Check full payment with small tolerance (against Grand Total)
+      // If grandTotal is 0 (legacy data), use totalAmount
+      const targetAmount = po.grandTotal > 0 ? po.grandTotal : po.totalAmount
+      
+      if (totalPaid >= (targetAmount - 100)) {
+        newStatus = 'PAID'
+      }
+
+      // Update PO Status & Last Paid Account
+      await tx.purchaseOrder.update({
+        where: { id: input.poId },
+        data: { 
+            paymentStatus: newStatus,
+            paidFromAccountId: input.paidFromAccountId || undefined
+        }
+      })
+
+      return transaction
+    })
+  }
+
+
+  async getReports(type: 'CAPEX_OPEX' | 'TAX') {
+     if (type === 'TAX') {
+       // Input VAT from Purchase Orders
+       // Start of year default
+       const startDate = new Date(new Date().getFullYear(), 0, 1)
+       
+       const pos = await prisma.purchaseOrder.findMany({
+         where: {
+           ppnAmount: { gt: 0 },
+           createdAt: { gte: startDate }
+         },
+         select: {
+           poNumber: true,
+           ppnAmount: true,
+           ppnRate: true,
+           totalAmount: true, // DPP
+           createdAt: true,
+           supplier: { select: { name: true } }
+         },
+         orderBy: { createdAt: 'desc' }
+       })
+       
+       const summary = {
+         totalPPN: pos.reduce((sum, po) => sum + po.ppnAmount, 0),
+         details: pos
+       }
+       
+       return summary
+     }
+     
+     if (type === 'CAPEX_OPEX') {
+       // ... existing logic ...
+       // Group by Category Expense Type
+       const transactions = await this.transactionRepo.findAll({
+         startDate: new Date(new Date().getFullYear(), 0, 1), // This year default
+         endDate: new Date()
+       })
+       
+       // Process manually for now as GroupBy is tricky in Repository pattern without dedicated method
+       const summary = {
+         CAPITAL: 0,
+         OPERATIONAL: 0,
+         OTHER: 0
+       }
+       
+       transactions.forEach((t: any) => {
+         if (t.type === 'EXPENSE' && t.category) {
+            const et = t.category.expenseType || 'OTHER'
+            if (et in summary) {
+                summary[et as keyof typeof summary] += t.amount
+            } else {
+                summary.OTHER += t.amount
+            }
+         }
+       })
+       
+       return summary
+    }
+    return null
+  }
+
+  async transferFunds(data: {
+    sourceAccountId: string
+    destinationAccountId: string
+    amount: number
+    date: Date | string
+    description?: string
+    createdById: string
+    categoryId: string
+  }) {
+    return prisma.$transaction(async (tx) => {
+      // 1. Decrement Source Account
+      await tx.financialAccount.update({
+        where: { id: data.sourceAccountId },
+        data: { balance: { decrement: data.amount } }
+      })
+
+      // 2. Increment Destination Account
+      await tx.financialAccount.update({
+        where: { id: data.destinationAccountId },
+        data: { balance: { increment: data.amount } }
+      })
+
+      // 3. Create Outgoing Transaction (Source)
+      await tx.transaction.create({
+        data: {
+          type: 'EXPENSE',
+          amount: data.amount,
+          date: new Date(data.date),
+          description: data.description || 'Transfer Keluar',
+          categoryId: data.categoryId,
+          createdById: data.createdById,
+          accountId: data.sourceAccountId,
+          referenceId: 'TRANSFER'
+        }
+      })
+
+      // 4. Create Incoming Transaction (Destination)
+      await tx.transaction.create({
+        data: {
+          type: 'INCOME',
+          amount: data.amount,
+          date: new Date(data.date),
+          description: data.description || 'Transfer Masuk',
+          categoryId: data.categoryId,
+          createdById: data.createdById,
+          accountId: data.destinationAccountId,
+          referenceId: 'TRANSFER'
+        }
+      })
+    })
+  }
+
+  async deleteTransaction(id: string) {
+    return prisma.$transaction(async (tx) => {
+      const transaction = await tx.transaction.findUnique({ where: { id } })
+      if (!transaction) throw new Error('Transaksi tidak ditemukan')
+
+      // Revert account balance if associated with an account
+      if (transaction.accountId) {
+        if (transaction.type === 'INCOME') {
+          // Revert Income: Decrement
+          await tx.financialAccount.update({
+            where: { id: transaction.accountId },
+            data: { balance: { decrement: transaction.amount } }
+          })
+        } else {
+          // Revert Expense: Increment
+          await tx.financialAccount.update({
+            where: { id: transaction.accountId },
+            data: { balance: { increment: transaction.amount } }
+          })
+        }
+      }
+
+      await tx.transaction.delete({ where: { id } })
+    })
+  }
+  async createAccount(data: {
+    name: string
+    type: 'BANK' | 'CASH' | 'EWALLET' | 'OTHER'
+    accountNumber?: string
+    description?: string
+    initialBalance?: number
+  }) {
+    return prisma.financialAccount.create({
+      data: {
+        name: data.name,
+        type: data.type,
+        accountNumber: data.accountNumber,
+        description: data.description,
+        balance: data.initialBalance || 0,
+        isActive: true
+      }
+    })
+  }
+}
+

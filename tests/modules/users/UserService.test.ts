@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { prismaMock } from '../../setup'
-import { UserService, CreateUserInput } from '@/modules/users/services/UserService'
+import { UserService, type CreateUserInput } from '@/modules/users/services/UserService'
 import { WorkingHourMode } from '@prisma/client'
 
 // Mock bcryptjs

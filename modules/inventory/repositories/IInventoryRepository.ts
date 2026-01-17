@@ -4,7 +4,9 @@ import type {
     BarangKeluar,
     BarangGudang,
     Gudang,
-    KondisiBarang
+    KondisiBarang,
+    JenisBarang,
+    KategoriAset
 } from '@prisma/client'
 
 // Extended types including relations
@@ -32,6 +34,8 @@ export interface CreateBarangInput {
     nama: string
     satuan: string
     isWorkOrderMaterial?: boolean
+    jenis?: JenisBarang
+    kategoriAset?: KategoriAset
 }
 
 export interface UpdateBarangInput {
@@ -39,12 +43,15 @@ export interface UpdateBarangInput {
     nama?: string
     satuan?: string
     isWorkOrderMaterial?: boolean
+    jenis?: JenisBarang
+    kategoriAset?: KategoriAset
 }
 
 export interface CreateBarangMasukInput {
     barangId: string
     gudangId: string
     jumlah: number
+    hargaBeliSatuan?: number
     kondisi?: KondisiBarang
     keterangan?: string
     fotoBukti?: string[]

@@ -300,7 +300,7 @@ describe('WorkOrderRepository', () => {
   describe('getStatistics', () => {
     it('should return aggregated statistics', async () => {
       prismaMock.workOrders.count.mockResolvedValueOnce(100)
-      prismaMock.workOrders.groupBy.mockResolvedValueOnce([
+      ;(prismaMock.workOrders.groupBy as any).mockResolvedValueOnce([
         { status: 'PENDING', _count: 10 },
         { status: 'IN_PROGRESS', _count: 20 },
         { status: 'COMPLETED', _count: 30 },

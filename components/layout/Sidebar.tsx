@@ -56,6 +56,9 @@ import {
   HiOutlineTag,
   HiOutlineTicket,
   HiOutlineMapPin,
+  HiOutlineShoppingBag,
+  HiOutlineBuildingLibrary,
+  HiOutlineChartPie,
   HiOutlineSpeakerWave,
   HiOutlineArrowPath,
 } from 'react-icons/hi2'
@@ -132,6 +135,9 @@ const IconMap: Record<string, React.ElementType> = {
   HiOutlineMapPin,
   HiOutlineSpeakerWave,
   HiOutlineArrowPath,
+  HiOutlineShoppingBag,
+  HiOutlineBuildingLibrary,
+  HiOutlineChartPie,
 }
 
 const getIcon = (name: string | undefined, className: string) => {

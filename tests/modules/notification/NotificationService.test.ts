@@ -22,10 +22,11 @@ describe('NotificationService - Database Operations', () => {
         createdAt: new Date()
       }
 
-      prismaMock.notification.create.mockResolvedValueOnce(notificationData as any)
+      prismaMock.notifications.create.mockResolvedValueOnce(notificationData as any)
 
-      const result = await prismaMock.notification.create({
+      const result = await prismaMock.notifications.create({
         data: {
+          id: 'notif-id-1',
           type: 'WORK_ORDER',
           title: 'New Work Order',
           message: 'You have a new work order',
@@ -47,10 +48,11 @@ describe('NotificationService - Database Operations', () => {
         isRead: false
       }
 
-      prismaMock.notification.create.mockResolvedValueOnce(notificationData as any)
+      prismaMock.notifications.create.mockResolvedValueOnce(notificationData as any)
 
-      const result = await prismaMock.notification.create({
+      const result = await prismaMock.notifications.create({
         data: {
+          id: 'notif-id-2',
           type: 'ANNOUNCEMENT',
           title: 'Department Notice',
           message: 'Important announcement',
@@ -64,13 +66,13 @@ describe('NotificationService - Database Operations', () => {
 
   describe('markAsRead (via Prisma)', () => {
     it('should update notification isRead to true', async () => {
-      prismaMock.notification.update.mockResolvedValueOnce({
+      prismaMock.notifications.update.mockResolvedValueOnce({
         id: 'notif-1',
         isRead: true,
         readAt: new Date()
       } as any)
 
-      const result = await prismaMock.notification.update({
+      const result = await prismaMock.notifications.update({
         where: { id: 'notif-1' },
         data: { isRead: true, readAt: new Date() }
       })
@@ -81,11 +83,11 @@ describe('NotificationService - Database Operations', () => {
 
   describe('markAllAsRead (via Prisma)', () => {
     it('should update all unread notifications for user', async () => {
-      prismaMock.notification.updateMany.mockResolvedValueOnce({
+      prismaMock.notifications.updateMany.mockResolvedValueOnce({
         count: 5
       })
 
-      const result = await prismaMock.notification.updateMany({
+      const result = await prismaMock.notifications.updateMany({
         where: {
           userId: 'user-1',
           isRead: false
@@ -100,11 +102,11 @@ describe('NotificationService - Database Operations', () => {
     })
 
     it('should filter by type when provided', async () => {
-      prismaMock.notification.updateMany.mockResolvedValueOnce({
+      prismaMock.notifications.updateMany.mockResolvedValueOnce({
         count: 3
       })
 
-      const result = await prismaMock.notification.updateMany({
+      const result = await prismaMock.notifications.updateMany({
         where: {
           userId: 'user-1',
           isRead: false,
@@ -122,9 +124,9 @@ describe('NotificationService - Database Operations', () => {
 
   describe('getUnreadCount (via Prisma)', () => {
     it('should return count of unread notifications', async () => {
-      prismaMock.notification.count.mockResolvedValueOnce(7)
+      prismaMock.notifications.count.mockResolvedValueOnce(7)
 
-      const count = await prismaMock.notification.count({
+      const count = await prismaMock.notifications.count({
         where: {
           userId: 'user-1',
           isRead: false
@@ -135,9 +137,9 @@ describe('NotificationService - Database Operations', () => {
     })
 
     it('should count notifications with OR condition for user and department', async () => {
-      prismaMock.notification.count.mockResolvedValueOnce(10)
+      prismaMock.notifications.count.mockResolvedValueOnce(10)
 
-      const count = await prismaMock.notification.count({
+      const count = await prismaMock.notifications.count({
         where: {
           isRead: false,
           OR: [
@@ -158,9 +160,9 @@ describe('NotificationService - Database Operations', () => {
         { id: 'notif-2', title: 'Notification 2' }
       ]
 
-      prismaMock.notification.findMany.mockResolvedValueOnce(mockNotifications as any)
+      prismaMock.notifications.findMany.mockResolvedValueOnce(mockNotifications as any)
 
-      const result = await prismaMock.notification.findMany({
+      const result = await prismaMock.notifications.findMany({
         where: {
           OR: [
             { userId: 'user-1' },

@@ -129,7 +129,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         kode,
         nama,
         satuan,
-        isWorkOrderMaterial
+        isWorkOrderMaterial,
+        jenis: body.jenis,
+        kategoriAset: body.kategoriAset
       })
 
       logger.dbOperation('update', 'Barang', Date.now() - dbStart)

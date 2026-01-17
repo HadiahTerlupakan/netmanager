@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { prismaMock } from '../../setup'
-import { PelangganService, CreatePelangganInput } from '@/modules/pelanggan/services/PelangganService'
+import { PelangganService, type CreatePelangganInput } from '@/modules/pelanggan/services/PelangganService'
 
 // Mock bcryptjs
 vi.mock('bcryptjs', () => ({
@@ -27,7 +27,7 @@ describe('PelangganService', () => {
       password: 'pppoe123',
       passwordLogin: 'login123',
       hargaPaketId: 'paket-001',
-      tipe: 'PPPOE',
+      tipe: 'REGULER',
       tanggalAktif: '2024-01-01',
       jatuhTempo: '2024-02-01',
       status: 'AKTIF'

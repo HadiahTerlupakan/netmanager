@@ -56,8 +56,51 @@ export async function POST(request: Request) {
         }
 
         // Validate replacementDate for TUKAR_LIBUR
-        if (type === 'TUKAR_LIBUR' && !replacementDate) {
-            return NextResponse.json({ error: 'Tanggal pengganti wajib diisi untuk Tukar Libur' }, { status: 400 })
+        if (type === 'TUKAR_LIBUR') {
+            if (!replacementDate) {
+                return NextResponse.json({ error: 'Tanggal pengganti wajib diisi untuk Tukar Libur' }, { status: 400 })
+            }
+
+            const userData = await prisma.user.findUnique({
+                where: { id: user.id },
+                select: { workDays: true }
+            });
+
+            if (userData?.workDays) {
+                const workDays = userData.workDays.split(',').map(d => d.trim());
+                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                
+                const start = new Date(startDate);
+                const replacement = new Date(replacementDate);
+
+                const startDayName = days[start.getDay()];
+                const replacementDayName = days[replacement.getDay()];
+
+                // Helper to format date for comparison YYYY-MM-DD
+                const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+                // 1. Validate Start Date (Must be a Work Day)
+                if (!workDays.includes(startDayName)) {
+                     return NextResponse.json({ 
+                        error: `Tanggal izin (${startDate}) harus merupakan Hari Kerja.` 
+                    }, { status: 400 })
+                }
+
+                // 2. Validate Replacement Date (Must be Off Day OR Holiday)
+                // Check if it's an Off Day
+                const isOffDay = !workDays.includes(replacementDayName);
+
+                // Check if it's a Holiday
+                const holiday = await prisma.holiday.findUnique({
+                    where: { date: new Date(formatDate(replacement)) }
+                });
+
+                if (!isOffDay && !holiday) {
+                     return NextResponse.json({ 
+                        error: `Tanggal pengganti (${replacementDate}) harus merupakan Hari Libur atau Tanggal Merah.` 
+                    }, { status: 400 })
+                }
+            }
         }
 
         // Convert base64 photos to URLs

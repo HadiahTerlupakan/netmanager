@@ -51,7 +51,7 @@ export class PointClaimService {
       throw new Error('Work Order belum selesai. Status saat ini: ' + canvasing.workOrder.status)
     }
 
-    if (canvasing.pointClaims && canvasing.pointClaims.length > 0) {
+    if (canvasing.pointClaims) {
       throw new Error('Claim sudah pernah diajukan untuk canvasing ini')
     }
 

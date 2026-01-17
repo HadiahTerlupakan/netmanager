@@ -109,8 +109,7 @@ export class CanvasingRepository implements ICanvasingRepository {
                   reviewNotes: true,
                   createdAt: true
               },
-              orderBy: { createdAt: 'desc' },
-              take: 1
+
           }
       },
       orderBy: { createdAt: 'desc' },

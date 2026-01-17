@@ -734,6 +734,45 @@ async function main() {
   console.log('   └────────────────────────────────────────────────────┘')
   console.log('\n✅ All authentication data is ready for login!\n')
 
+  // ========================================================================
+  // STEP 10: TREASURY (Financial Accounts)
+  // ========================================================================
+  console.log('\n💰 STEP 10: Creating Financial Accounts...')
+  
+  // Default Cash Account
+  
+  const existingCash = await prisma.financialAccount.findFirst({ where: { type: 'CASH' } })
+  if (!existingCash) {
+      await prisma.financialAccount.create({
+        data: {
+            name: 'Kas Operasional',
+            type: 'CASH',
+            description: 'Kas tunai harian di kantor',
+            balance: 0,
+            isActive: true
+        }
+      })
+      console.log('   ✅ Account: Kas Operasional')
+  } else {
+      console.log('   ℹ️  Account: Kas Operasional (Already exists)')
+  }
+
+  const existingBank = await prisma.financialAccount.findFirst({ where: { type: 'BANK' } })
+  if (!existingBank) {
+      await prisma.financialAccount.create({
+        data: {
+            name: 'Bank BCA',
+            type: 'BANK',
+            accountNumber: '1234567890',
+            description: 'Rekening Utama',
+            balance: 0,
+            isActive: true
+        }
+      })
+      console.log('   ✅ Account: Bank BCA')
+  } else {
+      console.log('   ℹ️  Account: Bank BCA (Already exists)')
+  }
 
 }
 

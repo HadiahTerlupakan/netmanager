@@ -11,6 +11,8 @@ interface BarangFormProps {
     nama?: string
     satuan?: string
     isWorkOrderMaterial?: boolean
+    jenis?: 'HABIS_PAKAI' | 'ASET'
+    kategoriAset?: string
   }
   onSubmit: (data: any) => void
   onCancel: () => void
@@ -20,7 +22,9 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
   const [formData, setFormData] = useState({
     nama: initialData?.nama || '',
     satuan: initialData?.satuan || '',
-    isWorkOrderMaterial: initialData?.isWorkOrderMaterial || false
+    isWorkOrderMaterial: initialData?.isWorkOrderMaterial || false,
+    jenis: initialData?.jenis || 'HABIS_PAKAI',
+    kategoriAset: initialData?.kategoriAset || 'ELEKTRONIK'
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -36,7 +40,9 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
       setFormData({
         nama: initialData.nama || '',
         satuan: initialData.satuan || '',
-        isWorkOrderMaterial: initialData.isWorkOrderMaterial || false
+        isWorkOrderMaterial: initialData.isWorkOrderMaterial || false,
+        jenis: initialData.jenis || 'HABIS_PAKAI',
+        kategoriAset: initialData.kategoriAset || 'ELEKTRONIK'
       })
       // Check if initial satuan is custom
       if (initialData.satuan && !satuanOptions.includes(initialData.satuan)) {
@@ -64,7 +70,9 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
           kode: initialData.kode || '',
           nama: formData.nama,
           satuan: formData.satuan,
-          isWorkOrderMaterial: formData.isWorkOrderMaterial
+          isWorkOrderMaterial: formData.isWorkOrderMaterial,
+          jenis: formData.jenis,
+          kategoriAset: formData.jenis === 'ASET' ? formData.kategoriAset : null
         }
         const response = await fetch(`/api/inventory/barang/${initialData.id}`, {
           method: 'PUT',
@@ -137,6 +145,65 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
           </p>
         </div>
       )}
+
+      {/* Jenis Barang Selection */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+             Jenis Barang
+           </label>
+           <div className="flex gap-4">
+             <label className="inline-flex items-center">
+               <input
+                 type="radio"
+                 className="form-radio text-indigo-600"
+                 name="jenis"
+                 value="HABIS_PAKAI"
+                 checked={formData.jenis === 'HABIS_PAKAI'}
+                 onChange={(e) => setFormData({ ...formData, jenis: e.target.value as any })}
+               />
+               <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Habis Pakai</span>
+             </label>
+             <label className="inline-flex items-center">
+               <input
+                 type="radio"
+                 className="form-radio text-indigo-600"
+                 name="jenis"
+                 value="ASET"
+                 checked={formData.jenis === 'ASET'}
+                 onChange={(e) => setFormData({ ...formData, jenis: 'ASET', kategoriAset: formData.kategoriAset || 'ELEKTRONIK' })}
+               />
+               <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Aset Tetap</span>
+             </label>
+           </div>
+           <p className="mt-1 text-xs text-gray-500">
+             {formData.jenis === 'ASET' 
+                ? 'Item akan ditrack per unit (Serial Number) dan memiliki nilai penyusutan'
+                : 'Item hanya ditrack jumlah stok (Qty) saja'}
+           </p>
+        </div>
+
+        {/* Kategori Aset - Only visible if ASET */}
+        {formData.jenis === 'ASET' && (
+          <div>
+            <label htmlFor="kategoriAset" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Kategori Aset (untuk Umur Ekonomis)
+            </label>
+            <select
+              id="kategoriAset"
+              value={formData.kategoriAset || ''}
+              onChange={(e) => setFormData({ ...formData, kategoriAset: e.target.value as any })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            >
+              <option value="ELEKTRONIK">Elektronik (4 Tahun)</option>
+              <option value="KENDARAAN">Kendaraan (8 Tahun)</option>
+              <option value="FURNITURE">Furniture (8 Tahun)</option>
+              <option value="BANGUNAN">Bangunan (20 Tahun)</option>
+              <option value="LAINNYA">Lainnya</option>
+            </select>
+          </div>
+        )}
+      </div>
 
       <div>
         <label htmlFor="nama" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
