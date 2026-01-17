@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useToast } from '@/components/common/ToastProvider'
+import ImageUpload from '@/components/common/ImageUpload'
 
 const MapPicker = dynamic(() => import('@/components/common/MapPicker').then(m => m.default), { ssr: false })
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
@@ -17,6 +18,7 @@ export function ClientComponent() {
   const router = useRouter()
   const { show } = useToast()
   const [name, setName] = useState('')
+  const [images, setImages] = useState<string[]>([])
   const [location, setLocation] = useState('')
   const [coreCount, setCoreCount] = useState<number>(0)
   const [notes, setNotes] = useState('')
@@ -97,6 +99,7 @@ export function ClientComponent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
+          images: images,
           location: location || null,
           coreCount,
           notes: notes || null,
@@ -145,6 +148,15 @@ export function ClientComponent() {
             required
             className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
             placeholder="Contoh: OTB-RT01"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <ImageUpload
+            label="Foto OTB (opsional)"
+            value={images}
+            onChange={setImages}
+            folder="ftth/otb"
           />
         </div>
 

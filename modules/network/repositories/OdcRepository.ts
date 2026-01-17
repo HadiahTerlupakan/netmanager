@@ -25,6 +25,7 @@ export class OdcRepository implements IOdcRepository {
         data: {
           id: randomUUID(),
           name: data.name,
+          images: data.images ?? [],
           location: data.location ?? null,
           notes: data.notes ?? null,
           keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder ?? null,
@@ -63,6 +64,7 @@ export class OdcRepository implements IOdcRepository {
         where: { id },
         data: {
           ...(data.name !== undefined && { name: data.name }),
+          ...(data.images !== undefined && { images: data.images }),
           ...(data.location !== undefined && { location: data.location }),
           ...(data.notes !== undefined && { notes: data.notes }),
           ...(data.keteranganJumlahKabelFeeder !== undefined && { keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder }),

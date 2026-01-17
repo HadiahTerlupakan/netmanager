@@ -1,115 +1,61 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
-import { convertAndSaveImage, isImageFile } from '@/lib/utils/image-upload'
-import type { UploadType } from '@/lib/utils/image-upload'
-import path from 'path'
+import { authOptions } from '@/lib/auth'
+import { convertAndSaveImage } from '@/lib/utils/image-upload'
 
-/**
- * POST /api/upload
- * Generic file upload endpoint
- * Supports: workorder-completion, payment-proofs, etc.
- */
-export async function POST(request: NextRequest) {
-    try {
-        // Check authentication
-        const session: any = await getServerSession(authConfig as any)
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions)
+  if (!session || !session.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
-        const formData: any = await request.formData()
-        const file = formData.get('file') as File | null
-        const type = formData.get('type') as UploadType | null
-        const subFolder = formData.get('workOrderId') as string || formData.get('subFolder') as string || undefined
+  try {
+    const formData = await req.formData()
+    // Support both single 'file' and multiple 'files'
+    const files = formData.getAll('file').concat(formData.getAll('files')) as File[]
+    const folder = formData.get('folder') as string || 'uploads'
 
-        // Validate required fields
-        if (!file) {
-            return NextResponse.json({ error: 'File is required' }, { status: 400 })
-        }
-
-        if (!type) {
-            // Allow 'folder' as fallback for backwards compatibility
-            const folder = formData.get('folder') as string | null
-            if (!folder) {
-                return NextResponse.json({ error: 'Upload type is required' }, { status: 400 })
-            }
-            // Redirect to work-order-updates type
-            // (handled below in switch case)
-        }
-
-        // Validate file is an image
-        if (!isImageFile(file)) {
-            return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 })
-        }
-
-        // Validate file size (max 10MB)
-        const maxSize = 10 * 1024 * 1024 // 10MB
-        if (file.size > maxSize) {
-            return NextResponse.json({ error: 'File size exceeds 10MB limit' }, { status: 400 })
-        }
-
-        // Generate filename
-        const timestamp = Date.now()
-        const randomStr = Math.random().toString(36).substring(2, 8)
-        const fileName = `${timestamp}_${randomStr}`
-
-        // Determine upload directory based on type
-        let uploadDir: string
-        switch (type) {
-            case 'workorder-completion':
-                uploadDir = path.join(process.cwd(), 'public', 'uploads', 'workorder', 'completion')
-                break
-            case 'payment-proofs':
-                uploadDir = path.join(process.cwd(), 'public', 'uploads', 'payment-proofs')
-                break
-            case 'inventory-masuk':
-                uploadDir = path.join(process.cwd(), 'public', 'uploads', 'inventory', 'masuk')
-                break
-            case 'inventory-keluar':
-                uploadDir = path.join(process.cwd(), 'public', 'uploads', 'inventory', 'keluar')
-                break
-            case 'employee-attendance':
-                uploadDir = path.join(process.cwd(), 'public', 'uploads', 'employee', 'attendance')
-                break
-            case 'work-order-updates':
-                uploadDir = path.join(process.cwd(), 'public', 'uploads', 'workorder', 'updates')
-                break
-            default:
-                // Handle 'folder' parameter for backwards compatibility
-                const folder = formData.get('folder') as string | null
-                if (folder) {
-                    uploadDir = path.join(process.cwd(), 'public', 'uploads', folder)
-                } else {
-                    uploadDir = path.join(process.cwd(), 'public', 'uploads', 'general')
-                }
-        }
-
-        // If subFolder (e.g., workOrderId), append to path
-        if (subFolder) {
-            uploadDir = path.join(uploadDir, subFolder)
-        }
-
-        // Upload and convert image
-        const url = await convertAndSaveImage(
-            file,
-            uploadDir,
-            fileName,
-            type ?? undefined,
-            subFolder
-        )
-
-        return NextResponse.json({
-            success: true,
-            url,
-            fileName: `${fileName}.webp`
-        })
-
-    } catch (error: any) {
-        console.error('Error uploading file:', error)
-        return NextResponse.json(
-            { error: error.message || 'Failed to upload file' },
-            { status: 500 }
-        )
+    if (!files || files.length === 0) {
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
     }
+
+    const uploadedUrls: string[] = []
+
+    for (const file of files) {
+      if (file instanceof File) {
+         // Validate file type
+        if (!file.type.startsWith('image/')) {
+          continue // Skip non-image files
+        }
+
+        // Sanitize folder name for filename (replace / with -)
+        const safeName = folder.replace(/\//g, '-')
+        const imageUrl = await convertAndSaveImage(
+          file,
+          `public/${folder}`,
+          `${safeName}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          'marketing', // Generic type
+          folder
+        )
+        uploadedUrls.push(imageUrl)
+      }
+    }
+
+    if (uploadedUrls.length === 0) {
+       return NextResponse.json({ error: 'No valid images uploaded' }, { status: 400 })
+    }
+
+    // Return single URL if only one file was uploaded (for backward compatibility if needed, 
+    // but better to return standardized structure. 
+    // However, existing ImageUpload expects { url: string } for single file. 
+    // Let's return { url: string, urls: string[] } to support both.
+    
+    return NextResponse.json({ 
+      url: uploadedUrls[0], 
+      urls: uploadedUrls 
+    })
+  } catch (error: any) {
+    console.error('Upload error:', error)
+    return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 })
+  }
 }

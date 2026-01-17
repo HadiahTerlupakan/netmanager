@@ -12,6 +12,7 @@ export const odpCreateSchema = z.object({
   name: z.string().min(2, 'Nama minimal 2 karakter'),
   location: z.string().max(512).optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
+  images: z.array(z.string()).optional(),
   keteranganJumlahKabelFeeder: z.string().max(500).optional().nullable(),
   latitude: z
     .number()
@@ -26,8 +27,8 @@ export const odpCreateSchema = z.object({
     .optional()
     .nullable(),
   status: z.enum(['AKTIF', 'NONAKTIF', 'MAINTENANCE']).optional().default('AKTIF'),
-  odcId: z.string().min(1, 'ODC wajib dipilih'),
-  odcOutputId: z.string().min(1, 'Slot wajib dipilih'),
+  odcId: z.string().optional().nullable(),
+  odcOutputId: z.string().optional().nullable(),
   outputs: z.array(odpOutputSchema).optional(),
   siteId: z.string().optional(),
 })

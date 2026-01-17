@@ -26,6 +26,7 @@ export class OtbRepository implements IOtbRepository {
           id: randomUUID(),
           updatedAt: new Date(),
           name: data.name,
+          images: data.images ?? [],
           location: data.location ?? null,
           coreCount: data.coreCount,
           notes: data.notes ?? null,
@@ -61,6 +62,7 @@ export class OtbRepository implements IOtbRepository {
         data: {
           updatedAt: new Date(),
           ...(data.name !== undefined && { name: data.name }),
+          ...(data.images !== undefined && { images: data.images }),
           ...(data.location !== undefined && { location: data.location }),
           ...(data.coreCount !== undefined && { coreCount: data.coreCount }),
           ...(data.notes !== undefined && { notes: data.notes }),

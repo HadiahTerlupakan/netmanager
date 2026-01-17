@@ -1,5 +1,6 @@
 export interface OtbCreateData {
   name: string
+  images?: string[]
   location?: string | null
   coreCount: number
   notes?: string | null
@@ -18,6 +19,7 @@ export interface OtbCreateData {
 
 export interface OtbUpdateData {
   name?: string
+  images?: string[]
   location?: string | null
   coreCount?: number
   notes?: string | null
@@ -37,6 +39,7 @@ export interface OtbUpdateData {
 export interface OtbPublic {
   id: string
   name: string
+  images: string[]
   location: string | null
   coreCount: number
   notes: string | null

@@ -25,6 +25,7 @@ export async function ClientComponent(ctx: { params: Promise<{ id: string }> }) 
         initial={{
           id: o.id,
           name: o.name,
+          images: o.images,
           location: o.location,
           notes: o.notes,
           latitude: o.latitude,

@@ -22,6 +22,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
       <JoinboxForm mode="edit" initial={{
         id,
         name: detail?.name,
+        images: detail?.images,
         location: detail?.location,
         notes: detail?.notes,
         latitude: detail?.latitude ?? null,

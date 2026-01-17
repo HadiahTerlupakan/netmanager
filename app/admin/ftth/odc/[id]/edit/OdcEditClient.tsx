@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { HiTrash } from 'react-icons/hi2'
+import ImageUpload from '@/components/common/ImageUpload'
 
 const MapPicker = dynamic(() => import('@/components/common/MapPicker').then(m => m.default), { ssr: false })
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
@@ -37,6 +38,7 @@ export function ClientComponent() {
   const [error, setError] = useState<string | null>(null)
 
   const [name, setName] = useState('')
+  const [images, setImages] = useState<string[]>([])
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [keteranganJumlahKabelFeeder, setKeteranganJumlahKabelFeeder] = useState('')
@@ -114,6 +116,7 @@ export function ClientComponent() {
       try {
         const d = await fetchDetail(params.id as string)
         setName(d.name || '')
+        setImages(d.images || [])
         setLocation(d.location || '')
         setNotes(d.notes || '')
         setKeteranganJumlahKabelFeeder(d.keteranganJumlahKabelFeeder || '')
@@ -197,6 +200,7 @@ export function ClientComponent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name,
+        images: images,
         location: location || null,
         notes: notes || null,
         keteranganJumlahKabelFeeder: keteranganJumlahKabelFeeder || null,
@@ -239,6 +243,15 @@ export function ClientComponent() {
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Nama ODC</label>
               <input value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
+            </div>
+
+            <div className="space-y-1">
+              <ImageUpload
+                label="Foto ODC (opsional)"
+                value={images}
+                onChange={setImages}
+                folder="ftth/odc"
+              />
             </div>
 
             <div className="space-y-1">

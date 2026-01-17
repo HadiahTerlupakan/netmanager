@@ -312,6 +312,7 @@ model Joinbox {
   name                        String
   location                    String?
   notes                       String?
+  images                      String[]        @default([])
   latitude                    Float?
   longitude                   Float?
   status                      Status          @default(AKTIF)
@@ -437,6 +438,7 @@ model Odc {
   name                        String
   location                    String?
   notes                       String?
+  images                      String[]    @default([])
   latitude                    Float?
   longitude                   Float?
   status                      Status      @default(AKTIF)
@@ -471,15 +473,16 @@ model Odp {
   name                        String
   location                    String?
   notes                       String?
+  images                      String[]    @default([])
   latitude                    Float?
   longitude                   Float?
   status                      Status      @default(AKTIF)
   createdAt                   DateTime    @default(now())
   updatedAt                   DateTime
-  odcOutputId                 String      @unique
+  odcOutputId                 String?     @unique
   keteranganJumlahKabelFeeder String?
   siteId                      String?
-  odcOutput                   OdcOutput   @relation(fields: [odcOutputId], references: [id])
+  odcOutput                   OdcOutput?  @relation(fields: [odcOutputId], references: [id])
   site                        Sites?      @relation(fields: [siteId], references: [id])
   odpOutput                   OdpOutput[]
   pelanggan                   Pelanggan[]
@@ -653,6 +656,7 @@ model Otb {
   location                    String?
   coreCount                   Int
   notes                       String?
+  images                      String[]  @default([])
   latitude                    Float?
   longitude                   Float?
   status                      Status    @default(AKTIF)
@@ -848,6 +852,7 @@ model Pole {
   name       String
   location   String?
   notes      String?
+  images     String[] @default([])
   latitude   Float?
   longitude  Float?
   cableSlack Boolean  @default(false)

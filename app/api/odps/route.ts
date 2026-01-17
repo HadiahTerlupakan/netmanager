@@ -59,6 +59,7 @@ export async function POST(req: Request) {
   const repo = getOdpRepository()
   const created = await repo.create({
     name: data.name,
+    images: data.images ?? [],
     location: data.location ?? null,
     notes: data.notes ?? null,
     keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder ?? null,

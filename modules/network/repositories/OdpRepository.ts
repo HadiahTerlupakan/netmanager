@@ -9,7 +9,15 @@ export class OdpRepository implements IOdpRepository {
   async findAll(siteId?: string): Promise<OdpPublic[]> {
     const items = await this.client.odp.findMany({
         where: siteId ? { siteId } : {},
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: { odpOutput: true }
+          },
+          site: {
+            select: { name: true }
+          }
+        }
     })
     return items as unknown as OdpPublic[]
   }
@@ -25,6 +33,7 @@ export class OdpRepository implements IOdpRepository {
         data: {
           id: randomUUID(),
           name: data.name,
+          images: data.images ?? [],
           location: data.location ?? null,
           notes: data.notes ?? null,
           keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder ?? null,
@@ -63,6 +72,7 @@ export class OdpRepository implements IOdpRepository {
         where: { id },
         data: {
           ...(data.name !== undefined && { name: data.name }),
+          ...(data.images !== undefined && { images: data.images }),
           ...(data.location !== undefined && { location: data.location }),
           ...(data.notes !== undefined && { notes: data.notes }),
           ...(data.keteranganJumlahKabelFeeder !== undefined && { keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder }),

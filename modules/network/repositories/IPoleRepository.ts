@@ -1,5 +1,6 @@
 export interface PoleCreateData {
   name: string
+  images?: string[]
   location?: string | null
   notes?: string | null
   latitude?: number | null
@@ -11,6 +12,7 @@ export interface PoleCreateData {
 
 export interface PoleUpdateData {
   name?: string
+  images?: string[]
   location?: string | null
   notes?: string | null
   latitude?: number | null
@@ -23,6 +25,7 @@ export interface PoleUpdateData {
 export interface PolePublic {
   id: string
   name: string
+  images: string[]
   location: string | null
   notes: string | null
   latitude: number | null

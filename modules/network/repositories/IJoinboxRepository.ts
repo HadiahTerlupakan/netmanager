@@ -8,6 +8,7 @@ export interface JoinboxIORowData {
 
 export interface JoinboxCreateData {
   name: string
+  images?: string[]
   location?: string | null
   notes?: string | null
   keteranganJumlahKabelFeeder?: string | null
@@ -20,6 +21,7 @@ export interface JoinboxCreateData {
 
 export interface JoinboxUpdateData {
   name?: string
+  images?: string[]
   location?: string | null
   notes?: string | null
   keteranganJumlahKabelFeeder?: string | null
@@ -33,6 +35,7 @@ export interface JoinboxUpdateData {
 export interface JoinboxPublic {
   id: string
   name: string
+  images: string[]
   location: string | null
   notes: string | null
   keteranganJumlahKabelFeeder: string | null

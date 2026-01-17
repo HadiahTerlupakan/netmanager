@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { prisma } from '@/lib/prisma'
 import { StatCard } from '@/components/common/StatCard'
 import { InfoCard, InfoItem } from '@/components/common/InfoCard'
@@ -103,6 +104,24 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
               )}
             </div>
           </InfoCard>
+
+          {detail.images && detail.images.length > 0 && (
+            <InfoCard title="Foto Fisik" icon={<HiOutlineCube className="w-4 h-4" />}>
+              <div className="grid grid-cols-2 gap-2">
+                {detail.images.map((img, idx) => (
+                  <div key={idx} className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                    <Image
+                      src={img}
+                      alt={`${detail.name} - ${idx + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 50vw, 33vw"
+                    />
+                  </div>
+                ))}
+              </div>
+            </InfoCard>
+          )}
 
           {/* INPUT */}
           <InfoCard

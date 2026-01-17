@@ -64,6 +64,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const repo = getOdpRepository()
   const updateData: any = {
     ...(parsed.data.name !== undefined && { name: parsed.data.name }),
+    ...(parsed.data.images !== undefined && { images: parsed.data.images }),
     ...(parsed.data.location !== undefined && { location: parsed.data.location }),
     ...(parsed.data.notes !== undefined && { notes: parsed.data.notes }),
     ...(parsed.data.keteranganJumlahKabelFeeder !== undefined && { keteranganJumlahKabelFeeder: parsed.data.keteranganJumlahKabelFeeder }),

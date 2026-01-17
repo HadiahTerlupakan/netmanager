@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { StatCard } from '@/components/common/StatCard'
 import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
+import Image from 'next/image'
 import { ColorBadge } from '@/components/common/ColorBadge'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import {
@@ -35,6 +36,7 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
         }
       },
       odpOutput: { orderBy: { idx: 'asc' } },
+      site: { select: { name: true } },
     },
   })
   if (!odp) {
@@ -107,6 +109,11 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                 icon={<HiOutlineCube className="w-3 h-3" />}
               />
               <InfoItem
+                label="Site"
+                value={odp.site?.name || '-'}
+                icon={<HiOutlineMapPin className="w-3 h-3" />}
+              />
+              <InfoItem
                 label="Lokasi"
                 value={odp.location}
                 icon={<HiOutlineMapPin className="w-3 h-3" />}
@@ -124,6 +131,24 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
                 />
               )}
             </div>
+            {odp.images && odp.images.length > 0 && (
+              <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Foto Fisik</p>
+                 <div className="grid grid-cols-2 gap-2">
+                   {odp.images.map((img, idx) => (
+                     <div key={idx} className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        <Image
+                          src={img}
+                          alt={`${odp.name} - ${idx + 1}`}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 50vw, 33vw"
+                        />
+                     </div>
+                   ))}
+                 </div>
+              </div>
+            )}
           </InfoCard>
 
           {/* INPUT - ODC Connection */}

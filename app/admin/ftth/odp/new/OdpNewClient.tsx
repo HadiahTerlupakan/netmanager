@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { HiTrash } from 'react-icons/hi2'
 import { useToast } from '@/components/common/ToastProvider'
+import ImageUpload from '@/components/common/ImageUpload'
 
 const MapPicker = dynamic(() => import('@/components/common/MapPicker').then(m => m.default), { ssr: false })
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
@@ -22,6 +23,7 @@ export function ClientComponent() {
   const router = useRouter()
   const { show } = useToast()
   const [name, setName] = useState('')
+  const [images, setImages] = useState<string[]>([])
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [keteranganJumlahKabelFeeder, setKeteranganJumlahKabelFeeder] = useState('')
@@ -32,11 +34,13 @@ export function ClientComponent() {
   const [error, setError] = useState<string | null>(null)
   const [locLoading, setLocLoading] = useState(false)
 
-  // INPUT: pilih ODC
+  // INPUT: pilih ODC & Site
   const [odcs, setOdcs] = useState<Odc[]>([])
   const [selectedOdcId, setSelectedOdcId] = useState<string>('')
   const [outputs, setOutputs] = useState<OdcOutput[]>([])
   const [selectedOutputId, setSelectedOutputId] = useState<string>('')
+  const [sites, setSites] = useState<{ id: string, name: string }[]>([])
+  const [selectedSiteId, setSelectedSiteId] = useState<string>('')
 
   const [mapOpen, setMapOpen] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
@@ -45,77 +49,34 @@ export function ClientComponent() {
   const [jumlahCore, setJumlahCore] = useState<number>(0)
   const [outputCores, setOutputCores] = useState<OutputCore[]>([])
 
-  // Reverse geocoding otomatis ketika koordinat diisi
-  useEffect(() => {
-    // Skip pada initial load
-    if (isInitialLoad) {
-      setIsInitialLoad(false)
-      return
-    }
+  // ... (existing code)
 
-    // Skip jika salah satu koordinat kosong
-    if (!latitude || !longitude) return
+    // Load ODCs and Sites
+    useEffect(() => {
+      ; (async () => {
+        try {
+          const [resOdcs, resSites] = await Promise.all([
+            fetch('/api/odcs'),
+            fetch('/api/admin/options')
+          ])
 
-    const latNum = parseFloat(latitude)
-    const lonNum = parseFloat(longitude)
-
-    // Validasi koordinat
-    if (isNaN(latNum) || isNaN(lonNum)) return
-    if (latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) return
-
-    // Hanya update location jika masih kosong
-    if (location.trim()) return
-
-    // Debounce untuk menghindari terlalu banyak request
-    const timeoutId = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/geocode/reverse?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`)
-        if (res.ok) {
-          const j = await res.json()
-          if (j?.displayName) {
-            setLocation(j.displayName)
+          if (resOdcs.ok) {
+            const j = await resOdcs.json()
+            const rows = (j?.odcs || []).map((o: any) => ({ id: o.id, name: o.name }))
+            setOdcs(rows)
           }
+
+          if (resSites.ok) {
+            const j = await resSites.json()
+            if (j?.sites) setSites(j.sites)
+          }
+        } catch (e: any) {
+          setError(e.message)
         }
-      } catch (e) {
-        // Abaikan error, user bisa isi manual
-      }
-    }, 1000) // Debounce 1 detik
+      })()
+    }, [])
 
-    return () => clearTimeout(timeoutId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [latitude, longitude])
-
-  useEffect(() => {
-    ; (async () => {
-      try {
-        const res = await fetch('/api/odcs')
-        if (!res.ok) throw new Error('Gagal memuat ODC')
-        const j = await res.json()
-        const rows = (j?.odcs || []).map((o: any) => ({ id: o.id, name: o.name }))
-        setOdcs(rows)
-      } catch (e: any) {
-        setError(e.message)
-      }
-    })()
-  }, [])
-
-  useEffect(() => {
-    if (!selectedOdcId) { setOutputs([]); setSelectedOutputId(''); return }
-    ; (async () => {
-      try {
-        const res = await fetch(`/api/odcs/${selectedOdcId}`)
-        if (!res.ok) throw new Error('Gagal memuat slot')
-        const j = await res.json()
-        // Bug fix: API returns 'odcOutput' not 'outputs'
-        const outs = (j?.odc?.odcOutput || []) as any[]
-        // Filter only available slots (not linked to any ODP)
-        const availableOuts = outs.filter((o: any) => !o.odp)
-        setOutputs(availableOuts.map((o: any) => ({ id: o.id, idx: o.idx, slotName: o.slotName })))
-      } catch (e: any) {
-        setError(e.message)
-      }
-    })()
-  }, [selectedOdcId])
+    // ... (existing code)
 
   // Sinkronkan jumlah baris output
   useEffect(() => {
@@ -124,7 +85,13 @@ export function ClientComponent() {
       const next = [...prev]
       if (jumlahCore > next.length) {
         for (let i = next.length; i < jumlahCore; i++) {
-          next.push({ idx: i, slotName: `SLOT-${i + 1}`, redaman: '', tubeColor: 'Non-tube', coreColor: STANDARD_12_COLORS[0] })
+          next.push({
+            idx: i,
+            slotName: `SLOT-${i + 1}`,
+            redaman: '',
+            tubeColor: 'Non-tube',
+            coreColor: STANDARD_12_COLORS[0]
+          })
         }
       } else if (jumlahCore < next.length) {
         next.length = jumlahCore
@@ -137,26 +104,30 @@ export function ClientComponent() {
     setOutputCores((prev) => prev.filter((_, i) => i !== idx).map((o, i) => ({ ...o, idx: i })))
     setJumlahCore((prev) => Math.max(0, prev - 1))
   }
+    
+    // ... (existing code)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
-    if (!selectedOdcId) { setError('Pilih ODC'); return }
-    if (!selectedOutputId) { setError('Pilih Slot'); return }
     setLoading(true)
+    setError(null)
+    
     try {
       const res = await fetch('/api/odps', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
+          images: images,
           location: location || null,
           notes: notes || null,
           keteranganJumlahKabelFeeder: keteranganJumlahKabelFeeder || null,
           latitude: latitude ? Number(latitude) : null,
           longitude: longitude ? Number(longitude) : null,
           status,
-          odcId: selectedOdcId,
-          odcOutputId: selectedOutputId,
+          odcId: selectedOdcId || null,
+          odcOutputId: selectedOutputId || null,
+          siteId: selectedSiteId || null,
           outputs: outputCores.map((o, idx) => ({
             idx,
             slotName: o.slotName,
@@ -166,10 +137,12 @@ export function ClientComponent() {
           })),
         }),
       })
+
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
         throw new Error(j?.error || 'Gagal menyimpan ODP')
       }
+      
       show({ type: 'success', title: 'Berhasil', message: 'ODP dibuat.' })
       router.push('/admin/ftth/odp')
     } catch (err: any) {
@@ -184,7 +157,7 @@ export function ClientComponent() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Tambah ODP</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Isi data ODP dan pilih input ODC.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Isi data ODP (ODC Opsional).</p>
         </div>
       </div>
 
@@ -196,6 +169,15 @@ export function ClientComponent() {
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Nama ODP</label>
               <input name="name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: ODP-RT01" />
             </div>
+
+              <div className="space-y-1">
+                <ImageUpload
+                  label="Foto ODP (opsional)"
+                  value={images}
+                  onChange={setImages}
+                  folder="ftth/odp"
+                />
+              </div>
 
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Lokasi (opsional)</label>
@@ -211,11 +193,18 @@ export function ClientComponent() {
               <input name="keteranganJumlahKabelFeeder" value={keteranganJumlahKabelFeeder} onChange={(e) => setKeteranganJumlahKabelFeeder(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: 12 Core, 24 Core, dll" />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Status</label>
               <select name="status" value={status} onChange={(e) => setStatus(e.target.value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE')} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
                 <option value="AKTIF">Aktif</option>
                 <option value="NONAKTIF">Nonaktif</option>
                 <option value="MAINTENANCE">Maintenance</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Site (Opsional)</label>
+              <select name="siteId" value={selectedSiteId} onChange={(e) => setSelectedSiteId(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
+                <option value="">-- Pilih Site --</option>
+                {sites.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
               </select>
             </div>
 
@@ -283,7 +272,7 @@ export function ClientComponent() {
           <h2 className="text-md font-semibold text-gray-900 dark:text-white">INPUT</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Pilih ODC</label>
+              <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Pilih ODC (Opsional)</label>
               <select name="selectedOdcId" value={selectedOdcId} onChange={(e) => setSelectedOdcId(e.target.value)} className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm">
                 <option value="">-- Pilih ODC --</option>
                 {odcs.map((o) => (<option key={o.id} value={o.id}>{o.name}</option>))}

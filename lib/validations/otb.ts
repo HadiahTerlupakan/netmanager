@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const otbCreateSchema = z.object({
   name: z.string().min(2, 'Nama minimal 2 karakter'),
+  images: z.array(z.string()).optional(),
   location: z.string().max(512).optional().nullable(),
   coreCount: z.number().int().positive('Jumlah core harus lebih dari 0'),
   notes: z.string().max(1000).optional().nullable(),

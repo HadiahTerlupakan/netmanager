@@ -8,6 +8,7 @@ export interface OdcOutputData {
 
 export interface OdcCreateData {
   name: string
+  images?: string[]
   location?: string | null
   notes?: string | null
   keteranganJumlahKabelFeeder?: string | null
@@ -21,6 +22,7 @@ export interface OdcCreateData {
 
 export interface OdcUpdateData {
   name?: string
+  images?: string[]
   location?: string | null
   notes?: string | null
   keteranganJumlahKabelFeeder?: string | null
@@ -35,6 +37,7 @@ export interface OdcUpdateData {
 export interface OdcPublic {
   id: string
   name: string
+  images: string[]
   location: string | null
   notes: string | null
   keteranganJumlahKabelFeeder: string | null

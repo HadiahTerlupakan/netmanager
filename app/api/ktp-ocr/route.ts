@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { verifyAuth } from '@/lib/auth'
 import { env } from '@/lib/env'
 import { prisma } from '@/lib/prisma'
 
@@ -10,8 +9,8 @@ import { prisma } from '@/lib/prisma'
  */
 export async function POST(req: NextRequest) {
   try {
-    // Cek autentikasi
-    const session: any = await getServerSession(authConfig as any)
+    // Cek autentikasi (Support Mobile & Web)
+    const session = await verifyAuth(req)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

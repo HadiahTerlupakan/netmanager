@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Modal from '@/components/common/Modal'
 import { useToast } from '@/components/common/ToastProvider'
+import ImageUpload from '@/components/common/ImageUpload'
 import { poleCreateSchema } from '@/lib/validations/pole'
 
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
@@ -12,6 +13,7 @@ const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker'
 export type PoleFormInitial = {
   id?: string
   name?: string
+  images?: string[]
   location?: string | null
   notes?: string | null
   latitude?: number | null
@@ -24,6 +26,7 @@ export function PoleForm({ initial, mode }: { initial?: PoleFormInitial; mode: '
   const router = useRouter()
   const { show } = useToast()
   const [name, setName] = useState(initial?.name ?? '')
+  const [images, setImages] = useState<string[]>(initial?.images ?? [])
   const [location, setLocation] = useState(initial?.location ?? '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [latitude, setLatitude] = useState<string>(initial?.latitude != null ? String(initial.latitude) : '')
@@ -82,6 +85,7 @@ export function PoleForm({ initial, mode }: { initial?: PoleFormInitial; mode: '
     setError(null)
     const payload = {
       name,
+      images: images,
       location: location || null,
       notes: notes || null,
       latitude: latitude === '' ? null : Number(latitude),
@@ -138,6 +142,14 @@ export function PoleForm({ initial, mode }: { initial?: PoleFormInitial; mode: '
             onChange={(e) => setLocation(e.target.value)}
             className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
             placeholder="Contoh: Depan Ruko A"
+          />
+        </div>
+        <div className="space-y-1">
+            <ImageUpload
+            label="Foto Pole/Tiang (opsional)"
+            value={images}
+            onChange={setImages}
+            folder="ftth/pole"
           />
         </div>
         <div className="space-y-1">

@@ -1,25 +1,27 @@
 export interface OdpCreateData {
   name: string
+  images?: string[]
   location?: string | null
   notes?: string | null
   keteranganJumlahKabelFeeder?: string | null
   latitude?: number | null
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
-  odcOutputId: string
+  odcOutputId?: string | null
   outputs?: OdpOutputData[]
   siteId?: string | null
 }
 
 export interface OdpUpdateData {
   name?: string
+  images?: string[]
   location?: string | null
   notes?: string | null
   keteranganJumlahKabelFeeder?: string | null
   latitude?: number | null
   longitude?: number | null
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
-  odcOutputId?: string
+  odcOutputId?: string | null
   outputs?: OdpOutputData[]
   siteId?: string | null
 }
@@ -27,6 +29,7 @@ export interface OdpUpdateData {
 export interface OdpPublic {
   id: string
   name: string
+  images: string[]
   location: string | null
   notes: string | null
   keteranganJumlahKabelFeeder: string | null
@@ -35,8 +38,14 @@ export interface OdpPublic {
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: Date
   updatedAt: Date
-  odcOutputId: string
+  odcOutputId: string | null
   siteId: string | null
+  site?: {
+    name: string
+  } | null
+  _count?: {
+    odpOutput: number
+  }
 }
 
 export interface OdpOutputData {

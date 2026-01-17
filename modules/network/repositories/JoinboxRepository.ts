@@ -28,6 +28,7 @@ export class JoinboxRepository implements IJoinboxRepository {
           id: randomUUID(),
           updatedAt: new Date(),
           name: data.name,
+          images: data.images ?? [],
           location: data.location ?? null,
           notes: data.notes ?? null,
           keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder ?? null,
@@ -78,6 +79,7 @@ export class JoinboxRepository implements IJoinboxRepository {
         data: {
           updatedAt: new Date(),
           ...(data.name !== undefined && { name: data.name }),
+          ...(data.images !== undefined && { images: data.images }),
           ...(data.location !== undefined && { location: data.location }),
           ...(data.notes !== undefined && { notes: data.notes }),
           ...(data.keteranganJumlahKabelFeeder !== undefined && { keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder }),

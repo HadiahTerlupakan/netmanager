@@ -25,6 +25,7 @@ export class PoleRepository implements IPoleRepository {
         id: randomUUID(),
         updatedAt: new Date(),
         name: data.name,
+        images: data.images ?? [],
         location: data.location ?? null,
         notes: data.notes ?? null,
         latitude: data.latitude ?? null,
@@ -44,6 +45,7 @@ export class PoleRepository implements IPoleRepository {
       data: {
         updatedAt: new Date(),
         ...(data.name !== undefined && { name: data.name }),
+        ...(data.images !== undefined && { images: data.images }),
         ...(data.location !== undefined && { location: data.location }),
         ...(data.notes !== undefined && { notes: data.notes }),
         ...(data.latitude !== undefined && { latitude: data.latitude }),

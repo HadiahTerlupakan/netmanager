@@ -7,6 +7,7 @@ import Modal from '@/components/common/Modal'
 import { useToast } from '@/components/common/ToastProvider'
 import { joinboxCreateSchema } from '@/lib/validations/joinbox'
 import { HiTrash } from 'react-icons/hi2'
+import ImageUpload from '@/components/common/ImageUpload'
 
 const MapPicker = dynamic(() => import('@/components/common/MapPicker').then(m => m.default), { ssr: false })
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
@@ -16,6 +17,7 @@ type IORow = { idx: number; inputUnit: string; portUnit: string; tubeColor: stri
 export type JoinboxFormInitial = {
   id?: string
   name?: string
+  images?: string[]
   location?: string | null
   notes?: string | null
   keteranganJumlahKabelFeeder?: string | null
@@ -30,6 +32,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
   const router = useRouter()
   const { show } = useToast()
   const [name, setName] = useState(initial?.name ?? '')
+  const [images, setImages] = useState<string[]>(initial?.images ?? [])
   const [location, setLocation] = useState(initial?.location ?? '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [keteranganJumlahKabelFeeder, setKeteranganJumlahKabelFeeder] = useState(initial?.keteranganJumlahKabelFeeder ?? '')
@@ -270,6 +273,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
 
     const payload = {
       name,
+      images: images,
       location: location || null,
       notes: notes || null,
       keteranganJumlahKabelFeeder: keteranganJumlahKabelFeeder || null,
@@ -362,9 +366,10 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
         </div>
 
         {(rows.length > 0) && (
-          <div className="rounded-md border border-gray-200 dark:border-gray-800">
-            <div className="grid grid-cols-12 items-center border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
-              <div className="col-span-3 px-3 py-2 text-xs font-semibold">INPUT UNIT</div>
+          <div className="rounded-md border border-gray-200 dark:border-gray-800 overflow-x-auto">
+            <div className="min-w-[700px]">
+              <div className="grid grid-cols-12 items-center border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
+                <div className="col-span-3 px-3 py-2 text-xs font-semibold">INPUT UNIT</div>
               <div className="col-span-3 px-3 py-2 text-xs font-semibold">PORT UNIT</div>
               <div className="col-span-3 px-3 py-2 text-xs font-semibold">Tube Color</div>
               <div className="col-span-2 px-3 py-2 text-xs font-semibold">Core Color</div>
@@ -403,6 +408,7 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
                 </div>
               ))}
             </div>
+            </div>
           </div>
         )}
       </div>
@@ -417,6 +423,14 @@ export function JoinboxForm({ initial, mode }: { initial?: JoinboxFormInitial; m
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Nama JOINbox</label>
             <input name="name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: JB-01" />
+          </div>
+          <div className="space-y-1">
+            <ImageUpload
+              label="Foto JOINbox (opsional)"
+              value={images}
+              onChange={setImages}
+              folder="ftth/joinbox"
+            />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Lokasi (opsional)</label>

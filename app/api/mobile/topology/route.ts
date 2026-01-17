@@ -43,6 +43,7 @@ export async function GET(request: Request) {
           latitude: true,
           longitude: true,
           notes: true,
+          images: true,
         },
       }),
 
@@ -59,6 +60,7 @@ export async function GET(request: Request) {
           latitude: true,
           longitude: true,
           notes: true,
+          images: true,
           otbCore: {
             select: {
               coreColor: true,
@@ -89,6 +91,7 @@ export async function GET(request: Request) {
           latitude: true,
           longitude: true,
           notes: true,
+          images: true,
           odcOutput: {
             select: {
               coreColor: true,
@@ -119,6 +122,7 @@ export async function GET(request: Request) {
           latitude: true,
           longitude: true,
           notes: true,
+          images: true,
         },
       }),
 
@@ -135,6 +139,7 @@ export async function GET(request: Request) {
           latitude: true,
           longitude: true,
           notes: true,
+          images: true,
           cableSlack: true,
         },
       }),

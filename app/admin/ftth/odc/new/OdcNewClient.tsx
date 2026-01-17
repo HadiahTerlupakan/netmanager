@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { HiTrash } from 'react-icons/hi2'
 import { useToast } from '@/components/common/ToastProvider'
+import ImageUpload from '@/components/common/ImageUpload'
 
 const MapPicker = dynamic(() => import('@/components/common/MapPicker').then(m => m.default), { ssr: false })
 const MapPickerWithSearch = dynamic(() => import('@/components/common/MapPicker').then(m => m.MapPickerWithSearch), { ssr: false })
@@ -29,6 +30,7 @@ export function ClientComponent() {
   const router = useRouter()
   const { show } = useToast()
   const [name, setName] = useState('')
+  const [images, setImages] = useState<string[]>([])
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [keteranganJumlahKabelFeeder, setKeteranganJumlahKabelFeeder] = useState('')
@@ -173,6 +175,7 @@ export function ClientComponent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
+          images: images,
           location: location || null,
           notes: notes || null,
           keteranganJumlahKabelFeeder: keteranganJumlahKabelFeeder || null,
@@ -219,6 +222,15 @@ export function ClientComponent() {
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-800 dark:text-gray-200">Nama ODC</label>
               <input name="name" data-testid="odc-name-input" value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm" placeholder="Contoh: ODC-RT01" />
+            </div>
+
+            <div className="space-y-1">
+              <ImageUpload
+                label="Foto ODC (opsional)"
+                value={images}
+                onChange={setImages}
+                folder="ftth/odc"
+              />
             </div>
 
             <div className="space-y-1">

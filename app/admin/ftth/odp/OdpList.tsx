@@ -13,6 +13,8 @@ type Odp = {
   latitude: number | null
   longitude: number | null
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  outputCount: number
+  siteName: string
   createdAt: string
 }
 
@@ -27,6 +29,8 @@ export default async function ODPPage() {
     latitude: o.latitude ?? null,
     longitude: o.longitude ?? null,
     status: o.status || 'AKTIF',
+    outputCount: o._count?.odpOutput || 0,
+    siteName: o.site?.name || '-',
     createdAt: (o.createdAt instanceof Date ? o.createdAt : new Date(o.createdAt)).toISOString(),
   }))
 

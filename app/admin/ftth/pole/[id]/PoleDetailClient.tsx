@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { StatCard } from '@/components/common/StatCard'
 import { InfoCard, InfoItem } from '@/components/common/InfoCard'
 import MapPreview from '@/components/common/MapPreview'
+import Image from 'next/image'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import { 
   HiOutlineCube, 
@@ -138,6 +139,24 @@ export async function ClientComponent({ params }: { params: Promise<{ id: string
           >
             <MapPreview lat={pole.latitude} lon={pole.longitude} height={240} />
           </InfoCard>
+
+          {pole.images && pole.images.length > 0 && (
+            <InfoCard title="Foto Fisik" icon={<HiOutlineCube className="w-4 h-4" />}>
+              <div className="grid grid-cols-2 gap-2">
+                {pole.images.map((img, idx) => (
+                  <div key={idx} className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                    <Image
+                      src={img}
+                      alt={`${pole.name} - ${idx + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 50vw, 33vw"
+                    />
+                  </div>
+                ))}
+              </div>
+            </InfoCard>
+          )}
 
           {/* Metadata */}
           <InfoCard

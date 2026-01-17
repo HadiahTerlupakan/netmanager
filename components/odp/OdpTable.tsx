@@ -13,6 +13,8 @@ type Odp = {
   latitude: number | null
   longitude: number | null
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  outputCount: number
+  siteName: string
   createdAt: string
 }
 
@@ -38,6 +40,19 @@ export default function OdpTable({ odps }: OdpTableProps) {
             header: 'Status',
             priority: 'secondary',
             render: (item) => <StatusBadge status={item.status} size="sm" />
+          },
+          {
+            key: 'siteName',
+            header: 'Site',
+            priority: 'secondary',
+            render: (item) => <span className="text-gray-700 dark:text-gray-300">{item.siteName}</span>
+          },
+          {
+            key: 'outputCount',
+            header: 'Jml Output',
+            priority: 'primary',
+            align: 'center',
+            render: (item) => <span className="font-medium text-gray-900 dark:text-gray-100">{item.outputCount}</span>
           },
           {
             key: 'location',
