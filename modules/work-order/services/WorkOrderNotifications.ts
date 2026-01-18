@@ -13,6 +13,7 @@ import {
     createNotification,
 } from '@/modules/notification';
 import { prisma } from '@/lib/prisma';
+import { sendPushToDepartment, sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
 
 interface WorkOrderData {
     id: string;
@@ -183,5 +184,43 @@ export async function onWorkOrderUpdated(
         console.log(`[Notification] Update notification processed for WO: ${workOrder.workOrderNumber}`);
     } catch (error) {
         console.error('[Notification] Error sending update notification:', error);
+    }
+}
+
+/**
+ * Send manual reminder for a Work Order
+ * - Notifies all technicians in the department if unassigned
+ * - OR notifies the assigned technician if assigned
+ */
+export async function sendWorkOrderReminder(
+    workOrder: WorkOrderData,
+    customMessage?: string
+): Promise<number> {
+    try {
+        const message = customMessage || `🔔 Masih Menunggu! ${workOrder.workOrderNumber} - ${workOrder.title}`;
+        const title = "⚠️ Work Order Reminder";
+
+        if (workOrder.assignedToId) {
+            // Notify assigned user
+            return await sendPushToUsers(
+                [workOrder.assignedToId],
+                title,
+                message,
+                { workOrderId: workOrder.id, type: 'WORK_ORDER', screen: 'WorkOrderDetail' }
+            );
+        } else if (workOrder.departmentId) {
+            // Notify department (technicians)
+            return await sendPushToDepartment(
+                workOrder.departmentId,
+                title,
+                message,
+                { workOrderId: workOrder.id, type: 'WORK_ORDER', screen: 'WorkOrderList' }
+            );
+        }
+
+        return 0;
+    } catch (error) {
+        console.error('[Notification] Error sending reminder:', error);
+        return 0;
     }
 }

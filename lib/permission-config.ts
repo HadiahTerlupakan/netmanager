@@ -82,6 +82,7 @@ export const GRANULAR_PERMISSIONS = {
   // Work order sensitive operations
   WORKORDERS_REASSIGN: 'workorders:update:assign',  // Reassign work order to different technician
   WORKORDERS_CLOSE: 'workorders:update:close',      // Close/complete work order
+  WORKORDERS_REMINDER: 'workorders:reminder',       // Send manual reminder notification
   
   // Inventory sensitive operations
   INVENTORY_ADJUST: 'inventory:update:adjust',      // Adjust inventory quantity (stock opname)

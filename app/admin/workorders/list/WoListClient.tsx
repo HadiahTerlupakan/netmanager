@@ -14,6 +14,7 @@ import {
     HiXMark,
     HiTrash,
     HiXCircle,
+    HiBellAlert,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { useToast } from '@/components/common/ToastProvider'
@@ -89,6 +90,7 @@ export function ClientComponent() {
     // Workflow action permissions (terpisah dari CRUD)
     const canCancel = hasPermission('list:cancel')  // Batalkan WO
     const canVerify = hasPermission('list:verify')  // Verifikasi & Tolak WO
+    const canSendReminder = hasPermission('workorders:reminder') // Kirim Reminder Manual
 
     const [loading, setLoading] = useState(true)
     const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
@@ -132,6 +134,7 @@ export function ClientComponent() {
     const [showCancelModal, setShowCancelModal] = useState(false)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [cancelReason, setCancelReason] = useState('')
+    const [sendingReminderId, setSendingReminderId] = useState<string | null>(null)
 
     useEffect(() => {
         if (status === 'unauthenticated') {
@@ -321,6 +324,30 @@ export function ClientComponent() {
         }
     }
 
+    const handleSendReminder = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        // if (!confirm('Kirim notifikasi reminder ke teknisi?')) return
+
+        setSendingReminderId(id)
+        try {
+            const response = await fetch(`/api/admin/workorders/${id}/reminder`, {
+                method: 'POST',
+            })
+            const data = await response.json()
+            
+            if (response.ok) {
+                show({ type: 'success', message: data.message || 'Reminder terkirim' })
+            } else {
+                show({ type: 'error', message: data.error || 'Gagal mengirim reminder' })
+            }
+        } catch (error) {
+            console.error('Error sending reminder:', error)
+            show({ type: 'error', message: 'Terjadi kesalahan' })
+        } finally {
+            setSendingReminderId(null)
+        }
+    }
+
     const clearFilters = () => {
         setFilterStatus('')
         setFilterPriority('')
@@ -432,6 +459,16 @@ export function ClientComponent() {
                             title="Batalkan"
                         >
                             <HiXCircle className="w-5 h-5" />
+                        </button>
+                    )}
+                    {(wo.status === 'PENDING' || wo.status === 'ASSIGNED') && canSendReminder && (
+                        <button
+                            onClick={(e) => handleSendReminder(wo.id, e)}
+                            disabled={sendingReminderId === wo.id}
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded disabled:opacity-50"
+                            title="Kirim Reminder"
+                        >
+                            <HiBellAlert className={`w-5 h-5 ${sendingReminderId === wo.id ? 'animate-pulse text-sky-600' : ''}`} />
                         </button>
                     )}
                     {canDelete && (
