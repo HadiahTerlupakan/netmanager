@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import { SiteFilter } from '@/components/common/SiteFilter'
 
 type PelangganPPP = {
   id: string
@@ -18,6 +19,9 @@ type PelangganPPP = {
     id: string
     name: string
     harga: number
+  } | null
+  site?: {
+    name: string
   } | null
   tanggalAktif: string
   jatuhTempo: string
@@ -33,10 +37,11 @@ export default function PelangganPPPPage() {
   const [error, setError] = useState<string | null>(null)
   const [pelanggans, setPelanggans] = useState<PelangganPPP[]>([])
   const [disableDuration, setDisableDuration] = useState<number>(5) // Default 5 days
+  const [siteId, setSiteId] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [siteId])
 
   const loadData = async () => {
     try {
@@ -44,8 +49,11 @@ export default function PelangganPPPPage() {
       setError(null)
 
       // Fetch data pelanggan and settings in parallel
+      const params = new URLSearchParams()
+      if (siteId) params.append('siteId', siteId)
+      
       const [resPelanggan, resSettings] = await Promise.all([
-        fetch('/api/pelanggan-ppp', {
+        fetch(`/api/pelanggan-ppp?${params.toString()}`, {
           cache: 'no-store',
           headers: { 'Cache-Control': 'no-cache' },
         }),
@@ -215,13 +223,18 @@ export default function PelangganPPPPage() {
             Kelola data pelanggan yang menggunakan koneksi PPPoE
           </p>
         </div>
-        <Link
-          href="/admin/pelanggan/ppp/new"
+        <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="w-full md:w-48">
+                <SiteFilter onSiteChange={setSiteId} />
+            </div>
+            <Link
+              href="/admin/pelanggan/ppp/new"
           className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
         >
           <HiOutlinePlus className="w-4 h-4" />
           Tambah Pelanggan
         </Link>
+        </div>
       </div>
 
       <ResponsiveTable
@@ -269,6 +282,16 @@ export default function PelangganPPPPage() {
                   </div>
                 )}
               </div>
+            )
+          },
+          {
+            key: 'site',
+            header: 'SITE',
+            priority: 'secondary',
+            render: (item: PelangganPPP) => (
+                <div className="text-sm text-gray-900 dark:text-white">
+                    {item.site?.name || '-'}
+                </div>
             )
           },
           {

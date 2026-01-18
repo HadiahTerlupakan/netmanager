@@ -6,6 +6,7 @@ import Modal from '@/components/common/Modal'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import { SiteFilter } from '@/components/common/SiteFilter'
 
 type ProfilePPP = {
   id: string
@@ -48,6 +49,7 @@ export default function HargaPaketPage() {
   const [error, setError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPaket, setEditingPaket] = useState<HargaPaket | null>(null)
+  const [siteId, setSiteId] = useState<string | undefined>(undefined)
   const [formData, setFormData] = useState({
     name: '',
     profilePPPId: '',
@@ -68,13 +70,16 @@ export default function HargaPaketPage() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [siteId])
 
   const loadData = async () => {
     try {
       setLoading(true)
+      const params = new URLSearchParams()
+      if (siteId) params.append('siteId', siteId)
+
       const [hargaPaketsRes, profilePPPsRes] = await Promise.all([
-        fetch('/api/hargapakets'),
+        fetch(`/api/hargapakets?${params.toString()}`),
         fetch('/api/profileppps'),
       ])
 
@@ -238,13 +243,18 @@ export default function HargaPaketPage() {
             Kelola paket internet dengan harga dan durasi
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
+        <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="w-full md:w-48">
+                <SiteFilter onSiteChange={setSiteId} />
+            </div>
+            <button
+               onClick={() => setIsModalOpen(true)}
           className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
         >
           <span>+</span>
           Tambah Paket
         </button>
+        </div>
       </div>
 
       {/* Error Message */}

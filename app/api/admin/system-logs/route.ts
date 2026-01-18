@@ -6,7 +6,8 @@ import { hasPermission } from '@/lib/rbac'
 
 export async function GET(req: NextRequest) {
     try {
-        await requireAdmin(req)
+        const session = await requireAdmin(req)
+        if (session instanceof NextResponse) return session
 
         // Permission check
         if (!await hasPermission('system_log:read')) {
@@ -22,6 +23,32 @@ export async function GET(req: NextRequest) {
         const where: any = {}
         if (typeKey && Object.values(LogType).includes(typeKey as LogType)) {
             where.type = typeKey as LogType
+        }
+
+        const siteIdParam = searchParams.get('siteId')
+        if (siteIdParam) {
+            where.user = {
+                siteId: siteIdParam
+            }
+        }
+
+        // SITE RESTRICTION LOGIC
+        const user = session.user as any
+        const isSuperAdmin = user.role === 'SUPER_ADMIN'
+        const isSiteRestricted = await hasPermission('system_log:site_only') && !isSuperAdmin
+
+        if (isSiteRestricted) {
+            if (!user.siteId) {
+                // Restricted user but no siteId? Treat as no access to logs.
+                 return NextResponse.json({
+                    logs: [],
+                    pagination: { total: 0, page, limit, totalPages: 0 }
+                })
+            }
+            // Filter logs where the *actor* (user) is from the same site
+            where.user = {
+                siteId: user.siteId
+            }
         }
 
         const [total, logs] = await Promise.all([

@@ -9,6 +9,7 @@ export class TransactionRepository implements ITransactionRepository {
     endDate?: Date
     categoryId?: string
     accountId?: string
+    siteId?: string
   }): Promise<Transaction[]> {
     const where: Prisma.TransactionWhereInput = {}
     
@@ -25,6 +26,13 @@ export class TransactionRepository implements ITransactionRepository {
 
     if (params?.accountId) {
       where.accountId = params.accountId
+    }
+
+    if (params?.siteId) {
+        where.OR = [
+            { createdBy: { siteId: params.siteId } },
+            { purchaseOrder: { creator: { siteId: params.siteId } } }
+        ]
     }
 
     return prisma.transaction.findMany({

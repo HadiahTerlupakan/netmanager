@@ -79,12 +79,13 @@ export class CanvasingRepository implements ICanvasingRepository {
     }) as Promise<CanvasingWithSalesSite | null>
   }
 
-  async findAll(filters?: { status?: CanvasingStatus; salesId?: string }): Promise<Canvasing[]> {
+  async findAll(filters?: { status?: CanvasingStatus; salesId?: string; siteId?: string }): Promise<Canvasing[]> {
     return this.db.canvasing.findMany({
       where: {
         AND: [
           filters?.status ? { status: filters.status } : {},
           filters?.salesId ? { salesId: filters.salesId } : {},
+          filters?.siteId ? { sales: { siteId: filters.siteId } } : {},
         ],
       },
       include: {

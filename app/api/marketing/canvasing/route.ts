@@ -13,21 +13,40 @@ export async function GET(req: NextRequest) {
     // RBAC Check & Filtering
     const isSuperAdmin = isSuperAdminRole(session.role)
 
-    // const permissions = session.permissions || []
     const permissions = await getUserPermissions(session.id)
     const canReadAll = isSuperAdmin || permissions.includes('canvasing:read')
+    const isSiteRestricted = permissions.includes('canvasing:site_only') && !isSuperAdmin
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') as any
     let salesId = searchParams.get('salesId') || undefined
+    let filterSiteId: string | undefined = searchParams.get('siteId') || undefined
 
-    // If user cannot read all, force filter to their own ID
-    if (!canReadAll) {
-      salesId = session.id
+    // Logic:
+    // 1. If Super Admin -> Can see all (no default filters)
+    // 2. If Site Restricted (e.g. Site Manager) -> Filter by Site
+    // 3. If Sales (no read all, no site restricted) -> Filter by Own ID
+
+    if (!isSuperAdmin) {
+        if (isSiteRestricted) {
+             // Site Manager Logic
+             if (session.siteId) {
+                 filterSiteId = session.siteId
+             } else {
+                 // Restricted but no site? Return empty
+                 return NextResponse.json([])
+             }
+        } else if (!canReadAll) {
+             // Sales / Regular User Logic
+             salesId = session.id
+        }
     }
 
     const service = getCanvasingService()
-    const requests = await service.getAllRequests({ status, salesId })
+    // NOTE: Service needs update to support `siteId` filtering or we rely on Prisma relation filter in service
+    // Checking CanvasingService...
+    // If service doesn't support siteId, we might need to modify it or the Repo.
+    const requests = await service.getAllRequests({ status, salesId, siteId: filterSiteId })
 
     return NextResponse.json(requests)
   } catch (error: any) {

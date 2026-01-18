@@ -22,12 +22,13 @@ export class FinanceService {
     return this.categoryRepo.create(data)
   }
 
-  async getTransactions(filters?: { startDate?: string, endDate?: string, categoryId?: string, accountId?: string }) {
+  async getTransactions(filters?: { startDate?: string, endDate?: string, categoryId?: string, accountId?: string, siteId?: string }) {
     return this.transactionRepo.findAll({
       startDate: filters?.startDate ? new Date(filters.startDate) : undefined,
       endDate: filters?.endDate ? new Date(filters.endDate) : undefined,
       categoryId: filters?.categoryId,
-      accountId: filters?.accountId
+      accountId: filters?.accountId,
+      siteId: filters?.siteId
     })
   }
 

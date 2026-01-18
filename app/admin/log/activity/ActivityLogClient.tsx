@@ -7,6 +7,7 @@ import PageLoader from '@/components/ui/PageLoader'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import { SiteFilter } from '@/components/common/SiteFilter'
 
 interface SystemLog {
     id: string
@@ -25,11 +26,18 @@ export function ClientComponent() {
     const [loading, setLoading] = useState(true)
     const [pagination, setPagination] = useState({ page: 1, limit: 20, totalPages: 1, total: 0 })
     const [selectedLog, setSelectedLog] = useState<SystemLog | null>(null)
+    const [siteId, setSiteId] = useState<string | undefined>(undefined)
 
     const fetchLogs = async (page = 1) => {
         setLoading(true)
         try {
-            const res = await fetch(`/api/admin/system-logs?type=ACTIVITY&page=${page}&limit=20`)
+            const params = new URLSearchParams()
+            params.append('type', 'ACTIVITY')
+            params.append('page', page.toString())
+            params.append('limit', '20')
+            if (siteId) params.append('siteId', siteId)
+
+            const res = await fetch(`/api/admin/system-logs?${params.toString()}`)
             const data = await res.json()
             if (res.ok) {
                 setLogs(data.logs)
@@ -42,7 +50,7 @@ export function ClientComponent() {
         }
     }
 
-    useEffect(() => { fetchLogs() }, [])
+    useEffect(() => { fetchLogs() }, [siteId])
 
     const handlePageChange = (newPage: number) => {
         if (newPage > 0 && newPage <= pagination.totalPages) {
@@ -59,13 +67,18 @@ export function ClientComponent() {
                         Riwayat aktivitas perubahan data dalam sistem
                     </p>
                 </div>
-                <button
-                    onClick={() => fetchLogs(pagination.page)}
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="w-full md:w-48">
+                        <SiteFilter onSiteChange={setSiteId} />
+                    </div>
+                    <button
+                        onClick={() => fetchLogs(pagination.page)}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <HiOutlineRefresh className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                     Refresh
                 </button>
+                </div>
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">

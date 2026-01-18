@@ -11,6 +11,7 @@ import { id as idLocale } from 'date-fns/locale'
 import { toast } from 'react-hot-toast'
 import { usePermission } from '@/hooks/use-permission'
 import axios from 'axios'
+import { SiteFilter } from '@/components/common/SiteFilter'
 
 interface PointClaim {
     id: string
@@ -37,6 +38,7 @@ export default function CanvasingList() {
     const [items, setItems] = useState<CanvasingItem[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
+    const [siteId, setSiteId] = useState<string | undefined>(undefined)
     const [claimModal, setClaimModal] = useState<{ open: boolean; item: CanvasingItem | null; processing: boolean }>({
         open: false,
         item: null,
@@ -54,11 +56,14 @@ export default function CanvasingList() {
 
     useEffect(() => {
         fetchData()
-    }, [])
+    }, [siteId])
 
     const fetchData = async () => {
         try {
-            const res = await fetch('/api/marketing/canvasing')
+            const params = new URLSearchParams()
+            if (siteId) params.append('siteId', siteId)
+
+            const res = await fetch(`/api/marketing/canvasing?${params.toString()}`)
             if (res.ok) {
                 const data = await res.json()
                 setItems(data)
@@ -186,7 +191,10 @@ export default function CanvasingList() {
                     <p className="text-sm text-gray-500">Kelola dan verifikasi request instalasi dari lapangan</p>
                 </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                    <div className="w-full md:w-48">
+                        <SiteFilter onSiteChange={setSiteId} />
+                    </div>
                     {canCreate && (
                         <Link 
                             href="/admin/marketing/canvasing/new"
@@ -420,7 +428,7 @@ export default function CanvasingList() {
             {/* Zoom Image Modal */}
             {zoomImage && (
                 <div 
-                    className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out backdrop-blur-sm"
+                    className="fixed inset-0 z-60 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out backdrop-blur-sm"
                     onClick={() => setZoomImage(null)}
                 >
                     <img src={zoomImage} alt="Zoomed" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />

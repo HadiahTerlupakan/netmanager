@@ -74,6 +74,35 @@ export async function GET(req: NextRequest) {
       where.featured = featured === 'true'
     }
 
+    const siteIdParam = searchParams.get('siteId')
+    console.log('[API HargaPaket] Request params:', { status, featured, siteIdParam })
+    
+    if (siteIdParam) {
+        where.profilePPP = {
+            mikroTikRouter: {
+                siteId: siteIdParam
+            }
+        }
+        console.log('[API HargaPaket] Filtering by Site:', siteIdParam)
+    }
+
+    // SITE RESTRICTION LOGIC
+    // We reuse session from above
+    const isSiteRestricted = await hasPermission('harga:site_only') && session.user.role !== 'SUPER_ADMIN'
+    
+    if (isSiteRestricted) {
+        const userSiteId = (session.user as any).siteId
+        if (!userSiteId) {
+             // Restricted but no site assigned -> No Access
+             return NextResponse.json([])
+        }
+        where.profilePPP = {
+            mikroTikRouter: {
+                siteId: userSiteId
+            }
+        }
+    }
+
     const hargaPakets = await prisma.hargaPaket.findMany({
       where,
       orderBy: { createdAt: 'desc' },

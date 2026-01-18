@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { PhotoUpload, type PhotoUploadRef } from '@/components/inventory/PhotoUpload'
 import { MarketPriceCheck } from '@/components/procurement/MarketPriceCheck'
+import { SiteFilter } from '@/components/common/SiteFilter'
 
 interface TransactionsClientProps {
   categories: any[]
@@ -25,6 +26,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
 
   // Filters
   const [filterCategory, setFilterCategory] = useState('')
+  const [filterSiteId, setFilterSiteId] = useState<string | undefined>(undefined)
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) // Default start of month
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]) // Default today
 
@@ -51,6 +53,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
     try {
       const params = new URLSearchParams()
       if (filterCategory) params.append('categoryId', filterCategory)
+      if (filterSiteId) params.append('siteId', filterSiteId)
       if (startDate) params.append('startDate', startDate)
       if (endDate) params.append('endDate', endDate)
       if (accountIdParam) params.append('accountId', accountIdParam)
@@ -101,7 +104,7 @@ export default function TransactionsClient({ categories, accounts }: Transaction
 
   useEffect(() => {
     fetchTransactions()
-  }, [filterCategory, startDate, endDate, accountIdParam])
+  }, [filterCategory, filterSiteId, startDate, endDate, accountIdParam])
 
   const handleCreate = async () => {
     if (!form.categoryId || form.amount <= 0 || !form.accountId) {
@@ -225,7 +228,11 @@ export default function TransactionsClient({ categories, accounts }: Transaction
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
             {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div>
+                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter Site</label>
+                   <SiteFilter onSiteChange={setFilterSiteId} />
+                </div>
                 <div>
                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter Kategori</label>
                    <select 

@@ -30,7 +30,7 @@ export class CanvasingService {
     return this.repository.findById(id)
   }
 
-  async getAllRequests(filters?: { status?: CanvasingStatus; salesId?: string }): Promise<Canvasing[]> {
+  async getAllRequests(filters?: { status?: CanvasingStatus; salesId?: string; siteId?: string }): Promise<Canvasing[]> {
     return this.repository.findAll(filters)
   }
 

@@ -23,6 +23,13 @@ export async function GET(req: Request) {
          return NextResponse.json({ odps: [] });
     }
     filterSiteId = userSiteId;
+  } else {
+    // For non-restricted users, allow filtering by query param
+    const { searchParams } = new URL(req.url)
+    const querySiteId = searchParams.get('siteId')
+    if (querySiteId) {
+        filterSiteId = querySiteId
+    }
   }
 
   const repo = getOdpRepository()

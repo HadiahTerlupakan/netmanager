@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { HiArrowPath, HiArrowDownTray, HiEye, HiEyeSlash, HiDocumentText, HiMapPin } from 'react-icons/hi2'
 import Modal from '@/components/common/Modal'
 import { MapPickerWithSearch } from '@/components/common/MapPicker'
+import { SiteFilter } from '@/components/common/SiteFilter'
 
 type HargaPaket = {
   id: string
@@ -105,6 +106,7 @@ export function ClientComponent() {
     biayaLainnyaDiskon: null as number | null,
     keteranganBiayaLainnya: '',
     odpId: '', // ODP yang digunakan pelanggan
+    siteId: undefined as string | undefined,
   })
 
   // Generate ID pelanggan otomatis (angka unik 8 digit) - sync version (fallback)
@@ -174,12 +176,18 @@ export function ClientComponent() {
     })
     loadHargaPakets()
     loadOdps()
-  }, [loadOrGenerateIdPelanggan])
+  }, [loadOrGenerateIdPelanggan, formData.siteId])
 
   const loadHargaPakets = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/hargapakets?status=AKTIF')
+      const params = new URLSearchParams()
+      params.append('status', 'AKTIF')
+      if (formData.siteId) {
+          params.append('siteId', formData.siteId)
+      }
+      
+      const res = await fetch(`/api/hargapakets?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
         setHargaPakets(data || [])
@@ -193,7 +201,12 @@ export function ClientComponent() {
 
   const loadOdps = async () => {
     try {
-      const res = await fetch('/api/odps')
+      const params = new URLSearchParams()
+      if (formData.siteId) {
+          params.append('siteId', formData.siteId)
+      }
+
+      const res = await fetch(`/api/odps?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
         setOdps(data.odps || [])
@@ -236,6 +249,10 @@ export function ClientComponent() {
       setError('Password Login Portal harus diisi')
       return
     }
+    if (!formData.siteId) {
+      setError('Site harus dipilih')
+      return
+    }
     if (!formData.hargaPaketId) {
       setError('Harga Paket harus dipilih')
       return
@@ -250,6 +267,7 @@ export function ClientComponent() {
       // Tambahkan semua field formData
       Object.entries(formData).forEach(([key, value]) => {
         if (value !== null && value !== undefined) {
+          if (key === 'siteId' && !value) return // Skip if empty siteId (though validation handles it)
           if (typeof value === 'number') {
             formDataToSend.append(key, value.toString())
           } else if (typeof value === 'boolean') {
@@ -757,6 +775,8 @@ export function ClientComponent() {
         </p>
       </div>
 
+
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Form - 2 kolom */}
         <div className="lg:col-span-2">
@@ -791,6 +811,23 @@ export function ClientComponent() {
               {/* Tab Content */}
               {activeTab === 'paket' && (
                 <div className="space-y-5">
+                  {/* Site Selection */}
+                  <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Pilih Site <span className="text-red-500">*</span>
+                    </label>
+                    <div className="mb-2">
+                         <SiteFilter 
+                            onSiteChange={(siteId) => {
+                                setFormData(prev => ({ ...prev, siteId, hargaPaketId: '', odpId: '' }))
+                            }} 
+                         />
+                    </div>
+                     <p className="text-xs text-gray-500">
+                        Pilih site terlebih dahulu untuk melihat Paket dan ODP yang tersedia.
+                     </p>
+                  </div>
+
                   {/* Status dan Tipe Pelanggan */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {/* Status Registrasi */}

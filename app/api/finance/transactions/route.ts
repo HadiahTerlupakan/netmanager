@@ -25,12 +25,36 @@ export async function GET(req: Request) {
     const endDate = searchParams.get('endDate') || undefined
     const categoryId = searchParams.get('categoryId') || undefined
     const accountId = searchParams.get('accountId') || undefined
+    const siteIdParam = searchParams.get('siteId') || undefined
+    
+    // RBAC: Site Restriction
+    // Assuming we have getUserPermissions imported or available on session (verifyAuth populates it)
+    // We need to check permissions. `verifyAuth` returns UserSession which might not have permissions array explicitly if not extended, 
+    // but typically we load it. If not, we might need a helper. 
+    // Let's use `hasPermission` if possible, but `hasPermission` takes just string usually in client, here we are in API.
+    // The `auth` module exports `getUserPermissions`? 
+    // Let's assume session has permissions or use `getUserPermissions(session.id)`.
+    // Actually, `verifyAuth` returns session with permissions usually.
+    // Let's check `lib/auth.ts` -> it returns `permissions` in session.
+
+    const userPermissions = session.permissions || []
+    const isSuperAdmin = session.role === 'SUPER_ADMIN'
+    const isSiteRestricted = userPermissions.includes('finance_transaction:site_only') && !isSuperAdmin
+    
+    let filterSiteId: string | undefined = siteIdParam
+    if (isSiteRestricted) {
+        if (!session.siteId) {
+             return NextResponse.json([])
+        }
+        filterSiteId = session.siteId
+    }
 
     const transactions = await financeService.getTransactions({
       startDate,
       endDate,
       categoryId,
-      accountId
+      accountId,
+      siteId: filterSiteId
     })
 
     return NextResponse.json(transactions)

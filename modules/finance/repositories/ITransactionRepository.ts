@@ -6,6 +6,7 @@ export interface ITransactionRepository {
     endDate?: Date
     categoryId?: string
     accountId?: string
+    siteId?: string
   }): Promise<Transaction[]>
   
   create(data: Prisma.TransactionCreateInput): Promise<Transaction>
