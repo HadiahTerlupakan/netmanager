@@ -17,6 +17,7 @@ type GeneralSettings = {
   namaAplikasi: string
   alamat: string
   nomorHp: string
+  email: string
   deskripsiInvoice: string
   rekeningBank: BankAccount[]
   invoiceOtomatis: string
@@ -37,6 +38,7 @@ export function ClientComponent() {
     namaAplikasi: '',
     alamat: '',
     nomorHp: '',
+    email: '',
     deskripsiInvoice: '',
     rekeningBank: [],
     invoiceOtomatis: '5',
@@ -88,6 +90,7 @@ export function ClientComponent() {
           namaAplikasi: data.namaAplikasi || '',
           alamat: data.alamat || '',
           nomorHp: data.nomorHp || '',
+          email: data.email || '',
           deskripsiInvoice: data.deskripsiInvoice || '',
           rekeningBank: data.rekeningBank || [],
           invoiceOtomatis: data.invoiceOtomatis || '5',
@@ -249,6 +252,22 @@ export function ClientComponent() {
                 value={settings.nomorHp}
                 onChange={handleChange}
                 placeholder="Masukkan nomor HP"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+              />
+            </div>
+
+            {/* Email */}
+            <div className="space-y-2">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-red-500">!</span> Email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={settings.email}
+                onChange={handleChange}
+                placeholder="Masukkan email perusahaan"
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
               />
             </div>

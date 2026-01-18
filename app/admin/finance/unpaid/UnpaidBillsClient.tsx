@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { HiOutlineBanknotes, HiMagnifyingGlass } from 'react-icons/hi2'
+import clsx from 'clsx'
 import { Modal } from '@/components/ui/Modal'
 
 interface UnpaidBillsClientProps {
@@ -112,15 +113,19 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
         </div>
           
         {/* Simple Stats Summary */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center">
-                 <div className="p-3 rounded-full bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-200 mr-4">
-                     <HiOutlineBanknotes className="w-6 h-6" />
-                 </div>
-                 <div>
-                     <p className="text-sm font-medium text-red-600 dark:text-red-300">Total Belum Dibayar</p>
-                     <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(totalUnpaid)}</p>
-                 </div>
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+             {/* Total Hutang Card */}
+             <div className="bg-linear-to-r from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/30 rounded-xl p-5 border border-red-100 dark:border-red-800 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 -mt-2 -mr-2 w-16 h-16 bg-red-100 dark:bg-red-800 rounded-full opacity-20 blur-xl"></div>
+                <div className="flex items-center relative z-10">
+                    <div className="p-3 rounded-full bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-200 mr-4">
+                        <HiOutlineBanknotes className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-red-600 dark:text-red-300">Total Belum Dibayar</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(totalUnpaid)}</p>
+                    </div>
+                </div>
              </div>
         </div>
       </div>
@@ -128,44 +133,47 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
 
 
       {/* Main Content */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-            {/* Toolbar */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
-                <div className="relative w-full max-w-xs">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                         <HiMagnifyingGlass className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input 
-                        type="text" 
-                        placeholder="Cari PO atau Supplier..." 
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+      <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700">
+          {/* Toolbar */}
+          <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="relative w-full max-w-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <HiMagnifyingGlass className="h-5 w-5 text-gray-400" />
                 </div>
+                <input 
+                    type="text" 
+                    placeholder="Cari PO atau Supplier..." 
+                    className="block w-full pl-10 pr-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
             </div>
+            {/* Future: Add Filters for Status or Date Range here */}
+          </div>
 
-            <div className="overflow-x-auto">
+          <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PO Number</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Supplier</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total (DPP)</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PPN</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Grand Total</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sudah Bayar</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sisa Tagihan</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">PO Number</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Supplier</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total (DPP)</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">PPN</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Grand Total</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sudah Bayar</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sisa Tagihan</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                        <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
                     </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {filteredPos.length === 0 && (
                         <tr>
                         <td colSpan={9} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                            Tidak ada tagihan yang ditemukan
+                            <div className="flex flex-col items-center justify-center">
+                                <HiOutlineBanknotes className="w-12 h-12 text-gray-300 mb-2" />
+                                <p>Tidak ada tagihan yang ditemukan</p>
+                            </div>
                         </td>
                         </tr>
                     )}
@@ -175,15 +183,15 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
                         const remaining = targetAmount - paidAmount
 
                         return (
-                        <tr key={po.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <tr key={po.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
                             <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">{po.poNumber}</div>
+                            <div className="text-sm font-bold text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300">{po.poNumber}</div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">
                                 {new Date(po.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                             </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-900 dark:text-white">{po.supplier?.name || '-'}</div>
+                                <div className="text-sm font-medium text-gray-900 dark:text-white">{po.supplier?.name || '-'}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono">
                                 {formatCurrency(po.totalAmount)}
@@ -205,11 +213,12 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
                                 {formatCurrency(remaining)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`inline-flex px-2 text-xs font-semibold leading-5 rounded-full ${
-                                    po.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
-                                    po.paymentStatus === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 
-                                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                                }`}>
+                                <span className={clsx(
+                                    "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
+                                    po.paymentStatus === 'PAID' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800' : 
+                                    po.paymentStatus === 'PARTIAL' ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800' : 
+                                    'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+                                )}>
                                     {po.paymentStatus === 'UNPAID' ? 'Belum Bayar' : po.paymentStatus === 'PARTIAL' ? 'Parsial' : 'Lunas'}
                                 </span>
                             </td>
@@ -217,7 +226,7 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
                                 <button 
                                     onClick={() => openPaymentModal(po)}
                                     disabled={remaining <= 100}
-                                    className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                    className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                                 >
                                     Bayar
                                 </button>
@@ -225,10 +234,9 @@ export default function UnpaidBillsClient({ initialData, categories, accounts, h
                         </tr>
                         )
                     })}
-                    </tbody>
+                </tbody>
             </table>
-            </div>
-        </div>
+          </div>
       </div>
 
       {/* Payment Modal */}

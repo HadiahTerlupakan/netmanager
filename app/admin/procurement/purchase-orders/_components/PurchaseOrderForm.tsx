@@ -3,10 +3,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { HiPlus, HiTrash, HiSave, HiArrowLeft } from 'react-icons/hi'
+import { HiOutlineTag } from 'react-icons/hi2'
 import { Combobox } from '@/components/ui/Combobox'
 import type { ComboboxOption } from '@/components/ui/Combobox'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
+import { MarketPriceCheck } from '@/components/procurement/MarketPriceCheck'
+import { Modal } from '@/components/ui/Modal'
 
 interface PurchaseOrderFormProps {
     initialData?: any
@@ -55,6 +58,20 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
     const [gudangDetails, setGudangDetails] = useState<Record<string, any>>({})
     const [notes, setNotes] = useState<string>('')
 
+    // Company Profile State
+    const [companyProfile, setCompanyProfile] = useState({
+        perusahaan: 'PT. NETWORK SOLUTIONS',
+        namaAplikasi: 'NETMANAGER',
+        alamat: 'Jl. Utama No. 1, Jakarta Selatan\nDKI Jakarta, Indonesia 12345',
+        nomorHp: '(021) 1234-5678',
+        email: 'procurement@netmanager.com'
+    })
+
+    // Market Price Modal State
+    const [isMarketPriceOpen, setIsMarketPriceOpen] = useState(false)
+    const [activeItemIndex, setActiveItemIndex] = useState<number | null>(null)
+    const [activeKeyword, setActiveKeyword] = useState('')
+
     // Simple ID generator to avoid crypto issues on some browsers/contexts
     const generateId = () => {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -68,11 +85,22 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
         // Load Gudangs
         searchGudangs('')
         
-        // If edit, we might need to fetch specific supplier/product if not in first page?
-        // But Combobox expects value to match an option.
-        // If value not in options, it shows placeholder?
-        // Combobox logic: selectedOption = options.find...
-        // So we MUST ensure the selected supplier/product is in options.
+        // Load Company Settings
+        fetch('/api/settings/general')
+            .then(res => res.json())
+            .then(data => {
+                if (data.perusahaan) {
+                    setCompanyProfile({
+                        perusahaan: data.perusahaan,
+                        namaAplikasi: data.namaAplikasi,
+                        alamat: data.alamat,
+                        nomorHp: data.nomorHp,
+                        email: data.email
+                    })
+                }
+            })
+            .catch(err => console.error('Failed to load company settings', err))
+        
         if (initialData) {
             setNotes(initialData.notes || '')
             // Pre-fill options with initial data to ensure they render
@@ -161,6 +189,7 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                 newItems[index] = { 
                     ...newItems[index], 
                     [field]: value,
+                    barangName: detail.nama, // Update name for market price search
                     satuan: detail.satuan,
                     unitPrice: detail.hargaBeli || 0
                 }
@@ -174,6 +203,25 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
 
     const calculateTotal = () => {
         return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+    }
+
+    const openMarketPriceModal = (index: number) => {
+        const item = items[index]
+        setActiveItemIndex(index)
+        
+        // Try to get name from combobox option if not in item state directly
+        // Ensure string
+        const itemName = String(item.barangName || productOptions.find(p => p.value === item.barangId)?.label || '')
+        setActiveKeyword(itemName)
+        setIsMarketPriceOpen(true)
+    }
+
+    const handleSelectMarketPrice = (price: number) => {
+        if (activeItemIndex !== null) {
+            updateItem(activeItemIndex, 'unitPrice', price)
+            toast.success("Harga satuan diperbarui dari referensi pasar")
+            setIsMarketPriceOpen(false)
+        }
     }
 
     const handleSubmit = async () => {
@@ -221,16 +269,8 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                 notes: finalNotes
             }
 
-            // Edit logic differ? (PUT)
             const url = isEdit ? `/api/procurement/purchase-orders/${initialData.id}` : '/api/procurement/purchase-orders'
             const method = isEdit ? 'PUT' : 'POST'
-            
-            // Note: Update logic for nested items in Prisma is complex (upsert/delete/create).
-            // For MVP Edit, we might just recreate items? Or simpler: Block Edit of Items for now?
-            // "Modular Monolith" usually requires robust Edit.
-            // But implementing full nested update logic in Service is out of scope for "Manual Create" task focus.
-            // I'll focus on CREATE for now.
-            // If Update, I might need to clarify logic.
             
             const res = await fetch(url, {
                 method,
@@ -287,7 +327,7 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
             </div>
 
             {/* The Document Paper */}
-            <div className="max-w-5xl mx-auto bg-white dark:bg-[#1e1e1e] shadow-2xl rounded-sm overflow-hidden min-h-[800px] print:shadow-none">
+            <div className="max-w-5xl mx-auto bg-white dark:bg-[#1e1e1e] shadow-2xl rounded-sm overflow-hidden min-h-[800px] print:shadow-none relative">
                 {/* Decorative Top Border */}
                 <div className="h-2 bg-linear-to-r from-indigo-500 to-purple-600"></div>
                 
@@ -298,15 +338,16 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                             {/* Company Logo Placeholder */}
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-                                    N
+                                    {companyProfile.perusahaan.charAt(0)}
                                 </div>
-                                <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">NETMANAGER</span>
+                                <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white uppercase">
+                                    {companyProfile.namaAplikasi || 'NETMANAGER'}
+                                </span>
                             </div>
                             <div className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                                <p className="font-semibold text-gray-900 dark:text-white">PT. NETWORK SOLUTIONS</p>
-                                <p>Jl. Utama No. 1, Jakarta Selatan</p>
-                                <p>DKI Jakarta, Indonesia 12345</p>
-                                <p>Telp: (021) 1234-5678 | Email: procurement@netmanager.com</p>
+                                <p className="font-semibold text-gray-900 dark:text-white uppercase">{companyProfile.perusahaan}</p>
+                                <p className="whitespace-pre-line">{companyProfile.alamat}</p>
+                                <p>Telp: {companyProfile.nomorHp} | Email: {companyProfile.email}</p>
                             </div>
                         </div>
                         <div className="mt-8 md:mt-0 text-right">
@@ -413,14 +454,25 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
                                             </td>
                                             <td className="px-4 py-2 align-top">
                                                 {!isReadOnly ? (
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        value={item.unitPrice}
-                                                        onChange={(e) => updateItem(index, 'unitPrice', Number(e.target.value))}
-                                                        disabled={disabled}
-                                                        className="w-full text-right px-2 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
-                                                    />
+                                                    <div className="relative">
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={item.unitPrice}
+                                                            onChange={(e) => updateItem(index, 'unitPrice', Number(e.target.value))}
+                                                            disabled={disabled}
+                                                            className="w-full text-right pl-2 pr-8 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
+                                                        />
+                                                        {item.barangId && (
+                                                            <button 
+                                                                onClick={() => openMarketPriceModal(index)}
+                                                                className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-indigo-600 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                                                                title="Cek Harga Pasar"
+                                                            >
+                                                                <HiOutlineTag className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 ) : (
                                                     <div className="py-2 text-right text-sm font-medium text-gray-900 dark:text-white">
                                                         {item.unitPrice.toLocaleString('id-ID')}
@@ -515,6 +567,21 @@ export default function PurchaseOrderForm({ initialData, isEdit = false, disable
             <div className="max-w-5xl mx-auto mt-8 text-center text-gray-400 text-sm">
                 &copy; 2026 PT. Network Solutions internal procurement system.
             </div>
+
+            {/* Market Price Modal */}
+            <Modal
+                isOpen={isMarketPriceOpen}
+                onClose={() => setIsMarketPriceOpen(false)}
+                title="Cek Referensi Harga Pasar"
+                size="4xl"
+            >
+                <div className="h-[70vh] overflow-y-auto custom-scrollbar">
+                     <MarketPriceCheck 
+                         initialKeyword={activeKeyword}
+                         onSelectPrice={handleSelectMarketPrice}
+                     />
+                </div>
+            </Modal>
         </div>
     )
 }

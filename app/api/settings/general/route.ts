@@ -213,6 +213,7 @@ export async function GET(req: NextRequest) {
             'GENERAL_NAMA_APLIKASI',
             'GENERAL_ALAMAT',
             'GENERAL_NOMOR_HP',
+            'GENERAL_EMAIL',
             'GENERAL_DESKRIPSI_INVOICE',
             'GENERAL_REKENING_BANK',
             'GENERAL_INVOICE_OTOMATIS',
@@ -246,6 +247,7 @@ export async function GET(req: NextRequest) {
       namaAplikasi: settingsMap.get('GENERAL_NAMA_APLIKASI') || 'NetManager',
       alamat: settingsMap.get('GENERAL_ALAMAT') || '',
       nomorHp: settingsMap.get('GENERAL_NOMOR_HP') || '',
+      email: settingsMap.get('GENERAL_EMAIL') || '',
       deskripsiInvoice: settingsMap.get('GENERAL_DESKRIPSI_INVOICE') || '',
       rekeningBank,
       invoiceOtomatis: settingsMap.get('GENERAL_INVOICE_OTOMATIS') || '5',
@@ -297,6 +299,7 @@ export async function POST(req: NextRequest) {
       namaAplikasi,
       alamat,
       nomorHp,
+      email,
       deskripsiInvoice,
       rekeningBank,
       invoiceOtomatis,
@@ -376,6 +379,24 @@ export async function POST(req: NextRequest) {
           key: 'GENERAL_NOMOR_HP',
           value: nomorHp?.trim() || null,
           description: 'Nomor HP perusahaan',
+          encrypted: false,
+          updatedAt: new Date(),
+          id: randomUUID()
+        },
+      }),
+
+      // Email
+      prisma.settings.upsert({
+        where: { key: 'GENERAL_EMAIL' },
+        update: {
+          value: email?.trim() || null,
+          description: 'Email perusahaan',
+          updatedAt: new Date(),
+        },
+        create: {
+          key: 'GENERAL_EMAIL',
+          value: email?.trim() || null,
+          description: 'Email perusahaan',
           encrypted: false,
           updatedAt: new Date(),
           id: randomUUID()
