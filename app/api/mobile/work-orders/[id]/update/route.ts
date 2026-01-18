@@ -5,6 +5,7 @@ import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrder
 import { convertAndSaveImage } from '@/lib/utils/image-upload';
 import { format } from 'date-fns';
 import { notifyAdminsAboutMobileAction } from '@/modules/notification';
+import { logger } from '@/lib/logger';
 
 // Valid status transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -187,6 +188,16 @@ export async function POST(
                 siteId: workOrder.siteId || undefined,
             });
 
+
+
+            // System Log
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'WorkOrder',
+                userId,
+                details: { id: workOrderId, action: 'START' }
+            });
+
             return NextResponse.json({ success: true, message: 'Work Order Started' });
 
         } else if (action === 'CLAIM') {
@@ -201,6 +212,16 @@ export async function POST(
             // Assign to self
             await repository.assign(workOrderId, userId, 'Lead', userId);
             
+
+            
+            // System Log
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'WorkOrder',
+                userId,
+                details: { id: workOrderId, action: 'CLAIM' }
+            });
+
             return NextResponse.json({ success: true, message: 'Work Order Claimed' });
 
         } else if (action === 'COMPLETE') {
@@ -283,6 +304,16 @@ export async function POST(
                 siteId: workOrder.siteId || undefined,
             });
 
+
+
+            // System Log
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'WorkOrder',
+                userId,
+                details: { id: workOrderId, action: 'COMPLETE', notes }
+            });
+
             return NextResponse.json({ success: true, message: 'Work Order Completed' });
 
         } else if (action === 'PAUSE') {
@@ -316,6 +347,16 @@ export async function POST(
                 triggeredByName: (user?.name as string) || (payload.name as string),
                 departmentId: workOrder.departmentId || undefined,
                 siteId: workOrder.siteId || undefined,
+            });
+
+
+
+            // System Log
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'WorkOrder',
+                userId,
+                details: { id: workOrderId, action: 'PAUSE', notes }
             });
 
             return NextResponse.json({ success: true, message: 'Work Order Paused' });
@@ -391,6 +432,16 @@ export async function POST(
                 siteId: workOrder.siteId || undefined,
             });
 
+
+
+            // System Log
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'WorkOrder',
+                userId,
+                details: { id: workOrderId, action: 'COMMENT', notes: notes || 'Photo comment' }
+            });
+
             return NextResponse.json({ success: true, message: 'Comment added' });
 
         } else if (action === 'NOTE') {
@@ -459,6 +510,16 @@ export async function POST(
                 triggeredByName: (user?.name as string) || (payload.name as string),
                 departmentId: workOrder.departmentId || undefined,
                 siteId: workOrder.siteId || undefined,
+            });
+
+
+
+            // System Log
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'WorkOrder',
+                userId,
+                details: { id: workOrderId, action: 'NOTE', notes: notes || 'Photo update' }
             });
 
             return NextResponse.json({ success: true, message: 'Note added' });

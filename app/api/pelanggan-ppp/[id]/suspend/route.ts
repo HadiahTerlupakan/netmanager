@@ -262,6 +262,24 @@ export async function POST(
       },
     })
 
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'SUSPEND',
+        subject: 'Pelanggan',
+        userId: (auth as any)?.user?.id,
+        details: { 
+            id: id, 
+            type: suspensionType,
+            reason: reason,
+            suspensionId: result.id
+        }
+      })
+    } catch (logError) {
+      console.error('Failed to log activity:', logError)
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Customer service suspended successfully',

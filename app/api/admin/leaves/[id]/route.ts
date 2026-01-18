@@ -49,6 +49,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             approvedBy: status === 'APPROVED' ? session.user.id : undefined
         })
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'UPDATE', // Use STATUS_CHANGE or UPDATE? UPDATE is standard.
+                subject: 'LeaveRequest',
+                userId: session.user.id,
+                details: { 
+                    id, 
+                    status, 
+                    rejectionReason, 
+                    userId: result.userId,
+                    employeeName: existing.user.name 
+                }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
+
         // Notify User
         try {
             const title = status === 'APPROVED' ? '✅ Izin Disetujui' : '❌ Izin Ditolak'
@@ -107,6 +126,23 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         }
 
         await repo.delete(id)
+
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'DELETE',
+                subject: 'LeaveRequest',
+                userId: session.user.id,
+                details: { 
+                    id,
+                    employeeName: existing?.user.name 
+                }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
+
         return NextResponse.json({ message: 'Deleted successfully' })
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 })

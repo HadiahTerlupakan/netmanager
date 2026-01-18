@@ -48,10 +48,34 @@ export async function PATCH(
 
             if (action === 'approve') {
                 const result = await service.approveRequest(id, session.user.id || 'system')
+                
+                // System Log
+                try {
+                const { logger } = await import('@/lib/logger')
+                await logger.logActivity({
+                    action: 'UPDATE',
+                    subject: 'Overtime',
+                    userId: session.user.id,
+                    details: { id, action: 'APPROVE' }
+                })
+                } catch (e) { console.error('Logging failed', e) }
+
                 return NextResponse.json(result)
             } else {
                 if (!reason) return NextResponse.json({ error: 'Reason required for rejection' }, { status: 400 })
                 const result = await service.rejectRequest(id, reason)
+
+                // System Log
+                try {
+                const { logger } = await import('@/lib/logger')
+                await logger.logActivity({
+                    action: 'UPDATE',
+                    subject: 'Overtime',
+                    userId: session.user.id,
+                    details: { id, action: 'REJECT', reason }
+                })
+                } catch (e) { console.error('Logging failed', e) }
+
                 return NextResponse.json(result)
             }
         } else {
@@ -75,6 +99,17 @@ export async function PATCH(
                 where: { id },
                 data: cleanData
             })
+
+            // System Log
+            try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Overtime',
+                userId: session.user.id,
+                details: { id, updates: cleanData }
+            })
+            } catch (e) { console.error('Logging failed', e) }
 
             return NextResponse.json({ success: true, data: result })
         }
@@ -125,6 +160,17 @@ export async function DELETE(
 
         const service = new OvertimeService()
         await service.deleteOvertime(id)
+
+        // System Log
+        try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+            action: 'DELETE',
+            subject: 'Overtime',
+            userId: session.user.id,
+            details: { id }
+        })
+        } catch (e) { console.error('Logging failed', e) }
 
         return NextResponse.json({ success: true, message: 'Overtime deleted' })
     } catch (error: any) {

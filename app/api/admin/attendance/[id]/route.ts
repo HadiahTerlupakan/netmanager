@@ -51,6 +51,17 @@ export async function DELETE(
             where: { id }
         })
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'DELETE',
+                subject: 'Attendance',
+                userId: session.user.id,
+                details: { id }
+            })
+        } catch (e) { console.error('Logging failed', e) }
+
         return NextResponse.json({ success: true, message: 'Attendance deleted successfully' })
 
     } catch (error: any) {
@@ -173,6 +184,17 @@ export async function PATCH(
             where: { id },
             data: updateData
         })
+
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Attendance',
+                userId: session.user.id,
+                details: { id, updates: updateData }
+            })
+        } catch (e) { console.error('Logging failed', e) }
 
         return NextResponse.json({ success: true, data: updated })
 

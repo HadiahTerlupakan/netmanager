@@ -91,6 +91,22 @@ export async function POST(req: Request) {
             isTechnical: validated.isTechnical
         })
 
+        // System Log
+        try {
+            const session = await getServerSession(authConfig)
+            if (session?.user?.id) {
+                const { logger } = await import('@/lib/logger')
+                await logger.logActivity({
+                    action: 'CREATE',
+                    subject: 'Role',
+                    userId: session.user.id,
+                    details: { id: newRole.id, name: newRole.name }
+                })
+            }
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
+
         return NextResponse.json(newRole)
     } catch (error) {
         console.error('Error creating role:', error)

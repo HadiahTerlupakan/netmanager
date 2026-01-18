@@ -19,7 +19,7 @@ export async function DELETE(
     }
 
     const financeService = new FinanceService()
-    await financeService.deleteTransaction(id)
+    await financeService.deleteTransaction(id, session.id)
 
     return NextResponse.json({ success: true, message: 'Transaksi berhasil dihapus' })
   } catch (error: any) {

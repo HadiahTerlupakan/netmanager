@@ -253,11 +253,20 @@ export async function POST(request: NextRequest) {
             timezone // Use fetched user timezone preference
         })
         
-        logger.apiRequest('POST', '/api/mobile/attendance/check-in', 201, Date.now() - startTime, {
-            userId,
-            attendanceId: attendance.id,
-            status: attendance.status
-        })
+        // System Log
+        try {
+            await logger.logActivity({
+                action: 'CHECK_IN',
+                subject: 'Attendance',
+                userId,
+                details: { 
+                    attendanceId: attendance.id, 
+                    status: attendance.status,
+                    location,
+                    isOffline: !!offlineCapturedAt 
+                }
+            })
+        } catch (e) { console.error('Logging check-in failed', e) }
 
         return NextResponse.json({ success: true, data: attendance })
 

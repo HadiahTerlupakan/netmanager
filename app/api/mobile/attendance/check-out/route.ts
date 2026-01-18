@@ -152,10 +152,19 @@ export async function POST(request: NextRequest) {
                 offlineTime
             })
 
-            logger.apiRequest('POST', '/api/mobile/attendance/check-out', 200, Date.now() - startTime, {
-                userId,
-                attendanceId: result.attendance.id
-            })
+            // System Log
+            try {
+                await logger.logActivity({
+                    action: 'CHECK_OUT',
+                    subject: 'Attendance',
+                    userId,
+                    details: { 
+                        attendanceId: result.attendance.id, 
+                        location,
+                        isOffline: !!offlineTime 
+                    }
+                })
+            } catch (e) { console.error('Logging check-out failed', e) }
 
             return NextResponse.json({ 
                 success: true, 

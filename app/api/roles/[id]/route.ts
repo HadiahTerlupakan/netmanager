@@ -74,6 +74,17 @@ export async function PUT(req: Request, { params }: Params) {
         const { invalidateRolePermissionCache } = await import('@/lib/auth')
         await invalidateRolePermissionCache(id)
 
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Role',
+                userId: session.user.id,
+                details: { id, updates: validated }
+            })
+        } catch (e) { console.error('Logging failed', e) }
+
         return NextResponse.json(updatedRole)
     } catch (error) {
         console.error('Error updating role:', error)
@@ -94,6 +105,12 @@ export async function PUT(req: Request, { params }: Params) {
 }
 
 export async function DELETE(req: Request, { params }: Params) {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+        // DELETE requires auth check for logging mainly, though permission check covers it
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     if (!await hasPermission('roles:delete')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
@@ -103,6 +120,17 @@ export async function DELETE(req: Request, { params }: Params) {
     try {
         const roleService = getRoleService()
         await roleService.deleteRole(id)
+
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'DELETE',
+                subject: 'Role',
+                userId: session.user.id,
+                details: { id }
+            })
+        } catch (e) { console.error('Logging failed', e) }
 
         return NextResponse.json({ success: true })
     } catch (error) {

@@ -42,8 +42,8 @@ export class FinanceService {
     accountId?: string
     attachments?: string[]
   }) {
-    return prisma.$transaction(async (tx) => {
-        // 1. Update Account Balance if provided
+    // 1. Update Account Balance if provided
+    const result = await prisma.$transaction(async (tx) => {
         if (data.accountId) {
             const modification = data.type === 'INCOME' ? data.amount : -data.amount
             await tx.financialAccount.update({
@@ -68,6 +68,27 @@ export class FinanceService {
             include: { category: true } 
         })
     })
+
+    // Log Activity
+    try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+            action: 'CREATE',
+            subject: 'Finance Transaction',
+            userId: data.createdById,
+            details: { 
+                id: result.id, 
+                type: result.type, 
+                amount: result.amount,
+                desc: result.description,
+                ref: result.referenceId
+            }
+        })
+    } catch (e) {
+        console.error('Logging failed', e)
+    }
+
+    return result
   }
 
   /**
@@ -92,7 +113,7 @@ export class FinanceService {
     if (po.paymentStatus === 'PAID') throw new Error('Tagihan PO ini sudah lunas')
 
     // 2. Wrap in transaction
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 2a. Update Account Balance if provided (Decrease for payment)
       if (input.paidFromAccountId) {
           await tx.financialAccount.update({
@@ -144,8 +165,29 @@ export class FinanceService {
         }
       })
 
-      return transaction
+      return { transaction, newStatus }
     })
+
+    // Log Activity
+    try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+            action: 'PAYMENT',
+            subject: 'Purchase Order',
+            userId: input.createdById,
+            details: { 
+                poId: po.id, 
+                poNumber: po.poNumber,
+                amount: input.amount,
+                status: result.newStatus,
+                transactionId: result.transaction.id
+            }
+        })
+    } catch (e) {
+        console.error('Logging failed', e)
+    }
+
+    return result.transaction
   }
 
 
@@ -219,7 +261,7 @@ export class FinanceService {
     createdById: string
     categoryId: string
   }) {
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 1. Decrement Source Account
       await tx.financialAccount.update({
         where: { id: data.sourceAccountId },
@@ -259,11 +301,32 @@ export class FinanceService {
           referenceId: 'TRANSFER'
         }
       })
+      
+      return { success: true }
     })
+
+    // Log Activity
+    try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+            action: 'TRANSFER',
+            subject: 'Finance Funds',
+            userId: data.createdById,
+            details: { 
+                from: data.sourceAccountId, 
+                to: data.destinationAccountId, 
+                amount: data.amount 
+            }
+        })
+    } catch (e) {
+        console.error('Logging failed', e)
+    }
+
+    return result
   }
 
-  async deleteTransaction(id: string) {
-    return prisma.$transaction(async (tx) => {
+  async deleteTransaction(id: string, userId?: string) {
+    const result = await prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.findUnique({ where: { id } })
       if (!transaction) throw new Error('Transaksi tidak ditemukan')
 
@@ -285,7 +348,27 @@ export class FinanceService {
       }
 
       await tx.transaction.delete({ where: { id } })
+      return transaction
     })
+
+    // Log Activity
+    if (userId) { // userId is optional because previous signature didn't have it, but we should supply it
+        try {
+            const { logger } = await import('@/lib/logger')
+            await logger.logActivity({
+                action: 'DELETE',
+                subject: 'Finance Transaction',
+                userId: userId,
+                details: { 
+                    id: result.id, 
+                    amount: result.amount, 
+                    desc: result.description 
+                }
+            })
+        } catch (e) {
+            console.error('Logging failed', e)
+        }
+    }
   }
   async createAccount(data: {
     name: string

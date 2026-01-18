@@ -254,6 +254,23 @@ export async function POST(
       },
     })
 
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'ACTIVATE',
+        subject: 'Pelanggan',
+        userId: (auth as any)?.user?.id,
+        details: { 
+            id: id, 
+            method: activationMethod,
+            suspensionId: result.id
+        }
+      })
+    } catch (logError) {
+      console.error('Failed to log activity:', logError)
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Customer service activated successfully',

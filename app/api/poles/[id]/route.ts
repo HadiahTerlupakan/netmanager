@@ -62,6 +62,20 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
   try {
     await repo.update(id, parsed.data)
+
+    // System Log
+    try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+            action: 'UPDATE',
+            subject: 'Pole',
+            userId: session.user.id,
+            details: { id, updates: parsed.data }
+        })
+    } catch (e) {
+        console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     const code = err?.code || err?.name
@@ -100,6 +114,20 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
   try {
     await repo.update(id, parsed.data)
+
+    // System Log
+    try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+            action: 'UPDATE',
+            subject: 'Pole',
+            userId: session.user.id,
+            details: { id, updates: parsed.data }
+        })
+    } catch (e) {
+        console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     const code = err?.code || err?.name
@@ -131,6 +159,20 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
 
   try {
     await repo.delete(id)
+
+    // System Log
+    try {
+        const { logger } = await import('@/lib/logger')
+        await logger.logActivity({
+            action: 'DELETE',
+            subject: 'Pole',
+            userId: session.user.id,
+            details: { id }
+        })
+    } catch (e) {
+        console.error('Logging failed', e)
+    }
+
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     const code = err?.code || err?.name

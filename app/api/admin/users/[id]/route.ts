@@ -257,7 +257,11 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
       action: 'UPDATE',
       subject: 'User',
       userId: session.user.id,
-      details: { id: updatedUser.id, changes: Object.keys(data) }
+      details: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        changes: Object.keys(data)
+      }
     })
 
     return NextResponse.json({ ok: true })
@@ -548,13 +552,19 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
+    // Fetch user for logging
+    const targetUserForLog = await prisma.user.findUnique({
+      where: { id },
+      select: { name: true }
+    })
+
     await userRepository.delete(id)
 
     await logger.logActivity({
       action: 'DELETE',
       subject: 'User',
       userId: session.user.id,
-      details: { id }
+      details: { id, name: targetUserForLog?.name }
     })
 
     return NextResponse.json({ ok: true })

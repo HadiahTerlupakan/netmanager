@@ -1120,6 +1120,19 @@ export async function DELETE(
     revalidatePath('/api/pelanggan-ppp')
     revalidatePath(`/api/pelanggan-ppp/${id}`)
 
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'DELETE',
+        subject: 'Pelanggan',
+        userId: session?.user?.id,
+        details: { id, nama: pelanggan.nama, username: pelanggan.username }
+      })
+    } catch (logError) {
+      console.error('Failed to log activity:', logError)
+    }
+
     return NextResponse.json({ message: 'Pelanggan berhasil dihapus' }, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
