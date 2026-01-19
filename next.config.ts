@@ -13,6 +13,8 @@ const withPWA = withPWAInit({
   // Exclude uploads folder from precaching (files are stored in CDN/R2)
   // This prevents 404 errors when files are moved/deleted
   workboxOptions: {
+    // Skip waiting - immediately activate new service worker
+    skipWaiting: true,
     // Clean up outdated caches to prevent bad-precaching-response errors
     cleanupOutdatedCaches: true,
     // Immediately claim clients
