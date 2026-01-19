@@ -12,6 +12,9 @@ declare module 'next-auth' {
       accessAdminPanel?: boolean
       accessEmployeePanel?: boolean
       permissions?: string[]
+      /** @deprecated Use siteIds for multi-site */
+      siteId?: string
+      siteIds?: string[]
       employee?: {
         id: string
         employeeId: string

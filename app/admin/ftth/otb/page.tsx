@@ -3,8 +3,13 @@ import OtbList from './OtbList'
 
 export const dynamic = 'force-dynamic'
 
-export default async function OtbPage() {
+export default async function OtbPage({ 
+    searchParams 
+}: { 
+    searchParams: Promise<{ siteId?: string }> 
+}) {
     await ensurePermission('otb:read')
+    const params = await searchParams
 
-    return <OtbList />
+    return <OtbList searchParams={params} />
 }
