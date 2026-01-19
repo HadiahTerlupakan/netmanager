@@ -48,10 +48,14 @@ export async function PUT(
     // Check admin permissions
     const isSuperAdmin = isSuperAdminRole(session.role)
     const permissions = await getUserPermissions(session.id)
-    const canManage = isSuperAdmin || permissions.includes('point_claims:write') || permissions.includes('canvasing:write')
+    // Check for point_claims:update or canvasing:update (action-based permission format)
+    const canManage = isSuperAdmin || 
+      permissions.includes('point_claims:update') || 
+      permissions.includes('canvasing:update') ||
+      permissions.includes('marketing:update')
 
     if (!canManage) {
-      return NextResponse.json({ error: 'Anda tidak memiliki akses untuk mengelola claim' }, { status: 403 })
+      return NextResponse.json({ error: 'Forbidden: Missing point_claims:update or canvasing:update permission' }, { status: 403 })
     }
 
     const { id } = await params
