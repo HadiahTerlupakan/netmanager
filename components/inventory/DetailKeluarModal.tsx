@@ -1,7 +1,9 @@
 'use client'
 
-import { FiX, FiCalendar, FiPackage, FiHome, FiUser, FiEdit3, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText } from 'react-icons/fi'
+import { useState } from 'react'
+import { FiX, FiCalendar, FiPackage, FiHome, FiUser, FiEdit3, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText, FiZoomIn } from 'react-icons/fi'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import { ImageLightbox } from '@/components/ui/ImageLightbox'
 
 interface BarangKeluar {
   id: string
@@ -43,7 +45,15 @@ interface DetailKeluarModalProps {
 }
 
 export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKeluarModalProps) {
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
+
   if (!isOpen || !keluar) return null
+
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index)
+    setLightboxOpen(true)
+  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('id-ID', {
@@ -220,9 +230,9 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
                   <div key={index}>
                     {/* Image Container */}
                     <div
-                      className="relative overflow-hidden rounded-lg border-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 cursor-pointer"
+                      className="group relative overflow-hidden rounded-lg border-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
                       style={{ minHeight: '200px' }}
-                      onClick={() => window.open(url, '_blank')}
+                      onClick={() => openLightbox(index)}
                     >
                       <img
                         src={url}
@@ -243,6 +253,12 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
                         }}
                         loading="eager"
                       />
+                      {/* Hover overlay with zoom icon */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-white/90 text-gray-700">
+                          <FiZoomIn className="w-5 h-5" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -255,6 +271,15 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
             </div>
           )}
         </div>
+
+        {/* Image Lightbox */}
+        <ImageLightbox
+          images={keluar.fotoBukti || []}
+          initialIndex={lightboxIndex}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          alt="Foto bukti barang keluar"
+        />
       </div>
 
       <ModalFooter>
