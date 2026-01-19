@@ -31,7 +31,7 @@ interface CanvasingItem {
     status: 'PENDING' | 'APPROVED' | 'REJECTED'
     sales: { name: string }
     createdAt: string
-    pointClaims?: PointClaim[]
+    pointClaims?: PointClaim
 }
 
 export default function CanvasingList() {
@@ -113,11 +113,11 @@ export default function CanvasingList() {
     }
 
     const getPendingClaim = (item: CanvasingItem) => {
-        return Array.isArray(item.pointClaims) ? item.pointClaims.find(c => c.status === 'PENDING') : undefined
+        return item.pointClaims?.status === 'PENDING' ? item.pointClaims : undefined
     }
 
     const getApprovedClaim = (item: CanvasingItem) => {
-        return Array.isArray(item.pointClaims) ? item.pointClaims.find(c => c.status === 'APPROVED') : undefined
+        return item.pointClaims?.status === 'APPROVED' ? item.pointClaims : undefined
     }
     const handleDelete = async (id: string, name: string) => {
         if (!confirm(`Hapus request canvasing atas nama ${name}?`)) return
