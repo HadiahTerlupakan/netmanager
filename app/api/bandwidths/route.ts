@@ -97,12 +97,8 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * @swagger
- * /api/bandwidths:
- *   post:
- *     summary: Create new bandwidth
- *     description: Membuat bandwidth baru
- *     ...
+ * POST /api/bandwidths
+ * Create new bandwidth - Membuat bandwidth baru
  */
 export async function POST(req: NextRequest) {
   try {
