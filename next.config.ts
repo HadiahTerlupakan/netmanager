@@ -13,9 +13,13 @@ const withPWA = withPWAInit({
   // Exclude uploads folder from precaching (files are stored in CDN/R2)
   // This prevents 404 errors when files are moved/deleted
   workboxOptions: {
+    // Clean up outdated caches to prevent bad-precaching-response errors
+    cleanupOutdatedCaches: true,
+    // Immediately claim clients
+    clientsClaim: true,
     runtimeCaching: [
       {
-        // Cache images from uploads on-demand (not precached)
+        // Cache images from uploads on-demand with CacheFirst fallback to network
         urlPattern: /\/uploads\/.*/i,
         handler: 'NetworkFirst',
         options: {
@@ -25,6 +29,10 @@ const withPWA = withPWAInit({
             maxAgeSeconds: 24 * 60 * 60, // 24 hours
           },
           networkTimeoutSeconds: 10,
+          // Use background sync for failed requests
+          cacheableResponse: {
+            statuses: [0, 200],
+          },
         },
       },
     ],
@@ -32,6 +40,8 @@ const withPWA = withPWAInit({
     exclude: [
       /\/uploads\/.*/,
       /\.map$/,
+      // Exclude attendance photos specifically
+      /\/uploads\/attendance\/.*/,
     ],
   },
 })
