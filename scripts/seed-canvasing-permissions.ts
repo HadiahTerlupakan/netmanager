@@ -40,6 +40,10 @@ async function main() {
     { resource: 'coupon', action: 'update', description: 'Update Coupons' },
     { resource: 'coupon', action: 'delete', description: 'Delete Coupons' },
     { resource: 'coupon', action: 'site_only', description: 'Coupon site restriction' },
+
+    // Mobile App Permissions
+    { resource: 'm_canvasing', action: 'read', description: 'Access Mobile Canvasing Menu' },
+    { resource: 'm_canvasing', action: 'create', description: 'Create data via Mobile Canvasing' },
   ]
 
   // 1. Create permissions if not exist
@@ -68,7 +72,7 @@ async function main() {
   const targetRoles = await prisma.role.findMany({
     where: { 
         name: { 
-            in: ['Super Admin', 'SUPER_ADMIN', ' Branch Manager', 'Branch Manager'] 
+            in: ['Super Admin', 'SUPER_ADMIN', ' Branch Manager', 'Branch Manager', 'SALES', 'Sales', 'ADMIN', 'Admin'] 
         } 
     }
   })
@@ -77,7 +81,7 @@ async function main() {
 
   const allPerms = await prisma.permission.findMany({
       where: {
-          resource: { in: ['marketing', 'canvasing', 'coupon', 'sales'] }
+          resource: { in: ['marketing', 'canvasing', 'coupon', 'sales', 'm_canvasing'] }
       }
   })
 

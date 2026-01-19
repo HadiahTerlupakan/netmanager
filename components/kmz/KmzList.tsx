@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { KmzActions } from './KmzActions'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
+import { useSearchParams } from 'next/navigation'
 
 type KmzFile = {
   id: string
@@ -21,11 +22,16 @@ type KmzFile = {
 export function KmzList() {
   const [kmzFiles, setKmzFiles] = useState<KmzFile[]>([])
   const [loading, setLoading] = useState(true)
+  const searchParams = useSearchParams()
+  const siteId = searchParams.get('siteId')
 
-  const fetchKmzFiles = async () => {
+  const fetchKmzFiles = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/kmz', { cache: 'no-store' })
+      const queryParams = new URLSearchParams()
+      if (siteId) queryParams.append('siteId', siteId)
+
+      const res = await fetch(`/api/kmz?${queryParams.toString()}`, { cache: 'no-store' })
       if (res.ok) {
         const json = await res.json()
         setKmzFiles((json.kmzFiles || []).map((f: any) => ({
@@ -38,11 +44,11 @@ export function KmzList() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [siteId])
 
   useEffect(() => {
     fetchKmzFiles()
-  }, [])
+  }, [fetchKmzFiles])
 
   if (loading) {
     return <PageLoader />

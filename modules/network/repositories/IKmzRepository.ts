@@ -7,6 +7,7 @@ export interface KmzFileCreateData {
   description?: string | null
   lineColor?: string
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  siteId?: string | null
 }
 
 export interface KmzFileUpdateData {
@@ -15,6 +16,7 @@ export interface KmzFileUpdateData {
   lineColor?: string
   isActive?: boolean
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
+  siteId?: string | null
 }
 
 export interface KmzFilePublic {
@@ -30,12 +32,13 @@ export interface KmzFilePublic {
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: Date
   updatedAt: Date
+  siteId?: string | null
 }
 
 export interface IKmzRepository {
-  findAll(): Promise<KmzFilePublic[]>
+  findAll(siteId?: string): Promise<KmzFilePublic[]>
   findById(id: string): Promise<KmzFilePublic | null>
-  findActive(): Promise<KmzFilePublic[]>
+  findActive(siteId?: string): Promise<KmzFilePublic[]>
   create(data: KmzFileCreateData): Promise<{ id: string }>
   update(id: string, data: KmzFileUpdateData): Promise<void>
   delete(id: string): Promise<void>

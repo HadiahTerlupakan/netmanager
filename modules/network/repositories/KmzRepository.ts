@@ -6,8 +6,9 @@ import type { IKmzRepository, KmzFileCreateData, KmzFileUpdateData, KmzFilePubli
 export class KmzRepository implements IKmzRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findAll(): Promise<KmzFilePublic[]> {
+  async findAll(siteId?: string): Promise<KmzFilePublic[]> {
     const items = await this.client.kmzFile.findMany({ 
+      where: siteId ? { siteId } : {},
       orderBy: { createdAt: 'desc' } 
     })
     return items as unknown as KmzFilePublic[]
@@ -18,9 +19,12 @@ export class KmzRepository implements IKmzRepository {
     return item as unknown as KmzFilePublic | null
   }
 
-  async findActive(): Promise<KmzFilePublic[]> {
+  async findActive(siteId?: string): Promise<KmzFilePublic[]> {
     const items = await this.client.kmzFile.findMany({
-      where: { isActive: true },
+      where: { 
+        isActive: true,
+        ...(siteId ? { siteId } : {})
+      },
       orderBy: { createdAt: 'desc' }
     })
     return items as unknown as KmzFilePublic[]
@@ -39,6 +43,7 @@ export class KmzRepository implements IKmzRepository {
         description: data.description ?? null,
         lineColor: data.lineColor ?? '#3388ff',
         status: data.status ?? 'AKTIF',
+        siteId: data.siteId,
       },
       select: { id: true },
     })
@@ -55,6 +60,7 @@ export class KmzRepository implements IKmzRepository {
         ...(data.lineColor !== undefined && { lineColor: data.lineColor }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.status !== undefined && { status: data.status }),
+        ...(data.siteId !== undefined && { siteId: data.siteId }),
       },
     })
   }

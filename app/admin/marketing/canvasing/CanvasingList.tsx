@@ -113,11 +113,11 @@ export default function CanvasingList() {
     }
 
     const getPendingClaim = (item: CanvasingItem) => {
-        return item.pointClaims?.find(c => c.status === 'PENDING')
+        return Array.isArray(item.pointClaims) ? item.pointClaims.find(c => c.status === 'PENDING') : undefined
     }
 
     const getApprovedClaim = (item: CanvasingItem) => {
-        return item.pointClaims?.find(c => c.status === 'APPROVED')
+        return Array.isArray(item.pointClaims) ? item.pointClaims.find(c => c.status === 'APPROVED') : undefined
     }
     const handleDelete = async (id: string, name: string) => {
         if (!confirm(`Hapus request canvasing atas nama ${name}?`)) return

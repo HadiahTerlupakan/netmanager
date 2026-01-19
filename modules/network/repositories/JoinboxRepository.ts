@@ -11,8 +11,11 @@ import type {
 export class JoinboxRepository implements IJoinboxRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findAll(): Promise<JoinboxPublic[]> {
-    const items = await this.client.joinbox.findMany({ orderBy: { createdAt: 'desc' } })
+  async findAll(siteId?: string): Promise<JoinboxPublic[]> {
+    const items = await this.client.joinbox.findMany({
+      where: siteId ? { siteId } : {},
+      orderBy: { createdAt: 'desc' }
+    })
     return items as unknown as JoinboxPublic[]
   }
 
@@ -35,6 +38,7 @@ export class JoinboxRepository implements IJoinboxRepository {
           latitude: data.latitude ?? null,
           longitude: data.longitude ?? null,
           status: data.status ?? 'AKTIF',
+          siteId: data.siteId,
         },
         select: { id: true },
       })
@@ -86,6 +90,7 @@ export class JoinboxRepository implements IJoinboxRepository {
           ...(data.latitude !== undefined && { latitude: data.latitude }),
           ...(data.longitude !== undefined && { longitude: data.longitude }),
           ...(data.status !== undefined && { status: data.status }),
+          ...(data.siteId !== undefined && { siteId: data.siteId }),
         },
       })
 

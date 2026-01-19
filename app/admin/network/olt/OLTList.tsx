@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import OLTModal from '@/components/olt/OLTModal'
 import { HiOutlinePlus, HiOutlineSignal, HiArrowPath, HiPencil, HiOutlineCpuChip, HiOutlineFire, HiOutlineSignal as HiSignal, HiOutlineComputerDesktop, HiOutlineClock, HiCheck, HiOutlineCalendar, HiTrash, HiEye, HiOutlineTableCells, HiXMark, HiExclamationTriangle, HiInformationCircle } from 'react-icons/hi2'
+import SiteFilter from '@/components/common/SiteFilter'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
 import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
@@ -25,14 +26,20 @@ export default function OLTList() {
   const [testTableResult, setTestTableResult] = useState<any>(null)
   const [testTableError, setTestTableError] = useState<string | null>(null)
   const [selectedOnuForTest, setSelectedOnuForTest] = useState<any | null>(null)
+  // Site Filter State
+  const [siteId, setSiteId] = useState<string | undefined>(undefined)
+
   useEffect(() => {
     loadOlts()
-  }, [])
+  }, [siteId])
 
   const loadOlts = async () => {
     try {
+      const queryParams = new URLSearchParams()
+      if (siteId) queryParams.append('siteId', siteId)
+
       // Tambahkan cache busting untuk memastikan data selalu terbaru
-      const res = await fetch('/api/olts', {
+      const res = await fetch(`/api/olts?${queryParams.toString()}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache',
@@ -328,7 +335,10 @@ export default function OLTList() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">OLT Management</h1>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 w-full sm:w-auto">
+          <div className="w-full sm:w-64">
+             <SiteFilter onSiteChange={setSiteId} className="w-full" />
+          </div>
           <button
             onClick={loadOlts}
             className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"

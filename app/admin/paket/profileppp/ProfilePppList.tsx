@@ -6,6 +6,7 @@ import Modal from '@/components/common/Modal'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import { SiteFilter } from '@/components/common/SiteFilter'
 
 type ProfilePPP = {
   id: string
@@ -26,6 +27,7 @@ type ProfilePPP = {
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: string
   ipRange?: string | null // IP Range dari MikroTik (format: "192.168.1.100-192.168.1.200")
+  siteId?: string | null
   _count?: {
     hargaPakets: number
   }
@@ -35,6 +37,7 @@ type MikroTikRouter = {
   id: string
   name: string
   ipAddress: string
+  siteId?: string
 }
 
 type Bandwidth = {
@@ -46,6 +49,7 @@ type Bandwidth = {
 
 export default function ProfilePPPPage() {
   const [loading, setLoading] = useState(true)
+  const [siteId, setSiteId] = useState<string | undefined>(undefined)
   const [profilePPPs, setProfilePPPs] = useState<ProfilePPP[]>([])
   const [mikroTikRouters, setMikroTikRouters] = useState<MikroTikRouter[]>([])
   const [bandwidths, setBandwidths] = useState<Bandwidth[]>([])
@@ -63,19 +67,23 @@ export default function ProfilePPPPage() {
     bandwidthId: '', // Bandwidth untuk rate limit (opsional)
     description: '',
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
+    siteId: '',
   })
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [siteId]) // Reload when siteId changes
 
   const loadData = async () => {
     try {
       setLoading(true)
+      const queryParams = new URLSearchParams()
+      if (siteId) queryParams.append('siteId', siteId)
+
       const [profilePPPsRes, routersRes, bandwidthsRes] = await Promise.all([
-        fetch('/api/profileppps'),
+        fetch(`/api/profileppps?${queryParams.toString()}`),
         fetch('/api/mikrotik-routers'),
-        fetch('/api/bandwidths'),
+        fetch(`/api/bandwidths?${queryParams.toString()}`), // Filter bandwidth by site too
       ])
 
       if (!profilePPPsRes.ok) {
@@ -132,6 +140,7 @@ export default function ProfilePPPPage() {
         bandwidthId: formData.bandwidthId?.trim() || undefined, // Bandwidth untuk rate limit
         description: formData.description?.trim() || undefined,
         status: formData.status,
+        siteId: formData.siteId || undefined,
       }
 
       const res = await fetch(url, {
@@ -212,6 +221,7 @@ export default function ProfilePPPPage() {
       bandwidthId: '', // Bandwidth tidak disimpan di database, kosongkan saat edit (user bisa pilih ulang)
       description: profile.description || '',
       status: profile.status,
+      siteId: profile.siteId || '',
     })
     setIsModalOpen(true)
   }
@@ -230,6 +240,7 @@ export default function ProfilePPPPage() {
       bandwidthId: '',
       description: '',
       status: 'AKTIF',
+      siteId: '',
     })
   }
 
@@ -254,13 +265,24 @@ export default function ProfilePPPPage() {
             Kelola profil PPPoE untuk autentikasi pelanggan
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <span>+</span>
-          Tambah Profile PPP
-        </button>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+             <div className="w-full md:w-48">
+                <SiteFilter 
+                  value={siteId || ''}
+                  onSiteChange={setSiteId} 
+                />
+             </div>
+            <button
+              onClick={() => {
+                setFormData(prev => ({ ...prev, siteId: siteId || '' }))
+                setIsModalOpen(true)
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+            >
+              <span>+</span>
+              Tambah Profile PPP
+            </button>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -415,6 +437,15 @@ export default function ProfilePPPPage() {
             </p>
           </div>
 
+          <div>
+             <SiteFilter
+                value={formData.siteId}
+                onSiteChange={(id) => setFormData({ ...formData, siteId: id || '' })}
+                isInput
+                className="mb-0"
+             />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -502,7 +533,9 @@ export default function ProfilePPPPage() {
               className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
             >
               <option value="">-- Pilih Router MikroTik --</option>
-              {mikroTikRouters.map((router) => (
+              {mikroTikRouters
+                .filter(router => !formData.siteId || !router.siteId || router.siteId === formData.siteId)
+                .map((router) => (
                 <option key={router.id} value={router.id}>
                   {router.name} ({router.ipAddress})
                 </option>

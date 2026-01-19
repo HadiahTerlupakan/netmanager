@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import SiteFilterRedirect from '@/components/common/SiteFilterRedirect'
 import { getOtbRepository } from '@/lib/repositories'
 import OtbTable from '@/components/otb/OtbTable'
 
@@ -17,9 +18,9 @@ type Otb = {
   createdAt: string
 }
 
-export default async function OTBPage() {
+export default async function OTBPage({ searchParams }: { searchParams: { siteId?: string } }) {
   const repo = getOtbRepository()
-  const rows = await repo.findAll()
+  const rows = await repo.findAll(searchParams?.siteId)
   const otbs: Otb[] = rows.map((o: any) => ({
     id: o.id,
     name: o.name,
@@ -45,6 +46,11 @@ export default async function OTBPage() {
         >
           + Tambah OTB
         </Link>
+      </div>
+
+      <div className="w-full sm:w-64">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Filter Site</label>
+        <SiteFilterRedirect baseUrl="/admin/ftth/otb" className="w-full" />
       </div>
 
       <OtbTable otbs={otbs} />

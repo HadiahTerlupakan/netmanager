@@ -35,16 +35,34 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
+    const siteIdParam = searchParams.get('siteId')
 
     const where: any = {}
     if (status) {
       where.status = status
+    }
+    
+    // User restriction logic
+    if (session.user.role !== "SUPER_ADMIN") {
+      // For non-super admins, restrict to their assigned site
+      if (session.user.siteId) {
+        where.siteId = session.user.siteId
+      }
+    } else if (siteIdParam) {
+      // For super admins, allow filtering if param is provided
+      where.siteId = siteIdParam
     }
 
     const profilePPPs = await prisma.profilePPP.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       include: {
+        site: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
         mikroTikRouter: {
           select: {
             id: true,
@@ -221,7 +239,22 @@ export async function POST(req: NextRequest) {
       bandwidthId: body.bandwidthId && body.bandwidthId.trim() ? body.bandwidthId : undefined, // Bandwidth untuk rate limit (opsional)
       description: body.description && body.description.trim() ? sanitizeInput(body.description) : undefined,
       status: body.status || 'AKTIF',
+      siteId: body.siteId || undefined
     }
+
+    // Enforce siteId for non-SUPER_ADMIN
+    if (session.user.role !== "SUPER_ADMIN" && session.user.siteId) {
+      sanitizedBody.siteId = session.user.siteId
+    }
+
+    // Log the creation attempt including siteId
+    await import('@/lib/logger').then(({ logger }) => {
+      logger.info('Creating Profile PPP', {
+          userId: session.user.id,
+          siteId: sanitizedBody.siteId,
+          name: sanitizedBody.name
+      })
+    })
 
     // Validasi data dengan Zod schema
     const validation = profilePPPSchema.safeParse(sanitizedBody)

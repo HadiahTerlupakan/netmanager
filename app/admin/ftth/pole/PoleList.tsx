@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import SiteFilterRedirect from '@/components/common/SiteFilterRedirect'
 import { getPoleRepository } from '@/lib/repositories'
 import PoleTable from '@/components/pole/PoleTable'
 
@@ -17,9 +18,9 @@ type Pole = {
   createdAt: string
 }
 
-export default async function PolePage() {
+export default async function PolePage({ searchParams }: { searchParams: { siteId?: string } }) {
   const repo = getPoleRepository()
-  const rows = await repo.findAll()
+  const rows = await repo.findAll(searchParams?.siteId)
   const poles: Pole[] = rows.map((o: any) => ({
     id: o.id,
     name: o.name,
@@ -45,6 +46,11 @@ export default async function PolePage() {
         >
           + Tambah Pole
         </Link>
+      </div>
+
+      <div className="w-full sm:w-64">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Filter Site</label>
+        <SiteFilterRedirect baseUrl="/admin/ftth/pole" className="w-full" />
       </div>
 
       <PoleTable poles={poles} />

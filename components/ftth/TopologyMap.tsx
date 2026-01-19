@@ -11,6 +11,7 @@ import {
   HiOutlineUserGroup
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import { SiteFilter } from '@/components/common/SiteFilter'
 
 type TopologyData = {
   otbs: Array<{
@@ -111,6 +112,8 @@ type VisibilityState = {
 
 export default function TopologyMap() {
   const mapEl = useRef<HTMLDivElement | null>(null)
+  
+
   const mapRef = useRef<any>(null)
   const animationFrameRef = useRef<number | null>(null)
   const dashOffsetRef = useRef<number>(0)
@@ -128,12 +131,17 @@ export default function TopologyMap() {
   })
   const visibilityRef = useRef<VisibilityState>(visibility)
   const [selectedFeature, setSelectedFeature] = useState<any>(null)
+  const [siteId, setSiteId] = useState<string | undefined>(undefined)
 
   // Fetch data
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch('/api/ftth/topology')
+        setLoading(true)
+        const queryParams = new URLSearchParams()
+        if (siteId) queryParams.append('siteId', siteId)
+        
+        const res = await fetch(`/api/ftth/topology?${queryParams.toString()}`)
         if (!res.ok) throw new Error('Failed to fetch topology data')
         const json = await res.json()
         setData(json)
@@ -144,7 +152,7 @@ export default function TopologyMap() {
       }
     }
     fetchData()
-  }, [])
+  }, [siteId])
 
   useEffect(() => {
     visibilityRef.current = visibility
@@ -1594,7 +1602,20 @@ export default function TopologyMap() {
       {/* Map Container */}
       <div className="relative">
         {/* Map Render */}
-        <div ref={mapEl} className="w-full h-[600px] rounded-lg border border-gray-200 dark:border-gray-800" />
+        {/* Site Filter Overlay */}
+      <div className="absolute top-4 left-4 z-10 w-64">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-2">
+           <SiteFilter onSiteChange={setSiteId} className="w-full" />
+        </div>
+      </div>
+
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 z-20">
+          <PageLoader />
+        </div>
+      )}
+      
+      <div ref={mapEl} className="w-full h-[600px] rounded-lg border border-gray-200 dark:border-gray-800" />
 
         {/* Legend */}
         <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg p-4 z-10 min-w-[200px]">

@@ -59,10 +59,21 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
+    const siteIdParam = searchParams.get('siteId')
 
     const where: any = {}
     if (status) {
       where.status = status
+    }
+
+    // Filter based on user role and parameter
+    const user = session.user as any
+    // If not super admin and has siteId, enforce restriction
+    if (user.role !== 'SUPER_ADMIN' && user.siteId) {
+      where.siteId = user.siteId
+    } else if (siteIdParam) {
+      // If super admin (or no site restriction) and param exists, use it
+      where.siteId = siteIdParam
     }
 
     const bandwidths = await prisma.bandwidth.findMany({
@@ -91,120 +102,7 @@ export async function GET(req: NextRequest) {
  *   post:
  *     summary: Create new bandwidth
  *     description: Membuat bandwidth baru
- *     tags: [Bandwidth]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *               - maxLimitDownload
- *               - maxLimitUpload
- *             properties:
- *               name:
- *                 type: string
- *                 example: "10 Mbps"
- *                 description: Nama bandwidth
- *               maxLimitDownload:
- *                 type: string
- *                 example: "10M"
- *                 description: Limit download maksimal
- *               maxLimitUpload:
- *                 type: string
- *                 example: "10M"
- *                 description: Limit upload maksimal
- *               burstLimitDownload:
- *                 type: string
- *                 nullable: true
- *                 example: "12M"
- *                 description: Burst limit download
- *               burstLimitUpload:
- *                 type: string
- *                 nullable: true
- *                 example: "12M"
- *                 description: Burst limit upload
- *               minLimitDownload:
- *                 type: string
- *                 nullable: true
- *                 example: "5M"
- *                 description: Limit download minimal
- *               minLimitUpload:
- *                 type: string
- *                 nullable: true
- *                 example: "5M"
- *                 description: Limit upload minimal
- *               burstThresholdDownload:
- *                 type: string
- *                 nullable: true
- *                 example: "8M"
- *                 description: Threshold untuk burst download
- *               burstThresholdUpload:
- *                 type: string
- *                 nullable: true
- *                 example: "8M"
- *                 description: Threshold untuk burst upload
- *               burstTimeDownload:
- *                 type: number
- *                 nullable: true
- *                 example: 10
- *                 description: Waktu burst download dalam detik
- *               burstTimeUpload:
- *                 type: number
- *                 nullable: true
- *                 example: 10
- *                 description: Waktu burst upload dalam detik
- *               priority:
- *                 type: number
- *                 nullable: true
- *                 example: 8
- *                 description: Prioritas bandwidth
- *               description:
- *                 type: string
- *                 nullable: true
- *                 example: "Standard 10 Mbps package"
- *                 description: Deskripsi bandwidth
- *               status:
- *                 type: string
- *                 enum: ["AKTIF", "NONAKTIF"]
- *                 default: "AKTIF"
- *                 example: "AKTIF"
- *                 description: Status bandwidth
- *     responses:
- *       201:
- *         description: Bandwidth berhasil dibuat
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Bandwidth'
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       409:
- *         description: Nama bandwidth sudah digunakan
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *     ...
  */
 export async function POST(req: NextRequest) {
   try {
@@ -219,6 +117,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
+    const user = session.user as any
+
+    // Determine siteId
+    // If user is restricted, force their siteId
+    // If user is Super Admin, take from body, otherwise null (Global) or error if we want strict
+    let siteIdToSave = body.siteId
+    if (user.role !== 'SUPER_ADMIN' && user.siteId) {
+      siteIdToSave = user.siteId
+    }
 
     // Sanitize input
     const sanitizedBody: any = {
@@ -236,6 +143,7 @@ export async function POST(req: NextRequest) {
       priority: body.priority !== undefined && body.priority !== null ? Number(body.priority) : undefined,
       description: body.description ? sanitizeInput(body.description) : undefined,
       status: body.status || 'AKTIF',
+      siteId: siteIdToSave || null,
     }
 
     // Hapus field yang undefined untuk menghindari masalah dengan Prisma
@@ -260,6 +168,11 @@ export async function POST(req: NextRequest) {
         dataToCreate[key] = validation.data[key as keyof typeof validation.data]
       }
     })
+    
+    // Explicitly add siteId as it might not be in the Zod schema yet/validated separately
+    if (siteIdToSave) {
+        dataToCreate.siteId = siteIdToSave
+    }
 
     const { randomUUID } = await import('crypto')
     
@@ -278,7 +191,7 @@ export async function POST(req: NextRequest) {
         action: 'CREATE',
         subject: 'Bandwidth',
         userId: session.user.id,
-        details: { id: bandwidth.id, name: bandwidth.name }
+        details: { id: bandwidth.id, name: bandwidth.name, siteId: siteIdToSave }
       })
     } catch (e) {
       console.error('Logging failed', e)

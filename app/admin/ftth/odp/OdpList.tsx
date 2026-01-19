@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getOdpRepository } from '@/lib/repositories'
 import OdpTable from '@/components/odp/OdpTable'
+import SiteFilterRedirect from '@/components/common/SiteFilterRedirect'
 
 // Force dynamic rendering to avoid database queries during build
 export const dynamic = 'force-dynamic'
@@ -18,9 +19,9 @@ type Odp = {
   createdAt: string
 }
 
-export default async function ODPPage() {
+export default async function ODPPage({ searchParams }: { searchParams: { siteId?: string } }) {
   const repo = getOdpRepository()
-  const rows = await repo.findAll()
+  const rows = await repo.findAll(searchParams?.siteId)
   const odps: Odp[] = rows.map((o: any) => ({
     id: o.id,
     name: o.name,
@@ -47,6 +48,11 @@ export default async function ODPPage() {
         >
           + Tambah ODP
         </Link>
+      </div>
+
+      <div className="w-full sm:w-64">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Filter Site</label>
+        <SiteFilterRedirect baseUrl="/admin/ftth/odp" className="w-full" />
       </div>
 
       <OdpTable odps={odps} />

@@ -10,7 +10,18 @@ export async function GET(req: Request) {
   }
 
   try {
+    const where: any = {};
+    
+    // Type assertion to access custom properties including siteId
+    const currentUser = user as any;
+    
+    // Check for site restriction: NOT Super Admin AND has siteId assigned
+    if (currentUser.role !== 'SUPER_ADMIN' && currentUser.siteId) {
+        where.id = currentUser.siteId;
+    }
+
     const sites = await prisma.sites.findMany({
+      where,
       orderBy: {
         name: "asc",
       },

@@ -14,13 +14,15 @@ async function requireAdmin() {
   return session
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   
   try {
+    const { searchParams } = new URL(req.url)
+    const siteId = searchParams.get('siteId') || undefined
     const kmzRepository = getKmzRepository()
-    const kmzFiles = await kmzRepository.findAll()
+    const kmzFiles = await kmzRepository.findAll(siteId)
     return NextResponse.json({ kmzFiles })
   } catch (error: any) {
     console.error('Error fetching KMZ files:', error)

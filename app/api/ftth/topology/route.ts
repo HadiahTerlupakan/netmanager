@@ -12,17 +12,23 @@ async function requireAdmin() {
   return session
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { searchParams } = new URL(request.url)
+  const siteId = searchParams.get('siteId')
+
+  const baseWhere = {
+    latitude: { not: null },
+    longitude: { not: null },
+    ...(siteId ? { siteId } : {})
+  }
 
   try {
     // Ambil semua OTB dengan koordinat
     const otbs = await prisma.otb.findMany({
-      where: {
-        latitude: { not: null },
-        longitude: { not: null },
-      },
+      where: baseWhere,
       select: {
         id: true,
         name: true,
@@ -35,10 +41,7 @@ export async function GET() {
 
     // Ambil semua ODC dengan relasi ke OTB
     const odcs = await prisma.odc.findMany({
-      where: {
-        latitude: { not: null },
-        longitude: { not: null },
-      },
+      where: baseWhere,
       select: {
         id: true,
         name: true,
@@ -65,10 +68,7 @@ export async function GET() {
 
     // Ambil semua ODP dengan relasi ke ODC
     const odps = await prisma.odp.findMany({
-      where: {
-        latitude: { not: null },
-        longitude: { not: null },
-      },
+      where: baseWhere,
       select: {
         id: true,
         name: true,
@@ -95,10 +95,7 @@ export async function GET() {
 
     // Ambil semua Joinbox dengan koordinat
     const joinboxes = await prisma.joinbox.findMany({
-      where: {
-        latitude: { not: null },
-        longitude: { not: null },
-      },
+      where: baseWhere,
       select: {
         id: true,
         name: true,
@@ -114,6 +111,7 @@ export async function GET() {
       where: {
         latitude: { not: null },
         longitude: { not: null },
+        ...(siteId ? { siteId } : {})
       },
       select: {
         id: true,
@@ -127,12 +125,16 @@ export async function GET() {
     })
 
     // Ambil semua Pelanggan yang memiliki koordinat dan ODP
-    const pelanggans = await prisma.pelanggan.findMany({
-      where: {
+    const pelangganWhere = {
         latitude: { not: null },
         longitude: { not: null },
-        odpId: { not: null },
-      },
+        odp: { 
+            isNot: null 
+        },
+        ...(siteId ? { siteId } : {})
+    }
+    const pelanggans = await prisma.pelanggan.findMany({
+      where: pelangganWhere,
       select: {
         id: true,
         idPelanggan: true,
@@ -155,7 +157,7 @@ export async function GET() {
 
     // Ambil semua KMZ files yang aktif
     const kmzRepository = getKmzRepository()
-    const kmzFiles = await kmzRepository.findActive()
+    const kmzFiles = await kmzRepository.findActive(siteId || undefined)
 
     return NextResponse.json({
       otbs,

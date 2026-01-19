@@ -6,6 +6,7 @@ import Modal from '@/components/common/Modal'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import PageLoader from '@/components/ui/PageLoader'
 import ResponsiveTable from '@/components/ui/ResponsiveTable'
+import { SiteFilter } from '@/components/common/SiteFilter'
 
 type Bandwidth = {
   id: string
@@ -26,6 +27,7 @@ type Bandwidth = {
   description?: string | null
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: string
+  siteId?: string | null
   _count?: {
     hargaPakets: number
   }
@@ -37,6 +39,7 @@ export default function BandwidthPage() {
   const [error, setError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingBandwidth, setEditingBandwidth] = useState<Bandwidth | null>(null)
+  const [siteId, setSiteId] = useState<string | undefined>(undefined)
   const [formData, setFormData] = useState({
     name: '',
     // Max Limit (wajib) - dengan unit terpisah
@@ -66,6 +69,7 @@ export default function BandwidthPage() {
     priority: undefined as number | undefined,
     description: '',
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
+    siteId: '',
   })
 
   // Helper function untuk parse format MikroTik (contoh: "10M" -> {value: "10", unit: "M"})
@@ -89,12 +93,15 @@ export default function BandwidthPage() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [siteId])
 
   const loadData = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/bandwidths')
+      const params = new URLSearchParams()
+      if (siteId) params.append('siteId', siteId)
+
+      const res = await fetch(`/api/bandwidths?${params.toString()}`)
 
       if (!res.ok) {
         let errorMessage = `Gagal memuat data bandwidth: ${res.status}`
@@ -145,6 +152,7 @@ export default function BandwidthPage() {
         priority: formData.priority || undefined,
         description: formData.description?.trim() || undefined,
         status: formData.status,
+        siteId: formData.siteId || undefined,
       }
 
       const res = await fetch(url, {
@@ -224,6 +232,7 @@ export default function BandwidthPage() {
       priority: bandwidth.priority || undefined,
       description: bandwidth.description || '',
       status: bandwidth.status,
+      siteId: bandwidth.siteId || '',
     })
     setIsModalOpen(true)
   }
@@ -254,6 +263,7 @@ export default function BandwidthPage() {
       priority: undefined,
       description: '',
       status: 'AKTIF',
+      siteId: '',
     })
   }
 
@@ -278,13 +288,24 @@ export default function BandwidthPage() {
             Kelola profil bandwidth untuk paket internet
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <span>+</span>
-          Tambah Bandwidth
-        </button>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+             <div className="w-full md:w-48">
+                <SiteFilter 
+                  value={siteId || ''}
+                  onSiteChange={setSiteId} 
+                />
+             </div>
+            <button
+              onClick={() => {
+                setFormData(prev => ({ ...prev, siteId: siteId || '' }))
+                setIsModalOpen(true)
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+            >
+              <span>+</span>
+              Tambah Bandwidth
+            </button>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -391,6 +412,22 @@ export default function BandwidthPage() {
         title={editingBandwidth ? 'Edit Bandwidth' : 'Tambah Bandwidth'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          
+          {/* Site Selection in Modal */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Site <span className="text-red-500">*</span>
+            </label>
+            <SiteFilter 
+                isInput 
+                value={formData.siteId} 
+                onSiteChange={(id) => setFormData({ ...formData, siteId: id || '' })} 
+            />
+             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Bandwidth ini akan dikaitkan dengan site yang dipilih.
+            </p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Nama Bandwidth <span className="text-red-500">*</span>
@@ -742,4 +779,3 @@ export default function BandwidthPage() {
     </div>
   )
 }
-

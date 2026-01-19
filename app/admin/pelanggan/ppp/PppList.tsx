@@ -202,9 +202,9 @@ export default function PelangganPPPPage() {
     return today >= allowedDate
   }
 
-  if (loading) {
-    return <PageLoader />
-  }
+  // if (loading) {
+  //   return <PageLoader />
+  // }
 
   if (error) {
     return (

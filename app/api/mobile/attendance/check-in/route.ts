@@ -172,37 +172,44 @@ export async function POST(request: NextRequest) {
             
             // Handle photoUrl - validate it's from trusted source
             if (body.photoUrl) {
-                // SECURITY: Only accept photoUrl from our trusted CDN domains
-                const trustedDomains = [
-                    'cdn.radpro.id',
-                    'localhost:3000',
-                    '0.0.0.0:3000',
-                    // Add other trusted domains as needed
-                ]
-                
-                try {
-                    const url = new URL(body.photoUrl)
-                    const isTrusted = trustedDomains.some(domain => 
-                        url.host === domain || url.host.endsWith('.' + domain)
-                    )
+                // SECURITY: Accept relative paths from our upload endpoint
+                // OR full URLs from trusted CDN domains
+                if (body.photoUrl.startsWith('/uploads/')) {
+                    // Relative path from our own upload endpoint - trusted
+                    photoUrl = body.photoUrl
+                } else {
+                    // Full URL - validate against trusted domains
+                    const trustedDomains = [
+                        'cdn.radpro.id',
+                        'localhost:3000',
+                        '0.0.0.0:3000',
+                        // Add other trusted domains as needed
+                    ]
                     
-                    if (isTrusted) {
-                        // PhotoUrl from our CDN is trusted (already uploaded via /api/mobile/upload)
-                        photoUrl = body.photoUrl
-                    } else {
-                        // External URL not trusted - log warning but don't expose URL in log
-                        logger.warn(`[SECURITY] Untrusted photoUrl rejected for user ${userId}`)
+                    try {
+                        const url = new URL(body.photoUrl)
+                        const isTrusted = trustedDomains.some(domain => 
+                            url.host === domain || url.host.endsWith('.' + domain)
+                        )
+                        
+                        if (isTrusted) {
+                            // PhotoUrl from our CDN is trusted (already uploaded via /api/mobile/upload)
+                            photoUrl = body.photoUrl
+                        } else {
+                            // External URL not trusted - log warning but don't expose URL in log
+                            logger.warn(`[SECURITY] Untrusted photoUrl rejected for user ${userId}`)
+                            return NextResponse.json({
+                                error: 'Photo URL tidak valid. Upload foto melalui endpoint yang benar.',
+                                code: 'UNTRUSTED_PHOTO_URL'
+                            }, { status: 400 })
+                        }
+                    } catch {
+                        // Invalid URL format
                         return NextResponse.json({
-                            error: 'Photo URL tidak valid. Upload foto melalui endpoint yang benar.',
-                            code: 'UNTRUSTED_PHOTO_URL'
+                            error: 'Format Photo URL tidak valid',
+                            code: 'INVALID_PHOTO_URL'
                         }, { status: 400 })
                     }
-                } catch {
-                    // Invalid URL format
-                    return NextResponse.json({
-                        error: 'Format Photo URL tidak valid',
-                        code: 'INVALID_PHOTO_URL'
-                    }, { status: 400 })
                 }
             }
             

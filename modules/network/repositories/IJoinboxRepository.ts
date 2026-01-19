@@ -17,6 +17,7 @@ export interface JoinboxCreateData {
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   inputs?: JoinboxIORowData[]
   outputs?: JoinboxIORowData[]
+  siteId?: string | null
 }
 
 export interface JoinboxUpdateData {
@@ -30,6 +31,7 @@ export interface JoinboxUpdateData {
   status?: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   inputs?: JoinboxIORowData[]
   outputs?: JoinboxIORowData[]
+  siteId?: string | null
 }
 
 export interface JoinboxPublic {
@@ -44,10 +46,11 @@ export interface JoinboxPublic {
   status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
   createdAt: Date
   updatedAt: Date
+  siteId?: string | null
 }
 
 export interface IJoinboxRepository {
-  findAll(): Promise<JoinboxPublic[]>
+  findAll(siteId?: string): Promise<JoinboxPublic[]>
   findById(id: string): Promise<JoinboxPublic | null>
   create(data: JoinboxCreateData): Promise<{ id: string }>
   update(id: string, data: JoinboxUpdateData): Promise<void>

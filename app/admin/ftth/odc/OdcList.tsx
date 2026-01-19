@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getOdcRepository } from '@/lib/repositories'
 import OdcTable from '@/components/odc/OdcTable'
+import SiteFilterRedirect from '@/components/common/SiteFilterRedirect'
 
 // Force dynamic rendering to avoid database queries during build
 export const dynamic = 'force-dynamic'
@@ -16,9 +17,9 @@ type Odc = {
   createdAt: string
 }
 
-export default async function ODCPage() {
+export default async function ODCPage({ searchParams }: { searchParams: { siteId?: string } }) {
   const repo = getOdcRepository()
-  const rows = await repo.findAll()
+  const rows = await repo.findAll(searchParams?.siteId)
   const odcs: Odc[] = rows.map((o: any) => ({
     id: o.id,
     name: o.name,
@@ -43,6 +44,11 @@ export default async function ODCPage() {
         >
           + Tambah ODC
         </Link>
+      </div>
+
+      <div className="w-full sm:w-64">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Filter Site</label>
+        <SiteFilterRedirect baseUrl="/admin/ftth/odc" className="w-full" />
       </div>
 
       <OdcTable odcs={odcs} />

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import SiteFilterRedirect from '@/components/common/SiteFilterRedirect'
 import { getJoinboxRepository } from '@/lib/repositories'
 import ClosureTable from '@/components/closure/ClosureTable'
 
@@ -16,9 +17,9 @@ type Joinbox = {
   createdAt: string
 }
 
-export default async function ClosurePage() {
+export default async function ClosurePage({ searchParams }: { searchParams: { siteId?: string } }) {
   const repo = getJoinboxRepository()
-  const rows = await repo.findAll()
+  const rows = await repo.findAll(searchParams?.siteId)
   const items: Joinbox[] = rows.map((o: any) => ({
     id: o.id,
     name: o.name,
@@ -43,6 +44,11 @@ export default async function ClosurePage() {
         >
           + Tambah JOINbox
         </Link>
+      </div>
+
+      <div className="w-full sm:w-64">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Filter Site</label>
+        <SiteFilterRedirect baseUrl="/admin/ftth/closure" className="w-full" />
       </div>
 
       <ClosureTable items={items} />

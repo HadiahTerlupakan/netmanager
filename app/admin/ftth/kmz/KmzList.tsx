@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import SiteFilterRedirect from '@/components/common/SiteFilterRedirect'
 import { KmzList } from '@/components/kmz/KmzList'
 
 export default function KmzPage() {
@@ -17,6 +18,11 @@ export default function KmzPage() {
         >
           + Tambah Baru
         </Link>
+      </div>
+
+      <div className="w-full sm:w-64">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">Filter Site</label>
+        <SiteFilterRedirect baseUrl="/admin/ftth/kmz" className="w-full" />
       </div>
 
       <KmzList />

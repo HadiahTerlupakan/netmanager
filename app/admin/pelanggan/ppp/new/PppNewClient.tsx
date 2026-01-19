@@ -818,6 +818,7 @@ export function ClientComponent() {
                     </label>
                     <div className="mb-2">
                          <SiteFilter 
+                            isInput={true}
                             onSiteChange={(siteId) => {
                                 setFormData(prev => ({ ...prev, siteId, hargaPaketId: '', odpId: '' }))
                             }} 

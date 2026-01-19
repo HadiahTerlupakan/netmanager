@@ -48,19 +48,26 @@ export async function POST(request: NextRequest) {
             location = body.location
             notes = body.notes
             
-            // Handle photoUrl from trusted CDN
+            // Handle photoUrl from trusted CDN or relative path
             if (body.photoUrl) {
-                const trustedDomains = ['cdn.radpro.id', 'localhost:3000', '0.0.0.0:3000']
-                try {
-                    const url = new URL(body.photoUrl)
-                    const isTrusted = trustedDomains.some(domain => 
-                        url.host === domain || url.host.endsWith('.' + domain)
-                    )
-                    if (isTrusted) {
-                        photoUrl = body.photoUrl
+                // SECURITY: Accept relative paths from our upload endpoint
+                // OR full URLs from trusted CDN domains
+                if (body.photoUrl.startsWith('/uploads/')) {
+                    // Relative path from our own upload endpoint - trusted
+                    photoUrl = body.photoUrl
+                } else {
+                    const trustedDomains = ['cdn.radpro.id', 'localhost:3000', '0.0.0.0:3000']
+                    try {
+                        const url = new URL(body.photoUrl)
+                        const isTrusted = trustedDomains.some(domain => 
+                            url.host === domain || url.host.endsWith('.' + domain)
+                        )
+                        if (isTrusted) {
+                            photoUrl = body.photoUrl
+                        }
+                    } catch {
+                        // Invalid URL, ignore
                     }
-                } catch {
-                    // Invalid URL, ignore
                 }
             }
             

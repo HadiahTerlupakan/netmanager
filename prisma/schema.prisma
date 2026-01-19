@@ -146,7 +146,11 @@ model Bandwidth {
   status                 Status       @default(AKTIF)
   createdAt              DateTime     @default(now())
   updatedAt              DateTime
+  siteId                 String?
+  site                   Sites?       @relation(fields: [siteId], references: [id])
   hargaPaket             HargaPaket[]
+
+  @@index([siteId])
 }
 
 model Coupon {
@@ -321,6 +325,10 @@ model Joinbox {
   keteranganJumlahKabelFeeder String?
   joinboxInput                JoinboxInput[]
   joinboxOutput               JoinboxOutput[]
+  siteId                      String?
+  site                        Sites?          @relation(fields: [siteId], references: [id])
+
+  @@index([siteId])
 }
 
 model JoinboxInput {
@@ -362,6 +370,10 @@ model KmzFile {
   createdAt   DateTime @default(now())
   updatedAt   DateTime
   kmlPath     String
+  siteId      String?
+  site        Sites?   @relation(fields: [siteId], references: [id])
+
+  @@index([siteId])
 }
 
 model LeaveRequest {
@@ -880,8 +892,11 @@ model ProfilePPP {
   updatedAt        DateTime
   hargaPaket       HargaPaket[]
   mikroTikRouter   MikroTikRouter? @relation(fields: [mikroTikRouterId], references: [id])
+  siteId           String?
+  site             Sites?          @relation(fields: [siteId], references: [id])
 
   @@index([mikroTikRouterId])
+  @@index([siteId])
 }
 
 model ReminderLog {
@@ -1792,6 +1807,10 @@ model Sites {
   userSites        UserSite[]
   work_orders      WorkOrders[]
   gudang           Gudang[]         @relation("GudangToSite")
+  bandwidths       Bandwidth[]
+  profilePPPs      ProfilePPP[]
+  joinboxes        Joinbox[]
+  kmzFiles         KmzFile[]
 
   @@index([isActive])
   @@map("sites")

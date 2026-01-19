@@ -80,7 +80,7 @@ export default function HargaPaketPage() {
 
       const [hargaPaketsRes, profilePPPsRes] = await Promise.all([
         fetch(`/api/hargapakets?${params.toString()}`),
-        fetch('/api/profileppps'),
+        fetch(`/api/profileppps?${params.toString()}`),
       ])
 
       if (!hargaPaketsRes.ok) {
@@ -222,10 +222,6 @@ export default function HargaPaketPage() {
     }).format(value)
   }
 
-  if (loading) {
-    return <PageLoader />
-  }
-
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -245,7 +241,7 @@ export default function HargaPaketPage() {
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="w-full md:w-48">
-                <SiteFilter onSiteChange={setSiteId} />
+                <SiteFilter onSiteChange={setSiteId} value={siteId ?? ''} />
             </div>
             <button
                onClick={() => setIsModalOpen(true)}
@@ -273,6 +269,11 @@ export default function HargaPaketPage() {
       )}
 
       {/* Main Content Card */}
+      {loading ? (
+        <div className="flex justify-center py-20">
+            <PageLoader />
+        </div>
+      ) : (
       <ResponsiveTable
         data={hargaPakets}
         columns={[
@@ -394,6 +395,7 @@ export default function HargaPaketPage() {
           </div>
         )}
       />
+      )}
 
       {/* Modal Create/Edit Harga Paket */}
       <Modal
