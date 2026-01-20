@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { HiPlus, HiRefresh, HiSearch, HiPencil, HiTrash, HiDocumentText, HiChevronLeft, HiChevronRight, HiDotsVertical, HiOutlineShoppingBag, HiOutlineArchive, HiEye } from 'react-icons/hi'
+import { HiPlus, HiRefresh, HiSearch, HiPencil, HiTrash, HiDocumentText, HiChevronLeft, HiChevronRight, HiDotsVertical, HiOutlineShoppingBag, HiOutlineArchive, HiEye, HiClipboardList, HiCollection } from 'react-icons/hi'
 import ResponsiveTable, { type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
 
 import toast from 'react-hot-toast'
 import ReceiveGoodsModal from './_components/ReceiveGoodsModal'
+import PurchaseRequestTab from './_components/PurchaseRequestTab'
 
 
 interface PurchaseOrder {
@@ -30,6 +31,9 @@ export default function PurchaseOrderListPage() {
     const router = useRouter()
     const { hasPermission: can } = usePermission()
     
+    // Tab state
+    const [activeTab, setActiveTab] = useState<'po' | 'pr'>('pr')
+    
     // Permission check
     const canCreate = can('purchase_orders:create')
     const canRead = can('purchase_orders:read')
@@ -50,10 +54,10 @@ export default function PurchaseOrderListPage() {
     }, [search])
 
     useEffect(() => {
-        if (session && canRead) {
+        if (session && canRead && activeTab === 'po') {
             fetchData()
         }
-    }, [session, page, debouncedSearch, canRead])
+    }, [session, page, debouncedSearch, canRead, activeTab])
 
     const fetchData = async () => {
         setLoading(true)
@@ -272,14 +276,14 @@ export default function PurchaseOrderListPage() {
 
     return (
         <div className="space-y-6">
-            {/* ... Existing header code ... */}
+            {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Purchase Orders</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Daftar pesanan pembelian barang</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Procurement</h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Kelola Purchase Request dan Purchase Order</p>
                 </div>
                 <div className="flex gap-2">
-                    {canCreate && (
+                    {canCreate && activeTab === 'po' && (
                         <>
                              <div className="relative group">
                                 <button
@@ -290,76 +294,98 @@ export default function PurchaseOrderListPage() {
                                     Manual PO
                                 </button>
                              </div>
-                             <div className="relative group">
-                                <button
-                                    onClick={() => router.push('/admin/procurement/purchase-orders/generate')}
-                                    className="flex items-center gap-2 px-4 py-2 text-indigo-600 bg-white border border-indigo-600 rounded-lg hover:bg-indigo-50"
-                                >
-                                    <HiDocumentText className="w-5 h-5" />
-                                    Generate via PR
-                                </button>
-                             </div>
                         </>
                     )}
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                    <div className="relative flex-1">
-                        <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <input
-                            type="text"
-                            placeholder="Cari No. PO..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                    </div>
+            {/* Tabs */}
+            <div className="border-b border-gray-200 dark:border-gray-700">
+                <nav className="-mb-px flex space-x-8">
                     <button
-                        onClick={fetchData}
-                        className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        onClick={() => setActiveTab('pr')}
+                        className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeTab === 'pr'
+                                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                        }`}
                     >
-                        <HiRefresh className="w-5 h-5" />
+                        <HiClipboardList className="w-5 h-5" />
+                        Purchase Requests
                     </button>
-                </div>
-
-                <ResponsiveTable
-                    data={data}
-                    columns={columns}
-                    loading={loading}
-                    keyField="id"
-                />
-
-                {/* Pagination */}
-                {total > 0 && (
-                    <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                            Halaman {page} dari {totalPages} ({total} Data)
-                        </span>
-                        <div className="flex gap-2">
-                            <button
-                                disabled={page === 1}
-                                onClick={() => setPage(p => p - 1)}
-                                className="flex items-center gap-1 px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:hover:bg-gray-700"
-                            >
-                                <HiChevronLeft /> Prev
-                            </button>
-                            <button
-                                disabled={page >= totalPages}
-                                onClick={() => setPage(p => p + 1)}
-                                className="flex items-center gap-1 px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:hover:bg-gray-700"
-                            >
-                                Next <HiChevronRight />
-                            </button>
-                        </div>
-                    </div>
-                )}
+                    <button
+                        onClick={() => setActiveTab('po')}
+                        className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeTab === 'po'
+                                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                        }`}
+                    >
+                        <HiCollection className="w-5 h-5" />
+                        Purchase Orders
+                    </button>
+                </nav>
             </div>
 
+            {/* Tab Content */}
+            {activeTab === 'pr' ? (
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                    <PurchaseRequestTab />
+                </div>
+            ) : (
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                    <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                        <div className="relative flex-1">
+                            <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                placeholder="Cari No. PO..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <button
+                            onClick={fetchData}
+                            className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        >
+                            <HiRefresh className="w-5 h-5" />
+                        </button>
+                    </div>
 
+                    <ResponsiveTable
+                        data={data}
+                        columns={columns}
+                        loading={loading}
+                        keyField="id"
+                    />
 
-
+                    {/* Pagination */}
+                    {total > 0 && (
+                        <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                                Halaman {page} dari {totalPages} ({total} Data)
+                            </span>
+                            <div className="flex gap-2">
+                                <button
+                                    disabled={page === 1}
+                                    onClick={() => setPage(p => p - 1)}
+                                    className="flex items-center gap-1 px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:hover:bg-gray-700"
+                                >
+                                    <HiChevronLeft /> Prev
+                                </button>
+                                <button
+                                    disabled={page >= totalPages}
+                                    onClick={() => setPage(p => p + 1)}
+                                    className="flex items-center gap-1 px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-transparent dark:border-gray-600 dark:hover:bg-gray-700"
+                                >
+                                    Next <HiChevronRight />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {showReceiveModal && selectedPO && (
                 <ReceiveGoodsModal 
@@ -376,3 +402,4 @@ export default function PurchaseOrderListPage() {
 
     )
 }
+

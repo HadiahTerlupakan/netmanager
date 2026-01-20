@@ -23,6 +23,7 @@ import {
     HiLockClosed,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
+import { ImageLightbox } from '@/components/ui/ImageLightbox'
 import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
 import { SOCKET_EVENTS, type WorkOrderActivityPayload } from '@/lib/websocket/types'
 import { usePermission } from '@/hooks/use-permission'
@@ -172,6 +173,14 @@ export function ClientComponent() {
     const [isUploading, setIsUploading] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    
+    // ImageLightbox State for completion photos
+    const [lightboxOpen, setLightboxOpen] = useState(false)
+    const [lightboxIndex, setLightboxIndex] = useState(0)
+    
+    // ImageLightbox State for discussion photos
+    const [discussionLightboxOpen, setDiscussionLightboxOpen] = useState(false)
+    const [discussionLightboxIndex, setDiscussionLightboxIndex] = useState(0)
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -942,18 +951,23 @@ export function ClientComponent() {
                                                                     </p>
                                                                 ) : (
                                                                     <div className="-mx-2 -mt-2">
-                                                                         <a
-                                                                            href={attData.filePath}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            className="block"
+                                                                         <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                // Find index of this attachment in discussionItems attachments
+                                                                                const attachmentItems = discussionItems.filter(i => i.type === 'attachment')
+                                                                                const attachmentIndex = attachmentItems.findIndex(i => i.id === item.id)
+                                                                                setDiscussionLightboxIndex(attachmentIndex >= 0 ? attachmentIndex : 0)
+                                                                                setDiscussionLightboxOpen(true)
+                                                                            }}
+                                                                            className="block w-full cursor-pointer"
                                                                         >
                                                                             <img
                                                                                 src={attData.filePath}
                                                                                 alt={attData.caption || 'Attachment'}
-                                                                                className={`rounded-lg object-cover max-h-60 min-w-[200px] w-full ${isMe ? 'bg-indigo-500' : 'bg-gray-100'}`}
+                                                                                className={`rounded-lg object-cover max-h-60 min-w-[200px] w-full hover:opacity-90 transition-opacity ${isMe ? 'bg-indigo-500' : 'bg-gray-100'}`}
                                                                             />
-                                                                        </a>
+                                                                        </button>
                                                                         {attData.caption && (
                                                                             <p className="text-sm mt-2 px-2 pb-1 opacity-90">
                                                                                 {attData.caption}
@@ -1045,6 +1059,18 @@ export function ClientComponent() {
                                     )}
                                 </div>
                             )}
+                            
+                            {/* ImageLightbox for Discussion Photos */}
+                            <ImageLightbox
+                                images={discussionItems
+                                    .filter(i => i.type === 'attachment')
+                                    .sort((a, b) => a.date.getTime() - b.date.getTime())
+                                    .map(i => (i.data as WorkOrderAttachment).filePath)}
+                                initialIndex={discussionLightboxIndex}
+                                isOpen={discussionLightboxOpen}
+                                onClose={() => setDiscussionLightboxOpen(false)}
+                                alt="Foto Diskusi"
+                            />
                         </div>
                     </div>
                 </div>
@@ -1111,24 +1137,36 @@ export function ClientComponent() {
                                 <div>
                                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Foto Dokumentasi ({completionAttachments.length})</h4>
                                     {completionAttachments.length > 0 ? (
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {completionAttachments.map((att) => (
-                                                <a
-                                                    key={att.id}
-                                                    href={att.filePath}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="block group relative aspect-square"
-                                                >
-                                                    <img
-                                                        src={att.filePath}
-                                                        alt="Bukti Selesai"
-                                                        className="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-gray-700 group-hover:border-emerald-500 transition-colors"
-                                                    />
-                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg" />
-                                                </a>
-                                            ))}
-                                        </div>
+                                        <>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {completionAttachments.map((att, index) => (
+                                                    <button
+                                                        key={att.id}
+                                                        onClick={() => {
+                                                            setLightboxIndex(index)
+                                                            setLightboxOpen(true)
+                                                        }}
+                                                        className="block group relative aspect-square cursor-pointer"
+                                                    >
+                                                        <img
+                                                            src={att.filePath}
+                                                            alt="Bukti Selesai"
+                                                            className="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-gray-700 group-hover:border-emerald-500 transition-colors"
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
+                                                            <HiPhoto className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <ImageLightbox
+                                                images={completionAttachments.map(att => att.filePath)}
+                                                initialIndex={lightboxIndex}
+                                                isOpen={lightboxOpen}
+                                                onClose={() => setLightboxOpen(false)}
+                                                alt="Foto Dokumentasi"
+                                            />
+                                        </>
                                     ) : (
                                         <p className="text-xs text-gray-500 dark:text-gray-400 italic">Tidak ada foto dokumentasi</p>
                                     )}

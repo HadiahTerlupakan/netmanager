@@ -253,6 +253,48 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
+          <label htmlFor="dariGudangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Gudang Sumber *
+          </label>
+          <select
+            id="dariGudangId"
+            value={formData.dariGudangId}
+            onChange={(e) => setFormData({ ...formData, dariGudangId: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            disabled={loading}
+          >
+            <option value="">Pilih gudang sumber</option>
+            {gudangs.map((gudang) => (
+              <option key={gudang.id} value={gudang.id}>
+                {gudang.kode} - {gudang.nama}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="keGudangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Gudang Tujuan *
+          </label>
+          <select
+            id="keGudangId"
+            value={formData.keGudangId}
+            onChange={(e) => setFormData({ ...formData, keGudangId: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            disabled={loading || !formData.dariGudangId}
+          >
+            <option value="">Pilih gudang tujuan</option>
+            {availableGudangTujuan.map((gudang) => (
+              <option key={gudang.id} value={gudang.id}>
+                {gudang.kode} - {gudang.nama}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div>
           <label htmlFor="barangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Barang *
           </label>
@@ -300,48 +342,6 @@ export function TransferForm({ initialData, onClose, onSuccess }: TransferFormPr
               {formData.kondisi === 'RUSAK' && 'Rusak - Perlu perbaikan'}
             </span>
           </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <div>
-          <label htmlFor="dariGudangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Gudang Sumber *
-          </label>
-          <select
-            id="dariGudangId"
-            value={formData.dariGudangId}
-            onChange={(e) => setFormData({ ...formData, dariGudangId: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            disabled={loading}
-          >
-            <option value="">Pilih gudang sumber</option>
-            {gudangs.map((gudang) => (
-              <option key={gudang.id} value={gudang.id}>
-                {gudang.kode} - {gudang.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="keGudangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Gudang Tujuan *
-          </label>
-          <select
-            id="keGudangId"
-            value={formData.keGudangId}
-            onChange={(e) => setFormData({ ...formData, keGudangId: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            disabled={loading || !formData.dariGudangId}
-          >
-            <option value="">Pilih gudang tujuan</option>
-            {availableGudangTujuan.map((gudang) => (
-              <option key={gudang.id} value={gudang.id}>
-                {gudang.kode} - {gudang.nama}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 

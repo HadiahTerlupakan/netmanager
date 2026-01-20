@@ -113,11 +113,11 @@ export class ProcurementService {
         if (prs.length === 0) throw new Error("No eligible APPROVED Purchase Requests found");
 
         // 2. Group by Supplier
-        const prsBySupplier = new Map<string, typeof prs>();
+        const prsBySupplier = new Map<string | null, typeof prs>();
         
         for (const pr of prs as any[]) {
             // Determine supplier for this PR
-            let supplierId = overrideSupplierId;
+            let supplierId = overrideSupplierId || null;
             
             if (!supplierId) {
                 // Try to find common supplier in items
@@ -125,31 +125,26 @@ export class ProcurementService {
                 if (suppliers.size === 1) {
                     supplierId = Array.from(suppliers)[0] as string;
                 } else if (suppliers.size > 1) {
-                    // Mixed suppliers. Logic: For now, pick the first one or default.
-                    // This is a business decision. defaulting to first found.
+                    // Mixed suppliers. Defaulting to first found.
                     supplierId = Array.from(suppliers)[0] as string;
                 }
             }
 
-            if (!supplierId) {
-                // No supplier linked to products. 
-                // We cannot auto-group without supplier. 
-                // Skip or throw? Let's skip or treat as "Unknown".
-                // We'll throw for now to force data cleanup.
-                throw new Error(`PR ${pr.nomorRequest} has items with no default Supplier. Please specify Supplier manually.`);
-            }
+            // supplierId can be null here, which is allowed now.
 
-            if (!prsBySupplier.has(supplierId)) {
-                prsBySupplier.set(supplierId, []);
+            const key = supplierId || 'NO_SUPPLIER';
+            if (!prsBySupplier.has(key)) {
+                prsBySupplier.set(key, []);
             }
-            prsBySupplier.get(supplierId)!.push(pr);
+            prsBySupplier.get(key)!.push(pr);
         }
 
         // 3. Create POs
         const results = [];
         
-        for (const [supplierId, groupPrs] of prsBySupplier) {
+        for (const [key, groupPrs] of prsBySupplier) {
             const poNumber = await this.generatePONumber();
+            const realSupplierId = key === 'NO_SUPPLIER' ? null : key;
             
             // Consolidate Items
             // We want to merge same items? Or list them individually?
@@ -177,7 +172,7 @@ export class ProcurementService {
                 const newPO = await tx.purchaseOrder.create({
                     data: {
                         poNumber,
-                        supplierId,
+                        supplierId: realSupplierId,
                         status: 'DRAFT',
                         createdBy: userId,
                         totalAmount: Array.from(itemMap.values()).reduce((sum, i: any) => sum + (i.qty * i.price), 0),

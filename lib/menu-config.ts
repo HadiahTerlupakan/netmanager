@@ -112,7 +112,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         children: [
             { code: 'PROCUREMENT.PROCUREMENT', name: 'Dashboard', path: '/admin/procurement', icon: 'HiOutlineChartBar', exact: true },
 
-            { code: 'PROCUREMENT.PURCHASE_ORDER', name: 'Purchase Order', path: '/admin/procurement/purchase-orders', icon: 'HiOutlineDocumentText' },
+            { code: 'PROCUREMENT.PURCHASE_ORDERS', name: 'Purchase Order', path: '/admin/procurement/purchase-orders', icon: 'HiOutlineDocumentText' },
             { code: 'PROCUREMENT.MARKET_PRICE', name: 'Analisa Harga Pasar', path: '/admin/procurement/market-price', icon: 'HiOutlinePresentationChartBar' },
         ],
     },
@@ -203,11 +203,11 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: '/admin/finance',
         icon: 'HiOutlineCurrencyDollar',
         children: [
-            { code: 'FINANCE.DEBTS_RECEIVABLES', name: 'Hutang & Piutang', path: '/admin/finance/debts-receivables', icon: 'HiOutlineClipboardDocumentList' },
-            { code: 'FINANCE.TREASURY', name: 'Kas & Bank', path: '/admin/finance/accounts', icon: 'HiOutlineBuildingLibrary' },
-            { code: 'FINANCE.TRANSACTIONS', name: 'Daftar Transaksi', path: '/admin/finance/transactions', icon: 'HiOutlineQueueList' },
-            { code: 'FINANCE.CATEGORIES', name: 'Kategori Transaksi', path: '/admin/finance/categories', icon: 'HiOutlineTag' },
-            { code: 'FINANCE.REPORTS', name: 'Laporan & Analisis', path: '/admin/finance/reports', icon: 'HiOutlineChartPie' }
+            { code: 'FINANCE.FINANCE', name: 'Hutang & Piutang', path: '/admin/finance/debts-receivables', icon: 'HiOutlineClipboardDocumentList' },
+            { code: 'FINANCE.FINANCE', name: 'Kas & Bank', path: '/admin/finance/accounts', icon: 'HiOutlineBuildingLibrary' },
+            { code: 'FINANCE.FINANCE', name: 'Daftar Transaksi', path: '/admin/finance/transactions', icon: 'HiOutlineQueueList' },
+            { code: 'FINANCE.FINANCE', name: 'Kategori Transaksi', path: '/admin/finance/categories', icon: 'HiOutlineTag' },
+            { code: 'FINANCE.FINANCE', name: 'Laporan & Analisis', path: '/admin/finance/reports', icon: 'HiOutlineChartPie' }
         ],
     },
     {
