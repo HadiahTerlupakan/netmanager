@@ -2125,6 +2125,7 @@ model WorkOrders {
   actualCost          Float?
   requiredMaterials   Json?
   usedMaterials       Json?
+  returnedMaterials   Json? // For DISCONNECTION: materials returned to warehouse
   internalNotes       String?
   resolutionNotes     String?
   customerFeedback    String?

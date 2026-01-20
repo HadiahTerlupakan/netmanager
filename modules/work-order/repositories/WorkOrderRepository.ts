@@ -102,6 +102,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         estimatedCost: restData.estimatedCost,
                         requiredMaterials: restData.requiredMaterials ?? undefined,
                         internalNotes: restData.internalNotes,
+                        disconnectionReason: restData.disconnectionReason || null,
                     },
                 });
 
@@ -1668,17 +1669,18 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     async getDisconnectionStatistics(dateFrom?: Date, dateTo?: Date, departmentId?: string, siteId?: string): Promise<Array<{ reason: string; count: number }>> {
         const where: any = {
             type: 'DISCONNECTION',
-            status: 'COMPLETED',
+            // Include all completed states, not just COMPLETED
+            status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
         };
         
         if (siteId) where.siteId = siteId;
         if (departmentId) where.departmentId = departmentId;
 
-        if (dateFrom) {
-            where.completedAt = { gte: dateFrom };
-        }
-        if (dateTo) {
-            where.completedAt = { ...where.completedAt, lte: dateTo };
+        // Use createdAt for date filtering (more reliable than completedAt which might be null)
+        if (dateFrom || dateTo) {
+            where.createdAt = {};
+            if (dateFrom) where.createdAt.gte = dateFrom;
+            if (dateTo) where.createdAt.lte = dateTo;
         }
 
         const groupBy = await this.prisma.workOrders.groupBy({
@@ -1692,10 +1694,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             },
         });
 
-        return groupBy.map((item) => ({
-            reason: item.disconnectionReason!,
-            count: item._count._all,
-        }));
+        return groupBy
+            .map((item) => ({
+                reason: item.disconnectionReason!,
+                count: item._count._all,
+            }))
+            .sort((a, b) => b.count - a.count); // Sort by count descending
     }
 
     async addComment(workOrderId: string, message: string, userId: string): Promise<any> {

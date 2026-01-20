@@ -88,6 +88,7 @@ export interface UpdateWorkOrderData {
     actualCost?: number;
     requiredMaterials?: any;
     usedMaterials?: any;
+    returnedMaterials?: any;
     internalNotes?: string;
     resolutionNotes?: string;
     customerFeedback?: string;

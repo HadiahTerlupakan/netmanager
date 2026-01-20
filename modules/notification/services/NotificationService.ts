@@ -358,7 +358,7 @@ export async function notifyAdminsAboutMobileAction(data: {
     workOrderId: string;
     workOrderNumber: string;
     title: string;
-    actionType: 'CLAIM' | 'START' | 'COMPLETE' | 'PAUSE' | 'NOTE' | 'MATERIAL_PICKUP' | 'PARTNER_INVITE' | 'PARTNER_RESPONSE' | 'COMMENT';
+    actionType: 'CLAIM' | 'START' | 'COMPLETE' | 'PAUSE' | 'NOTE' | 'MATERIAL_PICKUP' | 'MATERIAL_RETURN' | 'PARTNER_INVITE' | 'PARTNER_RESPONSE' | 'COMMENT';
     actionMessage: string;
     triggeredByUserId: string;
     triggeredByName?: string;
@@ -372,6 +372,7 @@ export async function notifyAdminsAboutMobileAction(data: {
         PAUSE: '⏸️',
         NOTE: '📝',
         MATERIAL_PICKUP: '📦',
+        MATERIAL_RETURN: '📥',
         PARTNER_INVITE: '🤝',
         PARTNER_RESPONSE: '📨',
         COMMENT: '💬'
