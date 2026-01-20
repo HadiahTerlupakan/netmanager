@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const isSuperAdmin = isSuperAdminRole(session.role)
 
     const permissions = await getUserPermissions(session.id)
-    const canReadAll = isSuperAdmin || permissions.includes('canvasing:read')
+    const canReadAll = isSuperAdmin || permissions.includes('canvasing:verify')
     const isSiteRestricted = permissions.includes('canvasing:site_only') && !isSuperAdmin
 
     const { searchParams } = new URL(req.url)
@@ -27,18 +27,25 @@ export async function GET(req: NextRequest) {
     // 2. If Site Restricted (e.g. Site Manager) -> Filter by Site
     // 3. If Sales (no read all, no site restricted) -> Filter by Own ID
 
-    if (!isSuperAdmin) {
+    // Logic Reform:
+    // 1. Strict Ownership: If you don't have 'verify' permission (Manager), you ONLY see your own data.
+    // 2. Site Restriction: If you are a Manager but restricted to 'site_only', you see all data in your site.
+    // 3. Super Admin: Sees everything.
+
+    const canVerify = permissions.includes('canvasing:verify')
+    const canViewOthers = isSuperAdmin || canVerify
+
+    if (!canViewOthers) {
+        // Absolute restriction for regular Sales/Staff
+        salesId = session.id
+    } else {
+        // Manager Logic
         if (isSiteRestricted) {
-             // Site Manager Logic
              if (session.siteId) {
                  filterSiteId = session.siteId
              } else {
-                 // Restricted but no site? Return empty
                  return NextResponse.json([])
              }
-        } else if (!canReadAll) {
-             // Sales / Regular User Logic
-             salesId = session.id
         }
     }
 
