@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { verifyAuth } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
+import { onWorkOrderAssigned } from '@/modules/work-order/services/WorkOrderNotifications';
+import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
+import { createNotification } from '@/modules/notification';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -49,12 +52,71 @@ export async function POST(
 
         const workOrder = await workOrderRepo.assign(id, body.employeeId, body.role, user.id);
 
+        // Get employee details for notification
+        const employee = await prisma.user.findUnique({
+            where: { id: body.employeeId },
+            select: { id: true, name: true, pushToken: true, isActive: true }
+        });
+
         await workOrderRepo.addUpdate({
             workOrderId: id,
             updateType: 'NOTE',
-            message: `Work order assigned to employee ${body.employeeId}`,
+            message: `Work order assigned to ${employee?.name || body.employeeId}`,
             createdById: user.id,
         });
+
+        // Send notification to assigned technician
+        if (employee) {
+            // 1. In-app notification
+            await createNotification({
+                type: 'WORK_ORDER',
+                priority: (workOrder.priority === 'CRITICAL' ? 'URGENT' : workOrder.priority) as 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT',
+                title: '📋 Work Order Di-assign ke Anda',
+                message: `${workOrder.workOrderNumber}: ${workOrder.title}`,
+                link: `/admin/workorders/${workOrder.id}`,
+                userId: employee.id,
+                siteId: workOrder.siteId || undefined,
+                sourceType: 'WORK_ORDER',
+                sourceId: workOrder.id,
+            });
+
+            // 2. Push notification to mobile
+            if (employee.pushToken && employee.isActive) {
+                await sendPushToUsers(
+                    [employee.id],
+                    '📋 Work Order Baru',
+                    `${workOrder.workOrderNumber}: ${workOrder.title}`,
+                    { workOrderId: workOrder.id, type: 'WORK_ORDER', screen: 'WorkOrderDetail' }
+                );
+            }
+
+            console.log(`[Notification] Assignment notification sent to ${employee.name} for WO ${workOrder.workOrderNumber}`);
+        }
+
+        // Also trigger the full assignment notification flow
+        await onWorkOrderAssigned({
+            id: workOrder.id,
+            workOrderNumber: workOrder.workOrderNumber,
+            title: workOrder.title,
+            type: workOrder.type,
+            priority: workOrder.priority,
+            departmentId: workOrder.departmentId || undefined,
+            siteId: workOrder.siteId || undefined,
+            assignedToId: workOrder.assignedToId || undefined,
+        }, employee?.name ?? undefined, user.id);
+
+        // System Log
+        try {
+            const { logger } = await import('@/lib/logger');
+            await logger.logActivity({
+                action: 'UPDATE',
+                subject: 'Work Order',
+                userId: user.id,
+                details: { id: workOrder.id, action: 'ASSIGN', assignedTo: employee?.name || body.employeeId }
+            });
+        } catch (e) {
+            console.error('Logging failed', e);
+        }
 
         return NextResponse.json({
             success: true,

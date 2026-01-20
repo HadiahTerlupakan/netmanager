@@ -1,0 +1,340 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import {
+    HiOutlineMapPin,
+    HiOutlineArrowLeft,
+    HiOutlinePencil,
+    HiOutlineUserGroup,
+    HiOutlineClipboardDocumentList,
+    HiOutlineBuildingStorefront,
+    HiOutlineGlobeAlt,
+    HiOutlineCheckCircle,
+    HiOutlineXCircle,
+    HiOutlineSignal
+} from 'react-icons/hi2'
+import PageLoader from '@/components/ui/PageLoader'
+import { usePermission } from '@/hooks/use-permission'
+
+interface Site {
+    id: string
+    code: string
+    name: string
+    description: string | null
+    address: string | null
+    latitude: number | null
+    longitude: number | null
+    attendanceRadius: number
+    isActive: boolean
+    createdAt: string
+    updatedAt: string
+    user: Array<{
+        id: string
+        email: string
+        name: string
+        departments: { name: string } | null
+    }>
+    gudang: Array<{
+        id: string
+        nama: string
+        kode: string
+    }>
+    _count: {
+        work_orders: number
+    }
+}
+
+export function SiteDetailClient({ siteId }: { siteId: string }) {
+    const [site, setSite] = useState<Site | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+    const { hasPermission } = usePermission()
+
+    useEffect(() => {
+        fetchSite()
+    }, [siteId])
+
+    const fetchSite = async () => {
+        try {
+            setLoading(true)
+            const response = await fetch(`/api/admin/sites/${siteId}`)
+            const result = await response.json()
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to fetch site')
+            }
+
+            setSite(result.data)
+        } catch (err: any) {
+            setError(err.message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <PageLoader />
+            </div>
+        )
+    }
+
+    if (error || !site) {
+        return (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 text-center">
+                <p className="text-red-600 dark:text-red-400">{error || 'Site tidak ditemukan'}</p>
+                <Link href="/admin/workorders/sites" className="text-blue-600 hover:underline mt-2 inline-block">
+                    ← Kembali ke Daftar Sites
+                </Link>
+            </div>
+        )
+    }
+
+    const hasCoordinate = site.latitude && site.longitude
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <Link
+                        href="/admin/workorders/sites"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                    >
+                        <HiOutlineArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    </Link>
+                    <div>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                {site.name}
+                            </h1>
+                            <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                                site.isActive
+                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            }`}>
+                                {site.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
+                            <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-sm">
+                                {site.code}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+
+                {hasPermission('site:update') && (
+                    <Link
+                        href={`/admin/workorders/sites/${siteId}/edit`}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+                    >
+                        <HiOutlinePencil className="w-4 h-4" />
+                        Edit Site
+                    </Link>
+                )}
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                            <HiOutlineUserGroup className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{site.user.length}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Total Users</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                            <HiOutlineClipboardDocumentList className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{site._count.work_orders}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Work Orders</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                            <HiOutlineBuildingStorefront className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{site.gudang.length}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Gudang</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                            <HiOutlineSignal className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{site.attendanceRadius}m</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Radius Absen</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Info & Map Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Site Info */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <HiOutlineMapPin className="w-5 h-5 text-gray-500" />
+                        Informasi Site
+                    </h2>
+                    
+                    <div className="space-y-4">
+                        {site.description && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Deskripsi</label>
+                                <p className="text-gray-900 dark:text-white mt-1">{site.description}</p>
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Alamat</label>
+                            <p className="text-gray-900 dark:text-white mt-1">
+                                {site.address || <span className="text-gray-400 italic">Belum diisi</span>}
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Latitude</label>
+                                <p className="text-gray-900 dark:text-white mt-1 font-mono text-sm">
+                                    {site.latitude || '-'}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Longitude</label>
+                                <p className="text-gray-900 dark:text-white mt-1 font-mono text-sm">
+                                    {site.longitude || '-'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</label>
+                            <div className="flex items-center gap-2 mt-1">
+                                {site.isActive ? (
+                                    <>
+                                        <HiOutlineCheckCircle className="w-5 h-5 text-green-500" />
+                                        <span className="text-green-600 dark:text-green-400">Aktif</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <HiOutlineXCircle className="w-5 h-5 text-red-500" />
+                                        <span className="text-red-600 dark:text-red-400">Tidak Aktif</span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Map Link */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <HiOutlineGlobeAlt className="w-5 h-5 text-gray-500" />
+                        Lokasi Peta
+                    </h2>
+                    
+                    {hasCoordinate ? (
+                        <div className="h-[300px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex flex-col items-center justify-center">
+                            <HiOutlineMapPin className="w-16 h-16 text-indigo-500 mb-4" />
+                            <p className="text-gray-600 dark:text-gray-300 mb-4">Koordinat tersedia</p>
+                            <a
+                                href={`https://www.google.com/maps?q=${site.latitude},${site.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                            >
+                                <HiOutlineGlobeAlt className="w-4 h-4" />
+                                Buka di Google Maps
+                            </a>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                                {site.latitude}, {site.longitude}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="h-[300px] flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg">
+                            <div className="text-center text-gray-500 dark:text-gray-400">
+                                <HiOutlineMapPin className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                <p>Koordinat belum diatur</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Users List */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                        <HiOutlineUserGroup className="w-5 h-5 text-gray-500" />
+                        Daftar User ({site.user.length})
+                    </h2>
+                </div>
+                
+                {site.user.length > 0 ? (
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {site.user.map((u) => (
+                            <div key={u.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <div>
+                                    <p className="font-medium text-gray-900 dark:text-white">{u.name}</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">{u.email}</p>
+                                </div>
+                                <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded">
+                                    {u.departments?.name || 'No Department'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                        Belum ada user terdaftar di site ini
+                    </div>
+                )}
+            </div>
+
+            {/* Gudang List */}
+            {site.gudang.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <HiOutlineBuildingStorefront className="w-5 h-5 text-gray-500" />
+                            Gudang Terhubung ({site.gudang.length})
+                        </h2>
+                    </div>
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {site.gudang.map((g) => (
+                            <div key={g.id} className="p-4 flex items-center gap-3">
+                                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                                    <HiOutlineBuildingStorefront className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-gray-900 dark:text-white">{g.nama}</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{g.kode}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}

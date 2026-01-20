@@ -4,6 +4,9 @@ import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrder
 import { requireAuth } from '@/lib/auth-helpers';
 import { hasPermission } from '@/lib/rbac';
 import { workOrderCacheService } from '@/modules/work-order/services/WorkOrderCacheService';
+import { onWorkOrderStatusChanged } from '@/modules/work-order/services/WorkOrderNotifications';
+import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
+import { createNotification } from '@/modules/notification';
 
 const workOrderRepo = new WorkOrderRepository(prisma);
 
@@ -259,47 +262,85 @@ export async function PATCH(
 
         // Handle status change separately if provided
         if (body.status) {
+            const oldStatus = existingWO.status;
             await workOrderRepo.updateStatus(id, body.status, user.user.id);
+
+            // Re-fetch to get assigned user
+            const updatedWO = await prisma.workOrders.findUnique({
+                where: { id },
+                include: { assignedTo: true }
+            });
 
             // Notification Logic for Status Change
             try {
-                // Re-fetch to get assigned user
-                const updatedWO = await prisma.workOrders.findUnique({
-                    where: { id },
-                    include: { assignedTo: true }
-                });
+                // Determine notification message based on status
+                let title = '';
+                let message = '';
+                let emoji = '';
 
-                if (updatedWO?.assignedTo?.pushToken && updatedWO.assignedTo?.isActive) {
-                    const { sendExpoPushNotifications } = await import('@/lib/expo');
-                    const title = `Update Status: ${updatedWO.workOrderNumber}`;
-                    const message = `Status berubah menjadi ${body.status}`;
+                switch (body.status) {
+                    case 'VERIFIED':
+                        emoji = '✅';
+                        title = `${emoji} Work Order Diverifikasi`;
+                        message = `${updatedWO?.workOrderNumber}: Pekerjaan Anda telah diverifikasi!`;
+                        break;
+                    case 'REJECTED':
+                        emoji = '❌';
+                        title = `${emoji} Work Order Ditolak`;
+                        message = `${updatedWO?.workOrderNumber}: Pekerjaan perlu diperbaiki. Lihat catatan.`;
+                        break;
+                    case 'CANCELLED':
+                        emoji = '🚫';
+                        title = `${emoji} Work Order Dibatalkan`;
+                        message = `${updatedWO?.workOrderNumber}: ${body.cancelReason || 'Dibatalkan oleh Admin'}`;
+                        break;
+                    case 'CLOSED':
+                        emoji = '🏁';
+                        title = `${emoji} Work Order Selesai`;
+                        message = `${updatedWO?.workOrderNumber}: Sudah ditutup.`;
+                        break;
+                    default:
+                        emoji = '🔄';
+                        title = `${emoji} Status WO Berubah`;
+                        message = `${updatedWO?.workOrderNumber}: ${oldStatus} → ${body.status}`;
+                }
 
-                    await sendExpoPushNotifications(
-                        [updatedWO.assignedTo.pushToken],
+                // 1. Notify assigned technician
+                if (updatedWO?.assignedToId) {
+                    await createNotification({
+                        type: 'WORK_ORDER',
+                        priority: 'NORMAL',
+                        title: title,
+                        message: message,
+                        link: `/admin/workorders/${id}`,
+                        userId: updatedWO.assignedToId,
+                        siteId: updatedWO.siteId ?? undefined,
+                        sourceType: 'WORK_ORDER',
+                        sourceId: id,
+                    });
+
+                    // Push notification to mobile
+                    await sendPushToUsers(
+                        [updatedWO.assignedToId],
                         title,
                         message,
-                        {
-                            type: 'WORK_ORDER',
-                            workOrderId: id,
-                            url: `/(app)/work-order-detail/${id}`
-                        }
+                        { workOrderId: id, type: 'WORK_ORDER', screen: 'WorkOrderDetail' }
                     );
-
-                    await prisma.notifications.create({
-                        data: {
-                            id: crypto.randomUUID(),
-                            type: 'WORK_ORDER',
-                            title: title,
-                            message: message,
-                            userId: updatedWO.assignedTo.id,
-                            sourceType: 'WORK_ORDER',
-                            sourceId: id,
-                            isRead: false,
-                            priority: 'NORMAL',
-                            createdAt: new Date(),
-                        }
-                    });
                 }
+
+                // 2. Use the standard status change notification flow for other stakeholders
+                await onWorkOrderStatusChanged({
+                    id: updatedWO?.id || id,
+                    workOrderNumber: updatedWO?.workOrderNumber || existingWO.workOrderNumber,
+                    title: updatedWO?.title || existingWO.title,
+                    type: updatedWO?.type || existingWO.type,
+                    priority: updatedWO?.priority || existingWO.priority,
+                    departmentId: updatedWO?.departmentId ?? undefined,
+                    siteId: updatedWO?.siteId ?? undefined,
+                    assignedToId: updatedWO?.assignedToId ?? undefined,
+                }, oldStatus, body.status, user.user.id);
+
+                console.log(`[Notification] Status change ${oldStatus} → ${body.status} for WO ${updatedWO?.workOrderNumber}`);
             } catch (notifyError) {
                 console.error('Failed to send status update notification', notifyError);
             }
@@ -475,6 +516,51 @@ export async function DELETE(
         }
 
         await workOrderRepo.cancel(id, reason, user.user.id);
+
+        // Notify assigned technician about cancellation
+        try {
+            if (existingWO.assignedToId) {
+                const title = '🚫 Work Order Dibatalkan';
+                const message = `${existingWO.workOrderNumber}: ${reason}`;
+
+                // In-app notification
+                await createNotification({
+                    type: 'WORK_ORDER',
+                    priority: 'NORMAL',
+                    title: title,
+                    message: message,
+                    link: `/admin/workorders/${id}`,
+                    userId: existingWO.assignedToId,
+                    siteId: existingWO.siteId ?? undefined,
+                    sourceType: 'WORK_ORDER',
+                    sourceId: id,
+                });
+
+                // Push notification to mobile
+                await sendPushToUsers(
+                    [existingWO.assignedToId],
+                    title,
+                    message,
+                    { workOrderId: id, type: 'WORK_ORDER', screen: 'WorkOrderList' }
+                );
+
+                // Notify other stakeholders
+                await onWorkOrderStatusChanged({
+                    id: existingWO.id,
+                    workOrderNumber: existingWO.workOrderNumber,
+                    title: existingWO.title,
+                    type: existingWO.type,
+                    priority: existingWO.priority,
+                    departmentId: existingWO.departmentId ?? undefined,
+                    siteId: existingWO.siteId ?? undefined,
+                    assignedToId: existingWO.assignedToId ?? undefined,
+                }, existingWO.status, 'CANCELLED', user.user.id);
+
+                console.log(`[Notification] Cancel notification sent for WO ${existingWO.workOrderNumber}`);
+            }
+        } catch (notifyError) {
+            console.error('Failed to send cancel notification', notifyError);
+        }
 
         // System Log for Cancellation
         try {

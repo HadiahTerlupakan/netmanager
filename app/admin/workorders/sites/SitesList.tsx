@@ -10,7 +10,8 @@ import {
     HiOutlineMagnifyingGlass,
     HiOutlineUserGroup,
     HiOutlineClipboardDocumentList,
-    HiOutlineSignal
+    HiOutlineSignal,
+    HiOutlineEye
 } from 'react-icons/hi2'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { usePermission } from '@/hooks/use-permission'
@@ -108,9 +109,12 @@ export default function SitesList() {
                         {site.code}
                     </div>
                     <div>
-                        <div className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 dark:text-indigo-400 dark:group-hover:text-indigo-400 transition-colors">
+                        <Link 
+                            href={`/admin/workorders/sites/${site.id}`}
+                            className="text-sm font-semibold text-gray-900 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+                        >
                             {site.name}
-                        </div>
+                        </Link>
                         {site.description && (
                             <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mt-0.5">
                                 {site.description}
@@ -195,11 +199,18 @@ export default function SitesList() {
     ]
 
     const renderActions = (site: Site) => (
-        <div className="flex items-center justify-end gap-2 text-right">
+        <div className="flex items-center justify-end gap-1 text-right">
+            <Link
+                href={`/admin/workorders/sites/${site.id}`}
+                className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                title="Lihat Detail"
+            >
+                <HiOutlineEye className="h-5 w-5" />
+            </Link>
             {canUpdate && (
                 <Link
                     href={`/admin/workorders/sites/${site.id}/edit`}
-                    className="p-2 text-gray-500 hover:text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                    className="p-2 text-gray-500 hover:text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
                     title="Edit Site"
                 >
                     <HiOutlinePencil className="h-5 w-5" />
@@ -208,7 +219,7 @@ export default function SitesList() {
             {canDelete && (
                 <button
                     onClick={() => handleDelete(site.id, site.name)}
-                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/20 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     title="Hapus Site"
                 >
                     <HiOutlineTrash className="h-5 w-5" />

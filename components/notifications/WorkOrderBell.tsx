@@ -165,7 +165,7 @@ export function WorkOrderBell() {
                     {notifications.length > 0 && (
                         <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
                             <Link
-                                href="/admin/work-orders"
+                                href="/admin/workorders/list"
                                 onClick={() => setIsOpen(false)}
                                 className="block text-center text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
                             >
