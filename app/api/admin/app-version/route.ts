@@ -6,6 +6,7 @@ import { getAppVersionService } from '@/modules/app-version'
 // Route segment config for large file uploads (APK)
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 300  // 5 minutes for large APK uploads
 
 // GET /api/admin/app-version - List all app versions
 export async function GET(request: NextRequest) {
@@ -85,12 +86,22 @@ export async function POST(request: NextRequest) {
         let apkBuffer: Buffer | undefined
         let apkFilename: string | undefined
         let apkSize: number | undefined
+        let apkTempPath: string | undefined
 
         if (apkFile) {
+            // For large files, save to temp file instead of loading into memory
+            // This prevents memory issues with APK files > 100MB
+            const fs = await import('fs/promises')
+            const path = await import('path')
+            const os = await import('os')
+            
+            apkTempPath = path.join(os.tmpdir(), `apk_upload_${Date.now()}_${apkFile.name}`)
             const arrayBuffer = await apkFile.arrayBuffer()
-            apkBuffer = Buffer.from(arrayBuffer)
+            await fs.writeFile(apkTempPath, Buffer.from(arrayBuffer))
+            
             apkFilename = apkFile.name
             apkSize = apkFile.size
+            console.log(`[APK Upload] Saved temp file: ${apkTempPath} (${(apkSize / 1024 / 1024).toFixed(1)}MB)`)
         }
 
         const service = getAppVersionService()
@@ -103,10 +114,22 @@ export async function POST(request: NextRequest) {
             isForceUpdate,
             minVersion,
             apkBuffer,
+            apkPath: apkTempPath,  // Use temp file path for large files
             apkFilename,
             apkSize,
             createdBy: user.id
         })
+
+        // Cleanup temp file after successful upload
+        if (apkTempPath) {
+            try {
+                const fs = await import('fs/promises')
+                await fs.unlink(apkTempPath)
+                console.log(`[APK Upload] Cleaned up temp file: ${apkTempPath}`)
+            } catch (e) {
+                console.warn(`[APK Upload] Failed to cleanup temp file: ${apkTempPath}`, e)
+            }
+        }
 
         // System Log
         try {
