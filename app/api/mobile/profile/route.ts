@@ -55,21 +55,15 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
 
-        // Extract unique feature/resource names for easy client-side access control
-        const features = [...new Set(profile.role?.permission?.map(p => p.resource) || [])]
-        
-        // Add canvasing/sales feature if user is marked as sales
-        if (profile.isSales) {
-            if (!features.includes('m_canvasing')) features.push('m_canvasing')
-            if (!features.includes('canvasing')) features.push('canvasing')
-            if (!features.includes('sales')) features.push('sales')
-        }
+        // Extract features with canvasing override logic
+        const { getUserFeaturesWithCanvasing } = await import('@/lib/canvasing-access')
+        const features = await getUserFeaturesWithCanvasing(profile.id)
 
         return NextResponse.json({ 
             success: true, 
             data: {
                 ...profile,
-                features // Array of feature names the user has access to
+                features // Array of feature names with canvasing override logic
             }
         })
     } catch (error: any) {

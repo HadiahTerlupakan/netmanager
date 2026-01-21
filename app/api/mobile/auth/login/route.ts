@@ -75,8 +75,9 @@ export async function POST(req: Request) {
         }
         const token = await signMobileToken(tokenPayload)
 
-        // Extract features
-        const features = [...new Set(user.role?.permission?.map(p => p.resource) || [])]
+        // Extract features with canvasing override logic
+        const { getUserFeaturesWithCanvasing } = await import('@/lib/canvasing-access')
+        const features = await getUserFeaturesWithCanvasing(user.id)
 
         // 4. Return Data
         return NextResponse.json({
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
                 workDays: user.workDays,
                 workingHourMode: user.workingHourMode,
                 isSales: user.isSales,
-                features // Include features in login response
+                features // Features now include canvasing override logic
             }
         })
 

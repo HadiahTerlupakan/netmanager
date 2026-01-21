@@ -751,8 +751,8 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
  
             <div className="flex items-center justify-between p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
               <div>
-                <h3 className="font-medium text-indigo-900 dark:text-indigo-300">Fitur Sales</h3>
-                <p className="text-sm text-indigo-600/70 dark:text-indigo-400/60">Aktifkan untuk menampilkan user ini di Manajemen Sales dan mengaktifkan fitur canvasing</p>
+                <h3 className="font-medium text-indigo-900 dark:text-indigo-300">Fitur Sales & Canvasing</h3>
+                <p className="text-sm text-indigo-600/70 dark:text-indigo-400/60">Aktifkan jika user adalah Sales atau Teknisi yang merangkap Sales. User akan tampil di Manajemen Sales dan bisa akses menu Canvasing.</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
