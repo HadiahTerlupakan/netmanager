@@ -34,6 +34,7 @@ interface MixRadiusCustomer {
     phonenumber: string
     plan_name: string
     remote_address: string
+    username: string
 }
 
 export function ClientComponent() {
