@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { HiArrowLeft, HiSparkles, HiBolt, HiUserCircle, HiMagnifyingGlass, HiMapPin, HiWifi, HiClock, HiArchiveBoxArrowDown, HiPlusCircle, HiCloud } from 'react-icons/hi2'
+import { toast } from 'react-hot-toast'
 import PageLoader from '@/components/ui/PageLoader'
 
 interface Pelanggan {
@@ -247,9 +248,11 @@ export function ClientComponent() {
             } else {
                 throw new Error('Sync failed')
             }
-        } catch (error) {
-            console.error('Sync failed, falling back to guest mode:', error)
-            // Fallback to Guest Mode (Original Logic)
+        } catch (error: any) {
+            console.error('Sync Error:', error)
+            // Fallback to Guest Mode if Sync fails
+            setIsGuest(true)
+            toast.error(error.message || 'Gagal sinkronisasi otomatis. Menggunakan mode Tamu (Guest).')
             setFormData(prev => ({
                 ...prev,
                 pelangganId: '', 
