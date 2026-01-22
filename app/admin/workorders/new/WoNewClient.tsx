@@ -42,7 +42,7 @@ export function ClientComponent() {
     const [loading, setLoading] = useState(false)
     const [simpleMode, setSimpleMode] = useState(true)
     const [isGuest, setIsGuest] = useState(true) // Default to Guest Mode
-    const [searchSource, setSearchSource] = useState<'LOCAL' | 'MIXRADIUS'>('LOCAL')
+    const [searchSource, setSearchSource] = useState<'LOCAL' | 'MIXRADIUS'>('MIXRADIUS')
 
     // Sites and Departments state
     const [sites, setSites] = useState<Site[]>([])
@@ -220,20 +220,52 @@ export function ClientComponent() {
         setIsGuest(false) // Switch to linked mode
     }
 
-    const selectMixRadiusCustomer = (c: MixRadiusCustomer) => {
-        setFormData(prev => ({
-            ...prev,
-            pelangganId: '', // No local ID
-            pelangganDisplay: '', // Not used in Guest mode, but we switch to Guest
-            contactName: c.fullname,
-            contactPhone: c.phonenumber || '',
-            locationAddress: c.address || '',
-            description: prev.description ? `${prev.description}\n[MixRadius ID: ${c.member_id}]` : `[MixRadius ID: ${c.member_id}]`
-        }))
-        setSearchQuery('')
-        setMixRadiusList([])
-        setIsGuest(true) // Switch to Guest/Manual mode with pre-filled data
-        setSearchSource('LOCAL') // Reset source
+    const selectMixRadiusCustomer = async (c: MixRadiusCustomer) => {
+        setSearchingPelanggan(true) // Reuse loading state
+        try {
+            // Call Sync API
+            const response = await fetch('/api/integrations/mixradius/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(c)
+            })
+
+            if (response.ok) {
+                const result = await response.json()
+                // Success: Link to local ID
+                setFormData(prev => ({
+                    ...prev,
+                    pelangganId: result.localId,
+                    pelangganDisplay: `${c.fullname} (${c.username})`, // Use username (ID Pelanggan)
+                    contactName: c.fullname,
+                    contactPhone: c.phonenumber || '',
+                    locationAddress: c.address || '',
+                    description: prev.description ? `${prev.description}\n[MixRadius Integrated]` : `[MixRadius Integrated]`
+                }))
+                setIsGuest(false) // Linked mode
+            } else {
+                throw new Error('Sync failed')
+            }
+        } catch (error) {
+            console.error('Sync failed, falling back to guest mode:', error)
+            // Fallback to Guest Mode (Original Logic)
+            setFormData(prev => ({
+                ...prev,
+                pelangganId: '', 
+                pelangganDisplay: '',
+                contactName: c.fullname,
+                contactPhone: c.phonenumber || '',
+                locationAddress: c.address || '',
+                description: prev.description ? `${prev.description}\n[MixRadius ID: ${c.member_id}]` : `[MixRadius ID: ${c.member_id}]`
+            }))
+            setIsGuest(true)
+            alert('Gagal sinkronisasi otomatis. Menggunakan mode Tamu (Guest).')
+        } finally {
+            setSearchingPelanggan(false)
+            setSearchQuery('')
+            setMixRadiusList([])
+            setSearchSource('LOCAL') // Reset source to show the "Linked" state UI usually associated with local
+        }
     }
 
     const handleGuestToggle = () => {
@@ -460,18 +492,18 @@ export function ClientComponent() {
                                         <div className="flex items-center gap-2 mb-2">
                                             <button 
                                                 type="button" 
-                                                onClick={() => { setSearchSource('LOCAL'); setSearchQuery(''); setPelangganList([]); setMixRadiusList([]); }} 
-                                                className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${searchSource === 'LOCAL' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                                            >
-                                                Local Database
-                                            </button>
-                                            <button 
-                                                type="button" 
                                                 onClick={() => { setSearchSource('MIXRADIUS'); setSearchQuery(''); setPelangganList([]); setMixRadiusList([]); }}
                                                 className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5 ${searchSource === 'MIXRADIUS' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                                             >
                                                 <HiCloud className="w-3.5 h-3.5" />
                                                 MixRadius API
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => { setSearchSource('LOCAL'); setSearchQuery(''); setPelangganList([]); setMixRadiusList([]); }} 
+                                                className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${searchSource === 'LOCAL' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                            >
+                                                Local Database
                                             </button>
                                         </div>
 

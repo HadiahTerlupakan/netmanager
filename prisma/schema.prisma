@@ -823,6 +823,8 @@ model Pelanggan {
   userId                        String?
   autoIsolir                    Boolean             @default(true)
   siteId                        String?
+  mixRadiusId                   String?             @unique
+  lastSyncedAt                  DateTime?
   couponUsage                   CouponUsage[]
   invoice                       Invoice[]
   hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])

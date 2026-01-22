@@ -11,10 +11,15 @@ import {
   HiOutlineXCircle,
   HiOutlineClock,
   HiOutlineEye,
-  HiOutlineXMark
+  HiOutlineXMark,
+  HiUserCircle,
+  HiWifi,
+  HiClock,
+  HiBolt
 } from 'react-icons/hi2'
 import toast from 'react-hot-toast'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { usePermission } from '@/hooks/use-permission'
 
 interface MixRadiusCustomerDetail {
@@ -38,6 +43,27 @@ interface MixRadiusCustomerDetail {
   mac_address: string
   latitude: string
   longitude: string
+  // Extended fields
+  odp_name?: string
+  owner_name?: string
+  service_type?: string
+  ip_type?: string
+  portal_password?: string
+  expired_action?: string
+  uptime?: string
+  quota_usage?: string
+  invoices?: MixRadiusInvoice[]
+}
+
+export interface MixRadiusInvoice {
+  id: string
+  invoice_number: string
+  plan_name: string
+  amount: string
+  activation_date: string
+  deadline_date: string
+  owner: string
+  status: string
 }
 
 interface MixRadiusCustomer {
@@ -86,6 +112,7 @@ export default function MixRadiusClient() {
   const [selectedCustomer, setSelectedCustomer] = useState<MixRadiusCustomerDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [activeTab, setActiveTab] = useState<'profile' | 'invoices'>('profile')
 
   // Fetch customer detail
   const fetchCustomerDetail = async (customerId: string) => {
@@ -423,157 +450,292 @@ export default function MixRadiusClient() {
         </div>
       </div>
 
+
       {/* Detail Modal */}
-      {showDetailModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"
-              onClick={closeDetailModal}
-            />
-
-            {/* Modal */}
-            <div className="relative inline-block w-full max-w-lg bg-white dark:bg-gray-800 rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:align-middle">
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <HiOutlineEye className="w-5 h-5 text-blue-500" />
-                  Detail Pelanggan
-                </h3>
-                <button
-                  onClick={closeDetailModal}
-                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <HiOutlineXMark className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="px-6 py-4">
-                {detailLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <HiOutlineArrowPath className="w-8 h-8 animate-spin text-blue-500" />
-                  </div>
-                ) : selectedCustomer ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Personal Info */}
-                      <div className="col-span-1 md:col-span-2">
-                         <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 border-b pb-1">Info Pribadi</h4>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID Pelanggan</label>
-                        <p className="mt-1 text-sm font-mono text-gray-900 dark:text-white">{selectedCustomer.member_id}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Username</label>
-                        <p className="mt-1 text-sm font-mono text-gray-900 dark:text-white">{selectedCustomer.username}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nama Lengkap</label>
-                        <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">{selectedCustomer.fullname}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">No. Identitas (KTP/SIM)</label>
-                        <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedCustomer.identity_number || '-'}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</label>
-                        <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedCustomer.email || '-'}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">No. Telepon</label>
-                        <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedCustomer.phonenumber || '-'}</p>
-                      </div>
-                      <div className="col-span-1 md:col-span-2">
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Alamat</label>
-                        <p className="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{selectedCustomer.address || '-'}</p>
-                      </div>
-
-                      {/* Service Info */}
-                      <div className="col-span-1 md:col-span-2 mt-2">
-                         <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 border-b pb-1">Layanan & Pembayaran</h4>
-                      </div>
-                      <div className="col-span-1 md:col-span-2">
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paket Langganan</label>
-                        <p className="mt-1 text-sm font-bold text-blue-600 dark:text-blue-400">{selectedCustomer.plan_name}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipe Pelanggan</label>
-                        <p className="mt-1 text-sm text-gray-900 dark:text-white uppercase">{selectedCustomer.subscription_type?.replace('_', ' ')}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipe Pembayaran</label>
-                        <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedCustomer.payment_type}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status Bayar</label>
-                        <span className={`mt-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          selectedCustomer.trx_status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {selectedCustomer.trx_status}
-                        </span>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status Akun</label>
-                         <span className={`mt-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          selectedCustomer.auth_status === 'Enabled-Users' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {selectedCustomer.auth_status === 'Enabled-Users' ? 'AKTIF' : 'NON-AKTIF'}
-                        </span>
-                      </div>
-                      
-                      {/* Dates */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Diperbaharui</label>
-                        <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedCustomer.renewed_on}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jatuh Tempo</label>
-                        <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedCustomer.expired_on}</p>
-                      </div>
-
-                      {/* Technical */}
-                      <div className="col-span-1 md:col-span-2 mt-2">
-                         <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 border-b pb-1">Teknis</h4>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bind MAC</label>
-                        <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedCustomer.bind_mac}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">MAC / Caller ID</label>
-                        <p className="mt-1 text-sm font-mono text-gray-900 dark:text-white">{selectedCustomer.mac_address || '-'}</p>
-                      </div>
-                      {selectedCustomer.note && (
-                        <div className="col-span-1 md:col-span-2">
-                           <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Catatan</label>
-                           <p className="mt-1 text-sm text-gray-900 dark:text-white italic">{selectedCustomer.note}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="py-8 text-center text-gray-500 dark:text-gray-400">
-                    Tidak ada data
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="flex justify-end px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={closeDetailModal}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  Tutup
-                </button>
-              </div>
+      <Modal
+        isOpen={showDetailModal}
+        onClose={() => {
+            closeDetailModal()
+            setActiveTab('profile')
+        }}
+        title="Detail Pelanggan"
+        description="Informasi lengkap data pelanggan dari MixRadius"
+        size="lg"
+      >
+        {detailLoading ? (
+            <div className="flex items-center justify-center py-12">
+            <HiOutlineArrowPath className="w-10 h-10 animate-spin text-blue-500" />
             </div>
-          </div>
-        </div>
-      )}
+        ) : selectedCustomer ? (
+            <div className="space-y-6">
+                {/* Tabs */}
+                <div className="flex border-b border-gray-200 dark:border-gray-700">
+                    <button
+                        onClick={() => setActiveTab('profile')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                            activeTab === 'profile'
+                                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                        }`}
+                    >
+                        Profil Pelanggan
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('invoices')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                            activeTab === 'invoices'
+                                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                        }`}
+                    >
+                        Riwayat Tagihan & Invoice
+                    </button>
+                </div>
+
+            {activeTab === 'profile' ? (
+                /* PROFILE TAB */
+                <div className="space-y-6">
+            {/* Personal Info */}
+            <div>
+                <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
+                    <HiUserCircle className="w-5 h-5 text-gray-500" />
+                    Info Pribadi
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">ID Pelanggan</label>
+                        <p className="text-sm font-mono font-medium text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 px-2.5 py-1.5 rounded-md border border-gray-100 dark:border-gray-700 inline-block">
+                            {selectedCustomer.member_id}
+                        </p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Username</label>
+                        <p className="text-sm font-mono font-medium text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 px-2.5 py-1.5 rounded-md border border-gray-100 dark:border-gray-700 inline-block">
+                            {selectedCustomer.username}
+                        </p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Nama Lengkap</label>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedCustomer.fullname}</p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">No. Identitas</label>
+                        <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.identity_number || '-'}</p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Email</label>
+                        <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.email || '-'}</p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">No. Telepon</label>
+                        <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.phonenumber || '-'}</p>
+                    </div>
+                    <div className="col-span-1 md:col-span-2">
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Alamat</label>
+                        <p className="text-sm text-gray-900 dark:text-white leading-relaxed">{selectedCustomer.address || '-'}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Service Info */}
+            <div>
+                <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
+                    <HiWifi className="w-5 h-5 text-gray-500" />
+                    Layanan & Pembayaran
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                    <div className="col-span-1 md:col-span-2">
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Paket Langganan</label>
+                        <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300 rounded-full border border-blue-100 dark:border-blue-800">
+                                {selectedCustomer.plan_name}
+                            </span>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Jenis Layanan</label>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedCustomer.service_type || 'PPPOE'}</p>
+                    </div>
+                     <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Tipe IP</label>
+                        <p className="text-sm text-gray-900 dark:text-white uppercase">{selectedCustomer.ip_type?.replace('automatic', 'DYNAMIC') || '-'}</p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Tipe Pelanggan</label>
+                        <p className="text-sm text-gray-900 dark:text-white uppercase">{selectedCustomer.subscription_type?.replace('_', ' ')}</p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Pembayaran</label>
+                        <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.payment_type}</p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Status Bayar</label>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            selectedCustomer.trx_status === 'PAID' 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                        }`}>
+                            {selectedCustomer.trx_status}
+                        </span>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Status Akun</label>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            selectedCustomer.auth_status === 'Enabled-Users' 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                        }`}>
+                            {selectedCustomer.auth_status === 'Enabled-Users' ? 'AKTIF' : 'NON-AKTIF'}
+                        </span>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Diperbaharui</label>
+                        <p className="text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
+                            <HiClock className="w-4 h-4 text-gray-400" />
+                            {selectedCustomer.renewed_on}
+                        </p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Jatuh Tempo</label>
+                        <p className="text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
+                            <HiClock className="w-4 h-4 text-gray-400" />
+                            {selectedCustomer.expired_on}
+                        </p>
+                    </div>
+                    {selectedCustomer.expired_action && (
+                        <div className="col-span-1 md:col-span-2">
+                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Aksi Jatuh Tempo</label>
+                             <p className="text-sm text-gray-900 dark:text-white italic">
+                                {selectedCustomer.expired_action}
+                             </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Technical Info */}
+            <div>
+                <h4 className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
+                    <HiBolt className="w-5 h-5 text-gray-500" />
+                    Teknis & Perangkat
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                     <div className="col-span-1 md:col-span-2">
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Owner Data / Reseller</label>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedCustomer.owner_name ? selectedCustomer.owner_name.split('—')[0].trim() : '-'}</p>
+                    </div>
+                    <div className="col-span-1 md:col-span-2">
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">ODP / POP</label>
+                        <p className="text-sm font-mono text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 p-2 rounded border border-gray-100 dark:border-gray-700 whitespace-pre-wrap">
+                            {selectedCustomer.odp_name || '-'}
+                        </p>
+                    </div>
+                    {/* Stats */}
+                    {selectedCustomer.uptime && (
+                        <div>
+                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Waktu Online (Uptime)</label>
+                             <p className="text-sm font-bold text-green-600 dark:text-green-400">{selectedCustomer.uptime}</p>
+                        </div>
+                    )}
+                     {selectedCustomer.quota_usage && (
+                        <div>
+                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Kuota Terpakai</label>
+                             <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{selectedCustomer.quota_usage}</p>
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Bind MAC</label>
+                        <p className="text-sm text-gray-900 dark:text-white">{selectedCustomer.bind_mac}</p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">MAC / Caller ID</label>
+                        <p className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedCustomer.mac_address || '-'}</p>
+                    </div>
+                    {selectedCustomer.portal_password && (
+                        <div>
+                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Password Portal</label>
+                             <p className="text-sm font-mono text-gray-900 dark:text-white">{selectedCustomer.portal_password}</p>
+                        </div>
+                    )}
+                    
+                    {selectedCustomer.note && (
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Catatan</label>
+                            <div className="bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-lg border border-yellow-100 dark:border-yellow-800/30">
+                                <p className="text-sm text-gray-700 dark:text-gray-300 italic">{selectedCustomer.note}</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+            </div>
+            ) : (
+                 /* INVOICES TAB */
+                <div>
+                     {selectedCustomer.invoices && selectedCustomer.invoices.length > 0 ? (
+                         <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead className="bg-gray-50 dark:bg-gray-800">
+                                    <tr>
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Invoice</th>
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paket</th>
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Periode</th>
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jumlah</th>
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                    {selectedCustomer.invoices.map((inv, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                            <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                                                {inv.invoice_number}<br/>
+                                                <span className="text-xs text-gray-500">#{inv.id}</span>
+                                            </td>
+                                            <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">{inv.plan_name}</td>
+                                            <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-xs">Aktif: {inv.activation_date}</span>
+                                                    <span className="text-xs text-red-500">Exp: {inv.deadline_date}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-3 text-sm font-bold text-gray-900 dark:text-white">{inv.amount}</td>
+                                            <td className="px-3 py-3 text-sm">
+                                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                                    Detail
+                                                 </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                         </div>
+                     ) : (
+                         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                             Belum ada data invoice
+                         </div>
+                     )}
+                </div>
+            )}
+            </div>
+        ) : (
+            <div className="py-12 text-center">
+                <HiOutlineCloud className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 dark:text-gray-400">Tidak ada data pelanggan yang dipilih</p>
+            </div>
+        )}
+        
+        <ModalFooter>
+             <button
+                type="button"
+                onClick={closeDetailModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                >
+                Tutup
+            </button>
+            {/* Future: Add "Sync Now" button here if needed in Phase 5 part 2 */}
+        </ModalFooter>
+      </Modal>
     </div>
   )
 }

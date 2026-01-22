@@ -79,6 +79,27 @@ export interface MixRadiusCustomerDetail {
   total: string
   latitude: string
   longitude: string
+  // Extended fields
+  odp_name?: string
+  owner_name?: string
+  service_type?: string
+  ip_type?: string
+  portal_password?: string
+  expired_action?: string
+  uptime?: string
+  quota_usage?: string
+  invoices?: MixRadiusInvoice[]
+}
+
+export interface MixRadiusInvoice {
+  id: string
+  invoice_number: string
+  plan_name: string
+  amount: string
+  activation_date: string
+  deadline_date: string
+  owner: string
+  status: string
 }
 
 export interface FetchCustomersParams {
@@ -345,9 +366,18 @@ export class MixRadiusService {
 
       // Extract customer data from HTML form fields
       const extractValue = (name: string): string => {
-        const regex = new RegExp(`name="${name}"[^>]*value="([^"]*)"`, 'i')
-        const match = html.match(regex)
-        return match ? match[1] : ''
+        // Find input tag with specific name
+        const inputTagRegex = new RegExp(`<input[^>]*name="${name}"[^>]*>`, 'i')
+        const inputMatch = html.match(inputTagRegex)
+        
+        if (inputMatch) {
+            const inputTag = inputMatch[0]
+            // Extract value attribute from the found tag
+            const valueRegex = /value=['"]([^'"]*)['"]/i
+            const valueMatch = inputTag.match(valueRegex)
+            if (valueMatch) return valueMatch[1]
+        }
+        return ''
       }
 
       const extractTextarea = (name: string): string => {
@@ -363,12 +393,16 @@ export class MixRadiusService {
         
         if (selectBlockMatch) {
           const selectContent = selectBlockMatch[1]
-          const selectedOptionRegex = /<option[^>]*selected[^>]*>([^<]*)<\/option>/i
-          const selectedOptionMatch = selectContent.match(selectedOptionRegex)
-          
-          if (selectedOptionMatch) {
-             return selectedOptionMatch[1].replace(/<[^>]*>/g, '').trim()
-          }
+          // Find option with selected attribute (flexible order)
+          // Matches <option ... selected ... >TEXT</option>
+          // Changed ([^<]*) to ([\s\S]*?) to allow HTML tags inside the option text
+          const selectedOptionRegex = /<option[^>]*selected[^>]*>([\s\S]*?)<\/option>/i
+          const match = selectContent.match(selectedOptionRegex)
+          if (match) return match[1].replace(/<[^>]*>/g, '').trim()
+
+          // Fallback: looking for value match if possible (assuming value is present)
+           const valueMatch = selectContent.match(/<option[^>]*value="([^"]*)"[^>]*selected[^>]*>([\s\S]*?)<\/option>/i)
+           if (valueMatch) return valueMatch[2].replace(/<[^>]*>/g, '').trim()
         }
         return ''
       }
@@ -380,12 +414,11 @@ export class MixRadiusService {
         
         if (selectBlockMatch) {
           const selectContent = selectBlockMatch[1]
-          // Match option with selected attribute and capture its value
+          // Match selected option logic
           const valueRegex = /<option[^>]*value=['"]([^'"]*)['"][^>]*selected/i
           const valueMatch = selectContent.match(valueRegex)
           if (valueMatch) return valueMatch[1]
           
-          // Alternative order: selected before value
           const valueRegex2 = /<option[^>]*selected[^>]*value=['"]([^'"]*)['"]/i
           const valueMatch2 = selectContent.match(valueRegex2)
           if (valueMatch2) return valueMatch2[1]
@@ -429,10 +462,107 @@ export class MixRadiusService {
         
         note: extractValue('note'), 
         bind_mac: extractSelectValue('bindmac'),
-        mac_address: extractValue('callerid'), 
+        // Try callerid input first, fallback to sniffing the fa-server icon section which often holds the MAC
+        mac_address: extractValue('callerid') || (() => {
+             const regex = /<i class="icon fa fa-server"><\/i>\s*([0-9A-Fa-f:]{12,17})/i
+             const match = html.match(regex)
+             return match ? match[1].trim() : ''
+        })(),
         total: '', 
         latitude: extractValue('latitude'),
         longitude: extractValue('longitude'),
+        
+        // Extended fields
+        odp_name: extractSelect('odp_id'),
+        owner_name: extractSelect('owner').replace(/^Saat ini\s*:\s*/i, ''),
+        service_type: extractSelect('nasporttype'),
+        ip_type: extractSelect('ip_address_type'),
+        portal_password: extractValue('portalpassword'),
+        expired_action: extractSelect('expired_action'),
+        
+        invoices: (() => {
+           const invoices: MixRadiusInvoice[] = []
+           // Regex to match the invoice table specifically by checking for known headers or ID if consistent
+           // We'll look for the table containing 'Invoice' and 'Paket Langganan' or simply match rows in the expected table section
+           // Assuming it's a datatable or standard table.
+           
+           // Strategy: Find the table body that likely contains the invoices. 
+           // Simple approach: Look for <tr> elements that contain invoice-like patterns (e.g., date, amount)
+           // But safer to try to find the table element first.
+           
+           // Let's try to match <tr> rows that have 8 columns (based on typical admin columns)
+           // Pattern: <tr> <td>ID</td> <td>Invoice</td> <td>Plan</td> <td>Amount</td> ... </tr>
+           
+           // Common pattern in this system for invoices seems to be a list. 
+           // Let's capture all TRs and filter for those that look like invoices.
+           const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
+           let rowMatch
+           
+           // We need to be careful not to pick up the main details table rows. 
+           // The invoice table usually comes AFTER the details.
+           // Let's split HTML to find the section after "Riwayat Tagihan" or similar if possible.
+           // If not, we iterate all rows and check content.
+           
+           while ((rowMatch = rowRegex.exec(html)) !== null) {
+             const rowContent = rowMatch[1]
+             const colRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi
+             const cols: string[] = []
+             let colMatch
+             while ((colMatch = colRegex.exec(rowContent)) !== null) {
+               cols.push(colMatch[1].replace(/<[^>]*>/g, '').trim())
+             }
+             
+             // Check if this row looks like an invoice row
+             // Needs at least 5-8 columns
+             // Column 0 is usually ID (number)
+             // Column 1 is usually Invoice Number (string)
+             // Column 3 is usually Amount (currency format)
+             
+             if (cols.length >= 7) {
+                // Heuristic to ensure it's an invoice row:
+                // Col 0: numeric ID
+                // Col 3: contains 'Rp' or numeric
+                // Col 7: status
+                
+                // Example columns assumption:
+                // 0: ID
+                // 1: Invoice Number
+                // 2: Plan Name
+                // 3: Amount
+                // 4: Activation Date
+                // 5: Deadline Date
+                // 6: Owner
+                // 7: Status (often has buttons/badges)
+                
+                if (/^\d+$/.test(cols[0]) && (cols[3].includes('Rp') || /[\d,\.]+/.test(cols[3]))) {
+                   invoices.push({
+                     id: cols[0],
+                     invoice_number: cols[1],
+                     plan_name: cols[2],
+                     amount: cols[3],
+                     activation_date: cols[4],
+                     deadline_date: cols[5],
+                     owner: cols[6],
+                     status: cols[7] || 'Unknown' // Extracts raw text, backend might need to refine status if it's inside buttons
+                   })
+                }
+             }
+           }
+           
+           return invoices
+        })(),
+        
+        // Stats from alerts
+        uptime: (() => {
+          const regex = /<i class="icon fa fa-calendar"><\/i>\s*([^<]+)\s*<\/h4>\s*Waktu Online/i
+          const match = html.match(regex)
+          return match ? match[1].trim() : ''
+        })(),
+        quota_usage: (() => {
+          const regex = /<i class="icon fa fa-area-chart"><\/i>\s*([^<]+)\s*<\/h4>\s*Quota Terpakai/i
+          const match = html.match(regex)
+          return match ? match[1].trim() : ''
+        })(),
       }
 
       console.log(`[MixRadius] Customer detail fetched: ${customerDetail.fullname}`)
