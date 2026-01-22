@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
         success: true,
         action: result.action,
         localId: result.customer.id,
+        customer: result.customer,
         message: `Successfully ${result.action} customer record`
     })
 

@@ -1694,6 +1694,7 @@ model Registrations {
   email           String
   phone           String
   address         String
+  phoneNumber     String?
   packageName     String?
   location        String?
   latitude        Float?
@@ -2843,4 +2844,19 @@ model AssetDepreciationLog {
 
   @@index([assetId])
   @@map("asset_depreciation_logs")
+}
+
+model MixRadiusCustomer {
+  id           String    @id
+  mixRadiusId  String    @unique
+  username     String    @unique
+  fullName     String?
+  address      String?
+  phoneNumber  String?
+  planName     String?
+  status       String?
+  expiredOn    DateTime?
+  lastSyncedAt DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }

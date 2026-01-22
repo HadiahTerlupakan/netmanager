@@ -234,41 +234,30 @@ export function ClientComponent() {
 
             if (response.ok) {
                 const result = await response.json()
-                // Success: Link to local ID
+                const syncedCustomer = result.customer
+                
+                // Success: Use Guest Mode with MixRadius Data
                 setFormData(prev => ({
                     ...prev,
-                    pelangganId: result.localId,
-                    pelangganDisplay: `${c.fullname} (${c.username})`, // Use username (ID Pelanggan)
+                    pelangganId: '', // No local ID relation
+                    pelangganDisplay: `${c.fullname} (${c.username})`, 
                     contactName: c.fullname,
-                    contactPhone: c.phonenumber || '',
+                    contactPhone: syncedCustomer?.phoneNumber || c.phonenumber || '',
                     locationAddress: c.address || '',
-                    description: prev.description ? `${prev.description}\n[MixRadius Integrated]` : `[MixRadius Integrated]`
+                    description: prev.description ? `${prev.description}\n[MixRadius: ${c.username}]` : `[MixRadius: ${c.username}]`
                 }))
-                setIsGuest(false) // Linked mode
+                setIsGuest(true) 
+                toast.success('Data MixRadius berhasil dimuat (Mode Tamu)')
             } else {
                 throw new Error('Sync failed')
             }
         } catch (error: any) {
             console.error('Sync Error:', error)
-            // Fallback to Guest Mode if Sync fails
-            setIsGuest(true)
-            toast.error(error.message || 'Gagal sinkronisasi otomatis. Menggunakan mode Tamu (Guest).')
-            setFormData(prev => ({
-                ...prev,
-                pelangganId: '', 
-                pelangganDisplay: '',
-                contactName: c.fullname,
-                contactPhone: c.phonenumber || '',
-                locationAddress: c.address || '',
-                description: prev.description ? `${prev.description}\n[MixRadius ID: ${c.member_id}]` : `[MixRadius ID: ${c.member_id}]`
-            }))
-            setIsGuest(true)
-            alert('Gagal sinkronisasi otomatis. Menggunakan mode Tamu (Guest).')
+            toast.error(error.message || 'Gagal memuat data MixRadius')
         } finally {
             setSearchingPelanggan(false)
             setSearchQuery('')
             setMixRadiusList([])
-            setSearchSource('LOCAL') // Reset source to show the "Linked" state UI usually associated with local
         }
     }
 
