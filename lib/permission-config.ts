@@ -10,7 +10,14 @@ export const PERMISSION_GROUPS = {
     KEHADIRAN: ['kehadiran', 'attendance', 'report', 'lembur', 'holiday', 'izin', 'live_tracking', 'shift'],
     FINANCE: ['finance', 'debts_receivables', 'treasury', 'transactions', 'categories', 'reports'],
     PENGATURAN: ['pengaturan', 'umum', 'logo', 'email', 'whatsapp', 'roles', 'payment_gateway', 'api', 'nada_dering', 'app_version'],
-    SYSTEM_LOG: ['system_log', 'login', 'activity'],
+    SYSTEM_LOG: {
+        name: 'System Log',
+        resources: ['system_log'],
+    },
+    INTEGRATION: {
+        name: 'Integrasi',
+        resources: ['mixradius'],
+    },
     SUPPORT: ['support'],
     ANNOUNCEMENT: ['announcement'],
     MARKETING: ['marketing', 'coupon', 'sales_dashboard', 'sales', 'canvasing'],

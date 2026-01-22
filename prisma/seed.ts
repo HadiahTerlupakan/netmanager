@@ -6,7 +6,13 @@ import { randomUUID } from 'crypto'
 import { PERMISSION_GROUPS, PERMISSION_GROUPS_MOBILE, ACTIONS, getAllGranularPermissions } from '../lib/permission-config'
 
 // Flatten resources from both admin and mobile groups
-const ADMIN_RESOURCES = Object.values(PERMISSION_GROUPS).flat()
+// Handle mixed types: some are string[], others are { resources: string[] }
+const ADMIN_RESOURCES = Object.values(PERMISSION_GROUPS).flatMap(group => {
+  if (Array.isArray(group)) {
+    return group
+  }
+  return (group as any).resources || []
+})
 const MOBILE_RESOURCES = Object.values(PERMISSION_GROUPS_MOBILE).flat()
 const ALL_RESOURCES = [...new Set([...ADMIN_RESOURCES, ...MOBILE_RESOURCES])]
 

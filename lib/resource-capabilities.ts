@@ -232,6 +232,10 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         actions: ['read', 'create', 'update', 'delete', 'site_only'],
         description: 'Pengeluaran'
     },
+
+    mixradius: {
+        actions: ['read'],
+    },
     
     // ====== CHAT MODULE ======
     chat: {

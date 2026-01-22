@@ -220,6 +220,15 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'SYSTEM_LOG.ACTIVITY', name: 'Log Aktivitas', path: '/admin/log/activity', icon: 'HiOutlineDocumentText' },
         ],
     },
+    {
+        code: 'INTEGRATION',
+        name: 'Integrasi',
+        path: '/admin/integrations',
+        icon: 'HiOutlineArrowsRightLeft',
+        children: [
+            { code: 'INTEGRATION.MIXRADIUS', name: 'MixRadius', path: '/admin/integrations/mixradius', icon: 'HiOutlineCloud' },
+        ],
+    },
 ]
 
 export const EMPLOYEE_MENU_CONFIG: MenuConfig[] = [

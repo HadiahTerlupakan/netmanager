@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { HiArrowLeft, HiSparkles, HiBolt, HiUserCircle, HiMagnifyingGlass, HiMapPin, HiWifi, HiClock, HiArchiveBoxArrowDown, HiPlusCircle } from 'react-icons/hi2'
+import { HiArrowLeft, HiSparkles, HiBolt, HiUserCircle, HiMagnifyingGlass, HiMapPin, HiWifi, HiClock, HiArchiveBoxArrowDown, HiPlusCircle, HiCloud } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 
 interface Pelanggan {
@@ -26,12 +26,23 @@ interface Department {
     name: string
 }
 
+interface MixRadiusCustomer {
+    id: string
+    member_id: string
+    fullname: string
+    address: string
+    phonenumber: string
+    plan_name: string
+    remote_address: string
+}
+
 export function ClientComponent() {
     const { data: session, status } = useSession()
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [simpleMode, setSimpleMode] = useState(true)
     const [isGuest, setIsGuest] = useState(true) // Default to Guest Mode
+    const [searchSource, setSearchSource] = useState<'LOCAL' | 'MIXRADIUS'>('LOCAL')
 
     // Sites and Departments state
     const [sites, setSites] = useState<Site[]>([])
@@ -40,6 +51,7 @@ export function ClientComponent() {
     // Search states
     const [searchingPelanggan, setSearchingPelanggan] = useState(false)
     const [pelangganList, setPelangganList] = useState<Pelanggan[]>([])
+    const [mixRadiusList, setMixRadiusList] = useState<MixRadiusCustomer[]>([])
     const [searchQuery, setSearchQuery] = useState('')
     const searchParams = useSearchParams()
 
@@ -154,9 +166,14 @@ export function ClientComponent() {
 
         const performSearch = async () => {
             if (searchQuery.length > 2 && isMounted) {
-                await searchPelanggan()
+                if (searchSource === 'LOCAL') {
+                    await searchPelanggan()
+                } else {
+                    await searchMixRadius()
+                }
             } else if (isMounted) {
                 setPelangganList([])
+                setMixRadiusList([])
             }
         }
 
@@ -177,6 +194,18 @@ export function ClientComponent() {
         finally { setSearchingPelanggan(false) }
     }
 
+    const searchMixRadius = async () => {
+        setSearchingPelanggan(true)
+        try {
+            const response = await fetch(`/api/integrations/mixradius/customers?search=${searchQuery}&searchType=all&start=0&length=10`)
+            if (response.ok) { 
+                const result = await response.json(); 
+                setMixRadiusList(result.data || []) 
+            }
+        } catch (error) { console.error('Error searching MixRadius:', error) }
+        finally { setSearchingPelanggan(false) }
+    }
+
     const selectPelanggan = (p: Pelanggan) => {
         setFormData(prev => ({
             ...prev,
@@ -189,6 +218,22 @@ export function ClientComponent() {
         setSearchQuery('')
         setPelangganList([])
         setIsGuest(false) // Switch to linked mode
+    }
+
+    const selectMixRadiusCustomer = (c: MixRadiusCustomer) => {
+        setFormData(prev => ({
+            ...prev,
+            pelangganId: '', // No local ID
+            pelangganDisplay: '', // Not used in Guest mode, but we switch to Guest
+            contactName: c.fullname,
+            contactPhone: c.phonenumber || '',
+            locationAddress: c.address || '',
+            description: prev.description ? `${prev.description}\n[MixRadius ID: ${c.member_id}]` : `[MixRadius ID: ${c.member_id}]`
+        }))
+        setSearchQuery('')
+        setMixRadiusList([])
+        setIsGuest(true) // Switch to Guest/Manual mode with pre-filled data
+        setSearchSource('LOCAL') // Reset source
     }
 
     const handleGuestToggle = () => {
@@ -412,26 +457,60 @@ export function ClientComponent() {
                                     </div>
                                 ) : (
                                     <div className="relative">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <button 
+                                                type="button" 
+                                                onClick={() => { setSearchSource('LOCAL'); setSearchQuery(''); setPelangganList([]); setMixRadiusList([]); }} 
+                                                className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${searchSource === 'LOCAL' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                            >
+                                                Local Database
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => { setSearchSource('MIXRADIUS'); setSearchQuery(''); setPelangganList([]); setMixRadiusList([]); }}
+                                                className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5 ${searchSource === 'MIXRADIUS' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                            >
+                                                <HiCloud className="w-3.5 h-3.5" />
+                                                MixRadius API
+                                            </button>
+                                        </div>
+
                                         <input
                                             type="text"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            placeholder="Search customer by name or ID..."
+                                            placeholder={searchSource === 'LOCAL' ? "Search local customer by name or ID..." : "Search user in MixRadius..."}
                                             className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
                                             autoFocus
                                         />
-                                        {searchingPelanggan && <div className="absolute right-4 top-3.5"><div className="animate-spin h-5 w-5 border-2 border-sky-500 border-t-transparent rounded-full"></div></div>}
-                                        {pelangganList.length > 0 && (
+                                        {searchingPelanggan && <div className="absolute right-4 top-12"><div className="animate-spin h-5 w-5 border-2 border-sky-500 border-t-transparent rounded-full"></div></div>}
+                                        
+                                        {(pelangganList.length > 0 || mixRadiusList.length > 0) && (
                                             <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
-                                                {pelangganList.map((p) => (
-                                                    <button key={p.id} type="button" onClick={() => selectPelanggan(p)} className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors">
-                                                        <div className="font-medium text-gray-900 dark:text-white">{p.nama}</div>
-                                                        <div className="text-sm text-gray-500 dark:text-gray-400 flex justify-between">
-                                                            <span>{p.idPelanggan}</span>
-                                                            <span>{p.alamat}</span>
-                                                        </div>
-                                                    </button>
-                                                ))}
+                                                {searchSource === 'LOCAL' ? (
+                                                    pelangganList.map((p) => (
+                                                        <button key={p.id} type="button" onClick={() => selectPelanggan(p)} className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors">
+                                                            <div className="font-medium text-gray-900 dark:text-white">{p.nama}</div>
+                                                            <div className="text-sm text-gray-500 dark:text-gray-400 flex justify-between">
+                                                                <span>{p.idPelanggan}</span>
+                                                                <span>{p.alamat}</span>
+                                                            </div>
+                                                        </button>
+                                                    ))
+                                                ) : (
+                                                    mixRadiusList.map((c) => (
+                                                         <button key={c.id} type="button" onClick={() => selectMixRadiusCustomer(c)} className="w-full px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors group">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">{c.fullname}</div>
+                                                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{c.plan_name}</span>
+                                                            </div>
+                                                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                                                <span className="font-mono text-xs text-gray-400 mr-2">{c.member_id}</span>
+                                                                {c.address && <span className="truncate block">{c.address.substring(0, 50)}...</span>}
+                                                            </div>
+                                                        </button>
+                                                    ))
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -579,7 +658,7 @@ export function ClientComponent() {
 
                     <div className="flex gap-4 pt-4">
                         <Link href="/admin/workorders/list" className="flex-1 px-6 py-3.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-center font-medium transition-colors">Cancel</Link>
-                        <button type="submit" disabled={loading} className="flex-[2] px-6 py-3.5 bg-sky-600 text-white rounded-xl hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg shadow-sky-200 transition-all hover:shadow-xl hover:-translate-y-0.5">{loading ? 'Creating...' : 'Create Work Order'}</button>
+                        <button type="submit" disabled={loading} className="flex-2 px-6 py-3.5 bg-sky-600 text-white rounded-xl hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg shadow-sky-200 transition-all hover:shadow-xl hover:-translate-y-0.5">{loading ? 'Creating...' : 'Create Work Order'}</button>
                     </div>
                 </form>
             </div>
