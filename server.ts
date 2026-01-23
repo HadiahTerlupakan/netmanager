@@ -200,9 +200,24 @@ app.prepare().then(() => {
                 }))
                 return
             } catch (error: any) {
-                console.error('Error uploading app version:', error)
-                res.writeHead(500, { 'Content-Type': 'application/json' })
-                res.end(JSON.stringify({ error: error.message || 'Failed to upload app version' }))
+                console.error('[Server] Error uploading app version:', error)
+                
+                // Ensure we always return JSON, even on error
+                const errorMessage = error?.message || 'Failed to upload app version'
+                const errorDetails = {
+                    error: errorMessage,
+                    stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+                }
+                
+                try {
+                    res.writeHead(500, { 'Content-Type': 'application/json' })
+                    res.end(JSON.stringify(errorDetails))
+                } catch (writeError) {
+                    console.error('[Server] Failed to write error response:', writeError)
+                    // Fallback: write plain text if JSON serialization fails
+                    res.writeHead(500, { 'Content-Type': 'text/plain' })
+                    res.end(errorMessage)
+                }
                 return
             }
         }

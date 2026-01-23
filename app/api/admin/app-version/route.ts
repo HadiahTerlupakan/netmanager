@@ -150,7 +150,17 @@ export async function POST(request: NextRequest) {
             message: 'Versi aplikasi berhasil diupload'
         }, { status: 201 })
     } catch (error: any) {
-        console.error('Error uploading app version:', error)
-        return NextResponse.json({ error: error.message || 'Failed to upload app version' }, { status: 500 })
+        console.error('[API] Error uploading app version:', error)
+        
+        // Ensure we always return JSON, even on error
+        const errorMessage = error?.message || 'Failed to upload app version'
+        const errorDetails: any = { error: errorMessage }
+        
+        // Include stack trace in development for debugging
+        if (process.env.NODE_ENV === 'development' && error?.stack) {
+            errorDetails.stack = error.stack
+        }
+        
+        return NextResponse.json(errorDetails, { status: 500 })
     }
 }
