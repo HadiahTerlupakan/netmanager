@@ -11,7 +11,7 @@ export const PERMISSION_GROUPS = {
     FINANCE: ['finance', 'debts_receivables', 'treasury', 'transactions', 'categories', 'reports'],
     PENGATURAN: ['pengaturan', 'umum', 'logo', 'email', 'whatsapp', 'roles', 'payment_gateway', 'api', 'nada_dering', 'app_version'],
     SYSTEM_LOG: ['system_log'],
-    INTEGRATION: ['mixradius'],
+    INTEGRATION: ['mixradius', 'mixradius_isolir', 'mixradius_sites', 'mixradius_accounts'],
     SUPPORT: ['support'],
     ANNOUNCEMENT: ['announcement'],
     MARKETING: ['marketing', 'coupon', 'sales_dashboard', 'sales', 'canvasing'],
