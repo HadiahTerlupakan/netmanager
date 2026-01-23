@@ -124,9 +124,8 @@ export class MixRadiusService {
       baseUrl: process.env.MIXRADIUS_URL || 'https://sblnet.topsetting.com:973'
     }
 
-    // Disable SSL verification for self-signed certificates
-    // Note: This is set at process level as axios-cookiejar-support doesn't work with custom httpsAgent
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+    // Note: MixRadius server now has valid SSL certificate from Sectigo (*.topsetting.com)
+    // No need to disable TLS verification anymore
 
     // Create cookie jar
     this.jar = new CookieJar()

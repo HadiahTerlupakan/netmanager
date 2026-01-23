@@ -159,6 +159,9 @@ services:
       SESSION_COOKIE_SECURE: "true"
       SESSION_COOKIE_HTTP_ONLY: "true"
       SESSION_COOKIE_SAME_SITE: "lax"
+
+      # Cron Security
+      CRON_SECRET: ${CRON_SECRET}
     expose:
       - "3000"
     healthcheck:
