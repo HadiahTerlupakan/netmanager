@@ -6,7 +6,7 @@ import { mixRadiusConfigRepo } from '@/modules/integrations/mixradius/MixRadiusC
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await verifyAuth(req)
@@ -20,7 +20,7 @@ export async function PUT(
     }
 
     const body = await req.json()
-    const { id } = params
+    const { id } = await params
     
     // Validate ID
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 })
@@ -44,7 +44,7 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await verifyAuth(req)
@@ -57,7 +57,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { id } = params
+    const { id } = await params
     
     // Validate ID
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 })
