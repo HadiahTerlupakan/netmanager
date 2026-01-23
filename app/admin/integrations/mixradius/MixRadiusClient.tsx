@@ -94,7 +94,12 @@ interface MixRadiusResponse {
   data: MixRadiusCustomer[]
 }
 
-export default function MixRadiusClient() {
+export interface MixRadiusClientProps {
+  defaultStatus?: string
+  viewMode?: 'default' | 'isolir'
+}
+
+export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }: MixRadiusClientProps) {
   const { hasPermission } = usePermission() 
   const [data, setData] = useState<MixRadiusCustomer[]>([])
   const [loading, setLoading] = useState(false)
@@ -107,6 +112,7 @@ export default function MixRadiusClient() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
   const [totalRecords, setTotalRecords] = useState(0)
+  const [globalTotal, setGlobalTotal] = useState(0)
 
   // Detail modal state
   const [selectedCustomer, setSelectedCustomer] = useState<MixRadiusCustomerDetail | null>(null)
@@ -163,6 +169,10 @@ export default function MixRadiusClient() {
         search: debouncedSearch,
         searchType: searchType,
       })
+      
+      if (defaultStatus) {
+        params.append('authStatus', defaultStatus)
+      }
 
       const response = await fetch(`/api/integrations/mixradius/customers?${params}`)
       
@@ -174,13 +184,14 @@ export default function MixRadiusClient() {
       const result: MixRadiusResponse = await response.json()
       setData(result.data)
       setTotalRecords(result.recordsFiltered)
+      setGlobalTotal(result.recordsTotal)
     } catch (err: any) {
       setError(err.message)
       toast.error('Gagal mengambil data dari MixRadius')
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, debouncedSearch, searchType])
+  }, [page, pageSize, debouncedSearch, searchType, defaultStatus])
 
   useEffect(() => {
     fetchData()
@@ -256,10 +267,12 @@ export default function MixRadiusClient() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <HiOutlineCloud className="w-7 h-7 text-blue-500" />
-            MixRadius Integration
+            {viewMode === 'isolir' ? 'MixRadius Isolir' : 'MixRadius Integration'}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Data pelanggan PPP dari sistem eksternal MixRadius
+            {viewMode === 'isolir' 
+              ? 'Daftar pelanggan Isolir (Non-Aktif/Disabled)' 
+              : 'Data pelanggan PPP dari sistem eksternal MixRadius'}
           </p>
         </div>
 
@@ -276,8 +289,17 @@ export default function MixRadiusClient() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Pelanggan</div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">{totalRecords.toLocaleString()}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {viewMode === 'isolir' ? 'Total Pelanggan Isolir' : 'Total Pelanggan'}
+          </div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
+            {totalRecords.toLocaleString()}
+            {viewMode === 'isolir' && (
+              <span className="text-sm text-gray-500 dark:text-gray-400 font-normal ml-2">
+                / {globalTotal.toLocaleString()} Total
+              </span>
+            )}
+          </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div className="text-sm text-gray-500 dark:text-gray-400">Halaman</div>
@@ -330,7 +352,23 @@ export default function MixRadiusClient() {
         <div className="">
           <ResponsiveTable
             data={data}
-            columns={[
+            columns={viewMode === 'isolir' ? [
+              { key: 'member_id', header: 'ID Pelanggan', priority: 'primary', minWidth: '100px', className: 'font-mono font-bold' },
+              { key: 'fullname', header: 'Nama Pelanggan', priority: 'primary', className: 'font-medium' },
+              { key: 'phonenumber', header: 'Nomor Tlp', priority: 'primary', className: 'font-mono' },
+              { key: 'address', header: 'Alamat', priority: 'secondary', className: 'text-sm max-w-xs truncate' },
+              {
+                key: 'expired_on',
+                header: 'Jatuh Tempo',
+                priority: 'secondary',
+                render: (item) => (
+                  <div className={`text-sm ${isExpired(item.expired_on) ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-900 dark:text-white'}`}>
+                    {formatDate(item.expired_on)}
+                  </div>
+                 )
+              },
+              { key: 'owner_name', header: 'Owner', priority: 'tertiary' },
+            ] : [
               { key: 'member_id', header: 'ID', priority: 'primary', minWidth: '100px', className: 'font-mono' },
               {
                 key: 'fullname',

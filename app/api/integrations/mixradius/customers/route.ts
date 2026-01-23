@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     const length = parseInt(searchParams.get('length') || '10', 10)
     const search = searchParams.get('search') || ''
     const searchType = searchParams.get('searchType') || 'all'
+    const authStatus = searchParams.get('authStatus') || undefined
 
     // Fetch data from MixRadius
     const service = getMixRadiusService()
@@ -40,6 +41,9 @@ export async function GET(req: NextRequest) {
       length: Math.min(length, 100), // Max 100 per request
       search,
       searchType,
+      authStatus,
+      ownerName: searchParams.get('ownerName') || undefined,
+      groupId: searchParams.get('groupId') || undefined,
     })
 
     return NextResponse.json(data)

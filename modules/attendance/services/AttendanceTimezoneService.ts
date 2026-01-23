@@ -88,22 +88,51 @@ export class AttendanceTimezoneService {
     const tz = timezone || await this.getTimezone()
     const toleranceMinutes = await this.getTolerance()
     
-    // Convert checkInTime to the target timezone
-    const checkInInTz = new Date(checkInTime.toLocaleString('en-US', { timeZone: tz }))
+    // 1. Get the parts of the checkInTime in the target timezone
+    // usage of Intl.DateTimeFormat is more robust than toLocaleString parsing
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false
+    })
     
-    // Parse schedule time (e.g., '08:30' -> hours: 8, minutes: 30)
+    const parts = formatter.formatToParts(checkInTime)
+    const part = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0')
+    
+    const year = part('year')
+    const month = part('month') - 1 // 0-indexed
+    const day = part('day')
+    
+    // 2. Parse schedule time (e.g., '08:30')
     const [schedHour, schedMinute] = scheduleTime.split(':').map(Number)
     
-    // Create schedule date on the SAME DAY as checkInTime
-    const scheduleDate = new Date(checkInInTz)
-    scheduleDate.setHours(schedHour, schedMinute, 0, 0)
+    // 3. Construct schedule date using the SAME date components as check-in, but with schedule time
+    // We construct it effectively in "wall clock time" of the timezone
+    // Note: We need to be careful creating a Date object. 
+    // If we use new Date(year, month, day, ...), it uses LOCAL system timezone.
+    // We want to construct a timestamp that REPRESENTS that wall-clock time in the TARGET timezone.
     
-    // Calculate late threshold (schedule + tolerance)
-    const toleranceMs = toleranceMinutes * 60 * 1000
-    const lateThreshold = new Date(scheduleDate.getTime() + toleranceMs)
+    // Easier approach: Compare "Minutes from start of day"
+    // Get check-in minutes from start of day IN TARGET TIMEZONE
+    const checkInHour = part('hour')
+    // Handle 24h format weirdness if any (Intl usually returns 0-23 with h23 or hour12: false, but 24 is possible in some locales. en-US with hour12:false is usually 0-23 or 24)
+    // Actually part('hour') might return 24 for midnight in some versions, but usually 0.
+    const checkInMinute = part('minute')
+    const checkInTotalMinutes = (checkInHour * 60) + checkInMinute
     
-    // Compare checkInTime vs lateThreshold (not now vs threshold)
-    return checkInInTz > lateThreshold ? 'LATE' : 'ON_TIME'
+    const scheduleTotalMinutes = (schedHour * 60) + schedMinute
+    const toleranceTotalMinutes = scheduleTotalMinutes + toleranceMinutes
+    
+    // Handle day boundary/overnight shifts if necessary? 
+    // The original logic didn't seem to handle overnight shifts crossing midnight for "LATE" check (it created date on same day).
+    // So we'll stick to simple comparison for now, assuming standard day shift or matching day.
+    
+    return checkInTotalMinutes > toleranceTotalMinutes ? 'LATE' : 'ON_TIME'
   }
   
   /**

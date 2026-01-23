@@ -23,6 +23,12 @@ cat > /etc/crontabs/root << EOF
 
 # Attendance alert - process pada jam 22:00 setiap hari
 0 22 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/attendance-alert?type=process" >> /var/log/cron.log 2>&1
+
+# Absence (Alpha) Check - process pada jam 01:00 pagi (untuk hari sebelumnya)
+0 1 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/process-absence" >> /var/log/cron.log 2>&1
+
+# Auto Checkout (Mangkir) - process pada jam 23:59 setiap hari
+59 23 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/auto-checkout" >> /var/log/cron.log 2>&1
 EOF
 
 echo "Cron jobs configured:"

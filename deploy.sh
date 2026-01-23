@@ -212,13 +212,13 @@ update() {
     # Rebuild and restart with appropriate profile
     log_info "Rebuilding Docker images..."
     if [ "$profile" = "ssl" ]; then
-        docker compose -f $COMPOSE_FILE --profile ssl build app freeradius
-        log_info "Restarting application & radius with SSL..."
-        docker compose -f $COMPOSE_FILE --profile ssl up -d --force-recreate app freeradius
+        docker compose -f $COMPOSE_FILE --profile ssl build app freeradius cron
+        log_info "Restarting application, radius & cron with SSL..."
+        docker compose -f $COMPOSE_FILE --profile ssl up -d --force-recreate app freeradius cron
     else
-        docker compose -f $COMPOSE_FILE build app freeradius
-        log_info "Restarting application & radius..."
-        docker compose -f $COMPOSE_FILE up -d --force-recreate app freeradius
+        docker compose -f $COMPOSE_FILE build app freeradius cron
+        log_info "Restarting application, radius & cron..."
+        docker compose -f $COMPOSE_FILE up -d --force-recreate app freeradius cron
     fi
     
     # Setup persistent uploads

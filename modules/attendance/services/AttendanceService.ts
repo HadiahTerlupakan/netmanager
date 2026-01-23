@@ -71,7 +71,7 @@ export class AttendanceService {
             })
             // Cache for 1 hour
             if (userDetails) {
-                cache.set(cacheKey, userDetails, 3600)
+                cache.set(cacheKey, userDetails, 60)
             }
         }
 

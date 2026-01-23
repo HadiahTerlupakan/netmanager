@@ -150,7 +150,8 @@ export async function getUsersNeedingCheckOutReminder(
             user: {
                 isActive: true,
                 pushToken: { not: null },
-                endWorkTime: { not: null }
+                endWorkTime: { not: null },
+                workingHourMode: { not: 'FLEXIBLE' }
             }
         },
         include: {
@@ -324,7 +325,10 @@ export async function processIncompleteAttendance(): Promise<{
     const incomplete = await prisma.attendance.findMany({
         where: {
             checkIn: { gte: startOfDay, lte: endOfDay },
-            checkOut: null
+            checkOut: null,
+            user: {
+                workingHourMode: { not: 'FLEXIBLE' }
+            }
         },
         select: { userId: true, user: { select: { name: true } } }
     })

@@ -227,6 +227,8 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineArrowsRightLeft',
         children: [
             { code: 'INTEGRATION.MIXRADIUS', name: 'MixRadius', path: '/admin/integrations/mixradius', icon: 'HiOutlineCloud' },
+            { code: 'INTEGRATION.MIXRADIUS_ISOLIR', name: 'MixRadius Isolir', path: '/admin/integrations/mixradius/isolir', icon: 'HiOutlineNoSymbol' },
+            { code: 'INTEGRATION.MIXRADIUS_SITES', name: 'Manajemen Site', path: '/admin/integrations/mixradius/groups', icon: 'HiOutlineBuildingOffice' },
         ],
     },
 ]

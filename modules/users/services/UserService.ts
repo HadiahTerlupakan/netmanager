@@ -3,6 +3,7 @@ import type { CreateUserDTO, UserWithRelations } from '../repositories/UserRepos
 import { WorkingHourMode, Prisma } from '@prisma/client'
 import type { User } from '@prisma/client'
 import { hash } from 'bcryptjs'
+import { cache } from '@/lib/cache'
 
 export interface CreateUserInput {
     email: string
@@ -109,7 +110,12 @@ export class UserService {
                 : { disconnect: true }
         }
 
-        return this.userRepository.update(id, updateData)
+        const updatedUser = await this.userRepository.update(id, updateData)
+        
+        // Invalidate attendance schedule cache
+        cache.invalidate(`user:schedule:${id}`)
+        
+        return updatedUser
     }
 
     async deleteUser(id: string): Promise<User> {
@@ -144,7 +150,12 @@ export class UserService {
             // Optional: Add specific validation for Flexible mode if needed
         }
 
-        return this.userRepository.updateWorkingHours(id, data)
+        const updatedUser = await this.userRepository.updateWorkingHours(id, data)
+        
+        // Invalidate attendance schedule cache to ensure immediate effect
+        cache.invalidate(`user:schedule:${id}`)
+        
+        return updatedUser
     }
 }
 

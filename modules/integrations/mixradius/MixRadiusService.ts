@@ -1,12 +1,6 @@
-/**
- * MixRadius Integration Service
- * 
- * Service untuk mengambil data pelanggan PPP dari sistem MixRadius eksternal.
- * Menggunakan axios dengan cookie jar support untuk automatic session management.
- */
-
-import axios from 'axios'
-import type { AxiosInstance } from 'axios'
+import { prisma } from '@/lib/prisma'
+import type { MixRadiusOwnerGroup } from '@prisma/client'
+import axios, { type AxiosInstance } from 'axios'
 import { wrapper } from 'axios-cookiejar-support'
 import { CookieJar } from 'tough-cookie'
 
@@ -16,6 +10,8 @@ export interface MixRadiusCredentials {
   password: string
   baseUrl: string
 }
+
+export type { MixRadiusOwnerGroup }
 
 export interface MixRadiusCustomer {
   id: string
@@ -107,6 +103,9 @@ export interface FetchCustomersParams {
   length?: number
   search?: string
   searchType?: string // all, member_id, username, fullname, phonenumber, address
+  authStatus?: string
+  ownerName?: string
+  groupId?: string
 }
 
 export class MixRadiusService {
@@ -220,15 +219,19 @@ export class MixRadiusService {
       // Ensure we're logged in
       await this.login()
 
-      console.log(`[MixRadius] Fetching customers: start=${start}, length=${length}, search="${search}", searchType=${searchType}`)
+      console.log(`[MixRadius] Fetching customers: start=${start}, length=${length}, search="${search}", searchType=${searchType}, groupId=${params.groupId}`)
 
-      // Build form data for DataTables request
+      // STRATEGY:
+      // Use the reliable /customers-ppp endpoint which returns all data.
+      // We process filtering (especially for authStatus/Isolir) IN-MEMORY to ensure accuracy used 
+      // because upstream filtering is inconsistent.
+      
       const formData = new URLSearchParams()
       formData.append('draw', '1')
-      formData.append('start', start.toString())
-      formData.append('length', Math.min(length, 100).toString())
+      formData.append('start', '0') // Always request from 0 to get full dataset
+      formData.append('length', '10000') // Request large chunk to cover all users
       
-      // Column definitions for DataTables
+      // Column definitions (Standard for customers-ppp which we know works)
       const columns = [
         { data: 'id', searchable: false },
         { data: 'member_id', searchable: true },
@@ -241,12 +244,11 @@ export class MixRadiusService {
         { data: 'renewed_on', searchable: true },
         { data: 'expired_on', searchable: true },
         { data: 'owner_name', searchable: true },
-        { data: 'auth_status', searchable: false },
+        { data: 'auth_status', searchable: true },
         { data: 'note', searchable: true },
         { data: 'phonenumber', searchable: true },
       ]
 
-      // Add column definitions
       columns.forEach((col, idx) => {
         formData.append(`columns[${idx}][data]`, col.data)
         formData.append(`columns[${idx}][name]`, '')
@@ -256,33 +258,10 @@ export class MixRadiusService {
         formData.append(`columns[${idx}][search][regex]`, 'false')
       })
 
-      // Set search - either global or per-column
-      if (searchType === 'all') {
-        // Global search
-        formData.append('search[value]', search)
-        formData.append('search[regex]', 'false')
-      } else {
-        // Per-column search
-        formData.append('search[value]', '')
-        formData.append('search[regex]', 'false')
-        
-        // Map searchType to column index
-        const columnMap: Record<string, number> = {
-          'member_id': 1,
-          'username': 2,
-          'fullname': 3,
-          'address': 4,
-          'phonenumber': 13,
-        }
-        
-        const colIdx = columnMap[searchType]
-        if (colIdx !== undefined) {
-          // Update the column search value
-          formData.set(`columns[${colIdx}][search][value]`, search)
-        }
-      }
+      // Global search empty to upstream
+      formData.append('search[value]', '')
+      formData.append('search[regex]', 'false')
 
-      // Add ordering (by renewed_on desc)
       formData.append('order[0][column]', '8')
       formData.append('order[0][dir]', 'desc')
 
@@ -294,6 +273,7 @@ export class MixRadiusService {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Origin': this.credentials.baseUrl,
             'Referer': `${this.credentials.baseUrl}/rad-customers/ppp`,
           },
         }
@@ -317,10 +297,98 @@ export class MixRadiusService {
         return this.fetchCustomersPPP(params)
       }
 
-      const data = response.data as MixRadiusCustomerResponse
-      console.log(`[MixRadius] Fetched ${data.data?.length || 0} customers (total: ${data.recordsTotal || 0})`)
+      const responseData = response.data as MixRadiusCustomerResponse
+      let allData = responseData.data || []
+      
+      // Store original total before filtering
+      console.log(`[MixRadius] Upstream returned ${allData.length} records. Filtering in-memory...`)
 
-      return data
+      // Deduplicate data by USERNAME (more reliable than ID for unique users)
+      // And strictly filter distinct usernames
+      const uniqueMap = new Map()
+      allData.forEach(item => {
+        // Ensure valid username and not already added
+        if (item.username && !uniqueMap.has(item.username)) {
+          uniqueMap.set(item.username, item)
+        }
+      })
+      allData = Array.from(uniqueMap.values())
+      
+      const totalRecordsFromUpstream = allData.length
+
+      // --- IN-MEMORY FILTERING ---
+      
+      // 1. Filter by Expired (Jatuh Tempo) - Strict Request
+      // "Yang belum jatuh tempo mah gak usah ditampilkan"
+      if (params.authStatus && params.authStatus === 'Disabled-Users') {
+        const now = new Date()
+        allData = allData.filter(item => {
+          if (!item.expired_on) return false
+          
+          const expDate = new Date(item.expired_on)
+          if (isNaN(expDate.getTime())) return false
+          
+          // Strict: Must be expired
+          return expDate < now
+        })
+      } else if (params.authStatus) {
+        // Normal filtering for other statuses if any
+        allData = allData.filter(item => item.auth_status === params.authStatus)
+      }
+
+      // 2. Filter by Search (Global or Column)
+      if (search) {
+        const lowerSearch = search.toLowerCase()
+        if (searchType === 'all') {
+             // Global search across relevant fields including OWNER
+             allData = allData.filter(item => 
+                 (item.fullname && item.fullname.toLowerCase().includes(lowerSearch)) ||
+                 (item.username && item.username.toLowerCase().includes(lowerSearch)) ||
+                 (item.member_id && item.member_id.toLowerCase().includes(lowerSearch)) ||
+                 (item.address && item.address.toLowerCase().includes(lowerSearch)) ||
+                 (item.phonenumber && item.phonenumber.toLowerCase().includes(lowerSearch)) ||
+                 (item.owner_name && item.owner_name.toLowerCase().includes(lowerSearch))
+             )
+        } else {
+             // Specific column search
+             allData = allData.filter(item => {
+                 const fieldVal = (item as any)[searchType]
+                 return fieldVal && String(fieldVal).toLowerCase().includes(lowerSearch)
+             })
+        }
+      }
+
+      // 3. Filter by Owner OR Group
+      if (params.groupId) {
+          // Fetch group owners
+          const group = await prisma.mixRadiusOwnerGroup.findUnique({
+              where: { id: params.groupId },
+              select: { owners: true }
+          })
+          
+          if (group && group.owners && group.owners.length > 0) {
+              const allowedOwners = new Set(group.owners)
+              allData = allData.filter(item => item.owner_name && allowedOwners.has(item.owner_name))
+          } else if (group && (!group.owners || group.owners.length === 0)) {
+              // Group exists but no owners - return empty or all? Strictly empty if filtering by group
+              allData = []
+          }
+      } else if (params.ownerName) {
+         // Fallback to single owner filter if provided
+         allData = allData.filter(item => item.owner_name === params.ownerName)
+      }
+
+      const recordsFiltered = allData.length
+
+      // 4. Pagination
+      const pagedData = allData.slice(start, start + length)
+
+      return {
+        draw: 1,
+        recordsTotal: totalRecordsFromUpstream, // Keep original total (e.g. 2533)
+        recordsFiltered: recordsFiltered,       // Filtered count (e.g. 102)
+        data: pagedData
+      }
     } catch (error: any) {
       console.error('[MixRadius] Fetch error:', error.message)
       
@@ -332,6 +400,61 @@ export class MixRadiusService {
       
       throw new Error(`Failed to fetch MixRadius customers: ${error.message}`)
     }
+  }
+
+  /**
+   * Get unique list of owners
+   */
+  async getUniqueOwners(): Promise<string[]> {
+    try {
+      // Reuse fetchCustomersPPP to get all data (using default "all" which fetches 10000 records)
+      const result = await this.fetchCustomersPPP({ start: 0, length: 10000 })
+      
+      const owners = new Set<string>()
+      result.data.forEach(item => {
+        if (item.owner_name) {
+          owners.add(item.owner_name)
+        }
+      })
+      
+      return Array.from(owners).sort()
+    } catch (error) {
+      console.error('[MixRadius] Get owners error:', error)
+      return []
+    }
+  }
+
+  // --- Owner Group Methods ---
+
+  async getOwnerGroups() {
+      return prisma.mixRadiusOwnerGroup.findMany({
+          orderBy: { name: 'asc' }
+      })
+  }
+
+  async getOwnerGroup(id: string) {
+      return prisma.mixRadiusOwnerGroup.findUnique({
+          where: { id }
+      })
+  }
+
+  async createOwnerGroup(data: { name: string; owners: string[]; isActive?: boolean }) {
+      return prisma.mixRadiusOwnerGroup.create({
+          data
+      })
+  }
+
+  async updateOwnerGroup(id: string, data: { name?: string; owners?: string[]; isActive?: boolean }) {
+      return prisma.mixRadiusOwnerGroup.update({
+          where: { id },
+          data
+      })
+  }
+
+  async deleteOwnerGroup(id: string) {
+      return prisma.mixRadiusOwnerGroup.delete({
+          where: { id }
+      })
   }
 
   /**
