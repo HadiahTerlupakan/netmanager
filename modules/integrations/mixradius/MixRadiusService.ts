@@ -446,7 +446,17 @@ export class MixRadiusService {
 
       const recordsFiltered = allData.length
 
-      // 4. Pagination
+      // 4. Sort by expired_on ascending (oldest first) for Isolir view
+      // This ensures customers who have been expired longest appear first
+      if (params.authStatus === 'Disabled-Users') {
+        allData.sort((a, b) => {
+          const dateA = a.expired_on ? new Date(a.expired_on).getTime() : 0
+          const dateB = b.expired_on ? new Date(b.expired_on).getTime() : 0
+          return dateA - dateB // Ascending: oldest first
+        })
+      }
+
+      // 5. Pagination
       const pagedData = allData.slice(start, start + length)
 
       return {
@@ -712,27 +722,37 @@ export class MixRadiusService {
                 // Col 0: numeric ID
                 // Col 3: contains 'Rp' or numeric
                 // Col 7: status
+
+                // Extract status from column or fallback to checking row content
+                let status = cols[7] || ''
+                const rowUpper = rowContent.toUpperCase()
                 
-                // Example columns assumption:
-                // 0: ID
-                // 1: Invoice Number
-                // 2: Plan Name
-                // 3: Amount
-                // 4: Activation Date
-                // 5: Deadline Date
-                // 6: Owner
-                // 7: Status (often has buttons/badges)
-                
+                if (!status || status === 'Unknown' || status.trim() === '') {
+                   if (rowUpper.includes('UNPAID') || rowUpper.includes('BELUM BAYAR')) status = 'Unpaid'
+                   else if (rowUpper.includes('PAID') || rowUpper.includes('LUNAS')) status = 'Paid'
+                   else status = 'Unknown'
+                }
+
+                // Fix Invoice Number if it contains status (e.g. "INV-123Unpaid")
+                let invoiceNum = cols[1]
+                if (invoiceNum.toUpperCase().endsWith('UNPAID')) {
+                    invoiceNum = invoiceNum.substring(0, invoiceNum.length - 6)
+                    if (!status || status === 'Unknown') status = 'Unpaid'
+                } else if (invoiceNum.toUpperCase().endsWith('PAID')) {
+                    invoiceNum = invoiceNum.substring(0, invoiceNum.length - 4)
+                    if (!status || status === 'Unknown') status = 'Paid'
+                }
+
                 if (/^\d+$/.test(cols[0]) && (cols[3].includes('Rp') || /[\d,\.]+/.test(cols[3]))) {
                    invoices.push({
                      id: cols[0],
-                     invoice_number: cols[1],
+                     invoice_number: invoiceNum,
                      plan_name: cols[2],
                      amount: cols[3],
                      activation_date: cols[4],
                      deadline_date: cols[5],
                      owner: cols[6],
-                     status: cols[7] || 'Unknown' // Extracts raw text, backend might need to refine status if it's inside buttons
+                     status: status
                    })
                 }
              }
