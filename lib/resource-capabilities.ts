@@ -234,7 +234,8 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     },
 
     mixradius: {
-        actions: ['read'],
+        actions: ['read', 'create', 'update', 'delete'],
+        description: 'Integrasi MixRadius (termasuk manajemen site/group)'
     },
     
     // ====== CHAT MODULE ======

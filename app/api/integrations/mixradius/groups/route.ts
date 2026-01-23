@@ -35,21 +35,9 @@ export async function POST(req: NextRequest) {
     const session = await verifyAuth(req)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // Use a stricter permission for writing if available, otherwise mixradius:read (or assumption: admin)
-    // Assuming mixradius:write or similar exists? 
-    // Usually standard is: read, create, update, delete or just feature access.
-    // I'll stick to 'mixradius:read' based on context or maybe 'super_admin' check if critical.
-    // Let's check permissions used in other write ops. If not sure, I'll use mixradius:read for now 
-    // as the user asked for "Admin UI" which implies access control.
-    // Ideally should be 'mixradius:manage' or similar. 
-    // I'll assume 'mixradius:read' grants access to the module, but I should probably check if there is a better permission.
-    // Existing code uses `mixradius:read`. I'll stick to it or maybe allow only if they have access.
-    
-    // Check for write permission if possible. 
-    // I will check `lib/rbac.ts` or similar later if needed. For now I'll use same permission as read to unblock.
     const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:read')) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!permissions.includes('mixradius:create')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const body = await req.json()
@@ -61,6 +49,19 @@ export async function POST(req: NextRequest) {
 
     const service = getMixRadiusService()
     const newGroup = await service.createOwnerGroup({ name, owners })
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'CREATE',
+        subject: 'MixRadius Group',
+        userId: session.id,
+        details: { id: newGroup.id, name: newGroup.name, owners: newGroup.owners }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
 
     return NextResponse.json(newGroup)
   } catch (error: any) {

@@ -19,7 +19,7 @@ export async function PUT(req: NextRequest, context: Context) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:read')) {
+    if (!permissions.includes('mixradius:update')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -29,6 +29,19 @@ export async function PUT(req: NextRequest, context: Context) {
 
     const service = getMixRadiusService()
     const updatedGroup = await service.updateOwnerGroup(id, { name, owners, isActive })
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'UPDATE',
+        subject: 'MixRadius Group',
+        userId: session.id,
+        details: { id, changes: { name, owners, isActive } }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
 
     return NextResponse.json(updatedGroup)
   } catch (error: any) {
@@ -46,13 +59,26 @@ export async function DELETE(req: NextRequest, context: Context) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:read')) {
+    if (!permissions.includes('mixradius:delete')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const { id } = await context.params
     const service = getMixRadiusService()
     await service.deleteOwnerGroup(id)
+
+    // System Log
+    try {
+      const { logger } = await import('@/lib/logger')
+      await logger.logActivity({
+        action: 'DELETE',
+        subject: 'MixRadius Group',
+        userId: session.id,
+        details: { id }
+      })
+    } catch (e) {
+      console.error('Logging failed', e)
+    }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

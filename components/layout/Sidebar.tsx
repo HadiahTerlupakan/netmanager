@@ -65,6 +65,7 @@ import {
   HiOutlinePresentationChartBar,
   HiOutlineCloud,
   HiOutlineArrowsRightLeft,
+  HiOutlineNoSymbol,
 } from 'react-icons/hi2'
 import { useSettings } from '@/hooks/useSettings'
 import { usePermission } from '@/hooks/use-permission'
@@ -146,6 +147,7 @@ const IconMap: Record<string, React.ElementType> = {
   HiOutlinePresentationChartBar,
   HiOutlineCloud,
   HiOutlineArrowsRightLeft,
+  HiOutlineNoSymbol,
 }
 
 const getIcon = (name: string | undefined, className: string) => {
