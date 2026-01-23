@@ -202,10 +202,14 @@ app.prepare().then(() => {
             } catch (error: any) {
                 console.error('[Server] Error uploading app version:', error)
                 
-                // Ensure we always return JSON, even on error
+                // Safe error object construction
                 const errorMessage = error?.message || 'Failed to upload app version'
+                // Avoid passing entire error object to JSON.stringify as it might cause circular reference
                 const errorDetails = {
                     error: errorMessage,
+                    // Only include safe properties
+                    code: error?.code, 
+                    name: error?.name,
                     stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
                 }
                 
@@ -214,9 +218,9 @@ app.prepare().then(() => {
                     res.end(JSON.stringify(errorDetails))
                 } catch (writeError) {
                     console.error('[Server] Failed to write error response:', writeError)
-                    // Fallback: write plain text if JSON serialization fails
-                    res.writeHead(500, { 'Content-Type': 'text/plain' })
-                    res.end(errorMessage)
+                    // Fallback that is definitely safe
+                    res.writeHead(500, { 'Content-Type': 'application/json' })
+                    res.end(JSON.stringify({ error: errorMessage }))
                 }
                 return
             }
