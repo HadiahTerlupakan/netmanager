@@ -163,7 +163,7 @@ export class MixRadiusService {
         this.credentials = {
           username: activeConfig.username,
           password: activeConfig.password,
-          baseUrl: activeConfig.baseUrl,
+          baseUrl: activeConfig.baseUrl.replace(/\/$/, ''),
         }
       } else {
         console.log('[MixRadius] No active config in DB, using fallback Env vars')
@@ -171,7 +171,7 @@ export class MixRadiusService {
         this.credentials = {
           username: process.env.MIXRADIUS_USERNAME || 'rudihartono',
           password: process.env.MIXRADIUS_PASSWORD || 'rudihartono12#',
-          baseUrl: process.env.MIXRADIUS_URL || 'https://sblnet.topsetting.com:973'
+          baseUrl: (process.env.MIXRADIUS_URL || 'https://sblnet.topsetting.com:973').replace(/\/$/, '')
         }
       }
     } catch (error) {
