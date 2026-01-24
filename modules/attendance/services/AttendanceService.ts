@@ -318,49 +318,123 @@ export class AttendanceService {
         // Calculate Combined Top Employees (Star Employees)
         const userMap = new Map<string, { days: number, officialOtMinutes: number, excessMinutes: number, totalMinutes: number, alphaCount: number }>()
 
-        // 1. Base Attendance Days
+        // 1. Base Attendance Days (ONLY users with actual ON_TIME/LATE attendance)
         userAttStats.forEach(item => {
             if (!userMap.has(item.userId)) userMap.set(item.userId, { days: 0, officialOtMinutes: 0, excessMinutes: 0, totalMinutes: 0, alphaCount: 0 })
             const current = userMap.get(item.userId)!
             current.days = item._count._all
         })
 
-        // 2. Formal Overtime (Approved/Completed)
+        // 2. Formal Overtime (Approved/Completed) - ONLY add to existing users with attendance
         userOtStats.forEach(item => {
-             if (!userMap.has(item.userId)) userMap.set(item.userId, { days: 0, officialOtMinutes: 0, excessMinutes: 0, totalMinutes: 0, alphaCount: 0 })
+             // Skip if user has no attendance record (shouldn't appear in Star Employees)
+             if (!userMap.has(item.userId)) return
              const current = userMap.get(item.userId)!
              current.officialOtMinutes += (item._sum.duration || 0)
         })
 
-        // 3. Absence Stats (Penalties)
+        // 3. Absence Stats (Penalties) - ONLY for existing users
         userAbsenceStats.forEach(item => {
-            if (!userMap.has(item.userId)) userMap.set(item.userId, { days: 0, officialOtMinutes: 0, excessMinutes: 0, totalMinutes: 0, alphaCount: 0 })
+            if (!userMap.has(item.userId)) return
             const current = userMap.get(item.userId)!
             current.alphaCount = item._count._all
         })
 
-        // 4. Implicit Overtime & Total Duration
+        // 4. Fetch User Work Hour Configuration for accurate standard hours calculation
+        const userIds = Array.from(userMap.keys())
+        const userConfigs = userIds.length > 0 ? await prisma.user.findMany({
+            where: { id: { in: userIds } },
+            select: {
+                id: true,
+                workingHourMode: true,
+                startWorkTime: true,
+                endWorkTime: true,
+                flexibleTargetHour: true,
+                shift: {
+                    select: {
+                        startTime: true,
+                        endTime: true
+                    }
+                }
+            }
+        }) : []
+
+        // Create user config map for quick lookup
+        const userConfigMap = new Map(userConfigs.map(u => [u.id, u]))
+
+        // Helper function to calculate standard work minutes per day for a user
+        const getStandardMinutesPerDay = (userId: string): number => {
+            const config = userConfigMap.get(userId)
+            if (!config) return 480 // Default 8 hours if no config found
+
+            switch (config.workingHourMode) {
+                case 'FIXED':
+                    // Calculate from startWorkTime and endWorkTime (format: "HH:mm")
+                    if (config.startWorkTime && config.endWorkTime) {
+                        const [startH, startM] = config.startWorkTime.split(':').map(Number)
+                        const [endH, endM] = config.endWorkTime.split(':').map(Number)
+                        const startMinutes = startH * 60 + startM
+                        const endMinutes = endH * 60 + endM
+                        // Handle overnight (end < start)
+                        return endMinutes >= startMinutes 
+                            ? endMinutes - startMinutes 
+                            : (24 * 60 - startMinutes) + endMinutes
+                    }
+                    return 480 // Default 8 hours
+
+                case 'SHIFT':
+                    // Calculate from shift times
+                    if (config.shift?.startTime && config.shift?.endTime) {
+                        const [startH, startM] = config.shift.startTime.split(':').map(Number)
+                        const [endH, endM] = config.shift.endTime.split(':').map(Number)
+                        const startMinutes = startH * 60 + startM
+                        const endMinutes = endH * 60 + endM
+                        // Handle overnight shift
+                        return endMinutes >= startMinutes 
+                            ? endMinutes - startMinutes 
+                            : (24 * 60 - startMinutes) + endMinutes
+                    }
+                    return 480 // Default 8 hours
+
+                case 'FLEXIBLE':
+                    // Use flexibleTargetHour (in hours)
+                    return (config.flexibleTargetHour || 8) * 60
+
+                default:
+                    return 480 // Default 8 hours
+            }
+        }
+
+        // 5. Implicit Overtime & Total Duration - ONLY for existing users
         userTotalDuration.forEach((totalMinutes, userId) => {
-             if (!userMap.has(userId)) userMap.set(userId, { days: 0, officialOtMinutes: 0, excessMinutes: 0, totalMinutes: 0, alphaCount: 0 })
+             // Skip if user has no attendance record
+             if (!userMap.has(userId)) return
              const current = userMap.get(userId)!
              
              // Set absolute total working minutes
              current.totalMinutes = totalMinutes
 
-             // Standard Work Minutes = Days Present * 8 hours * 60 minutes
-             const standardMinutes = current.days * 480
-             
-             if (totalMinutes > standardMinutes) {
-                 const excess = totalMinutes - standardMinutes
-                 // Add excess minutes to record
-                 current.excessMinutes += excess
+             // Calculate Standard Work Minutes based on user's ACTUAL work hour configuration
+             // Only calculate excess if user has actual attendance days
+             if (current.days > 0) {
+                 const standardMinutesPerDay = getStandardMinutesPerDay(userId)
+                 const standardMinutes = current.days * standardMinutesPerDay
+                 
+                 if (totalMinutes > standardMinutes) {
+                     const excess = totalMinutes - standardMinutes
+                     // Add excess minutes to record
+                     current.excessMinutes += excess
+                 }
              }
         })
 
-        const scoredUsers = Array.from(userMap.entries()).map(([userId, stats]) => {
+        // FILTER: Only include users with at least 1 day of attendance
+        const scoredUsers = Array.from(userMap.entries())
+            .filter(([_, stats]) => stats.days > 0) // Must have attendance
+            .map(([userId, stats]) => {
             // Scoring System:
             // 1 Day Present = 10 pts
-            // 1 Day Alpha = -50 pts (Penalty)
+            // 1 Day Alpha = -20 pts (Penalty)
             // Official Overtime = 2 pts/hour (1 pt per 30 mins)
             // Extra/Excess Overtime = 4 pts/hour (1 pt per 15 mins)
             
@@ -393,6 +467,7 @@ export class AttendanceService {
 
         // Fetch User Details
         let combinedTopEmployees: any[] = []
+
         if (topScorers.length > 0) {
             const topScorerDetails = await prisma.user.findMany({
                 where: { id: { in: topScorers.map(u => u.userId) } },

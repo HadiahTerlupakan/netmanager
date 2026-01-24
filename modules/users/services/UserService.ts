@@ -14,6 +14,15 @@ export interface CreateUserInput {
     siteId?: string
     roleId?: string
     isActive?: boolean
+    // Working Hours Settings
+    workingHourMode?: string
+    startWorkTime?: string
+    endWorkTime?: string
+    workDays?: string
+    flexibleTargetHour?: number
+    shiftId?: string | null
+    // Sales Feature
+    isSales?: boolean
 }
 
 export interface UpdateUserInput {
@@ -59,7 +68,7 @@ export class UserService {
         // Hash password
         const passwordHash = await hash(data.password, 10)
 
-        // Create user
+        // Create user with working hours settings
         return this.userRepository.create({
             email: data.email,
             name: data.name || null,
@@ -69,6 +78,15 @@ export class UserService {
             siteId: data.siteId || null,
             roleId: data.roleId || null,
             isActive: data.isActive,
+            // Working Hours Settings
+            workingHourMode: (data.workingHourMode as WorkingHourMode) || WorkingHourMode.FIXED,
+            startWorkTime: data.startWorkTime || '09:00',
+            endWorkTime: data.endWorkTime || '17:00',
+            workDays: data.workDays || 'Mon,Tue,Wed,Thu,Fri',
+            flexibleTargetHour: data.flexibleTargetHour || 8,
+            shiftId: data.shiftId || null,
+            // Sales Feature
+            isSales: data.isSales || false,
         })
     }
 

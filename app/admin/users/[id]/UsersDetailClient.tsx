@@ -77,6 +77,7 @@ interface UserData {
   workDays?: string | null
   flexibleTargetHour?: number | null
   shiftId?: string | null
+  shift?: { id: string; name: string; startTime: string; endTime: string } | null
   canvasingTarget?: number
   isSales?: boolean
 }
@@ -469,6 +470,111 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
                   : user?.site ? `${user.site.code} - ${user.site.name}` 
                   : '-'}
               </p>
+            )}
+          </div>
+        </div>
+
+        {/* Working Hours Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <HiOutlineUserCircle className="w-5 h-5 text-blue-500" />
+            Pengaturan Jam Kerja
+          </h3>
+          
+          {/* Mode Badge */}
+          <div className="mb-4">
+            {formData.workingHourMode === 'FIXED' && (
+              <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <HiOutlineBuildingOffice className="w-4 h-4 mr-2" />
+                Jam Kerja Tetap (FIXED)
+              </span>
+            )}
+            {formData.workingHourMode === 'SHIFT' && (
+              <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                <HiOutlineUserCircle className="w-4 h-4 mr-2" />
+                Jam Kerja Shift (SHIFT)
+              </span>
+            )}
+            {formData.workingHourMode === 'FLEXIBLE' && (
+              <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
+                <HiOutlineUserCircle className="w-4 h-4 mr-2" />
+                Jam Kerja Fleksibel (FLEXIBLE)
+              </span>
+            )}
+          </div>
+
+          {/* Mode Details */}
+          <div className="space-y-3 text-sm">
+            {formData.workingHourMode === 'FIXED' && (
+              <>
+                <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                  <span className="text-gray-500 dark:text-gray-400">Jam Masuk</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{formData.startWorkTime || '-'}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                  <span className="text-gray-500 dark:text-gray-400">Jam Pulang</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{formData.endWorkTime || '-'}</span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-gray-500 dark:text-gray-400">Hari Kerja</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {formData.workDays ? formData.workDays.split(',').map(d => {
+                      const dayMap: Record<string, string> = { 'Mon': 'Sen', 'Tue': 'Sel', 'Wed': 'Rab', 'Thu': 'Kam', 'Fri': 'Jum', 'Sat': 'Sab', 'Sun': 'Min' }
+                      return dayMap[d.trim()] || d.trim()
+                    }).join(', ') : '-'}
+                  </span>
+                </div>
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg text-xs text-blue-700 dark:text-blue-300">
+                  ℹ️ Jika tidak check-in pada hari kerja, akan ditandai sebagai <strong>ALPHA</strong> (Tidak Masuk).
+                </div>
+              </>
+            )}
+
+            {formData.workingHourMode === 'SHIFT' && (
+              <>
+                <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                  <span className="text-gray-500 dark:text-gray-400">Shift</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {user?.shift ? user.shift.name : (user?.shiftId ? 'Shift Terpilih' : 'Belum dipilih')}
+                  </span>
+                </div>
+                {user?.shift && (
+                  <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                    <span className="text-gray-500 dark:text-gray-400">Jadwal Shift</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {user.shift.startTime} - {user.shift.endTime}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-gray-500 dark:text-gray-400">Hari Kerja</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {formData.workDays ? formData.workDays.split(',').map(d => {
+                      const dayMap: Record<string, string> = { 'Mon': 'Sen', 'Tue': 'Sel', 'Wed': 'Rab', 'Thu': 'Kam', 'Fri': 'Jum', 'Sat': 'Sab', 'Sun': 'Min' }
+                      return dayMap[d.trim()] || d.trim()
+                    }).join(', ') : '-'}
+                  </span>
+                </div>
+                <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg text-xs text-purple-700 dark:text-purple-300">
+                  ℹ️ Jadwal mengikuti pola shift. Jika tidak check-in pada hari kerja, akan ditandai sebagai <strong>ALPHA</strong>.
+                </div>
+              </>
+            )}
+
+            {formData.workingHourMode === 'FLEXIBLE' && (
+              <>
+                <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                  <span className="text-gray-500 dark:text-gray-400">Target Jam Kerja</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{formData.flexibleTargetHour || 8} jam / hari</span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-gray-500 dark:text-gray-400">Sifat Absensi</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">Akumulasi Bulanan</span>
+                </div>
+                <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg text-xs text-green-700 dark:text-green-300">
+                  ✅ <strong>Tidak ada ALPHA</strong> - Bebas check-in kapan saja. Yang dihitung adalah total akumulasi jam kerja dalam 1 bulan.
+                </div>
+              </>
             )}
           </div>
         </div>

@@ -243,26 +243,42 @@ export function ClientComponent() {
             key: 'jamKerja',
             header: 'Jam Kerja',
             priority: 'primary',
-            render: (item) => (
-                <div>
-                    <div className="text-sm text-green-600 font-mono bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded inline-block mb-1">
-                        IN: {format(new Date(item.checkIn), 'HH:mm', { locale: id })}
-                    </div>
-                    {item.checkOut ? (
-                        <div className="text-sm text-red-600 font-mono bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded inline-block">
-                            OUT: {format(new Date(item.checkOut), 'HH:mm', { locale: id })}
+            render: (item) => {
+                // ALPHA records should not show working hours (they didn't actually check in)
+                if (item.status === 'ALPHA') {
+                    return (
+                        <div className="text-sm text-gray-400 italic">
+                            Tidak Masuk
                         </div>
-                    ) : (
-                        <div className="text-xs text-gray-400 italic mt-1">Belum checkout</div>
-                    )}
-                </div>
-            )
+                    )
+                }
+                
+                return (
+                    <div>
+                        <div className="text-sm text-green-600 font-mono bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded inline-block mb-1">
+                            IN: {format(new Date(item.checkIn), 'HH:mm', { locale: id })}
+                        </div>
+                        {item.checkOut ? (
+                            <div className="text-sm text-red-600 font-mono bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded inline-block">
+                                OUT: {format(new Date(item.checkOut), 'HH:mm', { locale: id })}
+                            </div>
+                        ) : (
+                            <div className="text-xs text-gray-400 italic mt-1">Belum checkout</div>
+                        )}
+                    </div>
+                )
+            }
         },
         {
             key: 'durasi',
             header: 'Durasi',
             priority: 'primary',
             render: (item) => {
+                // ALPHA records have no actual working duration
+                if (item.status === 'ALPHA') {
+                    return <span className="text-gray-400 text-sm">-</span>
+                }
+                
                 if (!item.checkOut) return <span className="text-gray-400 text-sm">-</span>
 
                 const start = new Date(item.checkIn).getTime()
@@ -319,14 +335,24 @@ export function ClientComponent() {
             key: 'status',
             header: 'Status',
             priority: 'primary',
-            render: (item) => (
-                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${item.status === 'LATE' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                    item.status === 'SICK' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                        'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                    }`}>
-                    {item.status}
-                </span>
-            )
+            render: (item) => {
+                const statusConfig: Record<string, { bg: string, text: string, label: string }> = {
+                    'ON_TIME': { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-400', label: 'Tepat Waktu' },
+                    'LATE': { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-400', label: 'Terlambat' },
+                    'SICK': { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-800 dark:text-orange-400', label: 'Sakit' },
+                    'PERMIT': { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-800 dark:text-blue-400', label: 'Izin' },
+                    'ALPHA': { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Mangkir' },
+                    'ABSENT': { bg: 'bg-gray-100 dark:bg-gray-900/30', text: 'text-gray-800 dark:text-gray-400', label: 'Absen' },
+                    'DAY_OFF': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-800 dark:text-purple-400', label: 'Libur' }
+                }
+                const config = statusConfig[item.status] || statusConfig['ABSENT']
+                
+                return (
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${config.bg} ${config.text}`}>
+                        {config.label}
+                    </span>
+                )
+            }
         },
         {
             key: 'foto',

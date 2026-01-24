@@ -28,11 +28,18 @@ export class AutoCheckoutService {
         // We catch everything up to the current moment.
         // IMPORTANT: Exclude FLEXIBLE users - they don't have fixed schedules
         // so they shouldn't be auto-checked out and marked as MANGKIR
+        // ALSO: Exclude ALPHA records - they are created by AbsenceService for users who didn't check-in at all
+        // ALPHA records should NOT have checkOut time added
         const openAttendances = await prisma.attendance.findMany({
             where: {
                 checkOut: null,
                 checkIn: {
                     lte: endOfToday
+                },
+                // IMPORTANT: Skip ALPHA records - they are placeholder records for absent users
+                // Adding checkOut to ALPHA records would create false working hours
+                status: {
+                    not: 'ALPHA'
                 },
                 user: {
                     workingHourMode: {
@@ -50,6 +57,7 @@ export class AutoCheckoutService {
                 }
             }
         })
+
 
         console.log(`[AutoCheckout] Found ${openAttendances.length} open sessions. Processing...`)
 

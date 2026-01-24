@@ -13,11 +13,21 @@ import {
 } from 'react-icons/hi2'
 
 interface PerformanceData {
+    workingHourMode: 'FIXED' | 'SHIFT' | 'FLEXIBLE'
     attendance: {
         present: number
         late: number
         absent: number
+        alpha: number
         total: number
+    }
+    flexibleStats: {
+        totalMinutesThisMonth: number
+        totalHoursThisMonth: number
+        daysWorkedThisMonth: number
+        avgHoursPerDay: number
+        targetHoursPerDay: number
+        targetPercentage: number
     }
     leaves: {
         cuti: number
@@ -73,6 +83,8 @@ export default function UserPerformanceStats({ userId }: { userId: string }) {
 
     if (error || !data) return null
 
+    const isFlexible = data.workingHourMode === 'FLEXIBLE'
+
     return (
         <div className="space-y-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -82,49 +94,120 @@ export default function UserPerformanceStats({ userId }: { userId: string }) {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
-                {/* 1. Attendance Card */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                            <HiOutlineClock className="w-5 h-5 text-blue-500" />
-                            Kehadiran (30 Hari)
-                        </h3>
-                        <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full dark:bg-blue-900/30 dark:text-blue-300">
-                            Total: {data.attendance.total}
-                        </span>
-                    </div>
-                    
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="flex items-center text-gray-600 dark:text-gray-400">
-                                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                                Hadir Tepat Waktu
+                {/* 1. Attendance Card - Different for FLEXIBLE */}
+                {isFlexible ? (
+                    // FLEXIBLE Mode: Show working hours stats
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <HiOutlineClock className="w-5 h-5 text-green-500" />
+                                Jam Kerja (Bulan Ini)
+                            </h3>
+                            <span className="text-xs font-medium bg-green-100 text-green-800 px-2 py-1 rounded-full dark:bg-green-900/30 dark:text-green-300">
+                                FLEXIBLE
                             </span>
-                            <span className="font-bold text-gray-900 dark:text-white">{data.attendance.present}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="flex items-center text-gray-600 dark:text-gray-400">
-                                <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                                Terlambat
-                            </span>
-                            <span className="font-bold text-gray-900 dark:text-white">{data.attendance.late}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="flex items-center text-gray-600 dark:text-gray-400">
-                                <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                                Absen / Alpha
-                            </span>
-                            <span className="font-bold text-gray-900 dark:text-white">{data.attendance.absent}</span>
                         </div>
                         
-                        {/* Simple Bar */}
-                        <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden flex mt-2">
-                            <div style={{ width: `${(data.attendance.present / data.attendance.total) * 100}%` }} className="h-full bg-green-500" />
-                            <div style={{ width: `${(data.attendance.late / data.attendance.total) * 100}%` }} className="h-full bg-yellow-500" />
-                            <div style={{ width: `${(data.attendance.absent / data.attendance.total) * 100}%` }} className="h-full bg-red-500" />
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">Total Jam Bulan Ini</span>
+                                <span className="font-bold text-2xl text-green-600 dark:text-green-400">
+                                    {data.flexibleStats.totalHoursThisMonth}
+                                    <span className="text-sm font-normal text-gray-500 ml-1">jam</span>
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">Hari Kerja</span>
+                                <span className="font-bold text-gray-900 dark:text-white">{data.flexibleStats.daysWorkedThisMonth} hari</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">Rata-rata/Hari</span>
+                                <span className="font-bold text-gray-900 dark:text-white">{data.flexibleStats.avgHoursPerDay} jam</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">Target/Hari</span>
+                                <span className="font-medium text-gray-500">{data.flexibleStats.targetHoursPerDay} jam</span>
+                            </div>
+                            
+                            {/* Progress Bar */}
+                            <div className="pt-2">
+                                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                    <span>Pencapaian Target</span>
+                                    <span className={data.flexibleStats.targetPercentage >= 100 ? 'text-green-600' : 'text-orange-500'}>
+                                        {data.flexibleStats.targetPercentage}%
+                                    </span>
+                                </div>
+                                <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div 
+                                        style={{ width: `${data.flexibleStats.targetPercentage}%` }} 
+                                        className={`h-full rounded-full ${data.flexibleStats.targetPercentage >= 100 ? 'bg-green-500' : 'bg-orange-500'}`} 
+                                    />
+                                </div>
+                            </div>
+
+                            <p className="text-xs text-green-600 dark:text-green-400 mt-2 bg-green-50 dark:bg-green-900/10 p-2 rounded">
+                                ✅ Mode FLEXIBLE: Tidak ada ALPHA, yang dihitung adalah akumulasi jam kerja.
+                            </p>
                         </div>
                     </div>
-                </div>
+                ) : (
+                    // FIXED/SHIFT Mode: Traditional attendance stats
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <HiOutlineClock className="w-5 h-5 text-blue-500" />
+                                Kehadiran (30 Hari)
+                            </h3>
+                            <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                data.workingHourMode === 'SHIFT' 
+                                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+                                    : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                            }`}>
+                                {data.workingHourMode}
+                            </span>
+                        </div>
+                        
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="flex items-center text-gray-600 dark:text-gray-400">
+                                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                                    Hadir Tepat Waktu
+                                </span>
+                                <span className="font-bold text-gray-900 dark:text-white">{data.attendance.present}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="flex items-center text-gray-600 dark:text-gray-400">
+                                    <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                                    Terlambat
+                                </span>
+                                <span className="font-bold text-gray-900 dark:text-white">{data.attendance.late}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="flex items-center text-gray-600 dark:text-gray-400">
+                                    <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                                    Mangkir
+                                </span>
+                                <span className="font-bold text-gray-900 dark:text-white">{data.attendance.absent}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="flex items-center text-gray-600 dark:text-gray-400">
+                                    <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                                    Alpha (Tidak Masuk)
+                                </span>
+                                <span className="font-bold text-gray-900 dark:text-white">{data.attendance.alpha}</span>
+                            </div>
+                            
+                            {/* Simple Bar */}
+                            <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden flex mt-2">
+                                <div style={{ width: `${(data.attendance.present / Math.max(data.attendance.total, 1)) * 100}%` }} className="h-full bg-green-500" />
+                                <div style={{ width: `${(data.attendance.late / Math.max(data.attendance.total, 1)) * 100}%` }} className="h-full bg-yellow-500" />
+                                <div style={{ width: `${(data.attendance.absent / Math.max(data.attendance.total, 1)) * 100}%` }} className="h-full bg-orange-500" />
+                                <div style={{ width: `${(data.attendance.alpha / Math.max(data.attendance.total, 1)) * 100}%` }} className="h-full bg-red-500" />
+                            </div>
+                            <p className="text-xs text-gray-500 text-right">Total: {data.attendance.total} hari</p>
+                        </div>
+                    </div>
+                )}
 
                 {/* 2. Work Order Performance */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -207,3 +290,4 @@ function HiOutlineChartBarSquare(props: React.ComponentProps<'svg'>) {
     </svg>
   )
 }
+

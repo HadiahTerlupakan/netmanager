@@ -42,12 +42,18 @@ export class AbsenceService {
             return { processed: 0, alpha: 0, message: 'Holiday' }
         }
 
-        // 2. Get All Active Users
+        // 2. Get All Active Users (EXCLUDE FLEXIBLE mode - they don't have daily attendance requirements)
+        // FLEXIBLE users accumulate working hours monthly, not daily check-in/out
         const users = await prisma.user.findMany({
             where: {
                 isActive: true,
                 role: {
                     name: { not: 'SUPER_ADMIN' } 
+                },
+                // IMPORTANT: Exclude FLEXIBLE users - they don't have fixed schedules
+                // Their attendance is based on monthly hour accumulation, not daily presence
+                workingHourMode: {
+                    not: 'FLEXIBLE'
                 }
             },
             select: {
@@ -126,9 +132,11 @@ export class AbsenceService {
 
              // 3.4 If all checks passed: MARK AS ALPHA
              try {
-                // Set checkIn time to 09:00 of that day arbitrarily for the record
+                // Set checkIn time to 00:00:00 (midnight) of that day
+                // This signals that this is NOT a real check-in, just a placeholder record for ALPHA
+                // UI should hide the time display for records with this midnight timestamp
                 const alphaTime = new Date(startOfDay)
-                alphaTime.setHours(9, 0, 0, 0)
+                alphaTime.setHours(0, 0, 0, 0)
                 
                 await prisma.attendance.create({
                     data: {

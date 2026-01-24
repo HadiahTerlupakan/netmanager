@@ -205,7 +205,11 @@ export async function POST(req: NextRequest) {
     const {
       email, name, password,
       phone, departmentId, siteId, isActive, roleId,
-      userSites  // Multi-site support
+      userSites,  // Multi-site support
+      // Working Hours Settings
+      workingHourMode, startWorkTime, endWorkTime, workDays, flexibleTargetHour, shiftId,
+      // Sales Feature
+      isSales
     } = formData
 
     // const permissions = (session.user as any).permissions || []
@@ -252,6 +256,15 @@ export async function POST(req: NextRequest) {
         siteId,
         roleId,
         isActive,
+        // Working Hours Settings
+        workingHourMode: workingHourMode || 'FIXED',
+        startWorkTime: startWorkTime || '09:00',
+        endWorkTime: endWorkTime || '17:00',
+        workDays: workDays || 'Mon,Tue,Wed,Thu,Fri',
+        flexibleTargetHour: flexibleTargetHour ? parseInt(flexibleTargetHour) : 8,
+        shiftId: shiftId || null,
+        // Sales Feature
+        isSales: isSales || false,
       })
 
       // Handle multi-site: create userSites records

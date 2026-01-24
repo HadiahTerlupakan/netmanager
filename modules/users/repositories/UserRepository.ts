@@ -12,6 +12,15 @@ export interface CreateUserDTO {
     siteId?: string | null
     roleId?: string | null
     isActive?: boolean
+    // Working Hours Settings
+    workingHourMode?: WorkingHourMode
+    startWorkTime?: string | null
+    endWorkTime?: string | null
+    workDays?: string | null
+    flexibleTargetHour?: number | null
+    shiftId?: string | null
+    // Sales Feature
+    isSales?: boolean
 }
 
 export interface UserWithRelations extends User {
@@ -102,6 +111,15 @@ export class UserRepository {
                 siteId: data.siteId || null,
                 roleId: data.roleId || null,
                 isActive: data.isActive !== undefined ? data.isActive : true,
+                // Working Hours Settings
+                workingHourMode: data.workingHourMode || WorkingHourMode.FIXED,
+                startWorkTime: data.startWorkTime || '09:00',
+                endWorkTime: data.endWorkTime || '17:00',
+                workDays: data.workDays || 'Mon,Tue,Wed,Thu,Fri',
+                flexibleTargetHour: data.flexibleTargetHour || 8,
+                shiftId: data.shiftId || null,
+                // Sales Feature
+                isSales: data.isSales || false,
             },
         })
     }

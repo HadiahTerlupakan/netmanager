@@ -338,10 +338,10 @@ export function ClientComponent() {
                                 <span className="text-xs font-normal text-gray-500">(Total Alpha)</span>
                             </h3>
                             <div className="space-y-3">
-                                {(!data.topAbsentees || data.topAbsentees.length === 0) ? (
+                                {(!data.attendance.topAbsentees || data.attendance.topAbsentees.length === 0) ? (
                                     <p className="text-gray-400 text-sm italic">Nihil. Semua rajin!</p>
                                 ) : (
-                                    data.topAbsentees.map((item: any, idx: number) => (
+                                    data.attendance.topAbsentees.map((item: any, idx: number) => (
                                         <div key={item.user.id} className="flex items-center gap-3 p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50">
                                             <div className="font-bold text-gray-400 w-4">#{idx + 1}</div>
                                             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center overflow-hidden shrink-0">
@@ -365,6 +365,7 @@ export function ClientComponent() {
                                 )}
                             </div>
                         </div>
+
                     </div>
 
                     {/* Charts Row */}

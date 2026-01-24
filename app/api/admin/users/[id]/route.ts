@@ -420,6 +420,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         canvasingTarget: true,
         isSales: true,
         shiftId: true,
+        shift: {
+          select: { id: true, name: true, startTime: true, endTime: true }
+        },
         departments: {
           select: { id: true, name: true },
         },

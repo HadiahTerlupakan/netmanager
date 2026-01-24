@@ -19,6 +19,7 @@ import {
   HiOutlineIdentification
 } from 'react-icons/hi2'
 import MultiSiteSelect from '../components/MultiSiteSelect'
+import WorkingHoursSettings from '../[id]/WorkingHoursSettings'
 
 interface SelectedSite {
   siteId: string
@@ -62,10 +63,21 @@ export function ClientComponent() {
     departmentId: '',
     // Role
     roleId: '',
-    // Status
+    // Status & Features
     isActive: true,
+    isSales: false,
   })
   const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([])
+  
+  // Working Hours Data
+  const [workingHoursData, setWorkingHoursData] = useState({
+    workingHourMode: 'FIXED',
+    startWorkTime: '09:00',
+    endWorkTime: '17:00',
+    workDays: 'Mon,Tue,Wed,Thu,Fri',
+    flexibleTargetHour: 8,
+    shiftId: null as string | null
+  })
 
   useEffect(() => {
     fetchDepartments()
@@ -180,6 +192,7 @@ export function ClientComponent() {
     try {
       const submitData = {
         ...formData,
+        ...workingHoursData,
         userSites: selectedSites,
       }
       const res = await fetch('/api/admin/users', {
@@ -445,7 +458,20 @@ export function ClientComponent() {
           </div>
         </div>
 
-        {/* Status Section */}
+        {/* Working Hours Settings */}
+        <WorkingHoursSettings
+          initialData={{
+            workingHourMode: workingHoursData.workingHourMode,
+            startWorkTime: workingHoursData.startWorkTime,
+            endWorkTime: workingHoursData.endWorkTime,
+            workDays: workingHoursData.workDays,
+            flexibleTargetHour: workingHoursData.flexibleTargetHour,
+            shiftId: workingHoursData.shiftId
+          }}
+          onChange={(data) => setWorkingHoursData(prev => ({ ...prev, ...data }))}
+        />
+
+        {/* Status & Sales Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 bg-linear-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
@@ -453,13 +479,13 @@ export function ClientComponent() {
                 <HiOutlineShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Status Akun</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Pengaturan status aktif pengguna</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Akses & Privilese</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Pengaturan status dan fitur khusus pengguna</p>
               </div>
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-6 space-y-4">
             <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               <div>
                 <h3 className="font-medium text-gray-900 dark:text-white">Akun Aktif</h3>
@@ -470,6 +496,23 @@ export function ClientComponent() {
                   type="checkbox"
                   name="isActive"
                   checked={formData.isActive}
+                  onChange={handleChange}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
+              <div>
+                <h3 className="font-medium text-indigo-900 dark:text-indigo-300">Fitur Sales & Canvasing</h3>
+                <p className="text-sm text-indigo-600/70 dark:text-indigo-400/60">Aktifkan jika user adalah Sales atau Teknisi yang merangkap Sales. User akan tampil di Manajemen Sales dan bisa akses menu Canvasing.</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="isSales"
+                  checked={formData.isSales}
                   onChange={handleChange}
                   className="sr-only peer"
                 />

@@ -403,7 +403,10 @@ export class AttendanceRepository {
     async getUserTotalDuration(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
         const where: Prisma.AttendanceWhereInput = {
             checkIn: { gte: startDate, lte: endDate },
-            checkOut: { not: null }
+            checkOut: { not: null },
+            // IMPORTANT: Only count duration from actual present attendance
+            // Exclude ALPHA/ABSENT records which may have had checkOut set due to bugs
+            status: { in: ['ON_TIME', 'LATE'] }
         }
 
         if (siteId || departmentId) {
