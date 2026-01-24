@@ -52,6 +52,7 @@ interface MixRadiusCustomerDetail {
   expired_action?: string
   uptime?: string
   quota_usage?: string
+  online?: boolean
   invoices?: MixRadiusInvoice[]
 }
 
@@ -85,6 +86,8 @@ interface MixRadiusCustomer {
   trx_status: string
   trx_invoice: string
   owner_name: string
+  online?: boolean
+  active_session_ip?: string
 }
 
 interface MixRadiusResponse {
@@ -119,6 +122,36 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const [detailLoading, setDetailLoading] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'profile' | 'invoices'>('profile')
+
+  // Invoice counts state
+  const [invoiceCounts, setInvoiceCounts] = useState<Record<string, { paidCount: number, totalCount: number }>>({})
+
+  // Fetch invoice counts for visible data
+  useEffect(() => {
+    if (data.length === 0) return
+
+    const fetchCounts = async () => {
+      const ids = data.map(d => d.id)
+      
+      try {
+        const res = await fetch('/api/integrations/mixradius/invoice-counts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customerIds: ids })
+        })
+        const json = await res.json()
+        if (json.data) {
+            setInvoiceCounts(prev => ({ ...prev, ...json.data }))
+        }
+      } catch (err) {
+        console.error('Failed to fetch invoice counts', err)
+      }
+    }
+    
+    const timer = setTimeout(fetchCounts, 500)
+    return () => clearTimeout(timer)
+  }, [data])
+
 
   // Fetch customer detail
   const fetchCustomerDetail = async (customerId: string) => {
@@ -260,6 +293,19 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
     return new Date(dateStr) < new Date()
   }
 
+  const calculateMonths = (createdAt: string) => {
+    if (!createdAt) return '0 Bulan'
+    const start = new Date(createdAt)
+    const now = new Date()
+    
+    let months = (now.getFullYear() - start.getFullYear()) * 12
+    months += now.getMonth() - start.getMonth()
+    
+    // Ensure at least 1 month if they just joined
+    const total = Math.max(1, months)
+    return `${total} Bulan`
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -367,6 +413,30 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                   </div>
                  )
               },
+              {
+                key: 'created_at',
+                header: 'Berlangganan',
+                priority: 'primary',
+                render: (item) => {
+                  const count = invoiceCounts[item.id]
+                  if (!count) return (
+                    <div className="flex items-center gap-1.5 text-gray-400">
+                      <HiOutlineArrowPath className="w-3 h-3 animate-spin" />
+                      <span className="text-[10px]">Memuat...</span>
+                    </div>
+                  )
+                  return (
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                        {count.paidCount} Bulan
+                      </span>
+                      <span className="text-[10px] text-gray-400">
+                        Total {count.totalCount} Invoice
+                      </span>
+                    </div>
+                  )
+                }
+              },
               { key: 'owner_name', header: 'Owner', priority: 'tertiary' },
             ] : [
               { key: 'member_id', header: 'ID', priority: 'primary', minWidth: '100px', className: 'font-mono' },
@@ -400,10 +470,49 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                 render: (item) => getStatusBadge(item.auth_status)
               },
               {
-                key: 'trx_status',
-                header: 'Pembayaran',
+                key: 'online',
+                header: 'Online',
+                priority: 'primary',
+                render: (item) => (
+                  <div className="flex flex-col">
+                    {item.online ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 w-fit">
+                        Online
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500 w-fit">
+                        Offline
+                      </span>
+                    )}
+                    {item.active_session_ip && (
+                      <span className="text-[9px] text-gray-400 font-mono mt-0.5">{item.active_session_ip}</span>
+                    )}
+                  </div>
+                )
+              },
+              {
+                key: 'created_at',
+                header: 'Berlangganan',
                 priority: 'secondary',
-                render: (item) => getTrxStatusBadge(item.trx_status)
+                render: (item) => {
+                    const count = invoiceCounts[item.id]
+                    if (!count) return (
+                        <div className="flex items-center gap-1 text-gray-400">
+                            <HiOutlineArrowPath className="w-3 h-3 animate-spin" />
+                            <span className="text-[9px]">Memuat...</span>
+                        </div>
+                    )
+                    return (
+                        <div className="flex flex-col">
+                            <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                                {count.paidCount} Bulan
+                            </span>
+                            <span className="text-[9px] text-gray-400">
+                                ID: {item.id}
+                            </span>
+                        </div>
+                    )
+                }
               },
               {
                 key: 'expired_on',
@@ -571,9 +680,25 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                     <div className="col-span-1 md:col-span-2">
                         <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">Alamat</label>
                         <p className="text-sm text-gray-900 dark:text-white leading-relaxed">{selectedCustomer.address || '-'}</p>
-                    </div>
                 </div>
             </div>
+            </div>
+
+            {/* Online Status Alert */}
+            {selectedCustomer.online && (
+              <div className="mb-6 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-3 animate-pulse">
+                <div className="p-2 bg-green-100 dark:bg-green-800 rounded-full">
+                   <HiWifi className="w-5 h-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                   <h4 className="text-sm font-bold text-green-800 dark:text-green-300">Perangkat Online</h4>
+                   <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-400">
+                      <span>Uptime: {selectedCustomer.uptime || '-'}</span>
+                      {selectedCustomer.quota_usage && <span>| Quota: {selectedCustomer.quota_usage}</span>}
+                   </div>
+                </div>
+              </div>
+            )}
 
             {/* Service Info */}
             <div>

@@ -108,61 +108,46 @@ export async function GET(req: NextRequest) {
 
     logs.push(`Session cookie: ${sessionCookie.substring(0, 50)}...`)
 
-    // Step 3: Try to fetch data
-    logs.push('Step 3: Fetching customer data...')
+    // Step 3: Fetch Dashboard to find links
+    logs.push('Step 3: Fetching Dashboard to find Active Sessions link...')
     
-    const dataFormData = new URLSearchParams()
-    dataFormData.append('draw', '1')
-    dataFormData.append('start', '0')
-    dataFormData.append('length', '5')
-    dataFormData.append('search[value]', '')
-    dataFormData.append('search[regex]', 'false')
-
-    let dataResponse
+    let pageResponse
     try {
-      dataResponse = await fetch(`${baseUrl}/rad-get-data/customers-ppp`, {
-        method: 'POST',
+      pageResponse = await fetch(`${baseUrl}/rad-admin`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Cookie': sessionCookie,
-          'Referer': `${baseUrl}/rad-customers/ppp`,
-          'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Cookie': sessionCookie
         },
-        body: dataFormData.toString(),
         // @ts-ignore
-        rejectUnauthorized: false,
+        rejectUnauthorized: false
       })
-      logs.push(`Data response status: ${dataResponse.status}`)
+      logs.push(`Page response status: ${pageResponse.status}`)
     } catch (e: any) {
-      logs.push(`Data fetch error: ${e.message}`)
-      return NextResponse.json({ success: false, logs, error: e.message })
+       logs.push(`Page fetch error: ${e.message}`)
+       return NextResponse.json({ success: false, logs, error: e.message })
     }
 
-    const rawText = await dataResponse.text()
-    logs.push(`Response length: ${rawText.length}`)
-    logs.push(`Response preview: ${rawText.substring(0, 200)}...`)
-
-    const isHTML = rawText.startsWith('<!DOCTYPE') || rawText.startsWith('<html')
-    if (isHTML) {
-      logs.push('ERROR: Received HTML response instead of JSON!')
-      return NextResponse.json({ success: false, logs, error: 'HTML response - session invalid' })
+    const pageHtml = await pageResponse.text()
+    logs.push(`Page HTML length: ${pageHtml.length}`)
+    
+    // Search for links containing "active", "online", "session"
+    const links = pageHtml.match(/<a[^>]+href="([^"]*)"[^>]*>([^<]*(?:active|online|session)[^<]*)<\/a>/gi)
+    if (links) {
+        logs.push(`Found ${links.length} potential links:`)
+        links.forEach(l => logs.push(l))
+    } else {
+        logs.push('No obvious links found. Dumping all hrefs...')
+        const hrefs = pageHtml.match(/href="([^"]*)"/g)
+        if (hrefs) {
+             logs.push(`Found ${hrefs.length} hrefs. Sample: ${hrefs.slice(0, 10).join(', ')}`)
+        }
     }
 
-    try {
-      const data = JSON.parse(rawText)
-      logs.push(`SUCCESS! Records total: ${data.recordsTotal}`)
-      return NextResponse.json({ 
-        success: true, 
-        logs, 
-        recordsTotal: data.recordsTotal,
-        sampleData: data.data?.slice(0, 2)
-      })
-    } catch (e: any) {
-      logs.push(`JSON parse error: ${e.message}`)
-      return NextResponse.json({ success: false, logs, error: 'Invalid JSON' })
-    }
+    return NextResponse.json({ success: true, logs })
+
+
+
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

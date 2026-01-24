@@ -4,6 +4,7 @@ import axios, { type AxiosInstance } from 'axios'
 import { wrapper } from 'axios-cookiejar-support'
 import { CookieJar } from 'tough-cookie'
 import { mixRadiusConfigRepo } from '@/modules/integrations/mixradius/MixRadiusConfigRepository'
+import { LRUCache } from '@/lib/utils/lru-cache'
 
 // Types
 export interface MixRadiusCredentials {
@@ -42,6 +43,9 @@ export interface MixRadiusCustomer {
   bind_mac: string
   mac_address: string | null
   owner_name: string
+  // New fields for online status
+  online?: boolean
+  active_session_ip?: string
 }
 
 export interface MixRadiusCustomerResponse {
@@ -85,6 +89,7 @@ export interface MixRadiusCustomerDetail {
   expired_action?: string
   uptime?: string
   quota_usage?: string
+  online?: boolean
   invoices?: MixRadiusInvoice[]
 }
 
@@ -115,6 +120,7 @@ export class MixRadiusService {
   private jar: CookieJar
   private isLoggedIn: boolean = false
   private loginExpiresAt: number = 0
+  private invoiceCountCache: LRUCache<string, { paidCount: number, totalCount: number }>
 
   constructor() {
     // Initial credentials from environment variables (fallback)
@@ -129,6 +135,9 @@ export class MixRadiusService {
 
     // Create cookie jar
     this.jar = new CookieJar()
+
+    // Initialize cache - 1000 items, 1 hour TTL
+    this.invoiceCountCache = new LRUCache(1000, 3600000)
 
     // Create axios instance with cookie jar support
     this.client = wrapper(axios.create({
@@ -446,6 +455,29 @@ export class MixRadiusService {
 
       const recordsFiltered = allData.length
 
+      // FETCH ACTIVE SESSIONS and MERGE
+      let activeSessions = new Map<string, any>();
+      try {
+        activeSessions = await this.fetchActiveSessionsPPP()
+      } catch (err) {
+        // console.error("Active session fetch failed", err);
+      }
+      
+      // Merge online status
+      let onlineCount = 0
+      allData = allData.map((customer, idx) => {
+        const session = activeSessions.get(customer.username)
+        if (session) onlineCount++
+        
+        return {
+          ...customer,
+          online: !!session,
+          active_session_ip: session ? session.ip : undefined
+        }
+      })
+      console.log(`[MixRadius] Merged online status. Total online from ${allData.length} records: ${onlineCount}`)
+
+
       // 4. Sort by expired_on ascending (oldest first) for Isolir view
       // This ensures customers who have been expired longest appear first
       if (params.authStatus === 'Disabled-Users') {
@@ -531,6 +563,167 @@ export class MixRadiusService {
       return prisma.mixRadiusOwnerGroup.delete({
           where: { id }
       })
+  }
+
+  /**
+   * Fetch Active Sessions from MixRadius
+   * Endpoint: /rad-get-active-sessions (or similar, verifying via implementation)
+   * Returns: Map of username -> session info
+   */
+  async fetchActiveSessionsPPP(): Promise<Map<string, { ip: string, uptime: string }>> {
+    try {
+      if (!this.isLoggedIn) await this.login()
+
+      console.log('[MixRadius] Fetching active sessions...')
+      
+      // Standard DataTables request params for Active Sessions
+      // Based on typical MixRadius admin panel network requests
+      const formData = new URLSearchParams()
+      formData.append('draw', '1')
+      formData.append('start', '0')
+      formData.append('length', '5000') // Fetch max to get all online users
+      formData.append('search[value]', '')
+      formData.append('search[regex]', 'false')
+
+      const response = await this.client.post(
+        `${this.credentials.baseUrl}/rad-get-data/active-ppp&sid=SSP-38`,
+        formData.toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Referer': `${this.credentials.baseUrl}/rad-users-session/active-ppp`
+          }
+        }
+      )
+
+      const activeMap = new Map<string, { ip: string, uptime: string }>()
+      
+      if (response.data && Array.isArray(response.data.data)) {
+        // data usually contains: [id, username, ip_address, start_time, update_time, ... ]
+        // OR objects if modern. Let's assume typical MixRadius object array or check log.
+        // Usually objects with 'username', 'framedipaddress', 'acctstarttime'
+        
+        const sessions = response.data.data
+        console.log(`[MixRadius] Found ${sessions.length} active sessions`)
+        if (sessions.length > 0) {
+            console.log('[MixRadius] First session sample:', JSON.stringify(sessions[0], null, 2))
+        }
+        
+        sessions.forEach((session: any) => {
+          // Normalize fields based on NEW JSON structure:
+          // username, nasshortname, acctsessionid, acctsessiontime, acctstarttime, calledstationid, callingstationid, framedipaddress, acctinputoctets, acctoutputoctets, member_id, fullname, expired_on, plan_name, owner_name, type, method
+          const username = session.username || session.member_id || ''
+          const ip = session.framedipaddress || ''
+          const uptime = session.acctsessiontime || ''
+          
+          if (username) {
+            activeMap.set(username, { ip, uptime })
+          }
+        })
+      }
+
+      return activeMap
+    } catch (error: any) {
+      console.error('[MixRadius] Failed to fetch active sessions:', error.message)
+      // Return empty map instead of failing entire request
+      return new Map()
+    }
+  }
+
+  /**
+   * Fetch Invoice Counts for a list of Customer IDs
+   * Uses parallel fetching of details (limit batch size in caller)
+   */
+  async fetchInvoiceCounts(customerIds: string[]): Promise<Map<string, { paidCount: number, totalCount: number }>> {
+    if (!this.isLoggedIn) await this.login()
+    
+    const results = new Map<string, { paidCount: number, totalCount: number }>()
+    
+    // Process in parallel
+    const promises = customerIds.map(async (id) => {
+      try {
+        // Check cache first
+        const cached = this.invoiceCountCache.get(id)
+        if (cached) {
+          // console.log(`[MixRadius] Cache HIT for invoice count customer ${id}`)
+          results.set(id, cached)
+          return
+        }
+
+        console.log(`[MixRadius] Cache MISS for invoice count customer ${id}. Fetching detail...`)
+        const detail = await this.fetchCustomerDetail(id)
+        const invoices = detail.invoices || []
+        
+        const paidCount = invoices.filter(inv => inv.status === 'Paid').length
+        const totalCount = invoices.length
+        
+        const counts = { paidCount, totalCount }
+        results.set(id, counts)
+        this.invoiceCountCache.set(id, counts)
+      } catch (error) {
+        console.error(`[MixRadius] Failed to fetch invoice count for ${id}:`, error)
+        results.set(id, { paidCount: 0, totalCount: 0 })
+      }
+    })
+
+    await Promise.all(promises)
+    return results
+  }
+
+  /**
+   * Helper to parse invoices from HTML table
+   */
+  private parseInvoicesFromHtml(html: string): MixRadiusInvoice[] {
+    const invoices: MixRadiusInvoice[] = []
+    
+    // Find table rows
+    const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
+    let rowMatch
+    
+    while ((rowMatch = rowRegex.exec(html)) !== null) {
+        const rowContent = rowMatch[1]
+        const colRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi
+        const cols: string[] = []
+        let colMatch
+        while ((colMatch = colRegex.exec(rowContent)) !== null) {
+          cols.push(colMatch[1].replace(/<[^>]*>/g, '').trim())
+        }
+        
+        if (cols.length >= 7) {
+           let status = cols[7] || ''
+           const rowUpper = rowContent.toUpperCase()
+           
+           if (!status || status === 'Unknown' || status.trim() === '') {
+              if (rowUpper.includes('UNPAID') || rowUpper.includes('BELUM BAYAR')) status = 'Unpaid'
+              else if (rowUpper.includes('PAID') || rowUpper.includes('LUNAS')) status = 'Paid'
+              else status = 'Unknown'
+           }
+
+           let invoiceNum = cols[1]
+           if (invoiceNum.toUpperCase().endsWith('UNPAID')) {
+               invoiceNum = invoiceNum.substring(0, invoiceNum.length - 6)
+               if (!status || status === 'Unknown') status = 'Unpaid'
+           } else if (invoiceNum.toUpperCase().endsWith('PAID')) {
+               invoiceNum = invoiceNum.substring(0, invoiceNum.length - 4)
+               if (!status || status === 'Unknown') status = 'Paid'
+           }
+
+           if (/^\d+$/.test(cols[0]) && (cols[3].includes('Rp') || /[\d,\.]+/.test(cols[3]))) {
+              invoices.push({
+                id: cols[0],
+                invoice_number: invoiceNum,
+                plan_name: cols[2],
+                amount: cols[3],
+                activation_date: cols[4],
+                deadline_date: cols[5],
+                owner: cols[6],
+                status: status
+              })
+           }
+        }
+    }
+    return invoices
   }
 
   /**
@@ -679,89 +872,12 @@ export class MixRadiusService {
         portal_password: extractValue('portalpassword'),
         expired_action: extractSelect('expired_action'),
         
-        invoices: (() => {
-           const invoices: MixRadiusInvoice[] = []
-           // Regex to match the invoice table specifically by checking for known headers or ID if consistent
-           // We'll look for the table containing 'Invoice' and 'Paket Langganan' or simply match rows in the expected table section
-           // Assuming it's a datatable or standard table.
-           
-           // Strategy: Find the table body that likely contains the invoices. 
-           // Simple approach: Look for <tr> elements that contain invoice-like patterns (e.g., date, amount)
-           // But safer to try to find the table element first.
-           
-           // Let's try to match <tr> rows that have 8 columns (based on typical admin columns)
-           // Pattern: <tr> <td>ID</td> <td>Invoice</td> <td>Plan</td> <td>Amount</td> ... </tr>
-           
-           // Common pattern in this system for invoices seems to be a list. 
-           // Let's capture all TRs and filter for those that look like invoices.
-           const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
-           let rowMatch
-           
-           // We need to be careful not to pick up the main details table rows. 
-           // The invoice table usually comes AFTER the details.
-           // Let's split HTML to find the section after "Riwayat Tagihan" or similar if possible.
-           // If not, we iterate all rows and check content.
-           
-           while ((rowMatch = rowRegex.exec(html)) !== null) {
-             const rowContent = rowMatch[1]
-             const colRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi
-             const cols: string[] = []
-             let colMatch
-             while ((colMatch = colRegex.exec(rowContent)) !== null) {
-               cols.push(colMatch[1].replace(/<[^>]*>/g, '').trim())
-             }
-             
-             // Check if this row looks like an invoice row
-             // Needs at least 5-8 columns
-             // Column 0 is usually ID (number)
-             // Column 1 is usually Invoice Number (string)
-             // Column 3 is usually Amount (currency format)
-             
-             if (cols.length >= 7) {
-                // Heuristic to ensure it's an invoice row:
-                // Col 0: numeric ID
-                // Col 3: contains 'Rp' or numeric
-                // Col 7: status
+        invoices: this.parseInvoicesFromHtml(html),
 
-                // Extract status from column or fallback to checking row content
-                let status = cols[7] || ''
-                const rowUpper = rowContent.toUpperCase()
-                
-                if (!status || status === 'Unknown' || status.trim() === '') {
-                   if (rowUpper.includes('UNPAID') || rowUpper.includes('BELUM BAYAR')) status = 'Unpaid'
-                   else if (rowUpper.includes('PAID') || rowUpper.includes('LUNAS')) status = 'Paid'
-                   else status = 'Unknown'
-                }
 
-                // Fix Invoice Number if it contains status (e.g. "INV-123Unpaid")
-                let invoiceNum = cols[1]
-                if (invoiceNum.toUpperCase().endsWith('UNPAID')) {
-                    invoiceNum = invoiceNum.substring(0, invoiceNum.length - 6)
-                    if (!status || status === 'Unknown') status = 'Unpaid'
-                } else if (invoiceNum.toUpperCase().endsWith('PAID')) {
-                    invoiceNum = invoiceNum.substring(0, invoiceNum.length - 4)
-                    if (!status || status === 'Unknown') status = 'Paid'
-                }
-
-                if (/^\d+$/.test(cols[0]) && (cols[3].includes('Rp') || /[\d,\.]+/.test(cols[3]))) {
-                   invoices.push({
-                     id: cols[0],
-                     invoice_number: invoiceNum,
-                     plan_name: cols[2],
-                     amount: cols[3],
-                     activation_date: cols[4],
-                     deadline_date: cols[5],
-                     owner: cols[6],
-                     status: status
-                   })
-                }
-             }
-           }
-           
-           return invoices
-        })(),
         
         // Stats from alerts
+        online: /Perangkat\s*\(\s*<b>\s*online\s*<\/b>\s*\)/i.test(html),
         uptime: (() => {
           const regex = /<i class="icon fa fa-calendar"><\/i>\s*([^<]+)\s*<\/h4>\s*Waktu Online/i
           const match = html.match(regex)
