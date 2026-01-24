@@ -414,6 +414,27 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
                  )
               },
               {
+                key: 'online',
+                header: 'Online',
+                priority: 'primary',
+                render: (item) => (
+                  <div className="flex flex-col">
+                    {item.online ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 w-fit">
+                        Online
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500 w-fit">
+                        Offline
+                      </span>
+                    )}
+                    {item.active_session_ip && (
+                      <span className="text-[9px] text-gray-400 font-mono mt-0.5">{item.active_session_ip}</span>
+                    )}
+                  </div>
+                )
+              },
+              {
                 key: 'created_at',
                 header: 'Berlangganan',
                 priority: 'primary',
