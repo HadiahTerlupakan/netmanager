@@ -132,86 +132,96 @@ export class AutomaticBillingService {
     }
 
     private static async createInvoiceForCustomer(customer: any, dueDate: Date) {
-        // 1. Generate Invoice Number
-        const currentYear = new Date().getFullYear();
-        const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+        // Use transaction to ensure atomicity
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Generate Invoice Number with UUID suffix to prevent race condition
+            const currentYear = new Date().getFullYear();
+            const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+            const currentDay = String(new Date().getDate()).padStart(2, '0');
+            
+            // Use timestamp + random suffix instead of count to avoid race condition
+            const uniqueSuffix = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+            const invoiceNumber = `INV/${currentYear}/${currentMonth}/${currentDay}-${uniqueSuffix.toUpperCase()}`;
 
-        // Count for number generation
-        const invoiceCount = await prisma.invoice.count({
-            where: {
-                createdAt: {
-                    gte: new Date(currentYear, new Date().getMonth(), 1),
-                    lt: new Date(currentYear, new Date().getMonth() + 1, 1),
-                },
-            },
+            // 2. Calculate Items
+            const amount = BigInt(customer.hargaPaket.harga);
+            // Add tax logic
+            let taxAmount = 0n;
+            if (customer.usePPN || customer.hargaPaket.usePPN) {
+                const ppnRate = customer.hargaPaket.ppnPercentage || 11;
+                taxAmount = amount * BigInt(Math.round(ppnRate * 100)) / 10000n;
+            }
+
+            const totalAmount = amount + taxAmount;
+
+            // 3. Create Invoice
+            const invoice = await tx.invoice.create({
+                data: {
+                    id: randomUUID(),
+                    invoiceNumber,
+                    pelangganId: customer.id,
+                    issueDate: new Date(),
+                    dueDate: dueDate,
+                    status: 'SENT', // Auto sent
+                    subtotal: amount,
+                    taxAmount: taxAmount,
+                    totalAmount: totalAmount,
+                    updatedAt: new Date(),
+                    invoiceItem: {
+                        create: [{
+                            id: randomUUID(),
+                            description: `Berlangganan Internet Paket ${customer.hargaPaket.name}`,
+                            quantity: 1,
+                            unitPrice: amount,
+                            totalPrice: amount,
+                            itemType: 'SERVICE'
+                        }]
+                    }
+                }
+            });
+
+            // 4. Update jatuhTempo customer ke bulan berikutnya
+            const currentDueDate = new Date(customer.jatuhTempo);
+            const nextDueDate = new Date(currentDueDate);
+            nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+            
+            await tx.pelanggan.update({
+                where: { id: customer.id },
+                data: { jatuhTempo: nextDueDate }
+            });
+
+            return invoice;
         });
 
-        const invoiceNumber = `INV/${currentYear}/${currentMonth}/${String(invoiceCount + 1).padStart(4, '0')}`; // Potential race condition if high concurrency, but OK for cron
-
-        // 2. Calculate Items
-        const amount = BigInt(customer.hargaPaket.harga);
-        // Add tax logic
-        let taxAmount = 0n;
-        if (customer.usePPN || customer.hargaPaket.usePPN) {
-            const ppnRate = customer.hargaPaket.ppnPercentage || 11;
-            taxAmount = amount * BigInt(Math.round(ppnRate * 100)) / 10000n; // Basic calc
+        // 5. Send Notification (outside transaction because it's not critical)
+        try {
+            await createNotification({
+                type: 'SYSTEM',
+                title: 'Tagihan Baru Tersedia',
+                message: `Tagihan bulan ini sebesar Rp ${Number(result.totalAmount).toLocaleString('id-ID')} telah terbit. Jatuh tempo pada ${dueDate.toLocaleDateString('id-ID')}.`,
+                userId: customer.userId,
+                link: '/tagihan',
+                sourceType: 'INVOICE',
+                sourceId: result.id,
+                priority: 'NORMAL'
+            });
+        } catch (notifErr) {
+            console.error(`[Billing] Failed to send notification for ${customer.nama}:`, notifErr);
         }
 
-        // Apply discount from customer settings if recurring
-        // Simplified for this implementation
-        const totalAmount = amount + taxAmount;
-
-        // 3. Create Invoice
-        const invoice = await prisma.invoice.create({
-            data: {
-                id: randomUUID(),
-                invoiceNumber,
-                pelangganId: customer.id,
-                issueDate: new Date(),
-                dueDate: dueDate,
-                status: 'SENT', // Auto sent
-                subtotal: amount,
-                taxAmount: taxAmount,
-                totalAmount: totalAmount,
-                updatedAt: new Date(),
-                invoiceItem: {
-                    create: [{
-                        id: randomUUID(),
-                        description: `Berlangganan Internet Paket ${customer.hargaPaket.name}`,
-                        quantity: 1,
-                        unitPrice: amount,
-                        totalPrice: amount,
-                        itemType: 'SERVICE' // Assuming enum exists
-                    }]
-                }
-            }
-        });
-
-        // 4. Send Notification
-        await createNotification({
-            type: 'SYSTEM', // Or new BILLING type if added
-            title: 'Tagihan Baru Tersedia',
-            message: `Tagihan bulan ini sebesar Rp ${Number(totalAmount).toLocaleString('id-ID')} telah terbit. Jatuh tempo pada ${dueDate.toLocaleDateString('id-ID')}.`,
-            userId: customer.userId, // Assuming customer is linked to a user
-            link: '/tagihan', // Customer portal link
-            sourceType: 'INVOICE',
-            sourceId: invoice.id,
-            priority: 'NORMAL'
-        });
-
-        // Log
+        // 6. Log activity
         await logger.logActivity({
             action: 'CREATE',
             subject: 'Invoice (Auto)',
-            // userId: 'SYSTEM', // Remove this to avoid FK error
             details: {
-                id: invoice.id,
-                invoiceNumber,
+                id: result.id,
+                invoiceNumber: result.invoiceNumber,
                 customer: customer.nama,
-                actor: 'SYSTEM_CRON'
+                actor: 'SYSTEM_CRON',
+                nextDueDate: new Date(customer.jatuhTempo).toISOString()
             }
         });
 
-        return invoice;
+        return result;
     }
 }

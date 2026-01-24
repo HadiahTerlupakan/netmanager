@@ -121,6 +121,21 @@ export function TransferTable({ transfers, onRefresh, onViewDetails, onDelete }:
       })
     },
     {
+      key: 'createdBy',
+      header: 'Diproses Oleh',
+      priority: 'secondary',
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-xs font-medium text-indigo-600 dark:text-indigo-400">
+            {item.createdBy?.name?.charAt(0) || '?'}
+          </div>
+          <span className="text-sm text-gray-700 dark:text-gray-300">
+            {item.createdBy?.name || 'System'}
+          </span>
+        </div>
+      )
+    },
+    {
       key: 'keterangan',
       header: 'Ket',
       priority: 'tertiary',

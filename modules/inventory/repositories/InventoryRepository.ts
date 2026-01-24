@@ -234,11 +234,14 @@ export class InventoryRepository implements IInventoryRepository {
                 const assetsToCreate = []
                 const prefix = `AST-${masuk.barang.kode}`
                 const dateCode = new Date().toISOString().slice(2,7).replace('-','') // YYMM
+                const timestamp = Date.now().toString(36).toUpperCase() // Base36 timestamp for uniqueness
 
                 for (let i = 0; i < data.jumlah; i++) {
+                    // Use timestamp + index + small random for guaranteed uniqueness
+                    const uniqueSuffix = `${timestamp}${i.toString().padStart(3, '0')}`
                     assetsToCreate.push({
                         barangId: data.barangId,
-                        kodeAsset: `${prefix}-${dateCode}-${Math.floor(1000 + Math.random() * 9000)}`, 
+                        kodeAsset: `${prefix}-${dateCode}-${uniqueSuffix}`, 
                         purchaseDate: data.tanggal || new Date(),
                         purchasePrice: data.hargaBeliSatuan || 0,
                         currentValue: data.hargaBeliSatuan || 0, // Set initial value = purchase price
@@ -526,7 +529,8 @@ export class InventoryRepository implements IInventoryRepository {
                 include: {
                     barang: { select: { id: true, kode: true, nama: true, satuan: true } },
                     gudangDari: { select: { id: true, kode: true, nama: true, lokasi: true } },
-                    gudangKe: { select: { id: true, kode: true, nama: true, lokasi: true } }
+                    gudangKe: { select: { id: true, kode: true, nama: true, lokasi: true } },
+                    createdBy: { select: { id: true, name: true, email: true } }
                 },
                 orderBy: { tanggal: 'desc' },
                 skip,
@@ -621,6 +625,7 @@ export class InventoryRepository implements IInventoryRepository {
                     jumlah,
                     kondisi,
                     keterangan: data.keterangan,
+                    createdById: data.userId,
                     fotoBukti: data.fotoBukti || [],
                     fotoMetadata: data.fotoMetadata || null
                 }
@@ -647,9 +652,17 @@ export class InventoryRepository implements IInventoryRepository {
                 }
             })
 
+            // Determine which stock field to update based on kondisi
+            const stockField = kondisi === 'BARU' ? 'stokBaru' : 
+                              kondisi === 'BEKAS' ? 'stokBekas' : 
+                              kondisi === 'RUSAK' ? 'stokRusak' : 'stokBaru'
+            
+            const decrementData: any = { stok: stockSumber.stok - jumlah }
+            decrementData[stockField] = { decrement: jumlah }
+
             await tx.barangGudang.update({
                 where: { id: stockSumber.id },
-                data: { stok: stockSumber.stok - jumlah }
+                data: decrementData
             })
 
             // Add to Dest (Create Masuk + Update/Create BarangGudang)
@@ -671,19 +684,28 @@ export class InventoryRepository implements IInventoryRepository {
             })
 
             if (stockTujuan) {
+                const incrementData: any = { stok: stockTujuan.stok + jumlah }
+                incrementData[stockField] = { increment: jumlah }
+                
                 await tx.barangGudang.update({
                     where: { id: stockTujuan.id },
-                    data: { stok: stockTujuan.stok + jumlah }
+                    data: incrementData
                 })
             } else {
+                const createData: any = {
+                    id: crypto.randomUUID(),
+                    barangId,
+                    gudangId: keGudangId,
+                    stok: jumlah,
+                    stokBaru: 0,
+                    stokBekas: 0,
+                    stokRusak: 0,
+                    updatedAt: new Date()
+                }
+                createData[stockField] = jumlah // Set the appropriate stock field
+                
                 await tx.barangGudang.create({
-                    data: {
-                        id: crypto.randomUUID(),
-                        barangId,
-                        gudangId: keGudangId,
-                        stok: jumlah,
-                        updatedAt: new Date()
-                    }
+                    data: createData
                 })
             }
 

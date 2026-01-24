@@ -54,8 +54,8 @@ interface BarangKeluar {
 
 export default function BarangKeluarPage() {
   const { hasPermission } = usePermission()
-  const canCreate = hasPermission('stockkeluar:create')
-  const canUpdate = hasPermission('stockkeluar:update')
+  const canCreate = hasPermission('keluar:create')
+  const canUpdate = hasPermission('keluar:update')
 
   const [showForm, setShowForm] = useState(false)
   const [editingKeluar, setEditingKeluar] = useState<BarangKeluar | null>(null)

@@ -115,8 +115,21 @@ export class FinanceService {
 
     // 2. Wrap in transaction
     const result = await prisma.$transaction(async (tx) => {
-      // 2a. Update Account Balance if provided (Decrease for payment)
+      // 2a. Validate and Update Account Balance if provided (Decrease for payment)
       if (input.paidFromAccountId) {
+          // Validasi saldo mencukupi
+          const account = await tx.financialAccount.findUnique({
+            where: { id: input.paidFromAccountId }
+          })
+          
+          if (!account) {
+            throw new Error('Akun keuangan tidak ditemukan')
+          }
+          
+          if (account.balance < input.amount) {
+            throw new Error(`Saldo akun ${account.name} tidak mencukupi. Saldo: Rp ${account.balance.toLocaleString('id-ID')}, Dibutuhkan: Rp ${input.amount.toLocaleString('id-ID')}`)
+          }
+          
           await tx.financialAccount.update({
               where: { id: input.paidFromAccountId },
               data: { balance: { decrement: input.amount } }
@@ -139,15 +152,15 @@ export class FinanceService {
       })
 
       // Calculate new Payment Status
-      // Fetch all transactions for this PO (including the one just created? No, we need to sum manually or query again)
-      // Since we are inside a tx, let's query.
+      // Fetch all transactions for this PO (including the one just created)
       const existingTx = await tx.transaction.findMany({
         where: { purchaseOrderId: input.poId }
       })
 
       const totalPaid = existingTx.reduce((sum, t) => sum + t.amount, 0)
       
-      let newStatus: PaymentStatus = 'PARTIAL'
+      // Determine status: UNPAID (no payments), PARTIAL (some payments), PAID (fully paid)
+      let newStatus: PaymentStatus = 'UNPAID'
       
       // Check full payment with small tolerance (against Grand Total)
       // If grandTotal is 0 (legacy data), use totalAmount
@@ -155,6 +168,8 @@ export class FinanceService {
       
       if (totalPaid >= (targetAmount - 100)) {
         newStatus = 'PAID'
+      } else if (totalPaid > 0) {
+        newStatus = 'PARTIAL'
       }
 
       // Update PO Status & Last Paid Account
@@ -370,6 +385,8 @@ export class FinanceService {
             console.error('Logging failed', e)
         }
     }
+
+    return result
   }
   async createAccount(data: {
     name: string

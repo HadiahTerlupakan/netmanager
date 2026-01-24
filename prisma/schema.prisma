@@ -1107,6 +1107,7 @@ model User {
   transactions                               Transaction[]
   assets                                     Asset[]
   leaveBalances                              LeaveBalance[]
+  transferAntarGudangs                       TransferAntarGudang[]     @relation("TransferCreatedBy")
 
   @@index([departmentId])
   @@index([isActive])
@@ -1951,6 +1952,7 @@ model TransferAntarGudang {
   kondisi      KondisiBarang  @default(BARU)
   keterangan   String?
   createdAt    DateTime       @default(now())
+  createdById  String?
   fotoBukti    String[]
   fotoMetadata Json?
   barangKeluar BarangKeluar[]
@@ -1958,12 +1960,14 @@ model TransferAntarGudang {
   barang       Barang         @relation(fields: [barangId], references: [id], onDelete: Cascade)
   gudangDari   Gudang         @relation("transfer_antar_gudang_dariGudangIdTogudang", fields: [dariGudangId], references: [id], onDelete: Cascade)
   gudangKe     Gudang         @relation("transfer_antar_gudang_keGudangIdTogudang", fields: [keGudangId], references: [id], onDelete: Cascade)
+  createdBy    User?          @relation("TransferCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([barangId])
   @@index([dariGudangId])
   @@index([keGudangId])
   @@index([kondisi])
   @@index([tanggal])
+  @@index([createdById])
   @@map("transfer_antar_gudang")
 }
 

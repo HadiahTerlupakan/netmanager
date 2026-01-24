@@ -326,18 +326,20 @@ export async function POST(req: NextRequest) {
 
       if (invoice) {
         // Calculate total paid amount
+        // NOTE: Payment baru sudah dicreate di atas dan sudah termasuk dalam invoice.payment
+        // Jangan tambah amountInCents lagi untuk menghindari double counting
         const totalPaid = invoice.payment.reduce(
           (sum, p) => sum + p.amount,
           0n
-        ) + amountInCents
+        )
 
-        // Update invoice paid amount
+        // Update invoice paid amount and status
+        // Status: PAID jika lunas, tetap SENT jika ada pembayaran parsial
         await prisma.invoice.update({
           where: { id: invoiceId },
           data: {
             paidAmount: totalPaid,
-            status: totalPaid >= invoice.totalAmount ? 'PAID' :
-              totalPaid > 0 ? 'SENT' : invoice.status,
+            status: totalPaid >= invoice.totalAmount ? 'PAID' : invoice.status,
             paidAt: totalPaid >= invoice.totalAmount ? new Date() : null,
           },
         })

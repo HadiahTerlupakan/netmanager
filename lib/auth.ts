@@ -385,12 +385,32 @@ export const authConfig: NextAuthOptions = {
       // Dynamic import to avoid circular dependencies if necessary
       const { logger } = await import('@/lib/logger')
 
+      // Fetch user role for more detailed logging
+      let roleName = 'Unknown'
+      let portal = 'Unknown'
+      try {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          include: { role: true }
+        })
+        roleName = dbUser?.role?.name || 'No Role'
+        portal = dbUser?.role?.accessAdminPanel ? 'Admin Portal' : 
+                 dbUser?.role?.accessEmployeePanel ? 'Employee Portal' : 'Unknown'
+      } catch (e) {
+        console.error('[AUTH] Failed to fetch user role for logging:', e)
+      }
+
       await logger.logAuth({
         action: 'LOGIN',
         userId: user.id,
         details: {
-          provider: account?.provider,
-          isNewuser: isNewUser
+          email: user.email,
+          name: user.name || 'N/A',
+          role: roleName,
+          portal: portal,
+          provider: account?.provider || 'credentials',
+          isNewUser: isNewUser || false,
+          loginTime: new Date().toISOString()
         }
       })
     }

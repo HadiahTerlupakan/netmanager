@@ -52,8 +52,8 @@ interface BarangMasuk {
 
 export default function BarangMasukPage() {
   const { hasPermission } = usePermission()
-  const canCreate = hasPermission('stockmasuk:create')
-  const canUpdate = hasPermission('stockmasuk:update')
+  const canCreate = hasPermission('masuk:create')
+  const canUpdate = hasPermission('masuk:update')
 
   const [showForm, setShowForm] = useState(false)
   const [editingMasuk, setEditingMasuk] = useState<BarangMasuk | null>(null)

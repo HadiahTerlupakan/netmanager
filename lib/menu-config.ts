@@ -216,8 +216,8 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         path: '/admin/log',
         icon: 'HiOutlineClipboardDocumentList',
         children: [
-            { code: 'SYSTEM_LOG.LOGIN', name: 'Log Login', path: '/admin/log/login', icon: 'HiOutlineShieldCheck' },
-            { code: 'SYSTEM_LOG.ACTIVITY', name: 'Log Aktivitas', path: '/admin/log/activity', icon: 'HiOutlineDocumentText' },
+            { code: 'SYSTEM_LOG.SYSTEM_LOG', name: 'Log Login', path: '/admin/log/login', icon: 'HiOutlineShieldCheck' },
+            { code: 'SYSTEM_LOG.SYSTEM_LOG', name: 'Log Aktivitas', path: '/admin/log/activity', icon: 'HiOutlineDocumentText' },
         ],
     },
     {

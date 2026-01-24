@@ -1,11 +1,8 @@
 import { ensureAnyPermission } from '@/lib/rbac'
 
-// Finance section permissions: daily_income, period_income, expense, profit_loss
+// Finance section permission: use 'finance' resource (same as menu config)
 const FINANCE_PERMISSIONS = [
-    'daily_income:read',
-    'period_income:read',
-    'expense:read',
-    'profit_loss:read'
+    'finance:read'
 ]
 
 export default async function FinanceSectionLayout({

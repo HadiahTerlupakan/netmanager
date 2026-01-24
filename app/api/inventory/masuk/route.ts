@@ -403,8 +403,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
+    // Return more detailed error message in development
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? `Gagal mencatat barang masuk: ${error.message}` 
+      : 'Gagal mencatat barang masuk'
+    
     return NextResponse.json(
-      { error: 'Gagal mencatat barang masuk' },
+      { error: errorMessage },
       { status: 500 }
     )
   }

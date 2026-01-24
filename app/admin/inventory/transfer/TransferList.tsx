@@ -216,6 +216,17 @@ export default function TransferPage() {
                     {selectedTransfer.kondisi}
                   </span>
                 </div>
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Diproses Oleh</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                      {selectedTransfer.createdBy?.name?.charAt(0) || '?'}
+                    </div>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {selectedTransfer.createdBy?.name || 'System'}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
