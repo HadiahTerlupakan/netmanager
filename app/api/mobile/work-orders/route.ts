@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
             statusFilters = ['COMPLETED', 'VERIFIED', 'CLOSED', 'CANCELLED'];
         }
 
-        // 3. Fetch Data
-        const result = await repository.findAll(
+        // 3. Fetch Data - Use optimized findAllForList() for mobile list view
+        const result = await repository.findAllForList(
             {
                 involvedUserId: userId, // Lead OR Partner
                 status: statusFilters

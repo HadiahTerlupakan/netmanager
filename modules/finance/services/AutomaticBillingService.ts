@@ -71,30 +71,39 @@ export class AutomaticBillingService {
 
                 console.log(`[Billing] Processing batch ${Math.floor(skip / BATCH_SIZE) + 1} (${customers.length} customers)`);
 
-                for (const customer of customers) {
+                // OPTIMIZATION: Filter customers by due date first
+                const eligibleCustomers = customers.filter(c => {
+                    const dueDate = new Date(c.jatuhTempo);
+                    return dueDate.getDate() === targetDay;
+                });
+
+                if (eligibleCustomers.length === 0) {
+                    skip += BATCH_SIZE;
+                    continue;
+                }
+
+                // OPTIMIZATION: Batch check existing invoices (instead of N queries)
+                const eligibleIds = eligibleCustomers.map(c => c.id);
+                const existingInvoices = await prisma.invoice.findMany({
+                    where: {
+                        pelangganId: { in: eligibleIds },
+                        dueDate: {
+                            gte: new Date(targetYear, targetMonth - 1, targetDay, 0, 0, 0),
+                            lte: new Date(targetYear, targetMonth - 1, targetDay, 23, 59, 59),
+                        }
+                    },
+                    select: { pelangganId: true }
+                });
+                const existingInvoiceSet = new Set(existingInvoices.map(i => i.pelangganId));
+
+                const invoiceDueDate = new Date(targetYear, targetMonth - 1, targetDay);
+
+                for (const customer of eligibleCustomers) {
                     try {
                         processedCount++;
-                        const dueDate = new Date(customer.jatuhTempo);
 
-                        // Only process if day matches target
-                        if (dueDate.getDate() !== targetDay) {
-                            continue;
-                        }
-
-                        const invoiceDueDate = new Date(targetYear, targetMonth - 1, targetDay);
-
-                        // Check if invoice already exists
-                        const existingInvoice = await prisma.invoice.findFirst({
-                            where: {
-                                pelangganId: customer.id,
-                                dueDate: {
-                                    gte: new Date(targetYear, targetMonth - 1, targetDay, 0, 0, 0),
-                                    lte: new Date(targetYear, targetMonth - 1, targetDay, 23, 59, 59),
-                                }
-                            }
-                        });
-
-                        if (existingInvoice) {
+                        // Skip if invoice already exists (O(1) lookup)
+                        if (existingInvoiceSet.has(customer.id)) {
                             continue;
                         }
 

@@ -1,5 +1,6 @@
 import { sendPushNotification as sendExpoPush, sendPushToDepartment as sendExpoPushToDepartment } from './ExpoPushService';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { randomUUID } from 'crypto';
 
@@ -469,34 +470,35 @@ export async function getNotificationsForUser(
 
 /**
  * Get unread notification count for a user
+ * OPTIMIZED: Uses single query with $queryRaw for better performance
  */
 export async function getUnreadCount(userId: string, excludeTypes?: NotificationType[], siteId?: string): Promise<number> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { departmentId: true },
-    });
+    // Build type exclusion condition
+    const typeCondition = excludeTypes && excludeTypes.length > 0 
+        ? `AND "type" NOT IN (${excludeTypes.map(t => `'${t}'`).join(',')})` 
+        : '';
+    
+    // Build site condition
+    const siteCondition = siteId 
+        ? `AND ("siteId" = '${siteId}' OR "siteId" IS NULL)` 
+        : '';
 
-    const where: any = {
-        isRead: false,
-        OR: [
-            { userId },
-            {
-                AND: [
-                    { departmentId: user?.departmentId || 'NONE' },
-                    siteId ? { OR: [{ siteId: siteId }, { siteId: null }] } : {}
-                ]
-            }
-        ],
-    };
+    // Single optimized query with subquery for departmentId
+    const result = await prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*) as count
+        FROM "notifications" n
+        WHERE n."isRead" = false
+        ${typeCondition ? Prisma.raw(typeCondition) : Prisma.empty}
+        AND (
+            n."userId" = ${userId}
+            OR (
+                n."departmentId" = (SELECT "departmentId" FROM "User" WHERE "id" = ${userId})
+                ${siteCondition ? Prisma.raw(siteCondition) : Prisma.empty}
+            )
+        )
+    `;
 
-    // Exclude specific types
-    if (excludeTypes && excludeTypes.length > 0) {
-        where.type = {
-            notIn: excludeTypes
-        };
-    }
-
-    return prisma.notifications.count({ where });
+    return Number(result[0]?.count || 0);
 }
 
 /**
