@@ -19,16 +19,19 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const customerIds: string[] = body.customerIds || []
+    const validationData: Record<string, string> = body.validationData || {}
+    const bypassCache: boolean = body.bypassCache || false
 
     if (customerIds.length === 0) {
       return NextResponse.json({ data: {} })
     }
 
-    // Limit to max 20 customers per request to prevent overload
+    // Limit to max 20 customers per request if not bypassing
+    // If bypassing, we still want to be careful
     const limitedIds = customerIds.slice(0, 20)
 
     const service = new MixRadiusService()
-    const results = await service.fetchInvoiceCounts(limitedIds)
+    const results = await service.fetchInvoiceCounts(limitedIds, bypassCache, validationData)
 
     // Convert Map to object for JSON response
     const data: Record<string, { paidCount: number, totalCount: number }> = {}

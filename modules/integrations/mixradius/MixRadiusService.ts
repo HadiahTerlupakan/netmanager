@@ -121,7 +121,7 @@ export class MixRadiusService {
   private jar: CookieJar
   private isLoggedIn: boolean = false
   private loginExpiresAt: number = 0
-  private invoiceCountCache: LRUCache<string, { paidCount: number, totalCount: number }>
+  private invoiceCountCache: LRUCache<string, { paidCount: number, totalCount: number, lastRenewedOn: string }>
 
   constructor() {
     // Initial credentials from environment variables (fallback)
@@ -137,8 +137,8 @@ export class MixRadiusService {
     // Create cookie jar
     this.jar = new CookieJar()
 
-    // Initialize cache - 1000 items, 1 hour TTL
-    this.invoiceCountCache = new LRUCache(1000, 3600000)
+    // Initialize cache - 5000 items (covers all customers), 24 hours TTL
+    this.invoiceCountCache = new LRUCache(5000, 24 * 3600 * 1000)
 
     // Create axios instance with cookie jar support
     this.client = wrapper(axios.create({
@@ -643,40 +643,60 @@ export class MixRadiusService {
   /**
    * Fetch Invoice Counts for a list of Customer IDs
    * Uses parallel fetching of details (limit batch size in caller)
+   * bypassCache: force re-fetch
+   * validationData: map of customerId -> currentRenewedOn to auto-invalidate stale cache
    */
-  async fetchInvoiceCounts(customerIds: string[]): Promise<Map<string, { paidCount: number, totalCount: number }>> {
+  async fetchInvoiceCounts(
+    customerIds: string[], 
+    bypassCache: boolean = false,
+    validationData: Record<string, string> = {}
+  ): Promise<Map<string, { paidCount: number, totalCount: number }>> {
     if (!this.isLoggedIn) await this.login()
     
     const results = new Map<string, { paidCount: number, totalCount: number }>()
     
-    // Process in parallel
-    const promises = customerIds.map(async (id) => {
-      try {
-        // Check cache first
-        const cached = this.invoiceCountCache.get(id)
-        if (cached) {
-          // console.log(`[MixRadius] Cache HIT for invoice count customer ${id}`)
-          results.set(id, cached)
-          return
+    // Process one by one to be extremely polite to MixRadius (Limit: 1 concurrent)
+    const chunkSize = 1
+    for (let i = 0; i < customerIds.length; i += chunkSize) {
+      const chunk = customerIds.slice(i, i + chunkSize)
+      
+      const promises = chunk.map(async (id) => {
+        try {
+          // Check cache first (skip if bypassCache is true)
+          if (!bypassCache) {
+            const cached = this.invoiceCountCache.get(id)
+            const liveRenewedOn = validationData[id]
+            
+            // SMART INVALIDATION: Re-fetch if live date is different from cached date
+            if (cached && (!liveRenewedOn || cached.lastRenewedOn === liveRenewedOn)) {
+              results.set(id, { paidCount: cached.paidCount, totalCount: cached.totalCount })
+              return
+            }
+          }
+
+          console.log(`[MixRadius] Cache MISS for invoice count customer ${id}. Fetching detail...`)
+          const detail = await this.fetchCustomerDetail(id)
+          const invoices = detail.invoices || []
+          
+          const paidCount = invoices.filter(inv => inv.status === 'Paid').length
+          const totalCount = invoices.length
+          const lastRenewedOn = validationData[id] || detail.renewed_on || ''
+          
+          const counts = { paidCount, totalCount }
+          results.set(id, counts)
+          this.invoiceCountCache.set(id, { ...counts, lastRenewedOn })
+        } catch (error) {
+          console.error(`[MixRadius] Failed to fetch invoice count for ${id}:`, error)
+          results.set(id, { paidCount: 0, totalCount: 0 })
         }
+      })
 
-        console.log(`[MixRadius] Cache MISS for invoice count customer ${id}. Fetching detail...`)
-        const detail = await this.fetchCustomerDetail(id)
-        const invoices = detail.invoices || []
-        
-        const paidCount = invoices.filter(inv => inv.status === 'Paid').length
-        const totalCount = invoices.length
-        
-        const counts = { paidCount, totalCount }
-        results.set(id, counts)
-        this.invoiceCountCache.set(id, counts)
-      } catch (error) {
-        console.error(`[MixRadius] Failed to fetch invoice count for ${id}:`, error)
-        results.set(id, { paidCount: 0, totalCount: 0 })
-      }
-    })
-
-    await Promise.all(promises)
+      // Wait for CURRENT chunk to complete before starting next
+      await Promise.all(promises)
+      
+      // Small optional pause to be nice to upstream (50ms)
+      // await new Promise(resolve => setTimeout(resolve, 50))
+    }
     return results
   }
 

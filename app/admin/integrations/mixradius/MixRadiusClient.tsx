@@ -114,6 +114,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const [onlineFilter, setOnlineFilter] = useState('all') // all, online, offline
   const [owners, setOwners] = useState<string[]>([])
   const [selectedOwner, setSelectedOwner] = useState('all')
+  const [isRefreshing, setIsRefreshing] = useState(false)
   
   // Pagination state
   const [page, setPage] = useState(0)
@@ -127,34 +128,74 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'profile' | 'invoices'>('profile')
 
-  // Invoice counts state
-  const [invoiceCounts, setInvoiceCounts] = useState<Record<string, { paidCount: number, totalCount: number }>>({})
+  // Invoice counts state with Initial Load from LocalStorage
+  const [invoiceCounts, setInvoiceCounts] = useState<Record<string, { paidCount: number, totalCount: number }>>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('mixradius_invoice_counts')
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached)
+          // Simple validation: Ensure it's an object and not too old (optional)
+          return parsed
+        } catch (e) {
+          console.error('Failed to parse cached invoice counts', e)
+        }
+      }
+    }
+    return {}
+  })
 
-  // Fetch invoice counts for visible data
+  // Sync to LocalStorage whenever invoiceCounts change
+  useEffect(() => {
+    if (Object.keys(invoiceCounts).length > 0) {
+      localStorage.setItem('mixradius_invoice_counts', JSON.stringify(invoiceCounts))
+    }
+  }, [invoiceCounts])
+
+  // Fetch invoice counts for visible data - PROGRESSIVE LOADING
   useEffect(() => {
     if (data.length === 0) return
 
-    const fetchCounts = async () => {
+    const fetchCountsProgressively = async () => {
       const ids = data.map(d => d.id)
+      const CHUNK_SIZE = 1 // Fetch 1 by 1 as requested (non-aggressive)
       
-      try {
-        const res = await fetch('/api/integrations/mixradius/invoice-counts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ customerIds: ids })
+      for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+        const chunkIds = ids.slice(i, i + CHUNK_SIZE)
+        
+        // Build validationData for this chunk (Smart-Cache Sync)
+        const chunkValidationData: Record<string, string> = {}
+        chunkIds.forEach(id => {
+            const customer = data.find(d => d.id === id)
+            if (customer?.renewed_on) {
+                chunkValidationData[id] = customer.renewed_on
+            }
         })
-        const json = await res.json()
-        if (json.data) {
-            setInvoiceCounts(prev => ({ ...prev, ...json.data }))
+        
+        try {
+          const res = await fetch('/api/integrations/mixradius/invoice-counts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                customerIds: chunkIds,
+                validationData: chunkValidationData,
+                bypassCache: isRefreshing // Manual bypass still available
+              })
+          })
+          const json = await res.json()
+          if (json.data) {
+              setInvoiceCounts(prev => ({ ...prev, ...json.data }))
+          }
+        } catch (err) {
+          console.error(`Failed to fetch invoice counts for chunk starting at ${i}`, err)
         }
-      } catch (err) {
-        console.error('Failed to fetch invoice counts', err)
       }
+      if (isRefreshing) setIsRefreshing(false)
     }
     
-    const timer = setTimeout(fetchCounts, 500)
+    const timer = setTimeout(fetchCountsProgressively, 500)
     return () => clearTimeout(timer)
-  }, [data])
+  }, [data, isRefreshing])
 
 
   // Fetch customer detail
@@ -253,6 +294,15 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
       setLoading(false)
     }
   }, [page, pageSize, debouncedSearch, searchType, defaultStatus, onlineFilter, selectedOwner])
+
+  const clearCache = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('mixradius_invoice_counts')
+      setInvoiceCounts({})
+      setIsRefreshing(true)
+      toast.success('Cache dibersihkan. Memuat data terbaru dari server...')
+    }
+  }, [])
 
   useEffect(() => {
     fetchData()
@@ -379,9 +429,19 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
           <div className="text-sm text-gray-500 dark:text-gray-400">Halaman</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-white">{page + 1} / {totalPages || 1}</div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Source</div>
-          <div className="text-lg font-medium text-blue-600 dark:text-blue-400">sblnet.topsetting.com</div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 flex flex-col justify-between">
+          <div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Source</div>
+            <div className="text-lg font-medium text-blue-600 dark:text-blue-400">sblnet.topsetting.com</div>
+          </div>
+          <button 
+            onClick={clearCache}
+            className="mt-2 flex items-center gap-2 px-2 py-1 text-[10px] font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded border border-red-100 dark:border-red-900/30 transition-all uppercase tracking-tighter"
+            title="Hapus cache dan ambil data terbaru dari MixRadius"
+          >
+            <HiOutlineXCircle className="w-3.5 h-3.5" />
+            Bersihkan Cache
+          </button>
         </div>
       </div>
 
