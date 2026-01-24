@@ -112,6 +112,7 @@ export interface FetchCustomersParams {
   authStatus?: string
   ownerName?: string
   groupId?: string
+  onlineStatus?: 'online' | 'offline'
 }
 
 export class MixRadiusService {
@@ -477,8 +478,16 @@ export class MixRadiusService {
       })
       console.log(`[MixRadius] Merged online status. Total online from ${allData.length} records: ${onlineCount}`)
 
+      // 4. Online Status Filtering
+      if (params.onlineStatus) {
+        const isOnline = params.onlineStatus === 'online'
+        allData = allData.filter(item => item.online === isOnline)
+        console.log(`[MixRadius] Filtered by onlineStatus: ${params.onlineStatus}. Remaining: ${allData.length}`)
+      }
 
-      // 4. Sort by expired_on ascending (oldest first) for Isolir view
+      const recordsFilteredCount = allData.length
+
+      // 5. Sort by expired_on ascending (oldest first) for Isolir view
       // This ensures customers who have been expired longest appear first
       if (params.authStatus === 'Disabled-Users') {
         allData.sort((a, b) => {
@@ -488,13 +497,13 @@ export class MixRadiusService {
         })
       }
 
-      // 5. Pagination
+      // 6. Pagination
       const pagedData = allData.slice(start, start + length)
 
       return {
         draw: 1,
         recordsTotal: totalRecordsFromUpstream, // Keep original total (e.g. 2533)
-        recordsFiltered: recordsFiltered,       // Filtered count (e.g. 102)
+        recordsFiltered: recordsFilteredCount,  // Filtered count
         data: pagedData
       }
     } catch (error: any) {
