@@ -399,6 +399,23 @@ model LeaveRequest {
   @@index([startDate, endDate], map: "idx_leave_dates")
 }
 
+// Leave Balance - Tracking kuota cuti per user per tahun
+model LeaveBalance {
+  id        String    @id
+  userId    String
+  year      Int
+  leaveType LeaveType
+  quota     Int // Jatah total untuk tahun ini
+  used      Int       @default(0) // Sudah digunakan
+  createdAt DateTime  @default(now())
+  updatedAt DateTime
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, year, leaveType])
+  @@index([userId])
+  @@index([year])
+}
+
 model MRRMovement {
   id           String   @id
   month        Int
@@ -1089,6 +1106,7 @@ model User {
   work_orders_work_orders_createdByIdToUser  WorkOrders[]              @relation("work_orders_createdByIdToUser")
   transactions                               Transaction[]
   assets                                     Asset[]
+  leaveBalances                              LeaveBalance[]
 
   @@index([departmentId])
   @@index([isActive])

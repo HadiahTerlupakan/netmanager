@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
 import { LeaveRepository } from '@/modules/attendance/repositories/LeaveRepository'
+import { LeaveBalanceRepository } from '@/modules/attendance/repositories/LeaveBalanceRepository'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { hasPermission } from '@/lib/rbac'
+import { LeaveType } from '@prisma/client'
 
 const repo = new LeaveRepository()
+const leaveBalanceRepo = new LeaveBalanceRepository()
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -48,6 +51,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             rejectionReason,
             approvedBy: status === 'APPROVED' ? session.user.id : undefined
         })
+
+        // Update LeaveBalance when approved (skip FLEXIBLE users and TUKAR_LIBUR)
+        if (status === 'APPROVED' && existing.user.workingHourMode !== 'FLEXIBLE' && existing.type !== 'TUKAR_LIBUR') {
+            try {
+                const leaveDays = Math.ceil(
+                    (existing.endDate.getTime() - existing.startDate.getTime()) / (1000 * 60 * 60 * 24)
+                ) + 1
+                const year = existing.startDate.getFullYear()
+                
+                await leaveBalanceRepo.incrementUsed(
+                    existing.userId,
+                    year,
+                    existing.type as LeaveType,
+                    leaveDays
+                )
+            } catch (error) {
+                console.error('Failed to update leave balance:', error)
+                // Don't fail the approval just because balance update failed
+            }
+        }
 
         // System Log
         try {

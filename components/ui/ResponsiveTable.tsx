@@ -30,6 +30,8 @@ export interface Column<T> {
   mobileLabel?: string
   /** Minimum width for the column */
   minWidth?: string
+  /** Whether the column is sortable */
+  sortable?: boolean
 }
 
 export interface ResponsiveTableProps<T> {
@@ -57,6 +59,12 @@ export interface ResponsiveTableProps<T> {
   showRowNumbers?: boolean
   /** Striped rows */
   striped?: boolean
+  /** Current sort column key */
+  sortColumn?: string
+  /** Current sort direction */
+  sortDirection?: 'asc' | 'desc'
+  /** Callback when sorting changes */
+  onSort?: (columnKey: string, direction: 'asc' | 'desc') => void
 }
 
 // ============================================================================
@@ -197,7 +205,10 @@ export function ResponsiveTable<T>({
   renderMobileCard,
   className = '',
   showRowNumbers = false,
-  striped = false
+  striped = false,
+  sortColumn,
+  sortDirection,
+  onSort
 }: ResponsiveTableProps<T>) {
   const totalColumns = columns.length + (showRowNumbers ? 1 : 0) + (renderActions ? 1 : 0)
 
@@ -319,10 +330,28 @@ export function ResponsiveTable<T>({
               {columns.map((column) => (
                 <th
                   key={String(column.key)}
-                  className={`px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider ${getAlignmentClass(column.align)} ${getPriorityClasses(column.priority)} ${column.className || ''}`}
+                  className={`
+                    px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider 
+                    ${getAlignmentClass(column.align)} ${getPriorityClasses(column.priority)} 
+                    ${column.className || ''} 
+                    ${column.sortable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 select-none' : ''}
+                  `}
                   style={column.minWidth ? { minWidth: column.minWidth } : undefined}
+                  onClick={() => {
+                    if (column.sortable && onSort) {
+                      const newDirection = sortColumn === column.key && sortDirection === 'asc' ? 'desc' : 'asc'
+                      onSort(String(column.key), newDirection)
+                    }
+                  }}
                 >
-                  {column.header}
+                  <div className={`flex items-center gap-1 ${column.align === 'center' ? 'justify-center' : column.align === 'right' ? 'justify-end' : 'justify-start'}`}>
+                    {column.header}
+                    {column.sortable && sortColumn === column.key && (
+                      <span className="text-gray-400 font-bold">
+                        {sortDirection === 'asc' ? '▲' : '▼'}
+                      </span>
+                    )}
+                  </div>
                 </th>
               ))}
               {renderActions && (

@@ -23,6 +23,8 @@ import {
   HiOutlineStar
 } from 'react-icons/hi2'
 import WorkingHoursSettings from './WorkingHoursSettings'
+import LeaveBalanceSettings from './LeaveBalanceSettings'
+import LeaveQuotaSummary from './LeaveQuotaSummary'
 import UserPerformanceStats from './UserPerformanceStats'
 import SalesPerformanceStats from './SalesPerformanceStats'
 import MultiSiteSelect from '../components/MultiSiteSelect'
@@ -92,6 +94,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [leaveQuotas, setLeaveQuotas] = useState<Record<string, number>>({}) // For leave balance integration
   const [departments, setDepartments] = useState<Department[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [roles, setRoles] = useState<Role[]>([])
@@ -302,6 +305,24 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
 
       if (!userRes.ok) {
         throw new Error(userData.error || 'Failed to update user account')
+      }
+
+      // Save leave quotas (if user is not FLEXIBLE and quotas were modified)
+      if (formData.workingHourMode !== 'FLEXIBLE' && Object.keys(leaveQuotas).length > 0) {
+        try {
+          await fetch('/api/admin/leave-balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: id,
+              year: new Date().getFullYear(),
+              quotas: leaveQuotas
+            })
+          })
+        } catch (error) {
+          console.error('Failed to save leave quotas:', error)
+          // Don't fail the whole save just because quotas failed
+        }
       }
 
       setShowSuccess(true)
@@ -596,6 +617,9 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         {/* User Performance Stats (New Metric Section) */}
         <UserPerformanceStats userId={id as string} />
 
+        {/* Leave Quota Summary - Only for non-FLEXIBLE users */}
+        <LeaveQuotaSummary userId={id as string} workingHourMode={formData.workingHourMode} />
+
         {/* Sales Performance Stats - Only for Sales users */}
         {formData.isSales && (
           <SalesPerformanceStats userId={id as string} />
@@ -885,6 +909,13 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
             shiftId: formData.shiftId
           }}
           onChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
+        />
+
+        {/* Leave Balance Settings */}
+        <LeaveBalanceSettings
+          userId={id}
+          workingHourMode={formData.workingHourMode}
+          onChange={(quotas) => setLeaveQuotas(quotas)}
         />
 
         {/* Error Message */}

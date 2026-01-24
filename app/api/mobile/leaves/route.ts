@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { LeaveRepository } from '@/modules/attendance/repositories/LeaveRepository'
+import { LeaveBalanceRepository, DEFAULT_LEAVE_QUOTAS } from '@/modules/attendance/repositories/LeaveBalanceRepository'
 import { verifyMobileToken } from '@/lib/mobile-auth'
 import { LeaveType, LeaveStatus } from '@prisma/client'
 import { createNotification } from '@/modules/notification/services/NotificationService'
@@ -7,6 +8,7 @@ import { prisma } from '@/lib/prisma'
 import { convertAndSaveBase64 } from '@/lib/utils/image-upload'
 
 const repo = new LeaveRepository()
+const leaveBalanceRepo = new LeaveBalanceRepository()
 
 export async function GET(request: Request) {
     try {
@@ -50,6 +52,29 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
+        // Calculate leave days
+        const start = new Date(startDate)
+        const end = new Date(endDate)
+        const leaveDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+        const currentYear = start.getFullYear()
+
+        // Check user's working hour mode - FLEXIBLE users don't have leave quotas
+        const userData = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { workingHourMode: true, workDays: true, name: true }
+        })
+
+        // Validate leave quota (skip for FLEXIBLE users and TUKAR_LIBUR type)
+        if (userData?.workingHourMode !== 'FLEXIBLE' && type !== 'TUKAR_LIBUR') {
+            const hasEnough = await leaveBalanceRepo.hasEnoughDays(user.id, currentYear, type as LeaveType, leaveDays)
+            if (!hasEnough) {
+                const remaining = await leaveBalanceRepo.getRemainingDays(user.id, currentYear, type as LeaveType)
+                return NextResponse.json({ 
+                    error: `Kuota ${type} tidak cukup. Sisa: ${remaining} hari, Dibutuhkan: ${leaveDays} hari.`
+                }, { status: 400 })
+            }
+        }
+
         // Validate attachment for non-CUTI types
         if (type !== 'CUTI' && type !== 'TUKAR_LIBUR' && (!photos || photos.length === 0)) {
             return NextResponse.json({ error: 'Foto bukti wajib diupload' }, { status: 400 })
@@ -60,11 +85,6 @@ export async function POST(request: Request) {
             if (!replacementDate) {
                 return NextResponse.json({ error: 'Tanggal pengganti wajib diisi untuk Tukar Libur' }, { status: 400 })
             }
-
-            const userData = await prisma.user.findUnique({
-                where: { id: user.id },
-                select: { workDays: true }
-            });
 
             if (userData?.workDays) {
                 const workDays = userData.workDays.split(',').map(d => d.trim());
