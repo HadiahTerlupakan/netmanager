@@ -112,6 +112,8 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const [debouncedSearch, setDebouncedSearch] = useState('')
   
   const [onlineFilter, setOnlineFilter] = useState('all') // all, online, offline
+  const [owners, setOwners] = useState<string[]>([])
+  const [selectedOwner, setSelectedOwner] = useState('all')
   
   // Pagination state
   const [page, setPage] = useState(0)
@@ -193,6 +195,22 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
     return () => clearTimeout(timer)
   }, [search])
 
+  // Fetch owners for filter
+  useEffect(() => {
+    const fetchOwners = async () => {
+      try {
+        const response = await fetch('/api/integrations/mixradius/owners')
+        if (response.ok) {
+          const result = await response.json()
+          setOwners(result.data || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch owners', err)
+      }
+    }
+    fetchOwners()
+  }, [])
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -213,6 +231,10 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
         params.append('onlineStatus', onlineFilter)
       }
 
+      if (selectedOwner !== 'all') {
+        params.append('ownerName', selectedOwner)
+      }
+
       const response = await fetch(`/api/integrations/mixradius/customers?${params}`)
       
       if (!response.ok) {
@@ -230,7 +252,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, debouncedSearch, searchType, defaultStatus, onlineFilter])
+  }, [page, pageSize, debouncedSearch, searchType, defaultStatus, onlineFilter, selectedOwner])
 
   useEffect(() => {
     fetchData()
@@ -392,6 +414,20 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
           <option value="all">Semua Status</option>
           <option value="online">Online Saja</option>
           <option value="offline">Offline Saja</option>
+        </select>
+
+        <select
+          value={selectedOwner}
+          onChange={(e) => {
+            setSelectedOwner(e.target.value)
+            setPage(0)
+          }}
+          className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[120px]"
+        >
+          <option value="all">Semua NAS</option>
+          {owners.map(owner => (
+            <option key={owner} value={owner}>{owner}</option>
+          ))}
         </select>
 
         <div className="relative flex-1">
