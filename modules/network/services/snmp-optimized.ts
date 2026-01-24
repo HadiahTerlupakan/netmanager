@@ -109,30 +109,40 @@ class SNMPConnectionPool {
 }
 
 const connectionPool = new SNMPConnectionPool()
-const cache = new Map<string, CacheEntry>()
+
+// OPTIMIZATION: Use LRU cache instead of unbounded Map to prevent memory leaks
+import { LRUCache } from '@/lib/utils/lru-cache'
+
+interface CacheValue {
+  data: Record<string, string>
+}
+
+// LRU Cache with max 100 entries and 5 minute TTL
+const cache = new LRUCache<string, CacheValue>(100, CACHE_TTL)
+
+// Periodic cleanup for expired entries (every 60 seconds)
+setInterval(() => {
+  const removed = cache.cleanup()
+  if (removed > 0) {
+    console.log(`[SNMP Cache] Cleaned up ${removed} expired entries. Current size: ${cache.size}`)
+  }
+}, 60000)
 
 // Cache helper functions
 function getCacheKey(ipAddress: string, oid: string): string {
   return `${ipAddress}:${oid}`
 }
 
-function getFromCache(key: string, customTTL?: number): Record<string, string> | null {
+function getFromCache(key: string): Record<string, string> | null {
   const entry = cache.get(key)
-  const ttl = customTTL || CACHE_TTL
-  if (entry && (Date.now() - entry.timestamp) < ttl) {
-    return entry.data
-  }
   if (entry) {
-    cache.delete(key)
+    return entry.data
   }
   return null
 }
 
 function setCache(key: string, data: Record<string, string>): void {
-  cache.set(key, {
-    data,
-    timestamp: Date.now()
-  })
+  cache.set(key, { data })
 }
 
 // Optimized SNMP fetch menggunakan GETBULK (lebih efisien daripada WALK)
@@ -361,7 +371,7 @@ export async function fetchOnuDataPaginated(
   // Fetch status data dengan cache (untuk total count) - ini tidak berubah sering
   // Cache key khusus untuk status dengan TTL lebih lama
   const statusCacheKey = getCacheKey(ipAddress, oidStatusNew)
-  let statusData: Record<string, string> | null = getFromCache(statusCacheKey, STATUS_CACHE_TTL)
+  let statusData: Record<string, string> | null = getFromCache(statusCacheKey)
 
   // Jika cache expired atau tidak ada, fetch baru
   if (!statusData) {
@@ -381,13 +391,10 @@ export async function fetchOnuDataPaginated(
       }).catch(() => ({}))
     }
 
-    // Cache status data dengan TTL lebih lama
+    // Cache status data
     if (statusData && Object.keys(statusData).length > 0) {
-      cache.set(statusCacheKey, {
-        data: statusData,
-        timestamp: Date.now()
-      })
-      console.log(`[SNMP-Optimized] Cached status data (${Object.keys(statusData).length} ONUs) for ${STATUS_CACHE_TTL / 1000 / 60} minutes`)
+      setCache(statusCacheKey, statusData)
+      console.log(`[SNMP-Optimized] Cached status data (${Object.keys(statusData).length} ONUs)`)
     }
   } else {
     console.log(`[SNMP-Optimized] Using cached status data (${Object.keys(statusData).length} ONUs)`)

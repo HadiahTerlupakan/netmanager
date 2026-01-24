@@ -53,21 +53,28 @@ export class OnuService {
                     continue;
                 }
 
-                // Get OIDs
-                const onusWithOids = await Promise.all(
-                    onus.map(async (onu) => {
-                        const existingOnu = await onuRepo.findByGponOnu(oltId, onu.gponOnu);
-                        return {
-                            gponOnu: onu.gponOnu,
-                            statusOid: existingOnu?.statusOid || null,
-                            rxOltOid: existingOnu?.rxOltOid || null,
-                            rxOnuOid: existingOnu?.rxOnuOid || null,
-                            nameOid: existingOnu?.nameOid || null,
-                            descOid: existingOnu?.descOid || null,
-                            compositeIndex: existingOnu?.compositeIndex || null,
-                        };
-                    })
+                // OPTIMIZATION: Single batch query instead of N queries
+                // This replaces Promise.all(map findByGponOnu) pattern
+                const existingOnus = await onuRepo.findManyByOltIdMinimal(oltId);
+                
+                // Create Map for O(1) lookup (instead of async query per ONU)
+                const onuMap = new Map(
+                    existingOnus.map(o => [o.gponOnu, o])
                 );
+
+                // Map OIDs using cached data (no queries)
+                const onusWithOids = onus.map((onu) => {
+                    const existingOnu = onuMap.get(onu.gponOnu);
+                    return {
+                        gponOnu: onu.gponOnu,
+                        statusOid: existingOnu?.statusOid || null,
+                        rxOltOid: existingOnu?.rxOltOid || null,
+                        rxOnuOid: existingOnu?.rxOnuOid || null,
+                        nameOid: existingOnu?.nameOid || null,
+                        descOid: existingOnu?.descOid || null,
+                        compositeIndex: existingOnu?.compositeIndex || null,
+                    };
+                });
 
                 // SNMP GET
                 const updatedData = await updateMultipleOnusViaGetWithOids(
@@ -78,7 +85,7 @@ export class OnuService {
                     onusWithOids
                 );
 
-                // Update DB
+                // Update DB - reuse cached data from onuMap
                 for (const uData of updatedData) {
                     if (!uData.gponOnu || !uData.status) {
                         updatedOnus.push({ gponOnu: uData.gponOnu!, oltId, updated: false });
@@ -86,7 +93,8 @@ export class OnuService {
                     }
 
                     try {
-                        const existingOnu = await onuRepo.findByGponOnu(oltId, uData.gponOnu);
+                        // Reuse cached data instead of another query
+                        const existingOnu = onuMap.get(uData.gponOnu);
                         const upsertData: any = {
                             oltId,
                             gponOnu: uData.gponOnu,

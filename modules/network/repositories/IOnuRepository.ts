@@ -242,5 +242,27 @@ export interface IOnuRepository {
 
   findByOltIdCached(oltId: string, useCache?: boolean): Promise<OnuPublic[]>
   invalidateCache(oltId?: string): Promise<void>
+
+  /**
+   * Minimal batch fetch for ONU OIDs - optimized for OnuService batch updates
+   * Returns only fields needed for SNMP operations
+   */
+  findManyByOltIdMinimal(oltId: string): Promise<Array<{
+    gponOnu: string
+    statusOid: string | null
+    rxOltOid: string | null
+    rxOnuOid: string | null
+    nameOid: string | null
+    descOid: string | null
+    compositeIndex: number | null
+    status: string | null
+    rxOlt: string | null
+    rxOnu: string | null
+    name: string | null
+    description: string | null
+    pppoe: string | null
+    serialNumber: string | null
+    actualType: string | null
+  }>>
 }
 

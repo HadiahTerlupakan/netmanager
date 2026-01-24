@@ -130,8 +130,11 @@ export function initializeSocketServer(socketServer: SocketIOServer) {
         socket.on('disconnect', async (reason) => {
             console.log(`[WS] User disconnected: ${userId} (${reason})`)
             
-            // Allow a small delay to handle page refreshes (optional, but good for UX)
-            // But for distinct "Online" usage, immediate check is usually fine.
+            // Explicitly leave all rooms to prevent memory leaks
+            const rooms = Array.from(socket.rooms)
+            for (const room of rooms) {
+                socket.leave(room)
+            }
             
             // Check if any connections remain for this user
             const sockets = await globalThis.socketIOServer?.in(`user:${userId}`).fetchSockets()
@@ -186,6 +189,30 @@ function isRoomAllowed(socket: Socket, room: string): boolean {
 
     return false
 }
+
+// Periodic cleanup of orphaned/empty rooms (every 5 minutes)
+setInterval(() => {
+    const io = globalThis.socketIOServer
+    if (!io) return
+
+    const rooms = io.sockets.adapter.rooms
+    let cleanedCount = 0
+
+    for (const [roomName, room] of rooms) {
+        // Skip socket ID rooms (they start with socket ID pattern)
+        if (io.sockets.sockets.has(roomName)) continue
+
+        // Check if room is empty
+        if (room.size === 0) {
+            rooms.delete(roomName)
+            cleanedCount++
+        }
+    }
+
+    if (cleanedCount > 0) {
+        console.log(`[WS] Cleaned up ${cleanedCount} empty rooms`)
+    }
+}, 300000) // Every 5 minutes
 
 /**
  * Get the Socket.io server instance

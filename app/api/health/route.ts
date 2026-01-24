@@ -39,8 +39,11 @@ export async function GET() {
     },
     uptime: process.uptime(),
     memory: {
-      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+      heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+      rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      external: Math.round(process.memoryUsage().external / 1024 / 1024),
+      heapUsedPercentage: Math.round((process.memoryUsage().heapUsed / process.memoryUsage().heapTotal) * 100),
       unit: 'MB',
     },
   }

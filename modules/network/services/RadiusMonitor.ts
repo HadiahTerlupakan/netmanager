@@ -2,61 +2,42 @@
 import { type Server as SocketIOServer } from 'socket.io';
 import { prisma } from '@/lib/prisma';
 import { RadiusRepository } from '../repositories/RadiusRepository';
+import { BaseMonitor } from './BaseMonitor';
 
 const POLL_INTERVAL = 30 * 1000; // 30 seconds
 
-export class RadiusMonitor {
-    private io: SocketIOServer;
-    private interval: ReturnType<typeof setTimeout> | null = null;
+/**
+ * RadiusMonitor - Extends BaseMonitor with exponential backoff
+ * Broadcasts Radius stats and active sessions to admin:radius room
+ */
+export class RadiusMonitor extends BaseMonitor {
     private repository: RadiusRepository;
 
     constructor(io: SocketIOServer) {
-        this.io = io;
+        super(io);
         this.repository = new RadiusRepository(prisma);
     }
 
-    start() {
-        if (this.interval) return;
-
-        console.log('[RadiusMonitor] Starting Radius monitoring service...');
-
-        // Initial fetch
-        this.broadcastStats();
-
-        // Start periodic fetch
-        this.interval = setInterval(() => {
-            this.broadcastStats();
-        }, POLL_INTERVAL);
+    protected getMonitorName(): string {
+        return 'RadiusMonitor';
     }
 
-    stop() {
-        if (this.interval) {
-            clearInterval(this.interval);
-            this.interval = null;
-            console.log('[RadiusMonitor] Stopped Radius monitoring service');
-        }
+    protected getPollInterval(): number {
+        return POLL_INTERVAL;
     }
 
-    private async broadcastStats() {
-        try {
-            // Concurrent fetching for better performance
-            const [stats, recentSessions] = await Promise.all([
-                this.repository.getDashboardStats(),
-                this.repository.getRecentSessions({ limit: 50, status: 'active' })
-            ]);
+    protected async poll(): Promise<void> {
+        // Concurrent fetching for better performance
+        const [stats, recentSessions] = await Promise.all([
+            this.repository.getDashboardStats(),
+            this.repository.getRecentSessions({ limit: 50, status: 'active' })
+        ]);
 
-            // Broadcast stats
-            this.io.to('admin:radius').emit('radius:stats', stats);
+        // Broadcast stats
+        this.io.to('admin:radius').emit('radius:stats', stats);
 
-            // Broadcast recent active sessions
-            this.io.to('admin:radius').emit('radius:sessions', recentSessions);
-
-            // Also emit to general admin room for critical alerts if needed
-            // e.g. if onlineUsers drops to 0 abruptly
-
-        } catch (error) {
-            console.error('[RadiusMonitor] Error fetching/broadcasting stats:', error);
-        }
+        // Broadcast recent active sessions
+        this.io.to('admin:radius').emit('radius:sessions', recentSessions);
     }
 }
 

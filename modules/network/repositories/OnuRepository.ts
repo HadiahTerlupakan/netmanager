@@ -708,5 +708,48 @@ export class OnuRepository implements IOnuRepository {
       await onuCacheService.invalidateAllCaches()
     }
   }
+
+  /**
+   * Minimal batch fetch for ONU OIDs - optimized for OnuService batch updates
+   * Single query to get all ONUs for an OLT with only needed fields
+   */
+  async findManyByOltIdMinimal(oltId: string): Promise<Array<{
+    gponOnu: string
+    statusOid: string | null
+    rxOltOid: string | null
+    rxOnuOid: string | null
+    nameOid: string | null
+    descOid: string | null
+    compositeIndex: number | null
+    status: string | null
+    rxOlt: string | null
+    rxOnu: string | null
+    name: string | null
+    description: string | null
+    pppoe: string | null
+    serialNumber: string | null
+    actualType: string | null
+  }>> {
+    return this.client.onu.findMany({
+      where: { oltId },
+      select: {
+        gponOnu: true,
+        statusOid: true,
+        rxOltOid: true,
+        rxOnuOid: true,
+        nameOid: true,
+        descOid: true,
+        compositeIndex: true,
+        status: true,
+        rxOlt: true,
+        rxOnu: true,
+        name: true,
+        description: true,
+        pppoe: true,
+        serialNumber: true,
+        actualType: true,
+      }
+    })
+  }
 }
 

@@ -7,6 +7,7 @@ export class AutomaticBillingService {
     /**
      * Generate invoices for customers who are due for billing
      * run daily via cron
+     * OPTIMIZED: Uses cursor-based pagination to avoid loading all customers into memory
      */
     static async generateDailyInvoices() {
         try {
@@ -19,93 +20,102 @@ export class AutomaticBillingService {
 
             const daysBeforeDue = parseInt(invoiceOtomatisSetting?.value || '5');
 
-            // Calculate target date (e.g. if today is 1st and setting is 5 days, we look for due date on 6th)
+            // Calculate target date
             const today = new Date();
             const targetDate = new Date(today);
             targetDate.setDate(today.getDate() + daysBeforeDue);
 
-            // Format target date to match database storage if needed, or just use date parts
-            // Assuming jatuhTempo is stored as full DateTime, we compare day and month? 
-            // Or usually billing is monthly. 
-            // Let's assume we generate invoice for the NEXT due date.
-
-            // Strategy: Find customers whose bill needs to be generated today.
-            // If bill is due on D, and we generate N days before.
-            // Then we generate when Today = D - N. 
-            // So D = Today + N.
-
             const targetDay = targetDate.getDate();
-            const targetMonth = targetDate.getMonth() + 1; // 0-indexed
+            const targetMonth = targetDate.getMonth() + 1;
             const targetYear = targetDate.getFullYear();
 
-            // 2. Find active customers
-            const activeCustomers = await prisma.pelanggan.findMany({
-                where: {
-                    status: 'AKTIF',
-                    hargaPaketId: { not: '' } // Ensure they have a package
-                },
-                include: {
-                    hargaPaket: true,
-                }
-            });
-
-            console.log(`[Billing] Found ${activeCustomers.length} active customers.`);
-
+            // OPTIMIZATION: Use cursor-based pagination to process in batches
+            const BATCH_SIZE = 100;
+            let skip = 0;
             let generatedCount = 0;
+            let processedCount = 0;
+            let hasMore = true;
 
-            for (const customer of activeCustomers) {
-                try {
-                    // Check if customer is due for a new invoice
-                    // Logic: Get their 'jatuhTempo'. Check if it matches our target Window.
-                    // Usually 'jatuhTempo' in DB is their *next* due date or *recurring* day.
-                    // If it is a specific date, we need to see if we haven't generated it yet.
-
-                    const dueDate = new Date(customer.jatuhTempo);
-
-                    // We only care if the day of month matches the target day
-                    // AND if we haven't generated an invoice for this period yet.
-
-                    // Simple logic for monthly billing:
-                    // If customer.jatuhTempo day matches targetDay.
-
-                    if (dueDate.getDate() !== targetDay) {
-                        continue;
-                    }
-
-                    // Construct the full due date string for this month/period
-                    // If today is Dec 25, and daysBefore = 5, Target = Dec 30.
-                    // We want to generate invoice for Dec 30.
-
-                    const invoiceDueDate = new Date(targetYear, targetMonth - 1, targetDay);
-
-                    // Check if invoice already exists for this customer and this month/year combo
-                    // We can check by invoice issue date or just check if there is an invoice with this due date?
-                    // Better to check period.
-
-                    const existingInvoice = await prisma.invoice.findFirst({
-                        where: {
-                            pelangganId: customer.id,
-                            dueDate: {
-                                gte: new Date(targetYear, targetMonth - 1, targetDay, 0, 0, 0),
-                                lte: new Date(targetYear, targetMonth - 1, targetDay, 23, 59, 59),
+            while (hasMore) {
+                // Fetch batch with minimal fields using select instead of include
+                const customers = await prisma.pelanggan.findMany({
+                    where: {
+                        status: 'AKTIF',
+                        hargaPaketId: { not: '' }
+                    },
+                    select: {
+                        id: true,
+                        nama: true,
+                        jatuhTempo: true,
+                        userId: true,
+                        usePPN: true,
+                        hargaPaket: {
+                            select: {
+                                id: true,
+                                name: true,
+                                harga: true,
+                                usePPN: true,
+                                ppnPercentage: true
                             }
                         }
-                    });
+                    },
+                    skip,
+                    take: BATCH_SIZE,
+                    orderBy: { id: 'asc' }
+                });
 
-                    if (existingInvoice) {
-                        continue;
+                if (customers.length === 0) {
+                    hasMore = false;
+                    break;
+                }
+
+                console.log(`[Billing] Processing batch ${Math.floor(skip / BATCH_SIZE) + 1} (${customers.length} customers)`);
+
+                for (const customer of customers) {
+                    try {
+                        processedCount++;
+                        const dueDate = new Date(customer.jatuhTempo);
+
+                        // Only process if day matches target
+                        if (dueDate.getDate() !== targetDay) {
+                            continue;
+                        }
+
+                        const invoiceDueDate = new Date(targetYear, targetMonth - 1, targetDay);
+
+                        // Check if invoice already exists
+                        const existingInvoice = await prisma.invoice.findFirst({
+                            where: {
+                                pelangganId: customer.id,
+                                dueDate: {
+                                    gte: new Date(targetYear, targetMonth - 1, targetDay, 0, 0, 0),
+                                    lte: new Date(targetYear, targetMonth - 1, targetDay, 23, 59, 59),
+                                }
+                            }
+                        });
+
+                        if (existingInvoice) {
+                            continue;
+                        }
+
+                        // Generate Invoice
+                        await this.createInvoiceForCustomer(customer, invoiceDueDate);
+                        generatedCount++;
+
+                    } catch (err) {
+                        console.error(`[Billing] Error processing customer ${customer.nama}:`, err);
                     }
+                }
 
-                    // Generate Invoice
-                    await this.createInvoiceForCustomer(customer, invoiceDueDate);
-                    generatedCount++;
+                skip += BATCH_SIZE;
 
-                } catch (err) {
-                    console.error(`[Billing] Error processing customer ${customer.nama}:`, err);
+                // Force garbage collection between batches if available
+                if (global.gc) {
+                    global.gc();
                 }
             }
 
-            console.log(`[Billing] Completed. Generated ${generatedCount} invoices.`);
+            console.log(`[Billing] Completed. Processed ${processedCount} customers, generated ${generatedCount} invoices.`);
 
         } catch (error) {
             console.error('[Billing] Fatal error in generateDailyInvoices:', error);
