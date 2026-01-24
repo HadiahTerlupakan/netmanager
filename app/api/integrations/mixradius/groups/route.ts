@@ -36,19 +36,21 @@ export async function POST(req: NextRequest) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:create')) {
+    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    
+    if (!isSuperAdmin && !permissions.includes('mixradius:create')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const body = await req.json()
-    const { name, owners } = body
+    const { name, owners, siteId } = body
 
     if (!name || !owners || !Array.isArray(owners)) {
       return NextResponse.json({ error: 'Invalid data' }, { status: 400 })
     }
 
     const service = getMixRadiusService()
-    const newGroup = await service.createOwnerGroup({ name, owners })
+    const newGroup = await service.createOwnerGroup({ name, owners, siteId })
 
     // System Log
     try {

@@ -10,6 +10,8 @@ interface OwnerGroup {
   id: string
   name: string
   owners: string[]
+  siteId?: string
+  site?: { name: string }
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -18,6 +20,7 @@ interface OwnerGroup {
 export default function MixRadiusGroupsClient() {
   const [groups, setGroups] = useState<OwnerGroup[]>([])
   const [owners, setOwners] = useState<string[]>([])
+  const [sites, setSites] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -27,6 +30,7 @@ export default function MixRadiusGroupsClient() {
   const [formData, setFormData] = useState({
     name: '',
     owners: [] as string[],
+    siteId: '',
     isActive: true
   })
 
@@ -37,19 +41,23 @@ export default function MixRadiusGroupsClient() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [groupsRes, ownersRes] = await Promise.all([
+      const [groupsRes, ownersRes, sitesRes] = await Promise.all([
         fetch('/api/integrations/mixradius/groups'),
-        fetch('/api/integrations/mixradius/owners')
+        fetch('/api/integrations/mixradius/owners'),
+        fetch('/api/admin/sites?activeOnly=true')
       ])
 
       if (!groupsRes.ok) throw new Error('Failed to fetch groups')
       if (!ownersRes.ok) throw new Error('Failed to fetch owners')
+      if (!sitesRes.ok) throw new Error('Failed to fetch sites')
 
       const groupsData = await groupsRes.json()
       const ownersData = await ownersRes.json()
+      const sitesData = await sitesRes.json()
 
       setGroups(groupsData)
       setOwners(ownersData.data || [])
+      setSites(sitesData.data || [])
     } catch (error: any) {
       toast.error(error.message)
     } finally {
@@ -117,6 +125,7 @@ export default function MixRadiusGroupsClient() {
     setFormData({
       name: group.name,
       owners: group.owners,
+      siteId: group.siteId || '',
       isActive: group.isActive
     })
     setIsModalOpen(true)
@@ -127,6 +136,7 @@ export default function MixRadiusGroupsClient() {
     setFormData({
       name: '',
       owners: [],
+      siteId: '',
       isActive: true
     })
     setIsModalOpen(true)
@@ -145,8 +155,13 @@ export default function MixRadiusGroupsClient() {
 
   const columns: Column<OwnerGroup>[] = [
     {
-      header: 'Nama Site',
+      header: 'Nama Site (Grup)',
       key: 'name',
+    },
+    {
+      header: 'Mapping ke Site',
+      key: 'siteId',
+      render: (item: OwnerGroup) => item.site?.name || <span className="text-gray-400 italic">Belum dipetakan</span>
     },
     {
       header: 'Owners',
@@ -261,6 +276,25 @@ export default function MixRadiusGroupsClient() {
               value={formData.name}
               onChange={e => setFormData({ ...formData, name: e.target.value })}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Pemetaan ke Manajemen Site
+            </label>
+            <select
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+              value={formData.siteId}
+              onChange={e => setFormData({ ...formData, siteId: e.target.value })}
+            >
+              <option value="">-- Pilih Site Manajemen --</option>
+              {sites.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Hubungkan grup owner MixRadius ini ke Site Manajemen lokal kita.
+            </p>
           </div>
 
           <div>

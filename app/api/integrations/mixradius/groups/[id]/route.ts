@@ -19,16 +19,18 @@ export async function PUT(req: NextRequest, context: Context) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:update')) {
+    const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
+    
+    if (!isSuperAdmin && !permissions.includes('mixradius:update')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const { id } = await context.params
     const body = await req.json()
-    const { name, owners, isActive } = body
+    const { name, owners, siteId, isActive } = body
 
     const service = getMixRadiusService()
-    const updatedGroup = await service.updateOwnerGroup(id, { name, owners, isActive })
+    const updatedGroup = await service.updateOwnerGroup(id, { name, owners, siteId, isActive })
 
     // System Log
     try {

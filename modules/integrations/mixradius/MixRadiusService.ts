@@ -113,6 +113,7 @@ export interface FetchCustomersParams {
   ownerName?: string
   groupId?: string
   onlineStatus?: 'online' | 'offline'
+  siteId?: string
 }
 
 export class MixRadiusService {
@@ -392,8 +393,22 @@ export class MixRadiusService {
       
       const totalRecordsFromUpstream = allData.length
 
-      // --- IN-MEMORY FILTERING ---
       
+      // 0. Filter by Management Site
+      if (params.siteId) {
+        // Find owner groups for this site
+        const groups = await prisma.mixRadiusOwnerGroup.findMany({
+          where: { siteId: params.siteId },
+          select: { owners: true }
+        })
+        
+        // Flatten all owners from these groups
+        const allowedOwners = new Set(groups.flatMap(g => g.owners))
+        
+        // Filter customers who belong to any of these owners
+        allData = allData.filter(item => allowedOwners.has(item.owner_name))
+      }
+
       // 1. Filter by Expired (Jatuh Tempo) - Strict Request
       // "Yang belum jatuh tempo mah gak usah ditampilkan"
       if (params.authStatus && params.authStatus === 'Disabled-Users') {
@@ -545,23 +560,25 @@ export class MixRadiusService {
 
   async getOwnerGroups() {
       return prisma.mixRadiusOwnerGroup.findMany({
-          orderBy: { name: 'asc' }
+          orderBy: { name: 'asc' },
+          include: { site: true }
       })
   }
 
   async getOwnerGroup(id: string) {
       return prisma.mixRadiusOwnerGroup.findUnique({
-          where: { id }
+          where: { id },
+          include: { site: true }
       })
   }
 
-  async createOwnerGroup(data: { name: string; owners: string[]; isActive?: boolean }) {
+  async createOwnerGroup(data: { name: string; owners: string[]; siteId?: string; isActive?: boolean }) {
       return prisma.mixRadiusOwnerGroup.create({
           data
       })
   }
 
-  async updateOwnerGroup(id: string, data: { name?: string; owners?: string[]; isActive?: boolean }) {
+  async updateOwnerGroup(id: string, data: { name?: string; owners?: string[]; siteId?: string; isActive?: boolean }) {
       return prisma.mixRadiusOwnerGroup.update({
           where: { id },
           data

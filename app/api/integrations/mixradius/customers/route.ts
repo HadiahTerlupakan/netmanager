@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
       ownerName: searchParams.get('ownerName') || undefined,
       groupId: searchParams.get('groupId') || undefined,
       onlineStatus: searchParams.get('onlineStatus') as any || undefined,
+      siteId: searchParams.get('siteId') || undefined,
     })
 
     return NextResponse.json(data)

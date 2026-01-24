@@ -114,6 +114,8 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
   const [onlineFilter, setOnlineFilter] = useState('all') // all, online, offline
   const [owners, setOwners] = useState<string[]>([])
   const [selectedOwner, setSelectedOwner] = useState('all')
+  const [groups, setGroups] = useState<any[]>([])
+  const [selectedGroup, setSelectedGroup] = useState('all')
   const [isRefreshing, setIsRefreshing] = useState(false)
   
   // Pagination state
@@ -250,6 +252,19 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
       }
     }
     fetchOwners()
+
+    const fetchGroups = async () => {
+      try {
+        const response = await fetch('/api/integrations/mixradius/groups')
+        if (response.ok) {
+          const result = await response.json()
+          setGroups(result || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch groups', err)
+      }
+    }
+    fetchGroups()
   }, [])
 
   const fetchData = useCallback(async () => {
@@ -276,6 +291,10 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
         params.append('ownerName', selectedOwner)
       }
 
+      if (selectedGroup !== 'all') {
+        params.append('groupId', selectedGroup)
+      }
+
       const response = await fetch(`/api/integrations/mixradius/customers?${params}`)
       
       if (!response.ok) {
@@ -293,7 +312,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, debouncedSearch, searchType, defaultStatus, onlineFilter, selectedOwner])
+  }, [page, pageSize, debouncedSearch, searchType, defaultStatus, onlineFilter, selectedOwner, selectedGroup])
 
   const clearCache = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -474,6 +493,20 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
           <option value="all">Semua Status</option>
           <option value="online">Online Saja</option>
           <option value="offline">Offline Saja</option>
+        </select>
+
+        <select
+          value={selectedGroup}
+          onChange={(e) => {
+            setSelectedGroup(e.target.value)
+            setPage(0)
+          }}
+          className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
+        >
+          <option value="all">Manajemen Site</option>
+          {groups.map(group => (
+            <option key={group.id} value={group.id}>{group.name}</option>
+          ))}
         </select>
 
         <select

@@ -1803,35 +1803,36 @@ model ServiceSuspension {
 }
 
 model Sites {
-  id               String           @id
-  code             String           @unique
-  name             String
-  description      String?
-  address          String?
-  latitude         Float?
-  longitude        Float?
-  attendanceRadius Int              @default(100)
-  isActive         Boolean          @default(true)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime
-  expenses         Expense[]
-  invoices         Invoice[]
-  mikrotikRouter   MikroTikRouter[]
-  odcs             Odc[]
-  odps             Odp[]
-  olts             Olt[]
-  otbs             Otb[]
-  pelanggan        Pelanggan[]
-  poles            Pole[]
-  user             User[]
-  notifications    Notifications[]
-  userSites        UserSite[]
-  work_orders      WorkOrders[]
-  gudang           Gudang[]         @relation("GudangToSite")
-  bandwidths       Bandwidth[]
-  profilePPPs      ProfilePPP[]
-  joinboxes        Joinbox[]
-  kmzFiles         KmzFile[]
+  id                   String                @id
+  code                 String                @unique
+  name                 String
+  description          String?
+  address              String?
+  latitude             Float?
+  longitude            Float?
+  attendanceRadius     Int                   @default(100)
+  isActive             Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime
+  expenses             Expense[]
+  invoices             Invoice[]
+  mikrotikRouter       MikroTikRouter[]
+  odcs                 Odc[]
+  odps                 Odp[]
+  olts                 Olt[]
+  otbs                 Otb[]
+  pelanggan            Pelanggan[]
+  poles                Pole[]
+  user                 User[]
+  notifications        Notifications[]
+  userSites            UserSite[]
+  work_orders          WorkOrders[]
+  gudang               Gudang[]              @relation("GudangToSite")
+  bandwidths           Bandwidth[]
+  profilePPPs          ProfilePPP[]
+  joinboxes            Joinbox[]
+  kmzFiles             KmzFile[]
+  mixRadiusOwnerGroups MixRadiusOwnerGroup[]
 
   @@index([isActive])
   @@map("sites")
@@ -2883,9 +2884,13 @@ model MixRadiusOwnerGroup {
   id        String   @id @default(uuid())
   name      String
   owners    String[]
+  siteId    String?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  site      Sites?   @relation(fields: [siteId], references: [id])
+
+  @@index([siteId])
 }
 
 model MixRadiusConfig {
