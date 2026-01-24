@@ -44,16 +44,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Customer not found in MixRadius' }, { status: 404 })
     }
 
-    // 2. Try to find matched local Pelanggan
-    const localPelanggan = await prisma.pelanggan.findFirst({
-        where: {
-            OR: [
-                { idPelanggan: mrCustomer.member_id },
-                { username: mrCustomer.username }
-            ]
-        },
-        select: { id: true, siteId: true }
-    })
+    // 2. Fetch full Requester info and try to find matched local Pelanggan
+    const [requester, localPelanggan] = await Promise.all([
+        prisma.user.findUnique({
+            where: { id: session.id },
+            select: { id: true, siteId: true }
+        }),
+        prisma.pelanggan.findFirst({
+            where: {
+                OR: [
+                    { idPelanggan: mrCustomer.member_id },
+                    { username: mrCustomer.username }
+                ]
+            },
+            select: { id: true, siteId: true }
+        })
+    ])
 
     // 3. Find Technical Department (default to first one if not sure)
     // Or look for department with name containing 'Teknis' or 'Technical'
@@ -77,18 +83,22 @@ export async function POST(req: NextRequest) {
                         `- Paket: ${mrCustomer.plan_name}\n` +
                         `- Alamat (Portal): ${mrCustomer.address}`
 
+    // Use requester's siteId if available (Site yang request), fallback to customer's site
+    const targetSiteId = requester?.siteId || localPelanggan?.siteId || undefined
+
     const workOrder = await workOrderRepo.create({
         type: 'DISCONNECTION',
         title: title,
         description: description,
         priority: 'NORMAL',
         pelangganId: localPelanggan?.id || undefined,
-        siteId: localPelanggan?.siteId || undefined,
+        siteId: targetSiteId,
         departmentId: department?.id,
         contactName: mrCustomer.fullname,
         contactPhone: mrCustomer.phonenumber,
         locationAddress: mrCustomer.address,
         disconnectionReason: reason,
+        internalNotes: notes || undefined,
         createdById: session.id,
     })
 
