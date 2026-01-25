@@ -301,16 +301,18 @@ export class AttendanceRepository {
     }
 
     async getTopAbsentees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
-        const where: Prisma.AttendanceWhereInput = {
-            checkIn: { gte: startDate, lte: endDate },
-            status: 'ALPHA'
+        // Build user filter - always exclude FLEXIBLE
+        const userFilter: Prisma.UserWhereInput = {
+            workingHourMode: { not: 'FLEXIBLE' },
+            ...(siteId && { siteId }),
+            ...(departmentId && { departmentId })
         }
 
-        if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            }
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate },
+            status: 'ALPHA',
+            // IMPORTANT: Exclude FLEXIBLE users - they should never have ALPHA status
+            user: userFilter
         }
 
         const groups = await prisma.attendance.groupBy({
@@ -358,16 +360,18 @@ export class AttendanceRepository {
     }
 
     async getUserAbsenceStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const where: Prisma.AttendanceWhereInput = {
-            checkIn: { gte: startDate, lte: endDate },
-            status: 'ALPHA'
+        // Build user filter - always exclude FLEXIBLE
+        const userFilter: Prisma.UserWhereInput = {
+            workingHourMode: { not: 'FLEXIBLE' },
+            ...(siteId && { siteId }),
+            ...(departmentId && { departmentId })
         }
 
-        if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            }
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate },
+            status: 'ALPHA',
+            // IMPORTANT: Exclude FLEXIBLE users - they should never have ALPHA status
+            user: userFilter
         }
 
         return prisma.attendance.groupBy({
