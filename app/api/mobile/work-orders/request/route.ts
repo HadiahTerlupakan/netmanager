@@ -81,7 +81,8 @@ export async function POST(request: NextRequest) {
                     role: {
                         permission: {
                             some: {
-                                name: 'workorders:requests:approve'
+                                resource: 'workorders',
+                                action: 'requests:approve'
                             }
                         }
                     }
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
                         priority: 'NORMAL',
                         title: '📝 WO Request Baru',
                         message: `${userName} mengajukan: ${workOrder.title}`,
-                        link: `/admin/workorders/requests`,
+                        link: `/admin/workorders/list?status=REQUESTED`,
                         userId: adminId,
                         sourceType: 'WORK_ORDER',
                         sourceId: workOrder.id,

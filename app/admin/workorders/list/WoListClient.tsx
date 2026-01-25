@@ -107,6 +107,7 @@ export function ClientComponent() {
     const [totalPages, setTotalPages] = useState(1)
     const [showFilters, setShowFilters] = useState(false)
     const [sites, setSites] = useState<{ id: string, name: string }[]>([])
+    const [departments, setDepartments] = useState<{ id: string, name: string }[]>([])
 
     // Filters
     const [search, setSearch] = useState('')
@@ -149,6 +150,10 @@ export function ClientComponent() {
     const [showRejectRequestModal, setShowRejectRequestModal] = useState(false)
     const [rejectRequestReason, setRejectRequestReason] = useState('')
 
+    // Reminder Modal states
+    const [showReminderModal, setShowReminderModal] = useState(false)
+    const [selectedDepartmentId, setSelectedDepartmentId] = useState('')
+
     useEffect(() => {
         if (status === 'unauthenticated') {
             router.push('/login')
@@ -158,6 +163,7 @@ export function ClientComponent() {
         if (session?.user && status === 'authenticated') {
             fetchWorkOrders()
             fetchSites()
+            fetchDepartments()
         }
     // PHASE 5: Use debouncedSearch instead of search for API calls
     }, [session, status, router, page, debouncedSearch, filterStatus, filterPriority, filterType, filterSite, unassignedOnly])
@@ -171,6 +177,19 @@ export function ClientComponent() {
             }
         } catch (error) {
             console.error('Error fetching sites:', error)
+        }
+    }
+
+    const fetchDepartments = async () => {
+        try {
+            // Fetch only departments marked as reminder target
+            const response = await fetch('/api/admin/departments?reminderOnly=true')
+            if (response.ok) {
+                const data = await response.json()
+                setDepartments(data.data || data || [])
+            }
+        } catch (error) {
+            console.error('Error fetching departments:', error)
         }
     }
 
@@ -337,19 +356,32 @@ export function ClientComponent() {
         }
     }
 
-    const handleSendReminder = async (id: string, e: React.MouseEvent) => {
+    // Open reminder modal instead of sending directly
+    const handleOpenReminderModal = (id: string, e: React.MouseEvent) => {
         e.stopPropagation()
-        // if (!confirm('Kirim notifikasi reminder ke teknisi?')) return
+        setSelectedWorkOrderId(id)
+        setSelectedDepartmentId('')
+        setShowReminderModal(true)
+    }
 
-        setSendingReminderId(id)
+    // Actually send reminder after department selection
+    const handleSendReminder = async () => {
+        if (!selectedWorkOrderId) return
+
+        setSendingReminderId(selectedWorkOrderId)
         try {
-            const response = await fetch(`/api/admin/workorders/${id}/reminder`, {
+            const response = await fetch(`/api/admin/workorders/${selectedWorkOrderId}/reminder`, {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    departmentId: selectedDepartmentId || undefined 
+                }),
             })
             const data = await response.json()
             
             if (response.ok) {
                 show({ type: 'success', message: data.message || 'Reminder terkirim' })
+                setShowReminderModal(false)
             } else {
                 show({ type: 'error', message: data.error || 'Gagal mengirim reminder' })
             }
@@ -358,6 +390,7 @@ export function ClientComponent() {
             show({ type: 'error', message: 'Terjadi kesalahan' })
         } finally {
             setSendingReminderId(null)
+            setSelectedWorkOrderId(null)
         }
     }
 
@@ -548,7 +581,7 @@ export function ClientComponent() {
                     )}
                     {(wo.status === 'PENDING' || wo.status === 'ASSIGNED') && canSendReminder && (
                         <button
-                            onClick={(e) => handleSendReminder(wo.id, e)}
+                            onClick={(e) => handleOpenReminderModal(wo.id, e)}
                             disabled={sendingReminderId === wo.id}
                             className="p-1 text-gray-500 dark:text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded disabled:opacity-50"
                             title="Kirim Reminder"
@@ -986,6 +1019,69 @@ export function ClientComponent() {
                                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                                 >
                                     {processingApproval ? 'Memproses...' : 'Tolak Request'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Reminder Modal with Department Selection */}
+            {showReminderModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-sky-600 dark:text-sky-400 mb-4 flex items-center gap-2">
+                                <HiBellAlert className="w-5 h-5" />
+                                Kirim Reminder
+                            </h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                Pilih department target untuk mengirim reminder push notification ke teknisi.
+                            </p>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Target Department
+                                </label>
+                                <select
+                                    value={selectedDepartmentId}
+                                    onChange={(e) => setSelectedDepartmentId(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 dark:bg-gray-700 dark:text-white"
+                                >
+                                    <option value="">-- Semua Teknisi di Site --</option>
+                                    {departments.map(dept => (
+                                        <option key={dept.id} value={dept.id}>{dept.name}</option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    Kosongkan untuk kirim ke semua teknisi di site WO ini
+                                </p>
+                            </div>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => {
+                                        setShowReminderModal(false)
+                                        setSelectedDepartmentId('')
+                                        setSelectedWorkOrderId(null)
+                                    }}
+                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 rounded-lg"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={handleSendReminder}
+                                    disabled={sendingReminderId !== null}
+                                    className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {sendingReminderId ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            Mengirim...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <HiBellAlert className="w-4 h-4" />
+                                            Kirim Reminder
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </div>

@@ -71,7 +71,7 @@ export async function PATCH(
 
         const { id } = await params;
         const body = await request.json();
-        const { name, description, jobDescription } = body;
+        const { name, description, jobDescription, isReminderTarget } = body;
 
         // Check if department exists
         const existingDept = await prisma.departments.findUnique({
@@ -102,6 +102,7 @@ export async function PATCH(
                 ...(name && { name }),
                 ...(description !== undefined && { description: description || null }),
                 ...(jobDescription !== undefined && { jobDescription: jobDescription || null }),
+                ...(isReminderTarget !== undefined && { isReminderTarget }),
             },
         });
 

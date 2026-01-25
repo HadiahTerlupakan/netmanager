@@ -51,11 +51,11 @@ export async function GET(req: NextRequest) {
             }
         })
 
-        // WO completed TODAY by user
+        // WO completed TODAY by user (includes COMPLETED, VERIFIED, CLOSED)
         const woCompletedToday = await prisma.workOrders.count({
             where: {
                 assignedToId: userId,
-                status: 'COMPLETED',
+                status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
                 completedAt: { gte: today }
             }
         })
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
         const woCompletedWeek = await prisma.workOrders.count({
             where: {
                 assignedToId: userId,
-                status: 'COMPLETED',
+                status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
                 completedAt: { gte: weekStart }
             }
         })
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
         const woCompletedMonth = await prisma.workOrders.count({
             where: {
                 assignedToId: userId,
-                status: 'COMPLETED',
+                status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
                 completedAt: { gte: monthStart }
             }
         })

@@ -53,16 +53,19 @@ export async function POST(
             }, { status: 400 })
         }
 
-        // Get optional custom message from body
+        // Get optional custom message and target department from body
         let customMessage: string | undefined
+        let targetDepartmentId: string | undefined
         try {
             const body = await request.json()
             customMessage = body.message
+            targetDepartmentId = body.departmentId // Override department for targeted reminder
         } catch {
             // No body is fine
         }
 
         // Send reminder notification
+        // If targetDepartmentId is provided, use it instead of WO's departmentId
         const sentCount = await sendWorkOrderReminder(
             {
                 id: workOrder.id,
@@ -70,7 +73,7 @@ export async function POST(
                 title: workOrder.title,
                 type: workOrder.type,
                 priority: workOrder.priority,
-                departmentId: workOrder.departmentId,
+                departmentId: targetDepartmentId || workOrder.departmentId,
                 siteId: workOrder.siteId,
                 assignedToId: workOrder.assignedToId,
             },

@@ -14,6 +14,7 @@ export function ClientComponent() {
         name: '',
         description: '',
         jobDescription: '',
+        isReminderTarget: false,
     })
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -46,10 +47,10 @@ export function ClientComponent() {
     }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target
+        const { name, value, type } = e.target
         setFormData(prev => ({
             ...prev,
-            [name]: value
+            [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
         }))
     }
 
@@ -128,6 +129,26 @@ export function ClientComponent() {
                                 placeholder="Deskripsi pekerjaan dan tanggung jawab department..."
                                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             />
+                        </div>
+
+                        {/* Reminder Target Checkbox */}
+                        <div className="flex items-center gap-3 p-4 bg-sky-50 dark:bg-sky-900/20 rounded-lg border border-sky-200 dark:border-sky-800">
+                            <input
+                                type="checkbox"
+                                name="isReminderTarget"
+                                id="isReminderTarget"
+                                checked={formData.isReminderTarget}
+                                onChange={handleChange}
+                                className="w-5 h-5 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
+                            />
+                            <div>
+                                <label htmlFor="isReminderTarget" className="block text-sm font-medium text-gray-900 dark:text-white cursor-pointer">
+                                    Tampilkan di Reminder WO
+                                </label>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Jika dicentang, department ini akan muncul di dropdown reminder Work Order
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>

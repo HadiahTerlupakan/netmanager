@@ -216,8 +216,37 @@ export async function sendWorkOrderReminder(
                 message,
                 { workOrderId: workOrder.id, type: 'WORK_ORDER', screen: 'WorkOrderList' }
             );
+        } else if (workOrder.siteId) {
+            // Fallback: notify all active technicians in the same Site
+            // Check both legacy siteId field AND multi-site userSites table
+            const techniciansInSite = await prisma.user.findMany({
+                where: {
+                    isActive: true,
+                    pushToken: { not: null },
+                    OR: [
+                        { siteId: workOrder.siteId }, // Legacy: direct siteId
+                        { userSites: { some: { siteId: workOrder.siteId } } } // Multi-site
+                    ]
+                },
+                select: { id: true }
+            });
+
+            if (techniciansInSite.length === 0) {
+                console.log(`[Push] No technicians with push tokens in site ${workOrder.siteId}`);
+                return 0;
+            }
+
+            const userIds = techniciansInSite.map(u => u.id);
+            console.log(`[Push] Sending reminder to ${userIds.length} technicians in site ${workOrder.siteId}`);
+            return await sendPushToUsers(
+                userIds,
+                title,
+                message,
+                { workOrderId: workOrder.id, type: 'WORK_ORDER', screen: 'WorkOrderList' }
+            );
         }
 
+        console.log('[Push] No target found for reminder (no assignee, department, or site)');
         return 0;
     } catch (error) {
         console.error('[Notification] Error sending reminder:', error);

@@ -1324,6 +1324,7 @@ model Departments {
   name                   String                 @unique
   description            String?
   jobDescription         String?
+  isReminderTarget       Boolean                @default(false) // Muncul di dropdown reminder WO
   createdAt              DateTime               @default(now())
   updatedAt              DateTime
   user                   User[]

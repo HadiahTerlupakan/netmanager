@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url);
         const search = searchParams.get('search');
+        const reminderOnly = searchParams.get('reminderOnly') === 'true';
 
         const where: any = {};
         if (search) {
@@ -26,6 +27,9 @@ export async function GET(request: NextRequest) {
                 { name: { contains: search, mode: 'insensitive' } },
                 { description: { contains: search, mode: 'insensitive' } },
             ];
+        }
+        if (reminderOnly) {
+            where.isReminderTarget = true;
         }
 
         const departments = await prisma.departments.findMany({
@@ -65,7 +69,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { name, description, jobDescription } = body;
+        const { name, description, jobDescription, isReminderTarget } = body;
 
         if (!name) {
             return NextResponse.json(
@@ -92,6 +96,7 @@ export async function POST(request: NextRequest) {
                 name,
                 description: description || null,
                 jobDescription: jobDescription || null,
+                isReminderTarget: isReminderTarget ?? false,
                 updatedAt: new Date(),
             },
         });
