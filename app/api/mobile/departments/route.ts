@@ -19,11 +19,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
         }
 
-        // Fetch active departments
-        const departments = await prisma.department.findMany({
-            where: {
-                isActive: true,
-            },
+        // Fetch departments
+        const departments = await prisma.departments.findMany({
             select: {
                 id: true,
                 name: true,
