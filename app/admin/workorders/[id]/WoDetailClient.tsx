@@ -21,6 +21,8 @@ import {
     HiChatBubbleLeftRight,
     HiPaperAirplane,
     HiLockClosed,
+    HiCube,
+    HiArrowUturnLeft,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { ImageLightbox } from '@/components/ui/ImageLightbox'
@@ -839,9 +841,17 @@ export function ClientComponent() {
                                                 return (
                                                 <div key={item.id} className="flex gap-4">
                                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                                                        item.type === 'update' ? 'bg-sky-100 dark:bg-sky-900/30' : 'bg-orange-100 dark:bg-orange-900/30'
+                                                        updateData?.updateType === 'MATERIAL_PICKUP' ? 'bg-orange-100 dark:bg-orange-900/30'
+                                                        : updateData?.updateType === 'MATERIAL_RETURN' ? 'bg-green-100 dark:bg-green-900/30'
+                                                        : updateData?.updateType === 'STATUS_CHANGE' ? 'bg-blue-100 dark:bg-blue-900/30'
+                                                        : item.type === 'update' ? 'bg-sky-100 dark:bg-sky-900/30' 
+                                                        : 'bg-orange-100 dark:bg-orange-900/30'
                                                         }`}>
-                                                        {item.type === 'update' ? (
+                                                        {updateData?.updateType === 'MATERIAL_PICKUP' ? (
+                                                            <HiCube className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                                        ) : updateData?.updateType === 'MATERIAL_RETURN' ? (
+                                                            <HiArrowUturnLeft className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                                        ) : item.type === 'update' ? (
                                                             <HiClock className="w-4 h-4 text-sky-600 dark:text-sky-400" />
                                                         ) : (
                                                             <HiPhoto className="w-4 h-4 text-orange-600 dark:text-orange-400" />
@@ -850,6 +860,22 @@ export function ClientComponent() {
                                                     <div className="flex-1">
                                                         {item.type === 'update' ? (
                                                             <div className="">
+                                                                {/* Label berdasarkan updateType */}
+                                                                {updateData.updateType === 'MATERIAL_PICKUP' && (
+                                                                    <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded mb-1">
+                                                                        📦 Ambil Barang
+                                                                    </span>
+                                                                )}
+                                                                {updateData.updateType === 'MATERIAL_RETURN' && (
+                                                                    <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded mb-1">
+                                                                        ↩️ Kembalikan Barang
+                                                                    </span>
+                                                                )}
+                                                                {updateData.updateType === 'STATUS_CHANGE' && (
+                                                                    <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded mb-1">
+                                                                        🔄 Perubahan Status
+                                                                    </span>
+                                                                )}
                                                                 <p className="text-sm text-gray-900 dark:text-gray-200 whitespace-pre-wrap">{updateData.message}</p>
                                                             </div>
                                                         ) : (
