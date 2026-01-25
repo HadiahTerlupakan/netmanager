@@ -30,10 +30,14 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        // Get user's siteId for filtering by ManagementSite -> OwnerGroup
+        const userSiteId = payload.siteId as string | undefined;
+
         const mixRadius = new MixRadiusService();
         const result = await mixRadius.fetchCustomersPPP({
             search,
             length: 20,
+            siteId: userSiteId, // Filter customers by user's site -> owner group mapping
         });
 
         // Map to simpler format for mobile
