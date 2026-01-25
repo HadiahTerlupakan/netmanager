@@ -43,6 +43,9 @@ interface WorkOrder {
     site?: {
         name: string
     } | null
+    createdBy?: {
+        name: string | null
+    } | null
     createdAt: string
 }
 
@@ -151,10 +154,10 @@ export function ClientComponent() {
 
     const fetchSites = async () => {
         try {
-            const response = await fetch('/api/admin/sites?active=true')
+            const response = await fetch('/api/admin/sites?activeOnly=true')
             if (response.ok) {
                 const data = await response.json()
-                setSites(data.sites || [])
+                setSites(data.data || [])
             }
         } catch (error) {
             console.error('Error fetching sites:', error)
@@ -442,6 +445,16 @@ export function ClientComponent() {
             render: (wo) => (
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                     {formatDistanceToNow(new Date(wo.createdAt), { addSuffix: true, locale: localeId })}
+                </span>
+            )
+        },
+        {
+            key: 'createdBy',
+            header: 'Dibuat Oleh',
+            priority: 'tertiary',
+            render: (wo) => (
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {wo.createdBy?.name || '-'}
                 </span>
             )
         }

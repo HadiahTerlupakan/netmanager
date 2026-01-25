@@ -109,6 +109,10 @@ interface WorkOrderDetail {
             name: string
         }
     }>
+    createdBy?: {
+        id: string
+        name: string | null
+    } | null
 }
 
 type TimelineItem =
@@ -1209,6 +1213,12 @@ export function ClientComponent() {
                                             <p key={a.id} className="font-medium text-gray-900 dark:text-white">{a.user?.name || a.user?.firstName + ' ' + a.user?.lastName}</p>
                                         ))}
                                 </div>
+                            </div>
+                        )}
+                        {workOrder.createdBy && (
+                            <div className="text-sm mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                                <p className="text-gray-600 dark:text-gray-400">Dibuat oleh:</p>
+                                <p className="font-medium text-gray-900 dark:text-white">{workOrder.createdBy.name || '-'}</p>
                             </div>
                         )}
                     </div>

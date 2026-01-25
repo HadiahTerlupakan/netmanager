@@ -35,6 +35,10 @@ export interface WorkOrderWithRelations extends WorkOrders {
         } | null;
     })[];
     attachments?: WorkOrderAttachments[];
+    createdBy?: {
+        id: string;
+        name: string | null;
+    } | null;
 }
 
 export interface CreateWorkOrderData {
@@ -203,6 +207,10 @@ export interface WorkOrderListItem {
         name: string;
     } | null;
     assignedTo: {
+        id: string;
+        name: string | null;
+    } | null;
+    createdBy: {
         id: string;
         name: string | null;
     } | null;

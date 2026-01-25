@@ -108,6 +108,8 @@ type VisibilityState = {
   pole: boolean
   pelanggan: boolean
   kmz: boolean
+  mixRadiusOdp: boolean
+  mixRadiusPelanggan: boolean
 }
 
 export default function TopologyMap() {
@@ -128,10 +130,39 @@ export default function TopologyMap() {
     pole: true,
     pelanggan: true,
     kmz: true,
+    mixRadiusOdp: false,
+    mixRadiusPelanggan: false,
   })
   const visibilityRef = useRef<VisibilityState>(visibility)
   const [selectedFeature, setSelectedFeature] = useState<any>(null)
   const [siteId, setSiteId] = useState<string | undefined>(undefined)
+
+  // MixRadius topology data
+  type MixRadiusTopologyData = {
+    odps: Array<{
+      id: string
+      name: string
+      area: string
+      latitude: number
+      longitude: number
+      ownerName: string
+      customerCount?: number
+    }>
+    customers: Array<{
+      id: string
+      memberId: string
+      fullname: string
+      address: string
+      planName: string
+      ownerName: string
+      odpId: string
+      odpName: string
+      latitude: number
+      longitude: number
+    }>
+  }
+  const [mixRadiusData, setMixRadiusData] = useState<MixRadiusTopologyData | null>(null)
+  const [mixRadiusLoading, setMixRadiusLoading] = useState(false)
 
   // Fetch data
   useEffect(() => {
@@ -153,6 +184,26 @@ export default function TopologyMap() {
     }
     fetchData()
   }, [siteId])
+
+  // Fetch MixRadius data when visibility is enabled
+  useEffect(() => {
+    if ((visibility.mixRadiusOdp || visibility.mixRadiusPelanggan) && !mixRadiusData && !mixRadiusLoading) {
+      async function fetchMixRadiusData() {
+        try {
+          setMixRadiusLoading(true)
+          const res = await fetch('/api/ftth/topology/mixradius')
+          if (!res.ok) throw new Error('Failed to fetch MixRadius data')
+          const json = await res.json()
+          setMixRadiusData(json)
+        } catch (err: any) {
+          console.error('Failed to load MixRadius data:', err.message)
+        } finally {
+          setMixRadiusLoading(false)
+        }
+      }
+      fetchMixRadiusData()
+    }
+  }, [visibility.mixRadiusOdp, visibility.mixRadiusPelanggan, mixRadiusData, mixRadiusLoading])
 
   useEffect(() => {
     visibilityRef.current = visibility
@@ -1491,6 +1542,178 @@ export default function TopologyMap() {
       })()
   }, [visibility, data, loading])
 
+  // MixRadius layers effect
+  useEffect(() => {
+    if (!mapRef.current || !mixRadiusData) return
+
+    const map = mapRef.current
+
+    ; (async () => {
+      const { default: VectorSource } = await import('ol/source/Vector')
+      const { default: VectorLayer } = await import('ol/layer/Vector')
+      const { default: Feature } = await import('ol/Feature')
+      const { default: Point } = await import('ol/geom/Point')
+      const { default: LineString } = await import('ol/geom/LineString')
+      const { fromLonLat } = await import('ol/proj')
+      const { Style, Fill, Stroke, Text } = await import('ol/style')
+      const { default: CircleStyle } = await import('ol/style/Circle')
+
+      // Clean up existing MixRadius layers
+      const existingLayers = map.getLayers().getArray()
+      existingLayers.forEach((layer: any) => {
+        const name = layer.get('name')
+        if (name && name.startsWith('mixradius-')) {
+          map.removeLayer(layer)
+        }
+      })
+
+      // Styles for MixRadius
+      const mixRadiusOdpStyle = new Style({
+        image: new CircleStyle({
+          radius: 7,
+          fill: new Fill({ color: '#06b6d4' }), // cyan-500
+          stroke: new Stroke({ color: '#ffffff', width: 2 }),
+        }),
+        text: new Text({
+          text: '',
+          offsetY: -15,
+          fill: new Fill({ color: '#0891b2' }),
+          stroke: new Stroke({ color: '#ffffff', width: 3 }),
+          font: 'bold 11px sans-serif',
+        }),
+      })
+
+      const mixRadiusPelangganStyle = new Style({
+        image: new CircleStyle({
+          radius: 5,
+          fill: new Fill({ color: '#14b8a6' }), // teal-500
+          stroke: new Stroke({ color: '#ffffff', width: 2 }),
+        }),
+      })
+
+      // Create ODP source and layer
+      const odpSource = new VectorSource()
+      mixRadiusData.odps.forEach(odp => {
+        if (odp.latitude && odp.longitude) {
+          const feature = new Feature({
+            geometry: new Point(fromLonLat([odp.longitude, odp.latitude])),
+            type: 'mixradius-odp',
+            data: {
+              id: odp.id,
+              name: odp.name,
+              location: odp.area,
+              notes: `Owner: ${odp.ownerName}, Pelanggan: ${odp.customerCount || 0}`,
+              latitude: odp.latitude,
+              longitude: odp.longitude,
+            }
+          })
+          const style = mixRadiusOdpStyle.clone()
+          const text = style.getText()
+          if (text) text.setText(odp.name)
+          feature.setStyle(style)
+          odpSource.addFeature(feature)
+        }
+      })
+
+      const odpLayer = new VectorLayer({
+        source: odpSource,
+        zIndex: 15,
+      })
+      odpLayer.set('name', 'mixradius-odp')
+      odpLayer.setVisible(visibility.mixRadiusOdp)
+      map.addLayer(odpLayer)
+
+      // Create Pelanggan source and layer
+      const pelangganSource = new VectorSource()
+      mixRadiusData.customers.forEach(customer => {
+        if (customer.latitude && customer.longitude) {
+          const feature = new Feature({
+            geometry: new Point(fromLonLat([customer.longitude, customer.latitude])),
+            type: 'mixradius-pelanggan',
+            data: {
+              id: customer.id,
+              name: customer.fullname,
+              idPelanggan: customer.memberId,
+              alamat: customer.address,
+              notes: `${customer.planName} | ODP: ${customer.odpName} | Owner: ${customer.ownerName}`,
+              latitude: customer.latitude,
+              longitude: customer.longitude,
+            }
+          })
+          feature.setStyle(mixRadiusPelangganStyle)
+          pelangganSource.addFeature(feature)
+        }
+      })
+
+      const pelangganLayer = new VectorLayer({
+        source: pelangganSource,
+        zIndex: 14,
+      })
+      pelangganLayer.set('name', 'mixradius-pelanggan')
+      pelangganLayer.setVisible(visibility.mixRadiusPelanggan)
+      map.addLayer(pelangganLayer)
+
+      // Create topology lines (ODP -> Pelanggan)
+      const topologySource = new VectorSource()
+      
+      // Group customers by ODP
+      const customersByOdp = new Map<string, typeof mixRadiusData.customers>()
+      mixRadiusData.customers.forEach(customer => {
+        if (!customersByOdp.has(customer.odpId)) {
+          customersByOdp.set(customer.odpId, [])
+        }
+        customersByOdp.get(customer.odpId)!.push(customer)
+      })
+
+      // Create lines from ODP to customers
+      mixRadiusData.odps.forEach(odp => {
+        const customers = customersByOdp.get(odp.id) || []
+        if (odp.latitude && odp.longitude) {
+          customers.forEach(customer => {
+            if (customer.latitude && customer.longitude) {
+              const line = new Feature({
+                geometry: new LineString([
+                  fromLonLat([odp.longitude, odp.latitude]),
+                  fromLonLat([customer.longitude, customer.latitude])
+                ])
+              })
+              topologySource.addFeature(line)
+            }
+          })
+        }
+      })
+
+      // Animated line style
+      let dashOffset = 0
+      const topologyLayer = new VectorLayer({
+        source: topologySource,
+        zIndex: 13,
+        style: () => new Style({
+          stroke: new Stroke({
+            color: 'rgba(6, 182, 212, 0.6)', // cyan-500 with opacity
+            width: 2,
+            lineDash: [8, 8],
+            lineDashOffset: dashOffset,
+          }),
+        }),
+      })
+      topologyLayer.set('name', 'mixradius-topology')
+      topologyLayer.setVisible(visibility.mixRadiusOdp && visibility.mixRadiusPelanggan)
+      map.addLayer(topologyLayer)
+
+      // Animate the dashed lines
+      const animateDash = () => {
+        dashOffset -= 0.5
+        topologyLayer.changed()
+        requestAnimationFrame(animateDash)
+      }
+      requestAnimationFrame(animateDash)
+
+      // Force render
+      map.render()
+    })()
+  }, [mixRadiusData, visibility.mixRadiusOdp, visibility.mixRadiusPelanggan])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -1657,6 +1880,27 @@ export default function TopologyMap() {
                 <span>Topologi</span>
               </div>
             </div>
+            {(visibility.mixRadiusOdp || visibility.mixRadiusPelanggan) && (
+              <div className="pt-2 border-t border-gray-200 dark:border-gray-700 mt-2">
+                <div className="text-xs font-semibold mb-1 text-cyan-600">MixRadius</div>
+                {visibility.mixRadiusOdp && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-cyan-500 border-2 border-white"></div>
+                    <span>ODP MixRadius</span>
+                  </div>
+                )}
+                {visibility.mixRadiusPelanggan && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-teal-500 border-2 border-white"></div>
+                    <span>Pelanggan MixRadius</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-8 h-0.5 bg-cyan-500 border-dashed"></div>
+                  <span>Topologi MixRadius</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1729,6 +1973,28 @@ export default function TopologyMap() {
                 <span>KMZ</span>
               </label>
             )}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-2">
+              <div className="text-xs font-semibold mb-1 text-cyan-600">MixRadius</div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={visibility.mixRadiusOdp}
+                  onChange={(e) => setVisibility({ ...visibility, mixRadiusOdp: e.target.checked })}
+                  className="rounded accent-cyan-500"
+                />
+                <span>ODP MixRadius</span>
+                {mixRadiusLoading && <span className="text-xs text-gray-400">(loading...)</span>}
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={visibility.mixRadiusPelanggan}
+                  onChange={(e) => setVisibility({ ...visibility, mixRadiusPelanggan: e.target.checked })}
+                  className="rounded accent-teal-500"
+                />
+                <span>Pelanggan MixRadius</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>

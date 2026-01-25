@@ -116,6 +116,35 @@ export interface FetchCustomersParams {
   siteId?: string
 }
 
+// ODP Types for Topology Map
+export interface MixRadiusODP {
+  id: string
+  name: string
+  area: string
+  latitude: number
+  longitude: number
+  ownerName: string
+  customerCount?: number
+}
+
+export interface MixRadiusODPCustomer {
+  id: string
+  memberId: string
+  fullname: string
+  address: string
+  planName: string
+  ownerName: string
+  odpId: string
+  odpName: string
+  latitude: number
+  longitude: number
+}
+
+export interface MixRadiusTopologyData {
+  odps: MixRadiusODP[]
+  customers: MixRadiusODPCustomer[]
+}
+
 export class MixRadiusService {
   private credentials: MixRadiusCredentials
   private client: AxiosInstance
@@ -123,6 +152,14 @@ export class MixRadiusService {
   private isLoggedIn: boolean = false
   private loginExpiresAt: number = 0
   private invoiceCountCache: LRUCache<string, { paidCount: number, totalCount: number, lastRenewedOn: string }>
+  
+  // Topology cache - 5 minutes TTL (data doesn't change frequently)
+  private topologyCache: {
+    data: MixRadiusTopologyData | null
+    expiresAt: number
+    ownerFilter: string | null
+  } = { data: null, expiresAt: 0, ownerFilter: null }
+  private static TOPOLOGY_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
   constructor() {
     // Initial credentials from environment variables (fallback)
@@ -959,6 +996,390 @@ export class MixRadiusService {
    */
   isSessionValid(): boolean {
     return this.isLoggedIn && this.loginExpiresAt > Date.now()
+  }
+
+  // ==================== ODP Methods for Topology Map ====================
+
+  /**
+   * Parse DMS (Degrees Minutes Seconds) to Decimal
+   * Example: "6°32'56.3" → 6.5489722...
+   * Note: MixRadius stores lat as positive but represents South latitude
+   */
+  private parseDMSToDecimal(dms: string): number | null {
+    if (!dms) return null
+    
+    // Clean up HTML entities and various quote formats
+    let cleaned = dms
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/'/g, "'")  // Unicode right single quotation mark
+      .replace(/'/g, "'")  // Unicode left single quotation mark
+      .replace(/′/g, "'")  // Prime symbol
+      .replace(/″/g, '"')  // Double prime symbol
+    
+    // Try to match DMS format: 6°32'56.3 or 107°48'03.1
+    // Also handle formats like 6°32'56.3" (with trailing double quote)
+    const dmsRegex = /(-?)(\d+)[°](\d+)['](\d+\.?\d*)["'"]?/
+    const match = cleaned.match(dmsRegex)
+    
+    if (match) {
+      const sign = match[1] === '-' ? -1 : 1
+      const degrees = parseFloat(match[2])
+      const minutes = parseFloat(match[3])
+      const seconds = parseFloat(match[4])
+      
+      const result = sign * (degrees + minutes / 60 + seconds / 3600)
+      return result
+    }
+    
+    // Try parsing as decimal directly
+    const decimal = parseFloat(cleaned)
+    if (!isNaN(decimal)) return decimal
+    
+    console.warn(`[MixRadius] Could not parse DMS: "${dms}" -> "${cleaned}"`)
+    return null
+  }
+
+  /**
+   * Parse Google Maps place URL to extract coordinates
+   * Example: "https://www.google.com/maps/place/6°32'56.6,107°48'02.5"
+   */
+  private parseGoogleMapsCoords(url: string): { lat: number; lng: number } | null {
+    if (!url) return null
+    
+    // Clean up HTML entities
+    let cleaned = url
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      .replace(/&apos;/g, "'")
+    
+    // Match pattern: /maps/place/LAT,LNG
+    // LAT and LNG can contain °, ', " and numbers
+    // The pattern ends at a space, end of string, or closing quote/tag
+    const placeRegex = /maps\/place\/([^,]+),([^<>\s"]+)/
+    const match = cleaned.match(placeRegex)
+    
+    if (match) {
+      const latStr = match[1]
+      const lngStr = match[2]
+      
+      const lat = this.parseDMSToDecimal(latStr)
+      const lng = this.parseDMSToDecimal(lngStr)
+      
+      if (lat !== null && lng !== null) {
+        // MixRadius stores latitude as positive but it's actually South (negative)
+        // Check if this is Indonesian coords (should be negative latitude)
+        return { 
+          lat: lat > 0 && lat < 15 ? -lat : lat, // Indonesian latitude is negative
+          lng 
+        }
+      } else {
+        console.warn(`[MixRadius] Failed to parse coords: lat="${latStr}" -> ${lat}, lng="${lngStr}" -> ${lng}`)
+      }
+    } else {
+      console.warn(`[MixRadius] No coordinate match in URL: ${url.substring(0, 100)}`)
+    }
+    
+    return null
+  }
+
+  /**
+   * Fetch list of ODPs from MixRadius
+   * Endpoint: GET /rad-autoload/mapping-odps/ALL (JSON API - much faster!)
+   */
+  async fetchODPList(): Promise<MixRadiusODP[]> {
+    try {
+      await this.login()
+
+      console.log('[MixRadius] Fetching ODP list via mapping API...')
+
+      const response = await this.client.get(
+        `${this.credentials.baseUrl}/rad-autoload/mapping-odps/ALL`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': '*/*',
+            'Referer': `${this.credentials.baseUrl}/rad-odp/mapping`,
+          },
+        }
+      )
+
+      // Check if session expired (returned HTML login page)
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE')) {
+        console.log('[MixRadius] Session expired during ODP fetch, retrying...')
+        this.isLoggedIn = false
+        return this.fetchODPList()
+      }
+
+      // Parse JSON if response is string
+      let data = response.data
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data)
+        } catch (e) {
+          console.error('[MixRadius] Failed to parse ODP mapping response:', e)
+          return []
+        }
+      }
+
+      if (!Array.isArray(data)) {
+        console.log('[MixRadius] ODP mapping response is not an array')
+        return []
+      }
+
+      console.log(`[MixRadius] Found ${data.length} ODPs from mapping API`)
+
+      const odps: MixRadiusODP[] = []
+
+      for (const item of data) {
+        // Parse latitude - check DMS format FIRST (contains ° symbol)
+        let lat: number
+        const latStr = String(item.odp_latitude || '')
+        if (latStr.includes('°')) {
+          lat = this.parseDMSToDecimal(latStr) || 0
+        } else {
+          lat = parseFloat(latStr) || 0
+        }
+        
+        // Parse longitude - check DMS format FIRST (contains ° symbol)
+        let lng: number
+        const lngStr = String(item.odp_longitude || '')
+        if (lngStr.includes('°')) {
+          lng = this.parseDMSToDecimal(lngStr) || 0
+        } else {
+          lng = parseFloat(lngStr) || 0
+        }
+
+        // Skip if no valid coordinates
+        if (lat === 0 && lng === 0) {
+          continue
+        }
+
+        // Fix Indonesian latitude (should be negative)
+        if (lat > 0 && lat < 15) {
+          lat = -lat
+        }
+
+        // Validate coordinates are within Indonesia bounds
+        // Indonesia: lat -11 to 6, lng 95 to 141
+        const isValidCoord = lat >= -12 && lat <= 8 && lng >= 94 && lng <= 142
+        if (!isValidCoord) {
+          console.warn(`[MixRadius] ODP ${item.odp_name} has invalid coords: lat=${lat}, lng=${lng}`)
+          continue
+        }
+
+        odps.push({
+          id: String(item.id), // Ensure ID is always a string
+          name: item.odp_name || '',
+          area: item.odp_area || '',
+          latitude: lat,
+          longitude: lng,
+          ownerName: item.owner_name || '',
+          customerCount: parseInt(item.customers_count || '0', 10),
+        })
+      }
+
+      console.log(`[MixRadius] Parsed ${odps.length} ODPs with valid coordinates`)
+      return odps
+    } catch (error: any) {
+      console.error('[MixRadius] Fetch ODP list error:', error.message)
+      throw new Error(`Failed to fetch ODP list: ${error.message}`)
+    }
+  }
+
+  /**
+   * Fetch customers for a specific ODP
+   * Endpoint: GET /rad-odp/edit/{id} (parse HTML tab Pelanggan)
+   */
+  async fetchODPCustomers(odpId: string): Promise<MixRadiusODPCustomer[]> {
+    try {
+      await this.login()
+
+      console.log(`[MixRadius] Fetching customers for ODP ${odpId}...`)
+
+      const response = await this.client.get(
+        `${this.credentials.baseUrl}/rad-odp/edit/${odpId}`,
+        {
+          headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Referer': `${this.credentials.baseUrl}/rad-odp/list`,
+          },
+        }
+      )
+
+      const html = response.data as string
+
+      // Check if session expired
+      if (html.includes('LOGIN</title>') || html.includes('rad-admin/post')) {
+        this.isLoggedIn = false
+        return this.fetchODPCustomers(odpId)
+      }
+
+      // Extract ODP name
+      const odpNameMatch = html.match(/name="name"[^>]*value="([^"]+)"/i)
+      const odpName = odpNameMatch ? odpNameMatch[1] : `ODP-${odpId}`
+
+      // Parse customers from table in tab "Pelanggan"
+      const customers: MixRadiusODPCustomer[] = []
+      
+      // Find the customers table (id="dynamic-table")
+      const tableMatch = html.match(/<table[^>]*id="dynamic-table"[^>]*>([\s\S]*?)<\/table>/i)
+      if (!tableMatch) {
+        console.log(`[MixRadius] No customer table found for ODP ${odpId}`)
+        return customers
+      }
+
+      const tableContent = tableMatch[1]
+      
+      // Parse each row in tbody
+      const rowRegex = /<tr>([\s\S]*?)<\/tr>/gi
+      let rowMatch
+      
+      while ((rowMatch = rowRegex.exec(tableContent)) !== null) {
+        const rowHtml = rowMatch[1]
+        
+        // Skip header rows
+        if (rowHtml.includes('<th>')) continue
+        
+        // Extract cells
+        const cells: string[] = []
+        const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi
+        let cellMatch
+        
+        while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
+          cells.push(cellMatch[1])
+        }
+        
+        if (cells.length >= 7) {
+          // Extract customer ID from checkbox
+          const idMatch = cells[0].match(/value="(\d+)"/)
+          const customerId = idMatch ? idMatch[1] : ''
+          
+          // Extract coordinates from Google Maps link
+          const mapsLinkMatch = cells[6].match(/href="([^"]*google\.com\/maps[^"]*)"/i)
+          const coords = mapsLinkMatch ? this.parseGoogleMapsCoords(mapsLinkMatch[1]) : null
+          
+          if (customerId && coords) {
+            // Validate coordinates are within Indonesia bounds
+            // Indonesia: lat -11 to 6, lng 95 to 141
+            const isValidCoord = coords.lat >= -12 && coords.lat <= 8 && 
+                                 coords.lng >= 94 && coords.lng <= 142
+            
+            if (isValidCoord) {
+              customers.push({
+                id: customerId,
+                memberId: cells[1].replace(/<[^>]*>/g, '').trim(),
+                fullname: cells[2].replace(/<[^>]*>/g, '').trim(),
+                address: cells[3].replace(/<[^>]*>/g, '').trim(),
+                planName: cells[4].replace(/<[^>]*>/g, '').trim(),
+                ownerName: cells[5].replace(/<[^>]*>/g, '').trim(),
+                odpId: String(odpId), // Ensure ID is always a string
+                odpName: odpName,
+                latitude: coords.lat,
+                longitude: coords.lng,
+              })
+            } else {
+              console.warn(`[MixRadius] Invalid coords for customer ${customerId}: lat=${coords.lat}, lng=${coords.lng}`)
+            }
+          }
+        }
+      }
+
+      console.log(`[MixRadius] Found ${customers.length} customers for ODP ${odpId}`)
+      return customers
+    } catch (error: any) {
+      console.error(`[MixRadius] Fetch ODP customers error for ${odpId}:`, error.message)
+      return [] // Return empty instead of throwing to continue with other ODPs
+    }
+  }
+
+  /**
+   * Clear topology cache (call this when ODP/customer data changes)
+   */
+  clearTopologyCache(): void {
+    this.topologyCache = { data: null, expiresAt: 0, ownerFilter: null }
+    console.log('[MixRadius] Topology cache cleared')
+  }
+
+  /**
+   * Fetch all topology data (ODPs + Customers) for the map
+   * Uses parallel batching for faster customer fetching
+   * Results are cached for 5 minutes
+   */
+  async fetchTopologyData(options?: { ownerName?: string, forceRefresh?: boolean }): Promise<MixRadiusTopologyData> {
+    try {
+      const ownerFilter = options?.ownerName || null
+      
+      // Check cache (if not force refresh and cache is valid)
+      if (!options?.forceRefresh && 
+          this.topologyCache.data && 
+          this.topologyCache.expiresAt > Date.now() &&
+          this.topologyCache.ownerFilter === ownerFilter) {
+        console.log('[MixRadius] Using cached topology data')
+        return this.topologyCache.data
+      }
+      
+      console.log('[MixRadius] Fetching topology data (cache miss or expired)...')
+      
+      // Get all ODPs (mapping API includes customer counts)
+      let odps = await this.fetchODPList()
+      
+      // Filter by owner if specified
+      if (options?.ownerName) {
+        odps = odps.filter(odp => odp.ownerName === options.ownerName)
+      }
+
+      // Only fetch customers for ODPs that have customers (customerCount > 0)
+      const odpsWithCustomers = odps.filter(odp => (odp.customerCount || 0) > 0)
+      console.log(`[MixRadius] Fetching customers for ${odpsWithCustomers.length} ODPs (with customers)...`)
+
+      // Fetch customers in parallel batches (3 concurrent requests to avoid server overload)
+      const BATCH_SIZE = 3
+      const allCustomers: MixRadiusODPCustomer[] = []
+      
+      for (let i = 0; i < odpsWithCustomers.length; i += BATCH_SIZE) {
+        const batch = odpsWithCustomers.slice(i, i + BATCH_SIZE)
+        const batchResults = await Promise.all(
+          batch.map(async (odp) => {
+            try {
+              return await this.fetchODPCustomers(odp.id)
+            } catch (error) {
+              console.error(`[MixRadius] Failed to fetch customers for ODP ${odp.id}`)
+              return []
+            }
+          })
+        )
+        batchResults.forEach(customers => allCustomers.push(...customers))
+        
+        // Small delay between batches to be nice to the server
+        if (i + BATCH_SIZE < odpsWithCustomers.length) {
+          await new Promise(resolve => setTimeout(resolve, 50))
+        }
+      }
+
+      console.log(`[MixRadius] Topology data complete: ${odps.length} ODPs, ${allCustomers.length} customers`)
+
+      const result: MixRadiusTopologyData = {
+        odps,
+        customers: allCustomers,
+      }
+      
+      // Update cache
+      this.topologyCache = {
+        data: result,
+        expiresAt: Date.now() + MixRadiusService.TOPOLOGY_CACHE_TTL,
+        ownerFilter: ownerFilter
+      }
+      console.log(`[MixRadius] Topology data cached (expires in 5 minutes)`)
+      
+      return result
+    } catch (error: any) {
+      console.error('[MixRadius] Fetch topology data error:', error.message)
+      throw new Error(`Failed to fetch topology data: ${error.message}`)
+    }
   }
 }
 

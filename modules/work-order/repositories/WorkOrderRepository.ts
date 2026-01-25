@@ -213,6 +213,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         uploadedAt: 'desc',
                     },
                 },
+                createdBy: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
             },
         });
     }
@@ -623,6 +629,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         },
                     },
                     assignedTo: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                    createdBy: {
                         select: {
                             id: true,
                             name: true,
