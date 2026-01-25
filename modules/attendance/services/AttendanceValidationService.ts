@@ -65,10 +65,11 @@ export class AttendanceValidationService {
         // 3. Check Off Days (Jadwal Kerja User)
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { workDays: true }
+            select: { workDays: true, workingHourMode: true }
         })
 
-        if (user?.workDays) {
+        // User FLEXIBLE tidak terpengaruh workDays - bisa absen setiap hari
+        if (user?.workDays && user?.workingHourMode !== 'FLEXIBLE') {
             const dayOfWeek = date.getDay() // 0 = Sunday, 6 = Saturday
             const dayMap: Record<string, number> = { 
                 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6,

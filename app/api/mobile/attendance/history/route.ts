@@ -42,11 +42,12 @@ export async function GET(request: NextRequest) {
         // Check Off Day for Today (based on user's workDays)
         const userData = await prisma.user.findUnique({
             where: { id: userId },
-            select: { workDays: true }
+            select: { workDays: true, workingHourMode: true }
         })
 
         let isOffDay = false
-        if (userData?.workDays) {
+        // User FLEXIBLE tidak terpengaruh workDays - bisa absen setiap hari
+        if (userData?.workDays && userData?.workingHourMode !== 'FLEXIBLE') {
             const today = new Date()
             const dayOfWeek = today.getDay() // 0 = Sunday, 6 = Saturday
             const dayMap: Record<string, number> = { 
