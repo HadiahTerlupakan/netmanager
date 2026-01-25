@@ -50,6 +50,7 @@ interface WorkOrder {
 }
 
 const statusColors: Record<string, string> = {
+    REQUESTED: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200',
     PENDING: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200',
     ASSIGNED: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200',
     IN_PROGRESS: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200',
@@ -58,9 +59,11 @@ const statusColors: Record<string, string> = {
     VERIFIED: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200',
     CLOSED: 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200',
     CANCELLED: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200',
+    REJECTED: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-200',
 }
 
 const statusLabels: Record<string, string> = {
+    REQUESTED: 'Request',
     PENDING: 'Pending',
     ASSIGNED: 'Assigned',
     IN_PROGRESS: 'In Progress',
@@ -69,6 +72,7 @@ const statusLabels: Record<string, string> = {
     VERIFIED: 'Verified',
     CLOSED: 'Closed',
     CANCELLED: 'Cancelled',
+    REJECTED: 'Rejected',
 }
 
 const priorityColors: Record<string, string> = {
@@ -94,6 +98,7 @@ export function ClientComponent() {
     const canCancel = hasPermission('list:cancel')  // Batalkan WO
     const canVerify = hasPermission('list:verify')  // Verifikasi & Tolak WO
     const canSendReminder = hasPermission('workorders:reminder') // Kirim Reminder Manual
+    const canApproveRequest = hasPermission('workorders:requests:approve') // Approve/Reject WO Request
 
     const [loading, setLoading] = useState(true)
     const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
@@ -138,6 +143,11 @@ export function ClientComponent() {
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [cancelReason, setCancelReason] = useState('')
     const [sendingReminderId, setSendingReminderId] = useState<string | null>(null)
+    
+    // WO Request Approval states
+    const [showApproveRequestModal, setShowApproveRequestModal] = useState(false)
+    const [showRejectRequestModal, setShowRejectRequestModal] = useState(false)
+    const [rejectRequestReason, setRejectRequestReason] = useState('')
 
     useEffect(() => {
         if (status === 'unauthenticated') {
@@ -351,6 +361,68 @@ export function ClientComponent() {
         }
     }
 
+    // Handler untuk Approve WO Request
+    const handleApproveRequest = async () => {
+        if (!selectedWorkOrderId) return
+        
+        setProcessingApproval(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/${selectedWorkOrderId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'APPROVE' }),
+            })
+            const data = await response.json()
+            
+            if (response.ok) {
+                show({ type: 'success', message: 'WO Request berhasil disetujui' })
+                setShowApproveRequestModal(false)
+                setSelectedWorkOrderId(null)
+                fetchWorkOrders()
+            } else {
+                show({ type: 'error', message: data.error || 'Gagal menyetujui request' })
+            }
+        } catch (error) {
+            console.error('Error approving request:', error)
+            show({ type: 'error', message: 'Terjadi kesalahan' })
+        } finally {
+            setProcessingApproval(false)
+        }
+    }
+
+    // Handler untuk Reject WO Request
+    const handleRejectRequest = async () => {
+        if (!selectedWorkOrderId || !rejectRequestReason.trim()) {
+            show({ type: 'error', message: 'Alasan penolakan wajib diisi' })
+            return
+        }
+        
+        setProcessingApproval(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/${selectedWorkOrderId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'REJECT', reason: rejectRequestReason.trim() }),
+            })
+            const data = await response.json()
+            
+            if (response.ok) {
+                show({ type: 'success', message: 'WO Request berhasil ditolak' })
+                setShowRejectRequestModal(false)
+                setRejectRequestReason('')
+                setSelectedWorkOrderId(null)
+                fetchWorkOrders()
+            } else {
+                show({ type: 'error', message: data.error || 'Gagal menolak request' })
+            }
+        } catch (error) {
+            console.error('Error rejecting request:', error)
+            show({ type: 'error', message: 'Terjadi kesalahan' })
+        } finally {
+            setProcessingApproval(false)
+        }
+    }
+
     const clearFilters = () => {
         setFilterStatus('')
         setFilterPriority('')
@@ -535,6 +607,24 @@ export function ClientComponent() {
                     <HiTrash className="w-5 h-5" />
                 </button>
             )}
+            {wo.status === 'REQUESTED' && canApproveRequest && (
+                <>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setSelectedWorkOrderId(wo.id); setShowRejectRequestModal(true); }}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        title="Tolak Request"
+                    >
+                        <HiXCircle className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setSelectedWorkOrderId(wo.id); setShowApproveRequestModal(true); }}
+                        className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                        title="Setujui Request"
+                    >
+                        <HiCheckCircle className="w-5 h-5" />
+                    </button>
+                </>
+            )}
         </>
     )
 
@@ -596,6 +686,7 @@ export function ClientComponent() {
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 dark:bg-gray-700 dark:text-white"
                             >
                                 <option value="">All Status</option>
+                                <option value="REQUESTED">Request (Menunggu)</option>
                                 <option value="PENDING">Pending</option>
                                 <option value="ASSIGNED">Assigned</option>
                                 <option value="IN_PROGRESS">In Progress</option>
@@ -603,6 +694,7 @@ export function ClientComponent() {
                                 <option value="COMPLETED">Completed</option>
                                 <option value="VERIFIED">Verified</option>
                                 <option value="CLOSED">Closed</option>
+                                <option value="REJECTED">Rejected</option>
                             </select>
                         </div>
 
@@ -825,6 +917,75 @@ export function ClientComponent() {
                                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                                 >
                                     {processingApproval ? 'Menghapus...' : 'Ya, Hapus Permanen'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Approve WO Request Modal */}
+            {showApproveRequestModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-emerald-600 dark:text-emerald-400 mb-4">Setujui WO Request</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                                Apakah Anda yakin ingin menyetujui request ini? Work Order akan berubah status menjadi <span className="font-semibold">PENDING</span> dan siap untuk di-assign ke teknisi.
+                            </p>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => {
+                                        setShowApproveRequestModal(false)
+                                        setSelectedWorkOrderId(null)
+                                    }}
+                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 rounded-lg"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={handleApproveRequest}
+                                    disabled={processingApproval}
+                                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                    {processingApproval ? 'Memproses...' : 'Ya, Setujui'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Reject WO Request Modal */}
+            {showRejectRequestModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-4">Tolak WO Request</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                Request akan ditolak dan pembuat request akan menerima notifikasi. Work Order akan berubah status menjadi <span className="font-semibold">REJECTED</span>.
+                            </p>
+                            <textarea
+                                value={rejectRequestReason}
+                                onChange={(e) => setRejectRequestReason(e.target.value)}
+                                placeholder="Alasan penolakan (wajib diisi)..."
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 min-h-[100px] dark:bg-gray-700 dark:text-white"
+                            />
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => {
+                                        setShowRejectRequestModal(false)
+                                        setRejectRequestReason('')
+                                        setSelectedWorkOrderId(null)
+                                    }}
+                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 rounded-lg"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={handleRejectRequest}
+                                    disabled={processingApproval || !rejectRequestReason.trim()}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                                >
+                                    {processingApproval ? 'Memproses...' : 'Tolak Request'}
                                 </button>
                             </div>
                         </div>

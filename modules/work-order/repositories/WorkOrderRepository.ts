@@ -764,6 +764,208 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         return this.updateStatus(id, 'CANCELLED', userId);
     }
 
+    /**
+     * Create a Work Order Request from Mobile App
+     * Status will be REQUESTED (waiting for approval)
+     */
+    async createRequest(data: CreateWorkOrderData & { requestedById: string }): Promise<WorkOrders> {
+        const MAX_RETRIES = 3;
+        let lastError: Error | null = null;
+
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                const workOrderNumber = await this.generateWorkOrderNumber();
+
+                const { pelangganId, requestedById, ...restData } = data;
+
+                const result = await this.prisma.workOrders.create({
+                    data: {
+                        id: randomUUID(),
+                        updatedAt: new Date(),
+                        workOrderNumber,
+                        type: restData.type,
+                        title: restData.title,
+                        description: restData.description,
+                        status: 'REQUESTED', // Status menunggu approval
+                        priority: data.priority || 'NORMAL',
+                        createdById: requestedById, // Same as requester for mobile requests
+                        requestedById: requestedById,
+                        requestedAt: new Date(),
+                        pelangganId: pelangganId || null,
+                        siteId: restData.siteId || null,
+                        departmentId: restData.departmentId || null,
+                        assignedToId: null, // Not assigned yet
+                        contactName: restData.contactName,
+                        contactPhone: restData.contactPhone,
+                        locationAddress: restData.locationAddress,
+                        locationLat: restData.locationLat,
+                        locationLng: restData.locationLng,
+                        scheduledDate: restData.scheduledDate,
+                        internalNotes: restData.internalNotes,
+                    },
+                });
+
+                // NOTE: We do NOT notify department users here
+                // Only notify admins with approval permission (handled in route)
+
+                return result;
+            } catch (error: any) {
+                if (error?.code === 'P2002' && error?.meta?.target?.includes('workOrderNumber')) {
+                    console.warn(`[WorkOrderRepo] Unique constraint violation on workOrderNumber, retry attempt ${attempt + 1}/${MAX_RETRIES}`);
+                    lastError = error;
+                    await new Promise(resolve => setTimeout(resolve, 50 * Math.pow(2, attempt)));
+                    continue;
+                }
+                throw error;
+            }
+        }
+
+        console.error('[WorkOrderRepo] Failed to create work order request after all retries');
+        throw lastError || new Error('Failed to create work order request after max retries');
+    }
+
+    /**
+     * Approve a Work Order Request
+     * Changes status from REQUESTED to PENDING
+     */
+    async approveRequest(id: string, approvedById: string): Promise<WorkOrders> {
+        const workOrder = await this.findById(id);
+        if (!workOrder) {
+            throw new Error('Work order not found');
+        }
+
+        if (workOrder.status !== 'REQUESTED') {
+            throw new Error(`Cannot approve: Work order status is ${workOrder.status}, expected REQUESTED`);
+        }
+
+        const result = await this.prisma.workOrders.update({
+            where: { id },
+            data: {
+                status: 'PENDING',
+                approvedById: approvedById,
+                approvedAt: new Date(),
+                updatedAt: new Date(),
+            },
+        });
+
+        await this.addUpdate({
+            workOrderId: id,
+            updateType: 'STATUS_CHANGE',
+            message: 'WO Request disetujui oleh Admin',
+            oldStatus: 'REQUESTED',
+            newStatus: 'PENDING',
+            createdById: approvedById,
+        });
+
+        // Now it's approved, notify department users
+        await notifyNewWorkOrder({
+            workOrderId: result.id,
+            workOrderNumber: result.workOrderNumber,
+            title: result.title,
+            type: result.type,
+            priority: result.priority,
+            departmentId: result.departmentId || undefined,
+            siteId: result.siteId || undefined,
+            assignedToId: result.assignedToId || undefined
+        }).catch(err => console.error('Failed to notify approved WO:', err));
+
+        return result;
+    }
+
+    /**
+     * Reject a Work Order Request
+     * Changes status from REQUESTED to CANCELLED with rejection reason
+     */
+    async rejectRequest(id: string, rejectedById: string, reason: string): Promise<WorkOrders> {
+        const workOrder = await this.findById(id);
+        if (!workOrder) {
+            throw new Error('Work order not found');
+        }
+
+        if (workOrder.status !== 'REQUESTED') {
+            throw new Error(`Cannot reject: Work order status is ${workOrder.status}, expected REQUESTED`);
+        }
+
+        const result = await this.prisma.workOrders.update({
+            where: { id },
+            data: {
+                status: 'CANCELLED',
+                approvedById: rejectedById, // Admin who rejected
+                approvedAt: new Date(),
+                rejectionReason: reason,
+                updatedAt: new Date(),
+            },
+        });
+
+        await this.addUpdate({
+            workOrderId: id,
+            updateType: 'STATUS_CHANGE',
+            message: `WO Request ditolak: ${reason}`,
+            oldStatus: 'REQUESTED',
+            newStatus: 'CANCELLED',
+            createdById: rejectedById,
+        });
+
+        return result;
+    }
+
+    /**
+     * Find all Work Order Requests (status = REQUESTED)
+     */
+    async findAllRequests(
+        filters?: { departmentId?: string; siteId?: string; search?: string },
+        page: number = 1,
+        limit: number = 20
+    ): Promise<{
+        workOrders: WorkOrderWithRelations[];
+        total: number;
+        page: number;
+        totalPages: number;
+    }> {
+        const where: any = {
+            status: 'REQUESTED',
+        };
+
+        if (filters?.departmentId) {
+            where.departmentId = filters.departmentId;
+        }
+
+        if (filters?.siteId) {
+            where.siteId = filters.siteId;
+        }
+
+        if (filters?.search) {
+            where.OR = [
+                { workOrderNumber: { contains: filters.search, mode: 'insensitive' } },
+                { title: { contains: filters.search, mode: 'insensitive' } },
+                { description: { contains: filters.search, mode: 'insensitive' } },
+            ];
+        }
+
+        const [workOrders, total] = await Promise.all([
+            this.prisma.workOrders.findMany({
+                where,
+                include: {
+                    site: { select: { id: true, name: true, code: true } },
+                    department: { select: { id: true, name: true } },
+                    requestedBy: { select: { id: true, name: true, email: true } },
+                    createdBy: { select: { id: true, name: true } },
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            this.prisma.workOrders.count({ where }),
+        ]);
+
+        return {
+            workOrders: workOrders as WorkOrderWithRelations[],
+            total,
+            page,
+            totalPages: Math.ceil(total / limit),
+        };
+    }
+
     async assign(id: string, employeeId: string, role?: string, triggeredByUserId?: string): Promise<WorkOrders> {
         await this.prisma.workOrders.update({
             where: { id },

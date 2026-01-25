@@ -1108,6 +1108,8 @@ model User {
   assets                                     Asset[]
   leaveBalances                              LeaveBalance[]
   transferAntarGudangs                       TransferAntarGudang[]     @relation("TransferCreatedBy")
+  workOrdersRequested                        WorkOrders[]              @relation("work_orders_requestedByIdToUser")
+  workOrdersApproved                         WorkOrders[]              @relation("work_orders_approvedByIdToUser")
 
   @@index([departmentId])
   @@index([isActive])
@@ -2163,6 +2165,12 @@ model WorkOrders {
   createdAt           DateTime               @default(now())
   updatedAt           DateTime
   ticketId            String?
+  // Mobile WO Request fields
+  requestedById       String? // User yang request dari mobile
+  requestedAt         DateTime? // Waktu request
+  approvedById        String? // Admin yang approve/reject
+  approvedAt          DateTime? // Waktu approve/reject
+  rejectionReason     String? // Alasan reject (jika ditolak)
   canvasing           Canvasing[]
   assignments         WorkOrderAssignments[]
   attachments         WorkOrderAttachments[]
@@ -2176,6 +2184,8 @@ model WorkOrders {
   sla                 Sla?                   @relation(fields: [slaId], references: [id])
   template            WorkOrderTemplates?    @relation(fields: [templateId], references: [id])
   ticket              SupportTickets?        @relation(fields: [ticketId], references: [id])
+  requestedBy         User?                  @relation("work_orders_requestedByIdToUser", fields: [requestedById], references: [id])
+  approvedBy          User?                  @relation("work_orders_approvedByIdToUser", fields: [approvedById], references: [id])
 
   @@index([assignedToId])
   @@index([departmentId])
@@ -2542,6 +2552,7 @@ enum WorkOrderPriority {
 }
 
 enum WorkOrderStatus {
+  REQUESTED // Mobile WO Request - menunggu approval
   PENDING
   ASSIGNED
   IN_PROGRESS
