@@ -4,6 +4,7 @@ import { verifyMobileToken } from '@/lib/mobile-auth';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { socketEmitter } from '@/lib/websocket/emitter';
+import { notifyAdminsAboutMobileAction } from '@/modules/notification';
 
 // PATCH - Update Task Status
 export async function PATCH(
@@ -32,6 +33,12 @@ export async function PATCH(
 
         const repository = new WorkOrderRepository(prisma);
 
+        // Get task info before update for notification message
+        const task = await prisma.workOrderTasks.findUnique({
+            where: { id: taskId },
+            select: { title: true }
+        });
+
         // Verify user is assigned to this WO or has permission
         // For simplicity, we assume if they can see the WO, they can update tasks (since they are assigned)
         // Ideally checking assignment here would be better but skipping for MVP speed
@@ -47,6 +54,21 @@ export async function PATCH(
         if (updatedWO) {
             // Emit socket event for real-time update
             socketEmitter.updateWorkOrder(updatedWO);
+
+            // Notify admins about task update
+            await notifyAdminsAboutMobileAction({
+                workOrderId,
+                workOrderNumber: updatedWO.workOrderNumber,
+                title: updatedWO.title,
+                actionType: 'NOTE',
+                actionMessage: isCompleted 
+                    ? `Menyelesaikan task: ${task?.title || 'Unknown'}` 
+                    : `Membatalkan task: ${task?.title || 'Unknown'}`,
+                triggeredByUserId: user.id,
+                triggeredByName: user.name || undefined,
+                departmentId: updatedWO.departmentId || undefined,
+                siteId: updatedWO.siteId || undefined
+            }).catch(err => console.error('[TaskNotify] Error:', err));
         }
 
         // Fetch updated WO to return? Or just success

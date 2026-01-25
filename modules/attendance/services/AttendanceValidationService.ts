@@ -62,9 +62,37 @@ export class AttendanceValidationService {
             }
         }
         
-        // 3. Check Off Days (Jadwal Kerja) - Future Implementation
-        // Jika mode SHIFT atau FIXED dengan hari kerja spesifik, cek di sini.
-        // Saat ini default valid untuk simplifikasi Phase 1.
+        // 3. Check Off Days (Jadwal Kerja User)
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { workDays: true }
+        })
+
+        if (user?.workDays) {
+            const dayOfWeek = date.getDay() // 0 = Sunday, 6 = Saturday
+            const dayMap: Record<string, number> = { 
+                'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6,
+                'Minggu': 0, 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6,
+                '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6
+            }
+            
+            const workDays = user.workDays.split(',').map(d => {
+                const trimmed = d.trim()
+                const parsed = parseInt(trimmed)
+                if (!isNaN(parsed)) return parsed
+                return dayMap[trimmed]
+            }).filter(d => d !== undefined)
+
+            // SAFEGUARD: Jika workDays kosong setelah parsing (misal: workDays=""), 
+            // jangan blokir user - izinkan check-in (default fleksibel)
+            if (workDays.length > 0 && !workDays.includes(dayOfWeek)) {
+                return {
+                    isValid: false,
+                    reason: `Hari ini bukan jadwal kerja Anda`,
+                    type: 'OFF_DAY'
+                }
+            }
+        }
 
         return { isValid: true }
     }

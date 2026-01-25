@@ -39,6 +39,31 @@ export async function GET(request: NextRequest) {
         const holidayRepo = new HolidayRepository()
         const { isHoliday, holiday } = await holidayRepo.isHoliday(new Date())
 
+        // Check Off Day for Today (based on user's workDays)
+        const userData = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { workDays: true }
+        })
+
+        let isOffDay = false
+        if (userData?.workDays) {
+            const today = new Date()
+            const dayOfWeek = today.getDay() // 0 = Sunday, 6 = Saturday
+            const dayMap: Record<string, number> = { 
+                'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6,
+                'Minggu': 0, 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6,
+                '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6
+            }
+            const workDays = userData.workDays.split(',').map(d => {
+                const trimmed = d.trim()
+                const parsed = parseInt(trimmed)
+                if (!isNaN(parsed)) return parsed
+                return dayMap[trimmed]
+            }).filter(d => d !== undefined)
+            // SAFEGUARD: Jika workDays kosong setelah parsing, jangan set isOffDay = true
+            isOffDay = workDays.length > 0 && !workDays.includes(dayOfWeek)
+        }
+
         return NextResponse.json({
             success: true,
             data: attendances,
@@ -50,7 +75,8 @@ export async function GET(request: NextRequest) {
             },
             today: {
                 isHoliday,
-                holidayName: holiday?.description || null
+                holidayName: holiday?.description || null,
+                isOffDay
             }
         })
 

@@ -23,11 +23,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Permission check
+    // Permission check - need mixradius:read to view customer AND workorders:create to create WO
     const permissions = await getUserPermissions(session.id)
-    if (!permissions.includes('mixradius:read') || !permissions.includes('list:create')) {
+    const hasAccess = permissions.includes('mixradius:read') && 
+                      (permissions.includes('workorders:create') || permissions.includes('list:create'))
+    
+    if (!hasAccess) {
+      console.warn('[Dismantle] Access denied for user:', session.id, 'Permissions:', permissions.filter(p => p.includes('mixradius') || p.includes('workorder') || p.includes('list')))
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+
 
     const body = await req.json()
     const { customerId, reason, notes } = body
