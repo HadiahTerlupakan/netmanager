@@ -28,7 +28,9 @@
     "prisma:baseline": "prisma migrate resolve --applied 20251105130408_init",
     "prisma:seed-permissions": "prisma generate && tsx prisma/seed-permissions.ts",
     "prisma:sync": "prisma db push && prisma migrate resolve --applied 20251105130408_init",
-    "prisma:fix-drift": "prisma migrate resolve --rolled-back 20251105130408_init && prisma migrate dev --name complete_schema"
+    "prisma:fix-drift": "prisma migrate resolve --rolled-back 20251105130408_init && prisma migrate dev --name complete_schema",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "keywords": [],
   "author": "",
@@ -93,7 +95,8 @@
     "tsx": "^4.21.0",
     "web-push": "^3.6.7",
     "xendit-node": "^7.0.0",
-    "zod": "^4.1.13"
+    "zod": "^4.1.13",
+    "react-native": "0.81.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

@@ -15,7 +15,7 @@
  * - verify: Memverifikasi (khusus Work Order)
  */
 
-export type ResourceAction = 'read' | 'create' | 'update' | 'delete' | 'site_only' | 'department_only' | 'cancel' | 'verify' | 'reminder'
+export type ResourceAction = 'read' | 'create' | 'update' | 'delete' | 'site_only' | 'department_only' | 'cancel' | 'verify' | 'reminder' | 'approve_request'
 
 export interface ResourceCapability {
     actions: ResourceAction[]
@@ -131,11 +131,11 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     
     // ====== WORK ORDER MODULE ======
     workorders: {
-        actions: ['read', 'create', 'update', 'delete', 'cancel', 'verify', 'reminder', 'site_only', 'department_only'],
+        actions: ['read', 'create', 'update', 'delete', 'cancel', 'verify', 'reminder', 'approve_request', 'site_only', 'department_only'],
         description: 'Work Order'
     },
     list: {
-        actions: ['read', 'create', 'update', 'delete', 'cancel', 'verify', 'reminder', 'site_only', 'department_only'],
+        actions: ['read', 'create', 'update', 'delete', 'cancel', 'verify', 'reminder', 'approve_request', 'site_only', 'department_only'],
         description: 'Daftar Work Order'
     },
     

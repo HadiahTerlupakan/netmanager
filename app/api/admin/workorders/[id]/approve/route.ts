@@ -22,8 +22,11 @@ export async function POST(
             return user;
         }
 
-        // Permission check
-        if (!await hasPermission('workorders:requests:approve')) {
+        // Permission check - support both new format (approve_request) and legacy (requests:approve)
+        const hasApprovePermission = await hasPermission('workorders:approve_request') || 
+                                      await hasPermission('list:approve_request') ||
+                                      await hasPermission('workorders:requests:approve');
+        if (!hasApprovePermission) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 

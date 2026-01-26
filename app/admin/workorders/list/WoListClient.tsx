@@ -98,7 +98,7 @@ export function ClientComponent() {
     const canCancel = hasPermission('list:cancel')  // Batalkan WO
     const canVerify = hasPermission('list:verify')  // Verifikasi & Tolak WO
     const canSendReminder = hasPermission('workorders:reminder') // Kirim Reminder Manual
-    const canApproveRequest = hasPermission('workorders:requests:approve') // Approve/Reject WO Request
+    const canApproveRequest = hasPermission('workorders:approve_request') || hasPermission('list:approve_request') // Approve/Reject WO Request
 
     const [loading, setLoading] = useState(true)
     const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
