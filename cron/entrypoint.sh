@@ -29,6 +29,9 @@ cat > /etc/crontabs/root << EOF
 
 # Auto Checkout (Mangkir) - process pada jam 23:59 setiap hari
 59 23 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/auto-checkout" >> /var/log/cron.log 2>&1
+
+# Auto Approve TUKAR_LIBUR - process pada jam 22:00 setiap hari (H-1 sebelum tanggal izin)
+0 22 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/auto-approve-leave" >> /var/log/cron.log 2>&1
 EOF
 
 echo "Cron jobs configured:"

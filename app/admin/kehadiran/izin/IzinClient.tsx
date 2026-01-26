@@ -18,6 +18,7 @@ interface LeaveRequest {
     attachmentUrl?: string
     attachments?: string[]
     rejectionReason?: string
+    approvedBy?: string // 'SYSTEM_AUTO' for auto-approval, or admin user ID
     createdAt: string
     user: {
         id: string
@@ -390,7 +391,14 @@ export function IzinClient() {
                                 </div>
                                 <div>
                                     <label className="text-xs text-gray-500 block mb-1">Status</label>
-                                    <div>{getStatusBadge(selectedRequest.status)}</div>
+                                    <div className="flex items-center gap-2">
+                                        {getStatusBadge(selectedRequest.status)}
+                                        {selectedRequest.status === 'APPROVED' && selectedRequest.approvedBy && (
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${selectedRequest.approvedBy === 'SYSTEM_AUTO' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                {selectedRequest.approvedBy === 'SYSTEM_AUTO' ? '🤖 Auto oleh Sistem' : '👤 Admin'}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="col-span-2">
                                     <label className="text-xs text-gray-500 block mb-1">Tanggal</label>
