@@ -102,9 +102,9 @@ export class OvertimeService {
             throw new Error('Pengajuan lembur belum disetujui atau status tidak valid.')
         }
 
-        // Cek apakah hari ini libur
+        // Cek apakah hari ini libur (dari tabel Holiday)
         const today = new Date()
-        const { isHoliday } = await this.holidayRepository.isHoliday(today)
+        const { isHoliday, holiday } = await this.holidayRepository.isHoliday(today)
 
         // Cari attendance hari ini (tidak wajib checkout)
         const startOfDay = new Date()
@@ -127,14 +127,20 @@ export class OvertimeService {
                 user: {
                     select: {
                         workingHourMode: true,
-                        flexibleTargetHour: true
+                        flexibleTargetHour: true,
+                        workDays: true
                     }
                 }
             }
         })
 
+        // Cek apakah hari ini adalah off-day user (dari workDays)
+        const userWorkDays = attendance?.user?.workDays
+        const userWorkingMode = attendance?.user?.workingHourMode
+        const isOffDay = this.isUserOffDay(userWorkDays, userWorkingMode, today)
+
         // NEW: More flexible validation - warning instead of error
-        if (!isHoliday && !attendance) {
+        if (!isHoliday && !isOffDay && !attendance) {
             // Warning instead of error
             console.warn(`[Overtime] User ${userId} starting overtime without regular attendance`)
             // Still allow, but log it
@@ -156,15 +162,40 @@ export class OvertimeService {
             }
         }
 
+        // Determine holiday description
+        let holidayDesc: string | null = null
+        if (holiday?.description) {
+            holidayDesc = holiday.description
+        } else if (isOffDay) {
+            holidayDesc = 'Hari Libur Karyawan'
+        }
+
         return this.repository.update(overtimeId, {
             status: OvertimeStatus.IN_PROGRESS,
             startTime: data.timestamp || new Date(),
             startPhoto: data.photo,
             startLocation: data.location,
             // Connect attendance hanya jika ada (hari kerja biasa)
-            attendance: attendance ? { connect: { id: attendance.id } } : undefined
+            attendance: attendance ? { connect: { id: attendance.id } } : undefined,
+            // NEW: Save holiday/off-day info
+            isHolidayOvertime: isHoliday || isOffDay,
+            isNationalHoliday: isHoliday && holiday?.isNational === true,
+            isOffDay: isOffDay && !isHoliday, // Prioritas: Holiday > OffDay
+            holidayDescription: holidayDesc
         })
     }
+
+    /**
+     * Helper: Check apakah hari ini adalah off-day user berdasarkan workDays
+     */
+    private isUserOffDay(workDays: string | null | undefined, mode: string | null | undefined, date: Date): boolean {
+        if (!workDays || mode === 'FLEXIBLE') return false
+        const dayMap: Record<number, string> = { 0: 'SUN', 1: 'MON', 2: 'TUE', 3: 'WED', 4: 'THU', 5: 'FRI', 6: 'SAT' }
+        const dayName = dayMap[date.getDay()]
+        const workDayList = workDays.toUpperCase().split(',').map(d => d.trim())
+        return !workDayList.includes(dayName)
+    }
+
 
     // 3. Stop Overtime
     async stopOvertime(userId: string, overtimeId: string, data: { photo: string, location?: string, timestamp?: Date }) {
@@ -215,8 +246,44 @@ export class OvertimeService {
             this.repository.count(filters),
             this.repository.countByStatus(filters)
         ])
-        return { data, total, summary }
+        
+        // Enrich with holiday info on-the-fly (untuk data lama yang belum punya flag)
+        const enrichedData = await Promise.all(data.map(async (item: any) => {
+            // Skip jika sudah ada flag dari startOvertime
+            if (item.isHolidayOvertime === true) {
+                return item
+            }
+            
+            // Cross-check dengan Holiday table berdasarkan createdAt
+            const overtimeDate = new Date(item.createdAt)
+            const { isHoliday, holiday } = await this.holidayRepository.isHoliday(overtimeDate)
+            
+            // Cek user workDays jika ada user data
+            let isOffDay = false
+            if (item.user?.workDays && item.user?.workingHourMode !== 'FLEXIBLE') {
+                isOffDay = this.isUserOffDay(item.user.workDays, item.user.workingHourMode, overtimeDate)
+            }
+            
+            // Determine holiday description
+            let holidayDesc: string | null = null
+            if (holiday?.description) {
+                holidayDesc = holiday.description
+            } else if (isOffDay) {
+                holidayDesc = 'Hari Libur Karyawan'
+            }
+            
+            return {
+                ...item,
+                isHolidayOvertime: isHoliday || isOffDay,
+                isNationalHoliday: isHoliday && holiday?.isNational === true,
+                isOffDay: isOffDay && !isHoliday,
+                holidayDescription: holidayDesc
+            }
+        }))
+        
+        return { data: enrichedData, total, summary }
     }
+
 
     async approveRequest(id: string, approverId: string) {
         const result = await this.repository.update(id, {

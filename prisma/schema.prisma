@@ -713,24 +713,30 @@ model OtbCore {
 }
 
 model Overtime {
-  id              String         @id
-  userId          String
-  attendanceId    String?
-  reason          String
-  startTime       DateTime?
-  endTime         DateTime?
-  startPhoto      String?
-  startLocation   String?
-  endPhoto        String?
-  endLocation     String?
-  duration        Int?
-  status          OvertimeStatus @default(PENDING)
-  rejectionReason String?
-  approvedBy      String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime
-  attendance      Attendance?    @relation(fields: [attendanceId], references: [id])
-  user            User           @relation(fields: [userId], references: [id])
+  id                 String         @id
+  userId             String
+  attendanceId       String?
+  reason             String
+  startTime          DateTime?
+  endTime            DateTime?
+  startPhoto         String?
+  startLocation      String?
+  endPhoto           String?
+  endLocation        String?
+  duration           Int?
+  status             OvertimeStatus @default(PENDING)
+  rejectionReason    String?
+  approvedBy         String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime
+  // Holiday/Off-day tracking fields
+  isHolidayOvertime  Boolean        @default(false)
+  isNationalHoliday  Boolean        @default(false)
+  isOffDay           Boolean        @default(false)
+  holidayDescription String?
+  attendance         Attendance?    @relation(fields: [attendanceId], references: [id])
+
+  user User @relation(fields: [userId], references: [id])
 
   @@index([startTime])
   @@index([status])

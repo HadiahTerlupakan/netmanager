@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
             planName: c.plan_name,
             ownerName: c.owner_name,
             status: c.auth_status,
+            isOnline: c.online || false, // Status koneksi dari active sessions
         }));
 
         return NextResponse.json({

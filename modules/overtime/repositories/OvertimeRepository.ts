@@ -51,10 +51,13 @@ export class OvertimeRepository implements IOvertimeRepository {
                         name: true,
                         email: true,
                         image: true,
+                        workDays: true,
+                        workingHourMode: true,
                         sites: { select: { name: true } },
                         departments: { select: { name: true } }
                     }
                 },
+
                 attendance: true,
             },
             skip: filters?.skip,

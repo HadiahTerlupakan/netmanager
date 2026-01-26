@@ -20,14 +20,23 @@ interface Overtime {
     endPhoto?: string
     startLocation?: string
     endLocation?: string
+    // Holiday/Off-day tracking
+    isHolidayOvertime?: boolean
+    isNationalHoliday?: boolean
+    isOffDay?: boolean
+    holidayDescription?: string
     user: {
         name: string
         email: string
         image?: string
-        site?: { name: string }
-        department?: { name: string }
+        workDays?: string
+        workingHourMode?: string
+        sites?: { name: string }
+        departments?: { name: string }
     }
 }
+
+
 
 export function ClientComponent() {
     const { hasPermission } = usePermission()
@@ -58,6 +67,7 @@ export function ClientComponent() {
     const [statusFilter, setStatusFilter] = useState('')
     const [siteId, setSiteId] = useState('')
     const [departmentId, setDepartmentId] = useState('')
+    const [holidayFilter, setHolidayFilter] = useState('')
 
     // Options
     const [sites, setSites] = useState<{ id: string, name: string }[]>([])
@@ -71,7 +81,7 @@ export function ClientComponent() {
     // Fetch on filter change (debounce could be better but direct for now)
     useEffect(() => {
         if (!isLoading) fetchRequests()
-    }, [page, startDate, endDate, statusFilter, siteId, departmentId])
+    }, [page, startDate, endDate, statusFilter, siteId, departmentId, holidayFilter])
 
     const fetchOptions = async () => {
         try {
@@ -102,9 +112,25 @@ export function ClientComponent() {
             const res = await fetch(`/api/admin/lembur?${query.toString()}`)
             if (res.ok) {
                 const data = await res.json()
-                setRequests(data.data)
+                let filteredData = data.data
+                
+                // Client-side filter by holiday type
+                if (holidayFilter) {
+                    filteredData = filteredData.filter((item: Overtime) => {
+                        switch (holidayFilter) {
+                            case 'REGULAR': return !item.isHolidayOvertime
+                            case 'NATIONAL': return item.isNationalHoliday
+                            case 'COLLECTIVE': return item.isHolidayOvertime && !item.isNationalHoliday && !item.isOffDay
+                            case 'OFFDAY': return item.isOffDay
+                            case 'ALL_HOLIDAY': return item.isHolidayOvertime
+                            default: return true
+                        }
+                    })
+                }
+                
+                setRequests(filteredData)
                 setTotalPages(data.pagination?.totalPages || 1)
-                setTotalItems(data.pagination?.total || 0)
+                setTotalItems(holidayFilter ? filteredData.length : (data.pagination?.total || 0))
                 if (data.summary) setSummary(data.summary)
             }
         } catch (error) {
@@ -271,33 +297,58 @@ export function ClientComponent() {
             priority: 'secondary',
             render: (item) => (
                 <div>
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">{item.user.site?.name || '-'}</div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{item.user.sites?.name || '-'}</div>
                     <div className="text-xs text-gray-500 flex items-center gap-1">
-                        <FaBuilding className="text-[10px]" /> {item.user.department?.name || '-'}
+                        <FaBuilding className="text-[10px]" /> {item.user.departments?.name || '-'}
                     </div>
                 </div>
             )
         },
+
         {
             key: 'tanggalAlasan',
             header: 'Tanggal & Alasan',
             priority: 'primary',
-            render: (item) => (
-                <div className="text-gray-600 dark:text-gray-300">
-                    <div className="text-sm font-medium">
-                        {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </div>
-                    <p className="text-xs mt-1 max-w-[150px] truncate" title={item.reason}>
-                        &quot;{item.reason}&quot;
-                    </p>
-                    {item.rejectionReason && (
-                        <p className="text-xs text-red-500 mt-1 italic truncate" title={item.rejectionReason}>
-                            Ket: {item.rejectionReason}
+            render: (item) => {
+                const date = new Date(item.createdAt)
+                const dayName = date.toLocaleDateString('id-ID', { weekday: 'long' })
+                const dateStr = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                
+                return (
+                    <div className="text-gray-600 dark:text-gray-300">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <div>
+                                <span className="text-sm font-medium">{dateStr}</span>
+                                <span className="text-xs text-gray-500 ml-1">({dayName})</span>
+                            </div>
+                            {/* Holiday/Off-day Badge */}
+                            {item.isHolidayOvertime && (
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                                    item.isNationalHoliday 
+                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                        : item.isOffDay 
+                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                            : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                }`} title={item.holidayDescription}>
+                                    {item.isNationalHoliday ? '🎌 Libur Nasional' 
+                                        : item.isOffDay ? '📅 Hari Libur' 
+                                        : '🏖️ Cuti Bersama'}
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-xs mt-1 max-w-[150px] truncate" title={item.reason}>
+                            &quot;{item.reason}&quot;
                         </p>
-                    )}
-                </div>
-            )
+                        {item.rejectionReason && (
+                            <p className="text-xs text-red-500 mt-1 italic truncate" title={item.rejectionReason}>
+                                Ket: {item.rejectionReason}
+                            </p>
+                        )}
+                    </div>
+                )
+            }
         },
+
         {
             key: 'waktuLembur',
             header: 'Waktu Lembur',
@@ -508,6 +559,21 @@ export function ClientComponent() {
                         <option value="REJECTED">Rejected</option>
                         <option value="IN_PROGRESS">In Progress</option>
                         <option value="COMPLETED">Completed</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Tipe Hari</label>
+                    <select
+                        value={holidayFilter}
+                        onChange={(e) => { setHolidayFilter(e.target.value); setPage(1); }}
+                        className="border rounded px-3 py-2 text-sm w-44 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    >
+                        <option value="">Semua Hari</option>
+                        <option value="REGULAR">Hari Kerja</option>
+                        <option value="ALL_HOLIDAY">Semua Libur</option>
+                        <option value="NATIONAL">🎌 Libur Nasional</option>
+                        <option value="COLLECTIVE">🏖️ Cuti Bersama</option>
+                        <option value="OFFDAY">📅 Hari Libur Karyawan</option>
                     </select>
                 </div>
                 <button
