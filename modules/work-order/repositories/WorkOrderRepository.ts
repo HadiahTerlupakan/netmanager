@@ -2273,4 +2273,296 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             canvasingApprovedThisWeek
         };
     }
+
+    // ==================== TREND ANALYTICS METHODS ====================
+
+    /**
+     * Get Volume Trend - WO Created vs Completed vs Requested per month
+     * Used for dashboard trend chart
+     */
+    async getVolumeTrend(
+        startDate: Date, 
+        endDate: Date, 
+        departmentId?: string, 
+        siteId?: string
+    ): Promise<Array<{ month: string; created: number; completed: number; requested: number }>> {
+        const where: any = {};
+        if (departmentId) where.departmentId = departmentId;
+        if (siteId) where.siteId = siteId;
+
+        // Get all WOs in date range
+        const [createdWOs, completedWOs, requestedWOs] = await Promise.all([
+            this.prisma.workOrders.findMany({
+                where: {
+                    ...where,
+                    createdAt: { gte: startDate, lte: endDate }
+                },
+                select: { createdAt: true }
+            }),
+            this.prisma.workOrders.findMany({
+                where: {
+                    ...where,
+                    completedAt: { gte: startDate, lte: endDate },
+                    status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] }
+                },
+                select: { completedAt: true }
+            }),
+            this.prisma.workOrders.findMany({
+                where: {
+                    ...where,
+                    status: 'REQUESTED',
+                    requestedAt: { gte: startDate, lte: endDate }
+                },
+                select: { requestedAt: true }
+            })
+        ]);
+
+        // Build month map
+        const months: { [key: string]: { created: number; completed: number; requested: number } } = {};
+        const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+                           (endDate.getMonth() - startDate.getMonth()) + 1;
+        const numMonths = Math.max(1, Math.min(monthsDiff, 24));
+
+        for (let i = 0; i < numMonths; i++) {
+            const date = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            months[key] = { created: 0, completed: 0, requested: 0 };
+        }
+
+        // Aggregate created
+        createdWOs.forEach(wo => {
+            const date = new Date(wo.createdAt);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            if (months[key]) months[key].created++;
+        });
+
+        // Aggregate completed
+        completedWOs.forEach(wo => {
+            if (wo.completedAt) {
+                const date = new Date(wo.completedAt);
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                if (months[key]) months[key].completed++;
+            }
+        });
+
+        // Aggregate requested
+        requestedWOs.forEach(wo => {
+            if (wo.requestedAt) {
+                const date = new Date(wo.requestedAt);
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                if (months[key]) months[key].requested++;
+            }
+        });
+
+        return Object.entries(months).map(([key, value]) => {
+            const [year, month] = key.split('-');
+            const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+            return {
+                month: date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }),
+                created: value.created,
+                completed: value.completed,
+                requested: value.requested
+            };
+        });
+    }
+
+
+    /**
+     * Get Issue Trend - Distribution of issues per month
+     * Uses classifyIssue helper to categorize WOs
+     */
+    async getIssueTrend(
+        startDate: Date, 
+        endDate: Date, 
+        departmentId?: string, 
+        siteId?: string
+    ): Promise<Array<{ month: string; issues: Array<{ issue: string; count: number }> }>> {
+        const where: any = {};
+        if (departmentId) where.departmentId = departmentId;
+        if (siteId) where.siteId = siteId;
+
+        const workOrders = await this.prisma.workOrders.findMany({
+            where: {
+                ...where,
+                createdAt: { gte: startDate, lte: endDate }
+            },
+            select: { title: true, createdAt: true }
+        });
+
+        // Build month-issue map
+        const monthIssues: { [key: string]: { [issue: string]: number } } = {};
+        const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+                           (endDate.getMonth() - startDate.getMonth()) + 1;
+        const numMonths = Math.max(1, Math.min(monthsDiff, 24));
+
+        for (let i = 0; i < numMonths; i++) {
+            const date = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            monthIssues[key] = {};
+        }
+
+        // Categorize each WO
+        workOrders.forEach(wo => {
+            const date = new Date(wo.createdAt);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            if (monthIssues[key]) {
+                const issue = this.classifyIssue(wo.title);
+                monthIssues[key][issue] = (monthIssues[key][issue] || 0) + 1;
+            }
+        });
+
+        return Object.entries(monthIssues).map(([key, issueMap]) => {
+            const [year, month] = key.split('-');
+            const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+            return {
+                month: date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }),
+                issues: Object.entries(issueMap)
+                    .map(([issue, count]) => ({ issue, count }))
+                    .sort((a, b) => b.count - a.count)
+            };
+        });
+    }
+
+    /**
+     * Get Performance Trend - Avg completion time and rating per month
+     */
+    async getPerformanceTrend(
+        startDate: Date, 
+        endDate: Date, 
+        departmentId?: string, 
+        siteId?: string
+    ): Promise<Array<{ month: string; avgCompletionHours: number; avgRating: number | null; totalCompleted: number }>> {
+        const where: any = {};
+        if (departmentId) where.departmentId = departmentId;
+        if (siteId) where.siteId = siteId;
+
+        const completedWOs = await this.prisma.workOrders.findMany({
+            where: {
+                ...where,
+                completedAt: { gte: startDate, lte: endDate },
+                status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] }
+            },
+            select: { 
+                completedAt: true, 
+                startedAt: true, 
+                actualHours: true,
+                rating: true 
+            }
+        });
+
+        // Build month map
+        const monthStats: { [key: string]: { totalHours: number; totalRating: number; ratingCount: number; count: number } } = {};
+        const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+                           (endDate.getMonth() - startDate.getMonth()) + 1;
+        const numMonths = Math.max(1, Math.min(monthsDiff, 24));
+
+        for (let i = 0; i < numMonths; i++) {
+            const date = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            monthStats[key] = { totalHours: 0, totalRating: 0, ratingCount: 0, count: 0 };
+        }
+
+        // Aggregate stats
+        completedWOs.forEach(wo => {
+            if (wo.completedAt) {
+                const date = new Date(wo.completedAt);
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                if (monthStats[key]) {
+                    monthStats[key].count++;
+                    
+                    // Calculate completion hours
+                    if (wo.actualHours) {
+                        monthStats[key].totalHours += Number(wo.actualHours);
+                    } else if (wo.startedAt && wo.completedAt) {
+                        const hours = (new Date(wo.completedAt).getTime() - new Date(wo.startedAt).getTime()) / (1000 * 60 * 60);
+                        monthStats[key].totalHours += hours;
+                    }
+                    
+                    // Rating
+                    if (wo.rating) {
+                        monthStats[key].totalRating += Number(wo.rating);
+                        monthStats[key].ratingCount++;
+                    }
+                }
+            }
+        });
+
+        return Object.entries(monthStats).map(([key, stats]) => {
+            const [year, month] = key.split('-');
+            const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+            return {
+                month: date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }),
+                avgCompletionHours: stats.count > 0 ? Math.round((stats.totalHours / stats.count) * 10) / 10 : 0,
+                avgRating: stats.ratingCount > 0 ? Math.round((stats.totalRating / stats.ratingCount) * 10) / 10 : null,
+                totalCompleted: stats.count
+            };
+        });
+    }
+
+    /**
+     * Get Type Trend - Distribution of WO types per month
+     */
+    async getTypeTrend(
+        startDate: Date, 
+        endDate: Date, 
+        departmentId?: string, 
+        siteId?: string
+    ): Promise<Array<{ month: string; types: Array<{ type: string; count: number }> }>> {
+        const where: any = {};
+        if (departmentId) where.departmentId = departmentId;
+        if (siteId) where.siteId = siteId;
+
+        const workOrders = await this.prisma.workOrders.findMany({
+            where: {
+                ...where,
+                createdAt: { gte: startDate, lte: endDate }
+            },
+            select: { type: true, createdAt: true }
+        });
+
+        // Build month-type map
+        const monthTypes: { [key: string]: { [type: string]: number } } = {};
+        const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+                           (endDate.getMonth() - startDate.getMonth()) + 1;
+        const numMonths = Math.max(1, Math.min(monthsDiff, 24));
+
+        for (let i = 0; i < numMonths; i++) {
+            const date = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            monthTypes[key] = {};
+        }
+
+        // Aggregate types
+        workOrders.forEach(wo => {
+            const date = new Date(wo.createdAt);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            if (monthTypes[key]) {
+                const type = wo.type || 'OTHER';
+                monthTypes[key][type] = (monthTypes[key][type] || 0) + 1;
+            }
+        });
+
+        // Type labels mapping
+        const typeLabels: { [key: string]: string } = {
+            INSTALLATION: 'Pemasangan',
+            REPAIR: 'Perbaikan',
+            MAINTENANCE: 'Maintenance',
+            INSPECTION: 'Inspeksi',
+            DISCONNECTION: 'Cabut Perangkat',
+            RELOCATION: 'Relokasi',
+            UPGRADE: 'Upgrade',
+            OTHER: 'Lainnya'
+        };
+
+        return Object.entries(monthTypes).map(([key, typeMap]) => {
+            const [year, month] = key.split('-');
+            const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+            return {
+                month: date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }),
+                types: Object.entries(typeMap)
+                    .map(([type, count]) => ({ type: typeLabels[type] || type, count }))
+                    .sort((a, b) => b.count - a.count)
+            };
+        });
+    }
 }

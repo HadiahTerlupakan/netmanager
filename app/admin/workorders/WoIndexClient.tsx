@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { HiClipboardDocumentList, HiClock, HiCheckCircle, HiWrenchScrewdriver, HiChevronRight, HiExclamationCircle, HiUserGroup, HiChartBar, HiBuildingOffice2, HiArchiveBoxArrowDown, HiChatBubbleLeftRight } from 'react-icons/hi2'
+import { HiClipboardDocumentList, HiClock, HiCheckCircle, HiWrenchScrewdriver, HiChevronRight, HiExclamationCircle, HiUserGroup, HiChartBar, HiBuildingOffice2, HiArchiveBoxArrowDown, HiChatBubbleLeftRight, HiArrowTrendingUp, HiCalendarDays, HiMagnifyingGlass } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { useSocketEvent } from '@/hooks/useSocket'
+import { WoTrendCharts } from '@/components/workorder/dashboard/WoTrendCharts'
 
 type Statistics = { total: number; pending: number; assigned: number; inProgress: number; onHold: number; completed: number; verified: number; closed: number; cancelled: number; urgentOpen: number; avgCompletionTimeHours: number; totalCost: number; avgRating: number | null; totalWithRating: number }
 type WorkOrder = { id: string; workOrderNumber: string; title: string; status: string; priority: string; type: string; contactName?: string | null; pelanggan?: { nama: string } | null; assignedTo: { name: string } | null; department: { name: string } | null; site?: { name: string } | null; createdAt: string }
@@ -39,6 +40,12 @@ type AdminKPI = {
     canvasingApprovedThisWeek: number;
 }
 
+// Trend Types
+type VolumeTrendItem = { month: string; created: number; completed: number; requested: number }
+type IssueTrendItem = { month: string; issues: Array<{ issue: string; count: number }> }
+type PerformanceTrendItem = { month: string; avgCompletionHours: number; avgRating: number | null; totalCompleted: number }
+type TypeTrendItem = { month: string; types: Array<{ type: string; count: number }> }
+
 const STATUS_COLORS: Record<string, string> = { PENDING: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200', ASSIGNED: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200', IN_PROGRESS: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200', COMPLETED: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200', VERIFIED: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' }
 const PRIORITY_COLORS: Record<string, string> = { LOW: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400', NORMAL: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400', HIGH: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400', URGENT: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400', CRITICAL: 'bg-red-200 dark:bg-red-900/50 text-red-800 dark:text-red-200' }
 
@@ -58,8 +65,19 @@ export function ClientComponent() {
     const [adminKPI, setAdminKPI] = useState<AdminKPI | null>(null)
     const [performancePeriod, setPerformancePeriod] = useState<string>('all_time')
 
+    // Trend states
+    const [trendStartDate, setTrendStartDate] = useState<string>(() => {
+        const d = new Date(); d.setMonth(d.getMonth() - 5); return d.toISOString().slice(0, 10)
+    })
+    const [trendEndDate, setTrendEndDate] = useState<string>(new Date().toISOString().slice(0, 10))
+    const [volumeTrend, setVolumeTrend] = useState<VolumeTrendItem[]>([])
+    const [issueTrend, setIssueTrend] = useState<IssueTrendItem[]>([])
+    const [performanceTrend, setPerformanceTrend] = useState<PerformanceTrendItem[]>([])
+    const [typeTrend, setTypeTrend] = useState<TypeTrendItem[]>([])
+    const [trendLoading, setTrendLoading] = useState(false)
 
-    useEffect(() => { if (status === 'unauthenticated') { router.push('/login'); return } if (session?.user && status === 'authenticated') fetchDashboardData() }, [session, status, router])
+
+    useEffect(() => { if (status === 'unauthenticated') { router.push('/login'); return } if (session?.user && status === 'authenticated') { fetchDashboardData(); fetchTrendData() } }, [session, status, router])
 
     useEffect(() => {
         if (session?.user && status === 'authenticated') {
@@ -127,6 +145,25 @@ export function ClientComponent() {
             }
         } catch (error) {
             console.error('Error fetching detailed stats:', error);
+        }
+    }
+
+    const fetchTrendData = async () => {
+        if (!trendStartDate || !trendEndDate) return
+        setTrendLoading(true)
+        try {
+            const response = await fetch(`/api/admin/workorders/trends?startDate=${trendStartDate}&endDate=${trendEndDate}`)
+            if (response.ok) {
+                const result = await response.json()
+                setVolumeTrend(result.data.volumeTrend || [])
+                setIssueTrend(result.data.issueTrend || [])
+                setPerformanceTrend(result.data.performanceTrend || [])
+                setTypeTrend(result.data.typeTrend || [])
+            }
+        } catch (error) {
+            console.error('Error fetching trend data:', error)
+        } finally {
+            setTrendLoading(false)
         }
     }
 
@@ -230,6 +267,22 @@ export function ClientComponent() {
                         </div>
                     </div>
                 )}
+
+                {/* === TREND ANALYTICS SECTION === */}
+                <WoTrendCharts
+                    volumeTrend={volumeTrend}
+                    issueTrend={issueTrend}
+                    performanceTrend={performanceTrend}
+                    typeTrend={typeTrend}
+                    loading={trendLoading}
+                    startDate={trendStartDate}
+                    endDate={trendEndDate}
+                    onDateChange={(start, end) => {
+                        setTrendStartDate(start)
+                        setTrendEndDate(end)
+                    }}
+                    onApply={fetchTrendData}
+                />
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Recent Work Orders */}

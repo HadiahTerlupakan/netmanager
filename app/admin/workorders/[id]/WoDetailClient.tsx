@@ -26,9 +26,25 @@ import {
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { ImageLightbox } from '@/components/ui/ImageLightbox'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
 import { SOCKET_EVENTS, type WorkOrderActivityPayload } from '@/lib/websocket/types'
 import { usePermission } from '@/hooks/use-permission'
+
+// Material Detail Types
+interface MaterialDetailData {
+    id: string
+    type: 'keluar' | 'masuk'
+    tanggal: string
+    createdAt: string
+    barang: { kode: string; nama: string; satuan: string }
+    gudang: { kode: string; nama: string }
+    jumlah: number
+    kondisi: string
+    keterangan: string | null
+    user: { name: string | null; email: string } | null
+    fotoBukti?: string[]
+}
 
 interface WorkOrderUpdateType {
     id: string
@@ -187,6 +203,33 @@ export function ClientComponent() {
     // ImageLightbox State for discussion photos
     const [discussionLightboxOpen, setDiscussionLightboxOpen] = useState(false)
     const [discussionLightboxIndex, setDiscussionLightboxIndex] = useState(0)
+
+    // Material Detail Modal State
+    const [materialDetailOpen, setMaterialDetailOpen] = useState(false)
+    const [materialDetailData, setMaterialDetailData] = useState<MaterialDetailData | null>(null)
+    const [loadingMaterialDetail, setLoadingMaterialDetail] = useState(false)
+
+    // Fetch material detail by updateId (MATERIAL_PICKUP/MATERIAL_RETURN)
+    const fetchMaterialDetail = async (updateId: string, updateType: string) => {
+        setLoadingMaterialDetail(true)
+        setMaterialDetailOpen(true)
+        try {
+            const res = await fetch(`/api/admin/workorders/${workOrderId}/material-detail?updateId=${updateId}`)
+            if (res.ok) {
+                const data = await res.json()
+                setMaterialDetailData({
+                    ...data,
+                    type: updateType === 'MATERIAL_PICKUP' ? 'keluar' : 'masuk'
+                })
+            } else {
+                console.error('Failed to fetch material detail')
+            }
+        } catch (error) {
+            console.error('Error fetching material detail:', error)
+        } finally {
+            setLoadingMaterialDetail(false)
+        }
+    }
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -862,21 +905,38 @@ export function ClientComponent() {
                                                             <div className="">
                                                                 {/* Label berdasarkan updateType */}
                                                                 {updateData.updateType === 'MATERIAL_PICKUP' && (
-                                                                    <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded mb-1">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => fetchMaterialDetail(updateData.id, updateData.updateType)}
+                                                                        className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded mb-1 hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors cursor-pointer"
+                                                                    >
                                                                         📦 Ambil Barang
-                                                                    </span>
+                                                                    </button>
                                                                 )}
                                                                 {updateData.updateType === 'MATERIAL_RETURN' && (
-                                                                    <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded mb-1">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => fetchMaterialDetail(updateData.id, updateData.updateType)}
+                                                                        className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded mb-1 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors cursor-pointer"
+                                                                    >
                                                                         ↩️ Kembalikan Barang
-                                                                    </span>
+                                                                    </button>
                                                                 )}
                                                                 {updateData.updateType === 'STATUS_CHANGE' && (
                                                                     <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded mb-1">
                                                                         🔄 Perubahan Status
                                                                     </span>
                                                                 )}
-                                                                <p className="text-sm text-gray-900 dark:text-gray-200 whitespace-pre-wrap">{updateData.message}</p>
+                                                                <p className={`text-sm text-gray-900 dark:text-gray-200 whitespace-pre-wrap ${
+                                                                    (updateData.updateType === 'MATERIAL_PICKUP' || updateData.updateType === 'MATERIAL_RETURN') 
+                                                                        ? 'cursor-pointer hover:text-gray-700 dark:hover:text-white' : ''
+                                                                }`}
+                                                                    onClick={() => {
+                                                                        if (updateData.updateType === 'MATERIAL_PICKUP' || updateData.updateType === 'MATERIAL_RETURN') {
+                                                                            fetchMaterialDetail(updateData.id, updateData.updateType)
+                                                                        }
+                                                                    }}
+                                                                >{updateData.message}</p>
                                                             </div>
                                                         ) : (
                                                             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600 mb-1 inline-block">
@@ -1448,6 +1508,171 @@ export function ClientComponent() {
                     </div>
                 </div>
             )}
+
+            {/* Material Detail Modal */}
+            <Modal
+                isOpen={materialDetailOpen}
+                onClose={() => {
+                    setMaterialDetailOpen(false)
+                    setMaterialDetailData(null)
+                }}
+                title={materialDetailData?.type === 'keluar' ? 'Detail Barang Keluar' : 'Detail Barang Masuk'}
+                size="lg"
+            >
+                {loadingMaterialDetail ? (
+                    <div className="p-6 flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+                        <span className="ml-2 text-gray-600">Memuat detail...</span>
+                    </div>
+                ) : materialDetailData ? (
+                    <div className="p-6 space-y-5">
+                        {/* Basic Info */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    📅 Tanggal
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
+                                    {new Date(materialDetailData.tanggal).toLocaleString('id-ID', {
+                                        day: '2-digit', month: 'long', year: 'numeric',
+                                        hour: '2-digit', minute: '2-digit'
+                                    })}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    ✏️ Dibuat Pada
+                                </label>
+                                <p className="text-gray-900 dark:text-white">
+                                    {new Date(materialDetailData.createdAt).toLocaleString('id-ID', {
+                                        day: '2-digit', month: 'long', year: 'numeric',
+                                        hour: '2-digit', minute: '2-digit'
+                                    })}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Barang Info */}
+                        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                            <h3 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                📦 Informasi Barang
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-sm text-gray-600 dark:text-gray-400">Kode Barang</label>
+                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.barang.kode}</p>
+                                </div>
+                                <div>
+                                    <label className="text-sm text-gray-600 dark:text-gray-400">Nama Barang</label>
+                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.barang.nama}</p>
+                                </div>
+                                <div>
+                                    <label className="text-sm text-gray-600 dark:text-gray-400">Jumlah</label>
+                                    <p className={`text-lg font-bold ${materialDetailData.type === 'keluar' ? 'text-orange-600' : 'text-green-600'}`}>
+                                        {materialDetailData.type === 'keluar' ? '-' : '+'}{materialDetailData.jumlah} {materialDetailData.barang.satuan}
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="text-sm text-gray-600 dark:text-gray-400">Kondisi</label>
+                                    <div className="mt-1">
+                                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                                            materialDetailData.kondisi === 'BARU' 
+                                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                                : materialDetailData.kondisi === 'BEKAS'
+                                                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                        }`}>
+                                            ✓ {materialDetailData.kondisi === 'BARU' ? 'Baru' : materialDetailData.kondisi === 'BEKAS' ? 'Bekas' : 'Rusak'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Gudang Info */}
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                            <h3 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                🏠 Informasi Gudang
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-sm text-gray-600 dark:text-gray-400">Kode Gudang</label>
+                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.gudang.kode}</p>
+                                </div>
+                                <div>
+                                    <label className="text-sm text-gray-600 dark:text-gray-400">Nama Gudang</label>
+                                    <p className="font-medium text-gray-900 dark:text-white">{materialDetailData.gudang.nama}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* User Info */}
+                        {materialDetailData.user && (
+                            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+                                <h3 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                    👤 {materialDetailData.type === 'keluar' ? 'Diambil Oleh' : 'Dikembalikan Oleh'}
+                                </h3>
+                                <div>
+                                    <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                                        {materialDetailData.user.name || 'Unknown'}
+                                    </p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                        {materialDetailData.user.email}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Keterangan */}
+                        {materialDetailData.keterangan && (
+                            <div>
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                                    Keterangan
+                                </label>
+                                <p className="text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700 p-3 rounded-lg text-sm">
+                                    {materialDetailData.keterangan}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Foto Bukti */}
+                        {materialDetailData.fotoBukti && materialDetailData.fotoBukti.length > 0 ? (
+                            <div>
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                    📎 Foto Bukti
+                                </label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {materialDetailData.fotoBukti.map((url, idx) => (
+                                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
+                                            <img src={url} alt={`Bukti ${idx + 1}`} className="rounded-lg border-2 border-gray-200 dark:border-gray-600 h-32 w-full object-cover hover:border-indigo-500 transition-colors" />
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-center py-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                <span className="text-3xl">📷</span>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Tidak ada foto bukti</p>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="p-6 text-center text-gray-500">
+                        Data tidak ditemukan
+                    </div>
+                )}
+                <ModalFooter>
+                    <button
+                        onClick={() => {
+                            setMaterialDetailOpen(false)
+                            setMaterialDetailData(null)
+                        }}
+                        className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 rounded-lg transition-colors"
+                    >
+                        Tutup
+                    </button>
+                </ModalFooter>
+            </Modal>
         </div>
     )
 }
