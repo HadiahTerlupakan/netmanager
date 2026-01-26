@@ -8,6 +8,7 @@ import { ATTENDANCE_CONSTANTS } from '@/lib/attendance-constants'
 import { cache } from '@/lib/cache'
 import { AttendanceRepository } from '../repositories/AttendanceRepository'
 import { OvertimeRepository } from '../../overtime/repositories/OvertimeRepository'
+import { LeaveRepository } from '../repositories/LeaveRepository'
 
 interface CheckInParams {
     userId: string
@@ -301,8 +302,9 @@ export class AttendanceService {
     async getReportData(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
         const repository = new AttendanceRepository()
         const overtimeRepository = new OvertimeRepository()
+        const leaveRepository = new LeaveRepository()
 
-        const [stats, dailyStats, groupedBySite, groupedByDept, topEmployees, userAttStats, userOtStats, topAbsentees, userTotalDuration, userAbsenceStats] = await Promise.all([
+        const [stats, dailyStats, groupedBySite, groupedByDept, topEmployees, userAttStats, userOtStats, topAbsentees, userTotalDuration, userAbsenceStats, userLateStats, userLeaveStats] = await Promise.all([
             repository.getStatsByDateRange(startDate, endDate, siteId, departmentId),
             repository.getDailyStats(startDate, endDate, siteId, departmentId),
             repository.getGroupedStats(startDate, endDate, 'site'),
@@ -312,7 +314,9 @@ export class AttendanceService {
             overtimeRepository.getUserOvertimeStats(startDate, endDate, siteId, departmentId),
             repository.getTopAbsentees(startDate, endDate, 5, siteId, departmentId),
             repository.getUserTotalDuration(startDate, endDate, siteId, departmentId),
-            repository.getUserAbsenceStats(startDate, endDate, siteId, departmentId)
+            repository.getUserAbsenceStats(startDate, endDate, siteId, departmentId),
+            repository.getUserLateStats(startDate, endDate, siteId, departmentId),
+            leaveRepository.getUserLeaveStats(startDate, endDate, siteId, departmentId)
         ])
 
         // Calculate Combined Top Employees (Star Employees)
@@ -502,6 +506,62 @@ export class AttendanceService {
         // Wait, stats.total is count of ALL records (including ALPHA).
         // Since ALPHA is a record now.
         const alphaRate = stats.total > 0 ? (alphaCount / stats.total) * 100 : 0
+
+        // Build Employee Summary for "Rekap Karyawan" tab
+        // Create maps for quick lookup
+        const userLateMap = new Map(userLateStats.map(u => [u.userId, u._count._all]))
+        const userLeaveMap = new Map(userLeaveStats.map(u => [u.userId, u._count._all]))
+        const userAbsenceMap = new Map(userAbsenceStats.map(u => [u.userId, u._count._all]))
+        const userOtMap = new Map(userOtStats.map(u => [u.userId, u._sum.duration || 0]))
+        const userAttMap = new Map(userAttStats.map(u => [u.userId, u._count._all]))
+
+        // Get all unique user IDs from all stats
+        const allUserIds = new Set<string>([
+            ...userAttStats.map(u => u.userId),
+            ...userAbsenceStats.map(u => u.userId),
+            ...userLeaveStats.map(u => u.userId)
+        ])
+
+        // Fetch all user details in one query
+        const allUsers = await prisma.user.findMany({
+            where: { id: { in: Array.from(allUserIds) } },
+            select: {
+                id: true,
+                name: true,
+                image: true,
+                sites: { select: { id: true, name: true } },
+                departments: { select: { id: true, name: true } }
+            }
+        })
+
+        const userDetailsMap = new Map(allUsers.map(u => [u.id, u]))
+
+        const employeeSummary = Array.from(allUserIds).map(userId => {
+            const user = userDetailsMap.get(userId)
+            const hadir = userAttMap.get(userId) || 0
+            const terlambat = userLateMap.get(userId) || 0
+            const izin = userLeaveMap.get(userId) || 0
+            const alpha = userAbsenceMap.get(userId) || 0
+            const lemburMinutes = userOtMap.get(userId) || 0
+            const totalMinutes = userTotalDuration.get(userId) || 0
+
+            return {
+                userId,
+                user: user ? {
+                    id: user.id,
+                    name: user.name,
+                    image: user.image,
+                    site: user.sites,
+                    department: user.departments
+                } : null,
+                hadir,
+                terlambat,
+                izin,
+                alpha,
+                lemburJam: parseFloat((lemburMinutes / 60).toFixed(1)),
+                totalJamKerja: parseFloat((totalMinutes / 60).toFixed(1))
+            }
+        }).filter(e => e.user !== null)
         
         return {
             summary: {
@@ -518,7 +578,8 @@ export class AttendanceService {
             byDepartment: groupedByDept,
             topEmployees,
             combinedTopEmployees,
-            topAbsentees
+            topAbsentees,
+            employeeSummary
         }
     }
 }

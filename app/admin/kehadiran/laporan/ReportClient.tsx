@@ -45,6 +45,11 @@ export function ClientComponent() {
     const [sites, setSites] = useState<{ id: string, name: string }[]>([])
     const [departments, setDepartments] = useState<{ id: string, name: string }[]>([])
 
+    // Tab & Search for Rekap Karyawan
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'rekap'>('dashboard')
+    const [searchQuery, setSearchQuery] = useState('')
+    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'hadir', direction: 'desc' })
+
     const fetchOptions = async () => {
         try {
             const res = await fetch('/api/admin/options')
@@ -126,7 +131,27 @@ export function ClientComponent() {
                 </button>
             </div>
 
-            {data && (
+            {/* Tab Navigation */}
+            <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
+                <button 
+                    onClick={() => setActiveTab('dashboard')}
+                    className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'dashboard' 
+                        ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400' 
+                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                    📊 Dashboard
+                </button>
+                <button 
+                    onClick={() => setActiveTab('rekap')}
+                    className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'rekap' 
+                        ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400' 
+                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                    👥 Rekap Karyawan
+                </button>
+            </div>
+
+            {data && activeTab === 'dashboard' && (
                 <>
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -501,6 +526,157 @@ export function ClientComponent() {
                         </div>
                     </div>
                 </>
+            )}
+
+            {/* Tab Rekap Karyawan */}
+            {data && activeTab === 'rekap' && (
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                    <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+                            Rekap Kehadiran Karyawan
+                        </h3>
+                        <div className="flex gap-2 items-center">
+                            <input
+                                type="text"
+                                placeholder="Cari nama karyawan..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 w-48"
+                            />
+                            <button
+                                onClick={() => {
+                                    if (!data?.attendance?.employeeSummary) return
+                                    const csv = [
+                                        ['Nama', 'Site', 'Departemen', 'Hadir', 'Terlambat', 'Izin', 'Alpha', 'Lembur (Jam)', 'Total Jam Kerja'].join(','),
+                                        ...data.attendance.employeeSummary.map((e: any) => [
+                                            e.user?.name || '-',
+                                            e.user?.site?.name || '-',
+                                            e.user?.department?.name || '-',
+                                            e.hadir,
+                                            e.terlambat,
+                                            e.izin,
+                                            e.alpha,
+                                            e.lemburJam,
+                                            e.totalJamKerja
+                                        ].join(','))
+                                    ].join('\n')
+                                    const blob = new Blob([csv], { type: 'text/csv' })
+                                    const url = window.URL.createObjectURL(blob)
+                                    const a = document.createElement('a')
+                                    a.href = url
+                                    a.download = `rekap-karyawan-${startDate}-${endDate}.csv`
+                                    a.click()
+                                }}
+                                className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700"
+                            >
+                                📥 Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <ResponsiveTable<any>
+                        data={(() => {
+                            let filtered = data?.attendance?.employeeSummary || []
+                            
+                            // Search filter
+                            if (searchQuery) {
+                                filtered = filtered.filter((e: any) => 
+                                    e.user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                                )
+                            }
+                            
+                            // Sort
+                            filtered = [...filtered].sort((a: any, b: any) => {
+                                const aVal = a[sortConfig.key] || 0
+                                const bVal = b[sortConfig.key] || 0
+                                return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal
+                            })
+                            
+                            return filtered
+                        })()}
+                        loading={loading}
+                        keyField="userId"
+                        columns={[
+                            {
+                                key: 'name',
+                                header: 'Karyawan',
+                                priority: 'primary',
+                                render: (item) => (
+                                    <div className="flex items-center gap-2">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={item.user?.image || `https://ui-avatars.com/api/?name=${item.user?.name}&background=random`}
+                                            alt=""
+                                            className="w-8 h-8 rounded-full object-cover"
+                                        />
+                                        <div>
+                                            <p className="font-medium text-gray-900 dark:text-white text-sm">{item.user?.name}</p>
+                                            <p className="text-xs text-gray-500">{item.user?.department?.name || '-'}</p>
+                                        </div>
+                                    </div>
+                                )
+                            },
+                            {
+                                key: 'site',
+                                header: 'Site',
+                                priority: 'tertiary',
+                                render: (item) => <span className="text-sm">{item.user?.site?.name || '-'}</span>
+                            },
+                            {
+                                key: 'hadir',
+                                header: 'Hadir',
+                                priority: 'primary',
+                                align: 'center',
+                                sortable: true,
+                                render: (item) => <span className="font-medium text-blue-600">{item.hadir}</span>
+                            },
+                            {
+                                key: 'terlambat',
+                                header: 'Terlambat',
+                                priority: 'secondary',
+                                align: 'center',
+                                sortable: true,
+                                render: (item) => <span className="text-yellow-600">{item.terlambat}</span>
+                            },
+                            {
+                                key: 'izin',
+                                header: 'Izin',
+                                priority: 'secondary',
+                                align: 'center',
+                                sortable: true,
+                                render: (item) => <span className="text-green-600">{item.izin}</span>
+                            },
+                            {
+                                key: 'alpha',
+                                header: 'Alpha',
+                                priority: 'secondary',
+                                align: 'center',
+                                sortable: true,
+                                render: (item) => <span className="text-red-600">{item.alpha}</span>
+                            },
+                            {
+                                key: 'lemburJam',
+                                header: 'Lembur',
+                                priority: 'secondary',
+                                align: 'center',
+                                sortable: true,
+                                render: (item) => <span className="text-purple-600">{item.lemburJam}j</span>
+                            },
+                            {
+                                key: 'totalJamKerja',
+                                header: 'Total Jam',
+                                priority: 'primary',
+                                align: 'center',
+                                sortable: true,
+                                render: (item) => <span className="font-medium text-teal-600">{item.totalJamKerja}j</span>
+                            }
+                        ]}
+                        sortColumn={sortConfig.key}
+                        sortDirection={sortConfig.direction}
+                        onSort={(key, dir) => setSortConfig({ key, direction: dir })}
+                        emptyMessage="Tidak ada data karyawan"
+                    />
+                </div>
             )}
         </div>
     )

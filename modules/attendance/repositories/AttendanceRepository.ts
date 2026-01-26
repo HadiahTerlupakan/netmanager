@@ -443,4 +443,24 @@ export class AttendanceRepository {
 
         return userDurationMap
     }
+
+    async getUserLateStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate },
+            status: 'LATE'
+        }
+
+        if (siteId || departmentId) {
+            where.user = {
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            }
+        }
+
+        return prisma.attendance.groupBy({
+            by: ['userId'],
+            where,
+            _count: { _all: true }
+        })
+    }
 }

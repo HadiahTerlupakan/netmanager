@@ -85,4 +85,25 @@ export class LeaveRepository {
 
         return prisma.leaveRequest.count({ where })
     }
+
+    async getUserLeaveStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+        const where: Prisma.LeaveRequestWhereInput = {
+            status: 'APPROVED',
+            startDate: { lte: endDate },
+            endDate: { gte: startDate }
+        }
+
+        if (siteId || departmentId) {
+            where.user = {
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            }
+        }
+
+        return prisma.leaveRequest.groupBy({
+            by: ['userId'],
+            where,
+            _count: { _all: true }
+        })
+    }
 }
