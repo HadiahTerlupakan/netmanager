@@ -108,12 +108,20 @@ export async function GET(request: NextRequest) {
         const assignedToId = searchParams.get('assignedToId');
         const search = searchParams.get('search');
         const unassignedOnly = searchParams.get('unassignedOnly') === 'true';
+        const woType = searchParams.get('woType'); // 'customer' | 'internal'
 
         const filters: any = {};
         if (status) filters.status = status.includes(',') ? status.split(',') : status;
         if (priority) filters.priority = priority.includes(',') ? priority.split(',') : priority;
         if (type) filters.type = type.includes(',') ? type.split(',') : type;
         if (unassignedOnly) filters.unassignedOnly = true;
+        
+        // Filter by WO Type (Customer vs Internal) using isInternal field
+        if (woType === 'customer') {
+            filters.isInternal = false;
+        } else if (woType === 'internal') {
+            filters.isInternal = true;
+        }
 
         // NEW: Enforce Department Restriction Logic
         // If user has 'department_only' permission and is NOT a Super Admin, force restrict to their department

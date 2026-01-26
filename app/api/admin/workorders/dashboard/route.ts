@@ -112,6 +112,31 @@ export async function GET(request: NextRequest) {
             workOrderRepo.getAdminKPIStats(departmentId, siteId),
         ]);
 
+        // Count WO by type (Customer vs Internal) - using isInternal field
+        const baseWhere = {
+            ...(departmentId ? { departmentId } : {}),
+            ...(siteId ? { siteId } : {}),
+        };
+        
+        const [customerCount, internalCount] = await Promise.all([
+            // Customer WO: isInternal = false
+            prisma.workOrders.count({
+                where: {
+                    ...baseWhere,
+                    isInternal: false,
+                }
+            }),
+            // Internal WO: isInternal = true
+            prisma.workOrders.count({
+                where: {
+                    ...baseWhere,
+                    isInternal: true,
+                }
+            }),
+        ]);
+        
+        const woTypeStats = { customer: customerCount, internal: internalCount };
+
         const dashboardData = {
             stats,
             recentWorkOrders,
@@ -123,6 +148,7 @@ export async function GET(request: NextRequest) {
             disconnectionStats,
             responseStats,
             adminKPI,
+            woTypeStats, // Customer vs Internal count
         };
 
         // PHASE 4: Cache the result
@@ -252,6 +278,10 @@ function getEmptyDashboardData() {
             avgOnHoldResponseMinutes: 0,
             verifiedToday: 0,
             verifiedThisWeek: 0,
+        },
+        woTypeStats: {
+            customer: 0,
+            internal: 0,
         },
     };
 }

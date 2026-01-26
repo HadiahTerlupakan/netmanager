@@ -73,7 +73,27 @@ export async function POST(request: NextRequest) {
             requestedById: userId,
         });
 
-        // Notify admins with workorders:requests:approve permission
+        // WebSocket broadcast to portal admin for realtime update
+        try {
+            const { socketEmitter } = await import('@/lib/websocket/emitter');
+            socketEmitter.newWorkOrder({
+                id: workOrder.id,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                type: workOrder.type,
+                status: workOrder.status,
+                priority: workOrder.priority,
+                departmentId: workOrder.departmentId || undefined,
+                department: workOrder.departmentId ? { id: workOrder.departmentId, name: '' } : undefined,
+                assignedToId: workOrder.assignedToId || undefined,
+                createdAt: workOrder.createdAt.toISOString()
+            }, workOrder.departmentId || undefined, workOrder.siteId || undefined);
+            console.log('[Mobile WO Request] WebSocket broadcast sent to portal admin');
+        } catch (wsError) {
+            console.error('[Mobile WO Request] WebSocket broadcast failed:', wsError);
+        }
+
+        // Notify admins with workorders permissions (approve_request OR read OR create)
         try {
             const adminsWithPermission = await prisma.user.findMany({
                 where: {
@@ -82,7 +102,7 @@ export async function POST(request: NextRequest) {
                         permission: {
                             some: {
                                 resource: 'workorders',
-                                action: 'requests:approve'
+                                action: { in: ['approve_request', 'read', 'create'] }
                             }
                         }
                     }

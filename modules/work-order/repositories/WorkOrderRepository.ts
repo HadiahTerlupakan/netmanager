@@ -103,6 +103,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         requiredMaterials: restData.requiredMaterials ?? undefined,
                         internalNotes: restData.internalNotes,
                         disconnectionReason: restData.disconnectionReason || null,
+                        isInternal: restData.isInternal || false, // Internal FOC flag
                     },
                 });
 
@@ -562,6 +563,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             where.siteId = filters.siteId;
         }
 
+        // Filter by isInternal (Internal FOC vs Customer/Guest)
+        if (filters?.isInternal === true) {
+            where.isInternal = true;
+        } else if (filters?.isInternal === false) {
+            where.isInternal = false;
+        }
+
         if (filters?.search) {
             const searchFilter = {
                 OR: [
@@ -802,6 +810,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         locationLng: restData.locationLng,
                         scheduledDate: restData.scheduledDate,
                         internalNotes: restData.internalNotes,
+                        isInternal: restData.isInternal || false, // Internal FOC flag
                     },
                 });
 

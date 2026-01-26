@@ -15,6 +15,7 @@ export function ClientComponent() {
         description: '',
         jobDescription: '',
         isReminderTarget: false,
+        showInMobileWO: false,
     })
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -147,6 +148,26 @@ export function ClientComponent() {
                                 </label>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
                                     Jika dicentang, department ini akan muncul di dropdown reminder Work Order
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Mobile WO Request Checkbox */}
+                        <div className="flex items-center gap-3 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                            <input
+                                type="checkbox"
+                                name="showInMobileWO"
+                                id="showInMobileWO"
+                                checked={formData.showInMobileWO}
+                                onChange={handleChange}
+                                className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                            />
+                            <div>
+                                <label htmlFor="showInMobileWO" className="block text-sm font-medium text-gray-900 dark:text-white cursor-pointer">
+                                    Tampilkan di Mobile WO Request
+                                </label>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Jika dicentang, department ini akan muncul di dropdown WO Internal di mobile app
                                 </p>
                             </div>
                         </div>

@@ -1331,6 +1331,7 @@ model Departments {
   description            String?
   jobDescription         String?
   isReminderTarget       Boolean                @default(false) // Muncul di dropdown reminder WO
+  showInMobileWO         Boolean                @default(false) // Muncul di dropdown WO request mobile app
   createdAt              DateTime               @default(now())
   updatedAt              DateTime
   user                   User[]
@@ -2172,6 +2173,7 @@ model WorkOrders {
   createdAt           DateTime               @default(now())
   updatedAt           DateTime
   ticketId            String?
+  isInternal          Boolean                @default(false) // true = Internal FOC, false = Customer/Guest
   // Mobile WO Request fields
   requestedById       String? // User yang request dari mobile
   requestedAt         DateTime? // Waktu request

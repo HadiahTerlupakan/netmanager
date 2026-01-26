@@ -67,6 +67,7 @@ export interface CreateWorkOrderData {
     disconnectionReason?: string;
     createdById?: string;
     ticketId?: string;
+    isInternal?: boolean; // true = Internal FOC, false = Customer/Guest
 }
 
 export interface UpdateWorkOrderData {
@@ -139,6 +140,7 @@ export interface WorkOrderFilters {
     scheduledDateTo?: Date;
     unassignedOnly?: boolean;
     involvedUserId?: string;
+    isInternal?: boolean; // true = Internal FOC, false = Customer/Guest
 }
 
 export interface WorkOrderStatistics {

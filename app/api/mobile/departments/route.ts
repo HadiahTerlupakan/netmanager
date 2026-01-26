@@ -19,8 +19,11 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
         }
 
-        // Fetch departments
+        // Fetch departments enabled for mobile WO request
         const departments = await prisma.departments.findMany({
+            where: {
+                showInMobileWO: true, // Only show departments enabled for mobile WO
+            },
             select: {
                 id: true,
                 name: true,

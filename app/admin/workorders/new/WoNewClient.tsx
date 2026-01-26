@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { HiArrowLeft, HiSparkles, HiBolt, HiUserCircle, HiMagnifyingGlass, HiMapPin, HiWifi, HiClock, HiArchiveBoxArrowDown, HiPlusCircle, HiCloud } from 'react-icons/hi2'
+import { HiArrowLeft, HiSparkles, HiBolt, HiUserCircle, HiMagnifyingGlass, HiMapPin, HiWifi, HiClock, HiArchiveBoxArrowDown, HiPlusCircle, HiCloud, HiWrenchScrewdriver, HiSignal, HiEye, HiExclamationTriangle } from 'react-icons/hi2'
 import { toast } from 'react-hot-toast'
 import PageLoader from '@/components/ui/PageLoader'
 
@@ -43,6 +43,7 @@ export function ClientComponent() {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [simpleMode, setSimpleMode] = useState(true)
+    const [woType, setWoType] = useState<'CUSTOMER' | 'INTERNAL'>('CUSTOMER') // Toggle Customer vs Internal
     const [isGuest, setIsGuest] = useState(true) // Default to Guest Mode
     const [searchSource, setSearchSource] = useState<'LOCAL' | 'MIXRADIUS'>('MIXRADIUS')
 
@@ -275,6 +276,7 @@ export function ClientComponent() {
 
     const applyQuickAction = (action: string) => {
         switch (action) {
+            // === CUSTOMER ACTIONS ===
             case 'INTERNET_MATI':
                 setFormData(prev => ({
                     ...prev,
@@ -335,30 +337,118 @@ export function ClientComponent() {
                     disconnectionReason: ''
                 }))
                 break;
+            // === FOC INTERNAL ACTIONS ===
+            case 'SPLICING_FO':
+                setFormData(prev => ({
+                    ...prev,
+                    title: 'Splicing Fiber Optik',
+                    description: 'Penyambungan kabel fiber optik menggunakan fusion splicer.',
+                    type: 'MAINTENANCE',
+                    priority: 'NORMAL',
+                    disconnectionReason: ''
+                }))
+                break;
+            case 'PATCHING_ODP':
+                setFormData(prev => ({
+                    ...prev,
+                    title: 'Patching ODC/ODP',
+                    description: 'Pemasangan patch cord pada ODC/ODP untuk koneksi pelanggan baru atau maintenance.',
+                    type: 'MAINTENANCE',
+                    priority: 'NORMAL',
+                    disconnectionReason: ''
+                }))
+                break;
+            case 'INSTALASI_KABEL':
+                setFormData(prev => ({
+                    ...prev,
+                    title: 'Instalasi Kabel Fiber',
+                    description: 'Penarikan kabel fiber optik baru untuk ekspansi jaringan atau penggantian.',
+                    type: 'INSTALLATION',
+                    priority: 'NORMAL',
+                    disconnectionReason: ''
+                }))
+                break;
+            case 'INSPEKSI_JALUR':
+                setFormData(prev => ({
+                    ...prev,
+                    title: 'Inspeksi Jalur Kabel',
+                    description: 'Pengecekan jalur kabel, tiang, dan infrastruktur jaringan untuk deteksi masalah potensial.',
+                    type: 'MAINTENANCE',
+                    priority: 'LOW',
+                    disconnectionReason: ''
+                }))
+                break;
+            case 'PERBAIKAN_PUTUS':
+                setFormData(prev => ({
+                    ...prev,
+                    title: 'Perbaikan Kabel Putus',
+                    description: 'Perbaikan darurat kabel fiber yang putus akibat kecelakaan, pohon tumbang, atau faktor lainnya.',
+                    type: 'TROUBLESHOOT',
+                    priority: 'URGENT',
+                    disconnectionReason: ''
+                }))
+                break;
+            case 'MAINTENANCE_TIANG':
+                setFormData(prev => ({
+                    ...prev,
+                    title: 'Maintenance Tiang/Pole',
+                    description: 'Perawatan dan pengecekan kondisi tiang, termasuk klem dan perangkat pendukung.',
+                    type: 'MAINTENANCE',
+                    priority: 'LOW',
+                    disconnectionReason: ''
+                }))
+                break;
         }
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        // If Guest mode, only title and description required. If Customer mode, pelangganId required.
-        if (!isGuest && !formData.pelangganId) { alert('Please select a customer or switch to Manual Ticket mode'); return }
+        
+        // Validation based on WO type
+        if (woType === 'CUSTOMER') {
+            // For Customer WO: require customer or guest info
+            if (!isGuest && !formData.pelangganId) { 
+                alert('Please select a customer or switch to Manual Ticket mode'); 
+                return 
+            }
+        } else {
+            // For Internal WO: require Site and Department
+            if (!formData.siteId) { 
+                alert('Pilih Site terlebih dahulu untuk WO Internal'); 
+                return 
+            }
+            if (!formData.departmentId) { 
+                alert('Pilih Department terlebih dahulu untuk WO Internal'); 
+                return 
+            }
+        }
+        
         if (!formData.title || !formData.description) { alert('Please fill in title and description'); return }
         if (formData.type === 'DISCONNECTION' && !formData.disconnectionReason) { alert('Please select a reason for disconnection'); return }
 
         setLoading(true)
 
+        // Get department name for Internal WO
+        const selectedDepartment = departments.find(d => d.id === formData.departmentId)
+        const selectedSite = sites.find(s => s.id === formData.siteId)
+
         // Prepare payload
         const payload = {
             ticketId: formData.ticketId || undefined, // Include ticketId
-            pelangganId: isGuest ? null : formData.pelangganId,
+            pelangganId: woType === 'INTERNAL' ? null : (isGuest ? null : formData.pelangganId),
             siteId: formData.siteId || undefined,
             departmentId: formData.departmentId || undefined,
             type: formData.type,
             title: formData.title,
             description: formData.description,
             priority: formData.priority,
-            locationAddress: formData.locationAddress || undefined,
-            contactName: formData.contactName || (isGuest ? 'Guest' : undefined),
+            isInternal: woType === 'INTERNAL', // Flag untuk WO Internal FOC
+            locationAddress: woType === 'INTERNAL' 
+                ? (selectedSite ? `Site: ${selectedSite.code} - ${selectedSite.name}` : formData.locationAddress)
+                : (formData.locationAddress || undefined),
+            contactName: woType === 'INTERNAL' 
+                ? (selectedDepartment?.name || 'Internal Team')
+                : (formData.contactName || (isGuest ? 'Guest' : undefined)),
             contactPhone: formData.contactPhone || undefined,
             scheduledDate: formData.scheduledDate ? new Date(formData.scheduledDate) : undefined,
             scheduledTimeStart: formData.scheduledTimeStart || undefined,
@@ -406,10 +496,39 @@ export function ClientComponent() {
                 </button>
             </div>
 
+            {/* WO Type Toggle: Customer vs Internal */}
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-fit">
+                <button
+                    type="button"
+                    onClick={() => setWoType('CUSTOMER')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                        woType === 'CUSTOMER' 
+                            ? 'bg-white dark:bg-gray-700 text-sky-700 dark:text-sky-300 shadow-sm' 
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                >
+                    <HiUserCircle className="w-5 h-5" />
+                    Customer
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setWoType('INTERNAL')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                        woType === 'INTERNAL' 
+                            ? 'bg-white dark:bg-gray-700 text-orange-700 dark:text-orange-300 shadow-sm' 
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                >
+                    <HiBolt className="w-5 h-5" />
+                    Internal (FOC)
+                </button>
+            </div>
+
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <form onSubmit={handleSubmit} className="p-6 space-y-8">
 
-                    {/* Simplified Contact Section (Default) */}
+                    {/* Customer Details Section (Only for CUSTOMER type) */}
+                    {woType === 'CUSTOMER' && (
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
                             <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 uppercase tracking-wide">Customer Details</label>
@@ -543,52 +662,112 @@ export function ClientComponent() {
                             </div>
                         )}
                     </div>
+                    )}
+
+                    {/* Internal Work Location Section (Only for INTERNAL type) */}
+                    {woType === 'INTERNAL' && (
+                        <div className="space-y-4 bg-orange-50 dark:bg-orange-900/10 p-6 rounded-xl border border-orange-200 dark:border-orange-800">
+                            <div className="flex items-center gap-2 mb-4">
+                                <HiBolt className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                                <label className="block text-sm font-medium text-orange-900 dark:text-orange-100 uppercase tracking-wide">Internal Work Location</label>
+                            </div>
+                            <p className="text-sm text-orange-700 dark:text-orange-300 -mt-2 mb-4">
+                                Work order internal untuk pekerjaan FOC (Fiber Optic Cable). Pilih Site dan Department yang akan mengerjakan.
+                            </p>
+                        </div>
+                    )}
 
                     {/* Quick Actions (Only in Simple Mode) */}
                     {simpleMode && (
                         <div className="space-y-3">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Quick Actions (Issues)</label>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                                <button type="button" onClick={() => applyQuickAction('INTERNET_MATI')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group">
-                                    <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiWifi className="w-6 h-6" /></div>
-                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-red-700 dark:group-hover:text-red-300 text-center">Internet Mati / FOCUT</span>
-                                </button>
-                                <button type="button" onClick={() => applyQuickAction('LAMBAT')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all group">
-                                    <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiClock className="w-6 h-6" /></div>
-                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-orange-700 dark:group-hover:text-orange-300 text-center">Koneksi Lambat</span>
-                                </button>
-                                <button type="button" onClick={() => applyQuickAction('PENARIKAN')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all group">
-                                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center group-hover:scale-110 transition-transform"><HiArchiveBoxArrowDown className="w-6 h-6" /></div>
-                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white text-center">Penarikan Perangkat</span>
-                                </button>
-                                <button type="button" onClick={() => applyQuickAction('PASANG_BARU')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all group">
-                                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiPlusCircle className="w-6 h-6" /></div>
-                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-green-700 dark:group-hover:text-green-300 text-center">Pasang Baru</span>
-                                </button>
-                                <button type="button" onClick={() => applyQuickAction('RELOKASI')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
-                                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiMapPin className="w-6 h-6" /></div>
-                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-700 dark:group-hover:text-blue-300 text-center">Relokasi Perangkat</span>
-                                </button>
-                            </div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {woType === 'CUSTOMER' ? 'Quick Actions (Customer Issues)' : 'Quick Actions (FOC Internal)'}
+                            </label>
+                            
+                            {/* Customer Quick Actions */}
+                            {woType === 'CUSTOMER' && (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                                    <button type="button" onClick={() => applyQuickAction('INTERNET_MATI')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group">
+                                        <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiWifi className="w-6 h-6" /></div>
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-red-700 dark:group-hover:text-red-300 text-center">Internet Mati / FOCUT</span>
+                                    </button>
+                                    <button type="button" onClick={() => applyQuickAction('LAMBAT')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all group">
+                                        <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiClock className="w-6 h-6" /></div>
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-orange-700 dark:group-hover:text-orange-300 text-center">Koneksi Lambat</span>
+                                    </button>
+                                    <button type="button" onClick={() => applyQuickAction('PENARIKAN')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all group">
+                                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center group-hover:scale-110 transition-transform"><HiArchiveBoxArrowDown className="w-6 h-6" /></div>
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white text-center">Penarikan Perangkat</span>
+                                    </button>
+                                    <button type="button" onClick={() => applyQuickAction('PASANG_BARU')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all group">
+                                        <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiPlusCircle className="w-6 h-6" /></div>
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-green-700 dark:group-hover:text-green-300 text-center">Pasang Baru</span>
+                                    </button>
+                                    <button type="button" onClick={() => applyQuickAction('RELOKASI')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
+                                        <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiMapPin className="w-6 h-6" /></div>
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-700 dark:group-hover:text-blue-300 text-center">Relokasi Perangkat</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* FOC Internal Quick Actions */}
+                            {woType === 'INTERNAL' && (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                                    <button type="button" onClick={() => applyQuickAction('SPLICING_FO')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all group">
+                                        <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiBolt className="w-6 h-6" /></div>
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-orange-700 dark:group-hover:text-orange-300 text-center">Splicing FO</span>
+                                    </button>
+                                    <button type="button" onClick={() => applyQuickAction('PATCHING_ODP')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                                        <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiSignal className="w-6 h-6" /></div>
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-700 dark:group-hover:text-purple-300 text-center">Patching ODC/ODP</span>
+                                    </button>
+                                    <button type="button" onClick={() => applyQuickAction('INSTALASI_KABEL')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all group">
+                                        <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiPlusCircle className="w-6 h-6" /></div>
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-green-700 dark:group-hover:text-green-300 text-center">Instalasi Kabel</span>
+                                    </button>
+                                    <button type="button" onClick={() => applyQuickAction('INSPEKSI_JALUR')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-sky-300 dark:hover:border-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-all group">
+                                        <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiEye className="w-6 h-6" /></div>
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-sky-700 dark:group-hover:text-sky-300 text-center">Inspeksi Jalur</span>
+                                    </button>
+                                    <button type="button" onClick={() => applyQuickAction('PERBAIKAN_PUTUS')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group">
+                                        <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center group-hover:scale-110 transition-transform"><HiExclamationTriangle className="w-6 h-6" /></div>
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-red-700 dark:group-hover:text-red-300 text-center">Perbaikan Putus</span>
+                                    </button>
+                                    <button type="button" onClick={() => applyQuickAction('MAINTENANCE_TIANG')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all group">
+                                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center group-hover:scale-110 transition-transform"><HiWrenchScrewdriver className="w-6 h-6" /></div>
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white text-center">Maintenance Tiang</span>
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* Site Selection */}
                     <div className="space-y-4">
-                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 uppercase tracking-wide">Site / Area</label>
+                        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                            Site / Area {woType === 'INTERNAL' && <span className="text-red-500">*</span>}
+                        </label>
                         <select
                             value={formData.siteId}
                             onChange={(e) => setFormData({ ...formData, siteId: e.target.value })}
-                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow"
+                            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-shadow ${
+                                woType === 'INTERNAL' ? 'border-orange-300 dark:border-orange-600' : 'border-gray-300 dark:border-gray-600'
+                            }`}
+                            required={woType === 'INTERNAL'}
                         >
-                            <option value="">Select Site (optional)</option>
+                            <option value="">{woType === 'INTERNAL' ? 'Pilih Site (wajib untuk Internal)' : 'Select Site (optional)'}</option>
                             {sites.map((site) => (
                                 <option key={site.id} value={site.id}>
                                     {site.code} - {site.name}
                                 </option>
                             ))}
                         </select>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Work order will be available to employees assigned to this site</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {woType === 'INTERNAL' 
+                                ? 'Site wajib dipilih untuk WO Internal - menentukan lokasi pekerjaan' 
+                                : 'Work order will be available to employees assigned to this site'
+                            }
+                        </p>
                     </div>
 
                     {/* Department Selection - Required for notifications */}

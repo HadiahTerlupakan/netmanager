@@ -63,6 +63,7 @@ export function ClientComponent() {
     const [disconnectionStats, setDisconnectionStats] = useState<DisconnectionStatistic[]>([])
     const [responseStats, setResponseStats] = useState<ResponseStatistic[]>([])
     const [adminKPI, setAdminKPI] = useState<AdminKPI | null>(null)
+    const [woTypeStats, setWoTypeStats] = useState<{ customer: number; internal: number } | null>(null)
     const [performancePeriod, setPerformancePeriod] = useState<string>('all_time')
 
     // Trend states
@@ -117,6 +118,7 @@ export function ClientComponent() {
                 setDisconnectionStats(data.disconnectionStats);
                 setResponseStats(data.responseStats);
                 setAdminKPI(data.adminKPI);
+                setWoTypeStats(data.woTypeStats);
             }
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -213,6 +215,26 @@ export function ClientComponent() {
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Successfully closed</p>
                     </Link>
                 </div>
+
+                {/* WO Type Stats: Customer vs Internal */}
+                {woTypeStats && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Link href="/admin/workorders/list?woType=customer" className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-sky-500 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between">
+                                <div><p className="text-sm font-medium text-gray-600 dark:text-gray-400">WO Customer</p><p className="text-3xl font-bold text-sky-600 dark:text-sky-400 mt-1">{woTypeStats.customer}</p></div>
+                                <div className="w-12 h-12 bg-sky-100 dark:bg-sky-900/30 rounded-lg flex items-center justify-center"><HiUserGroup className="w-6 h-6 text-sky-600 dark:text-sky-400" /></div>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Work order untuk pelanggan</p>
+                        </Link>
+                        <Link href="/admin/workorders/list?woType=internal" className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-orange-500 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between">
+                                <div><p className="text-sm font-medium text-gray-600 dark:text-gray-400">WO Internal (FOC)</p><p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1">{woTypeStats.internal}</p></div>
+                                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center"><HiBuildingOffice2 className="w-6 h-6 text-orange-600 dark:text-orange-400" /></div>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Work order internal FOC</p>
+                        </Link>
+                    </div>
+                )}
 
                 {/* Admin KPI Section */}
                 {adminKPI && (

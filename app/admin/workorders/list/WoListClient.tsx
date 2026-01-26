@@ -116,6 +116,7 @@ export function ClientComponent() {
     const [filterPriority, setFilterPriority] = useState('')
     const [filterType, setFilterType] = useState('')
     const [filterSite, setFilterSite] = useState('')
+    const [filterWoType, setFilterWoType] = useState('') // 'customer' | 'internal' | ''
     const [unassignedOnly, setUnassignedOnly] = useState(false)
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -166,7 +167,7 @@ export function ClientComponent() {
             fetchDepartments()
         }
     // PHASE 5: Use debouncedSearch instead of search for API calls
-    }, [session, status, router, page, debouncedSearch, filterStatus, filterPriority, filterType, filterSite, unassignedOnly])
+    }, [session, status, router, page, debouncedSearch, filterStatus, filterPriority, filterType, filterSite, filterWoType, unassignedOnly])
 
     const fetchSites = async () => {
         try {
@@ -206,6 +207,7 @@ export function ClientComponent() {
             if (filterPriority) params.append('priority', filterPriority)
             if (filterType) params.append('type', filterType)
             if (filterSite) params.append('siteId', filterSite)
+            if (filterWoType) params.append('woType', filterWoType)
             if (unassignedOnly) params.append('unassignedOnly', 'true')
 
             const response = await fetch(`/api/admin/workorders?${params}`)
@@ -461,11 +463,12 @@ export function ClientComponent() {
         setFilterPriority('')
         setFilterType('')
         setFilterSite('')
+        setFilterWoType('')
         setUnassignedOnly(false)
         setSearch('')
     }
 
-    const hasActiveFilters = filterStatus || filterPriority || filterType || unassignedOnly || search
+    const hasActiveFilters = filterStatus || filterPriority || filterType || filterWoType || unassignedOnly || search
 
     // Define columns for ResponsiveTable
     const columns: Column<WorkOrder>[] = [
@@ -490,18 +493,39 @@ export function ClientComponent() {
         },
         {
             key: 'customer',
-            header: 'Customer',
+            header: 'Customer / Dept',
             priority: 'secondary',
-            render: (wo) => (
-                <div>
-                    <div className="text-sm text-gray-900 dark:text-white">
-                        {wo.pelanggan?.nama || wo.contactName || <span className="text-gray-400">Guest</span>}
+            render: (wo) => {
+                // If pelanggan exists, show customer info
+                if (wo.pelanggan) {
+                    return (
+                        <div>
+                            <div className="text-sm text-gray-900 dark:text-white">{wo.pelanggan.nama}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{wo.pelanggan.idPelanggan}</div>
+                        </div>
+                    )
+                }
+                // If no pelanggan but has contactName with department name, show as Internal
+                if (wo.contactName && wo.department) {
+                    return (
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-900 dark:text-white">{wo.contactName}</span>
+                                <span className="inline-flex px-1.5 py-0.5 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">Internal</span>
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{wo.department.name}</div>
+                        </div>
+                    )
+                }
+                // Fallback
+                return (
+                    <div>
+                        <div className="text-sm text-gray-900 dark:text-white">
+                            {wo.contactName || <span className="text-gray-400">Guest</span>}
+                        </div>
                     </div>
-                    {wo.pelanggan?.idPelanggan && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{wo.pelanggan.idPelanggan}</div>
-                    )}
-                </div>
-            )
+                )
+            }
         },
         {
             key: 'site',
@@ -790,6 +814,20 @@ export function ClientComponent() {
                                 {sites.map((site) => (
                                     <option key={site.id} value={site.id}>{site.name}</option>
                                 ))}
+                            </select>
+                        </div>
+
+                        {/* Jenis WO Filter: Customer vs Internal */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Jenis WO</label>
+                            <select
+                                value={filterWoType}
+                                onChange={(e) => setFilterWoType(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 dark:bg-gray-700 dark:text-white"
+                            >
+                                <option value="">Semua</option>
+                                <option value="customer">Customer</option>
+                                <option value="internal">Internal (FOC)</option>
                             </select>
                         </div>
                     </div>
