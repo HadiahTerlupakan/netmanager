@@ -2372,9 +2372,7 @@ model PointClaim {
 
 enum EmployeeType {
   KARYAWAN
-  FREELANCE
-  KONTRAK
-  PROBATION
+  MITRA
 }
 
 enum RateType {
@@ -3077,13 +3075,20 @@ model UserSalaryComponent {
 }
 
 model SalaryConfig {
-  id          String  @id @default(uuid())
-  key         String  @unique
-  value       String
-  description String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  payPeriodDay         Int      @default(25)
+  payDay               Int      @default(1)
+  overtimeRateType     RateType @default(PER_HOUR)
+  overtimeRateNormal   Float    @default(50000)
+  overtimeRateHoliday  Float    @default(75000)
+  overtimeRateNational Float    @default(100000)
+  woIncentiveEnabled   Boolean  @default(true)
+  woIncentiveRate      Float    @default(25000)
+  lateDeductionRate    Float    @default(25000)
+  absentDeductionRate  Float    @default(100000)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@map("salary_config")
 }
