@@ -100,31 +100,56 @@ export async function createNotification(data: CreateNotificationData) {
  */
 /**
  * Helper to find eligible recipients for a notification based on Access Rights
- * Logic: 
+ * 
+ * Logic BARU (Site sebagai WAJIB):
  * 1. User Must be Active
- * 2. User must have 'workorders:read' permission
- * 3. Site Access Check:
- *    - If user has NO 'workorders:site_only' permission → can see ALL sites
- *    - If user HAS 'workorders:site_only' → must match WO site OR be global (siteId: null)
+ * 2. User must have 'workorders:read' permission  
+ * 3. Site Access Check (WAJIB):
+ *    - User HARUS punya akses ke site WO (via legacy siteId atau multi-site userSites)
+ *    - Jika WO tidak punya siteId, maka semua user eligible
+ * 4. Department Filter (Opsional):
+ *    - Jika departmentId diset, hanya user di department tersebut
  */
 async function findEligibleRecipients(departmentId?: string, siteId?: string, excludeUserId?: string) {
-    // First, find all users with workorders:read permission
     console.log(`[NotificationDebug] Finding recipients for Dept: ${departmentId}, Site: ${siteId}`);
 
-    
-    const usersWithPermission = await prisma.user.findMany({
-        where: {
-            isActive: true,
-            ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
-            // Department Filter: If WO has Dept, users must match Dept OR match Global (null) OR have 'read_all_departments' permission
-            ...(departmentId ? {
+    // Build where clause
+    const whereClause: any = {
+        isActive: true,
+        ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+        // Permission: Must have workorders:read
+        role: {
+            permission: {
+                some: {
+                    resource: 'workorders',
+                    action: 'read'
+                }
+            }
+        }
+    };
+
+    // SITE FILTER (WAJIB) - User harus punya akses ke site WO
+    if (siteId) {
+        whereClause.OR = [
+            { siteId: siteId }, // Legacy: direct siteId match
+            { siteId: null }, // Global user (no site restriction)
+            { userSites: { some: { siteId: siteId } } } // Multi-site access
+        ];
+    }
+
+    // DEPARTMENT FILTER (Opsional) - Jika department diset, filter user di department tsb
+    if (departmentId) {
+        whereClause.OR = whereClause.OR ? 
+            // Combine with site filter
+            whereClause.OR.map((condition: any) => ({
+                ...condition,
                 OR: [
                     { departmentId: departmentId },
-                    { departmentId: null },
+                    { departmentId: null }, // Global department user
                     {
                         role: {
                             permission: {
-                                none: { // "None" matching means they DO NOT have the restriction
+                                none: {
                                     resource: 'workorders',
                                     action: 'department_only'
                                 }
@@ -132,23 +157,31 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
                         }
                     }
                 ]
-            } : {}),
-            role: {
-                permission: {
-                    some: {
-                        resource: 'workorders',
-                        action: 'read'
+            })) :
+            // Only department filter  
+            [
+                { departmentId: departmentId },
+                { departmentId: null },
+                {
+                    role: {
+                        permission: {
+                            none: {
+                                resource: 'workorders',
+                                action: 'department_only'
+                            }
+                        }
                     }
                 }
-            }
-
-        },
+            ];
+    }
+    
+    const usersWithPermission = await prisma.user.findMany({
+        where: whereClause,
         select: { 
             id: true,
             name: true,
             departmentId: true,
             siteId: true,
-            // Multi-site: Include userSites
             userSites: {
                 select: { siteId: true }
             },
@@ -166,33 +199,28 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
             }
         }
     });
-    // console.log(`[NotificationDebug] Found ${usersWithPermission.length} potential users with 'workorders:read' or 'm_work_order:read'`);
 
-
-
-
-    // Filter based on site_only permission and Explicitly Exclude ID (Safety Net)
+    // Additional filter for site_only permission
     const eligibleUsers = usersWithPermission.filter(user => {
-        // Strict exclusion check (in case Prisma query missed it or ID format differs slightly)
+        // Explicit exclusion safety net
         if (excludeUserId && user.id === excludeUserId) {
-             console.log(`[NotificationDebug] Explicitly excluding user ${user.name} (${user.id})`);
-             return false;
+            console.log(`[NotificationDebug] Explicitly excluding user ${user.name} (${user.id})`);
+            return false;
         }
 
         const hasSiteOnly = user.role?.permission && user.role.permission.length > 0;
         
+        // User without site_only restriction can see all sites
         if (!hasSiteOnly) {
-           // console.log(`[NotificationDebug] User ${user.name} accepted (No Site Limit)`);
             return true;
         }
         
-        // User HAS site_only restriction
+        // WO has no site → global WO, everyone can see
         if (!siteId) {
-            // WO has no site → global WO, everyone can see
             return true;
         }
         
-        // Multi-site: Check if user has access to this site via userSites OR legacy siteId
+        // User HAS site_only restriction - verify site access
         const userSiteIds = user.userSites?.map(us => us.siteId) || [];
         const hasAccessViaSites = userSiteIds.includes(siteId);
         const hasAccessViaLegacy = user.siteId === siteId || user.siteId === null;
@@ -200,11 +228,12 @@ async function findEligibleRecipients(departmentId?: string, siteId?: string, ex
         const match = hasAccessViaSites || hasAccessViaLegacy;
         
         if (!match) {
-             console.log(`[NotificationDebug] User ${user.name} rejected (Site Mismatch: UserSites=[${userSiteIds.join(',')}], LegacySite=${user.siteId} vs WOSite=${siteId})`);
+            console.log(`[NotificationDebug] User ${user.name} rejected (Site Mismatch: UserSites=[${userSiteIds.join(',')}], LegacySite=${user.siteId} vs WOSite=${siteId})`);
         }
         return match;
     });
 
+    console.log(`[NotificationDebug] Found ${eligibleUsers.length} eligible recipients`);
     return eligibleUsers.map(u => ({ id: u.id }));
 }
 

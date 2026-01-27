@@ -46,10 +46,10 @@ export async function POST(
             return NextResponse.json({ error: 'Work order not found' }, { status: 404 })
         }
 
-        // Only allow reminder for PENDING or ASSIGNED status
-        if (!['PENDING', 'ASSIGNED'].includes(workOrder.status)) {
+        // Only allow reminder for PENDING, ASSIGNED, or IN_PROGRESS status
+        if (!['PENDING', 'ASSIGNED', 'IN_PROGRESS'].includes(workOrder.status)) {
             return NextResponse.json({ 
-                error: 'Reminder hanya bisa dikirim untuk WO dengan status Pending atau Assigned' 
+                error: 'Reminder hanya bisa dikirim untuk WO dengan status Pending, Assigned, atau In Progress' 
             }, { status: 400 })
         }
 

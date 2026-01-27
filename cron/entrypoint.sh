@@ -17,7 +17,7 @@ fi
 echo "Setting up cron jobs..."
 
 # Create crontab entries
-cat > /etc/crontabs/root << EOF
+cat > /etc/crontabs/root <<EOF
 # Attendance alert - auto check setiap 15 menit
 */15 * * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/attendance-alert?type=auto" >> /var/log/cron.log 2>&1
 
@@ -32,6 +32,9 @@ cat > /etc/crontabs/root << EOF
 
 # Auto Approve TUKAR_LIBUR - process pada jam 22:00 setiap hari (H-1 sebelum tanggal izin)
 0 22 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/auto-approve-leave" >> /var/log/cron.log 2>&1
+
+# Work Order Reminder - kirim reminder untuk WO > 1 hari pada jam 08:00 setiap hari
+0 8 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/workorder-reminder" >> /var/log/cron.log 2>&1
 EOF
 
 echo "Cron jobs configured:"

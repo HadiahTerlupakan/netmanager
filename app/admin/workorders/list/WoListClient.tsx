@@ -603,7 +603,7 @@ export function ClientComponent() {
                             <HiXCircle className="w-5 h-5" />
                         </button>
                     )}
-                    {(wo.status === 'PENDING' || wo.status === 'ASSIGNED') && canSendReminder && (
+                    {(wo.status === 'PENDING' || wo.status === 'ASSIGNED' || wo.status === 'IN_PROGRESS') && canSendReminder && (
                         <button
                             onClick={(e) => handleOpenReminderModal(wo.id, e)}
                             disabled={sendingReminderId === wo.id}

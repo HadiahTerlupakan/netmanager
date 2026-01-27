@@ -189,8 +189,12 @@ export async function onWorkOrderUpdated(
 
 /**
  * Send manual reminder for a Work Order
- * - Notifies all technicians in the department if unassigned
- * - OR notifies the assigned technician if assigned
+ * 
+ * Logic:
+ * 1. WO yang sudah diambil (assignedToId ada) → Reminder ke teknisi yang mengambil saja
+ * 2. WO yang belum diambil (assignedToId null) → Reminder WAJIB ke teknisi di SITE WO tersebut
+ *    - Jika departmentId diset → Filter hanya teknisi di department tersebut AND site WO
+ *    - Jika tidak ada departmentId → Semua teknisi di site WO
  */
 export async function sendWorkOrderReminder(
     workOrder: WorkOrderData,
@@ -200,54 +204,61 @@ export async function sendWorkOrderReminder(
         const message = customMessage || `🔔 Masih Menunggu! ${workOrder.workOrderNumber} - ${workOrder.title}`;
         const title = "⚠️ Work Order Reminder";
 
+        // Case 1: WO sudah diambil → Reminder hanya ke teknisi yang mengambil
         if (workOrder.assignedToId) {
-            // Notify assigned user
+            console.log(`[Push] Sending reminder to assigned user: ${workOrder.assignedToId}`);
             return await sendPushToUsers(
                 [workOrder.assignedToId],
                 title,
                 message,
                 { workOrderId: workOrder.id, type: 'WORK_ORDER', screen: 'WorkOrderDetail' }
             );
-        } else if (workOrder.departmentId) {
-            // Notify department (technicians)
-            return await sendPushToDepartment(
-                workOrder.departmentId,
-                title,
-                message,
-                { workOrderId: workOrder.id, type: 'WORK_ORDER', screen: 'WorkOrderList' }
-            );
-        } else if (workOrder.siteId) {
-            // Fallback: notify all active technicians in the same Site
-            // Check both legacy siteId field AND multi-site userSites table
-            const techniciansInSite = await prisma.user.findMany({
-                where: {
-                    isActive: true,
-                    pushToken: { not: null },
-                    OR: [
-                        { siteId: workOrder.siteId }, // Legacy: direct siteId
-                        { userSites: { some: { siteId: workOrder.siteId } } } // Multi-site
-                    ]
-                },
-                select: { id: true }
-            });
-
-            if (techniciansInSite.length === 0) {
-                console.log(`[Push] No technicians with push tokens in site ${workOrder.siteId}`);
-                return 0;
-            }
-
-            const userIds = techniciansInSite.map(u => u.id);
-            console.log(`[Push] Sending reminder to ${userIds.length} technicians in site ${workOrder.siteId}`);
-            return await sendPushToUsers(
-                userIds,
-                title,
-                message,
-                { workOrderId: workOrder.id, type: 'WORK_ORDER', screen: 'WorkOrderList' }
-            );
         }
 
-        console.log('[Push] No target found for reminder (no assignee, department, or site)');
-        return 0;
+        // Case 2: WO belum diambil → WAJIB berdasarkan site
+        if (!workOrder.siteId) {
+            console.log('[Push] No siteId found for unassigned WO - cannot send reminder');
+            return 0;
+        }
+
+        // Build query: teknisi aktif di site WO dengan push token
+        const whereClause: any = {
+            isActive: true,
+            pushToken: { not: null },
+            OR: [
+                { siteId: workOrder.siteId }, // Legacy: direct siteId
+                { userSites: { some: { siteId: workOrder.siteId } } } // Multi-site
+            ]
+        };
+
+        // Jika ada departmentId → tambahkan filter department (opsional, untuk tidak ganggu dept lain)
+        if (workOrder.departmentId) {
+            whereClause.departmentId = workOrder.departmentId;
+            console.log(`[Push] Filtering by department: ${workOrder.departmentId}`);
+        }
+
+        const techniciansInSite = await prisma.user.findMany({
+            where: whereClause,
+            select: { id: true }
+        });
+
+        if (techniciansInSite.length === 0) {
+            const deptInfo = workOrder.departmentId ? ` in department ${workOrder.departmentId}` : '';
+            console.log(`[Push] No technicians with push tokens in site ${workOrder.siteId}${deptInfo}`);
+            return 0;
+        }
+
+        const userIds = techniciansInSite.map(u => u.id);
+        const deptInfo = workOrder.departmentId ? ` (filtered by dept)` : '';
+        console.log(`[Push] Sending reminder to ${userIds.length} technicians in site ${workOrder.siteId}${deptInfo}`);
+        
+        return await sendPushToUsers(
+            userIds,
+            title,
+            message,
+            { workOrderId: workOrder.id, type: 'WORK_ORDER', screen: 'WorkOrderList' }
+        );
+
     } catch (error) {
         console.error('[Notification] Error sending reminder:', error);
         return 0;
