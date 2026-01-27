@@ -17,6 +17,7 @@ export const PERMISSION_GROUPS = {
     MARKETING: ['marketing', 'coupon', 'sales_dashboard', 'sales', 'canvasing'],
     CHAT: ['chat', 'broadcast'],
     USERS: ['users'],
+    SALARY: ['salary', 'salary_config', 'salary_components'],
 
 } as const
 
@@ -56,7 +57,7 @@ export type PermissionGroup = keyof typeof PERMISSION_GROUPS
  * Contoh penggunaan di Role Matrix:
  * - Role "Admin" dengan `users:read` (tanpa site_only) = lihat semua users
  * */
-export const ACTIONS = ['read', 'create', 'update', 'delete', 'site_only', 'department_only', 'cancel', 'verify', 'reminder', 'approve_request'] as const
+export const ACTIONS = ['read', 'create', 'update', 'delete', 'site_only', 'department_only', 'cancel', 'verify', 'reminder', 'approve_request', 'calculate', 'audit', 'approve', 'mark_paid'] as const
 
 /**
  * Granular Permissions untuk operasi sensitif
@@ -94,6 +95,13 @@ export const GRANULAR_PERMISSIONS = {
   // Finance sensitive operations
   FINANCE_VOID: 'finance:update:void',              // Void/cancel financial transactions
   FINANCE_APPROVE: 'finance:update:approve',        // Approve expense/income entries
+  
+  // Salary/Gaji sensitive operations
+  SALARY_CALCULATE: 'salary:calculate',             // Calculate salaries
+  SALARY_AUDIT: 'salary:audit',                     // Audit salary records
+  SALARY_APPROVE: 'salary:approve',                 // Final approval for salary
+  SALARY_MARK_PAID: 'salary:mark_paid',             // Mark salary as paid
+  SALARY_VIEW_ALL: 'salary:view_all',               // View all salary records (bypass privacy)
 } as const
 
 export type GranularPermission = typeof GRANULAR_PERMISSIONS[keyof typeof GRANULAR_PERMISSIONS]

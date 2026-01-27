@@ -1069,6 +1069,18 @@ model User {
   lastVersionUpdate                          DateTime?
   canvasingTarget                            Int                       @default(50)
   isSales                                    Boolean                   @default(false)
+  // Salary configuration fields
+  basicSalary                                Float?
+  employeeType                               EmployeeType              @default(KARYAWAN)
+  overtimeRateNormal                         Float?
+  overtimeCalcTypeNormal                     RateType                  @default(PER_HOUR)
+  overtimeRateHoliday                        Float?
+  overtimeCalcTypeHoliday                    RateType                  @default(PER_HOUR)
+  overtimeRateNational                       Float?
+  overtimeCalcTypeNational                   RateType                  @default(PER_HOUR)
+  woIncentiveRate                            Float?
+  lateDeductionRate                          Float?
+  absentDeductionRate                        Float?
   account                                    Account[]
   announcement                               Announcement[]
   attendance                                 Attendance[]
@@ -1116,6 +1128,10 @@ model User {
   transferAntarGudangs                       TransferAntarGudang[]     @relation("TransferCreatedBy")
   workOrdersRequested                        WorkOrders[]              @relation("work_orders_requestedByIdToUser")
   workOrdersApproved                         WorkOrders[]              @relation("work_orders_approvedByIdToUser")
+  salaries                                   Salary[]
+  salariesAuditedBy                          Salary[]                  @relation("SalaryAuditedBy")
+  salariesApprovedBy                         Salary[]                  @relation("SalaryApprovedBy")
+  userSalaryComponents                       UserSalaryComponent[]
 
   @@index([departmentId])
   @@index([isActive])
@@ -2354,6 +2370,34 @@ model PointClaim {
   @@map("point_claims")
 }
 
+enum EmployeeType {
+  KARYAWAN
+  FREELANCE
+  KONTRAK
+  PROBATION
+}
+
+enum RateType {
+  FIXED
+  PER_HOUR
+  PERCENTAGE
+  DAILY_SALARY
+}
+
+enum SalaryStatus {
+  DRAFT
+  CALCULATED
+  AUDITED
+  APPROVED
+  PAID
+  REVISED
+}
+
+enum SalaryComponentType {
+  EARNING
+  DEDUCTION
+}
+
 enum AttendanceStatus {
   ON_TIME
   LATE
@@ -2927,4 +2971,119 @@ model MixRadiusConfig {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ==================== SALARY MODELS ====================
+
+model Salary {
+  id              String           @id @default(uuid())
+  userId          String
+  month           Int
+  year            Int
+  status          SalaryStatus     @default(DRAFT)
+  basicSalary     Float
+  totalEarnings   Float            @default(0)
+  totalDeductions Float            @default(0)
+  netSalary       Float            @default(0)
+  calculatedAt    DateTime?
+  auditedById     String?
+  auditedAt       DateTime?
+  auditNotes      String?
+  approvedById    String?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  approvedBy      User?            @relation("SalaryApprovedBy", fields: [approvedById], references: [id])
+  auditedBy       User?            @relation("SalaryAuditedBy", fields: [auditedById], references: [id])
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  details         SalaryDetail[]
+  revisions       SalaryRevision[]
+
+  @@unique([userId, month, year])
+  @@index([month, year])
+  @@index([status])
+  @@map("salaries")
+}
+
+model SalaryComponent {
+  id             String                @id @default(uuid())
+  name           String                @unique
+  type           SalaryComponentType
+  rateType       RateType              @default(FIXED)
+  defaultAmount  Float?
+  description    String?
+  isActive       Boolean               @default(true)
+  sortOrder      Int                   @default(0)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  details        SalaryDetail[]
+  userComponents UserSalaryComponent[]
+
+  @@map("salary_components")
+}
+
+model SalaryDetail {
+  id          String              @id @default(uuid())
+  salaryId    String
+  componentId String?
+  name        String
+  type        SalaryComponentType
+  quantity    Float?
+  rate        Float?
+  amount      Float
+  notes       String?
+  component   SalaryComponent?    @relation(fields: [componentId], references: [id])
+  salary      Salary              @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+
+  @@index([salaryId])
+  @@map("salary_details")
+}
+
+model SalaryRevision {
+  id          String  @id @default(uuid())
+  salaryId    String
+  field       String
+  oldValue    String?
+  newValue    String?
+  reason      String
+  revisedById String
+
+  createdAt DateTime @default(now())
+
+  salary Salary @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+
+  @@index([salaryId])
+  @@map("salary_revisions")
+}
+
+model UserSalaryComponent {
+  id          String  @id @default(uuid())
+  userId      String
+  componentId String
+  amount      Float
+  notes       String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  component SalaryComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, componentId])
+  @@index([userId])
+  @@map("user_salary_components")
+}
+
+model SalaryConfig {
+  id          String  @id @default(uuid())
+  key         String  @unique
+  value       String
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("salary_config")
 }

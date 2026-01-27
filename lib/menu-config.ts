@@ -150,11 +150,22 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         ],
     },
     {
+        code: 'SALARY',
+        name: 'Penggajian',
+        path: '/admin/salary',
+        icon: 'HiOutlineCurrencyDollar',
+        children: [
+            { code: 'SALARY.SALARY', name: 'Daftar Gaji', path: '/admin/salary', icon: 'HiOutlineClipboardDocumentList', exact: true },
+            { code: 'SALARY.USERS', name: 'Karyawan Digaji', path: '/admin/salary/users', icon: 'HiOutlineUsers' },
+        ],
+    },
+    {
         code: 'SUPPORT',
         name: 'Dukungan',
         path: '/admin/support',
         icon: 'HiOutlineChatBubbleLeftRight',
     },
+
     {
         code: 'CHAT',
         name: 'Chat',

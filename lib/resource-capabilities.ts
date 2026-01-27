@@ -15,7 +15,7 @@
  * - verify: Memverifikasi (khusus Work Order)
  */
 
-export type ResourceAction = 'read' | 'create' | 'update' | 'delete' | 'site_only' | 'department_only' | 'cancel' | 'verify' | 'reminder' | 'approve_request'
+export type ResourceAction = 'read' | 'create' | 'update' | 'delete' | 'site_only' | 'department_only' | 'cancel' | 'verify' | 'reminder' | 'approve_request' | 'audit' | 'approve' | 'mark_paid' | 'calculate'
 
 export interface ResourceCapability {
     actions: ResourceAction[]
@@ -28,6 +28,20 @@ export interface ResourceCapability {
  * Value: available actions for that resource
  */
 export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
+    // ====== SALARY MODULE ======
+    salary: {
+        actions: ['read', 'create', 'update', 'delete', 'calculate', 'audit', 'approve', 'mark_paid', 'site_only', 'department_only'],
+        description: 'Manajemen penggajian karyawan'
+    },
+    salary_config: {
+        actions: ['read', 'update', 'site_only'],
+        description: 'Konfigurasi parameter gaji'
+    },
+    salary_components: {
+        actions: ['read', 'create', 'update', 'delete', 'site_only'],
+        description: 'Komponen gaji (tunjangan/potongan)'
+    },
+
     // ====== READ-ONLY RESOURCES ======
     // Hanya bisa lihat data, tidak ada CRUD
     dashboard: {
