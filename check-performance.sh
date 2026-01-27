@@ -44,8 +44,8 @@ echo ""
 # ==============================================================================
 echo -e "${BOLD}${BLUE}💾 [3/6] DISK USAGE${NC}"
 echo "─────────────────────────────────────────────────────────────"
-echo "Docker volumes:"
-docker system df -v 2>/dev/null | head -20 || docker system df
+echo "Docker disk usage:"
+docker system df 2>/dev/null || echo "Cannot get docker disk info"
 echo ""
 echo "Host disk:"
 df -h / | tail -1
