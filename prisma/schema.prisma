@@ -803,6 +803,9 @@ model Pelanggan {
   tanggalAktif                  DateTime
   jatuhTempo                    DateTime
   status                        Status              @default(AKTIF)
+  syncStatus                    String              @default("PENDING") // PENDING, SYNCED, FAILED
+  syncRetryCount                Int                 @default(0)
+  syncError                     String?
   alamat                        String?
   noTelp                        String?
   email                         String?

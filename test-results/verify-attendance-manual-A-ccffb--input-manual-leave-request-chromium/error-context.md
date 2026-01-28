@@ -1,7 +1,7 @@
 # Page snapshot
 
 ```yaml
-- generic [ref=e1]:
+- generic [active] [ref=e1]:
   - generic [ref=e2]:
     - complementary [ref=e3]:
       - generic [ref=e4]:
@@ -185,33 +185,33 @@
                 - generic [ref=e235]: Analisa Harga Pasar
           - link "Users" [ref=e236] [cursor=pointer]:
             - /url: /admin/users
-            - img [ref=e239]
-            - generic [ref=e241]: Users
-          - generic [ref=e242]:
-            - button "Work Orders" [ref=e243]:
-              - generic [ref=e244]:
-                - img [ref=e246]
-                - generic [ref=e249]: Work Orders
-              - img [ref=e250]
-            - generic [ref=e252]:
-              - link "Dashboard" [ref=e253] [cursor=pointer]:
+            - img [ref=e238]
+            - generic [ref=e240]: Users
+          - generic [ref=e241]:
+            - button "Work Orders" [ref=e242]:
+              - generic [ref=e243]:
+                - img [ref=e245]
+                - generic [ref=e248]: Work Orders
+              - img [ref=e249]
+            - generic [ref=e251]:
+              - link "Dashboard" [ref=e252] [cursor=pointer]:
                 - /url: /admin/workorders
-                - img [ref=e255]
-                - generic [ref=e257]: Dashboard
-              - link "List" [ref=e258] [cursor=pointer]:
+                - img [ref=e254]
+                - generic [ref=e256]: Dashboard
+              - link "List" [ref=e257] [cursor=pointer]:
                 - /url: /admin/workorders/list
-                - img [ref=e260]
-                - generic [ref=e262]: List
-              - link "Site" [ref=e263] [cursor=pointer]:
+                - img [ref=e259]
+                - generic [ref=e261]: List
+              - link "Site" [ref=e262] [cursor=pointer]:
                 - /url: /admin/workorders/sites
-                - img [ref=e265]
-                - generic [ref=e267]: Site
-              - link "Department" [ref=e268] [cursor=pointer]:
+                - img [ref=e264]
+                - generic [ref=e266]: Site
+              - link "Department" [ref=e267] [cursor=pointer]:
                 - /url: /admin/workorders/departments
-                - img [ref=e270]
-                - generic [ref=e272]: Department
-          - generic [ref=e273]:
-            - button "Kehadiran" [ref=e274]:
+                - img [ref=e269]
+                - generic [ref=e271]: Department
+          - generic [ref=e272]:
+            - button "Kehadiran" [ref=e273]:
               - generic [ref=e275]:
                 - img [ref=e277]
                 - generic [ref=e279]: Kehadiran
@@ -422,71 +422,88 @@
           - generic [ref=e544]:
             - button "Work Order Notifications" [ref=e546]:
               - img [ref=e547]
-              - generic "Real-time connected" [ref=e549]
-            - button "Customer Support Tickets" [ref=e551]:
-              - img [ref=e552]
-              - generic "Real-time connected" [ref=e554]
-            - button "Notifications" [ref=e556]:
-              - img [ref=e557]
-              - generic "Real-time connected" [ref=e559]
-            - button [ref=e560]:
-              - img [ref=e561]
-            - button "S System Administrator Technical" [ref=e566] [cursor=pointer]:
-              - generic [ref=e569]: S
-              - generic [ref=e570]:
-                - generic [ref=e571]: System Administrator
-                - generic [ref=e572]: Technical
-      - main [ref=e573]:
-        - generic [ref=e575]:
-          - generic [ref=e576]:
-            - generic [ref=e577]:
-              - heading "Manajemen Pengguna" [level=1] [ref=e578]
-              - paragraph [ref=e579]: Kelola pengguna sistem
-            - link "Tambah Pengguna" [ref=e580] [cursor=pointer]:
-              - /url: /admin/users/new
-              - img [ref=e581]
-              - text: Tambah Pengguna
-          - generic [ref=e583]:
-            - generic [ref=e585]:
-              - img [ref=e587]
-              - generic [ref=e589]:
-                - paragraph [ref=e590]: "0"
-                - paragraph [ref=e591]: Total Pengguna
-            - generic [ref=e593]:
-              - img [ref=e595]
-              - generic [ref=e597]:
-                - paragraph [ref=e598]: "0"
-                - paragraph [ref=e599]: Pengguna Aktif
-            - generic [ref=e601]:
-              - img [ref=e603]
-              - generic [ref=e605]:
-                - paragraph [ref=e606]: "0"
-                - paragraph [ref=e607]: Pengguna Nonaktif
-          - generic [ref=e609]:
-            - generic [ref=e610]:
-              - generic:
-                - img
-              - textbox "Cari pengguna berdasarkan email, nama, telepon, atau departemen..." [active] [ref=e611]: qa.fieldtech@test.com
-            - generic [ref=e612]:
-              - generic:
-                - img
-              - combobox [ref=e613]:
-                - option "Semua Status" [selected]
-                - option "Aktif"
-                - option "Nonaktif"
-          - generic [ref=e615]:
-            - img [ref=e617]
-            - heading "Tidak ada pengguna ditemukan" [level=3] [ref=e619]
-            - paragraph [ref=e620]: Coba ubah filter atau kata kunci pencarian Anda
-            - link "Tambah Pengguna" [ref=e621] [cursor=pointer]:
-              - /url: /admin/users/new
-              - img [ref=e622]
-              - text: Tambah Pengguna
-      - contentinfo [ref=e624]:
-        - generic [ref=e625]:
-          - paragraph [ref=e626]: © 2026 NetManager
-          - paragraph [ref=e627]: Next.js & Tailwind CSS
-  - button "Open Next.js Dev Tools" [ref=e633] [cursor=pointer]:
-    - img [ref=e634]
-  - alert [ref=e637]
+              - generic [ref=e549]: "2"
+              - generic "Real-time connected" [ref=e550]
+            - button "Customer Support Tickets" [ref=e552]:
+              - img [ref=e553]
+              - generic "Real-time connected" [ref=e555]
+            - button "Notifications" [ref=e557]:
+              - img [ref=e558]
+              - generic "Real-time connected" [ref=e560]
+            - button [ref=e561]:
+              - img [ref=e562]
+            - button "S System Administrator Technical" [ref=e567] [cursor=pointer]:
+              - generic [ref=e570]: S
+              - generic [ref=e571]:
+                - generic [ref=e572]: System Administrator
+                - generic [ref=e573]: Technical
+      - main [ref=e574]:
+        - generic [ref=e576]:
+          - generic [ref=e577]:
+            - generic [ref=e578]:
+              - heading "Manajemen Izin & Cuti" [level=1] [ref=e579]
+              - paragraph [ref=e580]: Kelola pengajuan izin, sakit, dan cuti karyawan
+            - button "Input Manual" [ref=e581]:
+              - img [ref=e582]
+              - text: Input Manual
+          - generic [ref=e585]:
+            - button "Menunggu Konfirmasi" [ref=e586]
+            - button "Disetujui" [ref=e587]
+            - button "Ditolak" [ref=e588]
+            - button "Semua" [ref=e589]
+          - table [ref=e593]:
+            - rowgroup [ref=e594]:
+              - row "Karyawan Tipe Tanggal Alasan Status Aksi" [ref=e595]:
+                - columnheader "Karyawan" [ref=e596]
+                - columnheader "Tipe" [ref=e597]
+                - columnheader "Tanggal" [ref=e598]
+                - columnheader "Alasan" [ref=e599]
+                - columnheader "Status" [ref=e600]
+                - columnheader "Aksi" [ref=e601]
+            - rowgroup [ref=e602]:
+              - row "Tidak ada pengajuan ditemukan." [ref=e603]:
+                - cell "Tidak ada pengajuan ditemukan." [ref=e604]
+          - generic [ref=e606]:
+            - generic [ref=e607]:
+              - heading "Input Izin Manual" [level=3] [ref=e608]
+              - button [ref=e609]:
+                - img [ref=e610]
+            - generic [ref=e613]:
+              - generic [ref=e614]:
+                - generic [ref=e615]: Karyawan
+                - generic [ref=e616]:
+                  - textbox "Cari karyawan..." [ref=e617]: Budi Santoso
+                  - generic [ref=e619] [cursor=pointer]:
+                    - text: Budi Santoso
+                    - generic [ref=e620]: (teknisi@example.com)
+              - generic [ref=e621]:
+                - generic [ref=e622]:
+                  - generic [ref=e623]: Tipe Izin
+                  - combobox [ref=e624]:
+                    - option "Sakit"
+                    - option "Izin" [selected]
+                    - option "Cuti"
+                - generic [ref=e625]:
+                  - generic [ref=e626]: Lampiran
+                  - button "Choose File" [ref=e627]
+              - generic [ref=e628]:
+                - generic [ref=e629]:
+                  - generic [ref=e630]: Mulai
+                  - textbox [ref=e631]: 2026-01-28
+                - generic [ref=e632]:
+                  - generic [ref=e633]: Selesai
+                  - textbox [ref=e634]: 2026-01-28
+              - generic [ref=e635]:
+                - generic [ref=e636]: Alasan
+                - textbox [ref=e637]: Manual Input Test 1769604701603
+              - generic [ref=e638]:
+                - button "Batal" [ref=e639]
+                - button "Simpan" [ref=e640]
+      - contentinfo [ref=e641]:
+        - generic [ref=e642]:
+          - paragraph [ref=e643]: © 2026 NetManager
+          - paragraph [ref=e644]: Next.js & Tailwind CSS
+  - button "Open Next.js Dev Tools" [ref=e650] [cursor=pointer]:
+    - img [ref=e651]
+  - alert [ref=e654]
 ```

@@ -13,6 +13,8 @@ export async function loginAsAdmin(page: Page, email: string, password: string) 
   
   // Click login button
   await page.click('button[type="submit"]')
+  // Wait for navigation to complete (login success) - strict check
+  await page.waitForURL((url) => url.pathname === '/admin' || url.pathname === '/admin/dashboard', { timeout: 15000 });
 }
 
 test.describe('Admin Authentication', () => {

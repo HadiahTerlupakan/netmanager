@@ -77,7 +77,10 @@ export function IzinClient() {
             const res = await fetch(`/api/admin/leaves${query}`)
             if (res.ok) {
                 const data = await res.json()
-                setLeaves(data)
+                // apiSuccess returns { success: true, data: [...] }
+                // Check if data.data exists (wrapped) or use data directly (unwrapped legacy)
+                const leavesData = Array.isArray(data) ? data : (data.data || [])
+                setLeaves(leavesData)
             }
         } catch (error) {
             console.error(error)
@@ -95,7 +98,10 @@ export function IzinClient() {
             const res = await fetch('/api/admin/users?limit=1000')
             if (res.ok) {
                 const data = await res.json()
-                setUsers(Array.isArray(data) ? data : data.users || [])
+                // apiSuccess returns { success: true, data: { users: [...] } }
+                // Need to unwrap properly. data.data.users might be where the array is.
+                const usersList = Array.isArray(data) ? data : (data.users || data.data?.users || [])
+                setUsers(usersList)
             }
         } catch (error) {
             console.error('Failed to fetch users', error)

@@ -139,9 +139,10 @@ export class AutomaticBillingService {
             const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
             const currentDay = String(new Date().getDate()).padStart(2, '0');
             
-            // Use timestamp + random suffix instead of count to avoid race condition
-            const uniqueSuffix = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
-            const invoiceNumber = `INV/${currentYear}/${currentMonth}/${currentDay}-${uniqueSuffix.toUpperCase()}`;
+            // Use crypto.randomUUID for better uniqueness (12 chars from UUID v4 to avoid collisions)
+            // 8 chars was colliding at ~100k scale. 12 chars (16^12) is safe.
+            const uniqueSuffix = randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
+            const invoiceNumber = `INV/${currentYear}/${currentMonth}/${currentDay}-${uniqueSuffix}`;
 
             // 2. Calculate Items
             const amount = BigInt(customer.hargaPaket.harga);

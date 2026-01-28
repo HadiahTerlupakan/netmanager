@@ -225,21 +225,24 @@ export class BCAProvider implements PaymentProvider {
                 return false
             }
 
-            // TODO: Implement BCA webhook signature verification
-            // Based on BCA documentation for webhook security
-            const timestamp = payload.timestamp || payload['X-BCA-Timestamp'] || ''
+            // BCA Webhook Signature Verification
+            // Assuming HMAC-SHA256 of the JSON body using apiSecret
             const bodyString = JSON.stringify(payload)
+            
+            const expectedSignature = crypto
+                .createHmac('sha256', this.config.apiSecret || '')
+                .update(bodyString)
+                .digest('hex')
 
-            // Verify signature matches
-            const expectedSignature = this.generateSignature(
-                'POST',
-                '/webhook/bca',
-                '',
-                bodyString,
-                timestamp
-            )
-
-            return signature.toLowerCase() === expectedSignature.toLowerCase()
+            // Use timingSafeEqual to prevent timing attacks
+            const source = Buffer.from(signature);
+            const target = Buffer.from(expectedSignature);
+            
+            if (source.length !== target.length) {
+                return false;
+            }
+            
+            return crypto.timingSafeEqual(source, target);
         } catch (error) {
             console.error('BCA webhook verification error:', error)
             return false

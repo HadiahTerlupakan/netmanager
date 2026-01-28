@@ -82,8 +82,12 @@ export function BarangTable() {
         throw new Error(data.error || 'Gagal memuat data')
       }
 
-      setBarangs(data.barangs || [])
-      setPagination(data.pagination || pagination)
+      // Standardized apiSuccess response: { success: true, data: { barangs, pagination } }
+      // We need to handle both direct structure (if changed) or wrapped structure
+      const result = data.data || data
+      
+      setBarangs(result.barangs || [])
+      setPagination(result.pagination || pagination)
     } catch (error) {
       console.error('Failed to fetch barang:', error)
       setError(error instanceof Error ? error.message : 'Gagal memuat data')

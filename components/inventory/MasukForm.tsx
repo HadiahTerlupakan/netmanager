@@ -176,6 +176,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setLoading(true)
+    setError('')
+    setSuccess('')
 
     // Validation - only validate in create mode
     if (!initialData) {

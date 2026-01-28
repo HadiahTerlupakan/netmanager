@@ -340,5 +340,24 @@ export class PelangganRepository {
             },
         })
     }
+    async updateSyncStatus(id: string, status: string, error?: string | null) {
+        const data: any = {
+            syncStatus: status,
+            syncError: error,
+            updatedAt: new Date()
+        }
+
+        if (status === 'FAILED') {
+            data.syncRetryCount = { increment: 1 }
+        } else if (status === 'SYNCED') {
+            data.syncRetryCount = 0
+            data.lastSyncedAt = new Date()
+        }
+
+        return prisma.pelanggan.update({
+            where: { id },
+            data
+        })
+    }
 }
 

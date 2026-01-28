@@ -876,7 +876,7 @@ export async function PUT(
     revalidatePath(`/api/pelanggan-ppp/${id}`)
     revalidatePath('/pelanggan')
     revalidatePath('/pelanggan/profil')
-    revalidatePath(`/api/pelanggan/${id}`)
+    revalidatePath(`/api/pelanggan-ppp/${id}`)
 
     return NextResponse.json(pelanggan, {
       headers: {

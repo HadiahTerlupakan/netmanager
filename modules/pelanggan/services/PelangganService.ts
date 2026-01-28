@@ -160,9 +160,16 @@ export class PelangganService {
             const syncResult = await afterCustomerCreate(prisma, pelanggan.id)
             if (!syncResult.success) {
                 console.warn('[RADIUS] Auto-sync failed for customer:', pelanggan.username, syncResult.error)
+                // Update DB with failure
+                await this.pelangganRepository.updateSyncStatus(pelanggan.id, 'FAILED', syncResult.error)
+            } else {
+                 // Update DB with success
+                 await this.pelangganRepository.updateSyncStatus(pelanggan.id, 'SYNCED', null)
             }
-        } catch (syncError) {
+        } catch (syncError: any) {
             console.error('[RADIUS] Auto-sync error:', syncError)
+            // Update DB with failure
+            await this.pelangganRepository.updateSyncStatus(pelanggan.id, 'FAILED', syncError?.message || 'Unknown error')
         }
 
         return pelanggan

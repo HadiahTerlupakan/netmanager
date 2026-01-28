@@ -91,8 +91,9 @@ export function MasukTable({
           throw new Error(data.error || 'Gagal memuat data')
         }
 
-        setMasukList(data.masukList || [])
-        setPagination(data.pagination || pagination)
+        const responseData = data.data || data
+        setMasukList(responseData.masukList || [])
+        setPagination(responseData.pagination || pagination)
       } catch (error) {
         console.error('Failed to fetch barang masuk:', error)
         setError(error instanceof Error ? error.message : 'Gagal memuat data')
