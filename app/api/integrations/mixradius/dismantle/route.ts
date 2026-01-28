@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { MixRadiusService } from '@/modules/integrations/mixradius/MixRadiusService'
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
 import { onWorkOrderCreated } from '@/modules/work-order/services/WorkOrderNotifications'
+import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
 const workOrderRepo = new WorkOrderRepository(prisma)
 
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
     // Auth check
     const session = await verifyAuth(req)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     // Permission check - need mixradius:read to view customer AND workorders:create to create WO
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     
     if (!hasAccess) {
       console.warn('[Dismantle] Access denied for user:', session.id, 'Permissions:', permissions.filter(p => p.includes('mixradius') || p.includes('workorder') || p.includes('list')))
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     const { customerId, reason, notes } = body
 
     if (!customerId || !reason) {
-      return NextResponse.json({ error: 'Customer ID and Reason are required' }, { status: 400 })
+      return apiError(ErrorCodes.VALIDATION_ERROR, 'Customer ID and Reason are required')
     }
 
     const service = new MixRadiusService()
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     // 1. Fetch live detail from MixRadius to get latest address/phone
     const mrCustomer = await service.fetchCustomerDetail(customerId)
     if (!mrCustomer) {
-      return NextResponse.json({ error: 'Customer not found in MixRadius' }, { status: 404 })
+      return ApiErrors.notFound('Customer not found in MixRadius')
     }
 
     // 2. Fetch full Requester info and try to find matched local Pelanggan
@@ -135,14 +136,13 @@ export async function POST(req: NextRequest) {
         console.error('[Dismantle] Socket broadcast failed', e)
     }
 
-    return NextResponse.json({
-        success: true,
+    return apiSuccess({
         data: workOrder,
         message: `Work Order ${workOrder.workOrderNumber} berhasil dibuat.`
-    })
+    }, { status: 201 })
 
   } catch (error: any) {
     console.error('[API] Dismantle error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Internal Server Error')
   }
 }

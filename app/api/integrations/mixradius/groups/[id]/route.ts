@@ -1,7 +1,8 @@
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations/mixradius'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 interface Context {
   params: Promise<{
@@ -16,13 +17,13 @@ interface Context {
 export async function PUT(req: NextRequest, context: Context) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized()
 
     const permissions = await getUserPermissions(session.id)
     const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
     
     if (!isSuperAdmin && !permissions.includes('mixradius:update')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const { id } = await context.params
@@ -45,9 +46,9 @@ export async function PUT(req: NextRequest, context: Context) {
       console.error('Logging failed', e)
     }
 
-    return NextResponse.json(updatedGroup)
+    return apiSuccess(updatedGroup)
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Internal Server Error')
   }
 }
 
@@ -58,11 +59,11 @@ export async function PUT(req: NextRequest, context: Context) {
 export async function DELETE(req: NextRequest, context: Context) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized()
 
     const permissions = await getUserPermissions(session.id)
     if (!permissions.includes('mixradius:delete')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const { id } = await context.params
@@ -82,8 +83,8 @@ export async function DELETE(req: NextRequest, context: Context) {
       console.error('Logging failed', e)
     }
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Internal Server Error')
   }
 }

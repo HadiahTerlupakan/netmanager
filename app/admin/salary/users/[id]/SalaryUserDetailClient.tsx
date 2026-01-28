@@ -73,7 +73,8 @@ export default function SalaryUserDetailClient() {
             const res = await fetch(`/api/admin/salary/users/${params.id}`)
             if (!res.ok) throw new Error('Gagal mengambil data')
             const data = await res.json()
-            setUser(data.user)
+            const responseData = data.data || data
+            setUser(responseData.user)
         } catch (error) {
             console.error('Error:', error)
             alert('Gagal memuat detail karyawan')

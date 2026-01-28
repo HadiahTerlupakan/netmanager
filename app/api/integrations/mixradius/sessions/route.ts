@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { MixRadiusService } from '@/modules/integrations/mixradius/MixRadiusService'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/integrations/mixradius/sessions
@@ -12,22 +13,18 @@ export async function GET(req: NextRequest) {
     // Auth check
     const session = await verifyAuth(req)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     const service = new MixRadiusService()
     const activeSessions = await service.fetchActiveSessionsPPP()
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       count: activeSessions.size,
       usernames: Array.from(activeSessions).slice(0, 50), // Return first 50 for debugging
     })
   } catch (error: any) {
     console.error('[API] Sessions error:', error)
-    return NextResponse.json({ 
-      error: error.message,
-      success: false 
-    }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Internal Server Error')
   }
 }

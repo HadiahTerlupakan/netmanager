@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
 import { MixRadiusService } from '@/modules/integrations/mixradius/MixRadiusService'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * POST /api/integrations/mixradius/invoice-counts
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
     // Auth check
     const session = await verifyAuth(req)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     const body = await req.json()
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     const bypassCache: boolean = body.bypassCache || false
 
     if (customerIds.length === 0) {
-      return NextResponse.json({ data: {} })
+      return apiSuccess({ data: {} })
     }
 
     // Limit to max 20 customers per request if not bypassing
@@ -39,12 +40,9 @@ export async function POST(req: NextRequest) {
       data[key] = value
     })
 
-    return NextResponse.json({ data })
+    return apiSuccess({ data })
   } catch (error: any) {
     console.error('[API] Invoice counts error:', error)
-    return NextResponse.json({ 
-      error: error.message,
-      data: {}
-    }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Internal Server Error')
   }
 }

@@ -88,8 +88,9 @@ export default function SalaryListClient() {
 
             const res = await fetch(`/api/admin/salary?${params}`)
             const data = await res.json()
-            setSalaries(data.salaries || [])
-            setStats(data.stats || null)
+            const responseData = data.data || data
+            setSalaries(responseData.salaries || [])
+            setStats(responseData.stats || null)
         } catch (error) {
             console.error('Error fetching salaries:', error)
         } finally {

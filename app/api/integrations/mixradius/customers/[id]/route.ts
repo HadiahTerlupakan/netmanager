@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations/mixradius'
+import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
 export async function GET(
   request: NextRequest,
@@ -10,39 +11,27 @@ export async function GET(
     // Check authentication
     const session = await verifyAuth(request)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     // Add RBAC permission check
     const permissions = await getUserPermissions(session.id)
     if (!permissions.includes('mixradius:read')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const { id } = await params
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'Customer ID is required' },
-        { status: 400 }
-      )
+      return apiError(ErrorCodes.VALIDATION_ERROR, 'Customer ID is required')
     }
 
     const service = getMixRadiusService()
     const customerDetail = await service.fetchCustomerDetail(id)
 
-    return NextResponse.json({
-      success: true,
-      data: customerDetail,
-    })
+    return apiSuccess({ data: customerDetail })
   } catch (error) {
     console.error('Error fetching customer detail:', error)
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch customer detail',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error instanceof Error ? error.message : 'Failed to fetch customer detail')
   }
 }

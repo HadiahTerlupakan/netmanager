@@ -53,10 +53,11 @@ export default function LeaveBalanceSettings({ userId, year, workingHourMode, on
       const res = await fetch(`/api/admin/leave-balance?userId=${userId}&year=${currentYear}`)
       const data = await res.json()
       if (res.ok) {
-        setBalances(data.balances)
+        const responseData = data.data || data
+        setBalances(responseData.balances || [])
         // Initialize quotas from fetched data
         const initialQuotas: Record<string, number> = {}
-        data.balances.forEach((b: LeaveBalanceData) => {
+        responseData.balances?.forEach((b: LeaveBalanceData) => {
           initialQuotas[b.leaveType] = b.quota
         })
         setQuotas(initialQuotas)

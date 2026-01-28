@@ -1,7 +1,8 @@
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations/mixradius'
+import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
 /**
  * GET /api/integrations/mixradius/groups
@@ -10,19 +11,19 @@ import { getMixRadiusService } from '@/modules/integrations/mixradius'
 export async function GET(req: NextRequest) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized()
 
     const permissions = await getUserPermissions(session.id)
     if (!permissions.includes('mixradius:read')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const service = getMixRadiusService()
     const groups = await service.getOwnerGroups()
 
-    return NextResponse.json(groups)
+    return apiSuccess(groups)
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Internal Server Error')
   }
 }
 
@@ -33,20 +34,20 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized()
 
     const permissions = await getUserPermissions(session.id)
     const isSuperAdmin = session.role === 'SUPER_ADMIN' || session.role === 'Super Admin'
     
     if (!isSuperAdmin && !permissions.includes('mixradius:create')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const body = await req.json()
     const { name, owners, siteId } = body
 
     if (!name || !owners || !Array.isArray(owners)) {
-      return NextResponse.json({ error: 'Invalid data' }, { status: 400 })
+      return apiError(ErrorCodes.VALIDATION_ERROR, 'Invalid data')
     }
 
     const service = getMixRadiusService()
@@ -65,8 +66,8 @@ export async function POST(req: NextRequest) {
       console.error('Logging failed', e)
     }
 
-    return NextResponse.json(newGroup)
+    return apiSuccess(newGroup, { status: 201 })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Internal Server Error')
   }
 }

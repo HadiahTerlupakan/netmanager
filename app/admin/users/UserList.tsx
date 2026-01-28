@@ -105,7 +105,8 @@ export default function UserList() {
             const res = await fetch('/api/admin/users')
             const data = await res.json()
             if (res.ok) {
-                setUsers(data.users || [])
+                // API uses apiSuccess() which returns {success, data: {users: [...]}}
+                setUsers(data.data?.users || data.users || [])
             }
         } catch (error) {
             console.error('Error fetching users:', error)

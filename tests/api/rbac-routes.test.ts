@@ -44,8 +44,8 @@ const PROTECTED_ROUTES = [
   { path: 'app/api/admin/departments/[id]/route.ts', permissions: ['department:read', 'department:update', 'department:delete'] },
   { path: 'app/api/admin/sites/route.ts', permissions: ['site:read', 'site:create'] },
   { path: 'app/api/admin/sites/[id]/route.ts', permissions: ['site:read', 'site:update', 'site:delete'] },
-  { path: 'app/api/admin/holidays/route.ts', permissions: ['holidays:read', 'holidays:create'] },
-  { path: 'app/api/admin/holidays/[id]/route.ts', permissions: ['holidays:update', 'holidays:delete'] },
+  { path: 'app/api/admin/holidays/route.ts', permissions: ['holiday:read', 'holiday:create'] },
+  { path: 'app/api/admin/holidays/[id]/route.ts', permissions: ['holiday:update', 'holiday:delete'] },
   { path: 'app/api/admin/registrations/route.ts', permissions: ['registration:read'] },
   { path: 'app/api/admin/registrations/[id]/route.ts', permissions: ['registration:read', 'registration:update', 'registration:delete'] },
   
@@ -123,8 +123,12 @@ describe('RBAC Route Coverage Analysis', () => {
           return
         }
         
-        // Should return 403 status
-        expect(fileContent).toContain('status: 403')
+        // Should return 403 status - either via old pattern or new ApiErrors pattern
+        const has403Response = 
+          fileContent.includes('status: 403') || 
+          fileContent.includes('ApiErrors.forbidden(')
+        
+        expect(has403Response).toBe(true)
       })
     })
   })

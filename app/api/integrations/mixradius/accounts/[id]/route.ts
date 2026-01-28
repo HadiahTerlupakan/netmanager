@@ -1,8 +1,9 @@
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { mixRadiusConfigRepo } from '@/modules/integrations/mixradius/MixRadiusConfigRepository'
+import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
 export async function PUT(
   req: NextRequest,
@@ -11,19 +12,19 @@ export async function PUT(
   try {
     const auth = await verifyAuth(req)
     if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     const permissions = await getUserPermissions(auth.id)
     if (!permissions.includes('mixradius:update')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const body = await req.json()
     const { id } = await params
     
     // Validate ID
-    if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 })
+    if (!id) return apiError(ErrorCodes.VALIDATION_ERROR, 'ID required')
 
     const updatedConfig = await mixRadiusConfigRepo.updateConfig(id, body)
 
@@ -35,10 +36,10 @@ export async function PUT(
       ipAddress: req.headers.get('x-forwarded-for') || 'unknown',
       userAgent: req.headers.get('user-agent') || 'unknown',
     })
-    return NextResponse.json(updatedConfig)
+    return apiSuccess(updatedConfig)
   } catch (error) {
     console.error('[API] Error updating MixRadius config:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return ApiErrors.internalError()
   }
 }
 
@@ -49,18 +50,18 @@ export async function DELETE(
   try {
     const auth = await verifyAuth(req)
     if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     const permissions = await getUserPermissions(auth.id)
     if (!permissions.includes('mixradius:delete')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const { id } = await params
     
     // Validate ID
-    if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 })
+    if (!id) return apiError(ErrorCodes.VALIDATION_ERROR, 'ID required')
 
     await mixRadiusConfigRepo.deleteConfig(id)
 
@@ -73,9 +74,9 @@ export async function DELETE(
       userAgent: req.headers.get('user-agent') || 'unknown',
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     console.error('[API] Error deleting MixRadius config:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return ApiErrors.internalError()
   }
 }

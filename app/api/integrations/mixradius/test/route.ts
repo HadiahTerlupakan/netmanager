@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/integrations/mixradius/test
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
     // Auth check
     const session = await verifyAuth(req)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     const baseUrl = process.env.MIXRADIUS_URL || 'https://sblnet.topsetting.com:973'
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
       logs.push(`Login page status: ${loginPageResponse.status}`)
     } catch (e: any) {
       logs.push(`Login page fetch error: ${e.message}`)
-      return NextResponse.json({ success: false, logs, error: e.message })
+      return apiSuccess({ success: false, logs, error: e.message })
     }
 
     // Get cookies
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
       logs.push(`Login response location: ${loginResponse.headers.get('location')}`)
     } catch (e: any) {
       logs.push(`Login fetch error: ${e.message}`)
-      return NextResponse.json({ success: false, logs, error: e.message })
+      return apiSuccess({ success: false, logs, error: e.message })
     }
 
     // Get session cookie
@@ -103,7 +104,7 @@ export async function GET(req: NextRequest) {
 
     if (!sessionCookie) {
       logs.push('ERROR: No session cookie found!')
-      return NextResponse.json({ success: false, logs, error: 'No session cookie' })
+      return apiSuccess({ success: false, logs, error: 'No session cookie' })
     }
 
     logs.push(`Session cookie: ${sessionCookie.substring(0, 50)}...`)
@@ -125,7 +126,7 @@ export async function GET(req: NextRequest) {
       logs.push(`Page response status: ${pageResponse.status}`)
     } catch (e: any) {
        logs.push(`Page fetch error: ${e.message}`)
-       return NextResponse.json({ success: false, logs, error: e.message })
+       return apiSuccess({ success: false, logs, error: e.message })
     }
 
     const pageHtml = await pageResponse.text()
@@ -144,12 +145,9 @@ export async function GET(req: NextRequest) {
         }
     }
 
-    return NextResponse.json({ success: true, logs })
-
-
-
+    return apiSuccess({ success: true, logs })
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Internal Server Error')
   }
 }

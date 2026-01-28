@@ -258,7 +258,7 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
         const response = await fetch('/api/integrations/mixradius/groups')
         if (response.ok) {
           const result = await response.json()
-          setGroups(result || [])
+          setGroups(result.data || [])
         }
       } catch (err) {
         console.error('Failed to fetch groups', err)
@@ -302,10 +302,12 @@ export default function MixRadiusClient({ defaultStatus, viewMode = 'default' }:
         throw new Error(errData.error || 'Failed to fetch data')
       }
 
-      const result: MixRadiusResponse = await response.json()
-      setData(result.data)
-      setTotalRecords(result.recordsFiltered)
-      setGlobalTotal(result.recordsTotal)
+      const result = await response.json()
+      // API uses apiSuccess() which wraps response in {success, data: {...}}
+      const responseData = result.data as MixRadiusResponse
+      setData(responseData.data || [])
+      setTotalRecords(responseData.recordsFiltered || 0)
+      setGlobalTotal(responseData.recordsTotal || 0)
     } catch (err: any) {
       setError(err.message)
       toast.error('Gagal mengambil data dari MixRadius')

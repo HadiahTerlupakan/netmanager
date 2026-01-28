@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations/mixradius'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 /**
  * GET /api/integrations/mixradius/customers
@@ -17,13 +18,13 @@ export async function GET(req: NextRequest) {
     // Auth check
     const session = await verifyAuth(req)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     // Add RBAC permission check
     const permissions = await getUserPermissions(session.id)
     if (!permissions.includes('mixradius:read')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     // Parse query parameters
@@ -48,12 +49,9 @@ export async function GET(req: NextRequest) {
       siteId: searchParams.get('siteId') || undefined,
     })
 
-    return NextResponse.json(data)
+    return apiSuccess(data)
   } catch (error: any) {
     console.error('[API] MixRadius customers error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch MixRadius data' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error.message || 'Failed to fetch MixRadius data')
   }
 }

@@ -69,6 +69,7 @@ export type PelangganWithPackage = Prisma.PelangganGetPayload<typeof pelangganWi
 export interface FilterOptions {
     status?: Status
     siteId?: string
+    search?: string
 }
 
 export class PelangganRepository {
@@ -79,6 +80,13 @@ export class PelangganRepository {
         }
         if (filter?.siteId) {
             where.siteId = filter.siteId
+        }
+        if (filter?.search) {
+            where.OR = [
+                { nama: { contains: filter.search, mode: 'insensitive' } },
+                { idPelanggan: { contains: filter.search, mode: 'insensitive' } },
+                { username: { contains: filter.search, mode: 'insensitive' } },
+            ]
         }
 
         return prisma.pelanggan.findMany({

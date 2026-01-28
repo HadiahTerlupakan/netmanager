@@ -214,9 +214,10 @@ export function ClientComponent() {
 
             if (response.ok) {
                 const result = await response.json()
-                setWorkOrders(result.workOrders || [])
-                setTotal(result.total || 0)
-                setTotalPages(result.totalPages || 1)
+                const data = result.data || result // Fallback for raw JSON
+                setWorkOrders(data.workOrders || [])
+                setTotal(data.total || 0)
+                setTotalPages(data.totalPages || 1)
             }
         } catch (error) {
             console.error('Error fetching work orders:', error)

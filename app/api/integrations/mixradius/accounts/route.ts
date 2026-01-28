@@ -1,26 +1,27 @@
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { mixRadiusConfigRepo } from '@/modules/integrations/mixradius/MixRadiusConfigRepository'
+import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await verifyAuth(req)
     if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     const permissions = await getUserPermissions(auth.id)
     if (!permissions.includes('mixradius:read')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const configs = await mixRadiusConfigRepo.getAllConfigs()
-    return NextResponse.json(configs)
+    return apiSuccess(configs)
   } catch (error) {
     console.error('[API] Error fetching MixRadius configs:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return ApiErrors.internalError()
   }
 }
 
@@ -28,20 +29,20 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await verifyAuth(req)
     if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     const permissions = await getUserPermissions(auth.id)
     // Reusing create permission or generic mixradius permission
     if (!permissions.includes('mixradius:create')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const body = await req.json()
     const { name, baseUrl, username, password, isActive } = body
 
     if (!name || !baseUrl || !username || !password) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+      return apiError(ErrorCodes.VALIDATION_ERROR, 'Missing required fields')
     }
 
     const newConfig = await mixRadiusConfigRepo.createConfig({
@@ -61,9 +62,9 @@ export async function POST(req: NextRequest) {
       userAgent: req.headers.get('user-agent') || 'unknown',
     })
 
-    return NextResponse.json(newConfig)
+    return apiSuccess(newConfig, { status: 201 })
   } catch (error) {
     console.error('[API] Error creating MixRadius config:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return ApiErrors.internalError()
   }
 }

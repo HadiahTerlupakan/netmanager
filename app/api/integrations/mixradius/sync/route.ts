@@ -1,21 +1,22 @@
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { syncService } from '@/modules/integrations/mixradius/SyncService'
 import type { MixRadiusCustomerDetail } from '@/modules/integrations/mixradius/MixRadiusService'
+import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
 export async function POST(req: NextRequest) {
   try {
     // 1. Auth Check
     const session = await verifyAuth(req)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     // 2. Permission Check
     const permissions = await getUserPermissions(session.id)
     if (!permissions.includes('mixradius:read')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     // 3. Parse Body
@@ -24,14 +25,13 @@ export async function POST(req: NextRequest) {
     const customerData = body as MixRadiusCustomerDetail
 
     if (!customerData || !customerData.id || !customerData.username) {
-        return NextResponse.json({ error: 'Invalid data provided' }, { status: 400 })
+        return apiError(ErrorCodes.VALIDATION_ERROR, 'Invalid data provided')
     }
 
     // 4. Perform Sync
     const result = await syncService.syncCustomer(customerData)
 
-    return NextResponse.json({
-        success: true,
+    return apiSuccess({
         action: result.action,
         localId: result.customer.id,
         customer: result.customer,
@@ -40,8 +40,6 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('[API] MixRadius Sync Error:', error)
-    return NextResponse.json({ 
-        error: error.message || 'Internal Server Error' 
-    }, { status: 500 })
+    return ApiErrors.internalError(error.message || 'Internal Server Error')
   }
 }

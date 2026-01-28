@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { prismaMock } from '../../setup'
 import { AutomaticIsolationService } from '@/modules/finance/services/AutomaticIsolationService'
 import { Status } from '@prisma/client'
@@ -29,6 +29,10 @@ describe('AutomaticIsolationService', () => {
     vi.setSystemTime(new Date('2024-01-15'))
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   describe('runDailyCheck', () => {
     it('should skip if feature is disabled', async () => {
       // Mock: Feature disabled
@@ -46,11 +50,6 @@ describe('AutomaticIsolationService', () => {
     it('should process overdue customers when feature is enabled', async () => {
       // Mock: Feature enabled (default if not set)
       prismaMock.settings.findUnique.mockResolvedValueOnce(null) // Enabled by default
-      // Mock: Tolerance 1 day
-      prismaMock.settings.findUnique.mockResolvedValueOnce({
-        key: 'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI',
-        value: '1'
-      } as any)
 
       // Mock: Overdue customer (jatuhTempo Jan 10, today is Jan 15 = 5 days late)
       const overdueCustomer = {
@@ -62,6 +61,9 @@ describe('AutomaticIsolationService', () => {
         jatuhTempo: new Date('2024-01-10') // 5 days ago
       }
       prismaMock.pelanggan.findMany.mockResolvedValueOnce([overdueCustomer] as any)
+
+      // Mock: No paid invoice found (should isolate)
+      prismaMock.invoice.findFirst.mockResolvedValueOnce(null)
 
       // Mock: Update pelanggan
       prismaMock.pelanggan.update.mockResolvedValueOnce({
@@ -81,7 +83,6 @@ describe('AutomaticIsolationService', () => {
     it('should skip customers with autoIsolir = false', async () => {
       // The query itself filters by autoIsolir: true, so we test that no customers are returned
       prismaMock.settings.findUnique.mockResolvedValueOnce(null)
-      prismaMock.settings.findUnique.mockResolvedValueOnce({ value: '1' } as any)
 
       // No customers returned (because they all have autoIsolir: false)
       prismaMock.pelanggan.findMany.mockResolvedValueOnce([])
@@ -91,35 +92,34 @@ describe('AutomaticIsolationService', () => {
       expect(prismaMock.pelanggan.update).not.toHaveBeenCalled()
     })
 
-    it('should skip customers within tolerance period', async () => {
+    it('should skip customers with recent paid invoice', async () => {
       prismaMock.settings.findUnique.mockResolvedValueOnce(null) // Enabled
-      prismaMock.settings.findUnique.mockResolvedValueOnce({
-        key: 'GENERAL_AUTO_ISOLASI_HARI_TOLERANSI',
-        value: '7' // 7 days tolerance
-      } as any)
 
-      // Customer is only 5 days late, tolerance is 7
-      // Due to query filtering (jatuhTempo < today), this customer would be returned
-      // But the loop should skip because diffDays < toleranceDays
-      const customerWithinTolerance = {
+      const overdueCustomer = {
         id: 'customer-1',
         nama: 'Customer',
         userId: 'user-1',
         status: Status.AKTIF,
         autoIsolir: true,
-        jatuhTempo: new Date('2024-01-10') // 5 days ago, but tolerance is 7
+        jatuhTempo: new Date('2024-01-10')
       }
-      prismaMock.pelanggan.findMany.mockResolvedValueOnce([customerWithinTolerance] as any)
+      prismaMock.pelanggan.findMany.mockResolvedValueOnce([overdueCustomer] as any)
+
+      // Mock: Has recent paid invoice - should skip isolation
+      prismaMock.invoice.findFirst.mockResolvedValueOnce({
+        id: 'invoice-1',
+        invoiceNumber: 'INV/2024/01/0001',
+        status: 'PAID'
+      } as any)
 
       await AutomaticIsolationService.runDailyCheck()
 
-      // Should NOT update because within tolerance
+      // Should NOT update because has paid invoice
       expect(prismaMock.pelanggan.update).not.toHaveBeenCalled()
     })
 
-    it('should isolate customer exactly after tolerance period', async () => {
+    it('should isolate customer without paid invoice', async () => {
       prismaMock.settings.findUnique.mockResolvedValueOnce(null)
-      prismaMock.settings.findUnique.mockResolvedValueOnce({ value: '5' } as any) // 5 days tolerance
 
       // Customer is exactly 5 days late
       const overdueCustomer = {
@@ -131,11 +131,15 @@ describe('AutomaticIsolationService', () => {
         jatuhTempo: new Date('2024-01-10') // Exactly 5 days ago
       }
       prismaMock.pelanggan.findMany.mockResolvedValueOnce([overdueCustomer] as any)
+      
+      // No paid invoice found
+      prismaMock.invoice.findFirst.mockResolvedValueOnce(null)
+      
       prismaMock.pelanggan.update.mockResolvedValueOnce({} as any)
 
       await AutomaticIsolationService.runDailyCheck()
 
-      // Should isolate (5 >= 5)
+      // Should isolate because no recent paid invoice
       expect(prismaMock.pelanggan.update).toHaveBeenCalled()
     })
   })

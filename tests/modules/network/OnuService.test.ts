@@ -131,9 +131,15 @@ describe('OnuService', () => {
       (getOLTRepository as any).mockReturnValue(mockOltRepo)
 
       const mockOnuRepo = {
-        findByGponOnu: vi.fn().mockResolvedValue({
-          statusOid: '.1.3.6.1.4.1.2011.6.128.1.1.2.46.1.15'
-        }),
+        findManyByOltIdMinimal: vi.fn().mockResolvedValue([
+          {
+            gponOnu: '1/1/1:1',
+            statusOid: '.1.3.6.1.4.1.2011.6.128.1.1.2.46.1.15',
+            rxOltOid: null,
+            rxOnuOid: null,
+            status: 'Online'
+          }
+        ]),
         upsert: vi.fn().mockResolvedValue({ id: 'onu-1', updated: true })
       };
       (getOnuRepository as any).mockReturnValue(mockOnuRepo);
@@ -146,7 +152,11 @@ describe('OnuService', () => {
 
       // Should emit WebSocket event
       expect(mockSocketIO.to).toHaveBeenCalledWith('admin:onu')
-      expect(mockSocketIO.emit).toHaveBeenCalledWith('onu:updated', expect.any(Object))
+      expect(mockSocketIO.emit).toHaveBeenCalledWith('onu:updated', expect.objectContaining({
+        gponOnu: '1/1/1:1',
+        oltId: 'olt-1',
+        updated: true
+      }))
     })
   })
 

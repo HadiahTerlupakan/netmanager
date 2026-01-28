@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { paymentSchema } from '@/lib/validations/payment'
 import { randomUUID } from 'crypto'
+import { apiSuccess, apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 
 /**
  * @swagger
@@ -90,7 +91,7 @@ export async function GET(req: NextRequest) {
   try {
     const session: any = await getServerSession(authConfig as any)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     const { searchParams } = new URL(req.url)
@@ -147,7 +148,7 @@ export async function GET(req: NextRequest) {
 
     const totalPages = Math.ceil(total / limit)
 
-    return NextResponse.json({
+    return apiSuccess({
       data: payments,
       pagination: {
         page,
@@ -160,10 +161,7 @@ export async function GET(req: NextRequest) {
     })
   } catch (error: any) {
     console.error('Error fetching payments:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
-      { status: 500 }
-    )
+    return apiError(ErrorCodes.INTERNAL_ERROR, error?.message || 'Internal Server Error')
   }
 }
 
@@ -245,17 +243,14 @@ export async function POST(req: NextRequest) {
   try {
     const session: any = await getServerSession(authConfig as any)
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return ApiErrors.unauthorized()
     }
 
     const body = await req.json()
     const validation = paymentSchema.safeParse(body)
 
     if (!validation.success) {
-      return NextResponse.json(
-        { error: 'Validation error', details: validation.error.flatten() },
-        { status: 400 }
-      )
+      return apiError(ErrorCodes.VALIDATION_ERROR, 'Validation error', { details: validation.error.flatten() })
     }
 
     const { invoiceId, pelangganId, amount, ...paymentData } = validation.data
@@ -266,10 +261,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (!pelanggan) {
-      return NextResponse.json(
-        { error: 'Pelanggan tidak ditemukan' },
-        { status: 404 }
-      )
+      return ApiErrors.notFound('Pelanggan tidak ditemukan')
     }
 
     // If invoiceId is provided, check if invoice exists
@@ -279,10 +271,7 @@ export async function POST(req: NextRequest) {
       })
 
       if (!invoice) {
-        return NextResponse.json(
-          { error: 'Invoice tidak ditemukan' },
-          { status: 404 }
-        )
+        return ApiErrors.notFound('Invoice tidak ditemukan')
       }
     }
 
@@ -359,21 +348,15 @@ export async function POST(req: NextRequest) {
       console.error('Logging failed', e)
     }
 
-    return NextResponse.json(payment, { status: 201 })
+    return apiSuccess(payment, { status: 201 })
   } catch (error: any) {
     console.error('Error creating payment:', error)
 
     // Handle foreign key constraint violation
     if (error.code === 'P2003') {
-      return NextResponse.json(
-        { error: 'Pelanggan atau Invoice tidak ditemukan' },
-        { status: 400 }
-      )
+      return apiError(ErrorCodes.VALIDATION_ERROR, 'Pelanggan atau Invoice tidak ditemukan')
     }
 
-    return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
-      { status: 500 }
-    )
+    return apiError(ErrorCodes.INTERNAL_ERROR, error?.message || 'Internal Server Error')
   }
 }

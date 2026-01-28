@@ -67,8 +67,9 @@ export function ClientComponent() {
             const res = await fetch('/api/admin/options')
             if (res.ok) {
                 const data = await res.json()
-                setSites(data.sites)
-                setDepartments(data.departments)
+                const options = data.data || data
+                setSites(options.sites || [])
+                setDepartments(options.departments || [])
             }
         } catch (error) {
             console.error('Failed to fetch options', error)

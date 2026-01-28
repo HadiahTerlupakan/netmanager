@@ -8,6 +8,7 @@ import { hasPermission } from '@/lib/rbac'
 import { getPelangganService } from '@/modules/pelanggan'
 import type { FilterOptions } from '@/modules/pelanggan'
 import { logger } from '@/lib/logger'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
 
@@ -81,6 +82,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') as Status | null
     const siteIdParam = searchParams.get('siteId')
+    const search = searchParams.get('search')
 
     const isSiteRestricted =
       (await hasPermission('pelanggan:site_only')) &&
@@ -88,6 +90,7 @@ export async function GET(req: NextRequest) {
 
     const filter: FilterOptions = {}
     if (status) filter.status = status
+    if (search) filter.search = search
 
     if (isSiteRestricted) {
       const userSiteId = (session.user as any).siteId
@@ -102,13 +105,7 @@ export async function GET(req: NextRequest) {
     const pelangganService = getPelangganService()
     const pelanggans = await pelangganService.getAllPelanggan(filter)
 
-    return NextResponse.json(pelanggans, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      },
-    })
+    return apiSuccess(pelanggans)
   } catch (error: any) {
     console.error('Error fetching pelanggans:', error)
     return NextResponse.json(

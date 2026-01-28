@@ -100,8 +100,8 @@ export default function SalaryUsersClient() {
         try {
             const res = await fetch('/api/admin/salary/users')
             const data = await res.json()
-            setUsers(data.users || [])
-            setAllUsers(data.allUsers || [])
+            setUsers(data.data?.users || data.users || [])
+            setAllUsers(data.data?.allUsers || data.allUsers || [])
         } catch (error) {
             console.error('Error:', error)
         } finally {
@@ -113,7 +113,7 @@ export default function SalaryUsersClient() {
         try {
             const res = await fetch('/api/admin/salary/components')
             const data = await res.json()
-            setComponents(data.components || [])
+            setComponents(data.data?.components || data.components || [])
         } catch (error) {
             console.error('Error:', error)
         }
@@ -123,7 +123,7 @@ export default function SalaryUsersClient() {
         try {
             const res = await fetch(`/api/admin/salary/users/${userId}/components`)
             const data = await res.json()
-            setUserComponents(data.components || [])
+            setUserComponents(data.data?.components || data.components || [])
         } catch (error) {
             console.error('Error:', error)
         }
@@ -172,9 +172,10 @@ export default function SalaryUsersClient() {
                             defaultAmount: comp.amount
                         }),
                     })
-                    const createData = await createRes.json()
+                    const createJson = await createRes.json()
+                    const createData = createJson.data || createJson
                     
-                    if (createData.success && createData.component) {
+                    if (createJson.success && createData.component) {
                         // Then assign to user with action='assign'
                         await fetch('/api/admin/salary/components', {
                             method: 'POST',

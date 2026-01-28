@@ -1,0 +1,199 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - img [ref=e6]
+        - generic [ref=e8]:
+          - generic [ref=e10]: "N"
+          - generic [ref=e11]:
+            - heading "NetManager" [level=2] [ref=e12]
+            - generic [ref=e13]: Admin Portal
+      - navigation [ref=e14]:
+        - generic [ref=e15]:
+          - link "Dashboard" [ref=e16] [cursor=pointer]:
+            - /url: /admin
+            - img [ref=e18]
+            - generic [ref=e20]: Dashboard
+          - generic [ref=e21]:
+            - button "FTTH" [ref=e22]:
+              - generic [ref=e23]:
+                - img [ref=e25]
+                - generic [ref=e27]: FTTH
+              - img [ref=e28]
+            - generic [ref=e30]:
+              - link "OTB" [ref=e31] [cursor=pointer]:
+                - /url: /admin/ftth/otb
+                - img [ref=e33]
+                - generic [ref=e35]: OTB
+              - link "ODC" [ref=e36] [cursor=pointer]:
+                - /url: /admin/ftth/odc
+                - img [ref=e38]
+                - generic [ref=e40]: ODC
+              - link "ODP" [ref=e41] [cursor=pointer]:
+                - /url: /admin/ftth/odp
+                - img [ref=e43]
+                - generic [ref=e45]: ODP
+              - link "Join BOX/Closure" [ref=e46] [cursor=pointer]:
+                - /url: /admin/ftth/closure
+                - img [ref=e48]
+                - generic [ref=e50]: Join BOX/Closure
+              - link "Pole/Tiang" [ref=e51] [cursor=pointer]:
+                - /url: /admin/ftth/pole
+                - img [ref=e53]
+                - generic [ref=e55]: Pole/Tiang
+              - link "KMZ" [ref=e56] [cursor=pointer]:
+                - /url: /admin/ftth/kmz
+                - img [ref=e58]
+                - generic [ref=e60]: KMZ
+              - link "Topology Map" [ref=e61] [cursor=pointer]:
+                - /url: /admin/ftth/map
+                - img [ref=e63]
+                - generic [ref=e65]: Topology Map
+          - generic [ref=e66]:
+            - button "Work Orders" [ref=e67]:
+              - generic [ref=e69]:
+                - img [ref=e71]
+                - generic [ref=e74]: Work Orders
+              - img [ref=e75]
+            - generic [ref=e77]:
+              - link "Dashboard" [ref=e78] [cursor=pointer]:
+                - /url: /admin/workorders
+                - img [ref=e80]
+                - generic [ref=e82]: Dashboard
+              - link "List" [ref=e83] [cursor=pointer]:
+                - /url: /admin/workorders/list
+                - img [ref=e85]
+                - generic [ref=e87]: List
+      - generic [ref=e89]:
+        - generic [ref=e91]: Q
+        - generic [ref=e92]:
+          - paragraph [ref=e93]: QA Work Order Manager
+          - paragraph [ref=e94]: qa.workorder@test.com
+        - button "Sign Out" [ref=e95]:
+          - img [ref=e96]
+    - generic [ref=e98]:
+      - banner [ref=e99]:
+        - generic [ref=e100]:
+          - generic [ref=e102]:
+            - generic:
+              - img
+            - textbox "Search resources..." [ref=e103]
+            - generic:
+              - generic: ⌘K
+          - generic [ref=e104]:
+            - button "Work Order Notifications" [ref=e106]:
+              - img [ref=e107]
+              - generic "Real-time connected" [ref=e109]
+            - button "Customer Support Tickets" [ref=e111]:
+              - img [ref=e112]
+              - generic "Real-time connected" [ref=e114]
+            - button "Notifications" [ref=e116]:
+              - img [ref=e117]
+              - generic "Real-time connected" [ref=e119]
+            - button [ref=e120]:
+              - img [ref=e121]
+            - button "Q QA Work Order Manager Technical" [ref=e126] [cursor=pointer]:
+              - generic [ref=e129]: Q
+              - generic [ref=e130]:
+                - generic [ref=e131]: QA Work Order Manager
+                - generic [ref=e132]: Technical
+      - main [ref=e133]:
+        - generic [ref=e135]:
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - link [ref=e138] [cursor=pointer]:
+                - /url: /admin/workorders/list
+                - img [ref=e139]
+              - generic [ref=e141]:
+                - heading "New Work Order" [level=1] [ref=e142]
+                - paragraph [ref=e143]: Ticket Number will be generated automatically
+            - button "Simple Mode ON" [ref=e144]:
+              - img [ref=e145]
+              - text: Simple Mode ON
+          - generic [ref=e147]:
+            - button "Customer" [ref=e148]:
+              - img [ref=e149]
+              - text: Customer
+            - button "Internal (FOC)" [ref=e151]:
+              - img [ref=e152]
+              - text: Internal (FOC)
+          - generic [ref=e155]:
+            - generic [ref=e156]:
+              - generic [ref=e157]:
+                - generic [ref=e158]: Customer Details
+                - button "Link to Existing Account" [ref=e159]:
+                  - img [ref=e160]
+                  - text: Link to Existing Account
+              - generic [ref=e162]:
+                - generic [ref=e164]:
+                  - img [ref=e165]
+                  - generic [ref=e167]: Ordering as Guest / Manual Ticket
+                - generic [ref=e168]:
+                  - generic [ref=e169]:
+                    - generic [ref=e170]: Nama Pelanggan *
+                    - textbox "Nama Lengkap..." [ref=e171]
+                  - generic [ref=e172]:
+                    - generic [ref=e173]: No. Telp / WhatsApp
+                    - 'textbox "Contoh: 0812..." [ref=e174]'
+                - generic [ref=e175]:
+                  - generic [ref=e176]: Alamat Lengkap *
+                  - textbox "Jalan, Nomor Rumah, RT/RW, Kelurahan..." [ref=e177]
+            - generic [ref=e178]:
+              - generic [ref=e179]: Quick Actions (Customer Issues)
+              - generic [ref=e180]:
+                - button "Internet Mati / FOCUT" [ref=e181]:
+                  - img [ref=e183]
+                  - generic [ref=e185]: Internet Mati / FOCUT
+                - button "Koneksi Lambat" [ref=e186]:
+                  - img [ref=e188]
+                  - generic [ref=e190]: Koneksi Lambat
+                - button "Penarikan Perangkat" [ref=e191]:
+                  - img [ref=e193]
+                  - generic [ref=e196]: Penarikan Perangkat
+                - button "Pasang Baru" [ref=e197]:
+                  - img [ref=e199]
+                  - generic [ref=e201]: Pasang Baru
+                - button "Relokasi Perangkat" [ref=e202]:
+                  - img [ref=e204]
+                  - generic [ref=e206]: Relokasi Perangkat
+            - generic [ref=e207]:
+              - generic [ref=e208]: Site / Area
+              - combobox [ref=e209]:
+                - option "Select Site (optional)" [selected]
+              - paragraph [ref=e210]: Work order will be available to employees assigned to this site
+            - generic [ref=e211]:
+              - generic [ref=e212]: Department *
+              - combobox [ref=e213]:
+                - option "Select Department" [selected]
+              - paragraph [ref=e214]: Semua employee di department ini akan menerima notifikasi work order baru
+            - generic [ref=e215]:
+              - generic [ref=e216]:
+                - generic [ref=e217]:
+                  - generic [ref=e218]: Title *
+                  - textbox "e.g., Koneksi Lambat" [ref=e219]
+                - generic [ref=e220]:
+                  - generic [ref=e221]: Priority *
+                  - combobox [ref=e222]:
+                    - option "Low"
+                    - option "Normal" [selected]
+                    - option "High"
+                    - option "Urgent"
+                    - option "Critical"
+              - generic [ref=e223]:
+                - generic [ref=e224]: Description *
+                - textbox "Detailed description..." [ref=e225]
+            - generic [ref=e226]:
+              - link "Cancel" [ref=e227] [cursor=pointer]:
+                - /url: /admin/workorders/list
+              - button "Create Work Order" [ref=e228]
+      - contentinfo [ref=e229]:
+        - generic [ref=e230]:
+          - paragraph [ref=e231]: © 2026 NetManager
+          - paragraph [ref=e232]: Next.js & Tailwind CSS
+  - button "Open Next.js Dev Tools" [ref=e238] [cursor=pointer]:
+    - img [ref=e239]
+  - alert [ref=e242]
+```

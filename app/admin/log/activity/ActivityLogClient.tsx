@@ -40,8 +40,9 @@ export function ClientComponent() {
             const res = await fetch(`/api/admin/system-logs?${params.toString()}`)
             const data = await res.json()
             if (res.ok) {
-                setLogs(data.logs)
-                setPagination(data.pagination)
+                const responseData = data.data || data
+                setLogs(responseData.logs || [])
+                setPagination(responseData.pagination || { page: 1, limit: 20, totalPages: 1, total: 0 })
             }
         } catch (err) {
             console.error(err)

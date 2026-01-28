@@ -191,7 +191,7 @@ export function ClientComponent() {
     const searchPelanggan = async () => {
         setSearchingPelanggan(true)
         try {
-            const response = await fetch(`/api/pelanggan?search=${searchQuery}&limit=10`)
+            const response = await fetch(`/api/pelanggan-ppp?search=${searchQuery}&limit=10`)
             if (response.ok) { const result = await response.json(); setPelangganList(result.data || []) }
         } catch (error) { console.error('Error searching pelanggan:', error) }
         finally { setSearchingPelanggan(false) }
@@ -203,7 +203,7 @@ export function ClientComponent() {
             const response = await fetch(`/api/integrations/mixradius/customers?search=${searchQuery}&searchType=all&start=0&length=10`)
             if (response.ok) { 
                 const result = await response.json(); 
-                setMixRadiusList(result.data || []) 
+                setMixRadiusList(result.data?.data || []) 
             }
         } catch (error) { console.error('Error searching MixRadius:', error) }
         finally { setSearchingPelanggan(false) }

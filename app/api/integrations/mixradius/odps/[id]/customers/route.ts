@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations/mixradius/MixRadiusService'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 async function requireAuth() {
   const session: any = await getServerSession(authConfig as any)
@@ -16,12 +16,12 @@ async function requireAuth() {
  * Fetch customers for a specific ODP
  */
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await requireAuth()
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return ApiErrors.unauthorized()
   }
 
   const { id } = await params
@@ -30,16 +30,12 @@ export async function GET(
     const mixRadiusService = getMixRadiusService()
     const customers = await mixRadiusService.fetchODPCustomers(id)
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       data: customers,
       total: customers.length,
     })
   } catch (error: any) {
     console.error(`Error fetching customers for ODP ${id}:`, error)
-    return NextResponse.json(
-      { error: 'Failed to fetch ODP customers', message: error.message },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error.message || 'Failed to fetch ODP customers')
   }
 }

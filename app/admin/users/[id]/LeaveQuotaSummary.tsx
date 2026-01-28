@@ -53,7 +53,8 @@ export default function LeaveQuotaSummary({ userId, workingHourMode }: Props) {
       const data = await res.json()
       if (res.ok) {
         // Filter out TUKAR_LIBUR (unlimited)
-        setBalances(data.balances.filter((b: LeaveBalanceData) => b.leaveType !== 'TUKAR_LIBUR'))
+        const responseData = data.data || data
+        setBalances((responseData.balances || []).filter((b: LeaveBalanceData) => b.leaveType !== 'TUKAR_LIBUR'))
       }
     } catch (error) {
       console.error('Error fetching leave balances:', error)

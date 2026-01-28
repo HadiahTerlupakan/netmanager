@@ -1,28 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getMixRadiusService } from '@/modules/integrations/mixradius/MixRadiusService'
 import { verifyAuth, getUserPermissions } from '@/lib/auth'
+import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {
   try {
     const session = await verifyAuth(req)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) return ApiErrors.unauthorized()
 
     const permissions = await getUserPermissions(session.id)
     if (!permissions.includes('mixradius:read')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return ApiErrors.forbidden()
     }
 
     const service = getMixRadiusService()
     const owners = await service.getUniqueOwners()
 
-    return NextResponse.json({ 
-      data: owners 
-    })
+    return apiSuccess(owners)
   } catch (error: any) {
     console.error('[API] MixRadius Owners Error:', error.message)
-    return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
-      { status: 500 }
-    )
+    return ApiErrors.internalError(error.message || 'Internal Server Error')
   }
 }

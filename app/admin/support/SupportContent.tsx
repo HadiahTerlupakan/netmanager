@@ -93,11 +93,12 @@ export default function SupportContext() {
             const res = await fetch(`/api/admin/support-tickets?${params.toString()}`)
             if (res.ok) {
                 const data = await res.json()
-                setTickets(data.tickets || [])
-                setTotalPages(data.pagination?.totalPages || 1)
-                setTotal(data.pagination?.total || 0)
-                if (data.stats) {
-                    setStats(data.stats)
+                const responseData = data.data || data
+                setTickets(responseData.tickets || [])
+                setTotalPages(responseData.pagination?.totalPages || 1)
+                setTotal(responseData.pagination?.total || 0)
+                if (responseData.stats) {
+                    setStats(responseData.stats)
                 }
             }
         } catch (error) {

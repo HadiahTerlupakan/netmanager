@@ -151,8 +151,29 @@ describe('OdpRepository', () => {
 
       expect(result).toHaveLength(2)
       expect(prismaMock.odp.findMany).toHaveBeenCalledWith({
-        orderBy: { createdAt: 'desc' }
+        where: {},
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: { odpOutput: true }
+          },
+          site: {
+            select: { name: true }
+          }
+        }
       })
+    })
+
+    it('should filter by siteId when provided', async () => {
+      prismaMock.odp.findMany.mockResolvedValueOnce([])
+
+      await repository.findAll('site-1')
+
+      expect(prismaMock.odp.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { siteId: 'site-1' }
+        })
+      )
     })
   })
 

@@ -35,6 +35,7 @@ describe('RoleService', () => {
 
   beforeEach(() => {
     service = new RoleService()
+    vi.clearAllMocks()
   })
 
   describe('createRole', () => {
@@ -56,11 +57,16 @@ describe('RoleService', () => {
       // Mock: Role name not exists
       prismaMock.role.findFirst.mockResolvedValueOnce(null)
       
-      // Mock: Find existing permissions
-      prismaMock.permission.findMany.mockResolvedValueOnce([
-        { id: 'perm-1', resource: 'users', action: 'read' },
-        { id: 'perm-2', resource: 'users', action: 'write' }
-      ] as any)
+      // Mock: Find existing permissions (first call for check, second for final fetch)
+      prismaMock.permission.findMany
+        .mockResolvedValueOnce([
+          { resource: 'users', action: 'read' },
+          { resource: 'users', action: 'write' }
+        ] as any)
+        .mockResolvedValueOnce([
+          { id: 'perm-1' },
+          { id: 'perm-2' }
+        ] as any)
 
       // Mock: Create role
       prismaMock.role.create.mockResolvedValueOnce({
@@ -79,9 +85,13 @@ describe('RoleService', () => {
 
     it('should deduplicate permissions', async () => {
       prismaMock.role.findFirst.mockResolvedValueOnce(null)
-      prismaMock.permission.findMany.mockResolvedValueOnce([
-        { id: 'perm-1', resource: 'users', action: 'read' }
-      ] as any)
+      prismaMock.permission.findMany
+        .mockResolvedValueOnce([
+          { resource: 'users', action: 'read' }
+        ] as any)
+        .mockResolvedValueOnce([
+          { id: 'perm-1' }
+        ] as any)
       prismaMock.role.create.mockResolvedValueOnce({
         id: 'new-role',
         name: 'Test Role'
@@ -132,7 +142,8 @@ describe('RoleService', () => {
         id: 'super-admin-id',
         name: 'SUPER_ADMIN'
       } as any)
-      prismaMock.permission.findMany.mockResolvedValueOnce([])
+      // Empty permissions array means no permission.findMany calls
+      prismaMock.permission.findMany.mockResolvedValue([])
       prismaMock.role.update.mockResolvedValueOnce({
         id: 'super-admin-id',
         name: 'SUPER_ADMIN',
