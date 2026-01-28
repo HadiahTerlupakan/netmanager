@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { RegistrationRepository } from '@/modules/registration/repositories/RegistrationRepository'
 
 interface RouteParams {
     params: Promise<{ id: string }>
 }
 
-// GET /api/admin/registrations/[id] - Get registration detail
+const registrationRepository = new RegistrationRepository()
+
+/**
+ * GET /api/admin/registrations/[id] - Get registration detail
+ * Refactored to use RegistrationRepository (thin controller pattern)
+ */
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
@@ -16,15 +21,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        if (!await hasPermission('registration:read')) {
+        if (!(await hasPermission('registration:read'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
         const { id } = await params
-
-        const registration = await prisma.registrations.findUnique({
-            where: { id }
-        })
+        const registration = await registrationRepository.findById(id)
 
         if (!registration) {
             return NextResponse.json({ error: 'Registration not found' }, { status: 404 })
@@ -37,7 +39,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 }
 
-// PUT /api/admin/registrations/[id] - Update registration status
+/**
+ * PUT /api/admin/registrations/[id] - Update registration status
+ * Refactored to use RegistrationRepository (thin controller pattern)
+ */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
@@ -45,7 +50,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        if (!await hasPermission('registration:update')) {
+        if (!(await hasPermission('registration:update'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
@@ -53,16 +58,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         const body = await request.json()
         const { status, rejectionReason, notes } = body
 
-        // Validate required fields
         if (!status) {
             return NextResponse.json({ error: 'Status is required' }, { status: 400 })
         }
 
-        // Get current registration
-        const current = await prisma.registrations.findUnique({
-            where: { id }
-        })
-
+        const current = await registrationRepository.findById(id)
         if (!current) {
             return NextResponse.json({ error: 'Registration not found' }, { status: 404 })
         }
@@ -72,49 +72,34 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             PENDING: ['VERIFIED', 'REJECTED', 'CANCELLED'],
             VERIFIED: ['SURVEYED', 'CANCELLED'],
             SURVEYED: ['INSTALLED', 'CANCELLED'],
-            REJECTED: [], // Terminal state
-            INSTALLED: [], // Terminal state
-            CANCELLED: [] // Terminal state
+            REJECTED: [],
+            INSTALLED: [],
+            CANCELLED: [],
         }
 
         const allowedStatuses = validTransitions[current.status] || []
         if (!allowedStatuses.includes(status)) {
             return NextResponse.json({
                 error: `Cannot change status from ${current.status} to ${status}`,
-                allowedStatuses
+                allowedStatuses,
             }, { status: 400 })
         }
 
-        // Require rejection reason when rejecting
         if (status === 'REJECTED' && !rejectionReason) {
             return NextResponse.json({ error: 'Rejection reason is required' }, { status: 400 })
         }
 
-        // Prepare update data
-        const updateData: any = {
+        const updated = await registrationRepository.updateWithDetails(id, {
             status,
-            notes: notes !== undefined ? notes : current.notes
-        }
-
-        // Set verified info when verifying
-        if (status === 'VERIFIED') {
-            updateData.verifiedAt = new Date()
-            updateData.verifiedBy = session.user?.email || 'admin'
-        }
-
-        // Set rejection reason when rejecting
-        if (status === 'REJECTED') {
-            updateData.rejectionReason = rejectionReason
-        }
-
-        const updated = await prisma.registrations.update({
-            where: { id },
-            data: updateData
+            notes: notes !== undefined ? notes : current.notes,
+            rejectionReason: status === 'REJECTED' ? rejectionReason : undefined,
+            verifiedAt: status === 'VERIFIED' ? new Date() : undefined,
+            verifiedBy: status === 'VERIFIED' ? (session.user?.email || 'admin') : undefined,
         })
 
         return NextResponse.json({
             message: `Status updated to ${status}`,
-            data: updated
+            data: updated,
         })
     } catch (error) {
         console.error('Update Registration Error:', error)
@@ -122,7 +107,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 }
 
-// DELETE /api/admin/registrations/[id] - Delete registration
+/**
+ * DELETE /api/admin/registrations/[id] - Delete registration
+ * Refactored to use RegistrationRepository (thin controller pattern)
+ */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
         const session = await getServerSession(authOptions)
@@ -130,15 +118,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        if (!await hasPermission('registration:delete')) {
+        if (!(await hasPermission('registration:delete'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
         const { id } = await params
-
-        await prisma.registrations.delete({
-            where: { id }
-        })
+        await registrationRepository.delete(id)
 
         return NextResponse.json({ message: 'Registration deleted' })
     } catch (error) {

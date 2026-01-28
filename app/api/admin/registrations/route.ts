@@ -1,11 +1,17 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { RegistrationRepository } from '@/modules/registration/repositories/RegistrationRepository'
+
+const registrationRepository = new RegistrationRepository()
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * GET /api/admin/registrations - List all registrations
+ * Refactored to use RegistrationRepository (thin controller pattern)
+ */
 export async function GET() {
     try {
         const session = await getServerSession(authOptions)
@@ -13,16 +19,11 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // Permission check
-        if (!await hasPermission('registration:read')) {
+        if (!(await hasPermission('registration:read'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
-        const registrations = await prisma.registrations.findMany({
-            orderBy: {
-                createdAt: 'desc'
-            }
-        })
+        const registrations = await registrationRepository.findAll()
 
         return NextResponse.json(registrations)
     } catch (error) {

@@ -3,17 +3,18 @@
 ## Prinsip Dasar
 
 NetManager menggunakan arsitektur **Modular Monolith** - sebuah pendekatan yang menggabungkan:
+
 - **Kesederhanaan deployment** dari Monolith
 - **Organisasi kode** yang terstruktur seperti Microservices
 
 ### Mengapa Modular Monolith?
 
-| Aspek | Monolith Tradisional | Modular Monolith | Microservices |
-|-------|---------------------|------------------|---------------|
-| Deployment | Sederhana ✅ | Sederhana ✅ | Kompleks ❌ |
-| Organisasi Kode | Kacau ❌ | Terstruktur ✅ | Terstruktur ✅ |
-| Maintainability | Sulit ❌ | Mudah ✅ | Mudah ✅ |
-| Infrastruktur | Minimal ✅ | Minimal ✅ | Kompleks ❌ |
+| Aspek           | Monolith Tradisional | Modular Monolith | Microservices  |
+| --------------- | -------------------- | ---------------- | -------------- |
+| Deployment      | Sederhana ✅         | Sederhana ✅     | Kompleks ❌    |
+| Organisasi Kode | Kacau ❌             | Terstruktur ✅   | Terstruktur ✅ |
+| Maintainability | Sulit ❌             | Mudah ✅         | Mudah ✅       |
+| Infrastruktur   | Minimal ✅           | Minimal ✅       | Kompleks ❌    |
 
 ---
 
@@ -53,18 +54,18 @@ netmanager/
 
 ```typescript
 // modules/<module>/index.ts
-export * from './repositories/ExampleRepository'
-export * from './services/ExampleService'
+export * from "./repositories/ExampleRepository";
+export * from "./services/ExampleService";
 ```
 
 ### 2. Import Hanya Melalui Public API
 
 ```typescript
 // ✅ BENAR
-import { ExampleService } from '@/modules/example'
+import { ExampleService } from "@/modules/example";
 
 // ❌ SALAH (bypass public API)
-import { ExampleService } from '@/modules/example/services/ExampleService'
+import { ExampleService } from "@/modules/example/services/ExampleService";
 ```
 
 ### 3. Tidak Ada Cross-Module Database Access
@@ -131,26 +132,29 @@ Semua module menggunakan satu database Prisma. Ini **bukan** anti-pattern untuk 
 ```typescript
 // modules/registration/services/RegistrationService.ts
 export class RegistrationService {
-  private repository: RegistrationRepository
+  private repository: RegistrationRepository;
 
   constructor() {
-    this.repository = new RegistrationRepository()
+    this.repository = new RegistrationRepository();
   }
 
   async register(input: RegistrationInput) {
     // 1. Validate
     if (!input.email || !input.phone) {
-      throw new ValidationError('Email dan phone wajib diisi')
+      throw new ValidationError("Email dan phone wajib diisi");
     }
 
     // 2. Check duplicates
-    const existing = await this.repository.findByEmailOrPhone(input.email, input.phone)
+    const existing = await this.repository.findByEmailOrPhone(
+      input.email,
+      input.phone,
+    );
     if (existing) {
-      throw new ConflictError('Email atau phone sudah terdaftar')
+      throw new ConflictError("Email atau phone sudah terdaftar");
     }
 
     // 3. Create
-    return await this.repository.create(input)
+    return await this.repository.create(input);
   }
 }
 ```
@@ -159,15 +163,15 @@ export class RegistrationService {
 
 ```typescript
 // app/api/registrations/route.ts
-import { RegistrationService } from '@/modules/registration'
+import { RegistrationService } from "@/modules/registration";
 
 export async function POST(request: Request) {
-  const body = await request.json()
-  const service = new RegistrationService()
-  
+  const body = await request.json();
+  const service = new RegistrationService();
+
   try {
-    const result = await service.register(body)
-    return NextResponse.json(result, { status: 201 })
+    const result = await service.register(body);
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     // Error handling
   }
@@ -179,6 +183,7 @@ export async function POST(request: Request) {
 ## Kapan Membuat Module Baru?
 
 Buat module baru jika fitur memiliki:
+
 - **Entity database sendiri** (tabel baru di Prisma)
 - **Business logic yang distinct** (tidak terkait erat dengan module lain)
 - **Potensi untuk berdiri sendiri** sebagai microservice di masa depan
@@ -189,14 +194,14 @@ Jika fitur hanya menambah endpoint sederhana tanpa logic kompleks, pertimbangkan
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Next.js 15 (App Router) |
-| Database | PostgreSQL + Prisma ORM |
-| Auth | NextAuth.js |
-| Validation | Zod |
-| Styling | Tailwind CSS |
-| Real-time | Socket.IO |
+| Layer      | Technology                  |
+| ---------- | --------------------------- |
+| Framework  | Next.js 15 (App Router)     |
+| Database   | PostgreSQL + Prisma ORM     |
+| Auth       | NextAuth.js                 |
+| Validation | Zod                         |
+| Styling    | Tailwind CSS                |
+| Real-time  | Socket.IO                   |
 | Monitoring | Custom services di modules/ |
 
 ---
@@ -204,4 +209,5 @@ Jika fitur hanya menambah endpoint sederhana tanpa logic kompleks, pertimbangkan
 ## Referensi
 
 - [Modular Monolith Workflow](.agent/workflows/new-feature.md)
+- [Refactor to Service Layer](.agent/workflows/refactor-to-service-layer.md)
 - [Prisma Schema](prisma/schema.prisma)

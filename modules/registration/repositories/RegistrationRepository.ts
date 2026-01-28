@@ -11,6 +11,13 @@ export class RegistrationRepository implements IRegistrationRepository {
         })
     }
 
+    async findAll(): Promise<Registrations[]> {
+        return prisma.registrations.findMany({
+            orderBy: { createdAt: 'desc' }
+        })
+    }
+
+
     async findByEmailOrPhone(email: string, phone: string, status?: RegistrationStatus): Promise<Registrations | null> {
         return prisma.registrations.findFirst({
             where: {
@@ -40,6 +47,32 @@ export class RegistrationRepository implements IRegistrationRepository {
                 status,
                 updatedAt: new Date()
             }
+        })
+    }
+
+    async updateWithDetails(id: string, data: {
+        status: RegistrationStatus
+        notes?: string | null
+        rejectionReason?: string
+        verifiedAt?: Date
+        verifiedBy?: string
+    }): Promise<Registrations> {
+        return prisma.registrations.update({
+            where: { id },
+            data: {
+                status: data.status,
+                notes: data.notes,
+                rejectionReason: data.rejectionReason,
+                verifiedAt: data.verifiedAt,
+                verifiedBy: data.verifiedBy,
+                updatedAt: new Date()
+            }
+        })
+    }
+
+    async delete(id: string): Promise<void> {
+        await prisma.registrations.delete({
+            where: { id }
         })
     }
 }

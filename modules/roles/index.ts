@@ -10,6 +10,10 @@ export type {
 
 export { RoleService, getRoleService } from './services/RoleService'
 
+// Site Management
+export { SiteRepository } from './repositories/SiteRepository'
+export { SiteService } from './services/SiteService'
+
 // Site Restriction (RBAC) helpers
 export {
     checkSiteRestriction,
@@ -23,3 +27,4 @@ export {
     getUserSiteIds            // Multi-site: get all user sites
 } from './services/SiteRestrictionService'
 export type { SiteRestrictionResult } from './services/SiteRestrictionService'
+

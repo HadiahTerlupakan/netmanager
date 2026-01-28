@@ -201,4 +201,136 @@ export class PelangganRepository {
         })
         return hargaPaket !== null
     }
+
+    // ============================================
+    // Customer Portal Methods
+    // ============================================
+
+    /**
+     * Get pelanggan with full package details for customer portal
+     */
+    async findByIdWithPackage(id: string) {
+        return prisma.pelanggan.findUnique({
+            where: { id },
+            include: {
+                hargaPaket: {
+                    include: {
+                        bandwidth: true,
+                    },
+                },
+            },
+        })
+    }
+
+    /**
+     * Update customer profile preferences
+     */
+    async updateProfile(id: string, data: {
+        noTelp?: string
+        passwordHash?: string
+        is2FAEnabled?: boolean
+        isBillNotifEnabled?: boolean
+        isPromoEnabled?: boolean
+    }) {
+        return prisma.pelanggan.update({
+            where: { id },
+            data: {
+                ...data,
+                updatedAt: new Date(),
+            },
+            select: {
+                id: true,
+                noTelp: true,
+                is2FAEnabled: true,
+                isBillNotifEnabled: true,
+                isPromoEnabled: true,
+                updatedAt: true,
+            },
+        })
+    }
+
+    /**
+     * Get password hash for verification
+     */
+    async getPasswordHash(id: string): Promise<string | null> {
+        const customer = await prisma.pelanggan.findUnique({
+            where: { id },
+            select: { passwordHash: true },
+        })
+        return customer?.passwordHash || null
+    }
+
+    /**
+     * Get payment history with pagination
+     */
+    async getPaymentHistory(pelangganId: string, options: {
+        page: number
+        limit: number
+    }) {
+        const { page, limit } = options
+        const skip = (page - 1) * limit
+
+        const [payments, total] = await Promise.all([
+            prisma.payment.findMany({
+                where: { pelangganId },
+                orderBy: { paymentDate: 'desc' },
+                skip,
+                take: limit,
+                include: {
+                    invoice: {
+                        select: {
+                            invoiceNumber: true,
+                            status: true,
+                        },
+                    },
+                },
+            }),
+            prisma.payment.count({ where: { pelangganId } }),
+        ])
+
+        return { payments, total }
+    }
+
+    /**
+     * Get invoices with pagination
+     */
+    async getInvoices(pelangganId: string, options: {
+        page: number
+        limit: number
+        status?: string[]
+    }) {
+        const { page, limit, status } = options
+        const skip = (page - 1) * limit
+
+        const where: Prisma.InvoiceWhereInput = { pelangganId }
+        if (status && status.length > 0) {
+            where.status = { in: status as any[] }
+        }
+
+        const [invoices, total] = await Promise.all([
+            prisma.invoice.findMany({
+                where,
+                orderBy: { dueDate: 'desc' },
+                skip,
+                take: limit,
+            }),
+            prisma.invoice.count({ where }),
+        ])
+
+        return { invoices, total }
+    }
+
+    /**
+     * Get invoices by IDs for payment validation
+     */
+    async getInvoicesByIds(ids: string[], pelangganId: string, validStatuses: string[]) {
+        return prisma.invoice.findMany({
+            where: {
+                id: { in: ids },
+                pelangganId,
+                status: { in: validStatuses as any[] },
+            },
+        })
+    }
 }
+

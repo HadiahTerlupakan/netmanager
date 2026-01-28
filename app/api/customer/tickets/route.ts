@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { requireCustomerAuth } from '@/lib/customer-auth'
-import { TicketCategory, TicketPriority } from '@prisma/client'
-import { randomUUID } from 'crypto'
+import { SupportTicketService } from '@/modules/pelanggan/services/SupportTicketService'
+
+const ticketService = new SupportTicketService()
 
 /**
  * GET /api/customer/tickets
  * Get customer's support tickets
+ * Refactored to use SupportTicketService (thin controller pattern)
  */
 export async function GET(request: NextRequest) {
     const auth = await requireCustomerAuth(request)
@@ -17,55 +18,24 @@ export async function GET(request: NextRequest) {
 
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
-    const status = searchParams.get('status')
-
-    const skip = (page - 1) * limit
+    const status = searchParams.get('status') || undefined
 
     try {
-        const where = {
-            pelangganId: session.id,
-            ...(status && { status: status as any }),
-        }
-
-        const [tickets, total] = await Promise.all([
-            prisma.supportTickets.findMany({
-                where,
-                orderBy: { createdAt: 'desc' },
-                skip,
-                take: limit,
-                include: {
-                    replies: {
-                        orderBy: { createdAt: 'desc' },
-                        take: 1, // Get latest reply only
-                    },
-                    _count: {
-                        select: { replies: true },
-                    },
-                },
-            }),
-            prisma.supportTickets.count({ where }),
-        ])
+        const result = await ticketService.getCustomerTickets(
+            session.id,
+            page,
+            limit,
+            status
+        )
 
         return NextResponse.json({
             success: true,
-            tickets: tickets.map((ticket) => ({
-                ...ticket,
-                lastReply: ticket.replies[0] || null,
-                replyCount: ticket._count.replies,
-                replies: undefined,
-                _count: undefined,
-            })),
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
+            ...result,
         })
-    } catch (error) {
+    } catch (error: any) {
         console.error('[Customer Tickets GET] Error:', error)
         return NextResponse.json(
-            { success: false, error: 'Gagal mengambil daftar tiket' },
+            { success: false, error: error.message || 'Gagal mengambil daftar tiket' },
             { status: 500 }
         )
     }
@@ -74,6 +44,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/customer/tickets
  * Create new support ticket
+ * Refactored to use SupportTicketService (thin controller pattern)
  */
 export async function POST(request: NextRequest) {
     const auth = await requireCustomerAuth(request)
@@ -85,86 +56,31 @@ export async function POST(request: NextRequest) {
         const body = await request.json()
         const { category, subject, description, priority } = body
 
-        // Validation
-        if (!category || !subject || !description) {
-            return NextResponse.json(
-                { success: false, error: 'Kategori, subjek, dan deskripsi wajib diisi' },
-                { status: 400 }
-            )
-        }
-
-        // Validate category
-        if (!Object.values(TicketCategory).includes(category)) {
-            return NextResponse.json(
-                { success: false, error: 'Kategori tidak valid' },
-                { status: 400 }
-            )
-        }
-
-        // Generate ticket number: TKT-YYYYMMDD-XXXXX
-        const today = new Date()
-        const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
-        const count = await prisma.supportTickets.count({
-            where: {
-                createdAt: {
-                    gte: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
-                },
-            },
+        const ticket = await ticketService.createTicket(session.id, {
+            category,
+            subject,
+            description,
+            priority,
         })
-        const ticketNumber = `TKT-${dateStr}-${String(count + 1).padStart(5, '0')}`
-
-        // Create ticket
-        const ticket = await prisma.supportTickets.create({
-            data: {
-                id: randomUUID(),
-                ticketNumber,
-                pelangganId: session.id,
-                category: category as TicketCategory,
-                priority: (priority as TicketPriority) || TicketPriority.MEDIUM,
-                subject,
-                description,
-                updatedAt: new Date(),
-            },
-            include: {
-                pelanggan: {
-                    select: {
-                        nama: true,
-                        idPelanggan: true,
-                    },
-                },
-            },
-        })
-
-        // System Log
-        try {
-            const { logger } = await import('@/lib/logger');
-            await logger.logActivity({
-                action: 'CREATE',
-                subject: 'Support Ticket',
-                details: { customerId: session.id, id: ticket.id, ticketNumber: ticket.ticketNumber, subject: ticket.subject }
-            });
-        } catch (e) {
-            console.error('Logging failed', e);
-        }
 
         return NextResponse.json({
             success: true,
             message: 'Tiket berhasil dibuat',
-            ticket: {
-                id: ticket.id,
-                ticketNumber: ticket.ticketNumber,
-                category: ticket.category,
-                priority: ticket.priority,
-                subject: ticket.subject,
-                status: ticket.status,
-                createdAt: ticket.createdAt,
-            },
+            ticket,
         })
-    } catch (error) {
+    } catch (error: any) {
         console.error('[Customer Tickets POST] Error:', error)
+        
+        // Map validation errors to 400
+        const validationErrors = [
+            'Kategori, subjek, dan deskripsi wajib diisi',
+            'Kategori tidak valid',
+        ]
+        const statusCode = validationErrors.includes(error.message) ? 400 : 500
+        
         return NextResponse.json(
-            { success: false, error: 'Gagal membuat tiket' },
-            { status: 500 }
+            { success: false, error: error.message || 'Gagal membuat tiket' },
+            { status: statusCode }
         )
     }
 }

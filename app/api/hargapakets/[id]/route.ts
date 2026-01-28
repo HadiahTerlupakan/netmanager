@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-helpers'
-import { prisma } from '@/lib/prisma'
-import { hargaPaketSchema } from '@/lib/validations/hargapaket'
-import { sanitizeInput } from '@/lib/utils/sanitize'
+import { hasPermission } from '@/lib/rbac'
+import { HargaPaketService } from '@/modules/network/services/HargaPaketService'
+
+const hargaPaketService = new HargaPaketService()
 
 /**
  * @swagger
@@ -20,64 +21,37 @@ import { sanitizeInput } from '@/lib/utils/sanitize'
  *         required: true
  *         schema:
  *           type: string
- *         description: Harga paket ID
  *     responses:
  *       200:
  *         description: Detail harga paket berhasil diambil
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/HargaPaket'
  *       401:
  *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  *       404:
  *         description: Harga paket tidak ditemukan
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const session = await requireAuth(req)
-    if (session instanceof NextResponse) {
-      return session // Return error response if authentication fails
+    try {
+        const session = await requireAuth(req)
+        if (session instanceof NextResponse) return session
+
+        const { id } = await params
+        const hargaPaket = await hargaPaketService.getHargaPaketById(id)
+        return NextResponse.json(hargaPaket)
+    } catch (error: any) {
+        console.error('[HargaPaket GET Error]:', error)
+        
+        if (error.message === 'Harga paket tidak ditemukan') {
+            return NextResponse.json({ error: error.message }, { status: 404 })
+        }
+        
+        return NextResponse.json(
+            { error: error?.message || 'Internal Server Error' },
+            { status: 500 }
+        )
     }
-
-    const { id } = await params
-    const hargaPaket = await prisma.hargaPaket.findUnique({
-      where: { id },
-      include: {
-        bandwidth: true,
-        profilePPP: true,
-      },
-    })
-
-    if (!hargaPaket) {
-      return NextResponse.json({ error: 'Harga paket tidak ditemukan' }, { status: 404 })
-    }
-
-    return NextResponse.json(hargaPaket)
-  } catch (error: any) {
-    console.error('Error fetching harga paket:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
-      { status: 500 }
-    )
-  }
 }
 
 /**
@@ -96,188 +70,51 @@ export async function GET(
  *         required: true
  *         schema:
  *           type: string
- *         description: Harga paket ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 example: "Paket 10 Mbps"
- *                 description: Nama paket
- *               harga:
- *                 type: integer
- *                 example: 150000
- *                 description: Harga paket dalam Rupiah
- *               durasi:
- *                 type: integer
- *                 example: 1
- *                 description: Durasi paket
- *               durasiUnit:
- *                 type: string
- *                 enum: ["HARI", "MINGGU", "BULAN", "TAHUN"]
- *                 example: "BULAN"
- *                 description: Satuan durasi
- *               featured:
- *                 type: boolean
- *                 example: true
- *                 description: Apakah paket ditampilkan sebagai unggulan
- *               status:
- *                 type: string
- *                 enum: ["AKTIF", "NONAKTIF"]
- *                 example: "AKTIF"
- *                 description: Status paket
- *               bandwidthId:
- *                 type: string
- *                 nullable: true
- *                 example: "clx1234567890"
- *                 description: ID bandwidth (opsional)
- *               description:
- *                 type: string
- *                 nullable: true
- *                 example: "Paket internet 10 Mbps untuk rumahan"
- *                 description: Deskripsi paket
  *     responses:
  *       200:
  *         description: Harga paket berhasil diupdate
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/HargaPaket'
  *       400:
  *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  *       401:
  *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  *       404:
  *         description: Harga paket tidak ditemukan
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const session = await requireAuth(req)
-    if (session instanceof NextResponse) {
-      return session // Return error response if authentication fails
-    }
-
-    const { id } = await params
-    const body = await req.json()
-
-    // Sanitize input
-    const sanitizedBody = {
-      ...body,
-      name: body.name ? sanitizeInput(body.name) : undefined,
-      bandwidthId: body.bandwidthId && body.bandwidthId.trim() ? body.bandwidthId : undefined, // Bandwidth opsional
-      description: body.description ? sanitizeInput(body.description) : undefined,
-    }
-
-    const validation = hargaPaketSchema.safeParse(sanitizedBody)
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: 'Validation error', details: validation.error.flatten() },
-        { status: 400 }
-      )
-    }
-
-    // Pisahkan bandwidthId dari data untuk Prisma
-    // bandwidthId opsional, jika null/undefined set ke null untuk update
-    const { bandwidthId, ...prismaData } = validation.data
-    const updateData: any = { ...prismaData }
-    // Untuk update, jika bandwidthId tidak disediakan, set ke null untuk menghapus relasi
-    updateData.bandwidthId = bandwidthId && bandwidthId.trim() !== '' ? bandwidthId : null
-
-    const hargaPaket = await prisma.hargaPaket.update({
-      where: { id },
-      data: updateData,
-      include: {
-        bandwidth: true,
-        profilePPP: {
-          include: {
-            mikroTikRouter: true,
-          },
-        },
-      },
-    })
-
-    // Update rate limit di Profile PPP di MikroTik jika ada router
-    // Rate limit akan diupdate jika bandwidthId berubah atau jika profile PPP memiliki router
-    if (hargaPaket.profilePPP?.mikroTikRouterId && hargaPaket.profilePPP?.mikroTikRouter) {
-      try {
-        const { getRateLimitFromBandwidth, updatePPPProfileInMikroTik } = await import('@/modules/network/services/mikrotik-ppp-profile')
-        const rateLimit = await getRateLimitFromBandwidth(hargaPaket.profilePPP.id)
-
-        if (rateLimit) {
-          console.log('[API HargaPaket] Updating rate limit in MikroTik:', rateLimit)
-          const updateResult = await updatePPPProfileInMikroTik(
-            hargaPaket.profilePPP.mikroTikRouterId,
-            hargaPaket.profilePPP.name,
-            {
-              rateLimit: rateLimit, // Rate limit dari Bandwidth (format: "10M/10M")
-            }
-          )
-
-          if (!updateResult.success) {
-            console.error('[API HargaPaket] Failed to update rate limit in MikroTik:', updateResult.error)
-            // Jangan gagalkan request, hanya log error
-          } else {
-            console.log('[API HargaPaket] Successfully updated rate limit in MikroTik')
-          }
+    try {
+        const session = await requireAuth(req)
+        if (session instanceof NextResponse) return session
+        
+        if (!(await hasPermission('harga:update'))) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
-      } catch (error: any) {
-        console.error('[API HargaPaket] Error updating rate limit in MikroTik:', error)
-        // Jangan gagalkan request, hanya log error
-      }
+
+        const { id } = await params
+        const body = await req.json()
+
+        const updated = await hargaPaketService.updateHargaPaket(id, body, (session as any).user?.id)
+        return NextResponse.json(updated)
+    } catch (error: any) {
+        console.error('[HargaPaket PUT Error]:', error)
+
+        if (error.message === 'Harga paket tidak ditemukan' || error.code === 'P2025') {
+            return NextResponse.json({ error: 'Harga paket tidak ditemukan' }, { status: 404 })
+        }
+        if (error.code === 'P2002') {
+            return NextResponse.json({ error: 'Nama paket sudah digunakan' }, { status: 400 })
+        }
+        if (error.code === 'P2003') {
+            return NextResponse.json({ error: 'Bandwidth atau Profile PPP tidak ditemukan' }, { status: 400 })
+        }
+
+        return NextResponse.json(
+            { error: error?.message || 'Internal Server Error' },
+            { status: 500 }
+        )
     }
-
-    return NextResponse.json(hargaPaket)
-  } catch (error: any) {
-    console.error('Error updating harga paket:', error)
-
-    if (error.code === 'P2025') {
-      return NextResponse.json({ error: 'Harga paket tidak ditemukan' }, { status: 404 })
-    }
-
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Nama paket sudah digunakan' },
-        { status: 400 }
-      )
-    }
-
-    if (error.code === 'P2003') {
-      return NextResponse.json(
-        { error: 'Bandwidth atau Profile PPP tidak ditemukan' },
-        { status: 400 }
-      )
-    }
-
-    return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
-      { status: 500 }
-    )
-  }
 }
 
 /**
@@ -296,90 +133,44 @@ export async function PUT(
  *         required: true
  *         schema:
  *           type: string
- *         description: Harga paket ID
  *     responses:
  *       200:
  *         description: Harga paket berhasil dihapus
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Harga paket berhasil dihapus"
+ *       400:
+ *         description: Paket masih digunakan pelanggan
  *       401:
  *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  *       404:
  *         description: Harga paket tidak ditemukan
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const session = await requireAuth(req)
-    if (session instanceof NextResponse) {
-      return session // Return error response if authentication fails
-    }
+    try {
+        const session = await requireAuth(req)
+        if (session instanceof NextResponse) return session
 
-    const { id } = await params
-    
-    // Cek apakah ada pelanggan yang masih menggunakan paket ini
-    const hargaPaket = await prisma.hargaPaket.findUnique({
-      where: { id },
-      include: {
-        pelanggan: {
-          select: { id: true, nama: true }
+        if (!(await hasPermission('harga:delete'))) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
-      }
-    })
 
-    if (!hargaPaket) {
-      return NextResponse.json({ error: 'Harga paket tidak ditemukan' }, { status: 404 })
+        const { id } = await params
+        await hargaPaketService.deleteHargaPaket(id, (session as any).user?.id)
+        return NextResponse.json({ message: 'Harga paket berhasil dihapus' })
+    } catch (error: any) {
+        console.error('[HargaPaket DELETE Error]:', error)
+
+        if (error.message === 'Harga paket tidak ditemukan' || error.code === 'P2025') {
+            return NextResponse.json({ error: 'Harga paket tidak ditemukan' }, { status: 404 })
+        }
+        if (error.message.includes('tidak dapat dihapus') || error.message.includes('masih digunakan')) {
+            return NextResponse.json({ error: error.message }, { status: 400 })
+        }
+
+        return NextResponse.json(
+            { error: error?.message || 'Internal Server Error' },
+            { status: 500 }
+        )
     }
-
-    if (hargaPaket.pelanggan && hargaPaket.pelanggan.length > 0) {
-      const pelangganNames = hargaPaket.pelanggan.slice(0, 3).map(p => p.nama).join(', ')
-      const moreCount = hargaPaket.pelanggan.length > 3 ? ` dan ${hargaPaket.pelanggan.length - 3} lainnya` : ''
-      return NextResponse.json(
-        { 
-          error: `Paket "${hargaPaket.name}" tidak dapat dihapus karena masih digunakan oleh ${hargaPaket.pelanggan.length} pelanggan (${pelangganNames}${moreCount}). Pindahkan pelanggan ke paket lain terlebih dahulu.` 
-        },
-        { status: 400 }
-      )
-    }
-
-    await prisma.hargaPaket.delete({
-      where: { id },
-    })
-
-    return NextResponse.json({ message: 'Harga paket berhasil dihapus' })
-  } catch (error: any) {
-    console.error('Error deleting harga paket:', error)
-
-    if (error.code === 'P2025') {
-      return NextResponse.json({ error: 'Harga paket tidak ditemukan' }, { status: 404 })
-    }
-
-    return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
-      { status: 500 }
-    )
-  }
 }
-

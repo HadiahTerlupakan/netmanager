@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
 import { prisma } from '@/lib/prisma'
+import { PelangganService } from '@/modules/pelanggan'
 import { CouponService } from '@/modules/coupons/services/CouponService'
 
+const pelangganService = new PelangganService()
 const couponService = new CouponService()
 
+/**
+ * GET - Get payment history
+ * Refactored to use PelangganService (thin controller pattern)
+ */
 export async function GET(request: NextRequest) {
     try {
         const authResult = await requireCustomerAuth(request)
@@ -16,80 +22,29 @@ export async function GET(request: NextRequest) {
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '10')
 
-        // Get customer ID
-        const customer = await prisma.pelanggan.findUnique({
-            where: { id: authResult.session.id },
-            select: { id: true },
-        })
-
-        if (!customer) {
-            return NextResponse.json(
-                { error: 'Data pelanggan tidak ditemukan' },
-                { status: 404 }
-            )
-        }
-
-        // Get payments with pagination
-        const [payments, total] = await Promise.all([
-            prisma.payment.findMany({
-                where: { pelangganId: customer.id },
-                orderBy: { paymentDate: 'desc' },
-                skip: (page - 1) * limit,
-                take: limit,
-                include: {
-                    invoice: {
-                        select: {
-                            invoiceNumber: true,
-                            status: true,
-                        },
-                    },
-                },
-            }),
-            prisma.payment.count({ where: { pelangganId: customer.id } }),
-        ])
-
-        // Format response
-        const formattedPayments = payments.map((pay) => ({
-            id: pay.id,
-            amount: Number(pay.amount),
-            paymentDate: pay.paymentDate,
-            paymentMethod: pay.paymentMethod,
-            reference: pay.reference,
-            notes: pay.notes,
-            invoice: pay.invoice ? {
-                invoiceNumber: pay.invoice.invoiceNumber,
-                status: pay.invoice.status,
-            } : null,
-            verified: !!pay.verifiedAt,
-        }))
-
-        // Calculate summary
-        const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0)
+        const result = await pelangganService.getPaymentHistory(
+            authResult.session.id,
+            page,
+            limit
+        )
 
         return NextResponse.json({
             success: true,
-            payments: formattedPayments,
-            summary: {
-                totalPaid,
-                transactionCount: total,
-            },
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
+            ...result,
         })
-    } catch (error) {
-        console.error('[Customer Payments Error]:', error)
+    } catch (error: any) {
+        console.error('[Customer Payments GET Error]:', error)
         return NextResponse.json(
-            { error: 'Terjadi kesalahan server' },
+            { error: error.message || 'Terjadi kesalahan server' },
             { status: 500 }
         )
     }
 }
 
-
+/**
+ * POST - Create payment
+ * Uses PelangganService for invoice validation, CouponService for coupon handling
+ */
 export async function POST(request: NextRequest) {
     try {
         const authResult = await requireCustomerAuth(request)
@@ -107,29 +62,22 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // 1. Get Invoices to pay - Ensure only SENT/OVERDUE
-        const invoices = await prisma.invoice.findMany({
-            where: {
-                id: { in: invoiceIds },
-                pelangganId: authResult.session.id,
-                status: { in: ['SENT', 'OVERDUE'] }
-            }
-        })
+        // 1. Validate invoices using service
+        const { invoices, totalAmount } = await pelangganService.validateInvoicesForPayment(
+            invoiceIds,
+            authResult.session.id
+        )
 
-        if (invoices.length !== invoiceIds.length) {
-            return NextResponse.json(
-                { error: 'Beberapa tagihan tidak valid atau sudah dibayar' },
-                { status: 400 }
-            )
-        }
-
-        let totalAmount = invoices.reduce((sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)), 0)
         let discountAmount = 0
         let couponId = null
 
         // 2. Validate Coupon using Service
         if (couponCode) {
-            const verification = await couponService.verifyCoupon(couponCode, totalAmount, authResult.session.id)
+            const verification = await couponService.verifyCoupon(
+                couponCode, 
+                totalAmount, 
+                authResult.session.id
+            )
 
             if (!verification.valid) {
                 return NextResponse.json({ error: verification.error }, { status: 400 })
@@ -141,7 +89,7 @@ export async function POST(request: NextRequest) {
 
         const finalAmount = totalAmount - discountAmount
 
-        // 3. Create Payment & Update
+        // 3. Create Payment & Update (transaction still needed for atomicity)
         const result = await prisma.$transaction(async (tx) => {
             const payment = await tx.payment.create({
                 data: {
@@ -170,6 +118,14 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         console.error('[Payment Create Error]:', error)
-        return NextResponse.json({ error: error.message || 'Gagal memproses pembayaran' }, { status: 500 })
+        
+        if (error.message === 'Beberapa tagihan tidak valid atau sudah dibayar') {
+            return NextResponse.json({ error: error.message }, { status: 400 })
+        }
+        
+        return NextResponse.json(
+            { error: error.message || 'Gagal memproses pembayaran' }, 
+            { status: 500 }
+        )
     }
 }

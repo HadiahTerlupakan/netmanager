@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireCustomerAuth, getCustomerById } from '@/lib/customer-auth'
-import { prisma } from '@/lib/prisma'
-import { hash } from 'bcryptjs'
+import { requireCustomerAuth } from '@/lib/customer-auth'
+import { PelangganService } from '@/modules/pelanggan'
 
-// GET - Get customer profile
+const pelangganService = new PelangganService()
+
+/**
+ * GET - Get customer profile
+ * Refactored to use PelangganService (thin controller pattern)
+ */
 export async function GET(request: NextRequest) {
     try {
         const authResult = await requireCustomerAuth(request)
@@ -11,55 +15,19 @@ export async function GET(request: NextRequest) {
             return authResult.response
         }
 
-        const customer = await getCustomerById(authResult.session.id)
-
-        if (!customer) {
-            return NextResponse.json(
-                { error: 'Data pelanggan tidak ditemukan' },
-                { status: 404 }
-            )
-        }
+        const profile = await pelangganService.getProfile(authResult.session.id)
 
         return NextResponse.json({
             success: true,
-            profile: {
-                id: customer.id,
-                idPelanggan: customer.idPelanggan,
-                nama: customer.nama,
-                username: customer.username,
-                email: customer.email,
-                noTelp: customer.noTelp,
-                alamat: customer.alamat,
-                status: customer.status,
-                tipe: customer.tipe,
-                tanggalAktif: customer.tanggalAktif,
-                jatuhTempo: customer.jatuhTempo,
-                lokasi: {
-                    provinsi: customer.provinsi,
-                    kabupatenKota: customer.kabupatenKota,
-                    kecamatan: customer.kecamatan,
-                    kelurahanDesa: customer.kelurahanDesa,
-                },
-                preferences: {
-                    is2FAEnabled: customer.is2FAEnabled,
-                    isBillNotifEnabled: customer.isBillNotifEnabled,
-                    isPromoEnabled: customer.isPromoEnabled,
-                },
-                paket: (customer as any).hargaPaket ? {
-                    nama: (customer as any).hargaPaket.name,
-                    harga: (customer as any).hargaPaket.harga,
-                    durasi: (customer as any).hargaPaket.durasi,
-                    kecepatan: (customer as any).hargaPaket.description,
-                    bandwidth: (customer as any).hargaPaket.bandwidth ? {
-                        nama: (customer as any).hargaPaket.bandwidth.name,
-                        download: (customer as any).hargaPaket.bandwidth.maxLimitDownload,
-                        upload: (customer as any).hargaPaket.bandwidth.maxLimitUpload,
-                    } : null,
-                } : null,
-            },
+            profile,
         })
-    } catch (error) {
+    } catch (error: any) {
         console.error('[Customer Profile GET Error]:', error)
+        
+        if (error.message === 'Data pelanggan tidak ditemukan') {
+            return NextResponse.json({ error: error.message }, { status: 404 })
+        }
+        
         return NextResponse.json(
             { error: 'Terjadi kesalahan server' },
             { status: 500 }
@@ -67,7 +35,10 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// PATCH - Update customer phone or password only
+/**
+ * PATCH - Update customer phone, preferences, or password
+ * Refactored to use PelangganService (thin controller pattern)
+ */
 export async function PATCH(request: NextRequest) {
     try {
         const authResult = await requireCustomerAuth(request)
@@ -85,25 +56,7 @@ export async function PATCH(request: NextRequest) {
             isPromoEnabled
         } = body
 
-        const updateData: {
-            noTelp?: string;
-            passwordHash?: string;
-            is2FAEnabled?: boolean;
-            isBillNotifEnabled?: boolean;
-            isPromoEnabled?: boolean;
-        } = {}
-
-        // Update preferences
-        if (typeof is2FAEnabled === 'boolean') updateData.is2FAEnabled = is2FAEnabled
-        if (typeof isBillNotifEnabled === 'boolean') updateData.isBillNotifEnabled = isBillNotifEnabled
-        if (typeof isPromoEnabled === 'boolean') updateData.isPromoEnabled = isPromoEnabled
-
-        // Update phone number
-        if (noTelp !== undefined) {
-            updateData.noTelp = noTelp
-        }
-
-        // Update password
+        // Handle password change separately
         if (newPassword) {
             if (!currentPassword) {
                 return NextResponse.json(
@@ -112,69 +65,49 @@ export async function PATCH(request: NextRequest) {
                 )
             }
 
-            // Verify current password
-            const customer = await prisma.pelanggan.findUnique({
-                where: { id: authResult.session.id },
-                select: { passwordHash: true },
-            })
-
-            if (!customer?.passwordHash) {
-                return NextResponse.json(
-                    { error: 'Akun tidak memiliki password' },
-                    { status: 400 }
-                )
-            }
-
-            const { compare } = await import('bcryptjs')
-            const isValid = await compare(currentPassword, customer.passwordHash)
-            if (!isValid) {
-                return NextResponse.json(
-                    { error: 'Password saat ini salah' },
-                    { status: 401 }
-                )
-            }
-
-            if (newPassword.length < 6) {
-                return NextResponse.json(
-                    { error: 'Password baru minimal 6 karakter' },
-                    { status: 400 }
-                )
-            }
-
-            updateData.passwordHash = await hash(newPassword, 10)
-        }
-
-        if (Object.keys(updateData).length === 0) {
-            return NextResponse.json(
-                { error: 'Tidak ada data yang diupdate' },
-                { status: 400 }
+            await pelangganService.changePassword(
+                authResult.session.id,
+                currentPassword,
+                newPassword
             )
+
+            return NextResponse.json({
+                success: true,
+                message: 'Password berhasil diubah',
+            })
         }
 
-        // Update customer
-        const updated = await prisma.pelanggan.update({
-            where: { id: authResult.session.id },
-            data: updateData,
-            select: {
-                id: true,
-                noTelp: true,
-                updatedAt: true,
-            },
+        // Handle profile/preferences update
+        const updated = await pelangganService.updateProfile(authResult.session.id, {
+            noTelp,
+            is2FAEnabled,
+            isBillNotifEnabled,
+            isPromoEnabled,
         })
 
         return NextResponse.json({
             success: true,
-            message: newPassword ? 'Password berhasil diubah' : 'Profil berhasil diupdate',
+            message: 'Profil berhasil diupdate',
             updated: {
                 noTelp: updated.noTelp,
                 updatedAt: updated.updatedAt,
             },
         })
-    } catch (error) {
+    } catch (error: any) {
         console.error('[Customer Profile PATCH Error]:', error)
+        
+        // Map known errors to appropriate status codes
+        const errorMap: Record<string, number> = {
+            'Password saat ini salah': 401,
+            'Password baru minimal 6 karakter': 400,
+            'Akun tidak memiliki password': 400,
+            'Tidak ada data yang diupdate': 400,
+        }
+        
+        const statusCode = errorMap[error.message] || 500
         return NextResponse.json(
-            { error: 'Terjadi kesalahan server' },
-            { status: 500 }
+            { error: error.message || 'Terjadi kesalahan server' },
+            { status: statusCode }
         )
     }
 }
